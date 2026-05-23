@@ -110,11 +110,19 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## 폴더 구조 (목표)
 
 ```
-app/            # Next.js 라우트 (App Router)
-components/     # UI 컴포넌트
-lib/            # 공용 로직 (db, ai, auth wrapper 등)
-db/             # Prisma schema, seed, init.sql
-docs/           # PRD.md, phase0.md, phase1.md ...
+app/                       # Next.js 라우트 (App Router)
+components/                # UI 컴포넌트
+lib/                       # 공용 로직 (db, ai, auth wrapper 등)
+db/                        # 시드 데이터·스크립트
+prisma/                    # schema.prisma, migrations/
+phase/                     # phase0.md, phase1.md ... (작업 지시)
+docs/
+  daily/                   # 일자별 작업 로그
+  decisions/               # 기술 결정 (PAR 구조)
+  troubleshooting/         # 문제 해결 기록
+  par-materials.md         # 이력서 PAR 소재 모음
+auth.config.ts / auth.ts   # Auth.js v5 (Edge / Node)
+proxy.ts                   # Next 16 라우트 보호 미들웨어
 ```
 
 ---
@@ -132,22 +140,24 @@ docs/           # PRD.md, phase0.md, phase1.md ...
 
 ## Phase 개요
 
-각 phase는 `docs/phaseN.md`에 상세 태스크가 있다. 현재는 **Phase 0**부터 진행.
+각 phase는 `phase/phaseN.md`에 상세 태스크가 있다. 일일 작업 로그는 `docs/daily/`, 기술 결정·트러블슈팅은 `docs/decisions/`·`docs/troubleshooting/`.
 
-| Phase | 목표                                                 | 문서             | 상태   |
-| ----- | ---------------------------------------------------- | ---------------- | ------ |
-| 0     | 프로젝트 셋업 (Next.js + Postgres/pgvector + Prisma) | `docs/phase0.md` | ▶ 진행 |
-| 1     | 데이터 모델 정의 + 앵커 이벤트 시드                  | (예정)           |        |
-| 2     | 타임라인 정적 렌더 — **첫 보이는 화면**              | (예정)           |        |
-| 3     | 인증 + 개인정보·국외이전 동의 게이트                 | (예정)           |        |
-| 4     | 온보딩 (생애 정보 수집, 대화형)                      | (예정)           |        |
-| 5     | 타임라인 개인화 (출생연도 기반)                      | (예정)           |        |
-| 6     | 트리거 이벤트 + RAG (관심사 분야 1개)                | (예정)           |        |
-| 7     | AI 대화로 추억 채우기                                | (예정)           |        |
-| 8     | 토큰 결제 → **MVP 완성**                             | (예정)           |        |
-| 9     | 가족 공유 모드 (메인 기능)                           | (예정)           |        |
-| 10    | 출력물 서비스 (PDF/포토북 배송)                      | (예정)           |        |
-| 11    | 앱 출시 · 커뮤니티 기여 · 광고                       | (예정)           |        |
+| Phase | 목표                                                 | 문서                | 상태    |
+| ----- | ---------------------------------------------------- | ------------------- | ------- |
+| 0     | 프로젝트 셋업 (Next.js + Postgres/pgvector + Prisma) | `phase/phase0.md`   | ✅ 완료 |
+| 1     | 데이터 모델 정의 + 앵커 이벤트 시드                  | `phase/phase1.md`   | ✅ 완료 |
+| 2     | 타임라인 정적 렌더 — **첫 보이는 화면**              | `phase/phase2.md`   | ✅ 완료 |
+| 3     | 인증 + 개인정보·국외이전 동의 게이트                 | `phase/phase3.md`   | ✅ 완료 |
+| 4     | 온보딩 (생애 정보 수집, 대화형)                      | (예정)              | ▶ 다음  |
+| 5     | 타임라인 개인화 (출생연도 기반)                      | (예정)              |         |
+| 6     | 트리거 이벤트 + RAG (관심사 분야 1개)                | (예정)              |         |
+| 7     | AI 대화로 추억 채우기                                | (예정)              |         |
+| 8     | 토큰 결제 → **MVP 완성**                             | (예정)              |         |
+| 9     | 가족 공유 모드 (메인 기능)                           | (예정)              |         |
+| 10    | 출력물 서비스 (PDF/포토북 배송)                      | (예정)              |         |
+| 11    | 앱 출시 · 커뮤니티 기여 · 광고                       | (예정)              |         |
+
+**Phase 3 후속 대기 작업**: Google Cloud Console에서 OAuth client 발급 → `.env`의 `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` 채움 → 실제 로그인 흐름 검증.
 
 ---
 
