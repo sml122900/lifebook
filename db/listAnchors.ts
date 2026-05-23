@@ -5,7 +5,13 @@ async function main() {
   const events = await prisma.event.findMany({
     where: { category: "anchor" },
     orderBy: [{ year: "asc" }, { month: "asc" }],
-    select: { year: true, month: true, title: true, domain: true, region: true },
+    select: {
+      year: true,
+      month: true,
+      title: true,
+      domain: true,
+      region: true,
+    },
   });
 
   console.log(`Total: ${events.length}`);
