@@ -29,9 +29,7 @@ const DOMAIN_BADGE: Record<Domain, string> = {
 };
 
 function badgeClass(domain: string) {
-  return (
-    DOMAIN_BADGE[domain as Domain] ?? "bg-zinc-700 text-white"
-  );
+  return DOMAIN_BADGE[domain as Domain] ?? "bg-zinc-700 text-white";
 }
 
 function badgeLabel(domain: string) {
