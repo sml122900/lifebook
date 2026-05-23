@@ -56,22 +56,20 @@ export function EventCard({
     <button
       type="button"
       // Phase 7 will wire up the click-to-add-memory action.
-      className="group block w-full rounded-md border border-sky-200 bg-white p-4 text-left transition-colors hover:border-sky-400 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+      className="group block min-h-[88px] w-full rounded-md border-2 border-sky-200 bg-white p-5 text-left transition-colors hover:border-sky-500 hover:bg-sky-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-zinc-600">
+        <span className="text-base font-semibold text-zinc-800">
           {month ? `${String(month).padStart(2, "0")}월` : "연중"}
         </span>
         <span
-          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badgeClass(domain)}`}
+          className={`rounded-full px-3 py-1 text-sm font-semibold ${badgeClass(domain)}`}
         >
           {badgeLabel(domain)}
         </span>
       </div>
-      <div className="mt-2 text-lg font-semibold text-zinc-900">{title}</div>
-      {description && (
-        <p className="mt-2 text-zinc-700">{description}</p>
-      )}
+      <div className="mt-2 text-xl font-semibold text-zinc-900">{title}</div>
+      {description && <p className="mt-2 text-zinc-800">{description}</p>}
     </button>
   );
 }

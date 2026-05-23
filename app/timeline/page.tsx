@@ -24,28 +24,32 @@ export default async function TimelinePage() {
   const years = groupByYear(events);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold">타임라인</h1>
-        <p className="mt-2 text-zinc-700">
+    <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
+      <header className="mb-10">
+        <h1 className="text-4xl font-bold text-zinc-900 sm:text-5xl">
+          타임라인
+        </h1>
+        <p className="mt-3 text-zinc-800">
           데모: {DEMO_BIRTH_YEAR}년생 기준 · 앵커 이벤트 {events.length}개
         </p>
       </header>
 
       {/* 트랙 라벨 — 데스크톱에서만 */}
-      <div className="sticky top-0 z-10 mb-4 hidden grid-cols-2 gap-8 border-b border-zinc-200 bg-white py-3 md:grid">
-        <div className="text-sm font-semibold uppercase tracking-wide text-sky-700">
+      <div className="sticky top-0 z-10 mb-6 hidden grid-cols-2 gap-8 border-b-2 border-zinc-300 bg-white py-3 md:grid">
+        <div className="text-base font-bold uppercase tracking-wide text-sky-800">
           세상 사건
         </div>
-        <div className="text-sm font-semibold uppercase tracking-wide text-amber-700">
+        <div className="text-base font-bold uppercase tracking-wide text-amber-800">
           내 사건
         </div>
       </div>
 
-      <ol className="space-y-12">
+      <ol className="space-y-14">
         {years.map(([year, rows]) => (
           <li key={year}>
-            <h2 className="mb-4 text-3xl font-bold text-zinc-900">{year}</h2>
+            <h2 className="mb-5 text-4xl font-bold text-zinc-900 sm:text-5xl">
+              {year}
+            </h2>
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
               {/* 세상 사건 트랙 */}
@@ -53,10 +57,10 @@ export default async function TimelinePage() {
                 aria-label={`${year}년 세상 사건`}
                 className="border-l-4 border-sky-500 pl-4 md:border-l-0 md:border-r-4 md:pl-0 md:pr-6"
               >
-                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-sky-700 md:hidden">
+                <h3 className="mb-3 text-base font-bold uppercase tracking-wide text-sky-800 md:hidden">
                   세상 사건
                 </h3>
-                <ul className="space-y-3">
+                <ul className="space-y-4">
                   {rows.map((e) => (
                     <li key={e.id}>
                       <EventCard
@@ -76,10 +80,10 @@ export default async function TimelinePage() {
                 aria-label={`${year}년 내 사건`}
                 className="border-l-4 border-amber-500 pl-4 md:pl-6"
               >
-                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-amber-700 md:hidden">
+                <h3 className="mb-3 text-base font-bold uppercase tracking-wide text-amber-800 md:hidden">
                   내 사건
                 </h3>
-                <div className="rounded-md border border-dashed border-amber-200 bg-amber-50/50 p-4 text-zinc-500">
+                <div className="rounded-md border-2 border-dashed border-amber-300 bg-amber-50 p-5 text-zinc-700">
                   (아직 내 사건이 없습니다)
                 </div>
               </section>
