@@ -1,0 +1,77 @@
+type Domain =
+  | "kr_politics"
+  | "kr_society"
+  | "disaster"
+  | "sports"
+  | "tech"
+  | "economy"
+  | "world";
+
+const DOMAIN_LABEL: Record<Domain, string> = {
+  kr_politics: "국내정치",
+  kr_society: "사회",
+  disaster: "참사",
+  sports: "스포츠",
+  tech: "기술",
+  economy: "경제",
+  world: "세계",
+};
+
+// Solid swatches for high contrast (4.5:1+ against white).
+const DOMAIN_BADGE: Record<Domain, string> = {
+  kr_politics: "bg-rose-700 text-white",
+  kr_society: "bg-purple-700 text-white",
+  disaster: "bg-red-800 text-white",
+  sports: "bg-emerald-700 text-white",
+  tech: "bg-indigo-700 text-white",
+  economy: "bg-orange-700 text-white",
+  world: "bg-blue-700 text-white",
+};
+
+function badgeClass(domain: string) {
+  return (
+    DOMAIN_BADGE[domain as Domain] ?? "bg-zinc-700 text-white"
+  );
+}
+
+function badgeLabel(domain: string) {
+  return DOMAIN_LABEL[domain as Domain] ?? domain;
+}
+
+export type EventCardProps = {
+  year: number;
+  month: number | null;
+  title: string;
+  description: string | null;
+  domain: string;
+};
+
+export function EventCard({
+  month,
+  title,
+  description,
+  domain,
+}: EventCardProps) {
+  return (
+    <button
+      type="button"
+      // Phase 7 will wire up the click-to-add-memory action.
+      className="group block w-full rounded-md border border-sky-200 bg-white p-4 text-left transition-colors hover:border-sky-400 hover:bg-sky-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-zinc-600">
+          {month ? `${String(month).padStart(2, "0")}월` : "연중"}
+        </span>
+        <span
+          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badgeClass(domain)}`}
+        >
+          {badgeLabel(domain)}
+        </span>
+      </div>
+      <div className="mt-2 text-lg font-semibold text-zinc-900">{title}</div>
+      {description && (
+        <p className="mt-2 text-zinc-700">{description}</p>
+      )}
+    </button>
+  );
+}

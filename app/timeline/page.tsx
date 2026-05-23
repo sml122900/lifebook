@@ -1,3 +1,4 @@
+import { EventCard } from "@/components/EventCard";
 import { prisma } from "@/lib/db";
 
 // Personalization (filter by birth year) lands in Phase 5.
@@ -57,21 +58,14 @@ export default async function TimelinePage() {
                 </h3>
                 <ul className="space-y-3">
                   {rows.map((e) => (
-                    <li
-                      key={e.id}
-                      className="rounded-md border border-sky-100 bg-sky-50 p-4"
-                    >
-                      <div className="text-sm font-medium text-zinc-500">
-                        {e.month
-                          ? `${String(e.month).padStart(2, "0")}월`
-                          : "연중"}
-                      </div>
-                      <div className="mt-1 text-lg font-semibold text-zinc-900">
-                        {e.title}
-                      </div>
-                      {e.description && (
-                        <p className="mt-2 text-zinc-700">{e.description}</p>
-                      )}
+                    <li key={e.id}>
+                      <EventCard
+                        year={e.year}
+                        month={e.month}
+                        title={e.title}
+                        description={e.description}
+                        domain={e.domain}
+                      />
                     </li>
                   ))}
                 </ul>
