@@ -101,10 +101,11 @@ model LifeProfile {
   updatedAt    DateTime @updatedAt
 }
 
-// pgvector embedding column (Event.embedding vector(N)) is intentionally
-// deferred to Phase 6; dimensions depend on the embedding model chosen then.
+// embedding is a pgvector(1024) column matching voyage-3.5 output.
+// Prisma can't express the vector type natively, so it's Unsupported —
+// day-to-day reads/writes go through raw SQL (see lib/triggers.ts).
 model Event {
-  id          String        @id @default(cuid())
+  id          String                       @id @default(cuid())
   year        Int
   month       Int?
   title       String
@@ -112,10 +113,11 @@ model Event {
   tier        EventTier
   category    EventCategory
   domain      String
-  region      String        @default("KR")
+  region      String                       @default("KR")
   sourceName  String?
   sourceUrl   String?
-  createdAt   DateTime      @default(now())
+  createdAt   DateTime                     @default(now())
+  embedding   Unsupported("vector(1024)")?
   memories    UserMemory[]
 
   @@index([year])
