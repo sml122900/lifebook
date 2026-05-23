@@ -5,6 +5,8 @@
 // Returning the membership row (not a boolean) lets callers branch on
 // role / consent without a second query.
 
+import { randomBytes } from "node:crypto";
+
 import { prisma } from "./db";
 
 export type Membership = Awaited<
@@ -53,6 +55,78 @@ export async function createRoom(userId: string, name: string) {
       },
     });
     return room;
+  });
+}
+
+/**
+ * Issue a new invite for an existing room. Only consented members can
+ * issue invites; the URL token is 256 bits of randomness, base64url-
+ * encoded (no sequential ids, no guessable tokens). Phase 9.2 leaves
+ * expiry / single-use intentionally out of scope.
+ */
+export async function createInvite(
+  userId: string,
+  roomId: string,
+): Promise<{ token: string }> {
+  const membership = await getMembership(userId, roomId);
+  if (!membership) {
+    throw new Error("not a member of this room");
+  }
+  const token = randomBytes(32).toString("base64url");
+  await prisma.roomInvite.create({
+    data: { token, roomId, invitedBy: userId },
+  });
+  return { token };
+}
+
+export async function getInviteForJoin(token: string) {
+  return prisma.roomInvite.findUnique({
+    where: { token },
+    select: {
+      id: true,
+      roomId: true,
+      room: { select: { id: true, name: true } },
+      inviter: { select: { name: true, email: true } },
+    },
+  });
+}
+
+/**
+ * Idempotent join. Creates a new RoomMember row with consentAt=now()
+ * on first run; flips an existing null-consent row to consented on
+ * re-entry. Already-consented members are a no-op (just returns the
+ * room id so the caller can redirect).
+ *
+ * The consent must come from a real user gesture upstream (the join
+ * page's checkbox + submit) — this helper trusts its caller to only
+ * fire after the user explicitly agreed.
+ */
+export async function joinViaInvite(
+  userId: string,
+  token: string,
+): Promise<{ roomId: string }> {
+  return await prisma.$transaction(async (tx) => {
+    const invite = await tx.roomInvite.findUnique({
+      where: { token },
+      select: { roomId: true },
+    });
+    if (!invite) throw new Error("invalid invite");
+
+    await tx.roomMember.upsert({
+      where: { roomId_userId: { roomId: invite.roomId, userId } },
+      create: {
+        roomId: invite.roomId,
+        userId,
+        role: "member",
+        consentAt: new Date(),
+      },
+      update: {
+        // Re-consenting refreshes the timestamp; explicit user gesture
+        // every time we get here.
+        consentAt: new Date(),
+      },
+    });
+    return { roomId: invite.roomId };
   });
 }
 

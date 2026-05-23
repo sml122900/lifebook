@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { createRoom } from "@/lib/rooms";
+import { createInvite, createRoom } from "@/lib/rooms";
 
 export async function createRoomAction(formData: FormData) {
   const session = await auth();
@@ -18,4 +18,18 @@ export async function createRoomAction(formData: FormData) {
   const room = await createRoom(session.user.id, name);
   revalidatePath("/rooms");
   redirect(`/rooms/${room.id}`);
+}
+
+export async function createInviteAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+  const roomId = formData.get("roomId");
+  if (typeof roomId !== "string" || roomId === "") {
+    throw new Error("roomId required");
+  }
+  // createInvite already verifies membership.
+  await createInvite(session.user.id, roomId);
+  revalidatePath(`/rooms/${roomId}`);
 }

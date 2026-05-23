@@ -75,6 +75,7 @@ model User {
   tokenOrders       TokenOrder[]
   ownedRooms        SharedRoom[]      @relation("SharedRoomOwner")
   roomMemberships   RoomMember[]
+  invitesCreated    RoomInvite[]      @relation("InviteCreator")
 }
 
 model Account {
@@ -199,6 +200,7 @@ model SharedRoom {
   ownerId   String
   owner     User         @relation("SharedRoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members   RoomMember[]
+  invites   RoomInvite[]
   createdAt DateTime     @default(now())
 
   @@index([ownerId])
@@ -216,6 +218,22 @@ model RoomMember {
 
   @@unique([roomId, userId])
   @@index([userId])
+}
+
+// Phase 9.2 — invite links. token is 256-bit entropy, base64url; it's
+// the only handle ever exposed to the URL (no sequential ids). Just
+// holding a link is NOT membership — the recipient must consent at
+// /invite/[token]. Expiry / single-use are intentionally deferred.
+model RoomInvite {
+  id        String     @id @default(cuid())
+  token     String     @unique
+  roomId    String
+  room      SharedRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  invitedBy String
+  inviter   User       @relation("InviteCreator", fields: [invitedBy], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@index([roomId])
 }
 
 // Phase 8.5 — top-up order tracking. id doubles as the orderId we

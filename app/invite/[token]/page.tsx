@@ -1,0 +1,82 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { auth } from "@/auth";
+import { getInviteForJoin, getMembership } from "@/lib/rooms";
+
+import { ConsentForm } from "./ConsentForm";
+
+// /invite/[token] — invite landing.
+//
+// Critical: visiting this page is NOT joining. We only render the
+// consent screen. Membership is created in joinRoomAction, and only
+// when the user actually checks the box and submits.
+
+type PageProps = {
+  params: Promise<{ token: string }>;
+};
+
+export default async function InvitePage({ params }: PageProps) {
+  const { token } = await params;
+
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect(`/login?callbackUrl=${encodeURIComponent(`/invite/${token}`)}`);
+  }
+
+  const invite = await getInviteForJoin(token);
+  if (!invite) {
+    return (
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-6 py-10">
+        <h1 className="text-3xl font-bold text-zinc-900">
+          초대 링크를 찾을 수 없어요
+        </h1>
+        <p className="text-lg text-zinc-800">
+          만료됐거나 잘못된 링크일 수 있어요. 초대해 주신 분께 다시 받아보세요.
+        </p>
+        <Link
+          href="/timeline"
+          className="self-start rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        >
+          타임라인으로
+        </Link>
+      </main>
+    );
+  }
+
+  // Already a consented member? Send straight to the room — no second
+  // consent dance.
+  const existing = await getMembership(session.user.id, invite.roomId);
+  if (existing) {
+    redirect(`/rooms/${invite.roomId}`);
+  }
+
+  const inviterName = invite.inviter.name ?? invite.inviter.email ?? "초대한 분";
+
+  return (
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
+      <header>
+        <p className="text-base text-zinc-600">초대를 받으셨어요</p>
+        <h1 className="mt-2 text-3xl font-bold text-zinc-900">
+          {invite.room.name}
+        </h1>
+        <p className="mt-3 text-lg text-zinc-800">
+          <span className="font-semibold">{inviterName}</span> 님이 이 룸에
+          초대했습니다.
+        </p>
+      </header>
+
+      <section className="rounded-md border-2 border-amber-200 bg-amber-50 p-5">
+        <p className="text-lg text-zinc-900">
+          참여하시면 앞으로 작성하시는 추억이 이 룸의 멤버에게 보입니다.
+          기존에 적어두신 추억도 마찬가지로 공유됩니다.
+        </p>
+        <p className="mt-2 text-base text-zinc-700">
+          링크만으로는 자동 참여되지 않아요. 아래에서 직접 동의해 주세요.
+        </p>
+      </section>
+
+      <ConsentForm token={token} />
+    </main>
+  );
+}

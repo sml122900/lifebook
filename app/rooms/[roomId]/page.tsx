@@ -1,9 +1,12 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { getMembership } from "@/lib/rooms";
+
+import { createInviteAction } from "../actions";
 
 // /rooms/[roomId] — Phase 9.1 stub. 9.3 fills in the joined timeline
 // and 9.4 adds comments. For now we show membership + member list so
@@ -48,11 +51,24 @@ export default async function RoomDetailPage({ params }: PageProps) {
         },
         orderBy: { joinedAt: "asc" },
       },
+      invites: {
+        select: { id: true, token: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      },
     },
   });
   if (!room) {
     notFound();
   }
+
+  // Build absolute invite URLs from the incoming request so the link
+  // works from whatever host the user is browsing (localhost vs LAN
+  // vs prod).
+  const h = await headers();
+  const host = h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const origin = `${proto}://${host}`;
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
@@ -84,6 +100,38 @@ export default async function RoomDetailPage({ params }: PageProps) {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="rounded-md border-2 border-zinc-200 bg-white p-6">
+        <h2 className="text-xl font-bold text-zinc-900">초대하기</h2>
+        <p className="mt-2 text-base text-zinc-700">
+          링크를 만들어 가족·배우자에게 보내세요. 받는 분이 직접 동의해야
+          멤버가 됩니다.
+        </p>
+        <form action={createInviteAction} className="mt-4">
+          <input type="hidden" name="roomId" value={room.id} />
+          <button
+            type="submit"
+            className="rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          >
+            새 초대 링크 만들기
+          </button>
+        </form>
+        {room.invites.length > 0 && (
+          <ul className="mt-5 flex flex-col gap-3">
+            {room.invites.map((inv) => (
+              <li
+                key={inv.id}
+                className="rounded-md border-2 border-zinc-200 bg-zinc-50 px-4 py-3"
+              >
+                <p className="text-base text-zinc-700">초대 링크</p>
+                <p className="mt-1 break-all text-base font-mono text-zinc-900">
+                  {origin}/invite/{inv.token}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-6">
