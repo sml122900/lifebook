@@ -69,8 +69,13 @@ export default async function TimelinePage() {
       <ol className="space-y-14">
         {years.map(([year, rows]) => (
           <li key={year}>
-            <h2 className="mb-5 text-4xl font-bold text-zinc-900 sm:text-5xl">
-              {year}
+            <h2 className="mb-5 flex items-baseline gap-3 text-4xl font-bold text-zinc-900 sm:text-5xl">
+              <span>{year}</span>
+              {birthYear !== null && (
+                <span className="text-xl font-medium text-zinc-600 sm:text-2xl">
+                  그때 {year - birthYear}살
+                </span>
+              )}
             </h2>
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
