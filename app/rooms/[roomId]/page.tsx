@@ -6,9 +6,12 @@ import { auth } from "@/auth";
 import { listRoomCommentsByTarget } from "@/lib/comments";
 import { prisma } from "@/lib/db";
 import { getMembership, listRoomMemories } from "@/lib/rooms";
+import { listSharedMemories } from "@/lib/shared-memories";
 
 import { createInviteAction } from "../actions";
 import { CommentThread } from "./CommentThread";
+import { SharedMemoryCard } from "./SharedMemoryCard";
+import { SharedMemoryComposer } from "./SharedMemoryComposer";
 
 type RoomMemory = NonNullable<
   Awaited<ReturnType<typeof listRoomMemories>>
@@ -69,6 +72,7 @@ export default async function RoomDetailPage({ params }: PageProps) {
     select: {
       id: true,
       name: true,
+      ownerId: true,
       createdAt: true,
       members: {
         where: { consentAt: { not: null } },
@@ -113,6 +117,12 @@ export default async function RoomDetailPage({ params }: PageProps) {
       "user_memory",
       memories.map((m) => m.id),
     )) ?? new Map();
+
+  // Shared memories — co-owned by the room (9.5 model, 9.6 actions).
+  // 9.7 will weave these into the year groups; for now they live in
+  // their own section so we can validate authoring/editing first.
+  const sharedMemories =
+    (await listSharedMemories(roomId, session.user.id)) ?? [];
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
@@ -252,6 +262,36 @@ export default async function RoomDetailPage({ params }: PageProps) {
             ))}
           </ol>
         )}
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-2xl font-bold text-zinc-900">공동 추억</h2>
+        <p className="text-base text-zinc-700">
+          "우리"가 함께 겪은 일이에요. 룸 멤버 누구나 같이 채우고 다듬을 수
+          있어요.
+        </p>
+
+        {sharedMemories.length === 0 ? (
+          <div className="rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-6">
+            <p className="text-lg text-zinc-800">
+              아직 공동 추억이 없어요. 아래에서 첫 공동 추억을 시작해보세요.
+            </p>
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-4">
+            {sharedMemories.map((sm) => (
+              <li key={sm.id}>
+                <SharedMemoryCard
+                  memory={sm}
+                  viewerId={session.user!.id}
+                  roomOwnerId={room.ownerId}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <SharedMemoryComposer roomId={room.id} />
       </section>
     </main>
   );
