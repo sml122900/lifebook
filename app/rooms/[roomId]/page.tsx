@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { EventCard } from "@/components/EventCard";
 import { auth } from "@/auth";
 import { listRoomCommentsByTarget } from "@/lib/comments";
 import { prisma } from "@/lib/db";
@@ -9,39 +10,10 @@ import { getMembership, listRoomMemories } from "@/lib/rooms";
 import { listSharedMemories } from "@/lib/shared-memories";
 
 import { createInviteAction } from "../actions";
-import { CommentThread } from "./CommentThread";
+import { PersonalMemoryCard } from "./PersonalMemoryCard";
 import { SharedMemoryCard } from "./SharedMemoryCard";
 import { SharedMemoryComposer } from "./SharedMemoryComposer";
-
-type RoomMemory = NonNullable<
-  Awaited<ReturnType<typeof listRoomMemories>>
->[number];
-
-function groupMemoriesByYear(
-  rows: RoomMemory[],
-): Array<[number, RoomMemory[]]> {
-  const map = new Map<number, RoomMemory[]>();
-  for (const r of rows) {
-    const list = map.get(r.year) ?? [];
-    list.push(r);
-    map.set(r.year, list);
-  }
-  return Array.from(map.entries()).sort(([a], [b]) => a - b);
-}
-
-function authorLabel(
-  authorId: string,
-  authorName: string | null,
-  authorEmail: string | null,
-  viewerId: string,
-): string {
-  if (authorId === viewerId) return "나";
-  return authorName ?? authorEmail ?? "익명";
-}
-
-// /rooms/[roomId] — Phase 9.1 stub. 9.3 fills in the joined timeline
-// and 9.4 adds comments. For now we show membership + member list so
-// the access gate is testable end-to-end.
+import { TimelineLegend } from "./TimelineLegend";
 
 type PageProps = {
   params: Promise<{ roomId: string }>;
@@ -52,6 +24,24 @@ const ROLE_LABEL: Record<string, string> = {
   member: "멤버",
 };
 
+type Anchor = Awaited<ReturnType<typeof prisma.event.findMany>>[number];
+type PersonalMemory = NonNullable<
+  Awaited<ReturnType<typeof listRoomMemories>>
+>[number];
+type SharedMemory = NonNullable<
+  Awaited<ReturnType<typeof listSharedMemories>>
+>[number];
+
+function indexByYear<T extends { year: number }>(rows: T[]): Map<number, T[]> {
+  const map = new Map<number, T[]>();
+  for (const r of rows) {
+    const list = map.get(r.year) ?? [];
+    list.push(r);
+    map.set(r.year, list);
+  }
+  return map;
+}
+
 export default async function RoomDetailPage({ params }: PageProps) {
   const { roomId } = await params;
 
@@ -61,7 +51,6 @@ export default async function RoomDetailPage({ params }: PageProps) {
   }
 
   // ⚠️ Gate: only consented members can see anything inside the room.
-  // Non-members get a 404 — don't leak the room's existence.
   const membership = await getMembership(session.user.id, roomId);
   if (!membership) {
     notFound();
@@ -94,22 +83,38 @@ export default async function RoomDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // Build absolute invite URLs from the incoming request so the link
-  // works from whatever host the user is browsing (localhost vs LAN
-  // vs prod).
+  // Absolute invite URL host.
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? "http";
   const origin = `${proto}://${host}`;
 
-  // Joined personal-memory feed. listRoomMemories re-checks membership
-  // itself, so this can never leak data even if the upstream check above
-  // is bypassed somehow.
+  // Three feeds, all room-scoped + membership-checked at the helper level.
   const memories = (await listRoomMemories(roomId, session.user.id)) ?? [];
-  const memoriesByYear = groupMemoriesByYear(memories);
+  const sharedMemories =
+    (await listSharedMemories(roomId, session.user.id)) ?? [];
 
-  // Single batched comment fetch keyed by memory id — re-verifies
-  // membership before returning anything.
+  // Joined-timeline year set: years with personal or shared memories.
+  // Anchors are pulled only for those years so a senior viewer isn't
+  // buried under 50 years of world events.
+  const yearSet = new Set<number>();
+  for (const m of memories) yearSet.add(m.year);
+  for (const s of sharedMemories) yearSet.add(s.year);
+  const sortedYears = Array.from(yearSet).sort((a, b) => a - b);
+
+  const anchors: Anchor[] =
+    sortedYears.length === 0
+      ? []
+      : await prisma.event.findMany({
+          where: {
+            category: "anchor",
+            year: { in: sortedYears },
+          },
+          orderBy: [{ year: "asc" }, { month: "asc" }],
+        });
+
+  // Batched comments for personal memories — one query, sliced into a
+  // map at render time.
   const commentsByTarget =
     (await listRoomCommentsByTarget(
       roomId,
@@ -118,11 +123,9 @@ export default async function RoomDetailPage({ params }: PageProps) {
       memories.map((m) => m.id),
     )) ?? new Map();
 
-  // Shared memories — co-owned by the room (9.5 model, 9.6 actions).
-  // 9.7 will weave these into the year groups; for now they live in
-  // their own section so we can validate authoring/editing first.
-  const sharedMemories =
-    (await listSharedMemories(roomId, session.user.id)) ?? [];
+  const anchorsByYear = indexByYear<Anchor>(anchors);
+  const memoriesByYear = indexByYear<PersonalMemory>(memories);
+  const sharedByYear = indexByYear<SharedMemory>(sharedMemories);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
@@ -144,7 +147,10 @@ export default async function RoomDetailPage({ params }: PageProps) {
         <h2 className="text-xl font-bold text-zinc-900">멤버</h2>
         <ul className="mt-3 flex flex-col divide-y-2 divide-zinc-200 overflow-hidden rounded-md border-2 border-zinc-200 bg-white">
           {room.members.map((m) => (
-            <li key={m.id} className="flex items-center justify-between px-5 py-3">
+            <li
+              key={m.id}
+              className="flex items-center justify-between px-5 py-3"
+            >
               <span className="text-lg text-zinc-900">
                 {m.user.name ?? m.user.email ?? "(이름 없음)"}
               </span>
@@ -189,108 +195,72 @@ export default async function RoomDetailPage({ params }: PageProps) {
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-2xl font-bold text-zinc-900">함께 보는 추억</h2>
-        <p className="text-base text-zinc-700">
-          이 룸 멤버들이 각자 남긴 추억이에요. 다른 분의 글은 여기서는
-          읽기만 할 수 있고, 수정은 작성자 본인이 자기 화면에서 합니다.
-        </p>
-        {memoriesByYear.length === 0 ? (
+        <h2 className="text-2xl font-bold text-zinc-900">함께 보는 타임라인</h2>
+        <TimelineLegend />
+
+        {sortedYears.length === 0 ? (
           <div className="rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-6">
             <p className="text-lg text-zinc-800">
               아직 룸에서 함께 볼 추억이 없어요. 자신의 타임라인에서 추억을
-              남기면 이곳에 함께 모입니다.
+              남기거나, 아래에서 공동 추억을 시작해보세요.
             </p>
           </div>
         ) : (
-          <ol className="flex flex-col gap-10">
-            {memoriesByYear.map(([year, rows]) => (
-              <li key={year}>
-                <h3 className="mb-4 text-3xl font-bold text-zinc-900">
-                  {year}
-                </h3>
-                <ul className="flex flex-col gap-4">
-                  {rows.map((m) => {
-                    const isSelf = m.userId === session.user!.id;
-                    return (
-                      <li
-                        key={m.id}
-                        className={
-                          "rounded-md border-2 p-5 " +
-                          (isSelf
-                            ? "border-amber-300 bg-amber-50"
-                            : "border-sky-300 bg-sky-50")
-                        }
-                      >
-                        <p
-                          className={
-                            "text-base font-bold uppercase tracking-wide " +
-                            (isSelf ? "text-amber-800" : "text-sky-800")
-                          }
-                        >
-                          {authorLabel(
-                            m.userId,
-                            m.user.name,
-                            m.user.email,
-                            session.user!.id,
-                          )}
-                          {m.month && (
-                            <span className="ml-2 text-zinc-700">
-                              · {String(m.month).padStart(2, "0")}월
-                            </span>
-                          )}
-                        </p>
-                        <p className="mt-2 text-xl font-semibold text-zinc-900">
-                          {m.title}
-                        </p>
-                        {m.content && (
-                          <p className="mt-2 whitespace-pre-wrap text-lg text-zinc-800">
-                            {m.content}
-                          </p>
-                        )}
-                        <CommentThread
-                          roomId={room.id}
-                          targetType="user_memory"
-                          targetId={m.id}
+          <ol className="flex flex-col gap-12">
+            {sortedYears.map((year) => {
+              const yearAnchors = anchorsByYear.get(year) ?? [];
+              const yearMemories = memoriesByYear.get(year) ?? [];
+              const yearShared = sharedByYear.get(year) ?? [];
+              return (
+                <li key={year}>
+                  <h3 className="mb-5 text-3xl font-bold text-zinc-900">
+                    {year}
+                  </h3>
+                  <ul className="flex flex-col gap-4">
+                    {yearAnchors.map((e) => (
+                      <li key={`a-${e.id}`}>
+                        <EventCard
+                          id={e.id}
+                          year={e.year}
+                          month={e.month}
+                          title={e.title}
+                          description={e.description}
+                          domain={e.domain}
+                        />
+                      </li>
+                    ))}
+                    {yearMemories.map((m) => (
+                      <li key={`m-${m.id}`}>
+                        <PersonalMemoryCard
+                          memory={m}
                           viewerId={session.user!.id}
+                          roomId={room.id}
                           comments={commentsByTarget.get(m.id) ?? []}
                         />
                       </li>
-                    );
-                  })}
-                </ul>
-              </li>
-            ))}
+                    ))}
+                    {yearShared.map((sm) => (
+                      <li key={`s-${sm.id}`}>
+                        <SharedMemoryCard
+                          memory={sm}
+                          viewerId={session.user!.id}
+                          roomOwnerId={room.ownerId}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              );
+            })}
           </ol>
         )}
       </section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-2xl font-bold text-zinc-900">공동 추억</h2>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-2xl font-bold text-zinc-900">공동 추억 추가</h2>
         <p className="text-base text-zinc-700">
-          "우리"가 함께 겪은 일이에요. 룸 멤버 누구나 같이 채우고 다듬을 수
-          있어요.
+          위 타임라인의 어느 해든 좋습니다. 추가하면 그 연도 자리에 함께 놓여요.
         </p>
-
-        {sharedMemories.length === 0 ? (
-          <div className="rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-6">
-            <p className="text-lg text-zinc-800">
-              아직 공동 추억이 없어요. 아래에서 첫 공동 추억을 시작해보세요.
-            </p>
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-4">
-            {sharedMemories.map((sm) => (
-              <li key={sm.id}>
-                <SharedMemoryCard
-                  memory={sm}
-                  viewerId={session.user!.id}
-                  roomOwnerId={room.ownerId}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-
         <SharedMemoryComposer roomId={room.id} />
       </section>
     </main>
