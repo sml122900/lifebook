@@ -32,8 +32,14 @@ export default async function TimelinePage() {
     birthYear = user.birthYear;
   }
 
+  // Center the timeline on the user's lived era. With no birthYear yet
+  // (skipped onboarding), fall back to every anchor — Phase 5.5 prompts
+  // the user to fill it in.
   const events = await prisma.event.findMany({
-    where: { category: "anchor" },
+    where: {
+      category: "anchor",
+      ...(birthYear ? { year: { gte: birthYear } } : {}),
+    },
     orderBy: [{ year: "asc" }, { month: "asc" }],
   });
   const years = groupByYear(events);
