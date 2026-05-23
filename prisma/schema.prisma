@@ -46,6 +46,8 @@ model LifeProfile {
   updatedAt    DateTime @updatedAt
 }
 
+// pgvector embedding column (Event.embedding vector(N)) is intentionally
+// deferred to Phase 6; dimensions depend on the embedding model chosen then.
 model Event {
   id          String        @id @default(cuid())
   year        Int
