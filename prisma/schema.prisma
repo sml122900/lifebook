@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../lib/generated/prisma"
@@ -10,4 +8,74 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum EventTier {
+  verified
+  suggested
+}
+
+enum EventCategory {
+  anchor
+  trigger
+}
+
+model User {
+  id        String       @id @default(cuid())
+  email     String       @unique
+  birthYear Int?
+  region    String?
+  createdAt DateTime     @default(now())
+  profile   LifeProfile?
+  memories  UserMemory[]
+}
+
+model LifeProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  schools      String[]
+  residences   String[]
+  parentsInfo  String?
+  siblings     String?
+  closeFriends String[]
+  hobbies      String[]
+  favMovies    String[]
+  favGames     String[]
+  favMusic     String[]
+  updatedAt    DateTime @updatedAt
+}
+
+model Event {
+  id          String        @id @default(cuid())
+  year        Int
+  month       Int?
+  title       String
+  description String?
+  tier        EventTier
+  category    EventCategory
+  domain      String
+  region      String        @default("KR")
+  sourceName  String?
+  sourceUrl   String?
+  createdAt   DateTime      @default(now())
+  memories    UserMemory[]
+
+  @@index([year])
+}
+
+model UserMemory {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  eventId    String?
+  event      Event?   @relation(fields: [eventId], references: [id])
+  year       Int
+  month      Int?
+  title      String
+  content    String?
+  createdVia String   @default("manual")
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
 }
