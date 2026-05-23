@@ -5,3 +5,4 @@ build
 coverage
 lib/generated
 package-lock.json
+phase
