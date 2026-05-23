@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "LifeProfile" ADD COLUMN     "interests" TEXT[],
+ALTER COLUMN "closeFriends" DROP NOT NULL,
+ALTER COLUMN "closeFriends" SET DATA TYPE TEXT,
+ALTER COLUMN "hobbies" DROP NOT NULL,
+ALTER COLUMN "hobbies" SET DATA TYPE TEXT;

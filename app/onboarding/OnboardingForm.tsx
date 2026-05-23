@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { QUESTIONS, type Question } from "@/lib/onboarding/questions";
 
+import { saveOnboarding } from "./actions";
+
 type Answers = Record<string, unknown>;
 
 function isEmpty(v: unknown): boolean {
@@ -19,19 +21,24 @@ export function OnboardingForm() {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
   const [draft, setDraft] = useState<unknown>(undefined);
+  const [submitting, setSubmitting] = useState(false);
 
   const current = QUESTIONS[index];
   const isLast = index === QUESTIONS.length - 1;
   const progress = ((index + 1) / QUESTIONS.length) * 100;
 
-  function commit(next: unknown) {
+  async function commit(next: unknown) {
     const nextAnswers = { ...answers };
     if (!isEmpty(next)) {
       nextAnswers[current.key] = next;
     }
     if (isLast) {
-      // Phase 4.3 will persist nextAnswers via a server action before navigating.
-      router.push("/timeline");
+      setSubmitting(true);
+      try {
+        await saveOnboarding(nextAnswers);
+      } finally {
+        router.push("/timeline");
+      }
       return;
     }
     setAnswers(nextAnswers);
@@ -40,11 +47,11 @@ export function OnboardingForm() {
   }
 
   function skip() {
-    commit(undefined);
+    void commit(undefined);
   }
 
   function next() {
-    commit(draft);
+    void commit(draft);
   }
 
   return (
@@ -63,16 +70,18 @@ export function OnboardingForm() {
         <button
           type="button"
           onClick={skip}
-          className="rounded-md border-2 border-zinc-300 px-6 py-4 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          disabled={submitting}
+          className="rounded-md border-2 border-zinc-300 px-6 py-4 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
         >
           건너뛰기
         </button>
         <button
           type="button"
           onClick={next}
-          className="rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          disabled={submitting}
+          className="rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
         >
-          {isLast ? "완료" : "다음"}
+          {submitting ? "저장 중..." : isLast ? "완료" : "다음"}
         </button>
       </div>
     </div>

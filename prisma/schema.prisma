@@ -84,12 +84,13 @@ model LifeProfile {
   id           String   @id @default(cuid())
   userId       String   @unique
   user         User     @relation(fields: [userId], references: [id])
+  interests    String[]
   schools      String[]
   residences   String[]
   parentsInfo  String?
   siblings     String?
-  closeFriends String[]
-  hobbies      String[]
+  closeFriends String?
+  hobbies      String?
   favMovies    String[]
   favGames     String[]
   favMusic     String[]
