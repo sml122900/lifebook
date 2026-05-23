@@ -148,25 +148,33 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | 1     | 데이터 모델 정의 + 앵커 이벤트 시드                  | `phase/phase1.md`   | ✅ 완료 |
 | 2     | 타임라인 정적 렌더 — **첫 보이는 화면**              | `phase/phase2.md`   | ✅ 완료 |
 | 3     | 인증 + 개인정보·국외이전 동의 게이트                 | `phase/phase3.md`   | ✅ 완료 |
-| 4     | 온보딩 (생애 정보 수집, 대화형)                      | (예정)              | ▶ 다음  |
-| 5     | 타임라인 개인화 (출생연도 기반)                      | (예정)              |         |
-| 6     | 트리거 이벤트 + RAG (관심사 분야 1개)                | (예정)              |         |
-| 7     | AI 대화로 추억 채우기                                | (예정)              |         |
-| 8     | 토큰 결제 → **MVP 완성**                             | (예정)              |         |
-| 9     | 가족 공유 모드 (메인 기능)                           | (예정)              |         |
-| 10    | 출력물 서비스 (PDF/포토북 배송)                      | (예정)              |         |
+| 4     | 온보딩 (생애 정보 수집, 대화형)                      | `phase/phase4.md`   | ✅ 완료 |
+| 5     | 타임라인 개인화 (출생연도 기반)                      | `phase/phase5.md`   | ✅ 완료 |
+| 6     | 트리거 이벤트 + RAG (음악, Voyage)                   | `phase/phase6.md`   | ✅ 완료 |
+| 7     | AI 대화로 추억 채우기 (Claude + 음성)                | `phase/phase7.md`   | ✅ 완료 |
+| 8     | 토큰 결제 (토스 테스트) → **MVP 완성** (`mvp-v1`)    | `phase/phase8.md`   | ✅ 완료 |
+| 9     | 가족 공유 모드 — 룸/초대/공유 타임라인/공동 추억     | `phase/phase9.md`   | ✅ 완료 |
+| 9.5   | 음악 재생 (YouTube 검색 링크)                        | `phase/phase9.5.md` | ✅ 완료 |
+| 10    | 출력물 서비스 (PDF/포토북 배송)                      | (예정)              | ▶ 다음  |
 | 11    | 앱 출시 · 커뮤니티 기여 · 광고                       | (예정)              |         |
 
-**Phase 3 후속 대기 작업**: Google Cloud Console에서 OAuth client 발급 → `.env`의 `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` 채움 → 실제 로그인 흐름 검증.
+**최근 태그**:
+- `mvp-v1` — Phase 0~8 완료 직후 (MVP 닫힘)
+- `phase9-complete` — 공유 기능 + 음악 재생 완료
+- `review-pass-1` — 6개 lens 코드 검토 + 바구니 1(4건 즉시 수정) 완료
+
+**바구니 2 후보 (검토에서 발견, 후속 작업)**: leave room + 회원 탈퇴(PIPA 동의 철회권), SharedRoom owner 양도, submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용 또는 제거, `getMembership` 중복 호출 감소.
 
 ---
 
 ## 열린 결정사항
 
 - [x] 서비스명: Lifebook (라이프북) — 정식 출시 전 상표·도메인 확인 필요
-- [ ] Phase 6에서 우선 연동할 트리거 분야 (영화/게임/음악 중 택1)
-- [ ] 토큰 가격 정책 / 무료 제공량
-- [ ] 국내 PG사, 포토북 제작·배송 파트너
+- [x] Phase 6에서 우선 연동할 트리거 분야 → **음악** (Voyage AI 임베딩, MusicBrainz 하이브리드 시드)
+- [x] 토큰 가격 정책 / 무료 제공량 → N=2,000 / 신규 30토큰 / 1,000원=100토큰 (`lib/tokens/policy.ts`)
+- [x] 국내 PG사 → **토스페이먼츠 (테스트 모드)**, 출시 시 prod 키만 교체
+- [ ] 포토북 제작·배송 파트너 (Phase 10)
+- [ ] SharedRoom owner 양도 정책 (회원 탈퇴 시 룸 보존 vs cascade 삭제)
 
 ---
 
