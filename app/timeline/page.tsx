@@ -83,8 +83,13 @@ export default async function TimelinePage() {
                 <h3 className="mb-3 text-base font-bold uppercase tracking-wide text-amber-800 md:hidden">
                   내 사건
                 </h3>
-                <div className="rounded-md border-2 border-dashed border-amber-300 bg-amber-50 p-5 text-zinc-700">
-                  (아직 내 사건이 없습니다)
+                <div className="rounded-md border-2 border-dashed border-amber-300 bg-amber-50 p-5">
+                  <p className="text-zinc-800">
+                    이 시절, 당신은 어떤 일이 있었나요?
+                  </p>
+                  <p className="mt-1 text-zinc-700">
+                    곧 추억을 더할 수 있어요.
+                  </p>
                 </div>
               </section>
             </div>
