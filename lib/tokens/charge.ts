@@ -7,12 +7,22 @@
 // double-bill (1+1 instead of 1) for the very common ~1,113-token
 // cycle the policy is calibrated to.
 //
-// Implementation: every AIMessage with chargedAt=NULL is an unsettled
-// usage record. settleConversationCharges sums them, charges the
-// wallet, flips chargedAt → now() for the same rows, all inside one
-// $transaction so balance ↔ ledger never diverges.
+// Race safety (post-review):
+//   1. AIMessage rows are claimed atomically with
+//        UPDATE ... SET chargedAt = NOW() WHERE chargedAt IS NULL
+//      under PostgreSQL's row-level lock + condition re-check (READ
+//      COMMITTED). A concurrent settle sees 0 rows and bails out.
+//   2. Wallet decrement is conditional —
+//        UPDATE ... SET balance = balance - cost WHERE balance >= cost
+//      so two parallel charges can never push the balance negative.
+//      If the condition fails we throw InsufficientBalance and the
+//      surrounding $transaction rolls the chargedAt claims back too.
+//
+// Both checks are INSIDE the same $transaction so balance ↔ ledger
+// never diverges and a race loser leaves no half-applied state.
 
 import { prisma } from "../db";
+import { InsufficientBalanceError } from "./errors";
 import { tokensFromUsage } from "./policy";
 
 export type ChargeOutcome =
@@ -24,10 +34,22 @@ export type ChargeOutcome =
       transactionId: string;
     };
 
+type ClaimedRow = {
+  id: string;
+  inputTokens: number | null;
+  outputTokens: number | null;
+};
+
+type WalletRow = { balance: number };
+
 /**
  * Settle every unsettled AIMessage in a conversation against the
  * wallet. Safe to call multiple times — if there's nothing new to
  * charge, returns { charged: false }.
+ *
+ * Concurrent callers (e.g. double-submit, network retry): one settle
+ * claims the unsettled rows, the other gets a no-op. Wallet can never
+ * go negative even if two charges race past the upstream gate.
  */
 export async function settleConversationCharges(
   userId: string,
@@ -35,8 +57,8 @@ export async function settleConversationCharges(
   refId?: string,
 ): Promise<ChargeOutcome> {
   return await prisma.$transaction(async (tx) => {
-    // Conversation must belong to this user. The action layer already
-    // checks this, but treat this function as a defense-in-depth point.
+    // Defense-in-depth: conversation must belong to this user. The
+    // action layer already checks this, but keep the helper safe.
     const conv = await tx.aIConversation.findUnique({
       where: { id: conversationId },
       select: { userId: true },
@@ -45,46 +67,51 @@ export async function settleConversationCharges(
       throw new Error("conversation does not belong to user");
     }
 
-    const unsettled = await tx.aIMessage.findMany({
-      where: {
-        conversationId,
-        chargedAt: null,
-        role: "assistant",
-      },
-      select: { id: true, inputTokens: true, outputTokens: true },
-    });
+    // Atomically claim unsettled assistant messages. The WHERE-clause
+    // is re-evaluated under row lock, so two concurrent settles can't
+    // both claim the same row — the loser gets an empty result and
+    // bails out with no_usage.
+    const claimed = await tx.$queryRaw<ClaimedRow[]>`
+      UPDATE "AIMessage"
+      SET "chargedAt" = NOW()
+      WHERE "conversationId" = ${conversationId}
+        AND role = 'assistant'::"AIMessageRole"
+        AND "chargedAt" IS NULL
+      RETURNING id, "inputTokens", "outputTokens"
+    `;
 
-    if (unsettled.length === 0) {
+    if (claimed.length === 0) {
       return { charged: false, reason: "no_usage" } as const;
     }
 
-    const totalIn = unsettled.reduce(
-      (sum, m) => sum + (m.inputTokens ?? 0),
-      0,
-    );
-    const totalOut = unsettled.reduce(
-      (sum, m) => sum + (m.outputTokens ?? 0),
-      0,
-    );
+    const totalIn = claimed.reduce((sum, m) => sum + (m.inputTokens ?? 0), 0);
+    const totalOut = claimed.reduce((sum, m) => sum + (m.outputTokens ?? 0), 0);
     const cost = tokensFromUsage(totalIn, totalOut);
 
     if (cost === 0) {
-      // Mark settled so the next pass doesn't re-evaluate the same
-      // free rows (defensive — tokensFromUsage only returns 0 when
-      // total tokens is 0, but stay safe).
-      await tx.aIMessage.updateMany({
-        where: { id: { in: unsettled.map((m) => m.id) } },
-        data: { chargedAt: new Date() },
-      });
+      // Defensive: tokensFromUsage only returns 0 when totals are 0,
+      // which should have been caught upstream (AIMessage not stored
+      // when usage was 0). chargedAt is already set on the claimed
+      // rows so the next pass won't re-evaluate them.
       return { charged: false, reason: "no_usage" } as const;
     }
 
-    // Wallet + ledger together — never one without the other.
-    const wallet = await tx.tokenWallet.update({
-      where: { userId },
-      data: { balance: { decrement: cost } },
-      select: { balance: true },
-    });
+    // Conditional wallet decrement. If balance < cost (concurrent
+    // race past the upstream MIN_BALANCE gate), RETURNING is empty
+    // and we throw — the $transaction rolls the chargedAt claims back
+    // so the messages are eligible for the next, properly-funded
+    // settle attempt.
+    const walletUpdated = await tx.$queryRaw<WalletRow[]>`
+      UPDATE "TokenWallet"
+      SET balance = balance - ${cost}, "updatedAt" = NOW()
+      WHERE "userId" = ${userId} AND balance >= ${cost}
+      RETURNING balance
+    `;
+
+    if (walletUpdated.length === 0) {
+      throw new InsufficientBalanceError();
+    }
+
     const transaction = await tx.tokenTransaction.create({
       data: {
         userId,
@@ -94,15 +121,11 @@ export async function settleConversationCharges(
       },
       select: { id: true },
     });
-    await tx.aIMessage.updateMany({
-      where: { id: { in: unsettled.map((m) => m.id) } },
-      data: { chargedAt: new Date() },
-    });
 
     return {
       charged: true,
       tokensSpent: cost,
-      balanceAfter: wallet.balance,
+      balanceAfter: walletUpdated[0].balance,
       transactionId: transaction.id,
     } as const;
   });
