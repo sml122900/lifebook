@@ -89,23 +89,36 @@ function buildSummarizePrompt(
   ].join("\n");
 }
 
+export type SummarizeResult = {
+  title: string;
+  inputTokens: number;
+  outputTokens: number;
+};
+
 export async function summarizeAnswer(
   ctx: MemoryEventContext,
   answer: string,
-): Promise<string> {
+): Promise<SummarizeResult> {
   const trimmed = answer.trim();
-  if (trimmed === "") return "추억";
+  if (trimmed === "") {
+    return { title: "추억", inputTokens: 0, outputTokens: 0 };
+  }
   try {
     const res = await chat(
       [{ role: "user", content: buildSummarizePrompt(ctx, trimmed) }],
       { system: SUMMARIZE_SYSTEM_PROMPT, maxTokens: 64, temperature: 0.4 },
     );
-    const title = res.text.replace(/^["'"\s]+|["'"\s]+$/g, "").trim();
-    if (!title) return ctx.title;
-    return title.length > 40 ? title.slice(0, 40) : title;
+    let title = res.text.replace(/^["'"\s]+|["'"\s]+$/g, "").trim();
+    if (!title) title = ctx.title;
+    if (title.length > 40) title = title.slice(0, 40);
+    return {
+      title,
+      inputTokens: res.inputTokens,
+      outputTokens: res.outputTokens,
+    };
   } catch (err) {
     console.error("[memory-chat] summarize failed:", err);
-    return ctx.title;
+    return { title: ctx.title, inputTokens: 0, outputTokens: 0 };
   }
 }
 

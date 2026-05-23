@@ -68,7 +68,7 @@ async function main() {
     const before = { in: totalIn, out: totalOut };
     const captured = await captureUsage(async () => {
       await generateGuidedQuestionsRaw(event);
-      await summarizeAnswer(event, answer);
+      void (await summarizeAnswer(event, answer));
     });
     totalIn += captured.in;
     totalOut += captured.out;

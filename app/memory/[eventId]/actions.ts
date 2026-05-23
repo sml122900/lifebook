@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { appendUserAnswer, summarizeAnswer } from "@/lib/memory-chat";
+import { settleConversationCharges } from "@/lib/tokens/charge";
 
 // Phase 7.4 — persist a user's answer as a UserMemory row, tied to the
 // event that prompted it. AI is only used to write the short title;
@@ -70,7 +71,7 @@ export async function submitMemoryAnswer(formData: FormData) {
     }
   }
 
-  const title = await summarizeAnswer(
+  const summary = await summarizeAnswer(
     {
       title: event.title,
       description: event.description,
@@ -83,21 +84,52 @@ export async function submitMemoryAnswer(formData: FormData) {
   );
 
   // ⚠️ userId scope is mandatory — first real write to UserMemory.
-  await prisma.userMemory.create({
+  const memory = await prisma.userMemory.create({
     data: {
       userId,
       eventId,
       year: event.year,
       month: event.month,
-      title,
+      title: summary.title,
       content: answer,
       createdVia: "ai_chat",
     },
+    select: { id: true },
   });
 
   // Persist the answer in the conversation history too so the next
   // visit to /memory/[eventId] can show "이전에 남긴 추억".
   await appendUserAnswer(conversationId, answer);
+
+  // Record the summary AI call as an assistant message so settle() can
+  // pick it up alongside the original guided-questions call. Charging
+  // both at once means a typical cycle (~1,113 AI tokens) costs 1
+  // service token, not 1+1.
+  if (summary.inputTokens > 0 || summary.outputTokens > 0) {
+    await prisma.aIMessage.create({
+      data: {
+        conversationId,
+        role: "assistant",
+        content: summary.title,
+        inputTokens: summary.inputTokens,
+        outputTokens: summary.outputTokens,
+      },
+    });
+  }
+
+  // Settle every unsettled AI call in this conversation in one charge.
+  // Reusing the same memory (cached conversation, no new AI calls)
+  // leaves nothing unsettled, so this is a no-op then.
+  const charge = await settleConversationCharges(
+    userId,
+    conversationId,
+    memory.id,
+  );
+  if (charge.charged) {
+    console.log(
+      `[tokens] user=${userId} -${charge.tokensSpent} → ${charge.balanceAfter}`,
+    );
+  }
 
   revalidatePath("/timeline");
   redirect("/timeline");

@@ -195,6 +195,10 @@ model AIMessage {
   content         String
   inputTokens     Int?
   outputTokens    Int?
+  // Phase 8.3 — null = not yet settled against the wallet. Charge is
+  // done per memory cycle (guided + summary together), so multiple
+  // assistant messages may flip from null → now() in one transaction.
+  chargedAt       DateTime?
   createdAt       DateTime       @default(now())
 
   @@index([conversationId])
