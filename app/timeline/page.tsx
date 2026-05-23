@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -76,6 +77,19 @@ export default async function TimelinePage() {
           {birthYear ? `${birthYear}년생 기준 · ` : ""}
           앵커 이벤트 {events.length}개
         </p>
+        {!birthYear && session?.user && (
+          <div className="mt-5 rounded-md border-2 border-zinc-200 bg-zinc-50 p-5">
+            <p className="text-zinc-800">
+              출생연도를 알려주시면 당신이 살아온 시대 위주로 보여드릴게요.
+            </p>
+            <Link
+              href="/onboarding"
+              className="mt-3 inline-block rounded-md border-2 border-zinc-300 px-5 py-3 text-base font-semibold text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            >
+              출생연도 입력하기
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* 트랙 라벨 — 데스크톱에서만 */}
