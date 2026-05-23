@@ -11,6 +11,7 @@
 **목적**: TypeScript·Tailwind·ESLint·App Router가 모두 깔린 베이스를 만든다.
 
 **작업**
+
 - 프로젝트 루트에서 실행:
   ```bash
   npx create-next-app@latest .
@@ -28,6 +29,7 @@
 **목적**: 이후 phase들이 들어갈 자리를 미리 만든다.
 
 **작업**
+
 - 다음 폴더를 생성 (비어 있어도 `.gitkeep`):
   ```
   components/
@@ -48,6 +50,7 @@
 **목적**: 기획·작업지시 문서를 레포 안에 둬서 Claude Code가 참조하게 한다.
 
 **작업**
+
 - `docs/` 에 다음을 넣는다:
   - `docs/PRD.md` (전체 기획서)
   - `docs/phase0.md` (이 파일)
@@ -62,6 +65,7 @@
 **목적**: 로컬 개발용 DB를 띄운다. 이후 RAG를 위해 pgvector 확장을 미리 활성화한다.
 
 **작업**
+
 - 루트에 `docker-compose.yml`:
   ```yaml
   services:
@@ -95,6 +99,7 @@
 **목적**: 비밀값을 코드에서 분리하고, 실수로 커밋되지 않게 한다.
 
 **작업**
+
 - `.env` (gitignore 대상):
   ```
   DATABASE_URL="postgresql://app:app@localhost:5432/lifelog"
@@ -112,6 +117,7 @@
 **목적**: ORM을 붙이고 "앱 ↔ DB"가 실제로 통하는지 확인한다. (모델 정의는 Phase 1)
 
 **작업**
+
 - 설치:
   ```bash
   npm i -D prisma
@@ -142,6 +148,7 @@
 **목적**: 포맷을 통일한다. (ESLint는 create-next-app이 이미 설정)
 
 **작업**
+
 - `npm i -D prettier`
 - `.prettierrc` 기본 설정 작성, `package.json`에 `"format": "prettier --write ."` 스크립트 추가.
 - 한 번 `npm run format` 실행.

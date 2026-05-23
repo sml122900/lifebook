@@ -2,11 +2,13 @@
 
 > 이 파일은 Claude Code가 항상 읽는 프로젝트 개요다. 상세 작업 지시는 `docs/phaseN.md`에 있다.
 > 작업할 때는 **현재 진행 중인 phase 문서를 함께 열어** 그 안의 태스크를 하나씩 수행한다.
+
 ## 1. Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
 Before implementing:
+
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
@@ -29,12 +31,14 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 **Touch only what you must. Clean up only your own mess.**
 
 When editing existing code:
+
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
 - If you notice unrelated dead code, mention it - don't delete it.
 
 When your changes create orphans:
+
 - Remove imports/variables/functions that YOUR changes made unused.
 - Don't remove pre-existing dead code unless asked.
 
@@ -45,11 +49,13 @@ The test: Every changed line should trace directly to the user's request.
 **Define success criteria. Loop until verified.**
 
 Transform tasks into verifiable goals:
+
 - "Add validation" → "Write tests for invalid inputs, then make them pass"
 - "Fix the bug" → "Write a test that reproduces it, then make it pass"
 - "Refactor X" → "Ensure tests pass before and after"
 
 For multi-step tasks, state a brief plan:
+
 ```
 1. [Step] → verify: [check]
 2. [Step] → verify: [check]
@@ -59,6 +65,7 @@ For multi-step tasks, state a brief plan:
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
 ---
+
 ---
 
 ## 프로젝트: Lifebook (라이프북)
@@ -67,6 +74,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 시대의 큰 사건을 단서로 흐릿한 개인 기억을 되살려, 가족·배우자와 함께 떠들게 한다.
 
 **북극성 (모든 판단 기준)**
+
 > 시대의 큰 사건을 단서 삼아 흐릿한 개인 기억을 되살리고, 그것을 가족과 함께 떠들 수 있게 한다.
 
 - **메인 시나리오**: 가족·배우자와 함께 떠드는 도구 (단, 혼자 해도 충분히 재미있어야 함)
@@ -76,12 +84,12 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 핵심 컨셉 — 이벤트 두 종류
 
-| 구분 | 앵커(Anchor) | 트리거(Trigger) |
-|---|---|---|
-| 정의 | 누구나 아는 시대적 사건 | 관심사 기반 개인화 사건 |
-| 예시 | IMF, 9.11, 박근혜 탄핵, 코로나 | 특정 게임/영화/노래 |
+| 구분   | 앵커(Anchor)                      | 트리거(Trigger)               |
+| ------ | --------------------------------- | ----------------------------- |
+| 정의   | 누구나 아는 시대적 사건           | 관심사 기반 개인화 사건       |
+| 예시   | IMF, 9.11, 박근혜 탄핵, 코로나    | 특정 게임/영화/노래           |
 | 정확성 | **100% 보장 필수** (수동 검증 DB) | 질문형으로 던져 사용자가 확정 |
-| `tier` | `verified` | `suggested` |
+| `tier` | `verified`                        | `suggested`                   |
 
 **원칙: AI는 사건을 창작하지 않는다.** 검증된 DB에서 끌어와 고르고 말투만 입히는 RAG 역할만 수행한다.
 
@@ -126,20 +134,20 @@ docs/           # PRD.md, phase0.md, phase1.md ...
 
 각 phase는 `docs/phaseN.md`에 상세 태스크가 있다. 현재는 **Phase 0**부터 진행.
 
-| Phase | 목표 | 문서 | 상태 |
-|---|---|---|---|
-| 0 | 프로젝트 셋업 (Next.js + Postgres/pgvector + Prisma) | `docs/phase0.md` | ▶ 진행 |
-| 1 | 데이터 모델 정의 + 앵커 이벤트 시드 | (예정) | |
-| 2 | 타임라인 정적 렌더 — **첫 보이는 화면** | (예정) | |
-| 3 | 인증 + 개인정보·국외이전 동의 게이트 | (예정) | |
-| 4 | 온보딩 (생애 정보 수집, 대화형) | (예정) | |
-| 5 | 타임라인 개인화 (출생연도 기반) | (예정) | |
-| 6 | 트리거 이벤트 + RAG (관심사 분야 1개) | (예정) | |
-| 7 | AI 대화로 추억 채우기 | (예정) | |
-| 8 | 토큰 결제 → **MVP 완성** | (예정) | |
-| 9 | 가족 공유 모드 (메인 기능) | (예정) | |
-| 10 | 출력물 서비스 (PDF/포토북 배송) | (예정) | |
-| 11 | 앱 출시 · 커뮤니티 기여 · 광고 | (예정) | |
+| Phase | 목표                                                 | 문서             | 상태   |
+| ----- | ---------------------------------------------------- | ---------------- | ------ |
+| 0     | 프로젝트 셋업 (Next.js + Postgres/pgvector + Prisma) | `docs/phase0.md` | ▶ 진행 |
+| 1     | 데이터 모델 정의 + 앵커 이벤트 시드                  | (예정)           |        |
+| 2     | 타임라인 정적 렌더 — **첫 보이는 화면**              | (예정)           |        |
+| 3     | 인증 + 개인정보·국외이전 동의 게이트                 | (예정)           |        |
+| 4     | 온보딩 (생애 정보 수집, 대화형)                      | (예정)           |        |
+| 5     | 타임라인 개인화 (출생연도 기반)                      | (예정)           |        |
+| 6     | 트리거 이벤트 + RAG (관심사 분야 1개)                | (예정)           |        |
+| 7     | AI 대화로 추억 채우기                                | (예정)           |        |
+| 8     | 토큰 결제 → **MVP 완성**                             | (예정)           |        |
+| 9     | 가족 공유 모드 (메인 기능)                           | (예정)           |        |
+| 10    | 출력물 서비스 (PDF/포토북 배송)                      | (예정)           |        |
+| 11    | 앱 출시 · 커뮤니티 기여 · 광고                       | (예정)           |        |
 
 ---
 

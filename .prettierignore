@@ -1,0 +1,7 @@
+node_modules
+.next
+out
+build
+coverage
+lib/generated
+package-lock.json
