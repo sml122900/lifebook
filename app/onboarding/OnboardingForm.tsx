@@ -62,7 +62,15 @@ export function OnboardingForm() {
         <p className="text-xl font-semibold text-zinc-900">{current.prompt}</p>
         <QuestionHint question={current} />
         <div className="mt-6">
-          <QuestionInput question={current} value={draft} onChange={setDraft} />
+          {/* key forces a fresh mount per question so internal input
+              state (e.g. TextListInput's pending text) never bleeds
+              from one question to the next, even when the kind matches. */}
+          <QuestionInput
+            key={current.id}
+            question={current}
+            value={draft}
+            onChange={setDraft}
+          />
         </div>
       </section>
 
