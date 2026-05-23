@@ -6,16 +6,14 @@ import Google from "next-auth/providers/google";
 export default {
   providers: [Google],
   callbacks: {
-    // Expose the DB user id on session.user.id so server actions/RSCs can
-    // scope queries by current user.
-    jwt({ token, user }) {
-      if (user?.id) token.sub = user.id;
-      return token;
-    },
+    // session() is reused by both the Node instance (auth.ts) and the
+    // Edge instance (middleware.ts). It only reads from the already-issued
+    // JWT, so it stays Prisma-free here.
     session({ session, token }) {
       if (token.sub) {
         session.user.id = token.sub;
       }
+      session.consentComplete = token.consentComplete === true;
       return session;
     },
   },
