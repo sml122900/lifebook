@@ -164,6 +164,11 @@ export async function listRoomMemories(roomId: string, viewerUserId: string) {
       content: true,
       createdAt: true,
       user: { select: { name: true, email: true } },
+      // Pull the linked event's domain so the UI can decide whether
+      // a "들어보기" button applies (only when domain === "music").
+      // Title + description carry the song / artist text we feed into
+      // the YouTube search URL.
+      event: { select: { title: true, description: true, domain: true } },
     },
     orderBy: [{ year: "asc" }, { month: "asc" }, { createdAt: "asc" }],
   });

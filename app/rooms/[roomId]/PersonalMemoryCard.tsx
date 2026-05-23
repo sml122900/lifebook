@@ -1,3 +1,5 @@
+import { ListenButton } from "@/components/ListenButton";
+
 import { CommentThread } from "./CommentThread";
 
 // One room-view of a member's personal UserMemory. Read-only here;
@@ -11,6 +13,11 @@ type Props = {
     title: string;
     content: string | null;
     user: { name: string | null; email: string | null };
+    event: {
+      title: string;
+      description: string | null;
+      domain: string;
+    } | null;
   };
   viewerId: string;
   roomId: string;
@@ -28,6 +35,15 @@ function authorLabel(
   return `${who}의 추억`;
 }
 
+// Seed writer stored Event.description for music as "{artist} ·
+// {context}", so the artist for the YouTube query is the slice
+// before " · ".
+function artistFromDescription(description: string | null): string {
+  if (!description) return "";
+  const [first] = description.split(" · ");
+  return first?.trim() ?? "";
+}
+
 export function PersonalMemoryCard({
   memory,
   viewerId,
@@ -42,6 +58,11 @@ export function PersonalMemoryCard({
         bg: "bg-emerald-50",
         label: "text-emerald-800",
       };
+
+  const isMusic = memory.event?.domain === "music";
+  const songTitle = memory.event?.title ?? "";
+  const songArtist = artistFromDescription(memory.event?.description ?? null);
+
   return (
     <article className={`rounded-md border-2 p-5 ${tone.border} ${tone.bg}`}>
       <p className={`text-base font-bold uppercase tracking-wide ${tone.label}`}>
@@ -57,6 +78,11 @@ export function PersonalMemoryCard({
         <p className="mt-2 whitespace-pre-wrap text-lg text-zinc-800">
           {memory.content}
         </p>
+      )}
+      {isMusic && songTitle && (
+        <div className="mt-3">
+          <ListenButton title={songTitle} artist={songArtist} />
+        </div>
       )}
       <CommentThread
         roomId={roomId}

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { EventCard } from "@/components/EventCard";
+import { ListenButton } from "@/components/ListenButton";
 import { TriggerCard } from "@/components/TriggerCard";
 import { prisma } from "@/lib/db";
 import {
@@ -57,6 +58,12 @@ export default async function TimelinePage() {
   const memories = session?.user?.id
     ? await prisma.userMemory.findMany({
         where: { userId: session.user.id },
+        // event.domain drives whether each memory card shows a
+        // "들어보기" button; title + description carry the song info
+        // we feed into the YouTube search.
+        include: {
+          event: { select: { title: true, description: true, domain: true } },
+        },
         orderBy: [{ year: "asc" }, { month: "asc" }],
       })
     : [];
@@ -188,19 +195,33 @@ export default async function TimelinePage() {
                 </h3>
                 {(memoriesByYear.get(year) ?? []).length > 0 ? (
                   <ul className="space-y-4">
-                    {memoriesByYear.get(year)!.map((m) => (
-                      <li
-                        key={m.id}
-                        className="rounded-md border-2 border-amber-300 bg-amber-50 p-5"
-                      >
-                        <div className="text-lg font-semibold text-zinc-900">
-                          {m.title}
-                        </div>
-                        {m.content && (
-                          <p className="mt-2 text-zinc-800">{m.content}</p>
-                        )}
-                      </li>
-                    ))}
+                    {memoriesByYear.get(year)!.map((m) => {
+                      const isMusic = m.event?.domain === "music";
+                      const songTitle = m.event?.title ?? "";
+                      const songArtist =
+                        m.event?.description?.split(" · ")[0]?.trim() ?? "";
+                      return (
+                        <li
+                          key={m.id}
+                          className="rounded-md border-2 border-amber-300 bg-amber-50 p-5"
+                        >
+                          <div className="text-lg font-semibold text-zinc-900">
+                            {m.title}
+                          </div>
+                          {m.content && (
+                            <p className="mt-2 text-zinc-800">{m.content}</p>
+                          )}
+                          {isMusic && songTitle && (
+                            <div className="mt-3">
+                              <ListenButton
+                                title={songTitle}
+                                artist={songArtist}
+                              />
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <div className="rounded-md border-2 border-dashed border-amber-300 bg-amber-50 p-5">

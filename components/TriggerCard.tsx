@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { confirmTrigger, dismissTrigger } from "@/app/timeline/actions";
-import { youtubeSearchUrl } from "@/lib/music/youtube";
+
+import { ListenButton } from "./ListenButton";
 
 // Question-form music trigger card. Sits next to anchor events on the
 // timeline. Visually distinct (violet, prompt header) so users can tell
@@ -21,28 +22,6 @@ type Props = {
   ageAtYear: number | null;
   status: "confirmed" | null;
 };
-
-// "들어보기" — a YouTube search opens in a new tab so the listener
-// doesn't lose their place in the timeline. Hearing the melody is
-// what makes the title actually trigger a memory; it sits BEFORE the
-// 기억나요/잘 모르겠어요 decision so a listen-then-decide flow is
-// natural.
-function ListenButton({ title, artist }: { title: string; artist: string }) {
-  return (
-    <a
-      href={youtubeSearchUrl(title, artist)}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 rounded-md border-2 border-zinc-400 bg-white px-5 py-3 text-base font-semibold text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
-    >
-      <span aria-hidden className="text-lg">
-        ▶
-      </span>
-      <span>들어보기</span>
-      <span className="sr-only">(새 탭에서 유튜브 열림)</span>
-    </a>
-  );
-}
 
 export function TriggerCard({
   id,
