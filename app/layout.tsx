@@ -31,6 +31,12 @@ export default async function RootLayout({
           </Link>
           {session?.user ? (
             <div className="flex items-center gap-4">
+              <Link
+                href="/rooms"
+                className="hidden rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 sm:inline-block"
+              >
+                가족 룸
+              </Link>
               <span className="hidden text-zinc-800 sm:inline">
                 {session.user.name ?? session.user.email}
               </span>

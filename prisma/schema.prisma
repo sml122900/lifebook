@@ -37,6 +37,11 @@ enum TokenOrderStatus {
   canceled
 }
 
+enum RoomMemberRole {
+  owner
+  member
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -68,6 +73,8 @@ model User {
   wallet            TokenWallet?
   tokenTxs          TokenTransaction[]
   tokenOrders       TokenOrder[]
+  ownedRooms        SharedRoom[]      @relation("SharedRoomOwner")
+  roomMemberships   RoomMember[]
 }
 
 model Account {
@@ -173,6 +180,42 @@ model TokenTransaction {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// Phase 9.1 — shared room for family / partner co-viewing.
+//
+// Privacy model:
+//   - Personal memories stay owned by their author; the room only
+//     gives other members read access (no edit).
+//   - Joining requires explicit consent — RoomMember.consentAt must
+//     be set before any read-on-behalf-of-room happens. The owner
+//     gets consentAt at creation time; invited members fill it in
+//     during the Phase 9.2 join flow.
+// ⚠️ Every room-scoped read MUST verify the requesting user has a
+// RoomMember row for that roomId with consentAt != null.
+model SharedRoom {
+  id        String       @id @default(cuid())
+  name      String
+  ownerId   String
+  owner     User         @relation("SharedRoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members   RoomMember[]
+  createdAt DateTime     @default(now())
+
+  @@index([ownerId])
+}
+
+model RoomMember {
+  id        String         @id @default(cuid())
+  roomId    String
+  room      SharedRoom     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      RoomMemberRole
+  consentAt DateTime?      // null = invited but hasn't agreed yet
+  joinedAt  DateTime       @default(now())
+
+  @@unique([roomId, userId])
+  @@index([userId])
 }
 
 // Phase 8.5 — top-up order tracking. id doubles as the orderId we
