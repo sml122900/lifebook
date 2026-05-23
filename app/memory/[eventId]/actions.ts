@@ -7,6 +7,15 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { appendUserAnswer, summarizeAnswer } from "@/lib/memory-chat";
 import { settleConversationCharges } from "@/lib/tokens/charge";
+import { MIN_BALANCE_TO_START_CYCLE } from "@/lib/tokens/policy";
+import { getBalance } from "@/lib/tokens/wallet";
+
+export class InsufficientBalanceError extends Error {
+  constructor() {
+    super("insufficient balance");
+    this.name = "InsufficientBalanceError";
+  }
+}
 
 // Phase 7.4 — persist a user's answer as a UserMemory row, tied to the
 // event that prompted it. AI is only used to write the short title;
@@ -42,6 +51,14 @@ export async function submitMemoryAnswer(formData: FormData) {
   });
   if (!conv || conv.userId !== userId || conv.eventId !== eventId) {
     throw new Error("conversation mismatch");
+  }
+
+  // Pre-flight balance check so an empty wallet doesn't make a paid
+  // summarize call. The page itself blocks new cycles upstream; this
+  // is the second gate for the answer-submit path.
+  const balance = await getBalance(userId);
+  if (balance < MIN_BALANCE_TO_START_CYCLE) {
+    throw new InsufficientBalanceError();
   }
 
   const event = await prisma.event.findUnique({

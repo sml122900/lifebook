@@ -3,7 +3,10 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { InsufficientBalanceCard } from "@/components/InsufficientBalanceCard";
 import { getOrCreateConversation } from "@/lib/memory-chat";
+import { MIN_BALANCE_TO_START_CYCLE } from "@/lib/tokens/policy";
+import { getBalance } from "@/lib/tokens/wallet";
 
 import { AnswerForm } from "./AnswerForm";
 
@@ -61,6 +64,44 @@ export default async function MemoryPage({ params }: PageProps) {
   });
   const ageAtYear =
     user?.birthYear != null ? event.year - user.birthYear : null;
+
+  // Gate: don't even call the AI generator if the wallet can't cover
+  // one cycle. The existing conversation (if any) is still safe to
+  // resume — guided questions are cached, so no new AI call happens.
+  const balance = await getBalance(userId);
+  const existingConv = await prisma.aIConversation.findUnique({
+    where: { userId_eventId: { userId, eventId } },
+    select: { id: true },
+  });
+  const wouldStartNewCycle = !existingConv;
+  if (wouldStartNewCycle && balance < MIN_BALANCE_TO_START_CYCLE) {
+    return (
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
+        <Link
+          href="/timeline"
+          className="self-start rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        >
+          ← 타임라인으로
+        </Link>
+        <header>
+          <p className="text-base text-zinc-600">
+            {event.year}
+            {event.month ? `.${String(event.month).padStart(2, "0")}` : ""}
+            {ageAtYear !== null && ageAtYear >= 0 && (
+              <span className="ml-2">· 그때 {ageAtYear}살</span>
+            )}
+          </p>
+          <h1 className="mt-2 text-3xl font-bold text-zinc-900">
+            {event.title}
+          </h1>
+        </header>
+        <InsufficientBalanceCard
+          balance={balance}
+          required={MIN_BALANCE_TO_START_CYCLE}
+        />
+      </main>
+    );
+  }
 
   // Persisted per-(user, event) conversation: questions are generated
   // once on first visit and reused on every reload, and we surface any

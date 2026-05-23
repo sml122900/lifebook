@@ -14,6 +14,15 @@ export const AI_TOKENS_PER_SERVICE_TOKEN = 2000;
 export const SIGNUP_GRANT_TOKENS = 30;
 
 /**
+ * Minimum balance required to START a memory cycle. We can't know the
+ * exact cost until after Claude responds, so we keep a small buffer
+ * over the measured average (1 token/cycle) — refusing at 2 means a
+ * cycle that runs hotter than expected still won't take the wallet
+ * negative.
+ */
+export const MIN_BALANCE_TO_START_CYCLE = 2;
+
+/**
  * Top-up packages — the SERVER source of truth.
  *
  * Phase 8.5 takes the package id from the client, looks up krw + tokens

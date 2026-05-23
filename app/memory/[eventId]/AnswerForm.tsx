@@ -46,6 +46,7 @@ export function AnswerForm({
 }) {
   const [answer, setAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [recording, setRecording] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -109,9 +110,21 @@ export function AnswerForm({
     <form
       action={async (formData) => {
         setSubmitting(true);
+        setSubmitError(null);
         try {
           if (recording) stopRecording();
           await submitMemoryAnswer(formData);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          if (message.includes("insufficient balance")) {
+            setSubmitError(
+              "토큰이 부족해요. 충전하시고 다시 시도해 주세요.",
+            );
+          } else {
+            // Next.js redirect() throws a special object — let it
+            // propagate so the navigation happens.
+            throw err;
+          }
         } finally {
           setSubmitting(false);
         }
@@ -161,6 +174,15 @@ export function AnswerForm({
             <p className="text-base text-rose-700">{voiceError}</p>
           )}
         </div>
+      )}
+
+      {submitError && (
+        <p className="text-base text-amber-900">
+          {submitError}{" "}
+          <a href="/billing" className="font-semibold underline">
+            충전하러 가기
+          </a>
+        </p>
       )}
 
       <button
