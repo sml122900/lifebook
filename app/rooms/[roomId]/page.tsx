@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { listRoomCommentsByTarget } from "@/lib/comments";
 import { prisma } from "@/lib/db";
 import { getMembership, listRoomMemories } from "@/lib/rooms";
 
 import { createInviteAction } from "../actions";
+import { CommentThread } from "./CommentThread";
 
 type RoomMemory = NonNullable<
   Awaited<ReturnType<typeof listRoomMemories>>
@@ -101,6 +103,16 @@ export default async function RoomDetailPage({ params }: PageProps) {
   // is bypassed somehow.
   const memories = (await listRoomMemories(roomId, session.user.id)) ?? [];
   const memoriesByYear = groupMemoriesByYear(memories);
+
+  // Single batched comment fetch keyed by memory id — re-verifies
+  // membership before returning anything.
+  const commentsByTarget =
+    (await listRoomCommentsByTarget(
+      roomId,
+      session.user.id,
+      "user_memory",
+      memories.map((m) => m.id),
+    )) ?? new Map();
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
@@ -225,6 +237,13 @@ export default async function RoomDetailPage({ params }: PageProps) {
                             {m.content}
                           </p>
                         )}
+                        <CommentThread
+                          roomId={room.id}
+                          targetType="user_memory"
+                          targetId={m.id}
+                          viewerId={session.user!.id}
+                          comments={commentsByTarget.get(m.id) ?? []}
+                        />
                       </li>
                     );
                   })}
@@ -233,12 +252,6 @@ export default async function RoomDetailPage({ params }: PageProps) {
             ))}
           </ol>
         )}
-      </section>
-
-      <section className="rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-6">
-        <p className="text-base text-zinc-700">
-          댓글은 다음 단계(9.4)에서 들어옵니다.
-        </p>
       </section>
     </main>
   );

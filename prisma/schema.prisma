@@ -76,6 +76,7 @@ model User {
   ownedRooms        SharedRoom[]      @relation("SharedRoomOwner")
   roomMemberships   RoomMember[]
   invitesCreated    RoomInvite[]      @relation("InviteCreator")
+  comments          Comment[]
 }
 
 model Account {
@@ -201,6 +202,7 @@ model SharedRoom {
   owner     User         @relation("SharedRoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members   RoomMember[]
   invites   RoomInvite[]
+  comments  Comment[]
   createdAt DateTime     @default(now())
 
   @@index([ownerId])
@@ -234,6 +236,27 @@ model RoomInvite {
   createdAt DateTime   @default(now())
 
   @@index([roomId])
+}
+
+// Phase 9.4 — comments on memories inside a room. targetType lets the
+// same model serve both UserMemory (open scope) and SharedMemory
+// (Phase 9.5+) without two parallel tables.
+// ⚠️ Every read MUST verify the requester is a consented member of
+// the comment's roomId. The room scope is the privacy boundary —
+// never query by targetType+targetId alone.
+model Comment {
+  id         String     @id @default(cuid())
+  roomId     String
+  room       SharedRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  targetType String     // "user_memory" | "shared_memory" (later)
+  targetId   String
+  authorId   String
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content    String
+  createdAt  DateTime   @default(now())
+
+  @@index([roomId, targetType, targetId])
+  @@index([authorId])
 }
 
 // Phase 8.5 — top-up order tracking. id doubles as the orderId we
