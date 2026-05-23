@@ -73,10 +73,12 @@ model User {
   wallet            TokenWallet?
   tokenTxs          TokenTransaction[]
   tokenOrders       TokenOrder[]
-  ownedRooms        SharedRoom[]      @relation("SharedRoomOwner")
-  roomMemberships   RoomMember[]
-  invitesCreated    RoomInvite[]      @relation("InviteCreator")
-  comments          Comment[]
+  ownedRooms             SharedRoom[]    @relation("SharedRoomOwner")
+  roomMemberships        RoomMember[]
+  invitesCreated         RoomInvite[]    @relation("InviteCreator")
+  comments               Comment[]
+  sharedMemoriesCreated  SharedMemory[]  @relation("SharedMemoryCreator")
+  sharedMemoriesEdited   SharedMemory[]  @relation("SharedMemoryEditor")
 }
 
 model Account {
@@ -196,14 +198,15 @@ model TokenTransaction {
 // ⚠️ Every room-scoped read MUST verify the requesting user has a
 // RoomMember row for that roomId with consentAt != null.
 model SharedRoom {
-  id        String       @id @default(cuid())
-  name      String
-  ownerId   String
-  owner     User         @relation("SharedRoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  members   RoomMember[]
-  invites   RoomInvite[]
-  comments  Comment[]
-  createdAt DateTime     @default(now())
+  id             String         @id @default(cuid())
+  name           String
+  ownerId        String
+  owner          User           @relation("SharedRoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members        RoomMember[]
+  invites        RoomInvite[]
+  comments       Comment[]
+  sharedMemories SharedMemory[]
+  createdAt      DateTime       @default(now())
 
   @@index([ownerId])
 }
@@ -236,6 +239,33 @@ model RoomInvite {
   createdAt DateTime   @default(now())
 
   @@index([roomId])
+}
+
+// Phase 9.5 — co-authored memory belonging to a room.
+//
+// Unlike UserMemory (one author, room sees a copy), SharedMemory is
+// room-owned: any consented member may edit it, delete is reserved
+// for the original author or the room owner (enforced in 9.6's
+// helpers). lastEditedBy lets the UI surface who touched it most
+// recently without a separate audit table.
+// ⚠️ Every read MUST scope by roomId AND verify the requester is a
+// consented member of that room.
+model SharedMemory {
+  id             String     @id @default(cuid())
+  roomId         String
+  room           SharedRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  year           Int
+  month          Int?
+  title          String
+  content        String?
+  createdById    String
+  createdBy      User       @relation("SharedMemoryCreator", fields: [createdById], references: [id])
+  lastEditedById String?
+  lastEditedBy   User?      @relation("SharedMemoryEditor", fields: [lastEditedById], references: [id])
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([roomId, year])
 }
 
 // Phase 9.4 — comments on memories inside a room. targetType lets the
