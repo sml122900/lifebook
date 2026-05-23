@@ -5,6 +5,7 @@ import { EventCard } from "@/components/EventCard";
 import { prisma } from "@/lib/db";
 
 type EventRow = Awaited<ReturnType<typeof prisma.event.findMany>>[number];
+type MemoryRow = Awaited<ReturnType<typeof prisma.userMemory.findMany>>[number];
 
 function groupByYear(events: EventRow[]): Array<[number, EventRow[]]> {
   const map = new Map<number, EventRow[]>();
@@ -14,6 +15,16 @@ function groupByYear(events: EventRow[]): Array<[number, EventRow[]]> {
     map.set(e.year, list);
   }
   return Array.from(map.entries()).sort(([a], [b]) => a - b);
+}
+
+function indexMemoriesByYear(memories: MemoryRow[]): Map<number, MemoryRow[]> {
+  const map = new Map<number, MemoryRow[]>();
+  for (const m of memories) {
+    const list = map.get(m.year) ?? [];
+    list.push(m);
+    map.set(m.year, list);
+  }
+  return map;
 }
 
 export default async function TimelinePage() {
@@ -43,6 +54,17 @@ export default async function TimelinePage() {
     orderBy: [{ year: "asc" }, { month: "asc" }],
   });
   const years = groupByYear(events);
+
+  // ⚠️ UserMemory MUST stay scoped to the current user — solo content is
+  // private by Phase 3 design. Empty when the user has no memories yet
+  // (Phase 7 will introduce the create flow).
+  const memories = session?.user?.id
+    ? await prisma.userMemory.findMany({
+        where: { userId: session.user.id },
+        orderBy: [{ year: "asc" }, { month: "asc" }],
+      })
+    : [];
+  const memoriesByYear = indexMemoriesByYear(memories);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
@@ -102,7 +124,7 @@ export default async function TimelinePage() {
                 </ul>
               </section>
 
-              {/* 내 사건 트랙 (Phase 7에서 채워짐) */}
+              {/* 내 사건 트랙 (Phase 7에서 추억 입력 흐름이 들어옴) */}
               <section
                 aria-label={`${year}년 내 사건`}
                 className="border-l-4 border-amber-500 pl-4 md:pl-6"
@@ -110,14 +132,32 @@ export default async function TimelinePage() {
                 <h3 className="mb-3 text-base font-bold uppercase tracking-wide text-amber-800 md:hidden">
                   내 사건
                 </h3>
-                <div className="rounded-md border-2 border-dashed border-amber-300 bg-amber-50 p-5">
-                  <p className="text-zinc-800">
-                    이 시절, 당신은 어떤 일이 있었나요?
-                  </p>
-                  <p className="mt-1 text-zinc-700">
-                    곧 추억을 더할 수 있어요.
-                  </p>
-                </div>
+                {(memoriesByYear.get(year) ?? []).length > 0 ? (
+                  <ul className="space-y-4">
+                    {memoriesByYear.get(year)!.map((m) => (
+                      <li
+                        key={m.id}
+                        className="rounded-md border-2 border-amber-300 bg-amber-50 p-5"
+                      >
+                        <div className="text-lg font-semibold text-zinc-900">
+                          {m.title}
+                        </div>
+                        {m.content && (
+                          <p className="mt-2 text-zinc-800">{m.content}</p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="rounded-md border-2 border-dashed border-amber-300 bg-amber-50 p-5">
+                    <p className="text-zinc-800">
+                      이 시절, 당신은 어떤 일이 있었나요?
+                    </p>
+                    <p className="mt-1 text-zinc-700">
+                      곧 추억을 더할 수 있어요.
+                    </p>
+                  </div>
+                )}
               </section>
             </div>
           </li>
