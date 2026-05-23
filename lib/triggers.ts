@@ -21,6 +21,7 @@ export type TriggerCandidate = {
   id: string;
   year: number;
   title: string;
+  artist: string;
   description: string | null;
   region: string;
   sourceUrl: string | null;
@@ -29,6 +30,20 @@ export type TriggerCandidate = {
   bumpWeight: number; // [0, 1], peaks in late teens
   score: number; // (1 - distance) * bumpWeight
 };
+
+// Seed writer stored Event.description as "{artist} · {context}" so
+// we split it back out here for callers that need the artist on its own.
+function splitArtist(description: string | null): {
+  artist: string;
+  description: string | null;
+} {
+  if (!description) return { artist: "", description: null };
+  const [artist, ...rest] = description.split(" · ");
+  return {
+    artist: artist ?? "",
+    description: rest.length > 0 ? rest.join(" · ") : null,
+  };
+}
 
 export function buildUserMusicProfile(p: UserMusicProfile): string {
   const parts: string[] = [];
@@ -101,16 +116,20 @@ export async function getMusicTriggersForUser(
     limit,
   );
 
-  return rows.map((r) => ({
-    id: r.id,
-    year: r.year,
-    title: r.title,
-    description: r.description,
-    region: r.region,
-    sourceUrl: r.sourceUrl,
-    distance: r.distance,
-    ageAtYear: r.year - profile.birthYear,
-    bumpWeight: r.bump_weight,
-    score: r.score,
-  }));
+  return rows.map((r) => {
+    const { artist, description } = splitArtist(r.description);
+    return {
+      id: r.id,
+      year: r.year,
+      title: r.title,
+      artist,
+      description,
+      region: r.region,
+      sourceUrl: r.sourceUrl,
+      distance: r.distance,
+      ageAtYear: r.year - profile.birthYear,
+      bumpWeight: r.bump_weight,
+      score: r.score,
+    };
+  });
 }

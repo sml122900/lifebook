@@ -3,27 +3,22 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { EventCard } from "@/components/EventCard";
+import { TriggerCard } from "@/components/TriggerCard";
 import { prisma } from "@/lib/db";
+import {
+  getMusicTriggersForUser,
+  type TriggerCandidate,
+} from "@/lib/triggers";
 
 type EventRow = Awaited<ReturnType<typeof prisma.event.findMany>>[number];
 type MemoryRow = Awaited<ReturnType<typeof prisma.userMemory.findMany>>[number];
 
-function groupByYear(events: EventRow[]): Array<[number, EventRow[]]> {
-  const map = new Map<number, EventRow[]>();
-  for (const e of events) {
-    const list = map.get(e.year) ?? [];
-    list.push(e);
-    map.set(e.year, list);
-  }
-  return Array.from(map.entries()).sort(([a], [b]) => a - b);
-}
-
-function indexMemoriesByYear(memories: MemoryRow[]): Map<number, MemoryRow[]> {
-  const map = new Map<number, MemoryRow[]>();
-  for (const m of memories) {
-    const list = map.get(m.year) ?? [];
-    list.push(m);
-    map.set(m.year, list);
+function indexByYear<T extends { year: number }>(rows: T[]): Map<number, T[]> {
+  const map = new Map<number, T[]>();
+  for (const r of rows) {
+    const list = map.get(r.year) ?? [];
+    list.push(r);
+    map.set(r.year, list);
   }
   return map;
 }
@@ -54,7 +49,7 @@ export default async function TimelinePage() {
     },
     orderBy: [{ year: "asc" }, { month: "asc" }],
   });
-  const years = groupByYear(events);
+  const anchorsByYear = indexByYear(events);
 
   // ⚠️ UserMemory MUST stay scoped to the current user — solo content is
   // private by Phase 3 design. Empty when the user has no memories yet
@@ -65,7 +60,33 @@ export default async function TimelinePage() {
         orderBy: [{ year: "asc" }, { month: "asc" }],
       })
     : [];
-  const memoriesByYear = indexMemoriesByYear(memories);
+  const memoriesByYear = indexByYear(memories);
+
+  // Music triggers — only when we know the user's era. Profile fields
+  // default to empty arrays so a user who skipped onboarding still gets
+  // generation-based recommendations.
+  let triggers: TriggerCandidate[] = [];
+  if (birthYear && session?.user?.id) {
+    const profile = await prisma.lifeProfile.findUnique({
+      where: { userId: session.user.id },
+      select: { interests: true, favMusic: true },
+    });
+    triggers = await getMusicTriggersForUser(
+      {
+        birthYear,
+        interests: profile?.interests ?? [],
+        favMusic: profile?.favMusic ?? [],
+      },
+      15,
+    );
+  }
+  const triggersByYear = indexByYear(triggers);
+
+  // Render any year that has an anchor OR a suggested trigger.
+  const yearSet = new Set<number>();
+  for (const y of anchorsByYear.keys()) yearSet.add(y);
+  for (const y of triggersByYear.keys()) yearSet.add(y);
+  const sortedYears = Array.from(yearSet).sort((a, b) => a - b);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
@@ -75,7 +96,8 @@ export default async function TimelinePage() {
         </h1>
         <p className="mt-3 text-zinc-800">
           {birthYear ? `${birthYear}년생 기준 · ` : ""}
-          앵커 이벤트 {events.length}개
+          세상 사건 {events.length}개
+          {triggers.length > 0 && ` · 음악 추천 ${triggers.length}곡`}
         </p>
         {!birthYear && session?.user && (
           <div className="mt-5 rounded-md border-2 border-zinc-200 bg-zinc-50 p-5">
@@ -103,19 +125,23 @@ export default async function TimelinePage() {
       </div>
 
       <ol className="space-y-14">
-        {years.map(([year, rows]) => (
+        {sortedYears.map((year) => {
+          const anchors = anchorsByYear.get(year) ?? [];
+          const yearTriggers = triggersByYear.get(year) ?? [];
+          const ageAtYear = birthYear !== null ? year - birthYear : null;
+          return (
           <li key={year}>
             <h2 className="mb-5 flex items-baseline gap-3 text-4xl font-bold text-zinc-900 sm:text-5xl">
               <span>{year}</span>
-              {birthYear !== null && (
+              {ageAtYear !== null && ageAtYear >= 0 && (
                 <span className="text-xl font-medium text-zinc-600 sm:text-2xl">
-                  그때 {year - birthYear}살
+                  그때 {ageAtYear}살
                 </span>
               )}
             </h2>
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
-              {/* 세상 사건 트랙 */}
+              {/* 세상 사건 트랙 — 검증 앵커 + 음악 추천(질문형)을 함께 */}
               <section
                 aria-label={`${year}년 세상 사건`}
                 className="border-l-4 border-sky-500 pl-4 md:border-l-0 md:border-r-4 md:pl-0 md:pr-6"
@@ -124,7 +150,7 @@ export default async function TimelinePage() {
                   세상 사건
                 </h3>
                 <ul className="space-y-4">
-                  {rows.map((e) => (
+                  {anchors.map((e) => (
                     <li key={e.id}>
                       <EventCard
                         year={e.year}
@@ -132,6 +158,16 @@ export default async function TimelinePage() {
                         title={e.title}
                         description={e.description}
                         domain={e.domain}
+                      />
+                    </li>
+                  ))}
+                  {yearTriggers.map((t) => (
+                    <li key={t.id}>
+                      <TriggerCard
+                        title={t.title}
+                        artist={t.artist}
+                        year={t.year}
+                        ageAtYear={ageAtYear}
                       />
                     </li>
                   ))}
@@ -175,7 +211,8 @@ export default async function TimelinePage() {
               </section>
             </div>
           </li>
-        ))}
+          );
+        })}
       </ol>
     </main>
   );
