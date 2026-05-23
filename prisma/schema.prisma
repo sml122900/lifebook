@@ -30,6 +30,13 @@ enum AIMessageRole {
   assistant
 }
 
+enum TokenOrderStatus {
+  pending
+  paid
+  failed
+  canceled
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -60,6 +67,7 @@ model User {
   conversations     AIConversation[]
   wallet            TokenWallet?
   tokenTxs          TokenTransaction[]
+  tokenOrders       TokenOrder[]
 }
 
 model Account {
@@ -165,6 +173,29 @@ model TokenTransaction {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// Phase 8.5 — top-up order tracking. id doubles as the orderId we
+// send to Toss. Amount + tokens are recorded at PENDING create from
+// the server-side package definition, so the client can't bend either
+// later. paymentKey @unique means the same Toss payment cannot be
+// settled twice.
+model TokenOrder {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId   String
+  krw         Int
+  tokens      Int
+  status      TokenOrderStatus @default(pending)
+  paymentKey  String?          @unique
+  approvedAt  DateTime?
+  failedAt    DateTime?
+  failReason  String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([userId])
 }
 
 // Phase 7.5 — persisted memory conversation per (user, event). The

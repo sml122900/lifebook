@@ -5,16 +5,24 @@ import { auth } from "@/auth";
 import { TOPUP_PACKAGES } from "@/lib/tokens/policy";
 import { getBalance } from "@/lib/tokens/wallet";
 
-// /billing — placeholder for the Phase 8.5 top-up flow. For now it
-// shows the current balance and the package list so 8.4's
-// insufficient-balance card has somewhere meaningful to send users.
+import { TopupButton } from "./TopupButton";
+
+// /billing — token wallet + top-up entry. Client key is safe to embed
+// in markup (it's public by design); secret key never leaves the
+// server.
 
 export default async function BillingPage() {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
-  const balance = await getBalance(session.user.id);
+  const userId = session.user.id;
+  const balance = await getBalance(userId);
+
+  const clientKey = process.env.TOSS_CLIENT_KEY;
+  if (!clientKey) {
+    throw new Error("TOSS_CLIENT_KEY is not set");
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
@@ -45,19 +53,19 @@ export default async function BillingPage() {
                 {p.tokens}개 토큰 · {p.krw.toLocaleString()}원
               </p>
             </div>
-            <button
-              type="button"
-              disabled
-              className="rounded-md bg-zinc-300 px-6 py-4 text-lg font-semibold text-white"
-            >
-              곧 열림
-            </button>
+            <TopupButton
+              packageId={p.id}
+              label={p.label}
+              clientKey={clientKey}
+              customerKey={userId}
+            />
           </div>
         ))}
       </section>
 
       <p className="text-base text-zinc-600">
-        실제 결제 흐름은 다음 단계(8.5)에서 들어옵니다.
+        테스트 모드입니다. 실제 청구는 일어나지 않아요. 토스 테스트 카드로
+        결제해 보실 수 있습니다.
       </p>
     </main>
   );
