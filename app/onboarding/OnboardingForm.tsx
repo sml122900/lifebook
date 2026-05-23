@@ -3,32 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-// Phase 4.1 temporary inline questions. Phase 4.2 will move these into
-// lib/onboarding/questions.ts and expand the script.
-type Question =
-  | { id: string; kind: "year"; key: "birthYear"; prompt: string }
-  | {
-      id: string;
-      kind: "chips";
-      key: "interests";
-      prompt: string;
-      options: string[];
-      multi: true;
-    };
-
-const QUESTIONS: Question[] = [
-  { id: "q1", kind: "year", key: "birthYear", prompt: "태어난 연도를 알려주세요." },
-  {
-    id: "q2",
-    kind: "chips",
-    key: "interests",
-    prompt: "관심 있는 분야를 모두 골라주세요.",
-    options: ["영화", "드라마/예능", "음악", "게임", "스포츠", "시사/뉴스", "기술/IT"],
-    multi: true,
-  },
-];
+import { QUESTIONS, type Question } from "@/lib/onboarding/questions";
 
 type Answers = Record<string, unknown>;
+
+function isEmpty(v: unknown): boolean {
+  if (v === undefined || v === null) return true;
+  if (typeof v === "string") return v.trim() === "";
+  if (Array.isArray(v)) return v.length === 0;
+  return false;
+}
 
 export function OnboardingForm() {
   const router = useRouter();
@@ -42,7 +26,7 @@ export function OnboardingForm() {
 
   function commit(next: unknown) {
     const nextAnswers = { ...answers };
-    if (next !== undefined && next !== "" && !(Array.isArray(next) && next.length === 0)) {
+    if (!isEmpty(next)) {
       nextAnswers[current.key] = next;
     }
     if (isLast) {
@@ -65,34 +49,13 @@ export function OnboardingForm() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2">
-        <div className="flex justify-between text-base text-zinc-700">
-          <span>
-            {index + 1} / {QUESTIONS.length}
-          </span>
-          <span>{Math.round(progress)}%</span>
-        </div>
-        <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-200">
-          <div
-            className="h-full bg-zinc-900 transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
+      <ProgressBar index={index} total={QUESTIONS.length} progress={progress} />
 
       <section className="rounded-md border-2 border-zinc-200 bg-white p-6">
         <p className="text-xl font-semibold text-zinc-900">{current.prompt}</p>
+        <QuestionHint question={current} />
         <div className="mt-6">
-          {current.kind === "year" && (
-            <YearInput value={draft as number | undefined} onChange={setDraft} />
-          )}
-          {current.kind === "chips" && (
-            <ChipsInput
-              value={(draft as string[] | undefined) ?? []}
-              options={current.options}
-              onChange={setDraft}
-            />
-          )}
+          <QuestionInput question={current} value={draft} onChange={setDraft} />
         </div>
       </section>
 
@@ -114,6 +77,76 @@ export function OnboardingForm() {
       </div>
     </div>
   );
+}
+
+function ProgressBar({
+  index,
+  total,
+  progress,
+}: {
+  index: number;
+  total: number;
+  progress: number;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex justify-between text-base text-zinc-700">
+        <span>
+          {index + 1} / {total}
+        </span>
+        <span>{Math.round(progress)}%</span>
+      </div>
+      <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-200">
+        <div
+          className="h-full bg-zinc-900 transition-all"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function QuestionHint({ question }: { question: Question }) {
+  const hint = "hint" in question ? question.hint : undefined;
+  // nicknameHint is added in Phase 4.4 for third-party questions.
+  return (
+    <>
+      {hint && <p className="mt-2 text-base text-zinc-600">{hint}</p>}
+    </>
+  );
+}
+
+function QuestionInput({
+  question,
+  value,
+  onChange,
+}: {
+  question: Question;
+  value: unknown;
+  onChange: (v: unknown) => void;
+}) {
+  switch (question.kind) {
+    case "year":
+      return <YearInput value={value as number | undefined} onChange={onChange} />;
+    case "chips":
+      return (
+        <ChipsInput
+          value={(value as string[] | undefined) ?? []}
+          options={question.options}
+          onChange={onChange}
+        />
+      );
+    case "textlist":
+    case "tags":
+      return (
+        <TextListInput
+          value={(value as string[] | undefined) ?? []}
+          onChange={onChange}
+        />
+      );
+    case "text":
+      return <TextInput value={(value as string | undefined) ?? ""} onChange={onChange} />;
+  }
 }
 
 function YearInput({
@@ -178,5 +211,90 @@ function ChipsInput({
         );
       })}
     </div>
+  );
+}
+
+function TextListInput({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+
+  function add() {
+    const v = draft.trim();
+    if (!v) return;
+    onChange([...value, v]);
+    setDraft("");
+  }
+
+  function remove(i: number) {
+    onChange(value.filter((_, idx) => idx !== i));
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {value.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {value.map((v, i) => (
+            <li
+              key={i}
+              className="flex items-center justify-between rounded-md border-2 border-zinc-200 bg-zinc-50 px-4 py-3"
+            >
+              <span className="text-lg text-zinc-900">{v}</span>
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                aria-label={`${v} 삭제`}
+                className="text-base text-zinc-700 underline hover:text-zinc-900"
+              >
+                삭제
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+          placeholder="입력 후 Enter 또는 추가 버튼"
+          className="flex-1 rounded-md border-2 border-zinc-300 px-4 py-3 text-lg focus:border-zinc-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        />
+        <button
+          type="button"
+          onClick={add}
+          className="rounded-md border-2 border-zinc-300 px-5 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        >
+          추가
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TextInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      rows={3}
+      className="w-full rounded-md border-2 border-zinc-300 px-4 py-3 text-lg focus:border-zinc-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+    />
   );
 }
