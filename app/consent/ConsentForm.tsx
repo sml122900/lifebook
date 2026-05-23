@@ -50,6 +50,16 @@ export function ConsentForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+      {/*
+        Marketing-consent UI is intentionally NOT rendered here.
+        Earlier versions had a "(선택) 마케팅 정보 수신 동의" checkbox,
+        but saveConsent never persisted its value and there's no
+        marketingConsentAt column on User — showing a checkbox while
+        silently ignoring it would have been a 정보통신망법 problem.
+        When real marketing dispatch ships, add a marketingConsentAt
+        column, persist the value in saveConsent, and only THEN bring
+        the UI back.
+      */}
       <ul className="flex flex-col gap-6">
         {REQUIRED_ITEMS.map((item) => (
           <li
@@ -75,26 +85,6 @@ export function ConsentForm() {
             </label>
           </li>
         ))}
-
-        {/* 선택 항목 — 분리, 사전 체크 없음 */}
-        <li className="rounded-md border-2 border-dashed border-zinc-200 bg-zinc-50 p-5">
-          <label className="flex cursor-pointer items-start gap-4">
-            <input
-              type="checkbox"
-              name="marketing"
-              className="mt-1 h-6 w-6 accent-zinc-900"
-            />
-            <div>
-              <div className="text-lg font-semibold text-zinc-900">
-                (선택) 마케팅 정보 수신 동의
-              </div>
-              <p className="mt-2 text-zinc-800">
-                새로운 기능·이벤트 안내를 이메일로 받아볼 수 있습니다. 동의하지
-                않아도 서비스 이용에 제한이 없습니다.
-              </p>
-            </div>
-          </label>
-        </li>
       </ul>
 
       <button
