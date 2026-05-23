@@ -48,10 +48,22 @@ export async function chat(
   messages: ChatMessage[],
   opts: ChatOptions = {},
 ): Promise<ChatResult> {
-  // ⚠️ Phase 8 token-deduction hook lands here. Every paid AI call in
-  // the product must flow through this single function so the deduction
-  // (and any retry / backoff) only needs to be wired up once.
   const model = opts.model ?? DEFAULT_MODEL;
+
+  // ──────────────────────────────────────────────────────────────────
+  // PHASE 8 — TOKEN DEDUCTION HOOK
+  //
+  // Every paid AI call in the product must flow through this single
+  // function. Phase 8 wraps the call with:
+  //   1. pre-call: lookup user balance, refuse if insufficient
+  //   2. post-call: charge tokens (input + output)
+  //   3. on failure: refund / don't charge
+  //
+  // For now we just log so we can sanity-check usage in dev. The
+  // caller never sees the deduction directly — it's bookkeeping that
+  // belongs next to the API call.
+  // ──────────────────────────────────────────────────────────────────
+
   const res = await getClient().messages.create({
     model,
     max_tokens: opts.maxTokens ?? 1024,
@@ -59,6 +71,10 @@ export async function chat(
     system: opts.system,
     messages,
   });
+
+  console.log(
+    `[ai] model=${res.model} in=${res.usage.input_tokens} out=${res.usage.output_tokens} total=${res.usage.input_tokens + res.usage.output_tokens}`,
+  );
 
   // The SDK returns a content[] union; for our prompts we only ever ask
   // for plain text. Concatenate any text blocks defensively.
