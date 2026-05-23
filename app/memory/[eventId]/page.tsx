@@ -3,12 +3,11 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { generateGuidedQuestions } from "@/lib/memory-chat";
 
-// /memory/[eventId] — memory-capture entry point. Phase 7.2 just stands
-// up the page + permissions; 7.3 fills in the guided questions and 7.4
-// the answer-to-UserMemory persistence.
+// /memory/[eventId] — guided memory conversation.
 //
-// Access policy:
+// Access policy (Phase 7.2):
 //   - anchor events: open to any signed-in (consent-passed) user
 //   - trigger events: only if THIS user has TriggerResponse confirmed
 //     (dismissed / unanswered triggers should not be reachable here)
@@ -61,6 +60,17 @@ export default async function MemoryPage({ params }: PageProps) {
   const ageAtYear =
     user?.birthYear != null ? event.year - user.birthYear : null;
 
+  // RAG-guarded question generation — model only sees the verified
+  // event in front of it.
+  const questions = await generateGuidedQuestions({
+    title: event.title,
+    description: event.description,
+    year: event.year,
+    category: event.category,
+    domain: event.domain,
+    ageAtYear,
+  });
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
       <Link
@@ -84,12 +94,29 @@ export default async function MemoryPage({ params }: PageProps) {
         )}
       </header>
 
-      <section className="rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-6">
-        <p className="text-lg text-zinc-800">
-          이 기억에 대해 함께 이야기 나눠보아요.
+      <section className="rounded-md border-2 border-zinc-200 bg-white p-6">
+        <p className="text-lg font-semibold text-zinc-900">
+          어떤 게 떠오르세요?
         </p>
-        <p className="mt-2 text-base text-zinc-700">
-          잠시 후 AI가 따뜻한 질문을 준비합니다.
+        <p className="mt-1 text-base text-zinc-600">
+          아래 질문 중 하나를 골라 답해도 좋고, 떠오르는 대로 자유롭게 적어도
+          좋아요.
+        </p>
+        <ul className="mt-5 flex flex-col gap-3">
+          {questions.map((q, i) => (
+            <li
+              key={i}
+              className="rounded-md border-2 border-zinc-200 bg-zinc-50 px-4 py-3 text-lg text-zinc-800"
+            >
+              {q}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-6">
+        <p className="text-base text-zinc-700">
+          답변 입력은 다음 단계(7.4)에서 들어옵니다.
         </p>
       </section>
     </main>
