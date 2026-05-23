@@ -58,6 +58,8 @@ model User {
   memories          UserMemory[]
   triggerResponses  TriggerResponse[]
   conversations     AIConversation[]
+  wallet            TokenWallet?
+  tokenTxs          TokenTransaction[]
 }
 
 model Account {
@@ -135,6 +137,34 @@ model Event {
   conversations     AIConversation[]
 
   @@index([year])
+}
+
+// Phase 8.2 — paid token wallet. balance is a cached running total
+// that MUST equal SUM(tokenTxs.delta) for the same userId; every
+// mutation is done inside a $transaction that updates both rows
+// together. reconcileBalance() in lib/tokens/wallet.ts checks the
+// invariant on demand for audits.
+// ⚠️ Every read / write is userId-scoped. signup grant is idempotent
+// — wallet's @unique(userId) is the gate.
+model TokenWallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TokenTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delta     Int      // signed: +grant/topup/refund, -ai_charge
+  reason    String   // "signup_grant" | "ai_charge" | "topup" | "refund"
+  refId     String?  // payment id, AI message id, etc.
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 // Phase 7.5 — persisted memory conversation per (user, event). The
