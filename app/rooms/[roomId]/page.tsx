@@ -4,9 +4,35 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { getMembership } from "@/lib/rooms";
+import { getMembership, listRoomMemories } from "@/lib/rooms";
 
 import { createInviteAction } from "../actions";
+
+type RoomMemory = NonNullable<
+  Awaited<ReturnType<typeof listRoomMemories>>
+>[number];
+
+function groupMemoriesByYear(
+  rows: RoomMemory[],
+): Array<[number, RoomMemory[]]> {
+  const map = new Map<number, RoomMemory[]>();
+  for (const r of rows) {
+    const list = map.get(r.year) ?? [];
+    list.push(r);
+    map.set(r.year, list);
+  }
+  return Array.from(map.entries()).sort(([a], [b]) => a - b);
+}
+
+function authorLabel(
+  authorId: string,
+  authorName: string | null,
+  authorEmail: string | null,
+  viewerId: string,
+): string {
+  if (authorId === viewerId) return "나";
+  return authorName ?? authorEmail ?? "익명";
+}
 
 // /rooms/[roomId] — Phase 9.1 stub. 9.3 fills in the joined timeline
 // and 9.4 adds comments. For now we show membership + member list so
@@ -69,6 +95,12 @@ export default async function RoomDetailPage({ params }: PageProps) {
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? "http";
   const origin = `${proto}://${host}`;
+
+  // Joined personal-memory feed. listRoomMemories re-checks membership
+  // itself, so this can never leak data even if the upstream check above
+  // is bypassed somehow.
+  const memories = (await listRoomMemories(roomId, session.user.id)) ?? [];
+  const memoriesByYear = groupMemoriesByYear(memories);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
@@ -134,9 +166,78 @@ export default async function RoomDetailPage({ params }: PageProps) {
         )}
       </section>
 
+      <section className="flex flex-col gap-4">
+        <h2 className="text-2xl font-bold text-zinc-900">함께 보는 추억</h2>
+        <p className="text-base text-zinc-700">
+          이 룸 멤버들이 각자 남긴 추억이에요. 다른 분의 글은 여기서는
+          읽기만 할 수 있고, 수정은 작성자 본인이 자기 화면에서 합니다.
+        </p>
+        {memoriesByYear.length === 0 ? (
+          <div className="rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-6">
+            <p className="text-lg text-zinc-800">
+              아직 룸에서 함께 볼 추억이 없어요. 자신의 타임라인에서 추억을
+              남기면 이곳에 함께 모입니다.
+            </p>
+          </div>
+        ) : (
+          <ol className="flex flex-col gap-10">
+            {memoriesByYear.map(([year, rows]) => (
+              <li key={year}>
+                <h3 className="mb-4 text-3xl font-bold text-zinc-900">
+                  {year}
+                </h3>
+                <ul className="flex flex-col gap-4">
+                  {rows.map((m) => {
+                    const isSelf = m.userId === session.user!.id;
+                    return (
+                      <li
+                        key={m.id}
+                        className={
+                          "rounded-md border-2 p-5 " +
+                          (isSelf
+                            ? "border-amber-300 bg-amber-50"
+                            : "border-sky-300 bg-sky-50")
+                        }
+                      >
+                        <p
+                          className={
+                            "text-base font-bold uppercase tracking-wide " +
+                            (isSelf ? "text-amber-800" : "text-sky-800")
+                          }
+                        >
+                          {authorLabel(
+                            m.userId,
+                            m.user.name,
+                            m.user.email,
+                            session.user!.id,
+                          )}
+                          {m.month && (
+                            <span className="ml-2 text-zinc-700">
+                              · {String(m.month).padStart(2, "0")}월
+                            </span>
+                          )}
+                        </p>
+                        <p className="mt-2 text-xl font-semibold text-zinc-900">
+                          {m.title}
+                        </p>
+                        {m.content && (
+                          <p className="mt-2 whitespace-pre-wrap text-lg text-zinc-800">
+                            {m.content}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
       <section className="rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-6">
-        <p className="text-lg text-zinc-800">
-          이 룸의 공유 타임라인과 댓글은 다음 단계(9.3, 9.4)에서 들어옵니다.
+        <p className="text-base text-zinc-700">
+          댓글은 다음 단계(9.4)에서 들어옵니다.
         </p>
       </section>
     </main>

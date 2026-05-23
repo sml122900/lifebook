@@ -131,6 +131,45 @@ export async function joinViaInvite(
 }
 
 /**
+ * Aggregated personal memories for a room: every consented member's
+ * UserMemory rows, with the author surfaced for display.
+ *
+ * Scope safety:
+ *   - viewer must be a consented member (otherwise returns null)
+ *   - the WHERE clause restricts userId to members of THIS room only,
+ *     so a viewer in rooms A+B never sees data through this function
+ *     unless the author also belongs to the same room they're viewing
+ *   - dismissed / unanswered triggers aren't relevant here — this is
+ *     personal memories, not catalog rows
+ */
+export async function listRoomMemories(roomId: string, viewerUserId: string) {
+  const membership = await getMembership(viewerUserId, roomId);
+  if (!membership) return null;
+
+  const members = await prisma.roomMember.findMany({
+    where: { roomId, consentAt: { not: null } },
+    select: { userId: true },
+  });
+  const memberIds = members.map((m) => m.userId);
+  if (memberIds.length === 0) return [];
+
+  return prisma.userMemory.findMany({
+    where: { userId: { in: memberIds } },
+    select: {
+      id: true,
+      userId: true,
+      year: true,
+      month: true,
+      title: true,
+      content: true,
+      createdAt: true,
+      user: { select: { name: true, email: true } },
+    },
+    orderBy: [{ year: "asc" }, { month: "asc" }, { createdAt: "asc" }],
+  });
+}
+
+/**
  * Rooms the user has joined (consented to). Owner rows are included
  * because their consentAt is set at creation.
  */
