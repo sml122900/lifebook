@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { confirmTrigger, dismissTrigger } from "@/app/timeline/actions";
 
 // Question-form music trigger card. Sits next to anchor events on the
@@ -41,6 +43,12 @@ export function TriggerCard({
             <span className="ml-2 text-zinc-600">· 그때 {ageAtYear}살</span>
           )}
         </p>
+        <Link
+          href={`/memory/${id}`}
+          className="mt-5 inline-block rounded-md bg-emerald-700 px-5 py-3 text-base font-semibold text-white hover:bg-emerald-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
+        >
+          이 노래로 추억 남기기 →
+        </Link>
       </article>
     );
   }

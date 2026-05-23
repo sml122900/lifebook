@@ -36,7 +36,10 @@ function badgeLabel(domain: string) {
   return DOMAIN_LABEL[domain as Domain] ?? domain;
 }
 
+import Link from "next/link";
+
 export type EventCardProps = {
+  id: string;
   year: number;
   month: number | null;
   title: string;
@@ -45,15 +48,15 @@ export type EventCardProps = {
 };
 
 export function EventCard({
+  id,
   month,
   title,
   description,
   domain,
 }: EventCardProps) {
   return (
-    <button
-      type="button"
-      // Phase 7 will wire up the click-to-add-memory action.
+    <Link
+      href={`/memory/${id}`}
       className="group block min-h-[88px] w-full rounded-md border-2 border-sky-200 bg-white p-5 text-left transition-colors hover:border-sky-500 hover:bg-sky-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
     >
       <div className="flex items-center justify-between gap-2">
@@ -68,6 +71,9 @@ export function EventCard({
       </div>
       <div className="mt-2 text-xl font-semibold text-zinc-900">{title}</div>
       {description && <p className="mt-2 text-zinc-800">{description}</p>}
-    </button>
+      <p className="mt-3 text-base font-medium text-sky-700 group-hover:text-sky-900">
+        추억 남기기 →
+      </p>
+    </Link>
   );
 }

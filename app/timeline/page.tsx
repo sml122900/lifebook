@@ -154,6 +154,7 @@ export default async function TimelinePage() {
                   {anchors.map((e) => (
                     <li key={e.id}>
                       <EventCard
+                        id={e.id}
                         year={e.year}
                         month={e.month}
                         title={e.title}
