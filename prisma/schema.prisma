@@ -116,6 +116,8 @@ model Event {
   @@index([year])
 }
 
+// Memories default to private. Phase 9 will introduce shared visibility
+// ("family", etc.); every read path MUST scope by userId until then.
 model UserMemory {
   id         String   @id @default(cuid())
   userId     String
@@ -126,6 +128,7 @@ model UserMemory {
   month      Int?
   title      String
   content    String?
+  visibility String   @default("private")
   createdVia String   @default("manual")
   createdAt  DateTime @default(now())
 
