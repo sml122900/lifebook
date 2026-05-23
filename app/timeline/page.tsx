@@ -71,14 +71,18 @@ export default async function TimelinePage() {
 
   // Music triggers — only when we know the user's era. Profile fields
   // default to empty arrays so a user who skipped onboarding still gets
-  // generation-based recommendations.
+  // generation-based recommendations. If Voyage / pgvector errors out
+  // (network drop, key issue, rate limit), the helper returns
+  // failed=true with an empty triggers list — the page just shows a
+  // small banner and the rest of the timeline keeps rendering.
   let triggers: TriggerCandidate[] = [];
+  let triggersFailed = false;
   if (birthYear && session?.user?.id) {
     const profile = await prisma.lifeProfile.findUnique({
       where: { userId: session.user.id },
       select: { interests: true, favMusic: true },
     });
-    triggers = await getMusicTriggersForUser(
+    const result = await getMusicTriggersForUser(
       {
         birthYear,
         interests: profile?.interests ?? [],
@@ -87,6 +91,8 @@ export default async function TimelinePage() {
       session.user.id,
       15,
     );
+    triggers = result.triggers;
+    triggersFailed = result.failed;
   }
   const triggersByYear = indexByYear(triggers);
 
@@ -118,6 +124,14 @@ export default async function TimelinePage() {
             >
               출생연도 입력하기
             </Link>
+          </div>
+        )}
+        {triggersFailed && (
+          <div className="mt-5 rounded-md border-2 border-amber-200 bg-amber-50 p-4">
+            <p className="text-base text-zinc-800">
+              음악 추천을 지금은 가져올 수 없어요. 잠시 후 새로고침 해주세요.
+              나머지 기능은 평소처럼 사용하실 수 있어요.
+            </p>
           </div>
         )}
       </header>
