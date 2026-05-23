@@ -117,10 +117,16 @@ function ProgressBar({
 
 function QuestionHint({ question }: { question: Question }) {
   const hint = "hint" in question ? question.hint : undefined;
-  // nicknameHint is added in Phase 4.4 for third-party questions.
+  const nicknameHint =
+    "nicknameHint" in question ? question.nicknameHint : false;
   return (
     <>
       {hint && <p className="mt-2 text-base text-zinc-600">{hint}</p>}
+      {nicknameHint && (
+        <p className="mt-2 text-base text-zinc-600">
+          실명 대신 별명이나 이니셜로 적어도 좋아요.
+        </p>
+      )}
     </>
   );
 }
