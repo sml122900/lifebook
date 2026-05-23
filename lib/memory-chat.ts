@@ -109,7 +109,7 @@ export async function summarizeAnswer(
   }
 }
 
-async function generateGuidedQuestionsRaw(
+export async function generateGuidedQuestionsRaw(
   ctx: MemoryEventContext,
 ): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
   const res = await chat(
