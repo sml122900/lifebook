@@ -5,6 +5,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { generateGuidedQuestions } from "@/lib/memory-chat";
 
+import { AnswerForm } from "./AnswerForm";
+
 // /memory/[eventId] — guided memory conversation.
 //
 // Access policy (Phase 7.2):
@@ -114,11 +116,7 @@ export default async function MemoryPage({ params }: PageProps) {
         </ul>
       </section>
 
-      <section className="rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-6">
-        <p className="text-base text-zinc-700">
-          답변 입력은 다음 단계(7.4)에서 들어옵니다.
-        </p>
-      </section>
+      <AnswerForm eventId={event.id} />
     </main>
   );
 }

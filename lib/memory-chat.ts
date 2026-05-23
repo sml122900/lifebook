@@ -66,6 +66,48 @@ const FALLBACK_QUESTIONS = [
   "지금 돌아보면 그 시간을 어떻게 부르고 싶으세요?",
 ];
 
+const SUMMARIZE_SYSTEM_PROMPT = `당신은 사용자가 적은 추억 한 토막을 인생 연혁 카드의 짧은 제목으로 정리합니다.
+
+규칙:
+- 사용자가 직접 쓴 단어만 사용하세요. 사용자가 말하지 않은 사람·장소·감정·디테일을 새로 만들어내지 마세요.
+- 한 문장, 25자 이내. 따옴표·이모지·말줄임표 없이.
+- 사용자의 추억임이 드러나는 톤. 사건의 일반 설명이 아닌 개인 기억으로.
+
+출력: 제목 한 줄만. 다른 말은 일절 출력하지 마세요.`;
+
+function buildSummarizePrompt(
+  ctx: MemoryEventContext,
+  answer: string,
+): string {
+  return [
+    `사건/노래: ${ctx.title}${ctx.description ? ` (${ctx.description})` : ""}`,
+    `연도: ${ctx.year}년`,
+    "",
+    "사용자가 적은 추억:",
+    answer,
+  ].join("\n");
+}
+
+export async function summarizeAnswer(
+  ctx: MemoryEventContext,
+  answer: string,
+): Promise<string> {
+  const trimmed = answer.trim();
+  if (trimmed === "") return "추억";
+  try {
+    const res = await chat(
+      [{ role: "user", content: buildSummarizePrompt(ctx, trimmed) }],
+      { system: SUMMARIZE_SYSTEM_PROMPT, maxTokens: 64, temperature: 0.4 },
+    );
+    const title = res.text.replace(/^["'"\s]+|["'"\s]+$/g, "").trim();
+    if (!title) return ctx.title;
+    return title.length > 40 ? title.slice(0, 40) : title;
+  } catch (err) {
+    console.error("[memory-chat] summarize failed:", err);
+    return ctx.title;
+  }
+}
+
 export async function generateGuidedQuestions(
   ctx: MemoryEventContext,
 ): Promise<string[]> {
