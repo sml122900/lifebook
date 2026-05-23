@@ -36,6 +36,10 @@ model User {
   privacyConsentAt          DateTime?
   overseasTransferConsentAt DateTime?
 
+  // Phase 4.5: marks the user as done with onboarding (completed or
+  // fully skipped). Used to soft-route new users to /onboarding only once.
+  onboardingCompletedAt DateTime?
+
   createdAt DateTime @default(now())
 
   accounts Account[]

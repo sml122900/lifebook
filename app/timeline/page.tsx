@@ -1,3 +1,6 @@
+import { redirect } from "next/navigation";
+
+import { auth } from "@/auth";
 import { EventCard } from "@/components/EventCard";
 import { prisma } from "@/lib/db";
 
@@ -17,6 +20,19 @@ function groupByYear(events: EventRow[]): Array<[number, EventRow[]]> {
 }
 
 export default async function TimelinePage() {
+  // Soft onboarding gate: new users land on /onboarding first, but once
+  // they finish (or skip) it they come straight here from then on.
+  const session = await auth();
+  if (session?.user?.id) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { onboardingCompletedAt: true },
+    });
+    if (!user?.onboardingCompletedAt) {
+      redirect("/onboarding");
+    }
+  }
+
   const events = await prisma.event.findMany({
     where: { category: "anchor" },
     orderBy: [{ year: "asc" }, { month: "asc" }],

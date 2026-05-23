@@ -38,12 +38,15 @@ export async function saveOnboarding(answers: RawAnswers) {
 
   const birthYear = pickInt(answers, "birthYear");
 
-  if (birthYear !== undefined) {
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { birthYear },
-    });
-  }
+  // Always mark the user as done so we don't push them to /onboarding again,
+  // even if they skipped every question.
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: {
+      onboardingCompletedAt: new Date(),
+      ...(birthYear !== undefined ? { birthYear } : {}),
+    },
+  });
 
   // Collect only the LifeProfile fields the user actually filled in,
   // so a skipped step never overwrites a previous answer.
