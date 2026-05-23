@@ -1,14 +1,12 @@
 "use server";
 
-import { redirect } from "next/navigation";
-
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 
 export async function saveConsent(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) {
-    redirect("/login");
+    throw new Error("Unauthorized");
   }
 
   // Server-side enforcement of "no implicit consent": all three required
@@ -29,6 +27,4 @@ export async function saveConsent(formData: FormData) {
       termsConsentAt: now,
     },
   });
-
-  redirect("/timeline");
 }

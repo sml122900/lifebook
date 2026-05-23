@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { auth, signOut } from "@/auth";
+import { SessionProvider } from "@/app/components/SessionProvider";
 
 import "./globals.css";
 
@@ -20,6 +21,7 @@ export default async function RootLayout({
   return (
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-white text-black text-lg leading-relaxed">
+        <SessionProvider>
         <header className="flex items-center justify-between gap-4 border-b border-zinc-200 px-6 py-4">
           <Link
             href="/"
@@ -56,6 +58,7 @@ export default async function RootLayout({
           )}
         </header>
         {children}
+        </SessionProvider>
       </body>
     </html>
   );

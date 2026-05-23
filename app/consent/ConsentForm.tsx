@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 import { saveConsent } from "./actions";
 
@@ -30,11 +32,24 @@ const REQUIRED_ITEMS = [
 
 export function ConsentForm() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const { update } = useSession();
+  const router = useRouter();
 
   const canSubmit = REQUIRED_ITEMS.every((i) => checked[i.key]);
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSubmitting(true);
+    const formData = new FormData(e.currentTarget);
+    await saveConsent(formData);
+    // Force JWT refresh so proxy sees consentComplete=true on the next request.
+    await update();
+    router.push("/timeline");
+  }
+
   return (
-    <form action={saveConsent} className="flex flex-col gap-8">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-8">
       <ul className="flex flex-col gap-6">
         {REQUIRED_ITEMS.map((item) => (
           <li
@@ -84,10 +99,10 @@ export function ConsentForm() {
 
       <button
         type="submit"
-        disabled={!canSubmit}
+        disabled={!canSubmit || submitting}
         className="rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
       >
-        시작하기
+        {submitting ? "저장 중..." : "시작하기"}
       </button>
     </form>
   );
