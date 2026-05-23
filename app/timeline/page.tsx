@@ -4,9 +4,6 @@ import { auth } from "@/auth";
 import { EventCard } from "@/components/EventCard";
 import { prisma } from "@/lib/db";
 
-// Personalization (filter by birth year) lands in Phase 5.
-const DEMO_BIRTH_YEAR = 1990;
-
 type EventRow = Awaited<ReturnType<typeof prisma.event.findMany>>[number];
 
 function groupByYear(events: EventRow[]): Array<[number, EventRow[]]> {
@@ -23,14 +20,16 @@ export default async function TimelinePage() {
   // Soft onboarding gate: new users land on /onboarding first, but once
   // they finish (or skip) it they come straight here from then on.
   const session = await auth();
+  let birthYear: number | null = null;
   if (session?.user?.id) {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { onboardingCompletedAt: true },
+      select: { onboardingCompletedAt: true, birthYear: true },
     });
     if (!user?.onboardingCompletedAt) {
       redirect("/onboarding");
     }
+    birthYear = user.birthYear;
   }
 
   const events = await prisma.event.findMany({
@@ -46,7 +45,8 @@ export default async function TimelinePage() {
           타임라인
         </h1>
         <p className="mt-3 text-zinc-800">
-          데모: {DEMO_BIRTH_YEAR}년생 기준 · 앵커 이벤트 {events.length}개
+          {birthYear ? `${birthYear}년생 기준 · ` : ""}
+          앵커 이벤트 {events.length}개
         </p>
       </header>
 
