@@ -20,6 +20,11 @@ enum EventCategory {
   trigger
 }
 
+enum TriggerResponseStatus {
+  confirmed
+  dismissed
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -42,10 +47,11 @@ model User {
 
   createdAt DateTime @default(now())
 
-  accounts Account[]
-  sessions Session[]
-  profile  LifeProfile?
-  memories UserMemory[]
+  accounts          Account[]
+  sessions          Session[]
+  profile           LifeProfile?
+  memories          UserMemory[]
+  triggerResponses  TriggerResponse[]
 }
 
 model Account {
@@ -117,10 +123,29 @@ model Event {
   sourceName  String?
   sourceUrl   String?
   createdAt   DateTime                     @default(now())
-  embedding   Unsupported("vector(1024)")?
-  memories    UserMemory[]
+  embedding         Unsupported("vector(1024)")?
+  memories          UserMemory[]
+  triggerResponses  TriggerResponse[]
 
   @@index([year])
+}
+
+// Phase 6.8 — per-user response to a suggested trigger event.
+// confirmed = user keeps it on the timeline (Phase 7 will hang
+// memories off these), dismissed = hide from future suggestions.
+// ⚠️ Every read MUST scope by userId; never expose another user's row.
+model TriggerResponse {
+  id        String                @id @default(cuid())
+  userId    String
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  status    TriggerResponseStatus
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@unique([userId, eventId])
+  @@index([userId])
 }
 
 // Memories default to private. Phase 9 will introduce shared visibility

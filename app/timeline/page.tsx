@@ -77,6 +77,7 @@ export default async function TimelinePage() {
         interests: profile?.interests ?? [],
         favMusic: profile?.favMusic ?? [],
       },
+      session.user.id,
       15,
     );
   }
@@ -164,10 +165,12 @@ export default async function TimelinePage() {
                   {yearTriggers.map((t) => (
                     <li key={t.id}>
                       <TriggerCard
+                        id={t.id}
                         title={t.title}
                         artist={t.artist}
                         year={t.year}
                         ageAtYear={ageAtYear}
+                        status={t.status}
                       />
                     </li>
                   ))}

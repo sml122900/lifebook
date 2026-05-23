@@ -29,6 +29,10 @@ export type TriggerCandidate = {
   ageAtYear: number; // year - birthYear
   bumpWeight: number; // [0, 1], peaks in late teens
   score: number; // (1 - distance) * bumpWeight
+  // Phase 6.8: null = not responded yet. "dismissed" never reaches
+  // here — the SQL filter drops it. So "confirmed" is the only
+  // non-null value we expect.
+  status: "confirmed" | null;
 };
 
 // Seed writer stored Event.description as "{artist} · {context}" so
@@ -72,12 +76,17 @@ export function bumpWeight(ageAtYear: number): number {
 
 export async function getMusicTriggersForUser(
   profile: UserMusicProfile,
+  userId: string | null,
   limit = 10,
 ): Promise<TriggerCandidate[]> {
   const queryText = buildUserMusicProfile(profile);
   const queryVec = await embedOne(queryText, "query");
   const vecLiteral = `[${queryVec.join(",")}]`;
 
+  // LEFT JOIN to TriggerResponse so the SQL filter can drop dismissed
+  // suggestions and surface "confirmed" in one round trip. When userId
+  // is null the join condition never matches and tr.status is always
+  // NULL, so every candidate flows through with status=null.
   const rows = await prisma.$queryRawUnsafe<
     Array<{
       id: string;
@@ -89,31 +98,37 @@ export async function getMusicTriggersForUser(
       distance: number;
       bump_weight: number;
       score: number;
+      status: "confirmed" | "dismissed" | null;
     }>
   >(
-    `SELECT id, year, title, description, region, "sourceUrl",
-       (embedding <=> $1::vector(1024))::float AS distance,
+    `SELECT e.id, e.year, e.title, e.description, e.region, e."sourceUrl",
+       (e.embedding <=> $1::vector(1024))::float AS distance,
        CASE
-         WHEN year - $2 BETWEEN 13 AND 25 THEN 1.0
-         WHEN year - $2 BETWEEN 6 AND 35 THEN 0.7
+         WHEN e.year - $2 BETWEEN 13 AND 25 THEN 1.0
+         WHEN e.year - $2 BETWEEN 6 AND 35 THEN 0.7
          ELSE 0.4
        END AS bump_weight,
-       ((1.0 - (embedding <=> $1::vector(1024)))
+       ((1.0 - (e.embedding <=> $1::vector(1024)))
         * CASE
-            WHEN year - $2 BETWEEN 13 AND 25 THEN 1.0
-            WHEN year - $2 BETWEEN 6 AND 35 THEN 0.7
+            WHEN e.year - $2 BETWEEN 13 AND 25 THEN 1.0
+            WHEN e.year - $2 BETWEEN 6 AND 35 THEN 0.7
             ELSE 0.4
-          END)::float AS score
-     FROM "Event"
-     WHERE category = 'trigger'
-       AND domain = 'music'
-       AND embedding IS NOT NULL
-       AND year >= $2
+          END)::float AS score,
+       tr.status::text AS status
+     FROM "Event" e
+     LEFT JOIN "TriggerResponse" tr
+       ON tr."eventId" = e.id AND tr."userId" = $4
+     WHERE e.category = 'trigger'
+       AND e.domain = 'music'
+       AND e.embedding IS NOT NULL
+       AND e.year >= $2
+       AND (tr.status IS NULL OR tr.status <> 'dismissed')
      ORDER BY score DESC
      LIMIT $3`,
     vecLiteral,
     profile.birthYear,
     limit,
+    userId,
   );
 
   return rows.map((r) => {
@@ -130,6 +145,7 @@ export async function getMusicTriggersForUser(
       ageAtYear: r.year - profile.birthYear,
       bumpWeight: r.bump_weight,
       score: r.score,
+      status: r.status === "confirmed" ? "confirmed" : null,
     };
   });
 }

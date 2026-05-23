@@ -41,7 +41,7 @@ async function main() {
     console.log("─".repeat(78));
     console.log(label);
     console.log("─".repeat(78));
-    const results = await getMusicTriggersForUser(profile, 10);
+    const results = await getMusicTriggersForUser(profile, null, 10);
     console.log(
       "  rank  year  age   dist   bump   score  title — description",
     );
