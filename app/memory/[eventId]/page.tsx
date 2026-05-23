@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { generateGuidedQuestions } from "@/lib/memory-chat";
+import { getOrCreateConversation } from "@/lib/memory-chat";
 
 import { AnswerForm } from "./AnswerForm";
 
@@ -62,9 +62,10 @@ export default async function MemoryPage({ params }: PageProps) {
   const ageAtYear =
     user?.birthYear != null ? event.year - user.birthYear : null;
 
-  // RAG-guarded question generation — model only sees the verified
-  // event in front of it.
-  const questions = await generateGuidedQuestions({
+  // Persisted per-(user, event) conversation: questions are generated
+  // once on first visit and reused on every reload, and we surface any
+  // answers the user already saved so they can pick up where they left.
+  const conversation = await getOrCreateConversation(userId, eventId, {
     title: event.title,
     description: event.description,
     year: event.year,
@@ -105,7 +106,7 @@ export default async function MemoryPage({ params }: PageProps) {
           좋아요.
         </p>
         <ul className="mt-5 flex flex-col gap-3">
-          {questions.map((q, i) => (
+          {conversation.questions.map((q, i) => (
             <li
               key={i}
               className="rounded-md border-2 border-zinc-200 bg-zinc-50 px-4 py-3 text-lg text-zinc-800"
@@ -116,7 +117,28 @@ export default async function MemoryPage({ params }: PageProps) {
         </ul>
       </section>
 
-      <AnswerForm eventId={event.id} />
+      {conversation.pastAnswers.length > 0 && (
+        <section className="rounded-md border-2 border-emerald-200 bg-emerald-50 p-6">
+          <p className="text-lg font-semibold text-emerald-900">
+            이전에 남긴 추억
+          </p>
+          <ul className="mt-3 flex flex-col gap-3">
+            {conversation.pastAnswers.map((a) => (
+              <li
+                key={a.id}
+                className="rounded-md border-2 border-emerald-200 bg-white px-4 py-3 text-zinc-800"
+              >
+                {a.content}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <AnswerForm
+        eventId={event.id}
+        conversationId={conversation.conversationId}
+      />
     </main>
   );
 }

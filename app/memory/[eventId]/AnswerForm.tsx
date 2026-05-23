@@ -4,7 +4,13 @@ import { useState } from "react";
 
 import { submitMemoryAnswer } from "./actions";
 
-export function AnswerForm({ eventId }: { eventId: string }) {
+export function AnswerForm({
+  eventId,
+  conversationId,
+}: {
+  eventId: string;
+  conversationId: string;
+}) {
   const [answer, setAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -21,6 +27,7 @@ export function AnswerForm({ eventId }: { eventId: string }) {
       className="flex flex-col gap-4"
     >
       <input type="hidden" name="eventId" value={eventId} />
+      <input type="hidden" name="conversationId" value={conversationId} />
       <label htmlFor="answer" className="text-lg font-semibold text-zinc-900">
         떠오르는 대로 적어주세요
       </label>

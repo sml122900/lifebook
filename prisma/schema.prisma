@@ -25,6 +25,11 @@ enum TriggerResponseStatus {
   dismissed
 }
 
+enum AIMessageRole {
+  user
+  assistant
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -52,6 +57,7 @@ model User {
   profile           LifeProfile?
   memories          UserMemory[]
   triggerResponses  TriggerResponse[]
+  conversations     AIConversation[]
 }
 
 model Account {
@@ -126,8 +132,42 @@ model Event {
   embedding         Unsupported("vector(1024)")?
   memories          UserMemory[]
   triggerResponses  TriggerResponse[]
+  conversations     AIConversation[]
 
   @@index([year])
+}
+
+// Phase 7.5 — persisted memory conversation per (user, event). The
+// first assistant message holds the AI-generated guided questions;
+// later messages alternate user answers and (optionally) follow-up
+// assistant replies. Reloading /memory/[eventId] reuses the same
+// conversation so the user sees the same questions.
+// ⚠️ All reads MUST scope by userId.
+model AIConversation {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  AIMessage[]
+
+  @@unique([userId, eventId])
+  @@index([userId])
+}
+
+model AIMessage {
+  id              String         @id @default(cuid())
+  conversationId  String
+  conversation    AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role            AIMessageRole
+  content         String
+  inputTokens     Int?
+  outputTokens    Int?
+  createdAt       DateTime       @default(now())
+
+  @@index([conversationId])
 }
 
 // Phase 6.8 — per-user response to a suggested trigger event.

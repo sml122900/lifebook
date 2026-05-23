@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { summarizeAnswer } from "@/lib/memory-chat";
+import { appendUserAnswer, summarizeAnswer } from "@/lib/memory-chat";
 
 // Phase 7.4 — persist a user's answer as a UserMemory row, tied to the
 // event that prompted it. AI is only used to write the short title;
@@ -20,14 +20,28 @@ export async function submitMemoryAnswer(formData: FormData) {
   const userId = session.user.id;
 
   const eventId = formData.get("eventId");
+  const conversationId = formData.get("conversationId");
   const answerRaw = formData.get("answer");
   if (typeof eventId !== "string" || eventId === "") {
     throw new Error("missing eventId");
+  }
+  if (typeof conversationId !== "string" || conversationId === "") {
+    throw new Error("missing conversationId");
   }
   if (typeof answerRaw !== "string" || answerRaw.trim() === "") {
     throw new Error("empty answer");
   }
   const answer = answerRaw.trim();
+
+  // Make sure the conversation actually belongs to this user — never
+  // append to someone else's row even if the hidden id is tampered with.
+  const conv = await prisma.aIConversation.findUnique({
+    where: { id: conversationId },
+    select: { userId: true, eventId: true },
+  });
+  if (!conv || conv.userId !== userId || conv.eventId !== eventId) {
+    throw new Error("conversation mismatch");
+  }
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
@@ -80,6 +94,10 @@ export async function submitMemoryAnswer(formData: FormData) {
       createdVia: "ai_chat",
     },
   });
+
+  // Persist the answer in the conversation history too so the next
+  // visit to /memory/[eventId] can show "이전에 남긴 추억".
+  await appendUserAnswer(conversationId, answer);
 
   revalidatePath("/timeline");
   redirect("/timeline");

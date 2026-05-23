@@ -6,6 +6,7 @@
 // fallback so the user always sees something.
 
 import { chat } from "./ai";
+import { prisma } from "./db";
 
 export type MemoryEventContext = {
   title: string;
@@ -108,19 +109,103 @@ export async function summarizeAnswer(
   }
 }
 
-export async function generateGuidedQuestions(
+async function generateGuidedQuestionsRaw(
   ctx: MemoryEventContext,
-): Promise<string[]> {
+): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+  const res = await chat(
+    [{ role: "user", content: buildUserPrompt(ctx) }],
+    { system: SYSTEM_PROMPT, maxTokens: 512, temperature: 0.8 },
+  );
+  return {
+    text: res.text,
+    inputTokens: res.inputTokens,
+    outputTokens: res.outputTokens,
+  };
+}
+
+export type ConversationState = {
+  conversationId: string;
+  questions: string[];
+  pastAnswers: Array<{ id: string; content: string; createdAt: Date }>;
+};
+
+// Returns the persisted conversation for (userId, eventId), creating
+// it (and its first assistant message of questions) on first visit so
+// reloads show the same prompts instead of regenerating every time.
+export async function getOrCreateConversation(
+  userId: string,
+  eventId: string,
+  ctx: MemoryEventContext,
+): Promise<ConversationState> {
+  const existing = await prisma.aIConversation.findUnique({
+    where: { userId_eventId: { userId, eventId } },
+    include: {
+      messages: { orderBy: { createdAt: "asc" } },
+    },
+  });
+
+  if (existing) {
+    const firstAssistant = existing.messages.find((m) => m.role === "assistant");
+    const questions = firstAssistant
+      ? parseQuestions(firstAssistant.content)
+      : [];
+    return {
+      conversationId: existing.id,
+      questions: questions.length > 0 ? questions.slice(0, 4) : FALLBACK_QUESTIONS,
+      pastAnswers: existing.messages
+        .filter((m) => m.role === "user")
+        .map((m) => ({ id: m.id, content: m.content, createdAt: m.createdAt })),
+    };
+  }
+
+  let questionText: string;
+  let inputTokens = 0;
+  let outputTokens = 0;
   try {
-    const res = await chat(
-      [{ role: "user", content: buildUserPrompt(ctx) }],
-      { system: SYSTEM_PROMPT, maxTokens: 512, temperature: 0.8 },
-    );
-    const qs = parseQuestions(res.text);
-    if (qs.length === 0) return FALLBACK_QUESTIONS;
-    return qs.slice(0, 4);
+    const raw = await generateGuidedQuestionsRaw(ctx);
+    questionText = raw.text;
+    inputTokens = raw.inputTokens;
+    outputTokens = raw.outputTokens;
   } catch (err) {
     console.error("[memory-chat] generation failed:", err);
-    return FALLBACK_QUESTIONS;
+    questionText = FALLBACK_QUESTIONS.map((q, i) => `${i + 1}. ${q}`).join("\n");
   }
+
+  const created = await prisma.aIConversation.create({
+    data: {
+      userId,
+      eventId,
+      messages: {
+        create: [
+          {
+            role: "assistant",
+            content: questionText,
+            inputTokens,
+            outputTokens,
+          },
+        ],
+      },
+    },
+    include: { messages: { orderBy: { createdAt: "asc" } } },
+  });
+
+  const parsed = parseQuestions(questionText);
+  return {
+    conversationId: created.id,
+    questions: parsed.length > 0 ? parsed.slice(0, 4) : FALLBACK_QUESTIONS,
+    pastAnswers: [],
+  };
+}
+
+export async function appendUserAnswer(
+  conversationId: string,
+  content: string,
+): Promise<void> {
+  await prisma.aIMessage.create({
+    data: { conversationId, role: "user", content },
+  });
+  await prisma.aIConversation.update({
+    where: { id: conversationId },
+    data: { updatedAt: new Date() },
+  });
 }
