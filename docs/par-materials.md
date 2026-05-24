@@ -59,3 +59,33 @@
 - **Problem**: 사용자가 "추억 남기기" 버튼 더블 클릭 또는 네트워크 retry로 같은 답변이 동시 두 번 처리되면 같은 cycle을 두 번 settle → 토큰 2배 차감 + 잔액 음수 가능. PostgreSQL 기본 격리 수준(READ COMMITTED)에서 SELECT 후 UPDATE 패턴으로는 race window 존재.
 - **Action**: 한 `$transaction` 안에서 두 raw SQL로 atomic 처리: (1) `UPDATE "AIMessage" SET chargedAt = NOW() WHERE chargedAt IS NULL RETURNING ...` — row-level lock + WHERE 재평가로 race winner 단일 결정, loser는 빈 RETURNING. (2) `UPDATE "TokenWallet" SET balance = balance - $1 WHERE balance >= $1 RETURNING balance` — 잔액 부족 시 빈 결과 → `InsufficientBalanceError` throw → transaction rollback으로 chargedAt 변경까지 모두 되돌림.
 - **Result**: 검증 스크립트 `db/test-charge-race.ts`로 `Promise.all([settle, settle])` 시 정확히 하나만 charged=true, 다른 하나는 no_usage 반환 + 잔액 30→29 한 번만 차감 + reconcile match=true 확인. 같은 패턴(조건부 UPDATE + RETURNING)을 향후 inventory / quota / 다른 ledger 도메인에서도 재사용 가능.
+
+## 핵심 UX 를 "타임머신" 모델로 피벗 — 한 세션에 6 phase 완성
+
+- **Problem**: 기존 출생연도 기반 타임라인(Phase 5)·음악 RAG(Phase 6) 은 1979→2025 큰 리스트 + 임베딩 유사도 기반 곡 추천 구조. 사용자가 "어느 달 이야기를 적어야 하지" 결정해야 하는 부담이 큼(시니어에겐 자유도가 곧 막막함) + 추천 관계가 흐림(왜 이 곡인지 불투명). 회상은 "특정 시간의 절단면"이 가장 강력한 단서라는 통찰로 핵심 UX 재설계 결정.
+- **Action**: "한 달씩 거꾸로 시간여행" 모델로 6 phase 분할 (T1 데이터 모델 / T2 시드 / T3 월 화면 / T4 음성→AI 다듬기 / T5 음악 카드 / T6 UserMemory 통합). 기간 노출 규칙(`start*12+startM ≤ targetY*12+targetM ≤ end*12+endM`)은 raw SQL 한 줄로. 사용자 입력은 한 달 = 한 묶음(남긴 사건 + 사건별 메모 + 월 회고)으로 모았다가 N+1 UserMemory 행으로 정규화 → 기존 가족 공유(Phase 9)·책 제작(Phase 10) 파이프라인이 코드 수정 0 으로 새 데이터를 흡수.
+- **Result**: T1→T6 + 자체 코드 검토 16건 + 시급 6건 픽스까지 한 세션에 마침. 검증 데이터 12개월 (사건 46건 + 음악 128건). 라운드트립 검증으로 alice 가 룸 멤버 bob 에게 자신의 타임머신 추억 + Phase 7 추억을 한 화면에 노출 확인. 기존 화면(Phase 5·6) 은 회귀 안전을 위해 유지하고 새 진입(`/timemachine`) 으로 사용자 트래픽을 점진 이전.
+
+## Tailwind v4 CSS 변수 swap 으로 다크모드 — 컴포넌트 0건 수정
+
+- **Problem**: 100+ 군데에 `bg-white`, `text-zinc-900`, `bg-rose-50` 같은 Tailwind 유틸이 산재. 표준 다크 패턴 `dark:` prefix 를 모두에 추가하면 회귀 위험 + 시간 소모 + 향후 디자인 변경 시 두 색 관리 부담. 시니어 친화 UX 라 다크모드는 부가 옵션이지만 필수.
+- **Action**: Tailwind v4 의 모든 색 유틸이 `var(--color-*)` CSS 변수를 참조하는 점을 이용 — `.dark` scope 에서 변수만 redefine. zinc/white/black 뿐 아니라 의미색 (rose/amber/emerald/sky/violet/blue) 도 50↔950, 100↔900 등 대칭 swap (안 그러면 `bg-rose-50` 카드 안 `text-zinc-900` 글자가 안 보이는 콘트라스트 실패). 토글은 쿠키 + 서버 렌더 `<html className="dark">` 로 깜빡임 0 + JS 없이 작동. Windows Chrome 의 `<input>` 흰 배경 문제는 `.dark input[type="..."] / textarea / select` 일괄 규칙으로 해결.
+- **Result**: 한 파일(`app/globals.css`) 만 수정해 전체 페이지 다크 일관 적용. 컴포넌트 파일 한 줄도 안 건드림 → 회귀 위험 0. 컴파일 산출물 `curl ...css | awk` 로 `.dark { --color-rose-50: #4d0218 }` 검증. 향후 브랜드 컬러 변경·시즌 테마 같은 디자인 시스템 진화도 같은 방식으로 0 churn 처리 가능.
+
+## 음성 → AI 다듬기 + 일회성 토큰 차감 with RAG 가드
+
+- **Problem**: 타임머신 회고 입력 텍스트가 받아쓰기 결과(어, 음, 그 같은 군더더기 + 비문)라 그대로 책에 들어가면 어색. AI 로 다듬되 사용자가 말하지 않은 사실을 만들어내면 "내 추억이 아닌 것" 이 됨. Phase 7 가이드 대화의 RAG 가드 원칙을 일회성 호출에도 적용 필요. + 결제 구조(Phase 8) 와 연동해 토큰 차감.
+- **Action**: 세 layer 로 분리 — (1) `lib/voice-cleanup.ts` RAG 가드 시스템 프롬프트 ("사용자가 말한 사실만 다듬으세요. 추가·해석·과장 금지") + 빈/동일 응답이면 in/out 토큰 0 반환(사용자가 변화 없이 토큰 잃는 일 방지), (2) `lib/tokens/charge.ts:chargeOneShot` 기존 `settleConversationCharges` 의 race-safe 패턴(조건부 wallet UPDATE) 을 conversation 우회로 적용, (3) `app/components/VoiceTextarea.tsx` 에 optional `onCleanup` prop 추가 → 같은 컴포넌트가 STT 만 / STT+AI 다듬기 두 모드 지원.
+- **Result**: 실제 messy 한국어 "어 그 8월에 우리 가족이 강원도 갔는데 뭐 그 비가 너무 많이 와서 집에만 있었어요" → "8월에 가족과 강원도에 갔는데 비가 많이 와서 집에만 있었어요." (1 토큰 차감, 군더더기 제거 + 사실 보존 + 추가 사실 없음 검증). 잘 정돈된 입력에는 AI 가 540 토큰 사용했지만 결과가 입력과 동일 → 차감 0 확인. 운영 측 Anthropic 비용 흡수 vs 사용자 신뢰 보호의 트레이드오프를 명시적으로 선택.
+
+## 시드 deterministic id 로 사용자 데이터 referential 안전성
+
+- **Problem**: 타임머신 사건 카탈로그(`MonthEvent`) 시드를 재실행할 때마다 `prisma.monthEvent.deleteMany({})` + `createMany({...})` 패턴이라 매번 새 cuid 부여. 사용자가 "남기기" 한 추억의 FK(`UserMemory.monthEventId`) 는 SetNull 되어 추억 자체는 살아남지만 어느 사건인지 끊김 → UI 에서 "남긴 것" 셋에 안 들어가 사라진 것처럼 보임.
+- **Action**: 시드 row 마다 자연키 해시(`SHA-256(section|year|month|title)` → 24자 prefix) 로 deterministic id 생성. per-row upsert(by id) 로 전환 → 시드 재실행해도 같은 사건은 같은 id 유지. DB 에 있지만 시드 밖인 orphan MonthEvent 는 자동 삭제하지 않고 카운트만 경고 출력(사용자 추억 보호 default). 시드 row 의 다른 필드(description/source) 수정은 upsert 가 update 로 반영.
+- **Result**: 검증 스크립트 `db/test-h1-h2-fixes.ts` 에서 실제 시드 재실행(`execSync("npx tsx db/seed-timemachine.ts")`) 후 사용자 데이터의 `keptEvent.monthEventId`/story/월 회고가 완전 일치(`JSON.stringify(loadedBefore) === JSON.stringify(loadedAfter)`) 확인. 시드 재실행이 사용자 경험을 깨지 않는 referential 안전성 확보. 카탈로그 시드와 사용자 데이터가 같은 FK 로 묶인 모든 도메인(상품 카탈로그 + 장바구니, 카테고리 + 게시글 등)에 재사용 가능한 패턴.
+
+## 자체 코드 검토 후 진단/픽스 분리 — 16건 진단 → 6건 픽스
+
+- **Problem**: 타임머신 6 phase 한 세션에 닫은 직후 코드 회귀 위험을 진단해야 하지만, 검토와 동시에 픽스를 진행하면 어디서 검토가 끝나고 어디서 픽스가 시작됐는지 불명확 + 사용자 우선순위 의견 반영 어려움.
+- **Action**: 사용자가 "지금은 진단만, 코드는 안 고침" 룰 명시. 6 관점(버그/엣지케이스, 기존 기능 회귀, 결제 안전성, 저작권, 일관성, 시니어 UX) 으로 13개 파일 순회 → 16건 발견 → 심각도(높음/중간/낮음) 분류 + 어디서/무엇이/제안 형식으로 보고. 사용자가 6건 골라 픽스 의뢰 → 그 6건만 정확히 픽스 + 라운드트립 회귀 테스트.
+- **Result**: 진단 단계가 의도적으로 빈손이라 사용자가 우선순위 결정에 집중 가능. 6건 픽스 후 기존 검증 스크립트 4개 모두 회귀 0 + 신규 검증 스크립트(`test-h1-h2-fixes.ts`) 14/14 통과. 미픽스 10건은 통합 테스트 후 다음 사이클로 명시 이연. 코드 검토 ↔ 수정의 인지 부담을 사용자와 분리하는 워크플로 정립.

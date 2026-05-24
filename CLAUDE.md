@@ -142,28 +142,53 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 
 각 phase는 `phase/phaseN.md`에 상세 태스크가 있다. 일일 작업 로그는 `docs/daily/`, 기술 결정·트러블슈팅은 `docs/decisions/`·`docs/troubleshooting/`.
 
-| Phase | 목표                                                 | 문서                | 상태    |
-| ----- | ---------------------------------------------------- | ------------------- | ------- |
-| 0     | 프로젝트 셋업 (Next.js + Postgres/pgvector + Prisma) | `phase/phase0.md`   | ✅ 완료 |
-| 1     | 데이터 모델 정의 + 앵커 이벤트 시드                  | `phase/phase1.md`   | ✅ 완료 |
-| 2     | 타임라인 정적 렌더 — **첫 보이는 화면**              | `phase/phase2.md`   | ✅ 완료 |
-| 3     | 인증 + 개인정보·국외이전 동의 게이트                 | `phase/phase3.md`   | ✅ 완료 |
-| 4     | 온보딩 (생애 정보 수집, 대화형)                      | `phase/phase4.md`   | ✅ 완료 |
-| 5     | 타임라인 개인화 (출생연도 기반)                      | `phase/phase5.md`   | ✅ 완료 |
-| 6     | 트리거 이벤트 + RAG (음악, Voyage)                   | `phase/phase6.md`   | ✅ 완료 |
-| 7     | AI 대화로 추억 채우기 (Claude + 음성)                | `phase/phase7.md`   | ✅ 완료 |
-| 8     | 토큰 결제 (토스 테스트) → **MVP 완성** (`mvp-v1`)    | `phase/phase8.md`   | ✅ 완료 |
-| 9     | 가족 공유 모드 — 룸/초대/공유 타임라인/공동 추억     | `phase/phase9.md`   | ✅ 완료 |
-| 9.5   | 음악 재생 (YouTube 검색 링크)                        | `phase/phase9.5.md` | ✅ 완료 |
-| 10    | 출력물 서비스 (PDF/포토북 배송)                      | (예정)              | ▶ 다음  |
-| 11    | 앱 출시 · 커뮤니티 기여 · 광고                       | (예정)              |         |
+| Phase    | 목표                                                       | 문서                                | 상태                              |
+| -------- | ---------------------------------------------------------- | ----------------------------------- | --------------------------------- |
+| 0        | 프로젝트 셋업 (Next.js + Postgres/pgvector + Prisma)       | `phase/phase0.md`                   | ✅ 완료                           |
+| 1        | 데이터 모델 정의 + 앵커 이벤트 시드                        | `phase/phase1.md`                   | ✅ 완료                           |
+| 2        | 타임라인 정적 렌더 — **첫 보이는 화면**                    | `phase/phase2.md`                   | ✅ 완료                           |
+| 3        | 인증 + 개인정보·국외이전 동의 게이트                       | `phase/phase3.md`                   | ✅ 완료                           |
+| 4        | 온보딩 (생애 정보 수집, 대화형)                            | `phase/phase4.md`                   | ✅ 완료                           |
+| 5        | 타임라인 개인화 (출생연도 기반)                            | `phase/phase5.md`                   | ✅ 완료 (타임머신으로 대체 예정) |
+| 6        | 트리거 이벤트 + RAG (음악, Voyage)                         | `phase/phase6.md`                   | ✅ 완료 (타임머신으로 대체 예정) |
+| 7        | AI 대화로 추억 채우기 (Claude + 음성)                      | `phase/phase7.md`                   | ✅ 완료                           |
+| 8        | 토큰 결제 (토스 테스트) → **MVP 완성** (`mvp-v1`)          | `phase/phase8.md`                   | ✅ 완료                           |
+| 9        | 가족 공유 모드 — 룸/초대/공유 타임라인/공동 추억           | `phase/phase9.md`                   | ✅ 완료                           |
+| 9.5      | 음악 재생 (YouTube 검색 링크)                              | `phase/phase9.5.md`                 | ✅ 완료                           |
+| **T1~T6** | **타임머신 핵심 UX — 한 달씩 거꾸로 시간여행** | `phase/타임머신_구현_기획_phase.md` | ✅ T1~T6 완료 (검증 12개월)       |
+| 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
+| 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
+
+**타임머신 phase 분할 (이번 세션에 T1~T6 완료)**:
+- T1 데이터 모델 (`MonthEvent` + `ChartSong` + 4 enum) + 기간 노출 SQL
+- T2 시드 (2025.6~2026.5 12개월 — 사건 46건 + 음악 128건). H1 픽스 후 deterministic id 로 시드 재실행 안전
+- T3 월 화면 (`/timemachine/[year]/[month]`) + EventItem 3-state + MonthStory + 양방향 네비
+- T4 음성→AI 다듬기 (`lib/voice-cleanup.ts` + `chargeOneShot`) — RAG 가드 + H2 픽스 후 빈/동일 응답 차감 0
+- T5 음악 카드 (이미지 0, `eraColor` palette, 유튜브 검색 링크)
+- T6 UserMemory 통합 (한 달 = N+1 행, 가족 공유 자동 연결)
 
 **최근 태그**:
 - `mvp-v1` — Phase 0~8 완료 직후 (MVP 닫힘)
 - `phase9-complete` — 공유 기능 + 음악 재생 완료
 - `review-pass-1` — 6개 lens 코드 검토 + 바구니 1(4건 즉시 수정) 완료
 
-**바구니 2 후보 (검토에서 발견, 후속 작업)**: leave room + 회원 탈퇴(PIPA 동의 철회권), SharedRoom owner 양도, submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용 또는 제거, `getMembership` 중복 호출 감소.
+**미픽스 후속 작업 (통합 테스트 후 처리)**
+
+타임머신 자체 검토 미픽스 10건 (`docs/daily/2026-05-25.md` 참조):
+- M1: 가족 룸에서 타임머신 음악 추억 "들어보기" 누락 (event=null 이라 도메인 모름)
+- M3: 음악 폴백 1-step 한계 (연속 결손 대응)
+- M4: chargeOneShot 후 DB 실패 시 wallet 복구
+- M5: MonthForm initialMap props 동기화 (다중 탭)
+- L1: 이모지(🎤·✨) 텍스트/SVG 대체
+- L3: 매직 스트링(`timemachine_event` 등) 상수화
+- L5: 폴백 호출 직렬 → Promise.all
+- L6: seed deleteMany/createMany 트랜잭션
+- L7: TimemachineMonth 정식 drop (T6 후 deprecated, 데이터 마이그레이션 검토 후)
+- L8: LATEST/EARLIEST 하드코드 → `new Date()` 기반
+
+이전 바구니 2 후보 (review-pass-1 에서 발견):
+- ✅ 회원 탈퇴 (PIPA 동의 철회권) — 이번 세션 완료
+- 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
 
 ---
 
@@ -173,8 +198,12 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 - [x] Phase 6에서 우선 연동할 트리거 분야 → **음악** (Voyage AI 임베딩, MusicBrainz 하이브리드 시드)
 - [x] 토큰 가격 정책 / 무료 제공량 → N=2,000 / 신규 30토큰 / 1,000원=100토큰 (`lib/tokens/policy.ts`)
 - [x] 국내 PG사 → **토스페이먼츠 (테스트 모드)**, 출시 시 prod 키만 교체
+- [x] 핵심 UX 모델 → **타임머신 (한 달씩 거꾸로 시간여행)** — 출생연도 타임라인·음악 RAG 대체 예정
+- [x] SharedRoom owner 양도 정책 → **최고참 consent 멤버에 자동 이전**, 없으면 cascade 삭제
+- [x] 결제 기록 보존 정책 → paid TokenOrder 는 userId SetNull 익명화 후 5년 보존 (전자상거래법)
+- [x] 다크모드 / 라이트모드 → CSS 변수 swap (의미색 50↔950 대칭) — 설정 페이지에서 토글
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
-- [ ] SharedRoom owner 양도 정책 (회원 탈퇴 시 룸 보존 vs cascade 삭제)
+- [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
 
 ---
 
