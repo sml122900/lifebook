@@ -15,6 +15,7 @@ const REASON_LABEL: Record<string, string> = {
   ai_charge: "추억 정리",
   topup: "토큰 충전",
   refund: "환불",
+  voice_cleanup: "음성 다듬기",
 };
 
 function reasonLabel(reason: string): string {

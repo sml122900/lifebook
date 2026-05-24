@@ -79,6 +79,7 @@ model User {
   comments               Comment[]
   sharedMemoriesCreated  SharedMemory[]  @relation("SharedMemoryCreator")
   sharedMemoriesEdited   SharedMemory[]  @relation("SharedMemoryEditor")
+  timemachineMonths      TimemachineMonth[]
 }
 
 model Account {
@@ -120,7 +121,7 @@ model VerificationToken {
 model LifeProfile {
   id           String   @id @default(cuid())
   userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id])
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   interests    String[]
   schools      String[]
   residences   String[]
@@ -258,10 +259,12 @@ model SharedMemory {
   month          Int?
   title          String
   content        String?
-  createdById    String
-  createdBy      User       @relation("SharedMemoryCreator", fields: [createdById], references: [id])
+  // Nullable + SetNull: when an author withdraws, the room keeps the
+  // co-authored memory; UI surfaces "탈퇴한 사용자" for null author.
+  createdById    String?
+  createdBy      User?      @relation("SharedMemoryCreator", fields: [createdById], references: [id], onDelete: SetNull)
   lastEditedById String?
-  lastEditedBy   User?      @relation("SharedMemoryEditor", fields: [lastEditedById], references: [id])
+  lastEditedBy   User?      @relation("SharedMemoryEditor", fields: [lastEditedById], references: [id], onDelete: SetNull)
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
@@ -296,8 +299,11 @@ model Comment {
 // settled twice.
 model TokenOrder {
   id          String           @id @default(cuid())
-  userId      String
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Nullable + SetNull: paid orders are retained for commerce-law
+  // audit (5y); on withdrawal, userId is anonymized to null and the
+  // record stays. Pending/failed/canceled are deleted in the action.
+  userId      String?
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   packageId   String
   krw         Int
   tokens      Int
@@ -369,12 +375,25 @@ model TriggerResponse {
 
 // Memories default to private. Phase 9 will introduce shared visibility
 // ("family", etc.); every read path MUST scope by userId until then.
+//
+// createdVia 값:
+//   - "manual"            : Phase 7 이전 수동 입력
+//   - "ai_chat"           : Phase 7 가이드 대화로 저장
+//   - "timemachine_event" : Phase T6 — 타임머신에서 "남기기" 누른 사건 메모
+//                           (monthEventId 가 채워짐, title 은 MonthEvent.title 비정규화)
+//   - "timemachine_month" : Phase T6 — 타임머신 그 달 전체 회고
+//                           (monthEventId=null, title="YYYY년 M월 회고")
 model UserMemory {
   id         String   @id @default(cuid())
   userId     String
-  user       User     @relation(fields: [userId], references: [id])
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   eventId    String?
   event      Event?   @relation(fields: [eventId], references: [id])
+  // T6 — 타임머신 사건 메모는 MonthEvent 를 가리킴. SetNull 이라 시드
+  // 재실행으로 MonthEvent 가 갈려도 사용자 추억 행은 살아남고 title 만
+  // 비정규화로 유지된다.
+  monthEventId String?
+  monthEvent   MonthEvent? @relation(fields: [monthEventId], references: [id], onDelete: SetNull)
   year       Int
   month      Int?
   title      String
@@ -384,4 +403,94 @@ model UserMemory {
   createdAt  DateTime @default(now())
 
   @@index([userId])
+}
+
+// Phase T1 (타임머신) — 월별 사건 + 차트 음악.
+//
+// 노출 규칙 (lib/timemachine.ts 의 getMonthScreen 참조):
+//   - 일반 항목 (isPeriod=false): year/month 정확히 일치하는 달에만 노출.
+//   - 기간 항목 (isPeriod=true): startYear*12+startMonth ≤ target*12+M
+//     ≤ endYear*12+endMonth 인 모든 달에 노출. 유행(TREND)·해외음악
+//     (INTERNATIONAL) 이 주로 기간 항목.
+//
+// 시드 데이터: phase/seed-timemachine.ts (Phase T2 에서 적재).
+// 사실(사건명·아티스트·순위)만 다룸 — 저작권 보호 콘텐츠(가사·이미지)
+// 는 절대 저장하지 않는다.
+
+enum EventSection {
+  POLITICS_SOCIETY
+  CULTURE
+  SPORTS
+  TREND
+}
+
+enum EventTag {
+  LIFESTYLE
+  YOUTH
+}
+
+enum Confidence {
+  VERIFIED
+  APPROX
+}
+
+enum SongOrigin {
+  DOMESTIC
+  INTERNATIONAL
+}
+
+model MonthEvent {
+  id          String       @id @default(cuid())
+  year        Int?
+  month       Int?
+  section     EventSection
+  tag         EventTag?
+  title       String
+  description String       @default("")
+  eventDate   String?
+  isPeriod    Boolean      @default(false)
+  startYear   Int?
+  startMonth  Int?
+  endYear     Int?
+  endMonth    Int?
+  confidence  Confidence   @default(APPROX)
+  source      String?
+  memories    UserMemory[]  // T6 — 사용자가 이 사건을 "남기기" 한 추억들
+}
+
+// @deprecated Phase T6 — 타임머신 저장이 UserMemory 로 이전됨 (한 달치
+// 가 여러 UserMemory row 로 정규화). 새 데이터는 이 테이블에 들어가지
+// 않는다. T3 보완 시점에 작성된 행이 남아있을 수 있어 모델은 유지하지만,
+// 사용자 검토 후 별도 cleanup phase 에서 drop 예정.
+model TimemachineMonth {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  year        Int
+  month       Int
+  monthStory  String   @default("")
+  keptEvents  Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, year, month])
+  @@index([userId])
+}
+
+model ChartSong {
+  id           String     @id @default(cuid())
+  origin       SongOrigin
+  rank         Int?
+  title        String
+  artist       String     @default("")
+  year         Int?
+  month        Int?
+  isPeriod     Boolean    @default(false)
+  startYear    Int?
+  startMonth   Int?
+  endYear      Int?
+  endMonth     Int?
+  youtubeQuery String     @default("")
+  eraColor     String     @default("2020s")
+  confidence   Confidence @default(APPROX)
 }

@@ -130,3 +130,51 @@ export async function settleConversationCharges(
     } as const;
   });
 }
+
+// Phase T4 — 일회성 AI 호출(예: 음성 다듬기) 후 차감.
+//
+// settleConversationCharges 가 대화 단위 합산을 위해 AIMessage 의
+// chargedAt 을 사용하는 반면, 일회성 호출은 한 번의 in/out 토큰만
+// 다루므로 conversation 우회. 락 패턴은 동일:
+//   - WHERE balance >= cost 조건부 UPDATE → race 시 잔액 음수 차단
+//   - 트랜잭션 내부에서 wallet 갱신 + ledger 기록 한 묶음
+//
+// reason 예: "voice_cleanup". refId 는 추적 보조 (생략 가능).
+export async function chargeOneShot(
+  userId: string,
+  inputTokens: number,
+  outputTokens: number,
+  reason: string,
+  refId?: string,
+): Promise<{ tokensSpent: number; balanceAfter: number; transactionId: string | null }> {
+  const cost = tokensFromUsage(inputTokens, outputTokens);
+
+  if (cost === 0) {
+    const w = await prisma.tokenWallet.findUnique({
+      where: { userId },
+      select: { balance: true },
+    });
+    return { tokensSpent: 0, balanceAfter: w?.balance ?? 0, transactionId: null };
+  }
+
+  return await prisma.$transaction(async (tx) => {
+    const walletUpdated = await tx.$queryRaw<WalletRow[]>`
+      UPDATE "TokenWallet"
+      SET balance = balance - ${cost}, "updatedAt" = NOW()
+      WHERE "userId" = ${userId} AND balance >= ${cost}
+      RETURNING balance
+    `;
+    if (walletUpdated.length === 0) {
+      throw new InsufficientBalanceError();
+    }
+    const transaction = await tx.tokenTransaction.create({
+      data: { userId, delta: -cost, reason, refId },
+      select: { id: true },
+    });
+    return {
+      tokensSpent: cost,
+      balanceAfter: walletUpdated[0].balance,
+      transactionId: transaction.id,
+    };
+  });
+}
