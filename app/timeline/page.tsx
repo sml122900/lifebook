@@ -100,7 +100,9 @@ export default async function TimelinePage() {
   const yearSet = new Set<number>();
   for (const y of anchorsByYear.keys()) yearSet.add(y);
   for (const y of triggersByYear.keys()) yearSet.add(y);
-  const sortedYears = Array.from(yearSet).sort((a, b) => a - b);
+  // 최근(올해)부터 태어난 해까지 역순. 사용자가 첫 화면에서 최근 시점을
+  // 먼저 보고 위로 거슬러 올라가는 게 회상에 더 자연스럽다.
+  const sortedYears = Array.from(yearSet).sort((a, b) => b - a);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">

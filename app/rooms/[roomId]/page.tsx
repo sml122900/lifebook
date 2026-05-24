@@ -100,7 +100,8 @@ export default async function RoomDetailPage({ params }: PageProps) {
   const yearSet = new Set<number>();
   for (const m of memories) yearSet.add(m.year);
   for (const s of sharedMemories) yearSet.add(s.year);
-  const sortedYears = Array.from(yearSet).sort((a, b) => a - b);
+  // 올해 → 과거 역순. 솔로 타임라인과 일관.
+  const sortedYears = Array.from(yearSet).sort((a, b) => b - a);
 
   const anchors: Anchor[] =
     sortedYears.length === 0
