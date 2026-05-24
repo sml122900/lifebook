@@ -3,6 +3,9 @@ import Link from "next/link";
 
 import { auth, signOut } from "@/auth";
 import { SessionProvider } from "@/app/components/SessionProvider";
+import { UserMenu } from "@/app/components/UserMenu";
+import { getTheme } from "@/app/components/theme-actions";
+import { getBalance } from "@/lib/tokens/wallet";
 
 import "./globals.css";
 
@@ -17,12 +20,17 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
+  const balance = session?.user?.id ? await getBalance(session.user.id) : null;
+  const theme = await getTheme();
 
   return (
-    <html lang="ko" className="h-full antialiased">
+    <html
+      lang="ko"
+      className={`h-full antialiased${theme === "dark" ? " dark" : ""}`}
+    >
       <body className="min-h-full flex flex-col bg-white text-black text-lg leading-relaxed">
         <SessionProvider>
-        <header className="flex items-center justify-between gap-4 border-b border-zinc-200 px-6 py-4">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-6 py-4">
           <Link
             href="/"
             className="text-2xl font-bold text-zinc-900 hover:text-zinc-700"
@@ -30,29 +38,32 @@ export default async function RootLayout({
             Lifebook
           </Link>
           {session?.user ? (
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/timemachine"
+                className="rounded-md border-2 border-violet-300 bg-violet-50 px-4 py-2 text-base font-semibold text-violet-900 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+              >
+                타임머신
+              </Link>
               <Link
                 href="/rooms"
                 className="hidden rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 sm:inline-block"
               >
                 가족 룸
               </Link>
-              <span className="hidden text-zinc-800 sm:inline">
-                {session.user.name ?? session.user.email}
-              </span>
-              <form
-                action={async () => {
+              <Link
+                href="/billing"
+                className="rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              >
+                토큰 {balance !== null ? `${balance.toLocaleString()}개` : ""}
+              </Link>
+              <UserMenu
+                label={session.user.name ?? session.user.email ?? "내 계정"}
+                logoutAction={async () => {
                   "use server";
                   await signOut({ redirectTo: "/" });
                 }}
-              >
-                <button
-                  type="submit"
-                  className="rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
-                >
-                  로그아웃
-                </button>
-              </form>
+              />
             </div>
           ) : (
             <Link
