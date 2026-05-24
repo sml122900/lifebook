@@ -13,8 +13,9 @@ type Props = {
     month: number | null;
     title: string;
     content: string | null;
-    createdById: string;
-    createdBy: { name: string | null; email: string | null };
+    // null = original author withdrew; UI shows "탈퇴한 사용자".
+    createdById: string | null;
+    createdBy: { name: string | null; email: string | null } | null;
     lastEditedById: string | null;
     lastEditedBy: { name: string | null; email: string | null } | null;
     updatedAt: Date;
@@ -23,12 +24,18 @@ type Props = {
   roomOwnerId: string;
 };
 
-function name(u: { name: string | null; email: string | null }, viewerId: string, authorId: string) {
+function name(
+  u: { name: string | null; email: string | null } | null,
+  viewerId: string,
+  authorId: string | null,
+) {
+  if (!u || !authorId) return "탈퇴한 사용자";
   if (authorId === viewerId) return "나";
   return u.name ?? u.email ?? "익명";
 }
 
 export function SharedMemoryCard({ memory, viewerId, roomOwnerId }: Props) {
+  // 작성자가 탈퇴한 경우 본인 삭제 권한이 사라지니 owner만 삭제 가능.
   const canDelete =
     memory.createdById === viewerId || roomOwnerId === viewerId;
   // Phase 9.6: every member can edit shared memories (room-owned).
