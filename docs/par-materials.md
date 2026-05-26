@@ -89,3 +89,27 @@
 - **Problem**: 타임머신 6 phase 한 세션에 닫은 직후 코드 회귀 위험을 진단해야 하지만, 검토와 동시에 픽스를 진행하면 어디서 검토가 끝나고 어디서 픽스가 시작됐는지 불명확 + 사용자 우선순위 의견 반영 어려움.
 - **Action**: 사용자가 "지금은 진단만, 코드는 안 고침" 룰 명시. 6 관점(버그/엣지케이스, 기존 기능 회귀, 결제 안전성, 저작권, 일관성, 시니어 UX) 으로 13개 파일 순회 → 16건 발견 → 심각도(높음/중간/낮음) 분류 + 어디서/무엇이/제안 형식으로 보고. 사용자가 6건 골라 픽스 의뢰 → 그 6건만 정확히 픽스 + 라운드트립 회귀 테스트.
 - **Result**: 진단 단계가 의도적으로 빈손이라 사용자가 우선순위 결정에 집중 가능. 6건 픽스 후 기존 검증 스크립트 4개 모두 회귀 0 + 신규 검증 스크립트(`test-h1-h2-fixes.ts`) 14/14 통과. 미픽스 10건은 통합 테스트 후 다음 사이클로 명시 이연. 코드 검토 ↔ 수정의 인지 부담을 사용자와 분리하는 워크플로 정립.
+
+## 위험도 기반 출처 분리 — DB(검증) vs Claude 웹 검색(보조)
+
+- **Problem**: 회상 서비스 AI 비서가 "그달 무슨 일이 있었나" / "그때 유행한 노래는" / "그때 인기 드라마는" 같이 성격이 다른 질문에 답해야 함. LLM 단독은 환각 위험(틀린 사건 = 신뢰 붕괴), 검증 DB 단독은 커버리지 부족(취향성은 못 덮음). 한 통로에 몰면 양쪽 단점 곱.
+- **Action**: 질문을 키워드로 MUSIC/BIG/TASTE 3분기 → MUSIC·BIG 은 시드 DB(MonthEvent/ChartSong) 우선 + 비어있을 때만 검색 폴백, TASTE 는 바로 검색. DB 답은 LLM 미경유 템플릿 조립으로 **비용 0 + 결정적 + 자신있는 톤**. 검색 답은 Claude `web_search_20250305` 도구 + 가드 시스템 프롬프트(가사·기사 복제 금지 / 단정 금지 "...였던 것 같아요" 톤 / 사용자 기억 대신 만들기 금지 RAG 가드 / 음악은 곡명·아티스트·순위만 이미지/임베드 ❌). API 응답에 raw events/songs 까지 함께 내려 UI 가 SongCard·"내 타임라인 추가" 버튼을 그대로 렌더.
+- **Result**: 4 검증 케이스 모두 통과 — (a) BIG/DB 차감 0 (b) MUSIC/DB 차감 0 + 카드 노출 (c) TASTE/web "것 같아요" 톤 + 출처 8건 + 9토큰 (d) BIG miss → web 폴백. 매칭 실패 시 default 를 TASTE(검색) 로 폴백해 "DB 에 없다고 오답" 보다 안전 선택. AI 분류기는 비용·지연 이유로 보류하고 단순 키워드 substring 으로 시작 — 정확성 보고 도입 결정.
+
+## `chargeOneShot.surcharge` 파라미터 — 새 비용 모델을 정책 함수 안 건드리고 표현
+
+- **Problem**: Claude 웹 검색은 토큰 외 도구 사용료($0.01/회) 가 따로 발생. 기존 토큰 정책(`tokensFromUsage(in,out) = ceil((in+out)/2000)`) 함수 안에 새 비용 모델을 우겨 넣으면 기존 호출부(voice_cleanup 등) 가 모두 영향받음 — 회귀 위험.
+- **Action**: 정책 함수 무수정. `chargeOneShot(...refId, surcharge: number = 0)` optional 파라미터 추가. cost = `tokensFromUsage(in,out) + surcharge`. surcharge 가 0 보다 크면 in/out 이 0 이어도 차감 발생(cost 분기 따로). 검색 호출부에서 `surcharge: 1` 만 지정하면 운영 비용 가산. 기존 호출부(`"voice_cleanup"` 등) 는 그대로 무영향.
+- **Result**: voice_cleanup 회귀 0 + 검색 답 9토큰 정확 차감 + ledger 에 `timemachine_assistant_web` reason 으로 음수 delta 기록. 신규 비용 모델(예: 향후 이미지 생성 가산, 음성 합성 가산) 도입 시 호출부 파라미터만 추가하면 됨 — 정책 함수는 토큰 단가 표현에만 집중.
+
+## 자연키 시드 변경 후 데이터 중복 안전 정리 — 추억 보호 우선 규칙
+
+- **Problem**: 타임머신 시드 정책을 cuid → deterministic sha256 자연키 해시로 변경(H1 픽스, 시드 재실행 referential 안전성). 도입 전 cuid 행 46개가 그대로 남아 deterministic 행 46개와 공존 → 같은 사건이 두 번 노출 (V1 비서 답에서 "한미 정상회담"이 두 번 출력 → 발견). 무작정 cuid 행 삭제는 위험 — 그 사이 사용자가 추억을 그 cuid 행에 연결했을 가능성.
+- **Action**: read-only 진단 스크립트(`db/diagnose-monthevent-dupes.ts`) 와 write 스크립트(`db/cleanup-monthevent-dupes.ts`) 를 분리. 진단은 (year, month, section, title) groupBy + 각 행의 추억 연결 카운트 + id 종류(deterministic 24-hex vs cuid) 표시. 정리는 트랜잭션 안에서 한 번 더 추억 연결 재확인 후 규칙 적용: (1) 추억 다행 분산 → skip + 경고 (2) 추억 1행에 있음 → 그 행 보존 (3) 추억 없음 → deterministic 보존, cuid 삭제 (4) 자동 판단 불가 → skip.
+- **Result**: 46 그룹 전부 케이스 3 → 추억 손실 0, 옛 cuid 46행만 삭제. 재진단 "중복 그룹 0개" + T6 통합 테스트(15체크) 회귀 0 + V1 비서 답 중복 사라짐 검증. 카탈로그 시드와 사용자 데이터가 FK 로 묶인 모든 도메인에 재사용 가능한 진단/정리 2단계 패턴.
+
+## 정보 push → pull UX 피벗 — 컴포넌트 재사용 5건 / 신규 2건
+
+- **Problem**: 타임머신 v1 (T3~T6) 은 그달 사건·음악을 다 펼쳐서 보여줬음. 실사용 통찰: **관심 없는 정보면 흥미가 식는다.** 정보를 시스템이 "차려주는" 방식의 한계. 빈 기억칸 + AI 비서로 전환하되 기존 자산은 살려야 (T4 음성·T5 음악 카드·T6 저장 구조).
+- **Action**: 좌(메인:기억칸 amber 카드)/우(조수:비서 violet 카드) 2단 grid 레이아웃, 모바일은 세로. 비서 패널은 추천 질문 칩 5개 + 자유 입력 + 답변 영역(본문 + 음악 카드 / 사건 "타임라인 추가" 버튼 / 출처 / 차감 안내). 재사용: `VoiceTextarea` `cleanupVoiceTextAction` `SongCard` `saveTimemachineMonthAction` 내비 가드. 보존(미사용): `MonthForm` `EventItem` `MonthStory` — 코드 유지하고 화면에서만 빠짐 (검증 전 v1 정식 drop 보류). 신규: `AssistantPanel.tsx` `MonthV2.tsx`. 비서 → keptEvent 흐름은 client state 만 추가하고 저장 server action 은 T6 그대로.
+- **Result**: 한 세션에 V1(백엔드) + V2(UI) 둘 다 닫음. `next build` 통과 / `tsc --noEmit` 0건 / 기존 T1~T6·Phase 7·8·9 회귀 0. 핵심 UX 모델 전환을 컴포넌트 무수정 + 백엔드 surcharge 1줄 추가로 끝내고, 사용자가 비서 답에서 사건을 골라 자기 타임라인에 담는 능동 흐름 확보.

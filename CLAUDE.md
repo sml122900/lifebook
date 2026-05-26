@@ -155,17 +155,22 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | 8        | 토큰 결제 (토스 테스트) → **MVP 완성** (`mvp-v1`)          | `phase/phase8.md`                   | ✅ 완료                           |
 | 9        | 가족 공유 모드 — 룸/초대/공유 타임라인/공동 추억           | `phase/phase9.md`                   | ✅ 완료                           |
 | 9.5      | 음악 재생 (YouTube 검색 링크)                              | `phase/phase9.5.md`                 | ✅ 완료                           |
-| **T1~T6** | **타임머신 핵심 UX — 한 달씩 거꾸로 시간여행** | `phase/타임머신_구현_기획_phase.md` | ✅ T1~T6 완료 (검증 12개월)       |
+| **T1~T6** | **타임머신 v1 — 한 달씩 거꾸로 시간여행 (사건 펼쳐보기)** | `phase/타임머신_구현_기획_phase.md` | ✅ 완료 (v2 로 전환, 코드 보존)       |
+| **V1~V2** | **타임머신 v2 — 빈 기억칸 + AI 비서 (정보 push→pull)** | `phase/타임머신_v2_AI비서_기획.md` | ✅ V1(백엔드)·V2(UI) 완료 |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
-**타임머신 phase 분할 (이번 세션에 T1~T6 완료)**:
+**타임머신 v1 (T1~T6)**:
 - T1 데이터 모델 (`MonthEvent` + `ChartSong` + 4 enum) + 기간 노출 SQL
 - T2 시드 (2025.6~2026.5 12개월 — 사건 46건 + 음악 128건). H1 픽스 후 deterministic id 로 시드 재실행 안전
 - T3 월 화면 (`/timemachine/[year]/[month]`) + EventItem 3-state + MonthStory + 양방향 네비
 - T4 음성→AI 다듬기 (`lib/voice-cleanup.ts` + `chargeOneShot`) — RAG 가드 + H2 픽스 후 빈/동일 응답 차감 0
 - T5 음악 카드 (이미지 0, `eraColor` palette, 유튜브 검색 링크)
 - T6 UserMemory 통합 (한 달 = N+1 행, 가족 공유 자동 연결)
+
+**타임머신 v2 (V1·V2)** — 정보 push→pull 피벗:
+- V1 비서 백엔드 (`lib/timemachine-assistant.ts` + `/api/timemachine/assistant`) — 위험도 기반 라우팅(BIG/MUSIC=DB 우선 무료, TASTE=웹 검색 차감), Claude `web_search_20250305` + 가드 프롬프트, `chargeOneShot.surcharge` 가산
+- V2 비서 UI (`AssistantPanel` + `MonthV2`) — 좌(기억칸=MonthStory 승격)/우(비서) 2단 + 칩 5개 + 출처 + "내 타임라인 추가". 기존 `EventItem`/`MonthForm` 코드 보존, 화면에서만 빠짐
 
 **최근 태그**:
 - `mvp-v1` — Phase 0~8 완료 직후 (MVP 닫힘)
@@ -174,7 +179,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 
 **미픽스 후속 작업 (통합 테스트 후 처리)**
 
-타임머신 자체 검토 미픽스 10건 (`docs/daily/2026-05-25.md` 참조):
+타임머신 v1 자체 검토 미픽스 (`docs/daily/2026-05-25.md` 참조):
 - M1: 가족 룸에서 타임머신 음악 추억 "들어보기" 누락 (event=null 이라 도메인 모름)
 - M3: 음악 폴백 1-step 한계 (연속 결손 대응)
 - M4: chargeOneShot 후 DB 실패 시 wallet 복구
@@ -186,8 +191,14 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 - L7: TimemachineMonth 정식 drop (T6 후 deprecated, 데이터 마이그레이션 검토 후)
 - L8: LATEST/EARLIEST 하드코드 → `new Date()` 기반
 
+v2 신규 후속 (`docs/daily/2026-05-27.md` 참조):
+- 검색 답 토큰 정책 재조정 — 실측 9토큰 (잠정 2~3 초과). V2 실사용 보고 결정
+- v1 사건 그리드(`EventItem`/`MonthForm`) 정식 drop (V2 검증 후)
+- `MonthEvent` `(section, year, month, title)` UNIQUE 제약 — 시드 정책 변경 잔재 재발 방지
+- 검색 답 캐싱 (시대 공통 질문 = 개인정보 0)
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
-- ✅ 회원 탈퇴 (PIPA 동의 철회권) — 이번 세션 완료
+- ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
 
 ---
@@ -202,8 +213,11 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 - [x] SharedRoom owner 양도 정책 → **최고참 consent 멤버에 자동 이전**, 없으면 cascade 삭제
 - [x] 결제 기록 보존 정책 → paid TokenOrder 는 userId SetNull 익명화 후 5년 보존 (전자상거래법)
 - [x] 다크모드 / 라이트모드 → CSS 변수 swap (의미색 50↔950 대칭) — 설정 페이지에서 토글
+- [x] 타임머신 v2 비서 출처 정책 → **DB 우선(BIG/MUSIC 무료) + 웹 검색 폴백/TASTE(차감 + 가드 + 출처)**
+- [x] 비서 검색 토큰 가산 → `chargeOneShot.surcharge` 파라미터로 표현 (정책 함수 무수정)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
+- [ ] 비서 검색 답 토큰 정책 재조정 (실측 ~9토큰, V2 실사용 보고)
 
 ---
 
