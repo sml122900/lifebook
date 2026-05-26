@@ -140,14 +140,18 @@ export async function settleConversationCharges(
 //   - 트랜잭션 내부에서 wallet 갱신 + ledger 기록 한 묶음
 //
 // reason 예: "voice_cleanup". refId 는 추적 보조 (생략 가능).
+// surcharge: AI 토큰 외 운영 비용 가산 (예: web_search 1회당 1토큰).
+//   cost = tokensFromUsage(in,out) + surcharge. surcharge 가 0 보다 크면
+//   in/out 이 0 이어도 차감이 발생한다.
 export async function chargeOneShot(
   userId: string,
   inputTokens: number,
   outputTokens: number,
   reason: string,
   refId?: string,
+  surcharge: number = 0,
 ): Promise<{ tokensSpent: number; balanceAfter: number; transactionId: string | null }> {
-  const cost = tokensFromUsage(inputTokens, outputTokens);
+  const cost = tokensFromUsage(inputTokens, outputTokens) + surcharge;
 
   if (cost === 0) {
     const w = await prisma.tokenWallet.findUnique({
