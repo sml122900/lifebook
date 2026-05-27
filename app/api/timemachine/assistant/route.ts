@@ -1,20 +1,69 @@
 // Phase V1 — 타임머신 AI 비서 API.
+// Phase V3 — body 에 prior[] 추가 (멀티턴 컨텍스트).
 //
-// POST body: { question: string, year: number, month: number }
-// 응답: { text, source, category, citations, tokensSpent, balanceAfter }
+// POST body: {
+//   question: string,
+//   year: number,
+//   month: number,
+//   prior?: Array<{ role: "user"|"assistant", text: string }>,
+// }
+// 응답: { text, source, category, citations, tokensSpent, balanceAfter,
+//         events, songs }
 //
 // 인증: 세션 필수 (userId 는 서버 세션에서만, 클라가 보낸 값 안 받음).
 // 잔액 부족: 402 + { error: "insufficient_balance" }.
 // 잘못된 입력: 400 + { error: "bad_request", message }.
 // 검색 도구 비활성/외부 호출 실패: 502 + { error: "upstream", message }.
-//
-// UI 는 V2 에서 만들 예정. 이 라우트는 백엔드 검증용으로도 사용 가능.
 
 import { auth } from "@/auth";
-import { askAssistant } from "@/lib/timemachine-assistant";
+import {
+  askAssistant,
+  DEFAULT_DEPTH,
+  type AssistantDepth,
+  type AssistantPriorTurn,
+} from "@/lib/timemachine-assistant";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
 
+const VALID_DEPTHS: readonly AssistantDepth[] = ["simple", "detailed", "precise"] as const;
+
+function parseDepth(raw: unknown): AssistantDepth {
+  if (raw === undefined || raw === null) return DEFAULT_DEPTH;
+  if (typeof raw !== "string") throw new Error("depth must be a string");
+  if (!(VALID_DEPTHS as readonly string[]).includes(raw)) {
+    throw new Error("depth must be one of: simple, detailed, precise");
+  }
+  return raw as AssistantDepth;
+}
+
 export const runtime = "nodejs";
+
+// 클라가 보낸 prior 의 모양·길이 가드.
+//   - 최대 16개 (백엔드 clampPrior 가 추가로 8개 자름. 여기선 명백한 폭주만 차단)
+//   - 각 텍스트는 그대로 두고 백엔드에서 자름.
+const MAX_PRIOR_ITEMS = 16;
+
+function parsePrior(raw: unknown): AssistantPriorTurn[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    throw new Error("prior must be an array");
+  }
+  if (raw.length > MAX_PRIOR_ITEMS) {
+    throw new Error("prior too long");
+  }
+  return raw.map((item, i) => {
+    if (typeof item !== "object" || item === null) {
+      throw new Error(`prior[${i}] not an object`);
+    }
+    const it = item as { role?: unknown; text?: unknown };
+    if (it.role !== "user" && it.role !== "assistant") {
+      throw new Error(`prior[${i}] invalid role`);
+    }
+    if (typeof it.text !== "string") {
+      throw new Error(`prior[${i}] text not a string`);
+    }
+    return { role: it.role, text: it.text };
+  });
+}
 
 export async function POST(req: Request): Promise<Response> {
   const session = await auth();
@@ -35,7 +84,13 @@ export async function POST(req: Request): Promise<Response> {
       { status: 400 },
     );
   }
-  const b = body as { question?: unknown; year?: unknown; month?: unknown };
+  const b = body as {
+    question?: unknown;
+    year?: unknown;
+    month?: unknown;
+    prior?: unknown;
+    depth?: unknown;
+  };
 
   if (typeof b.question !== "string" || b.question.trim() === "") {
     return Response.json(
@@ -55,8 +110,28 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
+  let prior: AssistantPriorTurn[];
+  let depth: AssistantDepth;
   try {
-    const result = await askAssistant(userId, b.question, b.year, b.month);
+    prior = parsePrior(b.prior);
+    depth = parseDepth(b.depth);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return Response.json(
+      { error: "bad_request", message },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const result = await askAssistant(
+      userId,
+      b.question,
+      b.year,
+      b.month,
+      prior,
+      depth,
+    );
     return Response.json(result);
   } catch (e) {
     if (e instanceof InsufficientBalanceError) {

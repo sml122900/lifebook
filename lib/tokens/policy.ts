@@ -52,3 +52,38 @@ export function tokensFromUsage(
   if (total <= 0) return 0;
   return Math.max(1, Math.ceil(total / AI_TOKENS_PER_SERVICE_TOKEN));
 }
+
+// V4 — 비서 "답의 깊이" 가 고를 수 있는 모델 단가.
+// 사용자에겐 절대 모델 이름 노출 X (라벨은 "간단히/자세히/가장 정확하게").
+// 여기 단가는 Anthropic 공시가(per million tokens, USD). 단가가 바뀌면
+// 이 표만 수정하면 됨.
+export type ModelTier = "haiku" | "sonnet" | "opus";
+
+export const MODEL_PRICING: Record<
+  ModelTier,
+  { input: number; output: number }
+> = {
+  haiku: { input: 1, output: 5 },
+  sonnet: { input: 3, output: 15 },
+  opus: { input: 5, output: 25 },
+};
+
+// Haiku in 단가 기준 multiplier. in/out 비율이 보통 in 압도 (검색 답
+// in≈17k, out≈360) 이므로 in 단가 비율 (1:3:5) 로 단순화. 출력 비중까지
+// 정확히 가중하려면 in*P_in + out*P_out 인데, 단순성/예측가능성 우선.
+// 사용자에게 미리 "약 N토큰" 표시할 때도 깔끔.
+export const MODEL_MULTIPLIER: Record<ModelTier, number> = {
+  haiku: 1,
+  sonnet: 3,
+  opus: 5,
+};
+
+// 모델별 토큰 비용. Haiku 는 기존 tokensFromUsage 결과 그대로 (현행 호환).
+// Sonnet/Opus 는 multiplier 배수.
+export function tokensFromUsageForModel(
+  model: ModelTier,
+  inputTokens: number,
+  outputTokens: number,
+): number {
+  return tokensFromUsage(inputTokens, outputTokens) * MODEL_MULTIPLIER[model];
+}

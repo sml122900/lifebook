@@ -14,6 +14,13 @@ import Anthropic from "@anthropic-ai/sdk";
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
+// V4 — Opus 4.7 (reasoning 모델) 은 temperature 파라미터를 거부한다
+// ("temperature is deprecated for this model"). 비서 "가장 정확하게"
+// 깊이가 Opus 를 호출할 때 이 가드가 필요. 모델 이름 prefix 로 판정.
+function supportsTemperature(model: string): boolean {
+  return !model.startsWith("claude-opus-4-7");
+}
+
 let client: Anthropic | null = null;
 function getClient(): Anthropic {
   if (client) return client;
@@ -67,7 +74,9 @@ export async function chat(
   const res = await getClient().messages.create({
     model,
     max_tokens: opts.maxTokens ?? 1024,
-    temperature: opts.temperature ?? 0.7,
+    ...(supportsTemperature(model)
+      ? { temperature: opts.temperature ?? 0.7 }
+      : {}),
     system: opts.system,
     messages,
   });
@@ -143,7 +152,9 @@ export async function chatWithWebSearch(
   const res = await getClient().messages.create({
     model,
     max_tokens: opts.maxTokens ?? 1024,
-    temperature: opts.temperature ?? 0.4,
+    ...(supportsTemperature(model)
+      ? { temperature: opts.temperature ?? 0.4 }
+      : {}),
     system: opts.system,
     messages,
     tools,

@@ -182,3 +182,39 @@ export async function chargeOneShot(
     };
   });
 }
+
+// V3 — 차감 환불.
+// 사용 케이스: 비서 컨텍스트 미스 차감 후 검색이 실패해 사용자가 답을
+// 못 받는 경우 (T2). 차감 자체는 ledger 에 남기고, 같은 refId 로 + 환불
+// 거래를 별도 기록 → 감사 가능 + race-safe.
+//
+// race-safe 보장:
+//   - balance + tokens 는 음수가 될 수 없으므로 동시 다른 차감과 무관.
+//   - wallet 갱신과 ledger 기록은 한 트랜잭션 안 → 원자적.
+//
+// reason 예: "timemachine_assistant_context_miss_refund". refId 는 원
+// 차감의 transactionId 를 권장 (감사 시 매칭 용이).
+export async function refundTokens(
+  userId: string,
+  tokens: number,
+  reason: string,
+  refId?: string,
+): Promise<void> {
+  if (tokens <= 0) return;
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.$queryRaw<WalletRow[]>`
+      UPDATE "TokenWallet"
+      SET balance = balance + ${tokens}, "updatedAt" = NOW()
+      WHERE "userId" = ${userId}
+      RETURNING balance
+    `;
+    if (updated.length === 0) {
+      // wallet 이 사라진 케이스 (사용자 탈퇴 race 등) — ledger 도 기록
+      // 안 함. throw 하면 호출부가 또 catch 해야 해 흐름 복잡 → 조용히 skip.
+      return;
+    }
+    await tx.tokenTransaction.create({
+      data: { userId, delta: tokens, reason, refId },
+    });
+  });
+}

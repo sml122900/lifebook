@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
 import { loadTimemachineMonth } from "@/lib/timemachine-memories";
 
+import type { InitialSavedAnswer } from "./AssistantPanel";
 import { MonthV2, type MonthV2Initial } from "./MonthV2";
 
 // Phase V2 — 타임머신 월 화면 (AI 비서 + 기억칸).
@@ -62,7 +64,11 @@ export default async function TimemachineMonthPage({ params }: PageProps) {
   // 저장된 keptEvents → title 까지 함께 가져와 화면에 칩으로 보여줌.
   // (이전 MonthForm 은 사건 그리드에서 title 을 얻었지만, 사건 그리드를
   // 빼면서 title 을 별도로 join 해야 함.)
-  const saved = await loadTimemachineMonth(userId, year, month);
+  // V3: 비서 저장 답변도 함께 로드. 두 호출은 독립이라 병렬.
+  const [saved, savedAnswers] = await Promise.all([
+    loadTimemachineMonth(userId, year, month),
+    listAssistantAnswers(userId, year, month),
+  ]);
   const savedEventTitles = saved.keptEvents.length
     ? await prisma.monthEvent.findMany({
         where: { id: { in: saved.keptEvents.map((k) => k.monthEventId) } },
@@ -81,6 +87,22 @@ export default async function TimemachineMonthPage({ params }: PageProps) {
     })),
   };
 
+  // RSC → Client serialization: Date 는 ISO string 으로 평탄화.
+  const initialSavedAnswers: InitialSavedAnswer[] = savedAnswers.map((s) => ({
+    id: s.id,
+    question: s.question,
+    createdAtIso: s.createdAt.toISOString(),
+    answer: {
+      text: s.answer.text,
+      source: s.answer.source,
+      category: s.answer.category,
+      citations: s.answer.citations,
+      songs: s.answer.songs,
+      events: s.answer.events,
+      depth: s.answer.depth,
+    },
+  }));
+
   const userName = session.user.name ?? session.user.email ?? "회원";
   const prev = prevMonth(year, month);
   const next = nextMonth(year, month);
@@ -98,7 +120,12 @@ export default async function TimemachineMonthPage({ params }: PageProps) {
         </p>
       </header>
 
-      <MonthV2 year={year} month={month} initial={initial} />
+      <MonthV2
+        year={year}
+        month={month}
+        initial={initial}
+        initialSavedAnswers={initialSavedAnswers}
+      />
 
       <nav className="flex flex-col gap-3 border-t-2 border-zinc-200 pt-8 sm:flex-row sm:items-center sm:justify-between">
         {!atEarliest ? (

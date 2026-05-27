@@ -7,6 +7,7 @@ import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { saveTimemachineMonthAction } from "./actions";
 import {
   AssistantPanel,
+  type InitialSavedAnswer,
   type KeptEventInput,
 } from "./AssistantPanel";
 import { cleanupVoiceTextAction } from "./cleanup-action";
@@ -35,10 +36,12 @@ export function MonthV2({
   year,
   month,
   initial,
+  initialSavedAnswers,
 }: {
   year: number;
   month: number;
   initial: MonthV2Initial;
+  initialSavedAnswers: InitialSavedAnswer[];
 }) {
   const [monthStory, setMonthStory] = useState(initial.monthStory);
   const [keptEvents, setKeptEvents] = useState<KeptEvent[]>(
@@ -149,6 +152,7 @@ export function MonthV2({
           month={month}
           keptEventIds={keptIdSet}
           onAddEvent={handleAddEvent}
+          initialSavedAnswers={initialSavedAnswers}
         />
       </div>
 
