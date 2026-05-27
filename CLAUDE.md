@@ -156,7 +156,8 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | 9        | 가족 공유 모드 — 룸/초대/공유 타임라인/공동 추억           | `phase/phase9.md`                   | ✅ 완료                           |
 | 9.5      | 음악 재생 (YouTube 검색 링크)                              | `phase/phase9.5.md`                 | ✅ 완료                           |
 | **T1~T6** | **타임머신 v1 — 한 달씩 거꾸로 시간여행 (사건 펼쳐보기)** | `phase/타임머신_구현_기획_phase.md` | ✅ 완료 (v2 로 전환, 코드 보존)       |
-| **V1~V2** | **타임머신 v2 — 빈 기억칸 + AI 비서 (정보 push→pull)** | `phase/타임머신_v2_AI비서_기획.md` | ✅ V1(백엔드)·V2(UI) 완료 |
+| **V1~V4** | **타임머신 v2 — 빈 기억칸 + AI 비서 + 답 깊이 선택** | `phase/타임머신_v2_AI비서_기획.md` | ✅ V1(백엔드)·V2(UI)·V3(멀티턴+저장)·V4(깊이) 완료 |
+| **A**     | **출석체크 + 사이드 패널 (동기부여 + 접근성)** | (5-28 일지)                        | ✅ 완료                           |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -168,9 +169,22 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 - T5 음악 카드 (이미지 0, `eraColor` palette, 유튜브 검색 링크)
 - T6 UserMemory 통합 (한 달 = N+1 행, 가족 공유 자동 연결)
 
-**타임머신 v2 (V1·V2)** — 정보 push→pull 피벗:
+**타임머신 v2 (V1~V4)** — 정보 push→pull 피벗:
 - V1 비서 백엔드 (`lib/timemachine-assistant.ts` + `/api/timemachine/assistant`) — 위험도 기반 라우팅(BIG/MUSIC=DB 우선 무료, TASTE=웹 검색 차감), Claude `web_search_20250305` + 가드 프롬프트, `chargeOneShot.surcharge` 가산
 - V2 비서 UI (`AssistantPanel` + `MonthV2`) — 좌(기억칸=MonthStory 승격)/우(비서) 2단 + 칩 5개 + 출처 + "내 타임라인 추가". 기존 `EventItem`/`MonthForm` 코드 보존, 화면에서만 빠짐
+- V3 멀티턴 대화 + 답변 저장 — `askAssistant(prior?)`, 컨텍스트 답 우선 (검색 없이 1토큰), `[SEARCH]` sentinel 폴백, `createdVia=timemachine_assistant` UserMemory 저장 + 탭 토글. `refundTokens` 헬퍼로 컨텍스트 미스 후 검색 실패 시 환불
+- V4 답의 깊이 3단 — "간단히/자세히/가장 정확하게" (Haiku/Sonnet/Opus, 모델 이름 노출 X). `MODEL_MULTIPLIER` (1/3/5) × `tokensFromUsage` + `WEB_SEARCH_SURCHARGE` 로 차등 차감. Haiku=multiplier 1 → 기존 회귀 0. Opus 4.7 `temperature` 거부는 `supportsTemperature` 가드. ledger reason 에 depth suffix.
+
+**출석 + 사이드 패널 (Phase A)** — 동기부여 + 접근성:
+- 출석체크 (`UserAttendance` 모델 + `processAttendance`) — 매일 5토큰 + 7배수 streak 마다 +30 보너스. `@@unique([userId, date])` + P2002 catch 로 race-safe. KST 처리는 `+9h.toISOString().slice(0,10)` (라이브러리 의존 0). 끊김 표현 0 (시니어 친화)
+- `AttendanceCard` 시각 — 동그라미 7개 진행도(✓ + 숫자), 보상 표, 보너스 예고 버튼. 사이드 패널 미니: 16px 작은 동그라미 + N/7
+- 사이드 패널 (`app/timemachine/layout.tsx` + `SidePanelLayout` client) — 프로필·잔액·충전·출석미니·메뉴(이번달/내기록/가족룸/회원정보/설정)·로그아웃. 데스크톱 fixed right `lg:pr-80`, 모바일 overlay + 햄버거. `localStorage` 상태 기억(첫 방문=열림). `/timemachine` 메인을 redirect→실제 콘텐츠로 변경
+
+**v2 UX 정비 (V3·V4 동반)**:
+- 채팅창 고정 높이 (`max-h-[60vh]`) + 자동 스크롤 + 12px 스크롤바
+- 입력 박스 → 패널 최하단 (일반 채팅방 패턴)
+- 칩에 source hint (보통 우리 자료 emerald / 인터넷 검색 zinc) + 답 카드 상단 source 배지 + 안내 어휘 일관화 ("우리 자료"/"인터넷 검색"/"이전 답에서")
+- 검색 system prompt 강화 — "검색 결과를 다루는 원칙" 4조항 (모르면 모른다고 / 출처 근거만 / 확실·불확실 구분 / 결과 빈약하면 인정)
 
 **최근 태그**:
 - `mvp-v1` — Phase 0~8 완료 직후 (MVP 닫힘)
@@ -197,6 +211,25 @@ v2 신규 후속 (`docs/daily/2026-05-27.md` 참조):
 - `MonthEvent` `(section, year, month, title)` UNIQUE 제약 — 시드 정책 변경 잔재 재발 방지
 - 검색 답 캐싱 (시대 공통 질문 = 개인정보 0)
 
+v2 V3·V4 자체 검토 미픽스 (`docs/daily/2026-05-28.md` 참조):
+- T1: [SEARCH] 폴백 시 이중 차감(컨텍스트 미스 + 검색)을 UI 에 명확히 (현재는 검색 차감만 표시)
+- B4: 후속 질문 category echo (현재는 키워드 재분류, 첫 답 category 이어가는 게 자연스러움)
+- B5: [SEARCH] sentinel 회피성 변형 후처리 ("검색이 필요해요" 등)
+- B6: 동일 답 중복 저장 차단 (DB UNIQUE 또는 idempotency key)
+- B7: 저장 버튼 빠른 더블클릭 옵티미스틱 가드
+- C1: 컨텍스트 답 외부 지식 누설 모니터링 (자동 검증 어려움, 사용자 보고 시 프롬프트 보강)
+- S2: prior text 길이 cap (API 레이어 — 현재 백엔드 clamp 만)
+- S4: 502 응답 message 노출 마스킹 (production 만)
+- K2~K5: 다크모드 보강, 에러 메시지 분기, BIG_KEYWORDS 중복 정리
+
+V4 신규 후속:
+- 검색 토큰 추정값 (10/30/50) 실측 보고 재조정. 특히 Opus 의 base * 5 가 실제 사용 패턴에 적절한지
+- depth 별 ledger reason 분리됨 — 운영 분석 대시보드 검토 (어느 depth 가 가장 사용?)
+
+Phase A (출석 + 사이드) 신규 후속:
+- 출석 streak ≥ 30 같은 milestone UX 분기 (지금은 7배수 보너스만)
+- LATEST_YEAR/MONTH 하드코드 (출석 사이드 패널 "이번 달" 링크) — L8 후속과 함께 `new Date()` 기반으로
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
@@ -215,9 +248,14 @@ v2 신규 후속 (`docs/daily/2026-05-27.md` 참조):
 - [x] 다크모드 / 라이트모드 → CSS 변수 swap (의미색 50↔950 대칭) — 설정 페이지에서 토글
 - [x] 타임머신 v2 비서 출처 정책 → **DB 우선(BIG/MUSIC 무료) + 웹 검색 폴백/TASTE(차감 + 가드 + 출처)**
 - [x] 비서 검색 토큰 가산 → `chargeOneShot.surcharge` 파라미터로 표현 (정책 함수 무수정)
+- [x] 비서 멀티턴 정책 → 후속은 컨텍스트 답 우선 (검색 없이 1토큰), `[SEARCH]` sentinel 폴백 시 DB 건너뛰고 검색 직행
+- [x] 비서 답 깊이 → 사용자 라벨 "간단히/자세히/가장 정확하게" (모델 이름 노출 X), surcharge 로 차이 흡수, Haiku 회귀 0
+- [x] 비서 저장 답 가족 공유 → **항상 공유 + 안내 표시** (visibility 토글 안 만듦)
+- [x] 출석 보상 정책 → 매일 5토큰 + 7배수 streak 마다 +30 (계속 누적, 끊기면 1 리셋)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
-- [ ] 비서 검색 답 토큰 정책 재조정 (실측 ~9토큰, V2 실사용 보고)
+- [ ] 비서 검색 답 토큰 정책 재조정 (V4 깊이별 실측 후 — Haiku 10 / Sonnet 43 / Opus 56)
+- [ ] 출석 streak 30/100일 같은 milestone UX (지금은 7배수만)
 
 ---
 

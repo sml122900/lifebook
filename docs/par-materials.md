@@ -113,3 +113,33 @@
 - **Problem**: 타임머신 v1 (T3~T6) 은 그달 사건·음악을 다 펼쳐서 보여줬음. 실사용 통찰: **관심 없는 정보면 흥미가 식는다.** 정보를 시스템이 "차려주는" 방식의 한계. 빈 기억칸 + AI 비서로 전환하되 기존 자산은 살려야 (T4 음성·T5 음악 카드·T6 저장 구조).
 - **Action**: 좌(메인:기억칸 amber 카드)/우(조수:비서 violet 카드) 2단 grid 레이아웃, 모바일은 세로. 비서 패널은 추천 질문 칩 5개 + 자유 입력 + 답변 영역(본문 + 음악 카드 / 사건 "타임라인 추가" 버튼 / 출처 / 차감 안내). 재사용: `VoiceTextarea` `cleanupVoiceTextAction` `SongCard` `saveTimemachineMonthAction` 내비 가드. 보존(미사용): `MonthForm` `EventItem` `MonthStory` — 코드 유지하고 화면에서만 빠짐 (검증 전 v1 정식 drop 보류). 신규: `AssistantPanel.tsx` `MonthV2.tsx`. 비서 → keptEvent 흐름은 client state 만 추가하고 저장 server action 은 T6 그대로.
 - **Result**: 한 세션에 V1(백엔드) + V2(UI) 둘 다 닫음. `next build` 통과 / `tsc --noEmit` 0건 / 기존 T1~T6·Phase 7·8·9 회귀 0. 핵심 UX 모델 전환을 컴포넌트 무수정 + 백엔드 surcharge 1줄 추가로 끝내고, 사용자가 비서 답에서 사건을 골라 자기 타임라인에 담는 능동 흐름 확보.
+
+## 멀티턴 컨텍스트 답 우선 라우팅 — 후속 질문은 이전 답 안에서
+
+- **Problem**: 비서가 한 화면에서 멀티턴 대화로 동작해야 하지만, 후속 질문("1번 자세히")마다 web 검색을 또 돌리면 토큰 폭증 + 느림. 일반 AI 채팅처럼 "이전 답 안에서 풀기" 가 default 여야 함.
+- **Action**: `askAssistant` 5번째 파라미터 `prior?: ChatTurn[]` 추가. prior 가 있으면 `chat()` 1회 호출 (검색 도구 X) — 시스템 프롬프트가 "이전 대화의 정보만 사용. 등장한 항목 풀어 설명 환영. 정말 새 사실 필요할 때만 정확히 `[SEARCH]` 한 단어만 출력". sentinel 감지 시 검색 폴백 (단 DB 분기는 건너뛰고 검색 직행 — 첫 답에 이미 DB 답을 줬으므로 중복 무의미). 길이 가드: 최근 8턴 + 각 600자 cap (`clampPrior`). 첫 메시지가 assistant 면 한 칸 더 잘라 user 부터 (Anthropic API 400 가드). 컨텍스트 차감 후 검색 실패/빈 답 시 `refundTokens()` 헬퍼로 환불 (race-safe — wallet `balance + n` 음수 불가).
+- **Result**: 후속 "1번 자세히" 가 검색 없이 1토큰 차감 (in≈790, out≈100). 답이 이전 답의 항목을 자연스럽게 풀어 설명. 검증 스크립트 v3 (`db/test-assistant-v3.ts`) 4시나리오 — 컨텍스트 답 / 저장-재조회 토큰 0 / T6 keptEvent 공존 / Phase 7 ai_chat 무영향 — 모두 통과. 멀티턴 대화 비용을 90% 가까이 절약 (10토큰 검색 vs 1토큰 컨텍스트).
+
+## 코드 자체 검토 7-카테고리 진단 → 6건 픽스 (사용자 선택 우선순위)
+
+- **Problem**: v2 비서 V1~V3 한 세션에 닫은 직후 또 코드 회귀 위험 진단 필요. 검토와 픽스를 동시에 하면 사용자 우선순위가 반영 안 됨 + 어디까지가 진단인지 불명.
+- **Action**: 사용자 "지금은 진단만" 룰. 7 관점(버그·엣지 / 토큰·결제 / 회귀 / 가드 / 프라이버시 / 보안 / 일관성) 으로 8개 파일 순회 → 16건 발견 (높음 2, 중간 11, 낮음 다수). 각 항목에 위치 + 무엇이/왜 + 제안 + 심각도 표시. 사용자가 6건 골라 픽스 의뢰 — B1(멀티턴 페어링) / B2(clampPrior) / B3(빈 답 차감) / T2(환불 — wallet `+n` race-safe 트랜잭션) / S1(citation URL scheme `new URL()` 가드) / P1(가족 공유 안내 문구). T2 는 환불 vs defer 두 방식 비교 후 환불 선택(차감을 검색 뒤로 미루면 두 차감 사이 잔액 race 가능 + ledger 분리 못 함).
+- **Result**: 6건 정확히 픽스 + 검증 3개 모두 회귀 0 (test-assistant 4케이스 + test-assistant-v3 4시나리오 + test-t6-integration 15체크). 미픽스 10건은 다음 사이클로 명시 이연. 검토 ↔ 수정 인지 부담을 사용자와 분리하는 워크플로 — 이번이 두 번째 적용 (v1 T6 검토에 이어).
+
+## 3단 모델 라우팅 — 사용자 라벨 어휘로 Haiku/Sonnet/Opus 흡수
+
+- **Problem**: 비서 검색 답이 가끔 환각 (인물 직책·연도 혼동). 더 비싼 모델로 가면 정확도 ↑ 비용 ↑. 사용자가 직접 선택 가능해야 하되 **모델 이름 절대 노출 금지** (시니어 타깃, "Haiku/Sonnet/Opus" 의미 불명). DB 답은 검증 데이터라 모델 무관 무료 유지. 기존 Haiku 호출부 회귀 0.
+- **Action**: 사용자 라벨 "간단히 / 자세히 / 가장 정확하게" → 백엔드 enum `simple|detailed|precise` → 모델 ID 매핑은 `DEPTH_TO_MODEL` 한 곳. 토큰 정책 `tokensFromUsage` 무수정 — Haiku 단가 calibration 유지. Sonnet/Opus 는 `chargeOneShot.surcharge` 로 차이 흡수: `surcharge = base * (MULTIPLIER[depth] - 1) + WEB_SEARCH_SURCHARGE`. Haiku 일 땐 multiplier=1 → surcharge=base*0+1=1 → 기존과 정확히 동일 (회귀 0). 단가 비율 단순화 (in 단가 1:3:5) — in 토큰이 압도적이라 출력 가중치 무시. ledger reason 에 depth suffix (`_simple`/`_detailed`/`_precise`) — 운영 분석 분리. UI 칩에 추정 토큰 미리 표시 ("약 10/30/50토큰"), 답 카드 배지 `[간단히 답]` — model 필드 응답 X.
+- **Result**: 4시나리오 검증 — (a) 3 깊이 ledger 분리 + 콘솔 model= 로그로 라우팅 확인 (b) simple=10/detailed=43/precise=56 비례 차감 (c) DB 답 3 깊이 모두 무료 (d) 컨텍스트도 1:5 비례. 도중 Opus 4.7 `temperature deprecated` 에러 → `supportsTemperature(model)` 가드를 `lib/ai.ts` 한 곳에 추가, 향후 reasoning 모델군 확장 시 prefix 만 추가하면 됨. 사용자 어휘와 백엔드 enum 분리 + multiplier=1 default 회귀 0 패턴은 새 차원 추가의 안전 표준.
+
+## 출석 streak 게임화 — 부드러운 동기부여 + race-safe DB 설계
+
+- **Problem**: 회상 서비스는 "한 번 둘러보고 끝" 위험. 매일 들르는 동기 필요. 시니어 타깃이라 **압박·비난 표현 0** 이 절대 원칙. 같은 날 두 번 눌러도 1회 적립 + 동시 요청에도 중복 없어야 함.
+- **Action**: `UserAttendance` 모델 (id, userId, date "YYYY-MM-DD" KST, streak, bonusToken, createdAt) + `@@unique([userId, date])` 가 race-safe 의 단일 결정자. `processAttendance(userId, now?)` 가 한 트랜잭션 안에서 (1) attendance.create — P2002 위반 catch 로 "이미 출석" 친화 분기 (2) wallet `balance + credit` (credit > 0 이라 조건부 UPDATE 불필요) (3) ledger 1~2건. 정책: 매일 5토큰 + 7의 배수 streak 마다 +30 보너스(계속 누적, 끊기면 1 리셋). KST 처리는 `kstDateString = new Date(d+9h).toISOString().slice(0,10)` — timezone 라이브러리 의존 0. 시각: 7개 동그라미 진행도 + 보상 표 + 보너스 예고 버튼 ("오늘 출석체크하기 (5토큰 + 보너스 30토큰!)"). 끊김 직후 streak=1 표시도 "오늘도 와주셨네요" 로 부정 톤 0.
+- **Result**: 검증 7시나리오 — 같은 날 중복 / 7일 연속 / 7일째 보너스 / 동시 Promise.all 2번 race / 거른 후 reset / 14일째 또 보너스 / 기존 chargeOneShot 무영향 — 모두 통과. 사용자 동기부여 + 시니어 친화 + 결제 시스템 무영향을 한 모델 + 한 헬퍼로 끝냄. DB unique 가 트랜잭션 잠금 설계보다 단순·강력하다는 표준 패턴 확인.
+
+## 사이드 패널 RSC + client wrapper 패턴 — open state · localStorage · main padding 토글
+
+- **Problem**: 타임머신 모든 화면에 프로필·잔액·출석·메뉴 사이드 패널 필요. 데스크톱 fixed + 모바일 overlay + 상태 기억(localStorage) + 메인 콘텐츠 폭 조정 — server data fetch 와 client state 가 섞임. layout 을 통째로 client 로 만들면 server fetch 못 함.
+- **Action**: 2층 구조. `layout.tsx` (RSC) 가 `auth()` + `getBalance()` + `getAttendanceStatus()` 병렬 fetch → `<SidePanelLayout data={...}>{children}</SidePanelLayout>` 으로 wrap. `SidePanelLayout` (client) 이 open state + localStorage + main wrapper 의 `lg:pr-80` 토글 + SidePanel 본체 렌더. 첫 방문 = 열림 (시니어가 "여기 내 정보" 인지) — localStorage 명시 "closed" 일 때만 닫힘. SSR=open / mount 후 보정 + `!transition-none` 으로 첫 paint 깜빡임 차단. 데스크톱: fixed right-0 w-80, open 시 main `lg:pr-80` 으로 우측 양보 / closed 시 main 풀폭. 모바일: 평소 hidden, `≡ 내 정보` 햄버거 → 슬라이드 인 + 백드롭. 두 모드를 같은 컴포넌트로 — `translate-x-full` 클래스만 토글. NextAuth v5 `signOut({ redirectTo: "/" })` server action 으로 로그아웃.
+- **Result**: 2 페이지 (`/timemachine` 메인 + `/timemachine/[year]/[month]`) 가 같은 layout 으로 사이드 자동 표시. children RSC 들은 무변경. 기존 wallet/auth/attendance 헬퍼 재사용으로 새 API 0. 데스크톱·모바일 다른 동작이지만 코드 분기 최소화 (단일 컴포넌트 + Tailwind responsive 클래스). 새 페이지를 `/timemachine/*` 하위에 추가하면 자동으로 사이드 패널 포함되어 확장도 쉬움.
