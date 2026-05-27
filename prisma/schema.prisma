@@ -80,6 +80,7 @@ model User {
   sharedMemoriesCreated  SharedMemory[]  @relation("SharedMemoryCreator")
   sharedMemoriesEdited   SharedMemory[]  @relation("SharedMemoryEditor")
   timemachineMonths      TimemachineMonth[]
+  attendances            UserAttendance[]
 }
 
 model Account {
@@ -475,6 +476,31 @@ model TimemachineMonth {
 
   @@unique([userId, year, month])
   @@index([userId])
+}
+
+// Phase A1 — 매일 출석체크. 하루 1행만 (날짜 unique). KST 기준 YYYY-MM-DD
+// 문자열로 date 저장 — 타임존 비교 헷갈림 차단 + 인덱싱 단순.
+//
+// 정책:
+//   - 매일 5토큰 (DAILY_CREDIT) — TokenTransaction reason="daily_attendance"
+//   - 7의 배수 streak 마다 +30토큰 (BONUS_CREDIT, BONUS_EVERY_DAYS=7)
+//     — reason="attendance_streak_bonus"
+//   - 하루라도 거르면 streak = 1 로 리셋.
+//   - 거른 날은 비난·압박 표현 X. 매일 기본 5토큰은 계속 받음.
+//
+// race-safe: @@unique([userId, date]) 가 단일 결정자. 동시 두 요청 →
+// 하나만 create 성공, 다른 하나는 P2002 → "이미 출석" 반환.
+model UserAttendance {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date       String   // KST "YYYY-MM-DD"
+  streak     Int      // 이 날 출석 후 연속 일수 (1 부터)
+  bonusToken Int      @default(0) // 이 날 받은 보너스 (0 또는 BONUS_CREDIT)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId, date])
 }
 
 model ChartSong {
