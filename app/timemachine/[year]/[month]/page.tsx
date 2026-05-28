@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
 import { loadTimemachineMonth } from "@/lib/timemachine-memories";
+import { getFilledMonthKeys, monthKey } from "@/lib/timemachine-progress";
 
 import type { InitialSavedAnswer } from "./AssistantPanel";
 import { MonthV2, type MonthV2Initial } from "./MonthV2";
@@ -28,6 +29,16 @@ function nextMonth(year: number, month: number) {
   return month === 12
     ? { year: year + 1, month: 1 }
     : { year, month: month + 1 };
+}
+
+// 동기부여 ① — 이미 채운 달에만 붙는 긍정 배지. 빈 달엔 아무 표시 안 함
+// (죄책감 유발 금지). amber 톤은 어두운/밝은 버튼 양쪽에서 읽힘.
+function FilledBadge() {
+  return (
+    <span className="rounded-full bg-amber-100 px-3 py-0.5 text-sm font-semibold text-amber-900">
+      기록 있음
+    </span>
+  );
 }
 
 // 검증 단계 시드 범위 (2025.6 ~ 2026.5). 시드가 확장되면 두 값 모두
@@ -64,10 +75,12 @@ export default async function TimemachineMonthPage({ params }: PageProps) {
   // 저장된 keptEvents → title 까지 함께 가져와 화면에 칩으로 보여줌.
   // (이전 MonthForm 은 사건 그리드에서 title 을 얻었지만, 사건 그리드를
   // 빼면서 title 을 별도로 join 해야 함.)
-  // V3: 비서 저장 답변도 함께 로드. 두 호출은 독립이라 병렬.
-  const [saved, savedAnswers] = await Promise.all([
+  // V3: 비서 저장 답변도 함께 로드. 세 호출은 독립이라 병렬.
+  // filledKeys: 이전/다음 달이 채운 달인지 배지로 표시 (동기부여 ①).
+  const [saved, savedAnswers, filledKeys] = await Promise.all([
     loadTimemachineMonth(userId, year, month),
     listAssistantAnswers(userId, year, month),
+    getFilledMonthKeys(userId),
   ]);
   const savedEventTitles = saved.keptEvents.length
     ? await prisma.monthEvent.findMany({
@@ -108,6 +121,8 @@ export default async function TimemachineMonthPage({ params }: PageProps) {
   const next = nextMonth(year, month);
   const atLatest = year * 12 + month >= LATEST_YEAR * 12 + LATEST_MONTH;
   const atEarliest = year * 12 + month <= EARLIEST_YEAR * 12 + EARLIEST_MONTH;
+  const prevFilled = filledKeys.has(monthKey(prev.year, prev.month));
+  const nextFilled = filledKeys.has(monthKey(next.year, next.month));
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-10">
@@ -132,9 +147,10 @@ export default async function TimemachineMonthPage({ params }: PageProps) {
           <Link
             href={`/timemachine/${prev.year}/${prev.month}`}
             prefetch
-            className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-zinc-900 px-8 py-4 text-xl font-bold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md bg-zinc-900 px-8 py-4 text-xl font-bold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
           >
-            ← {prev.year}년 {prev.month}월 보기
+            <span>← {prev.year}년 {prev.month}월 보기</span>
+            {prevFilled && <FilledBadge />}
           </Link>
         ) : (
           <p className="text-base text-zinc-600">
@@ -145,9 +161,10 @@ export default async function TimemachineMonthPage({ params }: PageProps) {
           <Link
             href={`/timemachine/${next.year}/${next.month}`}
             prefetch
-            className="inline-flex min-h-[72px] items-center justify-center rounded-md border-2 border-zinc-300 px-8 py-4 text-xl font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md border-2 border-zinc-300 px-8 py-4 text-xl font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
           >
-            {next.year}년 {next.month}월 보기 →
+            <span>{next.year}년 {next.month}월 보기 →</span>
+            {nextFilled && <FilledBadge />}
           </Link>
         )}
       </nav>
