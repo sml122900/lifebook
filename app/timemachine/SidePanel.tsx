@@ -36,6 +36,7 @@ export type SidePanelData = {
     todayChecked: boolean;
     streak: number;
   };
+  familyNewsCount: number;
   currentMonthHref: string;
 };
 
@@ -94,16 +95,29 @@ function SidePanel({
 }) {
   return (
     <>
-      {/* 햄버거 / "내 정보" 버튼 — 사이드 닫혀있을 때만, 모든 화면. */}
+      {/* 햄버거 / "내 정보" 버튼 — 사이드 닫혀있을 때만, 모든 화면.
+          새 가족 소식이 있으면 개수 뱃지 — 패널 안 열어도 눈에 띄게. */}
       {!open && (
         <button
           type="button"
           onClick={() => onToggle(true)}
-          aria-label="내 정보 패널 열기"
+          aria-label={
+            data.familyNewsCount > 0
+              ? `내 정보 패널 열기 (새 가족 소식 ${data.familyNewsCount}개)`
+              : "내 정보 패널 열기"
+          }
           className="fixed right-4 top-4 z-30 inline-flex min-h-[48px] items-center gap-2 rounded-md border-2 border-amber-500 bg-white px-4 py-2 text-base font-semibold text-amber-900 shadow-md hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
           <span aria-hidden>≡</span>
           내 정보
+          {data.familyNewsCount > 0 && (
+            <span
+              aria-hidden
+              className="inline-flex min-w-[24px] justify-center rounded-full bg-amber-700 px-2 text-sm font-bold text-white"
+            >
+              {data.familyNewsCount}
+            </span>
+          )}
         </button>
       )}
 
@@ -179,6 +193,21 @@ function SidePanel({
           토큰 충전하기
         </Link>
 
+        {/* 3.5 새 가족 소식 — 있을 때만 (0건이면 서운한 표현 없이 숨김) */}
+        {data.familyNewsCount > 0 && (
+          <Link
+            href="/timemachine"
+            className="mt-4 flex items-center justify-between rounded-md border-2 border-amber-400 bg-amber-50 px-4 py-3 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          >
+            <span className="text-base font-bold text-amber-900">
+              새 가족 소식
+            </span>
+            <span className="inline-flex min-w-[28px] justify-center rounded-full bg-amber-700 px-2 py-0.5 text-base font-bold text-white">
+              {data.familyNewsCount}
+            </span>
+          </Link>
+        )}
+
         {/* 4. 출석 현황 */}
         <AttendanceMini
           todayChecked={data.attendance.todayChecked}
@@ -194,9 +223,9 @@ function SidePanel({
             hint="가장 최근 달로"
           />
           <MenuItem
-            href="/timeline"
+            href="/timemachine"
             label="내 기록"
-            hint="지금까지 남긴 추억"
+            hint="지금까지 쌓인 이야기"
           />
           <MenuItem
             href="/rooms"

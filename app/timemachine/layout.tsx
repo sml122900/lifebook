@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { getAttendanceStatus } from "@/lib/attendance";
+import { getFamilyNewsCount } from "@/lib/family-news";
 import { getBalance } from "@/lib/tokens/wallet";
 
 import { SidePanelLayout, type SidePanelData } from "./SidePanel";
@@ -30,10 +31,11 @@ export default async function TimemachineLayout({
   }
   const userId = session.user.id;
 
-  // 두 fetch 독립 — 병렬.
-  const [balance, attendance] = await Promise.all([
+  // 세 fetch 독립 — 병렬.
+  const [balance, attendance, familyNews] = await Promise.all([
     getBalance(userId),
     getAttendanceStatus(userId),
+    getFamilyNewsCount(userId),
   ]);
 
   const data: SidePanelData = {
@@ -44,6 +46,7 @@ export default async function TimemachineLayout({
       todayChecked: attendance.todayChecked,
       streak: attendance.streak,
     },
+    familyNewsCount: familyNews.total,
     currentMonthHref: `/timemachine/${LATEST_YEAR}/${LATEST_MONTH}`,
   };
 

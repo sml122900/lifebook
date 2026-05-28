@@ -3,11 +3,15 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { getAttendanceStatus } from "@/lib/attendance";
+import { getFamilyNews } from "@/lib/family-news";
+import { getTimemachineProgress } from "@/lib/timemachine-progress";
 
 import {
   AttendanceCard,
   type AttendanceInitial,
 } from "./AttendanceCard";
+import { FamilyNewsCard } from "./FamilyNewsCard";
+import { ProgressCard } from "./ProgressCard";
 
 // Phase A — 타임머신 메인 = 출석체크 + "이번 달로 가기".
 // (이전엔 즉시 /timemachine/2026/5 로 redirect 만 했음. 이제 매일 한 번
@@ -27,7 +31,14 @@ export default async function TimemachineHomePage() {
   }
   const userId = session.user.id;
 
-  const status = await getAttendanceStatus(userId);
+  // 세 조회 독립 — 병렬.
+  const [status, progress, familyNews] = await Promise.all([
+    getAttendanceStatus(userId),
+    getTimemachineProgress(userId),
+    getFamilyNews(userId),
+  ]);
+  const hasFamilyNews =
+    familyNews.newReactions.count > 0 || familyNews.newRecords.count > 0;
   const initial: AttendanceInitial = {
     todayChecked: status.todayChecked,
     streak: status.streak,
@@ -47,7 +58,11 @@ export default async function TimemachineHomePage() {
         </p>
       </header>
 
+      {hasFamilyNews && <FamilyNewsCard news={familyNews} />}
+
       <AttendanceCard initial={initial} />
+
+      <ProgressCard progress={progress} />
 
       <Link
         href={`/timemachine/${LATEST_YEAR}/${LATEST_MONTH}`}
