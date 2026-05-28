@@ -158,6 +158,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **T1~T6** | **타임머신 v1 — 한 달씩 거꾸로 시간여행 (사건 펼쳐보기)** | `phase/타임머신_구현_기획_phase.md` | ✅ 완료 (v2 로 전환, 코드 보존)       |
 | **V1~V4** | **타임머신 v2 — 빈 기억칸 + AI 비서 + 답 깊이 선택** | `phase/타임머신_v2_AI비서_기획.md` | ✅ V1(백엔드)·V2(UI)·V3(멀티턴+저장)·V4(깊이) 완료 |
 | **A**     | **출석체크 + 사이드 패널 (동기부여 + 접근성)** | (5-28 일지)                        | ✅ 완료                           |
+| **M①②**   | **동기부여 핵심 루프 — ① 쌓이는 재미(진척) + ② 가족 반응(스탬프·알림)** | `phase/동기부여_핵심루프_기획.md`   | ✅ ①② 완료 (③④⑤ 후순위)          |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -179,6 +180,12 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 - 출석체크 (`UserAttendance` 모델 + `processAttendance`) — 매일 5토큰 + 7배수 streak 마다 +30 보너스. `@@unique([userId, date])` + P2002 catch 로 race-safe. KST 처리는 `+9h.toISOString().slice(0,10)` (라이브러리 의존 0). 끊김 표현 0 (시니어 친화)
 - `AttendanceCard` 시각 — 동그라미 7개 진행도(✓ + 숫자), 보상 표, 보너스 예고 버튼. 사이드 패널 미니: 16px 작은 동그라미 + N/7
 - 사이드 패널 (`app/timemachine/layout.tsx` + `SidePanelLayout` client) — 프로필·잔액·충전·출석미니·메뉴(이번달/내기록/가족룸/회원정보/설정)·로그아웃. 데스크톱 fixed right `lg:pr-80`, 모바일 overlay + 햄버거. `localStorage` 상태 기억(첫 방문=열림). `/timemachine` 메인을 redirect→실제 콘텐츠로 변경
+
+**동기부여 핵심 루프 (Phase M ①②)** — 기획 `phase/동기부여_핵심루프_기획.md`:
+- ① 쌓이는 재미 (`lib/timemachine-progress.ts` + `ProgressCard`) — 기존 T6 `UserMemory` 읽기 집계(새 모델 0). 채운 달·사건·글자 + 12개월 진척 그리드(채움 amber/빈 칸 회색). 글자 수는 `$queryRaw` `SUM(LENGTH(BTRIM))` 로 본문 미로드. 0개월=초대 문구, 압박 금지. 메인·사이드 "내 기록"·월 화면 prev/next 배지
+- ② 가족 반응 — `MemoryReaction`(감정 스탬프 4종 ❤️😊👏🙏, Comment 와 같은 polymorphic) + `FamilyFeedSeen`(읽음 추적). 스탬프는 **룸별**(`@@unique([roomId, targetType, targetId, authorId, stamp])`) — 저장·조회 기준 일치 + 크로스룸 누수 차단. 토글 race-safe(클라가 active, 서버 create P2002/deleteMany count0 무시). `StampBar`(룸 `PersonalMemoryCard`), `FamilyNewsCard`(메인, 0건 숨김) + 사이드 "새 소식 N" 배지
+- 읽음 추적 — "새것"=`createdAt > seenAt`, `FamilyFeedSeen` 첫 접근 시 `now()` 기준선(소급 폭주 방지). `markSeen` 은 raw `UPDATE = NOW()`(DB 시계, baseline·createdAt 과 일치). 메인에서 카드 볼 때(`FamilyNewsSeen` client mount) 갱신
+- 자체 검토 4건 픽스: M1(룸별 스탬프) / M2(markSeen DB 시계) / M4(진척 SQL 집계) / L6(조사 을/를). M3(메인 중복 쿼리)·L1~L5·L7~L10 이연
 
 **v2 UX 정비 (V3·V4 동반)**:
 - 채팅창 고정 높이 (`max-h-[60vh]`) + 자동 스크롤 + 12px 스크롤바
@@ -222,6 +229,18 @@ v2 V3·V4 자체 검토 미픽스 (`docs/daily/2026-05-28.md` 참조):
 - S4: 502 응답 message 노출 마스킹 (production 만)
 - K2~K5: 다크모드 보강, 에러 메시지 분기, BIG_KEYWORDS 중복 정리
 
+동기부여 ①② 자체 검토 미픽스 (`docs/daily/2026-05-28.md` 세션2 참조):
+- M3: /timemachine 메인·월 화면 중복 쿼리 (layout `getFamilyNewsCount` + page `getFamilyNews`, 출석 2회) — React `cache()` 또는 layout 단일 패스 (검증 스크립트가 비-RSC 직접 호출이라 cache() 도입 주의)
+- L1: 스탬프 옵티미스틱 토글 순서 역전 시 DB↔화면 잠깐 불일치
+- L2: markSeen 카드 mount 즉시 (스크롤로 지나쳐도 "봤음"); 같은 렌더 사이드 배지 stale
+- L3: `reaction-actions` 화이트리스트의 `shared_memory` 죽은 경로 (UI·소식 모두 미사용 → 표면 축소)
+- L4: 멤버 탈퇴 후에도 반응/댓글 잔존 (멤버십 삭제 cascade 없음) → 소식에 나간 사람 반응
+- L5: 가족 소식·룸 카드 `name ?? email` → 이름 없는 가족 이메일 노출 (별명/이니셜 원칙)
+- L7: `FamilyNewsSeen` markSeen 에러 무로그(`.catch(()=>{})`)
+- L8: `StampBar` console.error NODE_ENV 가드 (기존 K1 과 함께)
+- L9: 스탬프 이모지 구형 단말 tofu 가능(라벨로 완화); 신규 카드 다크모드 육안 미검증
+- L10: 진척/소식 큰 `IN (myMemoryIds)` 리스트 (프롤픽 사용자)
+
 V4 신규 후속:
 - 검색 토큰 추정값 (10/30/50) 실측 보고 재조정. 특히 Opus 의 base * 5 가 실제 사용 패턴에 적절한지
 - depth 별 ledger reason 분리됨 — 운영 분석 대시보드 검토 (어느 depth 가 가장 사용?)
@@ -252,6 +271,10 @@ Phase A (출석 + 사이드) 신규 후속:
 - [x] 비서 답 깊이 → 사용자 라벨 "간단히/자세히/가장 정확하게" (모델 이름 노출 X), surcharge 로 차이 흡수, Haiku 회귀 0
 - [x] 비서 저장 답 가족 공유 → **항상 공유 + 안내 표시** (visibility 토글 안 만듦)
 - [x] 출석 보상 정책 → 매일 5토큰 + 7배수 streak 마다 +30 (계속 누적, 끊기면 1 리셋)
+- [x] 동기부여 ① 진척 → 기존 T6 읽기 집계(새 모델 0), 글자 수 SQL `SUM(LENGTH())`, 압박 금지(빈 칸 회색·0개월 초대)
+- [x] 감정 스탬프 범위 → **룸별**(unique 에 roomId) — 저장·조회 기준 일치 + 크로스룸 누수 차단 (전역은 A 룸 반응이 B 룸에 노출)
+- [x] 가족 소식 읽음 추적 → `FamilyFeedSeen` 사용자당 1행 lazy baseline(소급 폭주 방지) + markSeen DB 시계(`NOW()`), 메인 카드 볼 때 갱신, 0건 숨김
+- [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
 - [ ] 비서 검색 답 토큰 정책 재조정 (V4 깊이별 실측 후 — Haiku 10 / Sonnet 43 / Opus 56)

@@ -138,6 +138,30 @@
 - **Action**: `UserAttendance` 모델 (id, userId, date "YYYY-MM-DD" KST, streak, bonusToken, createdAt) + `@@unique([userId, date])` 가 race-safe 의 단일 결정자. `processAttendance(userId, now?)` 가 한 트랜잭션 안에서 (1) attendance.create — P2002 위반 catch 로 "이미 출석" 친화 분기 (2) wallet `balance + credit` (credit > 0 이라 조건부 UPDATE 불필요) (3) ledger 1~2건. 정책: 매일 5토큰 + 7의 배수 streak 마다 +30 보너스(계속 누적, 끊기면 1 리셋). KST 처리는 `kstDateString = new Date(d+9h).toISOString().slice(0,10)` — timezone 라이브러리 의존 0. 시각: 7개 동그라미 진행도 + 보상 표 + 보너스 예고 버튼 ("오늘 출석체크하기 (5토큰 + 보너스 30토큰!)"). 끊김 직후 streak=1 표시도 "오늘도 와주셨네요" 로 부정 톤 0.
 - **Result**: 검증 7시나리오 — 같은 날 중복 / 7일 연속 / 7일째 보너스 / 동시 Promise.all 2번 race / 거른 후 reset / 14일째 또 보너스 / 기존 chargeOneShot 무영향 — 모두 통과. 사용자 동기부여 + 시니어 친화 + 결제 시스템 무영향을 한 모델 + 한 헬퍼로 끝냄. DB unique 가 트랜잭션 잠금 설계보다 단순·강력하다는 표준 패턴 확인.
 
+## 기존 데이터 읽기 집계만으로 동기부여 ① "쌓이는 재미"
+
+- **Problem**: 회상 서비스의 토대 동력은 "내 기록이 쌓이는 걸 눈으로 보는 것". 새 데이터 모델을 또 만들지 않고(스키마 부담 0), 기존 T6 저장(UserMemory)만으로 채운 달·기록량·진척을 시각화해야 함. 매 페이지 로드라 가벼워야 하고, 시니어 도메인이라 **압박 금지**(빈 칸 강조 X).
+- **Action**: `getTimemachineProgress` 가 `createdVia in (timemachine_event, timemachine_month)` 행만 집계 — 채운 달 수 / 사건 수 / 글자 수 + 12개월 셀(filled/eventCount/hasStory). 글자 수는 `$queryRaw` 로 `SUM(LENGTH(BTRIM(content,...)))` — 회고 본문을 메모리로 끌어오지 않고 DB 에서 길이만(자체 검토 M4). `ProgressCard`(서버 컴포넌트): 0개월은 "쌓일 거예요" 초대, 빈 달은 연한 회색 무라벨, 채운 달만 amber + "기록 있음" 배지. 노출은 메인·사이드 "내 기록"·월 화면 prev/next.
+- **Result**: 새 모델 0, 검증 14/14 (ai_chat·manual 제외 정확, 채운 달·사건·글자 정확). SQL 전환 후에도 글자 수 동일. 표시용 숫자 하나 때문에 대용량 텍스트를 앱으로 끌어오지 않는다는 집계 원칙 확립.
+
+## 감정 스탬프 — 룸별 vs 전역을 프라이버시로 결정 (검토에서 누수 발견)
+
+- **Problem**: 가족 룸 댓글은 자녀에게 부담 → 한 탭 감정 스탬프(❤️뭉클해요 등 4종) 필요. 같은 사람·같은 추억·같은 스탬프 중복 금지 + 토글 + race-safe. 같은 룸 멤버만 반응.
+- **Action**: `MemoryReaction`(Comment 와 같은 polymorphic) + race-safe 토글 — 클라가 의도(active)를 보내고 서버는 `create`(P2002 무시)/`deleteMany`(count0 무시) idempotent. 권한은 댓글과 동일(멤버십 + 대상 가시성). **자체 검토(M1)에서 발견**: 처음 unique 가 roomId 를 빼고(전역) 조회는 roomId 로 걸러 → 같은 추억이 두 룸에 보일 때 "눌러도 안 되는" 먹통. 전역(b) vs 룸별(a) 비교 — 전역은 A 룸에만 있는 사람의 반응이 B 룸에 노출되는 **크로스룸 프라이버시 누수**. → unique·삭제에 roomId 포함하는 **룸별(a)** 로 결정. 저장·조회·삭제 기준을 roomId 로 통일.
+- **Result**: 검증 20/20(토글·동시·권한·새 반응). unique 키와 WHERE 필터가 어긋나면 먹통이 난다는 것 + 프라이버시 결정이 곧 키 설계라는 학습. 전역의 편의보다 가족 범위 한정 원칙을 우선.
+
+## 가족 소식 읽음 추적 — lazy baseline + DB 시계 + 양방향 한 표면
+
+- **Problem**: 자녀 반응을 어르신이 "다음 접속 때" 눈에 띄게 보고, 한 번 본 건 배지에서 빠져야 함. 자녀도 "부모님 새 이야기"를 앱 안에서. 가입 전 활동이 소급으로 폭주하면 안 됨.
+- **Action**: per-item read flag 대신 `FamilyFeedSeen`(사용자당 1행, reactionsSeenAt/recordsSeenAt). "새것" = 활동 `createdAt > seenAt`. 첫 접근 시 `@default(now())` 기준선 생성 → **과거 소급 폭주 차단**. 자체 검토(M2)에서 markSeen 이 Node `new Date()` 를 쓰던 것을 raw `UPDATE … = NOW()`(DB 시계)로 — baseline·createdAt 과 같은 시계라 "봤는데 안 빠짐"(서버/DB 시계 어긋남) 차단. `getFamilyNews` 가 A(내 기록 새 반응) + B(가족 새 기록, 작성자·연·월 단위 묶음) 를 한 번에 → 한 사용자가 어르신/자녀 역할 동시. markSeen 은 메인에서 카드를 실제 볼 때(client mount). **0건이면 카드·배지 전부 숨김**(서운함 0).
+- **Result**: 검증 20/20 — 읽으면 0, 룸 없는 사용자 0, 자기 반응 제외, 비멤버 차단. 읽음 추적은 baseline 시각 하나로 충분하되 baseline·활동·markSeen 이 같은 시계여야 경계 버그가 없다는 학습.
+
+## Prisma migrate dev 비대화형 차단 회피 — 수동 migration + deploy
+
+- **Problem**: unique 제약 추가(M1) 마이그레이션에서 `migrate dev` 가 데이터 손실 가능 경고에 y/n 확인을 요구 → Claude Code 의 비대화형 Bash 가 답 못 해 통째로 거부 ("environment is non-interactive, not supported"). 순수 CREATE TABLE 은 통과했으나 경고 붙는 변경만 막힘.
+- **Action**: 대상 테이블이 비었음(테스트 정리) 확인 후, 마이그레이션 폴더(`20260528120000_reaction_unique_per_room/migration.sql`)에 DROP/CREATE INDEX 를 직접 작성(인덱스 이름은 직전 자동 생성 이름 참고) → `prisma migrate deploy`(생성 아닌 적용이라 프롬프트 없음) → `prisma generate` 명시 실행(안 하면 `prisma.memoryReaction` undefined 런타임 에러).
+- **Result**: 비대화형 환경에서 unique 변경 안전 적용. 경고 붙는 마이그레이션의 표준 우회 절차(수동 SQL + deploy + 명시 generate) 정립.
+
 ## 사이드 패널 RSC + client wrapper 패턴 — open state · localStorage · main padding 토글
 
 - **Problem**: 타임머신 모든 화면에 프로필·잔액·출석·메뉴 사이드 패널 필요. 데스크톱 fixed + 모바일 overlay + 상태 기억(localStorage) + 메인 콘텐츠 폭 조정 — server data fetch 와 client state 가 섞임. layout 을 통째로 client 로 만들면 server fetch 못 함.
