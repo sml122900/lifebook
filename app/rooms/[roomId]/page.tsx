@@ -6,6 +6,7 @@ import { EventCard } from "@/components/EventCard";
 import { auth } from "@/auth";
 import { listRoomCommentsByTarget } from "@/lib/comments";
 import { prisma } from "@/lib/db";
+import { listReactionsByTarget } from "@/lib/reactions";
 import { getMembership, listRoomMemories } from "@/lib/rooms";
 import { listSharedMemories } from "@/lib/shared-memories";
 
@@ -116,12 +117,22 @@ export default async function RoomDetailPage({ params }: PageProps) {
 
   // Batched comments for personal memories — one query, sliced into a
   // map at render time.
+  const memoryIds = memories.map((m) => m.id);
   const commentsByTarget =
     (await listRoomCommentsByTarget(
       roomId,
       session.user.id,
       "user_memory",
-      memories.map((m) => m.id),
+      memoryIds,
+    )) ?? new Map();
+
+  // 스탬프도 같은 방식으로 배치 로드 — 멤버십 가드는 헬퍼 내부.
+  const reactionsByTarget =
+    (await listReactionsByTarget(
+      roomId,
+      session.user.id,
+      "user_memory",
+      memoryIds,
     )) ?? new Map();
 
   const anchorsByYear = indexByYear<Anchor>(anchors);
@@ -237,6 +248,7 @@ export default async function RoomDetailPage({ params }: PageProps) {
                           viewerId={session.user!.id}
                           roomId={room.id}
                           comments={commentsByTarget.get(m.id) ?? []}
+                          reactions={reactionsByTarget.get(m.id) ?? []}
                         />
                       </li>
                     ))}

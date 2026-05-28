@@ -1,9 +1,20 @@
 import { ListenButton } from "@/components/ListenButton";
+import {
+  STAMP_KINDS,
+  isStampKind,
+  type StampKind,
+} from "@/lib/reactions-policy";
 
 import { CommentThread } from "./CommentThread";
+import { StampBar } from "./StampBar";
 
 // One room-view of a member's personal UserMemory. Read-only here;
 // edits happen only on the author's own /timeline.
+
+type ReactionRow = {
+  authorId: string;
+  stamp: string;
+};
 
 type Props = {
   memory: {
@@ -22,7 +33,23 @@ type Props = {
   viewerId: string;
   roomId: string;
   comments: React.ComponentProps<typeof CommentThread>["comments"];
+  reactions: ReactionRow[];
 };
+
+function tallyReactions(reactions: ReactionRow[], viewerId: string) {
+  const counts = Object.fromEntries(
+    STAMP_KINDS.map((k) => [k, 0]),
+  ) as Record<StampKind, number>;
+  const mine = Object.fromEntries(
+    STAMP_KINDS.map((k) => [k, false]),
+  ) as Record<StampKind, boolean>;
+  for (const r of reactions) {
+    if (!isStampKind(r.stamp)) continue;
+    counts[r.stamp] += 1;
+    if (r.authorId === viewerId) mine[r.stamp] = true;
+  }
+  return { counts, mine };
+}
 
 function authorLabel(
   authorId: string,
@@ -49,8 +76,10 @@ export function PersonalMemoryCard({
   viewerId,
   roomId,
   comments,
+  reactions,
 }: Props) {
   const isSelf = memory.userId === viewerId;
+  const { counts, mine } = tallyReactions(reactions, viewerId);
   const tone = isSelf
     ? { border: "border-amber-300", bg: "bg-amber-50", label: "text-amber-800" }
     : {
@@ -64,7 +93,10 @@ export function PersonalMemoryCard({
   const songArtist = artistFromDescription(memory.event?.description ?? null);
 
   return (
-    <article className={`rounded-md border-2 p-5 ${tone.border} ${tone.bg}`}>
+    <article
+      id={`m-${memory.id}`}
+      className={`scroll-mt-4 rounded-md border-2 p-5 ${tone.border} ${tone.bg}`}
+    >
       <p className={`text-base font-bold uppercase tracking-wide ${tone.label}`}>
         {authorLabel(memory.userId, memory.user.name, memory.user.email, viewerId)}
         {memory.month && (
@@ -84,6 +116,13 @@ export function PersonalMemoryCard({
           <ListenButton title={songTitle} artist={songArtist} />
         </div>
       )}
+      <StampBar
+        roomId={roomId}
+        targetType="user_memory"
+        targetId={memory.id}
+        initialCounts={counts}
+        initialMine={mine}
+      />
       <CommentThread
         roomId={roomId}
         targetType="user_memory"

@@ -81,6 +81,8 @@ model User {
   sharedMemoriesEdited   SharedMemory[]  @relation("SharedMemoryEditor")
   timemachineMonths      TimemachineMonth[]
   attendances            UserAttendance[]
+  reactions              MemoryReaction[]
+  feedSeen               FamilyFeedSeen?
 }
 
 model Account {
@@ -207,6 +209,7 @@ model SharedRoom {
   members        RoomMember[]
   invites        RoomInvite[]
   comments       Comment[]
+  reactions      MemoryReaction[]
   sharedMemories SharedMemory[]
   createdAt      DateTime       @default(now())
 
@@ -291,6 +294,49 @@ model Comment {
 
   @@index([roomId, targetType, targetId])
   @@index([authorId])
+}
+
+// 동기부여 ② — 감정 스탬프 (가벼운 한 탭 반응). Comment 와 같은
+// polymorphic (targetType/targetId) 패턴 — UserMemory 를 가리킨다.
+//
+// race-safe 토글: @@unique([roomId, targetType, targetId, authorId, stamp])
+// 가 단일 결정자. "켜기" = create (P2002 → 이미 있음, 무시), "끄기" =
+// deleteMany (count 0 → 이미 없음, 무시). 동시 클릭에도 idempotent.
+// 한 사람이 한 추억에 stamp 종류별로 최대 1개 (종류는 여러 개 가능).
+//
+// 반응은 **룸별**(roomId 포함)로 분리한다. 같은 추억이 여러 룸에 보여도
+// 룸마다 독립적으로 반응 — 저장(unique)·조회(listReactionsByTarget 의
+// roomId 필터)가 같은 기준이라 "눌러도 안 되는" 먹통이 없고, 룸이
+// 프라이버시 경계로 유지된다(A 룸 반응이 B 룸에 새지 않음).
+// ⚠️ 모든 쓰기는 roomId 동의 멤버십 + 대상이 그 룸에서 보이는지 확인.
+model MemoryReaction {
+  id         String     @id @default(cuid())
+  roomId     String
+  room       SharedRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  targetType String     // "user_memory" (shared_memory 는 추후)
+  targetId   String
+  authorId   String
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  stamp      String     // "touched" | "remember" | "proud" | "thanks"
+  createdAt  DateTime   @default(now())
+
+  @@unique([roomId, targetType, targetId, authorId, stamp])
+  @@index([roomId, targetType, targetId])
+  @@index([authorId])
+}
+
+// 동기부여 ② — 가족 소식 "읽음" 추적. 사용자당 1행 (userId @unique).
+// 새것 판정 = 활동(반응/기록) createdAt > 해당 seenAt.
+//   - reactionsSeenAt : 내 기록에 달린 가족 반응을 마지막으로 본 시각 (어르신)
+//   - recordsSeenAt   : 가족의 새 이야기를 마지막으로 본 시각 (자녀)
+// 첫 생성 시 now() 라 과거 활동이 소급으로 "새것" 폭주하지 않는다.
+model FamilyFeedSeen {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reactionsSeenAt DateTime @default(now())
+  recordsSeenAt   DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // Phase 8.5 — top-up order tracking. id doubles as the orderId we
