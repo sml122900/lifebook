@@ -1,3 +1,6 @@
+// 앵커(검증된 시대 사건) 시드 데이터. db/seed.ts 가 이 배열을 Event
+// 테이블에 적재한다. 사실(사건명·날짜·출처)만 다루며 수동 검증됨 —
+// 북극성의 "정확성 100% 보장" 원칙.
 export type AnchorEventSeed = {
   year: number;
   month?: number;
@@ -9,8 +12,8 @@ export type AnchorEventSeed = {
   sourceUrl?: string;
 };
 
-// 31 verified anchor events covering 1979–2025. Dates manually verified
-// against public records; descriptions kept short and neutral.
+// 1979–2025 를 아우르는 검증 앵커 사건들. 날짜는 공개 기록 대조로 수동
+// 검증했고, 설명은 짧고 중립적으로 유지한다.
 export const anchorEvents: AnchorEventSeed[] = [
   {
     year: 1979,

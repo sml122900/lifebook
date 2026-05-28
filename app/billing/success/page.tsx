@@ -5,14 +5,14 @@ import { auth } from "@/auth";
 import { settleOrderAfterToss } from "@/lib/tokens/orders";
 import { TossConfirmError, confirmTossPayment } from "@/lib/tokens/toss";
 
-// /billing/success — Toss redirects here after the user confirms in
-// the widget. The query string is hint-only; the actual credit happens
-// only after:
-//   1. server calls Toss /v1/payments/confirm
-//   2. the amount Toss reports back matches our PENDING order.krw
+// /billing/success — 사용자가 위젯에서 결제 확인 후 토스가 여기로
+// 리다이렉트한다. 쿼리스트링은 힌트일 뿐, 실제 적립은 다음 두 단계
+// 뒤에만 일어난다:
+//   1. 서버가 토스 /v1/payments/confirm 호출
+//   2. 토스가 보고한 금액이 우리 PENDING order.krw 와 일치
 //
-// Both checks run server-side. The client never sees the secret key
-// and never decides what to credit.
+// 두 체크 모두 서버에서. 클라는 시크릿 키를 볼 수 없고 무엇을 적립할지
+// 결정하지도 않는다.
 
 type SP = Promise<{ paymentKey?: string; orderId?: string; amount?: string }>;
 
@@ -42,8 +42,8 @@ export default async function BillingSuccessPage({
     );
   }
 
-  // 1. Confirm with Toss (server only). This is also where their side
-  //    verifies paymentKey + orderId + amount are consistent.
+  // 1. 토스로 승인(서버에서만). 토스 측이 paymentKey+orderId+amount 의
+  //    일관성을 검증하는 단계이기도 하다.
   let confirmed;
   try {
     confirmed = await confirmTossPayment({
@@ -62,7 +62,7 @@ export default async function BillingSuccessPage({
     );
   }
 
-  // 2. Server-side amount check against OUR order, then credit.
+  // 2. 우리 주문과 서버 측 금액 대조 후 적립.
   const settle = await settleOrderAfterToss(
     userId,
     orderId,

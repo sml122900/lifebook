@@ -1,6 +1,5 @@
-// Small color/label legend pinned above the room timeline so users
-// have a single reference for what each card color means. Senior
-// friendly: large dot, clear text, no jargon.
+// 룸 타임라인 위에 고정해, 카드 색이 뜻하는 바를 한곳에서 참조하게 하는
+// 작은 색상/라벨 범례. 시니어 친화: 큰 점, 명확한 텍스트, 전문용어 없음.
 
 const ITEMS: Array<{ swatch: string; label: string }> = [
   { swatch: "bg-sky-300 border-sky-500", label: "세상 사건" },

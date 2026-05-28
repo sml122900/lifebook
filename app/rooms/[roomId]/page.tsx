@@ -51,7 +51,7 @@ export default async function RoomDetailPage({ params }: PageProps) {
     redirect("/login");
   }
 
-  // ⚠️ Gate: only consented members can see anything inside the room.
+  // ⚠️ 게이트: 동의한 멤버만 룸 안의 무엇이든 볼 수 있다.
   const membership = await getMembership(session.user.id, roomId);
   if (!membership) {
     notFound();
@@ -84,20 +84,19 @@ export default async function RoomDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // Absolute invite URL host.
+  // 초대 URL 의 절대 호스트.
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? "http";
   const origin = `${proto}://${host}`;
 
-  // Three feeds, all room-scoped + membership-checked at the helper level.
+  // 세 가지 피드 — 모두 룸 범위 + 헬퍼 레벨에서 멤버십 확인됨.
   const memories = (await listRoomMemories(roomId, session.user.id)) ?? [];
   const sharedMemories =
     (await listSharedMemories(roomId, session.user.id)) ?? [];
 
-  // Joined-timeline year set: years with personal or shared memories.
-  // Anchors are pulled only for those years so a senior viewer isn't
-  // buried under 50 years of world events.
+  // 함께 보는 타임라인의 연도 집합: 개인/공동 추억이 있는 해들. 앵커는
+  // 그 해들만 가져온다 — 시니어 뷰어가 50년치 세상 사건에 파묻히지 않게.
   const yearSet = new Set<number>();
   for (const m of memories) yearSet.add(m.year);
   for (const s of sharedMemories) yearSet.add(s.year);
@@ -117,6 +116,7 @@ export default async function RoomDetailPage({ params }: PageProps) {
 
   // Batched comments for personal memories — one query, sliced into a
   // map at render time.
+  // 개인 추억 댓글을 배치 로드 — 한 쿼리로 가져와 렌더 시 targetId 맵으로 분배.
   const memoryIds = memories.map((m) => m.id);
   const commentsByTarget =
     (await listRoomCommentsByTarget(

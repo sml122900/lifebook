@@ -1,5 +1,8 @@
 "use server";
 
+// 온보딩 저장 서버 액션. 사용자가 채운 답만 User/LifeProfile 에 반영하고
+// onboardingCompletedAt 을 찍어 다시 온보딩으로 안 보내게 한다.
+// pickString/Array/Int 는 클라가 보낸 임의 값을 타입·트림 검증하는 헬퍼.
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 
@@ -38,8 +41,8 @@ export async function saveOnboarding(answers: RawAnswers) {
 
   const birthYear = pickInt(answers, "birthYear");
 
-  // Always mark the user as done so we don't push them to /onboarding again,
-  // even if they skipped every question.
+  // 모든 질문을 건너뛰었더라도 항상 완료로 표시 — 다시 /onboarding 으로
+  // 밀어내지 않기 위해.
   await prisma.user.update({
     where: { id: session.user.id },
     data: {
@@ -48,8 +51,8 @@ export async function saveOnboarding(answers: RawAnswers) {
     },
   });
 
-  // Collect only the LifeProfile fields the user actually filled in,
-  // so a skipped step never overwrites a previous answer.
+  // 사용자가 실제로 채운 LifeProfile 필드만 모은다 — 건너뛴 단계가 이전
+  // 답을 덮어쓰지 않도록.
   const profileData: Record<string, string | string[]> = {};
   const arrayFields = [
     "interests",

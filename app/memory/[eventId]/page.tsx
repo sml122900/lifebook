@@ -10,12 +10,12 @@ import { getBalance } from "@/lib/tokens/wallet";
 
 import { AnswerForm } from "./AnswerForm";
 
-// /memory/[eventId] — guided memory conversation.
+// /memory/[eventId] — 가이드 추억 대화 페이지.
 //
-// Access policy (Phase 7.2):
-//   - anchor events: open to any signed-in (consent-passed) user
-//   - trigger events: only if THIS user has TriggerResponse confirmed
-//     (dismissed / unanswered triggers should not be reachable here)
+// 접근 정책 (Phase 7.2):
+//   - 앵커 사건: 로그인(동의 통과)한 누구나
+//   - 트리거 사건: "이" 사용자가 TriggerResponse 를 confirmed 한 경우만
+//     (무시/미응답 트리거는 여기 도달 불가)
 
 type PageProps = {
   params: Promise<{ eventId: string }>;
@@ -52,8 +52,7 @@ export default async function MemoryPage({ params }: PageProps) {
       select: { status: true },
     });
     if (response?.status !== "confirmed") {
-      // Don't leak the existence of unconfirmed / dismissed triggers —
-      // just send the user back to the timeline.
+      // 미확정/무시된 트리거의 존재를 노출하지 않는다 — 그냥 타임라인으로.
       redirect("/timeline");
     }
   }
@@ -65,9 +64,9 @@ export default async function MemoryPage({ params }: PageProps) {
   const ageAtYear =
     user?.birthYear != null ? event.year - user.birthYear : null;
 
-  // Gate: don't even call the AI generator if the wallet can't cover
-  // one cycle. The existing conversation (if any) is still safe to
-  // resume — guided questions are cached, so no new AI call happens.
+  // 게이트: 지갑이 한 사이클을 못 감당하면 AI 생성기를 아예 호출하지
+  // 않는다. 기존 대화가 있으면 이어가는 건 안전 — 가이드 질문은 캐시돼
+  // 새 AI 호출이 없다.
   const balance = await getBalance(userId);
   const existingConv = await prisma.aIConversation.findUnique({
     where: { userId_eventId: { userId, eventId } },
@@ -103,9 +102,9 @@ export default async function MemoryPage({ params }: PageProps) {
     );
   }
 
-  // Persisted per-(user, event) conversation: questions are generated
-  // once on first visit and reused on every reload, and we surface any
-  // answers the user already saved so they can pick up where they left.
+  // (user, event) 별로 저장되는 대화: 질문은 첫 방문에 한 번 생성돼 매
+  // 새로고침마다 재사용되고, 이미 저장한 답이 있으면 함께 보여줘 이어서
+  // 적을 수 있게 한다.
   const conversation = await getOrCreateConversation(userId, eventId, {
     title: event.title,
     description: event.description,

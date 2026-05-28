@@ -5,12 +5,12 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { joinViaInvite } from "@/lib/rooms";
 
-// Phase 9.2 — explicit-consent join action. The page renders an
-// unchecked agreement checkbox and a join button; only when the user
-// submits do we hit this action. No auto-join, no implicit consent.
+// Phase 9.2 — 명시 동의 합류 액션. 페이지는 체크 안 된 동의 체크박스 +
+// 합류 버튼을 렌더하고, 사용자가 제출할 때만 이 액션에 도달한다.
+// 자동 합류·묵시 동의 없음.
 //
-// We re-check that "agree" was actually present in the FormData so
-// even a hand-crafted POST without the checkbox is refused.
+// "agree" 가 FormData 에 실제로 있었는지 재확인 — 체크박스 없이 손으로
+// 만든 POST 도 거부한다.
 export async function joinRoomAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) {

@@ -1,12 +1,11 @@
-// Phase 6.6 — per-user RAG retrieval of music trigger events.
+// Phase 6.6 — 사용자별 음악 트리거 사건 RAG 검색.
 //
-// Pipeline:
-//   1. Build a short profile string from birthYear + interests + favMusic.
-//   2. Embed it as a "query" vector with Voyage.
-//   3. Rank trigger events by cosine similarity, multiplied by a
-//      reminiscence-bump weight so songs from the user's late teens /
-//      early 20s outrank equally-similar songs from outside that window.
-//   4. Drop songs from before the user was born.
+// 파이프라인:
+//   1. birthYear + interests + favMusic 로 짧은 프로필 문자열을 만든다.
+//   2. Voyage 로 "query" 벡터로 임베딩한다.
+//   3. 코사인 유사도 × "회상 가중치"로 트리거 사건을 랭킹 — 사용자의
+//      10대 후반~20대 초반 노래가 같은 유사도의 다른 시기 노래보다 위로.
+//   4. 사용자가 태어나기 전 노래는 버린다.
 
 import { embedOne } from "./embeddings";
 import { prisma } from "./db";
@@ -35,8 +34,8 @@ export type TriggerCandidate = {
   status: "confirmed" | null;
 };
 
-// Seed writer stored Event.description as "{artist} · {context}" so
-// we split it back out here for callers that need the artist on its own.
+// 시드 작성기가 Event.description 을 "{아티스트} · {맥락}" 으로 저장했으므로,
+// 아티스트만 따로 필요한 호출자를 위해 여기서 다시 분리한다.
 function splitArtist(description: string | null): {
   artist: string;
   description: string | null;
@@ -61,12 +60,12 @@ export function buildUserMusicProfile(p: UserMusicProfile): string {
   return parts.join(". ");
 }
 
-// Reminiscence bump: people remember music from ~18 most vividly.
-// We give the 13–25 window full weight, taper outward, and zero out
-// pre-birth years (those get filtered upstream anyway).
+// 회상 가중치: 사람은 ~18세 무렵 음악을 가장 생생히 기억한다.
+// 13~25세 구간에 만점, 바깥으로 갈수록 낮추고, 출생 전(음수 나이)은 0
+// (어차피 상위에서 필터됨).
 //
-// SQL mirror of this lives inside getMusicTriggersForUser so the
-// weighted ranking happens in one query.
+// 이 로직의 SQL 판본이 getMusicTriggersForUser 안에 있어, 가중 랭킹이
+// 한 쿼리로 끝난다.
 export function bumpWeight(ageAtYear: number): number {
   if (ageAtYear < 0) return 0;
   if (ageAtYear >= 13 && ageAtYear <= 25) return 1.0;
@@ -75,9 +74,9 @@ export function bumpWeight(ageAtYear: number): number {
 }
 
 /**
- * Result shape lets the page show a small banner when the embedding /
- * vector search couldn't run (Voyage down, network drop, etc.) instead
- * of crashing the whole timeline. failed=true => triggers=[].
+ * 임베딩/벡터 검색이 실패해도(Voyage 다운, 네트워크 끊김 등) 타임라인
+ * 전체를 죽이지 않고 작은 배너만 띄우게 하는 반환 형태. failed=true 면
+ * triggers=[].
  */
 export type TriggersResult = {
   triggers: TriggerCandidate[];
@@ -94,10 +93,9 @@ export async function getMusicTriggersForUser(
     const queryVec = await embedOne(queryText, "query");
     const vecLiteral = `[${queryVec.join(",")}]`;
 
-    // LEFT JOIN to TriggerResponse so the SQL filter can drop dismissed
-    // suggestions and surface "confirmed" in one round trip. When userId
-    // is null the join condition never matches and tr.status is always
-    // NULL, so every candidate flows through with status=null.
+    // TriggerResponse 를 LEFT JOIN 해, "무시됨" 제안을 한 번에 거르고
+    // "확정됨"을 함께 가져온다. userId 가 null 이면 조인 조건이 절대 안
+    // 맞아 tr.status 는 항상 NULL → 모든 후보가 status=null 로 통과.
     const rows = await prisma.$queryRawUnsafe<
       Array<{
         id: string;
@@ -163,10 +161,9 @@ export async function getMusicTriggersForUser(
     });
     return { triggers, failed: false };
   } catch (err) {
-    // Voyage / pgvector failure should NOT take the timeline down.
-    // Anchors + personal memories + shared memories are independent
-    // of this query and must keep rendering. The caller surfaces a
-    // small banner when failed=true.
+    // Voyage / pgvector 실패가 타임라인을 죽여선 안 된다. 앵커 + 개인
+    // 추억 + 공유 추억은 이 쿼리와 독립이라 계속 렌더돼야 한다. 호출자가
+    // failed=true 일 때 작은 배너를 띄운다.
     console.error("[triggers] retrieval failed:", err);
     return { triggers: [], failed: true };
   }

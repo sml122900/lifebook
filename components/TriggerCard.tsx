@@ -4,15 +4,14 @@ import { confirmTrigger, dismissTrigger } from "@/app/timeline/actions";
 
 import { ListenButton } from "./ListenButton";
 
-// Question-form music trigger card. Sits next to anchor events on the
-// timeline. Visually distinct (violet, prompt header) so users can tell
-// at a glance that this is a suggestion they can confirm or dismiss —
-// not a verified anchor.
+// 질문형 음악 트리거 카드. 타임라인에서 앵커 사건 옆에 놓인다. 보라색 +
+// 질문 헤더로 시각적으로 구분돼, 검증된 앵커가 아니라 "확정/무시할 수 있는
+// 제안"임을 한눈에 알 수 있다.
 //
-// Three visual states:
-//   - unanswered: violet, "이 노래, 기억나세요?" + two buttons
-//   - confirmed:  emerald, "✓ 기억나는 곡" (kept for Phase 7 memories)
-//   - dismissed:  not rendered — filtered out in lib/triggers.ts
+// 세 가지 시각 상태:
+//   - 미응답:  보라색, "이 노래, 기억나세요?" + 버튼 2개
+//   - 확정됨:  초록색, "✓ 기억나는 곡" (Phase 7 추억 작성용으로 유지)
+//   - 무시됨:  렌더 안 함 — lib/triggers.ts 에서 걸러짐
 
 type Props = {
   id: string;
@@ -72,8 +71,7 @@ export function TriggerCard({
         )}
       </p>
 
-      {/* Listen first, then decide. Separate row so it doesn't get
-          lost among the decision buttons. */}
+      {/* 먼저 들어보고 결정하게 — 결정 버튼들 사이에 묻히지 않도록 별도 줄. */}
       <div className="mt-4">
         <ListenButton title={title} artist={artist} />
       </div>

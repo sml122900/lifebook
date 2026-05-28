@@ -1,3 +1,8 @@
+// 앵커(검증된 시대 사건) 카드. 타임라인·룸에서 한 사건을 보여주고, 누르면
+// 그 사건의 추억 작성(/memory/[id])으로 이동한다.
+// 도메인(분야)별로 고대비 배지 색을 입혀 시니어 가독성을 확보한다.
+
+// 사건 분야. 시드 데이터의 Event.domain 값과 일치.
 type Domain =
   | "kr_politics"
   | "kr_society"
@@ -7,6 +12,7 @@ type Domain =
   | "economy"
   | "world";
 
+// 분야 → 한국어 배지 라벨.
 const DOMAIN_LABEL: Record<Domain, string> = {
   kr_politics: "국내정치",
   kr_society: "사회",
@@ -17,7 +23,7 @@ const DOMAIN_LABEL: Record<Domain, string> = {
   world: "세계",
 };
 
-// Solid swatches for high contrast (4.5:1+ against white).
+// 흰 배경 대비 4.5:1 이상 보장하는 진한 단색 배지 (시니어 고대비).
 const DOMAIN_BADGE: Record<Domain, string> = {
   kr_politics: "bg-rose-700 text-white",
   kr_society: "bg-purple-700 text-white",
@@ -28,10 +34,12 @@ const DOMAIN_BADGE: Record<Domain, string> = {
   world: "bg-blue-700 text-white",
 };
 
+// 알 수 없는 도메인은 회색 배지로 폴백(깨지지 않게).
 function badgeClass(domain: string) {
   return DOMAIN_BADGE[domain as Domain] ?? "bg-zinc-700 text-white";
 }
 
+// 매핑에 없는 도메인은 원문 그대로 표시.
 function badgeLabel(domain: string) {
   return DOMAIN_LABEL[domain as Domain] ?? domain;
 }

@@ -1,9 +1,8 @@
-// Phase 7.3 — guided question generator for the memory conversation.
+// Phase 7.3 — 추억 대화용 가이드 질문 생성기.
 //
-// RAG guard (per CLAUDE.md): Claude only reasons about the event handed
-// to it and never invents facts. Wording rules below are enforced in
-// the system prompt; if the model misbehaves we still surface a safe
-// fallback so the user always sees something.
+// RAG 가드(CLAUDE.md): Claude 는 넘겨받은 사건만 다루고 사실을 창작하지
+// 않는다. 어휘 규칙은 아래 system prompt 로 강제하며, 모델이 어긋나도
+// 안전한 폴백을 보여줘 사용자가 항상 무언가는 보게 한다.
 
 import { chat } from "./ai";
 import { prisma } from "./db";
@@ -49,9 +48,8 @@ function buildUserPrompt(ctx: MemoryEventContext): string {
   return lines.join("\n");
 }
 
-// Pull `1. ...` / `2. ...` style lines out of the model's reply and
-// trim the leading numbering. Anything else (intros, blank lines) is
-// dropped.
+// 모델 답변에서 `1. ...` / `2. ...` 형태 줄만 뽑아 앞 번호를 떼낸다.
+// 그 외(머리말·빈 줄)는 버린다.
 function parseQuestions(text: string): string[] {
   const matches = text.match(/^\s*\d+[.)\s]\s*.+$/gm) ?? [];
   return matches
@@ -59,8 +57,8 @@ function parseQuestions(text: string): string[] {
     .filter((q) => q.length > 0);
 }
 
-// Reasonable safety net so the page never renders empty. These are
-// generic enough to suit either an anchor or a trigger.
+// 페이지가 빈 화면이 되지 않게 하는 안전망. 앵커든 트리거든 두루 맞을
+// 만큼 일반적인 질문들.
 const FALLBACK_QUESTIONS = [
   "그 시절을 떠올리면 가장 먼저 어떤 장면이 생각나세요?",
   "그때 함께 있던 사람이 있다면 누구였나요?",
@@ -142,9 +140,9 @@ export type ConversationState = {
   pastAnswers: Array<{ id: string; content: string; createdAt: Date }>;
 };
 
-// Returns the persisted conversation for (userId, eventId), creating
-// it (and its first assistant message of questions) on first visit so
-// reloads show the same prompts instead of regenerating every time.
+// (userId, eventId) 의 저장된 대화를 반환. 첫 방문이면 대화 + 첫 assistant
+// 메시지(질문들)를 생성한다 → 새로고침해도 매번 다시 만들지 않고 같은
+// 질문을 보여준다.
 export async function getOrCreateConversation(
   userId: string,
   eventId: string,

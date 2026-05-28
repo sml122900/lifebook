@@ -1,11 +1,10 @@
-// Phase 6.3 — curated music trigger seed.
-// Source: phase/음악시드_초안.md (~64 songs) + 6 songs added here to
-// thicken 70s/80s/90s coverage for senior reminiscence (트로트, 통기타,
-// 김광석 라인). MusicBrainz enrichment in Phase 6.4 will normalize
-// release years and add MBIDs.
+// Phase 6.3 — 큐레이션한 음악 트리거 시드.
+// 출처: phase/음악시드_초안.md (~64곡) + 시니어 회상을 위해 70/80/90년대
+// 커버리지를 두텁게 하려고 6곡 추가(트로트·통기타·김광석 라인). Phase 6.4
+// 의 MusicBrainz 보강이 발매연도를 정규화하고 MBID 를 붙인다.
 //
-// description must stay short (one line). No lyrics — title, artist,
-// year, and a brief context cue only.
+// description 은 짧게(한 줄) 유지. 가사 금지 — 제목·아티스트·연도 +
+// 짧은 맥락 단서만.
 
 export type MusicEventSeed = {
   year: number;

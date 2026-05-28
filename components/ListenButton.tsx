@@ -1,9 +1,9 @@
 import { youtubeSearchUrl } from "@/lib/music/youtube";
 
-// "▶ 들어보기" — opens a YouTube search for the song in a new tab.
-// Used from any music-domain card (trigger card, saved memory card in
-// /timeline, shared room timeline). target=_blank + rel=noopener so
-// the new tab can't reach back into the timeline context.
+// "▶ 들어보기" — 새 탭에서 그 곡의 유튜브 검색을 연다. 음악 도메인 카드
+// (트리거 카드, /timeline 저장 추억 카드, 가족 룸 타임라인) 어디서든 재사용.
+// target=_blank + rel=noopener 로 새 탭이 원래 페이지 컨텍스트에 접근하지
+// 못하게 막는다(보안).
 
 export function ListenButton({
   title,

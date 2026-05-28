@@ -1,5 +1,7 @@
 "use server";
 
+// 공동 추억(SharedMemory) 생성/수정/삭제 서버 액션. 권한·검증은 모두
+// lib/shared-memories 헬퍼가 roomId 멤버십으로 처리한다. userId 는 세션만.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -54,9 +56,9 @@ export async function updateSharedMemoryAction(formData: FormData) {
   );
 
   revalidatePath(`/rooms/${actualRoomId}`);
-  // Trust the DB roomId over the form one in case of mismatch.
+  // 불일치 시 폼의 roomId 보다 DB 의 roomId 를 신뢰.
   redirect(`/rooms/${actualRoomId}`);
-  // (kept here for type-checker; redirect throws)
+  // (타입체커용 — redirect 는 throw 하므로 아래는 실행 안 됨)
   void roomId;
 }
 

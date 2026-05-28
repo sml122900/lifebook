@@ -1,5 +1,6 @@
 "use server";
 
+// 가족 룸 생성 + 초대 링크 발급 서버 액션. userId 는 세션에서만.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -29,7 +30,7 @@ export async function createInviteAction(formData: FormData) {
   if (typeof roomId !== "string" || roomId === "") {
     throw new Error("roomId required");
   }
-  // createInvite already verifies membership.
+  // createInvite 가 멤버십을 이미 검증한다.
   await createInvite(session.user.id, roomId);
   revalidatePath(`/rooms/${roomId}`);
 }

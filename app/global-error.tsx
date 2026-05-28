@@ -2,12 +2,12 @@
 
 import { useEffect } from "react";
 
-// Last-resort boundary. Fires only when the root layout itself fails
-// (so route-segment error.tsx couldn't render). Because the layout is
-// gone we must render our own <html> and <body> here; no shared chrome
-// is available.
+// 최후의 에러 경계. 루트 레이아웃 자체가 실패할 때만 발동(이 경우 라우트
+// 세그먼트의 error.tsx 도 못 그림). 레이아웃이 사라진 상태라 공통 헤더가
+// 없으므로 여기서 직접 <html>·<body> 를 그린다(globals.css 도 못 쓰니
+// 인라인 스타일).
 //
-// Same rule as error.tsx: raw error.message stays out of the UI.
+// error.tsx 와 같은 철칙: 원본 error.message 는 UI 에 노출하지 않는다.
 
 export default function GlobalError({
   error,

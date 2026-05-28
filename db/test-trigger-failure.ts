@@ -1,13 +1,11 @@
-// Basket 1-2 verification: Voyage failure must NOT throw out of
-// getMusicTriggersForUser. The helper should catch internally and
-// return { triggers: [], failed: true } so /timeline can render the
-// rest of the page and just show a small banner.
+// 바구니 1-2 검증: Voyage 실패가 getMusicTriggersForUser 밖으로 throw
+// 되면 안 된다. 헬퍼가 내부에서 catch 해 { triggers: [], failed: true }
+// 를 반환 → /timeline 이 나머지 페이지를 렌더하고 작은 배너만 띄우게.
 //
-// We force the failure by blanking VOYAGE_API_KEY before calling — the
-// embedding wrapper throws "VOYAGE_API_KEY is not set" which our
-// try/catch must absorb.
+// VOYAGE_API_KEY 를 비워 실패를 강제한다 — 임베딩 래퍼가 "VOYAGE_API_KEY
+// is not set" 을 throw 하고, 우리 try/catch 가 이를 흡수해야 한다.
 //
-// Run with: npx tsx db/test-trigger-failure.ts
+// 실행: npx tsx db/test-trigger-failure.ts
 
 import "dotenv/config";
 

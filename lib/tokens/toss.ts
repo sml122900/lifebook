@@ -1,8 +1,8 @@
-// Phase 8.5 — Toss Payments server-side helpers.
+// Phase 8.5 — 토스페이먼츠 서버 측 헬퍼.
 //
-// The secret key MUST stay on the server. It only appears here and in
-// .env — never imported into any client component, never returned to
-// the browser. Public client key is exposed separately to the SDK.
+// 시크릿 키는 반드시 서버에만 둔다. 여기와 .env 에만 등장 — 어떤 클라
+// 컴포넌트에도 import 안 되고, 브라우저로 반환되지 않는다. 공개용 클라
+// 키는 별도로 SDK 에 노출한다.
 
 const TOSS_BASE = "https://api.tosspayments.com";
 
@@ -15,7 +15,7 @@ function getSecretKey(): string {
 }
 
 function basicAuthHeader(): string {
-  // Toss expects "secret_key:" — colon kept, empty password — base64'd.
+  // 토스는 "시크릿키:" 형식(콜론 유지, 비밀번호는 빈 값)을 base64 로 받는다.
   return "Basic " + Buffer.from(`${getSecretKey()}:`).toString("base64");
 }
 
@@ -47,11 +47,10 @@ export class TossConfirmError extends Error {
 }
 
 /**
- * Calls Toss /v1/payments/confirm to finalize a payment. Toss itself
- * checks that paymentKey + orderId + amount match what their UI
- * recorded; on success the response carries the authoritative
- * totalAmount, which we compare against our PENDING order before
- * crediting anything.
+ * 토스 /v1/payments/confirm 을 호출해 결제를 확정한다. 토스가 직접
+ * paymentKey + orderId + amount 가 자기 UI 기록과 맞는지 확인하고,
+ * 성공 시 응답에 권위 있는 totalAmount 가 담긴다 — 우리는 적립 전에 이
+ * 값을 PENDING 주문과 비교한다.
  */
 export async function confirmTossPayment(
   body: TossConfirmRequest,

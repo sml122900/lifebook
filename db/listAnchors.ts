@@ -1,3 +1,5 @@
+// 시드된 앵커(검증 사건)를 연도순으로 콘솔에 찍어보는 점검 스크립트.
+// 실행: npx tsx db/listAnchors.ts
 import "dotenv/config";
 import { prisma } from "../lib/db";
 

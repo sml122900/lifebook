@@ -1,12 +1,15 @@
 import Link from "next/link";
 
+// 첫 진입(랜딩) 페이지. 서비스 소개 + 타임라인 입구.
+// 회원 탈퇴 후 `/?withdrawn=1` 로 돌아오면 작별 안내를 한 번 보여준다.
 export default async function Home({
   searchParams,
 }: {
   searchParams: Promise<{ withdrawn?: string }>;
 }) {
   const params = await searchParams;
-  const withdrawn = params.withdrawn === "1";
+  const withdrawn = params.withdrawn === "1"; // 탈퇴 직후 안내 표시 플래그
+
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-8 px-6 py-16">
       {withdrawn && (

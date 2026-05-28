@@ -1,7 +1,7 @@
-// Phase 6.1 sanity check: hit Voyage with one Korean + one English string
-// and assert the model returns vectors of the expected dimension.
+// Phase 6.1 점검: 한국어 1 + 영어 1 문자열을 Voyage 에 보내, 기대 차원의
+// 벡터가 돌아오는지 확인.
 //
-// Run with: npx tsx db/test-voyage.ts
+// 실행: npx tsx db/test-voyage.ts
 
 import "dotenv/config";
 

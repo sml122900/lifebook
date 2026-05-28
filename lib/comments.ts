@@ -1,10 +1,9 @@
-// Phase 9.4 — comment helpers.
+// Phase 9.4 — 댓글 헬퍼.
 //
-// Privacy invariant: every read/write goes through a consented
-// membership check on the comment's roomId. Caller passes the viewer
-// and the room — never look up comments by targetId alone, or a
-// member of room B could read comments that belong to room A simply
-// by knowing a memory id.
+// 프라이버시 불변식: 모든 읽기/쓰기는 그 댓글의 roomId 에 대한 "동의
+// 멤버십" 확인을 거친다. 호출자는 viewer 와 room 을 넘긴다 — targetId
+// 단독으로 댓글을 조회하지 말 것. 안 그러면 룸 B 멤버가 추억 id 만 알고
+// 룸 A 의 댓글을 읽을 수 있다.
 
 import { prisma } from "./db";
 import { getMembership } from "./rooms";
@@ -12,9 +11,8 @@ import { getMembership } from "./rooms";
 export type TargetType = "user_memory" | "shared_memory";
 
 /**
- * Returns comments for a set of targets within a single room, keyed
- * by targetId for fast lookup at render time. null if the viewer
- * isn't a consented member.
+ * 한 룸 안 여러 대상의 댓글을, 렌더 시 빠른 조회를 위해 targetId 키로
+ * 묶어 반환. viewer 가 동의 멤버가 아니면 null.
  */
 export async function listRoomCommentsByTarget(
   roomId: string,
@@ -69,9 +67,8 @@ export async function createComment(
   const membership = await getMembership(authorId, roomId);
   if (!membership) throw new Error("not a member of this room");
 
-  // Verify the target belongs to a consented member of THIS room.
-  // Without this check, a malicious payload could attach a comment in
-  // room A to a memory that only exists in room B.
+  // 대상이 "이" 룸의 동의 멤버 소유인지 확인. 이 체크가 없으면 악의적
+  // 페이로드가 룸 B 에만 있는 추억에 룸 A 의 댓글을 붙일 수 있다.
   if (targetType === "user_memory") {
     const memberIds = await prisma.roomMember.findMany({
       where: { roomId, consentAt: { not: null } },
@@ -96,9 +93,8 @@ export async function deleteComment(
   commentId: string,
   userId: string,
 ): Promise<void> {
-  // updateMany / deleteMany scoping is the trick that makes this safe
-  // without two queries: if the row exists and authorId matches, delete;
-  // otherwise it's a no-op (no error / no leak).
+  // deleteMany 의 조건 범위가 두 번 쿼리 없이 안전하게 만드는 트릭:
+  // 행이 있고 authorId 가 맞으면 삭제, 아니면 no-op(에러도 누수도 없음).
   const res = await prisma.comment.deleteMany({
     where: { id: commentId, authorId: userId },
   });

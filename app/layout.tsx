@@ -9,6 +9,10 @@ import { getBalance } from "@/lib/tokens/wallet";
 
 import "./globals.css";
 
+// 앱 전체의 최상위 레이아웃 (RSC). 모든 페이지 공통 헤더(로고·타임머신·
+// 가족 룸·토큰 잔액·계정 메뉴)와 다크모드 클래스를 여기서 그린다.
+// 세션·잔액·테마를 서버에서 미리 읽어 헤더에 박는다.
+
 export const metadata: Metadata = {
   title: "Lifebook",
   description: "AI와 함께 채워나가는 나의 인생 연혁표",
@@ -20,7 +24,9 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
+  // 비로그인 시 잔액 조회 생략 (null → 헤더에 토큰 수 미표시).
   const balance = session?.user?.id ? await getBalance(session.user.id) : null;
+  // 다크모드 여부는 쿠키 기반 (theme-actions). html.dark 클래스로 CSS 변수 swap.
   const theme = await getTheme();
 
   return (

@@ -8,8 +8,8 @@ import { getBalance } from "@/lib/tokens/wallet";
 
 import { TopupButton } from "./TopupButton";
 
-// Korean label per reason. Reasons are open strings in TokenTransaction
-// so unknown ones fall through with the raw code visible.
+// 거래 사유별 한국어 라벨. TokenTransaction.reason 은 자유 문자열이라
+// 모르는 사유는 원문 코드 그대로 노출(폴백).
 const REASON_LABEL: Record<string, string> = {
   signup_grant: "가입 무료 지급",
   ai_charge: "추억 정리",
@@ -30,9 +30,8 @@ const DATE_FMT = new Intl.DateTimeFormat("ko-KR", {
   minute: "2-digit",
 });
 
-// /billing — token wallet + top-up entry. Client key is safe to embed
-// in markup (it's public by design); secret key never leaves the
-// server.
+// /billing — 토큰 지갑 + 충전 입구 + 거래 내역. 클라이언트 키는 마크업에
+// 박아도 안전(공개용 설계). 시크릿 키는 서버를 떠나지 않는다.
 
 export default async function BillingPage() {
   const session = await auth();
@@ -47,8 +46,8 @@ export default async function BillingPage() {
     throw new Error("TOSS_CLIENT_KEY is not set");
   }
 
-  // ⚠️ userId-scoped — every read here. Limit 50 keeps the page light;
-  // pagination is a later concern.
+  // ⚠️ 여기 모든 읽기는 userId 범위. 50건 제한으로 페이지를 가볍게 —
+  // 페이지네이션은 나중 과제.
   const txs = await prisma.tokenTransaction.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },

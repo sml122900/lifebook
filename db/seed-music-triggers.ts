@@ -1,9 +1,9 @@
-// Phase 6.5 — load enriched music catalog into Event rows (category=
-// trigger, tier=suggested), embed each via Voyage, store the vector
-// into the Unsupported pgvector column via raw SQL.
+// Phase 6.5 — 보강된 음악 카탈로그를 Event 행(category=trigger,
+// tier=suggested)으로 적재하고, 각 곡을 Voyage 로 임베딩해, 그 벡터를
+// raw SQL 로 Unsupported pgvector 컬럼에 저장한다.
 //
-// Idempotent: deletes existing music triggers first, then inserts.
-// Run with: npx tsx db/seed-music-triggers.ts
+// Idempotent: 기존 음악 트리거를 먼저 지우고 다시 삽입.
+// 실행: npx tsx db/seed-music-triggers.ts
 
 import "dotenv/config";
 import { readFileSync } from "node:fs";

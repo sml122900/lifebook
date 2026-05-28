@@ -1,9 +1,8 @@
-// Phase 8.5 — TokenOrder lifecycle.
+// Phase 8.5 — TokenOrder 생명주기.
 //
-// Server is the source of truth for both krw and tokens. The client
-// only chooses a packageId; we look the rest up here. Settle is
-// idempotent on paymentKey (DB @unique) so a double-call from Toss
-// can't credit twice.
+// krw·tokens 모두 서버가 진실의 원천이다. 클라는 packageId 만 고르고,
+// 나머지는 여기서 조회한다. 정산은 paymentKey 기준 idempotent(DB @unique)
+// 라 토스의 중복 호출이 두 번 적립할 수 없다.
 
 import { prisma } from "../db";
 import { getPackage } from "./policy";
@@ -60,17 +59,17 @@ export type SettleFailure = {
 };
 
 /**
- * Settle a Toss-confirmed payment against the pending order.
+ * 토스가 승인한 결제를 pending 주문에 정산한다.
  *
- * Pre-conditions caller MUST satisfy:
- *   - Toss /v1/payments/confirm has succeeded with these values
- *   - Toss-reported totalAmount is passed in `tossAmount`
+ * 호출자가 반드시 충족해야 할 선행조건:
+ *   - 이 값들로 토스 /v1/payments/confirm 이 성공했음
+ *   - 토스가 보고한 totalAmount 를 `tossAmount` 로 전달
  *
- * Invariants enforced here:
- *   - order belongs to userId
- *   - order.krw === tossAmount (the server's own amount wins; we never
- *     trust the client query string)
- *   - same paymentKey can't credit twice (DB @unique catches races)
+ * 여기서 강제하는 불변식:
+ *   - 주문이 userId 소유
+ *   - order.krw === tossAmount (서버 자체 금액이 우선 — 클라 쿼리스트링은
+ *     절대 신뢰 안 함)
+ *   - 같은 paymentKey 로 두 번 적립 불가 (DB @unique 가 race 차단)
  */
 export async function settleOrderAfterToss(
   userId: string,
@@ -88,7 +87,7 @@ export async function settleOrderAfterToss(
     if (order.status === "failed" || order.status === "canceled")
       return { ok: false, reason: "order_already_failed" } as const;
 
-    // If already PAID with the same paymentKey, just report no-op.
+    // 같은 paymentKey 로 이미 PAID 면 no-op 으로 보고.
     if (order.status === "paid" && order.paymentKey === paymentKey) {
       const wallet = await tx.tokenWallet.findUnique({
         where: { userId },
@@ -102,7 +101,7 @@ export async function settleOrderAfterToss(
       } as const;
     }
 
-    // Server-side amount check — the only one that matters.
+    // 서버 측 금액 검증 — 유일하게 신뢰하는 체크.
     if (order.krw !== tossAmount) {
       await tx.tokenOrder.update({
         where: { id: orderId },
@@ -115,8 +114,8 @@ export async function settleOrderAfterToss(
       return { ok: false, reason: "amount_mismatch" } as const;
     }
 
-    // Credit wallet + ledger together. The wallet should already exist
-    // (created at signup) but upsert defends against odd states.
+    // 지갑 적립 + ledger 를 함께. 지갑은 가입 때 이미 생겼어야 하지만,
+    // 이상 상태 방어를 위해 upsert.
     const wallet = await tx.tokenWallet.upsert({
       where: { userId },
       create: { userId, balance: order.tokens },

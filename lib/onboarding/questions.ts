@@ -1,11 +1,10 @@
-// Onboarding question script. Edit this file to add/remove/reorder
-// questions; the UI in app/onboarding/OnboardingForm.tsx is driven entirely
-// from this array.
+// 온보딩 질문 스크립트. 질문 추가/삭제/순서변경은 이 파일만 고치면 된다 —
+// app/onboarding/OnboardingForm.tsx 의 UI 가 전적으로 이 배열로 구동된다.
 //
-// Design rules (Phase 4):
-// - No health / political / religious questions, even about third parties.
-// - For questions about other people, set `nicknameHint: true` so the UI
-//   reminds users they may use a nickname or initial instead of a real name.
+// 설계 규칙 (Phase 4):
+// - 건강/정치/종교 질문은 본인은 물론 제3자에 대해서도 금지.
+// - 다른 사람에 대한 질문엔 `nicknameHint: true` 를 줘, 실명 대신 별명/
+//   이니셜을 써도 된다고 UI 가 안내하게 한다 (최소 수집 원칙).
 
 export type Question =
   | { id: string; kind: "year"; key: "birthYear"; prompt: string }

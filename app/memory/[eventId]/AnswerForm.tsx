@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 
 import { submitMemoryAnswer } from "./actions";
 
-// Minimal shape for the Web Speech API. Only Chrome / Edge / new Safari
-// expose it (under webkitSpeechRecognition on Safari). Where it's
-// missing, we render text-only and never hint at the mic button.
+// 추억 입력 폼(클라). 텍스트 + (지원 브라우저면) 음성 받아쓰기.
+//
+// Web Speech API 의 최소 타입. Chrome/Edge/최신 Safari 만 노출하며(Safari
+// 는 webkitSpeechRecognition). 없으면 텍스트 전용으로 렌더하고 마이크
+// 버튼은 아예 안 보여준다.
 
 type SpeechRecognitionLike = {
   start: () => void;
@@ -55,7 +57,7 @@ export function AnswerForm({
   useEffect(() => {
     setVoiceSupported(getRecognitionCtor() !== null);
     return () => {
-      // Cleanup on unmount so a half-open recognition never leaks.
+      // 언마운트 시 정리 — 반쯤 열린 인식 세션이 새지 않도록.
       recognitionRef.current?.stop();
     };
   }, []);
@@ -121,8 +123,8 @@ export function AnswerForm({
               "토큰이 부족해요. 충전하시고 다시 시도해 주세요.",
             );
           } else {
-            // Next.js redirect() throws a special object — let it
-            // propagate so the navigation happens.
+            // Next.js 의 redirect() 는 특수 객체를 throw 한다 — 그대로
+            // 전파시켜 네비게이션이 일어나게 한다.
             throw err;
           }
         } finally {

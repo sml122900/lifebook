@@ -1,10 +1,10 @@
-// Phase 8.5 sanity check for settleOrderAfterToss:
-//   1. happy path credits exactly the package's tokens
-//   2. re-running the same paymentKey is a no-op (idempotent)
-//   3. amount mismatch never credits and flips the order to FAILED
-//   4. ledger SUM stays = wallet balance throughout
+// Phase 8.5 점검 — settleOrderAfterToss:
+//   1. 정상 경로는 패키지 토큰만큼 정확히 적립
+//   2. 같은 paymentKey 재실행은 no-op (idempotent)
+//   3. 금액 불일치는 절대 적립 안 하고 주문을 FAILED 로 전환
+//   4. 내내 ledger 합계 = wallet 잔액 유지
 //
-// Run with: npx tsx db/test-topup-settle.ts
+// 실행: npx tsx db/test-topup-settle.ts
 
 import "dotenv/config";
 

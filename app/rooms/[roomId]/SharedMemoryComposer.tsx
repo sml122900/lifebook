@@ -2,9 +2,8 @@ import { createSharedMemoryAction } from "./shared-actions";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-// Server component — inline "add shared memory" form. Senior-friendly:
-// large fields, clear labels, year as a plain number input so screen
-// readers and keyboards both work.
+// 서버 컴포넌트 — 인라인 "공동 추억 추가" 폼. 시니어 친화: 큰 입력칸,
+// 명확한 라벨, 연도는 평범한 number 입력이라 스크린리더·키보드 둘 다 동작.
 export function SharedMemoryComposer({ roomId }: { roomId: string }) {
   return (
     <form

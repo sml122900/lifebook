@@ -1,33 +1,30 @@
-// Phase 8.1 — token policy constants.
+// Phase 8.1 — 토큰 정책 상수.
 //
-// Everything pricing-related lives here so the policy is one edit away
-// without touching call sites. The numbers below are calibrated against
-// the Phase 7.6 [ai] usage log: a typical memory cycle (guided
-// questions + title summary) measured at ~1,113 AI tokens with <2%
-// variance across 3 representative events (광화문 연가 / 강남스타일 /
-// IMF). See db/test-memory-usage.ts for the measurement.
+// 가격 관련은 전부 여기 모아, 호출부를 건드리지 않고 정책 한 곳만 고치면
+// 되게 한다. 아래 숫자들은 Phase 7.6 [ai] 사용 로그로 calibrate: 대표
+// 사건 3개(광화문 연가 / 강남스타일 / IMF)에서 전형적인 추억 사이클(가이드
+// 질문 + 제목 요약)이 ~1,113 AI 토큰, 편차 <2% 로 측정됨.
+// 측정은 db/test-memory-usage.ts 참조.
 
-/** AI tokens (input + output) collapsed into one service token. */
+/** AI 토큰(입력+출력)을 서비스 토큰 1개로 환산하는 기준. */
 export const AI_TOKENS_PER_SERVICE_TOKEN = 2000;
 
-/** Free tokens granted to a brand-new user. ~30 memory cycles. */
+/** 신규 사용자에게 무료로 주는 토큰. 약 30회 추억 사이클 분량. */
 export const SIGNUP_GRANT_TOKENS = 30;
 
 /**
- * Minimum balance required to START a memory cycle. We can't know the
- * exact cost until after Claude responds, so we keep a small buffer
- * over the measured average (1 token/cycle) — refusing at 2 means a
- * cycle that runs hotter than expected still won't take the wallet
- * negative.
+ * 추억 사이클을 "시작"하는 데 필요한 최소 잔액. Claude 응답 전엔 정확한
+ * 비용을 알 수 없으니 측정 평균(1토큰/사이클)보다 약간 버퍼를 둔다 —
+ * 2 에서 거절하면 예상보다 비싸게 돈 사이클도 잔액을 음수로 안 만든다.
  */
 export const MIN_BALANCE_TO_START_CYCLE = 2;
 
 /**
- * Top-up packages — the SERVER source of truth.
+ * 충전 패키지 — 서버가 진실의 원천.
  *
- * Phase 8.5 takes the package id from the client, looks up krw + tokens
- * here, and confirms with Toss that exactly that krw was paid before
- * crediting tokens. The client-supplied amount is never trusted.
+ * Phase 8.5 는 클라가 보낸 패키지 id 로 여기서 krw+tokens 를 조회하고,
+ * 토큰을 적립하기 전에 정확히 그 krw 가 결제됐는지 토스로 확인한다.
+ * 클라가 보낸 금액은 절대 신뢰하지 않는다.
  */
 export const TOPUP_PACKAGES = [
   { id: "starter", krw: 1000, tokens: 100, label: "스타터 100토큰" },
@@ -35,14 +32,15 @@ export const TOPUP_PACKAGES = [
 
 export type TopupPackageId = (typeof TOPUP_PACKAGES)[number]["id"];
 
+// 패키지 id 로 정의를 찾는다(없으면 undefined).
 export function getPackage(id: string) {
   return TOPUP_PACKAGES.find((p) => p.id === id);
 }
 
 /**
- * Map a Claude usage report to a service-token charge. Rounded up so a
- * tiny call still costs at least 1 token, mirroring how billing reads
- * to a user ("나 방금 1토큰 썼네") even when actual usage is sub-unit.
+ * Claude 사용량 보고를 서비스 토큰 차감으로 환산. 올림(ceil)이라 아주
+ * 작은 호출도 최소 1토큰 — 실제 사용량이 1토큰 미만이어도 사용자에겐
+ * "나 방금 1토큰 썼네"로 읽히도록 청구를 맞춘다.
  */
 export function tokensFromUsage(
   inputTokens: number,

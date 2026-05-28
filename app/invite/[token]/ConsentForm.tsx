@@ -4,9 +4,8 @@ import { useState } from "react";
 
 import { joinRoomAction } from "./actions";
 
-// Client component so the join button can be disabled until the user
-// actually checks the consent box. Server action re-verifies the same
-// thing so a tampered form can't bypass it.
+// 클라 컴포넌트 — 동의 체크 전까지 합류 버튼을 비활성화하기 위함. 서버
+// 액션이 같은 조건을 재검증하므로 변조된 폼으로는 우회할 수 없다.
 
 export function ConsentForm({ token }: { token: string }) {
   const [agreed, setAgreed] = useState(false);

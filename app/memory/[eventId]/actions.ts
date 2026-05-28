@@ -11,10 +11,9 @@ import { InsufficientBalanceError } from "@/lib/tokens/errors";
 import { MIN_BALANCE_TO_START_CYCLE } from "@/lib/tokens/policy";
 import { getBalance } from "@/lib/tokens/wallet";
 
-// Phase 7.4 — persist a user's answer as a UserMemory row, tied to the
-// event that prompted it. AI is only used to write the short title;
-// the answer text itself is saved verbatim into content so no fact the
-// user didn't say gets recorded.
+// Phase 7.4 — 사용자의 답을 UserMemory 행으로 저장하고, 그 답을 유발한
+// 사건과 연결한다. AI 는 짧은 제목을 쓰는 데만 쓰고, 답 본문 자체는
+// content 에 그대로 저장 — 사용자가 말하지 않은 사실은 기록되지 않는다.
 
 export async function submitMemoryAnswer(formData: FormData) {
   const session = await auth();
@@ -37,8 +36,8 @@ export async function submitMemoryAnswer(formData: FormData) {
   }
   const answer = answerRaw.trim();
 
-  // Make sure the conversation actually belongs to this user — never
-  // append to someone else's row even if the hidden id is tampered with.
+  // 대화가 정말 이 사용자 소유인지 확인 — hidden id 가 조작돼도 남의
+  // 행에 절대 덧붙이지 않는다.
   const conv = await prisma.aIConversation.findUnique({
     where: { id: conversationId },
     select: { userId: true, eventId: true },
@@ -47,9 +46,8 @@ export async function submitMemoryAnswer(formData: FormData) {
     throw new Error("conversation mismatch");
   }
 
-  // Pre-flight balance check so an empty wallet doesn't make a paid
-  // summarize call. The page itself blocks new cycles upstream; this
-  // is the second gate for the answer-submit path.
+  // 사전 잔액 체크 — 빈 지갑이 유료 요약 호출을 못 하게. 페이지가 상위에서
+  // 새 사이클을 막지만, 이건 답 제출 경로의 두 번째 게이트.
   const balance = await getBalance(userId);
   if (balance < MIN_BALANCE_TO_START_CYCLE) {
     throw new InsufficientBalanceError();
@@ -71,7 +69,7 @@ export async function submitMemoryAnswer(formData: FormData) {
     throw new Error("event not found");
   }
 
-  // Same access rule as the page: only confirmed-trigger or anchor.
+  // 페이지와 같은 접근 규칙: 확정된 트리거 또는 앵커만.
   if (event.category === "trigger") {
     const r = await prisma.triggerResponse.findUnique({
       where: { userId_eventId: { userId, eventId } },
@@ -94,7 +92,7 @@ export async function submitMemoryAnswer(formData: FormData) {
     answer,
   );
 
-  // ⚠️ userId scope is mandatory — first real write to UserMemory.
+  // ⚠️ userId 범위는 필수 — UserMemory 로의 첫 실제 쓰기.
   const memory = await prisma.userMemory.create({
     data: {
       userId,
@@ -108,14 +106,13 @@ export async function submitMemoryAnswer(formData: FormData) {
     select: { id: true },
   });
 
-  // Persist the answer in the conversation history too so the next
-  // visit to /memory/[eventId] can show "이전에 남긴 추억".
+  // 답을 대화 기록에도 남겨, 다음에 /memory/[eventId] 재방문 시
+  // "이전에 남긴 추억"을 보여줄 수 있게.
   await appendUserAnswer(conversationId, answer);
 
-  // Record the summary AI call as an assistant message so settle() can
-  // pick it up alongside the original guided-questions call. Charging
-  // both at once means a typical cycle (~1,113 AI tokens) costs 1
-  // service token, not 1+1.
+  // 요약 AI 호출을 assistant 메시지로 기록 → settle() 이 원래 가이드 질문
+  // 호출과 함께 한 번에 정산. 둘을 합쳐 차감하면 전형적 사이클(~1,113 AI
+  // 토큰)이 1+1 이 아니라 1 서비스 토큰으로 끝난다.
   if (summary.inputTokens > 0 || summary.outputTokens > 0) {
     await prisma.aIMessage.create({
       data: {
@@ -128,9 +125,8 @@ export async function submitMemoryAnswer(formData: FormData) {
     });
   }
 
-  // Settle every unsettled AI call in this conversation in one charge.
-  // Reusing the same memory (cached conversation, no new AI calls)
-  // leaves nothing unsettled, so this is a no-op then.
+  // 이 대화의 미정산 AI 호출을 한 번에 정산. 같은 추억을 재사용(캐시된
+  // 대화, 새 AI 호출 없음)하면 미정산이 없어 no-op 이 된다.
   const charge = await settleConversationCharges(
     userId,
     conversationId,

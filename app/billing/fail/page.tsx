@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { markOrderFailed } from "@/lib/tokens/orders";
 
-// /billing/fail — Toss redirects here on user cancel / card failure.
-// We mark the PENDING order as failed (best-effort, scoped to this
-// user) so it doesn't sit around forever.
+// /billing/fail — 사용자 취소/카드 실패 시 토스가 여기로 리다이렉트.
+// PENDING 주문을 실패로 표시(best-effort, 이 사용자 범위)해 영원히
+// 남아있지 않게 한다.
 
 type SP = Promise<{ code?: string; message?: string; orderId?: string }>;
 
@@ -27,8 +27,8 @@ export default async function BillingFailPage({
   const orderId = typeof sp.orderId === "string" ? sp.orderId : null;
 
   if (orderId) {
-    // markOrderFailed scopes the update to PENDING + this user via
-    // updateMany so another user can't poke at it.
+    // markOrderFailed 은 updateMany 로 PENDING + 이 사용자 범위로 한정해,
+    // 다른 사용자가 건드릴 수 없게 한다.
     await markOrderFailed(orderId, `${code}: ${message}`);
   }
 

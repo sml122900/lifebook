@@ -1,13 +1,12 @@
-// Phase 8.3 sanity check.
+// Phase 8.3 점검.
 //
-// Verifies on a throwaway user:
-//   1. A cycle's worth of AI usage (guided + summary together) charges
-//      ONE token, not one per call.
-//   2. Calling settle again with no new AIMessage is a no-op (= "the
-//      reused conversation case" from 7.5).
-//   3. wallet.balance keeps matching SUM(transactions.delta).
+// 일회용 사용자로 검증:
+//   1. 한 사이클 분량 AI 사용(가이드+요약 합산)이 호출당이 아니라
+//      "한 번에 1토큰" 차감되는지.
+//   2. 새 AIMessage 없이 settle 재호출 시 no-op (= 7.5 의 "대화 재사용" 케이스).
+//   3. wallet.balance 가 SUM(transactions.delta) 와 계속 일치하는지.
 //
-// Run with: npx tsx db/test-charge.ts
+// 실행: npx tsx db/test-charge.ts
 
 import "dotenv/config";
 

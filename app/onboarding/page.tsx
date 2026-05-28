@@ -1,5 +1,7 @@
 import { OnboardingForm } from "./OnboardingForm";
 
+// 온보딩 페이지. 신규 사용자가 처음 도달(타임라인 진입 시 미완료면 여기로).
+// 실제 질문 흐름은 OnboardingForm(클라)이 lib/onboarding/questions 로 구동.
 export default function OnboardingPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">

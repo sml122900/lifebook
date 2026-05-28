@@ -1,11 +1,11 @@
-// Phase 9.5.1 sanity check.
+// Phase 9.5.1 점검 — youtubeSearchUrl 인코딩 검증.
 //
-// Covers the encoding gotchas the helper is responsible for:
-//   - Hangul title + artist
-//   - English with apostrophes / ellipses
-//   - one of the two fields missing
+// 헬퍼가 책임지는 인코딩 함정을 커버:
+//   - 한글 제목 + 아티스트
+//   - 아포스트로피/말줄임표가 든 영어
+//   - 두 필드 중 하나가 빈 경우
 //
-// Run with: npx tsx db/test-youtube-url.ts
+// 실행: npx tsx db/test-youtube-url.ts
 
 import { youtubeSearchUrl } from "../lib/music/youtube";
 
@@ -31,7 +31,7 @@ const cases: Array<{ title: string; artist: string; expected: string }> = [
   {
     title: "Don't Stop Me Now",
     artist: "Queen",
-    // %2520 would mean double-encoded; %20 = space, %27 = apostrophe.
+    // %2520 이면 이중 인코딩; %20 = 공백, %27 = 아포스트로피.
     expected:
       "https://www.youtube.com/results?search_query=Don't%20Stop%20Me%20Now%20Queen",
   },
@@ -50,8 +50,8 @@ for (const c of cases) {
   console.log(`${ok ? "OK" : "FAIL"}  ${c.title} / ${c.artist}`);
   console.log(`     got:      ${got}`);
   if (!ok) console.log(`     expected: ${c.expected}`);
-  // Round-trip sanity: decoding the query must give back the
-  // original "title artist" string with one space between them.
+  // 라운드트립 점검: 쿼리를 디코딩하면 원래 "제목 아티스트" 문자열이
+  // 공백 하나로 이어진 형태로 돌아와야 한다.
   const decoded = decodeURIComponent(got.split("search_query=")[1]);
   console.log(`     decoded:  ${decoded}`);
 }

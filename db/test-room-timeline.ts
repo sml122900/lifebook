@@ -1,10 +1,10 @@
-// Phase 9.3 sanity check.
+// Phase 9.3 점검.
 //
-// Two users each write a UserMemory. After both join the same room,
-// each sees BOTH memories (their own + the other's) with the author
-// surfaced. A third user who is NOT a member sees nothing.
+// 두 사용자가 각각 UserMemory 를 쓴다. 둘이 같은 룸에 합류하면 각자
+// 두 추억(내 것 + 상대 것)을 작성자와 함께 본다. 멤버가 아닌 제3자는
+// 아무것도 못 본다.
 //
-// Run with: npx tsx db/test-room-timeline.ts
+// 실행: npx tsx db/test-room-timeline.ts
 
 import "dotenv/config";
 

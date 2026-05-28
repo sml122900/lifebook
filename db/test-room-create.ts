@@ -1,7 +1,7 @@
-// Phase 9.1 sanity check: creating a room enrolls the creator as
-// owner with consentAt set, and non-members can't pass getMembership.
+// Phase 9.1 점검: 룸 생성이 만든 이를 consentAt 가 찍힌 owner 로 등록하고,
+// 비멤버는 getMembership 을 통과 못 하는지 확인.
 //
-// Run with: npx tsx db/test-room-create.ts
+// 실행: npx tsx db/test-room-create.ts
 
 import "dotenv/config";
 

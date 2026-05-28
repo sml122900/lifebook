@@ -1,5 +1,7 @@
 import { signIn } from "@/auth";
 
+// 로그인 페이지. 구글 OAuth 한 가지(추후 카카오/네이버 추가 예정).
+// form action(server) 으로 signIn 을 호출하고, 성공 후 /timeline 으로 보낸다.
 export default function LoginPage() {
   return (
     <main className="mx-auto flex max-w-md flex-col items-center gap-8 px-6 py-20">

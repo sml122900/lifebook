@@ -6,6 +6,9 @@ import { useSession } from "next-auth/react";
 
 import { saveConsent } from "./actions";
 
+// 동의 폼(클라). 필수 3종 체크박스 + 시작 버튼. 저장 후 JWT 를 갱신해야
+// 미들웨어가 consentComplete=true 를 본다.
+//
 // TODO: 법무 검토 필요 — 아래 동의 문구는 모두 임시 플레이스홀더이며,
 // 정식 출시 전에 변호사 검토를 거쳐 정식 약관/개인정보처리방침으로 교체해야 한다.
 const REQUIRED_ITEMS = [
@@ -43,7 +46,7 @@ export function ConsentForm() {
     setSubmitting(true);
     const formData = new FormData(e.currentTarget);
     await saveConsent(formData);
-    // Force JWT refresh so proxy sees consentComplete=true on the next request.
+    // JWT 강제 갱신 — 다음 요청에서 미들웨어가 consentComplete=true 를 보게.
     await update();
     router.push("/timeline");
   }
@@ -51,14 +54,12 @@ export function ConsentForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-8">
       {/*
-        Marketing-consent UI is intentionally NOT rendered here.
-        Earlier versions had a "(선택) 마케팅 정보 수신 동의" checkbox,
-        but saveConsent never persisted its value and there's no
-        marketingConsentAt column on User — showing a checkbox while
-        silently ignoring it would have been a 정보통신망법 problem.
-        When real marketing dispatch ships, add a marketingConsentAt
-        column, persist the value in saveConsent, and only THEN bring
-        the UI back.
+        마케팅 동의 UI 는 일부러 렌더하지 않는다. 예전엔 "(선택) 마케팅
+        정보 수신 동의" 체크박스가 있었지만, saveConsent 가 그 값을 저장한
+        적이 없고 User 에 marketingConsentAt 컬럼도 없다 — 체크박스를
+        보여주면서 조용히 무시하면 정보통신망법 위반 소지. 실제 마케팅
+        발송을 붙일 때 marketingConsentAt 컬럼을 추가하고 saveConsent 가
+        값을 저장하게 한 "다음에야" UI 를 되살린다.
       */}
       <ul className="flex flex-col gap-6">
         {REQUIRED_ITEMS.map((item) => (

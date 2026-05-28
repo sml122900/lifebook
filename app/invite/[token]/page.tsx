@@ -6,11 +6,11 @@ import { getInviteForJoin, getMembership } from "@/lib/rooms";
 
 import { ConsentForm } from "./ConsentForm";
 
-// /invite/[token] — invite landing.
+// /invite/[token] — 초대 랜딩 페이지.
 //
-// Critical: visiting this page is NOT joining. We only render the
-// consent screen. Membership is created in joinRoomAction, and only
-// when the user actually checks the box and submits.
+// 핵심: 이 페이지를 보는 것 = 합류가 아니다. 동의 화면만 렌더한다.
+// 멤버십은 joinRoomAction 에서, 사용자가 실제로 체크박스를 누르고 제출할
+// 때만 생성된다.
 
 type PageProps = {
   params: Promise<{ token: string }>;
@@ -44,8 +44,7 @@ export default async function InvitePage({ params }: PageProps) {
     );
   }
 
-  // Already a consented member? Send straight to the room — no second
-  // consent dance.
+  // 이미 동의한 멤버면 룸으로 바로 — 두 번째 동의 절차 없이.
   const existing = await getMembership(session.user.id, invite.roomId);
   if (existing) {
     redirect(`/rooms/${invite.roomId}`);

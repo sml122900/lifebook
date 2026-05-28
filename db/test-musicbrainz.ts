@@ -1,8 +1,7 @@
-// Phase 6.4 sanity check: searches a small mixed sample against
-// MusicBrainz to confirm the wrapper returns MBIDs + release years and
-// that the 1.1s throttle holds between calls.
+// Phase 6.4 점검: 작은 혼합 샘플을 MusicBrainz 에 검색해, 래퍼가 MBID +
+// 발매연도를 돌려주고 호출 간 1.1초 스로틀이 유지되는지 확인.
 //
-// Run with: npx tsx db/test-musicbrainz.ts
+// 실행: npx tsx db/test-musicbrainz.ts
 
 import { searchRecording } from "../lib/musicbrainz";
 

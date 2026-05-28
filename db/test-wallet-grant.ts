@@ -1,10 +1,9 @@
-// Phase 8.2 sanity check: signup grant must fire exactly once per
-// user, regardless of how many times ensureWalletWithSignupGrant is
-// called. Also confirms the wallet.balance ↔ transaction sum
-// invariant holds.
+// Phase 8.2 점검: 가입 지급은 ensureWalletWithSignupGrant 를 몇 번
+// 부르든 사용자당 정확히 한 번만 일어나야 한다. wallet.balance ↔
+// 거래 합계 불변식도 함께 확인.
 //
-// Uses a throwaway User row so the real user's wallet stays untouched.
-// Run with: npx tsx db/test-wallet-grant.ts
+// 실사용자 지갑을 건드리지 않도록 일회용 User 행을 쓴다.
+// 실행: npx tsx db/test-wallet-grant.ts
 
 import "dotenv/config";
 

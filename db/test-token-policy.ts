@@ -1,5 +1,5 @@
-// Phase 8.1 sanity check for the policy constants + tokensFromUsage.
-// Run with: npx tsx db/test-token-policy.ts
+// Phase 8.1 점검 — 정책 상수 + tokensFromUsage 검증.
+// 실행: npx tsx db/test-token-policy.ts
 
 import {
   AI_TOKENS_PER_SERVICE_TOKEN,

@@ -1,9 +1,8 @@
-// Phase 8.1 baseline measurement: run the two AI calls that make up
-// one full "memory" cycle (guided questions + title summarization)
-// across a few representative events so we can pick a sane conversion
-// constant and a sane signup grant.
+// Phase 8.1 기준 측정: 한 "추억" 사이클을 이루는 두 AI 호출(가이드 질문
+// + 제목 요약)을 대표 사건 몇 개에 돌려, 합리적인 환산 상수와 가입
+// 지급량을 정하기 위한 실측.
 //
-// Run with: npx tsx db/test-memory-usage.ts
+// 실행: npx tsx db/test-memory-usage.ts
 
 import "dotenv/config";
 

@@ -1,13 +1,12 @@
-// MusicBrainz API wrapper used by Phase 6.4 to normalize seed song years
-// and capture MBIDs.
+// Phase 6.4 가 시드 곡의 연도를 정규화하고 MBID 를 얻으려고 쓰는
+// MusicBrainz API 래퍼.
 //
-// Etiquette (https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting):
-// - User-Agent MUST identify the app and a contact (we use the repo URL).
-// - At most one request per second per IP.
+// 예의(https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting):
+// - User-Agent 에 앱과 연락처를 반드시 밝힌다(여기선 repo URL).
+// - IP 당 초당 최대 1요청.
 //
-// We serialize via a simple in-process queue so concurrent callers can't
-// burst past the limit. Per-second is conservative — bumping the floor
-// to 1100ms leaves headroom for clock drift.
+// 동시 호출이 한도를 넘지 못하게 간단한 인프로세스 큐로 직렬화한다.
+// 초당 1회는 보수적 — 1100ms 로 잡아 시계 오차 여유를 둔다.
 
 const MB_BASE = "https://musicbrainz.org/ws/2";
 const USER_AGENT = "Lifebook/0.1 ( https://github.com/sml122900/lifebook )";
@@ -16,9 +15,9 @@ const MIN_INTERVAL_MS = 1100;
 let lastCallAt = 0;
 let chain: Promise<unknown> = Promise.resolve();
 
+// 직전 요청에 이어 붙여, 두 호출자가 같은 tick 에 스로틀을 함께 통과하지
+// 못하게 한다(초당 1회 보장).
 function nextSlot(): Promise<void> {
-  // Chain onto the previous request so two callers can't both pass the
-  // throttle in the same tick.
   const slot = chain.then(async () => {
     const now = Date.now();
     const wait = Math.max(0, MIN_INTERVAL_MS - (now - lastCallAt));
@@ -53,9 +52,9 @@ function parseYear(date: string | undefined): number | null {
   return m ? Number(m[1]) : null;
 }
 
+// MusicBrainz 검색은 Lucene 문법 — 따옴표·역슬래시를 이스케이프해
+// 아포스트로피/괄호가 든 곡 제목이 쿼리를 깨뜨리지 않게 한다.
 function quoteLucene(s: string): string {
-  // MusicBrainz search uses Lucene syntax — escape quotes and backslashes
-  // so song titles with apostrophes / parens don't break the query.
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
@@ -90,11 +89,10 @@ export async function searchRecording(
   };
 }
 
-// Policy: the seed year is canonical. MusicBrainz often returns
-// re-release / cover / compilation dates as the "first-release-date" of
-// the recording, which is later than the original. So we only adopt the
-// MB year when it's earlier than the seed (which would mean the seed
-// itself was off, not that MB found a later cover).
+// 정책: 시드 연도가 기준이다. MusicBrainz 는 종종 재발매/커버/컴필레이션
+// 날짜를 그 recording 의 "first-release-date" 로 돌려주는데 이는 원곡보다
+// 늦다. 그래서 MB 연도가 시드보다 "이를 때만" 채택한다(이 경우 시드가
+// 틀렸다는 뜻이지, MB 가 나중 커버를 찾은 게 아님).
 export function reconcileYear(seedYear: number, mbYear: number | null): number {
   if (mbYear === null) return seedYear;
   return mbYear < seedYear ? mbYear : seedYear;

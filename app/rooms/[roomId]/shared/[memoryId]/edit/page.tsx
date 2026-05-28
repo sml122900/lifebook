@@ -6,6 +6,8 @@ import { getSharedMemoryForEdit } from "@/lib/shared-memories";
 
 import { updateSharedMemoryAction } from "../../../shared-actions";
 
+// 공동 추억 편집 페이지. getSharedMemoryForEdit 가 멤버십 + roomId 일치를
+// 검증(아니면 notFound). 폼 제출은 updateSharedMemoryAction 으로.
 type PageProps = {
   params: Promise<{ roomId: string; memoryId: string }>;
 };

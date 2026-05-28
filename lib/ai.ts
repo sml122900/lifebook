@@ -1,14 +1,13 @@
-// Claude (Anthropic) API wrapper.
+// Claude (Anthropic) API 래퍼.
 //
-// Phase 7 uses this for guided memory conversations. Every AI call goes
-// through `chat()` so:
-//   - the API key only reads from process.env (no hardcoding)
-//   - Phase 8's token-deduction hook lands in exactly one place
-//   - we can swap models / tweak max_tokens centrally
+// Phase 7 가이드 추억 대화가 이걸 쓴다. 모든 AI 호출은 `chat()` 한 곳을
+// 거치므로:
+//   - API 키는 process.env 에서만 읽는다(하드코딩 금지)
+//   - Phase 8 토큰 차감 훅이 정확히 한 곳에 들어간다
+//   - 모델 교체·max_tokens 조정을 중앙에서 한다
 //
-// Default model: claude-haiku-4-5 — fast and cheap enough for the
-// per-event chat loop, with quality comfortable for guided questions
-// in Korean. Caller can override per call.
+// 기본 모델: claude-haiku-4-5 — 사건별 대화 루프에 충분히 빠르고 저렴하며,
+// 한국어 가이드 질문 품질도 무난. 호출자가 호출마다 덮어쓸 수 있다.
 
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -58,17 +57,16 @@ export async function chat(
   const model = opts.model ?? DEFAULT_MODEL;
 
   // ──────────────────────────────────────────────────────────────────
-  // PHASE 8 — TOKEN DEDUCTION HOOK
+  // PHASE 8 — 토큰 차감 훅
   //
-  // Every paid AI call in the product must flow through this single
-  // function. Phase 8 wraps the call with:
-  //   1. pre-call: lookup user balance, refuse if insufficient
-  //   2. post-call: charge tokens (input + output)
-  //   3. on failure: refund / don't charge
+  // 제품의 모든 유료 AI 호출은 이 함수 하나를 거친다. Phase 8 은 호출을
+  // 다음으로 감싼다:
+  //   1. 호출 전: 사용자 잔액 조회, 부족하면 거부
+  //   2. 호출 후: 토큰 차감 (입력 + 출력)
+  //   3. 실패 시: 환불 / 차감 안 함
   //
-  // For now we just log so we can sanity-check usage in dev. The
-  // caller never sees the deduction directly — it's bookkeeping that
-  // belongs next to the API call.
+  // 지금은 dev 에서 사용량을 점검하려고 로그만 남긴다. 호출자는 차감을
+  // 직접 보지 않는다 — API 호출 옆에 두는 부기(bookkeeping)다.
   // ──────────────────────────────────────────────────────────────────
 
   const res = await getClient().messages.create({
@@ -85,8 +83,8 @@ export async function chat(
     `[ai] model=${res.model} in=${res.usage.input_tokens} out=${res.usage.output_tokens} total=${res.usage.input_tokens + res.usage.output_tokens}`,
   );
 
-  // The SDK returns a content[] union; for our prompts we only ever ask
-  // for plain text. Concatenate any text blocks defensively.
+  // SDK 는 content[] union 을 돌려준다. 우리 프롬프트는 항상 평문만
+  // 요청하므로, text 블록들을 방어적으로 이어 붙인다.
   const text = res.content
     .map((b) => (b.type === "text" ? b.text : ""))
     .join("")

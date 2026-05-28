@@ -1,13 +1,12 @@
-// Phase 8.3 race-safety check (post-review fix).
+// Phase 8.3 race-safety 점검 (검토 후 픽스).
 //
-// Two settleConversationCharges calls fire IN PARALLEL on the same
-// conversation. Before the fix, both transactions could SELECT the
-// same unsettled rows, compute the same cost, and double-decrement
-// the wallet. After the fix:
-//   - Atomic UPDATE ... RETURNING claims rows under row lock so the
-//     loser sees 0 rows and bails with no_usage.
-//   - Conditional wallet UPDATE (WHERE balance >= cost) prevents
-//     negative balance even if the chargedAt claim somehow slips.
+// 같은 대화에 settleConversationCharges 두 개를 병렬로 쏜다. 픽스 전엔
+// 두 트랜잭션이 같은 미정산 행을 SELECT 해 같은 비용을 계산하고 지갑을
+// 이중 차감할 수 있었다. 픽스 후:
+//   - 원자적 UPDATE ... RETURNING 이 행 잠금 하에 선점 → 패배자는 0행을
+//     보고 no_usage 로 빠짐.
+//   - 조건부 wallet UPDATE (WHERE balance >= cost) 가 chargedAt 선점이
+//     혹시 미끄러져도 음수 잔액을 막는다.
 //
 // Expected:
 //   - exactly one outcome has charged=true with tokensSpent=1

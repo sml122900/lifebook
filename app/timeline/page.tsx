@@ -24,9 +24,12 @@ function indexByYear<T extends { year: number }>(rows: T[]): Map<number, T[]> {
   return map;
 }
 
+// 출생연도 기준 타임라인 (Phase 5). 왼쪽=세상 사건(앵커+음악 트리거),
+// 오른쪽=내 추억. 최근 해부터 거슬러 내려간다. (핵심 UX 는 타임머신으로
+// 대체 예정이지만 코드 보존.)
 export default async function TimelinePage() {
-  // Soft onboarding gate: new users land on /onboarding first, but once
-  // they finish (or skip) it they come straight here from then on.
+  // 부드러운 온보딩 게이트: 신규 사용자는 먼저 /onboarding 으로, 끝내거나
+  // 건너뛰면 그 뒤부턴 바로 여기로 온다.
   const session = await auth();
   let birthYear: number | null = null;
   if (session?.user?.id) {
@@ -40,9 +43,8 @@ export default async function TimelinePage() {
     birthYear = user.birthYear;
   }
 
-  // Center the timeline on the user's lived era. With no birthYear yet
-  // (skipped onboarding), fall back to every anchor — Phase 5.5 prompts
-  // the user to fill it in.
+  // 타임라인을 사용자가 살아온 시대에 맞춘다. birthYear 가 아직 없으면
+  // (온보딩 건너뜀) 모든 앵커로 폴백 — Phase 5.5 가 입력을 권한다.
   const events = await prisma.event.findMany({
     where: {
       category: "anchor",
@@ -52,15 +54,13 @@ export default async function TimelinePage() {
   });
   const anchorsByYear = indexByYear(events);
 
-  // ⚠️ UserMemory MUST stay scoped to the current user — solo content is
-  // private by Phase 3 design. Empty when the user has no memories yet
-  // (Phase 7 will introduce the create flow).
+  // ⚠️ UserMemory 는 반드시 현재 사용자 범위로 — 솔로 콘텐츠는 Phase 3
+  // 설계상 비공개. 추억이 아직 없으면 빈 배열(Phase 7 이 작성 흐름 추가).
   const memories = session?.user?.id
     ? await prisma.userMemory.findMany({
         where: { userId: session.user.id },
-        // event.domain drives whether each memory card shows a
-        // "들어보기" button; title + description carry the song info
-        // we feed into the YouTube search.
+        // event.domain 으로 추억 카드에 "들어보기" 버튼 노출 여부를 정한다.
+        // title + description 이 유튜브 검색에 넣을 곡 정보를 담는다.
         include: {
           event: { select: { title: true, description: true, domain: true } },
         },
@@ -69,12 +69,10 @@ export default async function TimelinePage() {
     : [];
   const memoriesByYear = indexByYear(memories);
 
-  // Music triggers — only when we know the user's era. Profile fields
-  // default to empty arrays so a user who skipped onboarding still gets
-  // generation-based recommendations. If Voyage / pgvector errors out
-  // (network drop, key issue, rate limit), the helper returns
-  // failed=true with an empty triggers list — the page just shows a
-  // small banner and the rest of the timeline keeps rendering.
+  // 음악 트리거 — 사용자의 시대를 알 때만. 프로필 필드는 빈 배열 기본값
+  // 이라 온보딩을 건너뛴 사용자도 세대 기반 추천은 받는다. Voyage/pgvector
+  // 가 에러나면(네트워크·키·레이트리밋) 헬퍼가 failed=true + 빈 목록을
+  // 반환 → 페이지는 작은 배너만 띄우고 나머지 타임라인은 계속 렌더.
   let triggers: TriggerCandidate[] = [];
   let triggersFailed = false;
   if (birthYear && session?.user?.id) {
@@ -96,7 +94,7 @@ export default async function TimelinePage() {
   }
   const triggersByYear = indexByYear(triggers);
 
-  // Render any year that has an anchor OR a suggested trigger.
+  // 앵커 또는 제안 트리거가 하나라도 있는 해는 전부 렌더.
   const yearSet = new Set<number>();
   for (const y of anchorsByYear.keys()) yearSet.add(y);
   for (const y of triggersByYear.keys()) yearSet.add(y);

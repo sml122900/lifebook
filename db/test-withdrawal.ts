@@ -1,12 +1,12 @@
-// Verify the withdrawal flow does the right thing on real DB rows.
-// Run: npx tsx db/test-withdrawal.ts
+// 회원 탈퇴 흐름이 실제 DB 행에서 올바르게 동작하는지 검증.
+// 실행: npx tsx db/test-withdrawal.ts
 //
-// Scenarios covered:
-// 1) Owner withdraws, room has another consented member → owner transfers.
-// 2) Owner withdraws, no other consented member → room cascades.
-// 3) SharedMemory authored by withdrawer is anonymized (createdById=null).
-// 4) Paid TokenOrder is anonymized (userId=null), pending/failed deleted.
-// 5) UserMemory cascades. Orphan room-comments on it are pre-cleaned.
+// 커버 시나리오:
+// 1) 방장 탈퇴 + 다른 동의 멤버 있음 → 소유권 이전.
+// 2) 방장 탈퇴 + 다른 동의 멤버 없음 → 룸 cascade 삭제.
+// 3) 탈퇴자가 쓴 SharedMemory 는 익명화 (createdById=null).
+// 4) paid TokenOrder 익명화 (userId=null), pending/failed 는 삭제.
+// 5) UserMemory cascade. 그에 달린 고아 룸 댓글은 사전 정리.
 
 import "dotenv/config";
 

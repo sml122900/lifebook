@@ -6,8 +6,8 @@ import { listUserRooms } from "@/lib/rooms";
 
 import { createRoomAction } from "./actions";
 
-// /rooms — list of rooms the user has joined + inline create form.
-// Room detail (member timeline, comments, etc.) ships in 9.3+.
+// /rooms — 사용자가 속한 가족 룸 목록 + 새 룸 만들기 폼.
+// 룸 상세(멤버 타임라인·댓글·스탬프 등)는 /rooms/[roomId].
 
 const ROLE_LABEL: Record<string, string> = {
   owner: "방장",

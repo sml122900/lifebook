@@ -1,11 +1,10 @@
-// Phase 9.6 — shared memory CRUD helpers.
+// Phase 9.6 — 공동 추억(SharedMemory) CRUD 헬퍼.
 //
-// Authorization rules:
-//   - any consented room member can create / edit (room co-ownership)
-//   - delete is restricted to the original author OR the room owner
-// Every helper verifies membership against the row's roomId — never
-// trust a roomId from the caller without also checking the memory
-// belongs to it.
+// 권한 규칙:
+//   - 동의한 룸 멤버 누구나 생성/수정 가능 (룸 공동 소유)
+//   - 삭제는 원작성자 또는 룸 방장만
+// 모든 헬퍼는 그 행의 roomId 로 멤버십을 검증한다 — 호출자가 보낸
+// roomId 를, 그 추억이 정말 거기에 속하는지 확인 없이 신뢰하지 않는다.
 
 import { prisma } from "./db";
 import { getMembership } from "./rooms";
@@ -158,9 +157,8 @@ export async function deleteSharedMemory(
   const membership = await getMembership(userId, memory.roomId);
   if (!membership) throw new Error("not a member of this room");
 
-  // Co-ownership for edit, but delete is tighter: only the original
-  // author or the room owner can blow it away. Co-author can still
-  // edit the title to "삭제됨" or similar if that's what they want.
+  // 수정은 공동 소유지만 삭제는 더 엄격: 원작성자나 룸 방장만 지울 수
+  // 있다. 공동작성자는 원하면 제목을 "삭제됨" 등으로 고치는 정도만 가능.
   if (memory.createdById !== userId && memory.room.ownerId !== userId) {
     throw new Error("only the author or room owner can delete");
   }

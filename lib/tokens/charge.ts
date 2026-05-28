@@ -1,25 +1,24 @@
-// Phase 8.3 — settle outstanding AI usage against the user's wallet.
+// Phase 8.3 — 밀린 AI 사용량을 사용자 지갑에서 정산(차감).
 //
-// Policy choice: charge by memory CYCLE, not by individual API call.
-// One cycle = the guided-questions call + (eventually) the summary
-// call. We sum their tokens, run tokensFromUsage() once, and write a
-// single TokenTransaction. Charging per call would ceil() twice and
-// double-bill (1+1 instead of 1) for the very common ~1,113-token
-// cycle the policy is calibrated to.
+// 정책: 개별 API 호출이 아니라 추억 "사이클" 단위로 차감한다. 한 사이클
+// = 가이드 질문 호출 + (최종) 요약 호출. 두 토큰을 합쳐 tokensFromUsage()
+// 를 한 번만 돌리고 TokenTransaction 한 줄만 쓴다. 호출마다 차감하면
+// ceil() 이 두 번 걸려, 정책이 calibrate 된 흔한 ~1,113토큰 사이클이
+// 1 대신 1+1=2 로 이중 청구된다.
 //
-// Race safety (post-review):
-//   1. AIMessage rows are claimed atomically with
+// race 안전성(검토 반영):
+//   1. AIMessage 행을 원자적으로 선점 —
 //        UPDATE ... SET chargedAt = NOW() WHERE chargedAt IS NULL
-//      under PostgreSQL's row-level lock + condition re-check (READ
-//      COMMITTED). A concurrent settle sees 0 rows and bails out.
-//   2. Wallet decrement is conditional —
+//      PostgreSQL 의 행 잠금 + 조건 재검사(READ COMMITTED) 하에서.
+//      동시 정산은 0행을 보고 빠져나간다.
+//   2. 지갑 차감은 조건부 —
 //        UPDATE ... SET balance = balance - cost WHERE balance >= cost
-//      so two parallel charges can never push the balance negative.
-//      If the condition fails we throw InsufficientBalance and the
-//      surrounding $transaction rolls the chargedAt claims back too.
+//      두 병렬 차감이 잔액을 음수로 못 만든다. 조건 실패 시
+//      InsufficientBalance 를 throw 하고, 감싼 $transaction 이 chargedAt
+//      선점도 함께 롤백한다.
 //
-// Both checks are INSIDE the same $transaction so balance ↔ ledger
-// never diverges and a race loser leaves no half-applied state.
+// 두 체크 모두 같은 $transaction 안 → balance ↔ ledger 가 절대 어긋나지
+// 않고, race 패배자는 절반만 적용된 상태를 남기지 않는다.
 
 import { prisma } from "../db";
 import { InsufficientBalanceError } from "./errors";
@@ -43,13 +42,12 @@ type ClaimedRow = {
 type WalletRow = { balance: number };
 
 /**
- * Settle every unsettled AIMessage in a conversation against the
- * wallet. Safe to call multiple times — if there's nothing new to
- * charge, returns { charged: false }.
+ * 대화 안의 아직 정산 안 된 AIMessage 를 모두 지갑에서 차감. 여러 번
+ * 불러도 안전 — 새로 차감할 게 없으면 { charged: false }.
  *
- * Concurrent callers (e.g. double-submit, network retry): one settle
- * claims the unsettled rows, the other gets a no-op. Wallet can never
- * go negative even if two charges race past the upstream gate.
+ * 동시 호출(더블 제출, 네트워크 재시도): 한 정산이 미정산 행을 선점하고
+ * 나머지는 no-op. 두 차감이 상위 게이트를 경합으로 지나쳐도 지갑은 절대
+ * 음수가 되지 않는다.
  */
 export async function settleConversationCharges(
   userId: string,
@@ -57,8 +55,8 @@ export async function settleConversationCharges(
   refId?: string,
 ): Promise<ChargeOutcome> {
   return await prisma.$transaction(async (tx) => {
-    // Defense-in-depth: conversation must belong to this user. The
-    // action layer already checks this, but keep the helper safe.
+    // 심층 방어: 대화가 이 사용자 소유여야 한다. 액션 레이어에서 이미
+    // 확인하지만, 헬퍼 자체도 안전하게 둔다.
     const conv = await tx.aIConversation.findUnique({
       where: { id: conversationId },
       select: { userId: true },
@@ -67,10 +65,9 @@ export async function settleConversationCharges(
       throw new Error("conversation does not belong to user");
     }
 
-    // Atomically claim unsettled assistant messages. The WHERE-clause
-    // is re-evaluated under row lock, so two concurrent settles can't
-    // both claim the same row — the loser gets an empty result and
-    // bails out with no_usage.
+    // 미정산 assistant 메시지를 원자적으로 선점. WHERE 절이 행 잠금 하에
+    // 재평가되므로 두 동시 정산이 같은 행을 함께 못 선점한다 — 패배자는
+    // 빈 결과를 받고 no_usage 로 빠져나간다.
     const claimed = await tx.$queryRaw<ClaimedRow[]>`
       UPDATE "AIMessage"
       SET "chargedAt" = NOW()
@@ -89,18 +86,15 @@ export async function settleConversationCharges(
     const cost = tokensFromUsage(totalIn, totalOut);
 
     if (cost === 0) {
-      // Defensive: tokensFromUsage only returns 0 when totals are 0,
-      // which should have been caught upstream (AIMessage not stored
-      // when usage was 0). chargedAt is already set on the claimed
-      // rows so the next pass won't re-evaluate them.
+      // 방어적: tokensFromUsage 는 합계가 0 일 때만 0 을 반환하는데, 그건
+      // 상위에서 이미 걸러졌어야 한다(사용량 0 이면 AIMessage 미저장).
+      // 선점된 행엔 chargedAt 이 이미 찍혀 다음 정산이 재평가하지 않는다.
       return { charged: false, reason: "no_usage" } as const;
     }
 
-    // Conditional wallet decrement. If balance < cost (concurrent
-    // race past the upstream MIN_BALANCE gate), RETURNING is empty
-    // and we throw — the $transaction rolls the chargedAt claims back
-    // so the messages are eligible for the next, properly-funded
-    // settle attempt.
+    // 조건부 지갑 차감. balance < cost 면(상위 MIN_BALANCE 게이트를 경합으로
+    // 지나친 경우) RETURNING 이 비고 throw → $transaction 이 chargedAt
+    // 선점을 롤백해, 그 메시지들은 다음(잔액이 충분한) 정산 시도 대상이 된다.
     const walletUpdated = await tx.$queryRaw<WalletRow[]>`
       UPDATE "TokenWallet"
       SET balance = balance - ${cost}, "updatedAt" = NOW()

@@ -2,8 +2,8 @@ import Link from "next/link";
 
 import { deleteSharedMemoryAction } from "./shared-actions";
 
-// Server component rendering one SharedMemory + the per-card actions
-// the viewer is allowed to take.
+// SharedMemory 한 건 + 뷰어에게 허용된 카드별 액션(편집/삭제)을 렌더하는
+// 서버 컴포넌트.
 
 type Props = {
   memory: {
@@ -13,7 +13,7 @@ type Props = {
     month: number | null;
     title: string;
     content: string | null;
-    // null = original author withdrew; UI shows "탈퇴한 사용자".
+    // null = 원작성자가 탈퇴함; UI 는 "탈퇴한 사용자"로 표시.
     createdById: string | null;
     createdBy: { name: string | null; email: string | null } | null;
     lastEditedById: string | null;
@@ -38,7 +38,7 @@ export function SharedMemoryCard({ memory, viewerId, roomOwnerId }: Props) {
   // 작성자가 탈퇴한 경우 본인 삭제 권한이 사라지니 owner만 삭제 가능.
   const canDelete =
     memory.createdById === viewerId || roomOwnerId === viewerId;
-  // Phase 9.6: every member can edit shared memories (room-owned).
+  // Phase 9.6: 공동 추억은 룸 소유라 모든 멤버가 편집 가능.
   const canEdit = true;
 
   const author = name(memory.createdBy, viewerId, memory.createdById);

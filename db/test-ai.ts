@@ -1,7 +1,7 @@
-// Phase 7.1 sanity check: confirm Claude API key + wrapper work end
-// to end with a short Korean prompt.
+// Phase 7.1 점검: 짧은 한국어 프롬프트로 Claude API 키 + 래퍼가 끝까지
+// 동작하는지 확인.
 //
-// Run with: npx tsx db/test-ai.ts
+// 실행: npx tsx db/test-ai.ts
 
 import "dotenv/config";
 

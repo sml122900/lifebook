@@ -1,9 +1,9 @@
-// Voyage AI embeddings wrapper.
+// Voyage AI 임베딩 래퍼.
 //
-// Model: voyage-3.5 (multilingual, retrieval-optimized, 1024-dim).
-// Phase 6 uses this both for indexing trigger events ("document") and for
-// the per-user query vector ("query") — keep the input_type aligned with
-// the call site so cosine similarity stays meaningful.
+// 모델: voyage-3.5 (다국어, 검색 최적화, 1024차원).
+// Phase 6 가 트리거 사건 색인("document")과 사용자별 질의 벡터("query")
+// 둘 다에 쓴다 — 코사인 유사도가 의미를 가지려면 호출부의 input_type 을
+// 용도에 맞춰야 한다.
 
 const VOYAGE_ENDPOINT = "https://api.voyageai.com/v1/embeddings";
 
@@ -51,10 +51,11 @@ export async function embedTexts(
   }
 
   const json = (await res.json()) as VoyageResponse;
-  // Voyage may return data out of order; sort by index to be safe.
+  // Voyage 가 순서를 뒤섞어 줄 수 있으니 index 로 정렬해 안전하게 매핑.
   return json.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);
 }
 
+// 단일 텍스트 임베딩 — embedTexts 의 단건 편의 래퍼.
 export async function embedOne(
   text: string,
   inputType: EmbeddingInputType,

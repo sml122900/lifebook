@@ -7,8 +7,13 @@ import { QUESTIONS, type Question } from "@/lib/onboarding/questions";
 
 import { saveOnboarding } from "./actions";
 
+// 온보딩 위저드(클라). lib/onboarding/questions 의 배열을 한 문항씩 보여주고,
+// 마지막 문항에서 saveOnboarding 으로 한 번에 저장 후 /timeline 으로.
+// 각 문항은 kind 에 따라 다른 입력 컴포넌트(년도/칩/목록/텍스트)를 렌더.
+
 type Answers = Record<string, unknown>;
 
+// 빈 답 판정 — 빈 답은 저장하지 않아(건너뛰기) 이전 값을 안 덮어쓴다.
 function isEmpty(v: unknown): boolean {
   if (v === undefined || v === null) return true;
   if (typeof v === "string") return v.trim() === "";
@@ -27,6 +32,7 @@ export function OnboardingForm() {
   const isLast = index === QUESTIONS.length - 1;
   const progress = ((index + 1) / QUESTIONS.length) * 100;
 
+  // 현재 문항 답을 누적하고 다음으로. 마지막이면 저장 후 타임라인으로 이동.
   async function commit(next: unknown) {
     const nextAnswers = { ...answers };
     if (!isEmpty(next)) {
@@ -62,9 +68,8 @@ export function OnboardingForm() {
         <p className="text-xl font-semibold text-zinc-900">{current.prompt}</p>
         <QuestionHint question={current} />
         <div className="mt-6">
-          {/* key forces a fresh mount per question so internal input
-              state (e.g. TextListInput's pending text) never bleeds
-              from one question to the next, even when the kind matches. */}
+          {/* key 로 문항마다 새 mount 강제 — 내부 입력 상태(예: TextListInput
+              의 입력 중 텍스트)가 kind 가 같아도 다음 문항으로 새지 않게. */}
           <QuestionInput
             key={current.id}
             question={current}

@@ -1,13 +1,11 @@
-// Phase 9.4 sanity check + full Track A walkthrough.
+// Phase 9.4 점검.
 //
-// Three users, two scenarios in one run:
-//   1. Alice + Bob join one room. They each comment on each other's
-//      memory; both can read both comments; Alice can delete her own
-//      but NOT Bob's.
-//   2. Eve is in NO room. Every operation against the room's data
-//      must refuse her.
+// 사용자 셋, 한 실행에 두 시나리오:
+//   1. Alice + Bob 이 한 룸에 합류. 서로의 추억에 댓글을 달고, 둘 다 두
+//      댓글을 읽을 수 있으며, Alice 는 자기 댓글만 삭제 가능(Bob 것은 X).
+//   2. Eve 는 어느 룸에도 없다. 룸 데이터에 대한 모든 작업이 거부돼야 한다.
 //
-// Run with: npx tsx db/test-comments.ts
+// 실행: npx tsx db/test-comments.ts
 
 import "dotenv/config";
 

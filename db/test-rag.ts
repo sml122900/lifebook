@@ -1,11 +1,10 @@
-// Phase 6.6 — eyeball test for getMusicTriggersForUser.
+// Phase 6.6 — getMusicTriggersForUser 육안 확인 테스트.
 //
-// Runs two contrasting personas through the retriever so the generation
-// filter (reminiscence bump) is visible: a 1965-born senior listener and
-// a 1995-born K-pop listener should land on very different decades
-// despite the same catalog.
+// 대조되는 두 페르소나를 검색기에 돌려 세대 필터(회상 가중치)가 보이게:
+// 1965년생 시니어 청취자와 1995년생 K-pop 청취자는 같은 카탈로그라도
+// 아주 다른 연대에 안착해야 한다.
 //
-// Run with: npx tsx db/test-rag.ts
+// 실행: npx tsx db/test-rag.ts
 
 import "dotenv/config";
 

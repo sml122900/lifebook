@@ -1,9 +1,8 @@
-// Phase 9 — shared room helpers.
+// Phase 9 — 가족 룸 헬퍼.
 //
-// Single source of truth for membership checks. Anywhere in the app
-// that reads room-scoped data must call ensureRoomMembership() first.
-// Returning the membership row (not a boolean) lets callers branch on
-// role / consent without a second query.
+// 멤버십 확인의 단일 진실 원천. 룸 범위 데이터를 읽는 앱의 모든 곳은
+// 먼저 getMembership() 을 거쳐야 한다. boolean 이 아니라 멤버십 행을
+// 반환하므로 호출자가 두 번째 쿼리 없이 role/consent 로 분기할 수 있다.
 
 import { randomBytes } from "node:crypto";
 
@@ -14,9 +13,8 @@ export type Membership = Awaited<
 >;
 
 /**
- * Returns the membership row if the user is a CONSENTED member of the
- * room, otherwise null. Invited-but-not-consented members are treated
- * as non-members for room data access.
+ * 사용자가 룸의 "동의한" 멤버면 멤버십 행을, 아니면 null 을 반환.
+ * 초대만 받고 아직 동의 안 한 멤버는 룸 데이터 접근에선 비멤버로 취급.
  */
 export async function getMembership(userId: string, roomId: string) {
   const member = await prisma.roomMember.findUnique({
@@ -44,8 +42,8 @@ export async function createRoom(userId: string, name: string) {
       data: { name: trimmed, ownerId: userId },
       select: { id: true, name: true, createdAt: true },
     });
-    // Owner consents implicitly by creating the room — their data was
-    // already private to them, so we just record the timestamp.
+    // 방장은 룸을 만드는 행위로 묵시적 동의 — 자기 데이터는 원래 본인
+    // 것이었으니 동의 시각만 기록한다.
     await tx.roomMember.create({
       data: {
         roomId: room.id,
@@ -59,10 +57,9 @@ export async function createRoom(userId: string, name: string) {
 }
 
 /**
- * Issue a new invite for an existing room. Only consented members can
- * issue invites; the URL token is 256 bits of randomness, base64url-
- * encoded (no sequential ids, no guessable tokens). Phase 9.2 leaves
- * expiry / single-use intentionally out of scope.
+ * 기존 룸에 새 초대를 발급. 동의한 멤버만 초대 가능. URL 토큰은 256비트
+ * 난수를 base64url 로 인코딩(순차 id 없음, 추측 불가). 만료/일회용은
+ * Phase 9.2 에서 일부러 범위 밖으로 둔다.
  */
 export async function createInvite(
   userId: string,
@@ -92,14 +89,12 @@ export async function getInviteForJoin(token: string) {
 }
 
 /**
- * Idempotent join. Creates a new RoomMember row with consentAt=now()
- * on first run; flips an existing null-consent row to consented on
- * re-entry. Already-consented members are a no-op (just returns the
- * room id so the caller can redirect).
+ * idempotent 합류. 처음이면 consentAt=now() 로 RoomMember 행을 생성,
+ * 재진입이면 동의 안 된 행을 동의로 뒤집는다. 이미 동의한 멤버면 no-op
+ * (호출자가 리다이렉트하도록 roomId 만 반환).
  *
- * The consent must come from a real user gesture upstream (the join
- * page's checkbox + submit) — this helper trusts its caller to only
- * fire after the user explicitly agreed.
+ * 동의는 상위의 실제 사용자 동작(합류 페이지의 체크박스+제출)에서 와야
+ * 한다 — 이 헬퍼는 사용자가 명시 동의한 뒤에만 불린다고 신뢰한다.
  */
 export async function joinViaInvite(
   userId: string,
@@ -121,8 +116,7 @@ export async function joinViaInvite(
         consentAt: new Date(),
       },
       update: {
-        // Re-consenting refreshes the timestamp; explicit user gesture
-        // every time we get here.
+        // 재동의 시 시각 갱신 — 여기 도달할 땐 매번 명시적 사용자 동작.
         consentAt: new Date(),
       },
     });
@@ -131,16 +125,14 @@ export async function joinViaInvite(
 }
 
 /**
- * Aggregated personal memories for a room: every consented member's
- * UserMemory rows, with the author surfaced for display.
+ * 룸의 개인 추억 모음: 동의한 모든 멤버의 UserMemory 행을, 작성자를
+ * 함께 붙여 반환.
  *
- * Scope safety:
- *   - viewer must be a consented member (otherwise returns null)
- *   - the WHERE clause restricts userId to members of THIS room only,
- *     so a viewer in rooms A+B never sees data through this function
- *     unless the author also belongs to the same room they're viewing
- *   - dismissed / unanswered triggers aren't relevant here — this is
- *     personal memories, not catalog rows
+ * 범위 안전성:
+ *   - viewer 는 동의 멤버여야 함 (아니면 null)
+ *   - WHERE 절이 userId 를 "이" 룸 멤버로만 제한 → A+B 두 룸에 속한
+ *     viewer 라도, 작성자가 지금 보는 그 룸에도 속해야만 데이터가 보인다
+ *   - 무시/미응답 트리거는 여기 무관 — 카탈로그가 아니라 개인 추억이다
  */
 export async function listRoomMemories(roomId: string, viewerUserId: string) {
   const membership = await getMembership(viewerUserId, roomId);
@@ -175,8 +167,8 @@ export async function listRoomMemories(roomId: string, viewerUserId: string) {
 }
 
 /**
- * Rooms the user has joined (consented to). Owner rows are included
- * because their consentAt is set at creation.
+ * 사용자가 합류(동의)한 룸 목록. 방장 행도 포함 — 생성 시 consentAt 가
+ * 채워지므로.
  */
 export async function listUserRooms(userId: string) {
   return await prisma.roomMember.findMany({

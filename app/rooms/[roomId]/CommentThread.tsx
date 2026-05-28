@@ -3,8 +3,8 @@ import {
   deleteCommentAction,
 } from "./comment-actions";
 
-// Server component — renders the comment list, the inline create
-// form, and a per-row delete form only for the viewer's own comments.
+// 서버 컴포넌트 — 댓글 목록 + 인라인 작성 폼 + (내 댓글에만) 줄별 삭제
+// 폼을 렌더한다.
 
 type Comment = {
   id: string;

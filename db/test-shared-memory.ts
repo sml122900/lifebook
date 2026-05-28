@@ -1,17 +1,17 @@
-// Phase 9.6 sanity check.
+// Phase 9.6 점검.
 //
-// Three users:
-//   - alice creates room (owner)
-//   - bob joins via invite
-//   - eve is outside the room
-// Scenarios:
-//   - any member can create
-//   - any member can edit (co-ownership), updates lastEditedById
-//   - non-author non-owner CANNOT delete
-//   - original author CAN delete; room owner CAN delete (separately)
-//   - eve gets blocked on every operation
+// 사용자 셋:
+//   - alice 가 룸 생성 (owner)
+//   - bob 이 초대로 합류
+//   - eve 는 룸 바깥
+// 시나리오:
+//   - 멤버 누구나 생성 가능
+//   - 멤버 누구나 수정 가능 (공동 소유), lastEditedById 갱신
+//   - 작성자도 방장도 아니면 삭제 불가
+//   - 원작성자는 삭제 가능; 방장도 (별개로) 삭제 가능
+//   - eve 는 모든 작업에서 차단
 //
-// Run with: npx tsx db/test-shared-memory.ts
+// 실행: npx tsx db/test-shared-memory.ts
 
 import "dotenv/config";
 

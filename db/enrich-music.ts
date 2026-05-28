@@ -1,9 +1,9 @@
-// Phase 6.4 — run every musicEvents seed row through MusicBrainz,
-// reconcile years per policy (seed wins unless MB is earlier), and
-// write the enriched catalog to db/seed/musicEvents.enriched.json so
-// Phase 6.5 can adopt it without re-hitting MB.
+// Phase 6.4 — musicEvents 시드 행을 모두 MusicBrainz 로 돌려, 정책대로
+// 연도를 정합화(시드 우선, MB 가 더 이르면 채택)하고, 보강된 카탈로그를
+// db/seed/musicEvents.enriched.json 으로 쓴다 → Phase 6.5 가 MB 를 다시
+// 치지 않고 그대로 쓰게.
 //
-// Runtime: ~70 songs × 1.1s ≈ 80s. Run with:
+// 소요: ~70곡 × 1.1s ≈ 80초. 실행:
 //   npx tsx db/enrich-music.ts
 
 import { writeFileSync } from "node:fs";

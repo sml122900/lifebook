@@ -3,16 +3,14 @@
 import Link from "next/link";
 import { useEffect } from "react";
 
-// Route-segment error boundary. Fires when any server component or
-// server action in a route throws — Prisma errors, third-party API
-// errors, anything that wasn't already caught.
+// 라우트 세그먼트 에러 경계. 라우트 안의 서버 컴포넌트나 서버 액션이
+// throw 하면(Prisma 에러, 외부 API 에러 등 미처 못 잡은 모든 것) 발동.
 //
-// Rule for this file: raw `error.message` MUST NOT appear in the UI.
-// Prisma messages can leak SQL fragments and model names; external API
-// errors can echo back keys / user input. The user sees a generic
-// Korean message; the actual error goes to server logs via
-// console.error (Next.js forwards client console.error from this
-// component to the server in dev).
+// 이 파일의 철칙: 원본 `error.message` 를 UI 에 절대 노출하지 않는다.
+// Prisma 메시지엔 SQL 조각·모델명이, 외부 API 에러엔 키·사용자 입력이
+// 새어나올 수 있다. 사용자에겐 일반적인 한국어 안내만 보여주고, 실제
+// 에러는 console.error 로 서버 로그에 남긴다 (dev 에선 Next 가 이 컴포넌트의
+// console.error 를 서버로 전달).
 
 export default function Error({
   error,

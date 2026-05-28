@@ -1,7 +1,7 @@
-// Phase 6.2 sanity check: confirms pgvector is installed and the cosine
-// distance operator (<=>) works against a vector(1024) column.
+// Phase 6.2 점검: pgvector 가 설치돼 있고 코사인 거리 연산자(<=>)가
+// vector(1024) 컬럼에서 동작하는지 확인.
 //
-// Run with: npx tsx db/test-vector.ts
+// 실행: npx tsx db/test-vector.ts
 
 import "dotenv/config";
 

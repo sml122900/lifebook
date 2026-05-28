@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-// Senior-friendly insufficient-balance card. Warm tone, large typography,
-// large touch targets, no guilt-inducing wording.
+// 토큰 부족 안내 카드 (시니어 친화). 따뜻한 톤, 큰 글씨, 큰 터치 영역,
+// 죄책감 유발 표현 없음. 잔액 부족으로 막힌 흐름에서 충전을 부드럽게 권한다.
 
 type Props = {
   balance: number;

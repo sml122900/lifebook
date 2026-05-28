@@ -1,8 +1,7 @@
-// Phase 8.4 sanity check: a wallet below MIN_BALANCE_TO_START_CYCLE
-// should make hasMinBalance / the page gate refuse a new cycle. We
-// don't render the page here — just verify the underlying numbers.
+// Phase 8.4 점검: 잔액이 MIN_BALANCE_TO_START_CYCLE 미만이면 페이지
+// 게이트가 새 사이클을 거부해야 한다. 페이지를 렌더하진 않고 밑단 숫자만 확인.
 //
-// Run with: npx tsx db/test-insufficient.ts
+// 실행: npx tsx db/test-insufficient.ts
 
 import "dotenv/config";
 

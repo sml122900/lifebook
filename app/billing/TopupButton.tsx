@@ -5,17 +5,16 @@ import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 
 import { startTopup } from "./actions";
 
-// Phase 8.5 — opens the Toss payment widget for one package.
+// Phase 8.5 — 한 패키지에 대해 토스 결제 위젯을 연다.
 //
-// Critical: we send only packageId to the server; the server replies
-// with the canonical krw and tokens. The browser never decides the
-// amount.
+// 핵심: 서버엔 packageId "만" 보내고, 서버가 정본 krw·tokens 를 응답한다.
+// 브라우저는 금액을 절대 결정하지 않는다(위변조 방지).
 
 type Props = {
   packageId: string;
   label: string;
   clientKey: string;
-  customerKey: string; // stable per-user opaque id (we use User.id)
+  customerKey: string; // 사용자별 안정적 불투명 id (User.id 사용)
 };
 
 export function TopupButton({ packageId, label, clientKey, customerKey }: Props) {
@@ -45,8 +44,8 @@ export function TopupButton({ packageId, label, clientKey, customerKey }: Props)
           useAppCardOnly: false,
         },
       });
-      // requestPayment redirects on success — the line below only runs
-      // if the user closed the widget before completing.
+      // requestPayment 는 성공 시 리다이렉트한다 — 아래 줄은 사용자가
+      // 완료 전에 위젯을 닫은 경우에만 실행된다.
       setSubmitting(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
