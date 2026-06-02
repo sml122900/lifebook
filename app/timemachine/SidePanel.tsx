@@ -194,9 +194,11 @@ function SidePanel({
         </Link>
 
         {/* 3.5 새 가족 소식 — 있을 때만 (0건이면 서운한 표현 없이 숨김) */}
+        {/* L5 — 메인이 /life-timeline 으로 옮겨졌으므로 거기에 보이는
+            FamilyNewsCard 로 보낸다. */}
         {data.familyNewsCount > 0 && (
           <Link
-            href="/timemachine"
+            href="/life-timeline"
             className="mt-4 flex items-center justify-between rounded-md border-2 border-amber-400 bg-amber-50 px-4 py-3 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           >
             <span className="text-base font-bold text-amber-900">
@@ -215,17 +217,19 @@ function SidePanel({
         />
 
         {/* 5. 빠른 이동 메뉴 */}
+        {/* L5 — v3 입구 통일: "내 인생 연혁"이 메인. 월별 타임머신은
+            깊이 파고 싶을 때 들어가는 보조 도구로 재배치. */}
         <nav className="mt-6 flex flex-col gap-2" aria-label="빠른 이동">
           <p className="px-2 text-sm font-semibold text-zinc-600">빠른 이동</p>
           <MenuItem
-            href={data.currentMonthHref}
-            label="이번 달 타임머신"
-            hint="가장 최근 달로"
+            href="/life-timeline"
+            label="내 인생 연혁"
+            hint="한눈에 보는 인생"
           />
           <MenuItem
-            href="/timemachine"
-            label="내 기록"
-            hint="지금까지 쌓인 이야기"
+            href={data.currentMonthHref}
+            label="이번 달 타임머신"
+            hint="이번 달의 사건·음악으로"
           />
           <MenuItem
             href="/rooms"

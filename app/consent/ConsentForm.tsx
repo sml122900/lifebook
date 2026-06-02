@@ -48,7 +48,8 @@ export function ConsentForm() {
     await saveConsent(formData);
     // JWT 강제 갱신 — 다음 요청에서 미들웨어가 consentComplete=true 를 보게.
     await update();
-    router.push("/timeline");
+    // L7 — /enter 가 신규/기존 분기.
+    router.push("/enter");
   }
 
   return (

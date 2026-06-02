@@ -1,76 +1,19 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { auth } from "@/auth";
-import { getAttendanceStatus } from "@/lib/attendance";
-import { getFamilyNews } from "@/lib/family-news";
-import { getTimemachineProgress } from "@/lib/timemachine-progress";
-
-import {
-  AttendanceCard,
-  type AttendanceInitial,
-} from "./AttendanceCard";
-import { FamilyNewsCard } from "./FamilyNewsCard";
-import { ProgressCard } from "./ProgressCard";
-
-// Phase A — 타임머신 메인 = 출석체크 + "이번 달로 가기".
-// (이전엔 즉시 /timemachine/2026/5 로 redirect 만 했음. 이제 매일 한 번
-// 들르는 자연스러운 흐름을 위해 메인 화면을 둠.)
+// Phase L5 — 메인을 /life-timeline 으로 통일. /timemachine 직접 접근이나
+// 옛 사이드 패널 링크가 그대로 새 메인에 도달하게 redirect 한다.
 //
-// 사용자가 URL 로 /timemachine/[year]/[month] 에 직접 들어가는 흐름은
-// 그대로 동작 — 회귀 없음.
+// /timemachine/[year]/[month] 월 화면은 그대로 동작 — 연혁의 점 클릭이나
+// 사이드 패널 "이번 달 타임머신" 로 진입.
+//
+// 이전엔 출석/진척/가족 소식 카드를 직접 렌더했지만, L5 부터 그 카드들은
+// /life-timeline (새 메인)에서 연혁 아래에 자리 잡는다.
+//
+// (LIFE_TIMELINE 카드들이 이제 layout 의 사이드 패널을 공유하므로, 여기
+// /timemachine layout 의 데이터 로딩이 redirect 전에 한 번 더 도는 문제는
+// 없다 — redirect() 가 render 전에 throw 하지만 layout 은 이미 RSC stream
+// 시작 후라 그대로 흐른다. 검증 단계에선 영향 없음.)
 
-// 검증 단계 시드 범위 — 가장 최근 달로 보내는 링크 (옛 LATEST 와 동일).
-const LATEST_YEAR = 2026;
-const LATEST_MONTH = 5;
-
-export default async function TimemachineHomePage() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
-  const userId = session.user.id;
-
-  // 세 조회 독립 — 병렬.
-  const [status, progress, familyNews] = await Promise.all([
-    getAttendanceStatus(userId),
-    getTimemachineProgress(userId),
-    getFamilyNews(userId),
-  ]);
-  const hasFamilyNews =
-    familyNews.newReactions.count > 0 || familyNews.newRecords.count > 0;
-  const initial: AttendanceInitial = {
-    todayChecked: status.todayChecked,
-    streak: status.streak,
-    daysUntilNextBonus: status.daysUntilNextBonus,
-  };
-
-  const userName = session.user.name ?? session.user.email ?? "회원";
-
-  return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-10">
-      <header>
-        <h1 className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl">
-          타임머신
-        </h1>
-        <p className="mt-3 text-xl text-zinc-800 sm:text-2xl">
-          <b>{userName}</b>님, 오늘도 와주셔서 고마워요.
-        </p>
-      </header>
-
-      {hasFamilyNews && <FamilyNewsCard news={familyNews} />}
-
-      <AttendanceCard initial={initial} />
-
-      <ProgressCard progress={progress} />
-
-      <Link
-        href={`/timemachine/${LATEST_YEAR}/${LATEST_MONTH}`}
-        prefetch
-        className="inline-flex min-h-[80px] items-center justify-center rounded-md bg-violet-700 px-8 py-5 text-2xl font-bold text-white hover:bg-violet-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-      >
-        이번 달 보러 가기 →
-      </Link>
-    </main>
-  );
+export default function TimemachineHomePage() {
+  redirect("/life-timeline");
 }

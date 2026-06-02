@@ -1,0 +1,358 @@
+// Phase L1 — 인생 연혁(v3) 헬퍼.
+//
+// "인생 연혁" 은 사용자의 큰 줄기를 시간축에 놓는다(앵커=정확, 사이=대략).
+// 데이터는 새 모델을 만들지 않고 기존 UserMemory 에 createdVia="life_event"
+// 디스크리미네이터로 얹는다 (스키마 주석 참조). 가족 룸·반응·진척 시각화는
+// 기존 year/month/title 컬럼 기준으로 이미 작동하므로, life_event 행은
+// year/month/title 에 eventYear/eventMonth/eventTitle 와 동일 값을 미러링해
+// 추가 코드 없이 자동 호환된다.
+//
+// L1: 읽기 헬퍼(getLifeEvents). L2: 쓰기 헬퍼(upsertLifeEvent) + 인덱스용
+// 답한 카테고리 집합(getAnsweredCategories). L4: 자유 추가/수정/삭제용
+// createLifeEvent(여러 행 허용) + updateLifeEvent + deleteLifeEvent +
+// getLifeEventById.
+
+import type { EventPrecision, LifeCategory } from "./generated/prisma/enums";
+import { prisma } from "./db";
+
+export const CREATED_VIA_LIFE_EVENT = "life_event";
+
+export type LifeEvent = {
+  id: string;
+  title: string;
+  eventYear: number;
+  eventMonth: number | null;
+  precision: EventPrecision;
+  category: LifeCategory | null;
+  content: string | null;
+  createdAt: Date;
+};
+
+// 사용자의 인생 이벤트를 시간순으로 반환.
+//
+// 정렬 규칙:
+//   1차) eventYear ASC                — 인생의 흐름 (오래된 것부터)
+//   2차) eventMonth ASC NULLS LAST    — 같은 해 안에서 정확한 달이 앞,
+//                                       사이 이벤트(month=null)는 뒤
+//   3차) createdAt ASC                — 같은 (연,월) 안에서 사용자가 답한 순서
+//
+// 사이 이벤트(eventMonth=null) 의 같은 연도 내 정렬을 별도 order 필드 대신
+// createdAt 으로 잡는 이유: 사용자가 인생을 떠올려 답하는 순서가 곧 그
+// 사람의 머릿속 흐름과 가깝다. 데이터가 많이 쌓이면 그때 order 도입.
+//
+// life_event 행은 eventYear 가 항상 채워져 있는 게 약속(L1 스키마 주석).
+// 방어적으로 NULL 행은 결과에서 제외한다.
+export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
+  const rows = await prisma.userMemory.findMany({
+    where: {
+      userId,
+      createdVia: CREATED_VIA_LIFE_EVENT,
+      eventYear: { not: null },
+    },
+    select: {
+      id: true,
+      eventTitle: true,
+      eventYear: true,
+      eventMonth: true,
+      precision: true,
+      category: true,
+      content: true,
+      createdAt: true,
+      title: true, // eventTitle 이 비어있는 방어 경로용
+    },
+    orderBy: [
+      { eventYear: "asc" },
+      { eventMonth: { sort: "asc", nulls: "last" } },
+      { createdAt: "asc" },
+    ],
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.eventTitle ?? r.title,
+    eventYear: r.eventYear as number, // where 절에서 not null 보장
+    eventMonth: r.eventMonth,
+    precision: r.precision ?? "APPROXIMATE", // 기본은 사이 이벤트
+    category: r.category,
+    content: r.content,
+    createdAt: r.createdAt,
+  }));
+}
+
+// 인덱스(/life-record) 진행 상태용 — 해당 사용자가 답한 카테고리 집합.
+// "답함"의 정의: createdVia="life_event" + category 가 채워진 행이 1건
+// 이상. L2 폼이 항상 category 와 eventYear 를 함께 채우는 규약(저장
+// 헬퍼에서 강제) 이므로 distinct category 가 곧 진행도.
+export async function getAnsweredCategories(
+  userId: string,
+): Promise<Set<LifeCategory>> {
+  const rows = await prisma.userMemory.findMany({
+    where: {
+      userId,
+      createdVia: CREATED_VIA_LIFE_EVENT,
+      category: { not: null },
+    },
+    select: { category: true },
+    distinct: ["category"],
+  });
+  return new Set(
+    rows
+      .map((r) => r.category)
+      .filter((c): c is LifeCategory => c !== null),
+  );
+}
+
+// L2 — 카테고리 한 칸의 답 가져오기 (수정 폼 prefill 용). 같은 카테고리에
+// 여러 행이 있으면 가장 최근(createdAt desc 1행) — L2 는 카테고리당 1답
+// 정책이지만, 미래에 L4 가 같은 카테고리에 추가로 넣더라도 L2 폼은 최신
+// 한 행만 다룬다 (수정 흐름의 동일성을 위해).
+export async function getLifeEventForCategory(
+  userId: string,
+  category: LifeCategory,
+): Promise<{
+  id: string;
+  eventTitle: string;
+  eventYear: number;
+  eventMonth: number | null;
+  content: string | null;
+  precision: EventPrecision;
+} | null> {
+  const row = await prisma.userMemory.findFirst({
+    where: {
+      userId,
+      createdVia: CREATED_VIA_LIFE_EVENT,
+      category,
+    },
+    select: {
+      id: true,
+      eventTitle: true,
+      title: true,
+      eventYear: true,
+      eventMonth: true,
+      content: true,
+      precision: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!row || row.eventYear === null) return null;
+  return {
+    id: row.id,
+    eventTitle: row.eventTitle ?? row.title,
+    eventYear: row.eventYear,
+    eventMonth: row.eventMonth,
+    content: row.content,
+    precision: row.precision ?? "APPROXIMATE",
+  };
+}
+
+export type LifeRecordInput = {
+  title: string;
+  year: number;
+  month: number | null;
+  content: string | null;
+};
+
+// L2 저장 — 카테고리당 최신 1행을 upsert.
+//
+// 호출 규약 (server action 에서 검증 후 들어옴):
+//   - title 비어있지 않음 (trim 후 빈 문자열 거부)
+//   - year 는 정수, 1900 ≤ year ≤ 현재 연도 +1
+//   - month 가 채워진 경우 1~12
+//   - content 는 빈 문자열이면 null 로 정규화
+//
+// 동작:
+//   - 같은 (userId, category) life_event 행이 있으면 update
+//   - 없으면 create
+//   - precision : year+month 둘 다 채워지면 EXACT, 그 외 APPROXIMATE
+//   - year/month/title 미러링 (기존 컬럼) — 가족 룸·반응 자동 호환.
+//   - L2 는 카테고리당 1답이 정책 — 여러 행이 이미 있으면 가장 최근 1행만
+//     건드린다 (남은 행은 그대로 — L4 가 만든 다른 항목 보존).
+export async function upsertLifeEvent(
+  userId: string,
+  category: LifeCategory,
+  input: LifeRecordInput,
+): Promise<{ id: string; precision: EventPrecision }> {
+  const precision: EventPrecision =
+    input.month !== null ? "EXACT" : "APPROXIMATE";
+
+  const existing = await prisma.userMemory.findFirst({
+    where: {
+      userId,
+      createdVia: CREATED_VIA_LIFE_EVENT,
+      category,
+    },
+    select: { id: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (existing) {
+    const updated = await prisma.userMemory.update({
+      where: { id: existing.id },
+      data: {
+        // life_event 전용
+        eventTitle: input.title,
+        eventYear: input.year,
+        eventMonth: input.month,
+        precision,
+        // category 는 그대로 (where 로 잡았으므로)
+        // 미러링
+        year: input.year,
+        month: input.month,
+        title: input.title,
+        content: input.content,
+      },
+      select: { id: true },
+    });
+    return { id: updated.id, precision };
+  }
+
+  const created = await prisma.userMemory.create({
+    data: {
+      userId,
+      createdVia: CREATED_VIA_LIFE_EVENT,
+      // life_event 전용
+      eventTitle: input.title,
+      eventYear: input.year,
+      eventMonth: input.month,
+      precision,
+      category,
+      // 미러링
+      year: input.year,
+      month: input.month,
+      title: input.title,
+      content: input.content,
+    },
+    select: { id: true },
+  });
+  return { id: created.id, precision };
+}
+
+// L4 — 자유 추가(카테고리당 여러 행 허용). 항상 새 행을 만든다.
+//
+// precision 결정:
+//   - 명시값(forcePrecision) 이 있으면 그것을 사용 (예: "앵커 사이" 모드는
+//     호출자가 APPROXIMATE 강제).
+//   - 없으면 month 유무로 자동 — month 있으면 EXACT, 없으면 APPROXIMATE.
+//   - 단, 명시값이 EXACT 인데 month 가 없으면 APPROXIMATE 로 다운그레이드
+//     (점 시각·"년쯤" 라벨이 사이 이벤트와 동일해지므로 시각적 일관성).
+export async function createLifeEvent(
+  userId: string,
+  category: LifeCategory,
+  input: LifeRecordInput,
+  forcePrecision?: EventPrecision,
+): Promise<{ id: string; precision: EventPrecision }> {
+  let precision: EventPrecision =
+    forcePrecision ?? (input.month !== null ? "EXACT" : "APPROXIMATE");
+  if (precision === "EXACT" && input.month === null) precision = "APPROXIMATE";
+
+  const created = await prisma.userMemory.create({
+    data: {
+      userId,
+      createdVia: CREATED_VIA_LIFE_EVENT,
+      eventTitle: input.title,
+      eventYear: input.year,
+      eventMonth: input.month,
+      precision,
+      category,
+      year: input.year,
+      month: input.month,
+      title: input.title,
+      content: input.content,
+    },
+    select: { id: true },
+  });
+  return { id: created.id, precision };
+}
+
+// L4 — 한 행 수정. userId 일치하는 life_event 행만 갱신 (소유 검증).
+// 없거나 권한이 없으면 null.
+export async function updateLifeEvent(
+  userId: string,
+  eventId: string,
+  category: LifeCategory,
+  input: LifeRecordInput,
+  forcePrecision?: EventPrecision,
+): Promise<{ id: string; precision: EventPrecision } | null> {
+  let precision: EventPrecision =
+    forcePrecision ?? (input.month !== null ? "EXACT" : "APPROXIMATE");
+  if (precision === "EXACT" && input.month === null) precision = "APPROXIMATE";
+
+  // 소유 확인 후 update — updateMany 로 한 트랜잭션, 일치 안 하면 count=0.
+  const result = await prisma.userMemory.updateMany({
+    where: {
+      id: eventId,
+      userId,
+      createdVia: CREATED_VIA_LIFE_EVENT,
+    },
+    data: {
+      eventTitle: input.title,
+      eventYear: input.year,
+      eventMonth: input.month,
+      precision,
+      category,
+      year: input.year,
+      month: input.month,
+      title: input.title,
+      content: input.content,
+    },
+  });
+  if (result.count === 0) return null;
+  return { id: eventId, precision };
+}
+
+// L4 — 삭제. userId 일치 + life_event 만. 다른 행은 절대 안 건드림.
+export async function deleteLifeEvent(
+  userId: string,
+  eventId: string,
+): Promise<boolean> {
+  const result = await prisma.userMemory.deleteMany({
+    where: {
+      id: eventId,
+      userId,
+      createdVia: CREATED_VIA_LIFE_EVENT,
+    },
+  });
+  return result.count > 0;
+}
+
+// L4 — 수정 폼 prefill 용 단일 조회. userId 일치 + life_event 만.
+export async function getLifeEventById(
+  userId: string,
+  eventId: string,
+): Promise<{
+  id: string;
+  category: LifeCategory;
+  eventTitle: string;
+  eventYear: number;
+  eventMonth: number | null;
+  content: string | null;
+  precision: EventPrecision;
+} | null> {
+  const row = await prisma.userMemory.findFirst({
+    where: {
+      id: eventId,
+      userId,
+      createdVia: CREATED_VIA_LIFE_EVENT,
+    },
+    select: {
+      id: true,
+      category: true,
+      eventTitle: true,
+      title: true,
+      eventYear: true,
+      eventMonth: true,
+      content: true,
+      precision: true,
+    },
+  });
+  if (!row || row.eventYear === null || row.category === null) return null;
+  return {
+    id: row.id,
+    category: row.category,
+    eventTitle: row.eventTitle ?? row.title,
+    eventYear: row.eventYear,
+    eventMonth: row.eventMonth,
+    content: row.content,
+    precision: row.precision ?? "APPROXIMATE",
+  };
+}

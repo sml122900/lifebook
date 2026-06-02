@@ -15,7 +15,10 @@ export default function LoginPage() {
       <form
         action={async () => {
           "use server";
-          await signIn("google", { redirectTo: "/timeline" });
+          // L7 — /enter 가 인생 이벤트 유무를 보고 /life-timeline 또는
+          // /life-record(신규) 로 분기. /timeline (v2 페이지) 은 직접
+          // URL 접근으로만 도달.
+          await signIn("google", { redirectTo: "/enter" });
         }}
         className="w-full"
       >

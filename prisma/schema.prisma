@@ -430,6 +430,10 @@ model TriggerResponse {
 //                           (monthEventId 가 채워짐, title 은 MonthEvent.title 비정규화)
 //   - "timemachine_month" : Phase T6 — 타임머신 그 달 전체 회고
 //                           (monthEventId=null, title="YYYY년 M월 회고")
+//   - "timemachine_assistant" : Phase V3 — 비서 답을 "내 타임라인에 추가" 한 메모
+//   - "life_event"        : Phase L1 — 인생 연혁(v3) 이벤트. eventYear/eventTitle
+//                           등 life_event 전용 필드가 채워지며, year/month/title 은
+//                           기존 코드 호환을 위해 같은 값으로 미러링한다.
 model UserMemory {
   id         String   @id @default(cuid())
   userId     String
@@ -449,7 +453,20 @@ model UserMemory {
   createdVia String   @default("manual")
   createdAt  DateTime @default(now())
 
+  // Phase L1 — 인생 연혁(v3) 전용 컬럼. createdVia="life_event" 일 때만
+  // 채워지고 그 외 행에서는 모두 NULL. 기존 year/month/title 컬럼은 그대로
+  // 두고(NOT NULL 유지), life_event 행에서는 동일 값으로 미러링한다 —
+  // 가족 룸(listRoomMemories)·진척 시각화·반응이 기존 컬럼 기준으로
+  // 작동하므로 추가 코드 없이 자동 호환.
+  eventTitle String?
+  eventYear  Int?
+  eventMonth Int?
+  precision  EventPrecision?
+  category   LifeCategory?
+
   @@index([userId])
+  // Phase L1 — 인생 연혁 화면(L3)에서 사용자별 life_event 시간순 정렬용.
+  @@index([userId, eventYear, eventMonth])
 }
 
 // Phase T1 (타임머신) — 월별 사건 + 차트 음악.
@@ -484,6 +501,29 @@ enum Confidence {
 enum SongOrigin {
   DOMESTIC
   INTERNATIONAL
+}
+
+// Phase L1 — 인생 연혁(v3) 이벤트의 시점 정확도.
+//   EXACT       : 사용자가 정확한 연/월을 기억하는 앵커 (예: "1972.3 초등 입학")
+//   APPROXIMATE : 추정만 가능한 사이 이벤트 (예: "대학 1학년쯤")
+enum EventPrecision {
+  EXACT
+  APPROXIMATE
+}
+
+// Phase L1 — 인생 연혁 카테고리. 기획 3절의 10개 질문 항목을 의미 단위로
+// 9개로 묶음(첫직장+이직+은퇴 → WORK, 군대는 한국 특수성 살려 별도).
+// 카테고리 추가가 필요하면 마이그레이션 동반.
+enum LifeCategory {
+  BIRTH        // 출생
+  CHILDHOOD    // 유년기
+  SCHOOL       // 학교 (초/중/고/대학)
+  MILITARY     // 군대
+  WORK         // 직업 (첫 직장 / 이직 / 창업 / 은퇴)
+  RELATIONSHIP // 연애·결혼
+  FAMILY       // 자녀·부모·형제
+  RESIDENCE    // 거주 변화 (큰 이사)
+  OTHER        // 기타 큰 사건 (병/사고/취미/종교 등)
 }
 
 model MonthEvent {

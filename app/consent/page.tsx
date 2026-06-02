@@ -7,7 +7,8 @@ import { ConsentForm } from "./ConsentForm";
 
 // 동의 게이트 페이지. 로그인했으나 3종 동의(개인정보·국외이전·약관)가
 // 아직이면 미들웨어(proxy.ts)가 여기로 보낸다. 이미 다 동의했으면
-// /timeline 으로 통과시킨다.
+// /enter 로 통과시킨다 — /enter 가 인생 이벤트 유무를 보고 신규/기존을
+// 분기한다 (Phase L7).
 export default async function ConsentPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -26,7 +27,7 @@ export default async function ConsentPage() {
     user?.overseasTransferConsentAt &&
     user?.termsConsentAt
   ) {
-    redirect("/timeline");
+    redirect("/enter");
   }
 
   return (
