@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { auth, signOut } from "@/auth";
+import { AssistantWidget } from "@/app/components/AssistantWidget";
 import { SessionProvider } from "@/app/components/SessionProvider";
 import { UserMenu } from "@/app/components/UserMenu";
 import { getTheme } from "@/app/components/theme-actions";
@@ -58,7 +59,7 @@ export default async function RootLayout({
                 가족 룸
               </Link>
               <Link
-                href="/billing"
+                href="/account/tokens"
                 className="rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
               >
                 토큰 {balance !== null ? `${balance.toLocaleString()}개` : ""}
@@ -81,6 +82,9 @@ export default async function RootLayout({
           )}
         </header>
         {children}
+        {/* v3.4 — 글로벌 AI 비서 위젯 (인증된 사용자만 렌더). 위치는 fixed
+            bottom-6 right-6. 비인증/세션 X 면 null 반환해 보이지 않는다. */}
+        <AssistantWidget />
         </SessionProvider>
       </body>
     </html>

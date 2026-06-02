@@ -5,8 +5,22 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
+import { calcAge, formatAge } from "@/lib/age";
 import type { EventPrecision, LifeCategory } from "@/lib/generated/prisma/enums";
 import { LIFE_QUESTIONS } from "@/lib/life-record/questions";
+
+// L2(+) — EventForm 의 카테고리 = LifeCategory enum 전체에서 자유 선택이라
+// 폼 안에서 isPeriod 를 즉시 판단해야 함(서버 도움 없이). 백엔드 헬퍼와
+// 동일 집합 유지(lib/life-events.ts 의 PERIOD_CATEGORIES).
+const PERIOD_CATEGORIES: ReadonlySet<LifeCategory> = new Set([
+  "KINDERGARTEN",
+  "ELEMENTARY",
+  "MIDDLE",
+  "HIGH",
+  "UNIVERSITY",
+  "MILITARY",
+  "WORK",
+]);
 
 import {
   addLifeEventAction,
@@ -48,6 +62,7 @@ export type EventFormInitial = {
   title: string;
   year: number;
   month: number | null;
+  endYear: number | null;
   content: string;
 };
 
@@ -57,31 +72,56 @@ export function EventForm({
   mode,
   anchors = [],
   initial,
+  birthYear = null,
+  defaultYear = null,
 }: {
   mode: "add" | "edit";
   anchors?: AnchorOption[];
   initial?: EventFormInitial;
+  birthYear?: number | null;
+  // v3.3 — 빈 공간 클릭/+버튼으로 진입했을 때 미리 채울 연도. 추가 모드 전용.
+  // 있으면 "exact" 모드로 시작(anchors 있어도 사용자가 정확한 연도를 가리키고
+  // 왔으므로 between 모드가 부자연스러움). 사용자는 폼에서 변경 가능.
+  defaultYear?: number | null;
 }) {
   const router = useRouter();
   const isEdit = mode === "edit";
 
-  // 추가 모드: 기본은 "between" (앵커가 2개 이상 있을 때). 앵커 부족하면 "exact".
+  // 추가 모드: defaultYear 가 있으면 exact (외부에서 연도를 정해 진입한 신호).
+  // 그 외엔 앵커 2개 이상이면 between, 아니면 exact.
   const [formMode, setFormMode] = useState<Mode>(
-    isEdit ? "exact" : anchors.length >= 2 ? "between" : "exact",
+    isEdit
+      ? "exact"
+      : defaultYear !== null
+        ? "exact"
+        : anchors.length >= 2
+          ? "between"
+          : "exact",
   );
 
-  // 카테고리 — 추가 모드 기본 OTHER, 수정 모드 기존 값.
+  // 카테고리 — 추가 모드 기본 BIRTH(목록 첫 카테고리), 수정 모드 기존 값.
+  // v3.1 이전엔 OTHER 가 기본이었으나 OTHER 카테고리 자체가 삭제됨.
   const [category, setCategory] = useState<LifeCategory>(
-    initial?.category ?? "OTHER",
+    initial?.category ?? "BIRTH",
   );
 
   // 정확 모드 입력 (수정 모드는 항상 이쪽)
+  // v3.3 — initial(수정) → defaultYear(외부 진입 prefill) → 빈 문자열 순.
   const [yearText, setYearText] = useState(
-    initial?.year != null ? String(initial.year) : "",
+    initial?.year != null
+      ? String(initial.year)
+      : defaultYear !== null
+        ? String(defaultYear)
+        : "",
   );
   const [monthText, setMonthText] = useState(
     initial?.month != null ? String(initial.month) : "",
   );
+  const [endYearText, setEndYearText] = useState(
+    initial?.endYear != null ? String(initial.endYear) : "",
+  );
+
+  const isPeriod = PERIOD_CATEGORIES.has(category);
 
   // 앵커 사이 모드 입력 (추가 모드만)
   const [anchorBeforeId, setAnchorBeforeId] = useState<string>(""); // "이 사건 다음에"
@@ -143,6 +183,7 @@ export function EventForm({
         title,
         year,
         month: null, // 사이 이벤트는 월 없음
+        endYear: null, // 사이 모드는 단일 시점
         content,
       };
     }
@@ -153,6 +194,7 @@ export function EventForm({
       title,
       year: parseIntOrNull(yearText),
       month: parseIntOrNull(monthText),
+      endYear: isPeriod ? parseIntOrNull(endYearText) : null,
       content,
     };
   }
@@ -219,6 +261,7 @@ export function EventForm({
             setBetweenYearTouched(true);
             setBetweenYearText(v);
           }}
+          birthYear={birthYear}
         />
       ) : (
         <ExactSection
@@ -226,6 +269,10 @@ export function EventForm({
           setYearText={setYearText}
           monthText={monthText}
           setMonthText={setMonthText}
+          isPeriod={isPeriod}
+          endYearText={endYearText}
+          setEndYearText={setEndYearText}
+          birthYear={birthYear}
         />
       )}
 
@@ -347,6 +394,14 @@ function ModeRadio({
   );
 }
 
+function parseIntOrNullLocal(t: string): number | null {
+  const trimmed = t.trim();
+  if (trimmed === "") return null;
+  const n = Number(trimmed);
+  if (!Number.isInteger(n)) return null;
+  return n;
+}
+
 // 앵커 사이 모드 입력.
 function BetweenSection({
   anchors,
@@ -357,6 +412,7 @@ function BetweenSection({
   estimatedYear,
   yearText,
   onYearChange,
+  birthYear,
 }: {
   anchors: AnchorOption[];
   anchorBeforeId: string;
@@ -366,7 +422,11 @@ function BetweenSection({
   estimatedYear: number | null;
   yearText: string;
   onYearChange: (v: string) => void;
+  birthYear: number | null;
 }) {
+  const yearNum = parseIntOrNullLocal(yearText);
+  const ageHint =
+    birthYear !== null && yearNum !== null ? calcAge(birthYear, yearNum) : null;
   return (
     <section className="flex flex-col gap-3 rounded-md border-2 border-amber-200 bg-amber-50 p-5">
       <p className="text-lg font-semibold text-amber-900">
@@ -430,6 +490,11 @@ function BetweenSection({
           placeholder="예: 1985"
           className="w-40 rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         />
+        {ageHint && (
+          <p className="mt-1 text-sm text-amber-900">
+            그때 {formatAge(ageHint)}쯤이에요
+          </p>
+        )}
       </div>
       <p className="text-base text-zinc-700">
         대략적인 시점으로 저장돼요 — 연혁에서 작은 점선 점으로 보여요.
@@ -444,19 +509,38 @@ function ExactSection({
   setYearText,
   monthText,
   setMonthText,
+  isPeriod,
+  endYearText,
+  setEndYearText,
+  birthYear,
 }: {
   yearText: string;
   setYearText: (v: string) => void;
   monthText: string;
   setMonthText: (v: string) => void;
+  isPeriod: boolean;
+  endYearText: string;
+  setEndYearText: (v: string) => void;
+  birthYear: number | null;
 }) {
+  const yearNum = parseIntOrNullLocal(yearText);
+  const endYearNum = parseIntOrNullLocal(endYearText);
+  const startAge =
+    birthYear !== null && yearNum !== null ? calcAge(birthYear, yearNum) : null;
+  const endAge =
+    birthYear !== null && endYearNum !== null
+      ? calcAge(birthYear, endYearNum)
+      : null;
+
   return (
-    <section className="flex flex-col gap-2">
-      <p className="text-lg font-semibold text-zinc-900">언제였어요?</p>
+    <section className="flex flex-col gap-3">
+      <p className="text-lg font-semibold text-zinc-900">
+        {isPeriod ? "언제 시작했어요?" : "언제였어요?"}
+      </p>
       <div className="flex items-end gap-3">
         <div className="flex-1">
           <label htmlFor="exact-year" className="block text-base text-zinc-700">
-            연도
+            {isPeriod ? "시작한 해" : "연도"}
           </label>
           <input
             id="exact-year"
@@ -470,6 +554,11 @@ function ExactSection({
             placeholder="예: 1985"
             className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           />
+          {startAge && (
+            <p className="mt-1 text-sm text-zinc-600">
+              그때 {formatAge(startAge)}쯤이에요
+            </p>
+          )}
         </div>
         <div className="w-32">
           <label
@@ -495,6 +584,42 @@ function ExactSection({
       <p className="text-base text-zinc-600">
         월을 적으시면 정확한 시점(앵커)으로, 비워두시면 대략 시점으로 저장돼요.
       </p>
+
+      {isPeriod && (
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="exact-end-year"
+            className="text-base font-semibold text-zinc-900"
+          >
+            끝난 해 <span className="font-normal text-zinc-500">(선택)</span>
+          </label>
+          <div className="flex items-end gap-3">
+            <div className="w-44">
+              <input
+                id="exact-end-year"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={endYearText}
+                onChange={(e) =>
+                  setEndYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
+                }
+                placeholder="예: 1991"
+                className="w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              />
+              {endAge && (
+                <p className="mt-1 text-sm text-zinc-600">
+                  그때 {formatAge(endAge)}쯤이에요
+                </p>
+              )}
+            </div>
+            <p className="flex-1 text-base text-zinc-600">
+              모르거나 아직 안 끝났으면 비워두셔도 돼요. 적으시면 연혁에{" "}
+              <b>시작·끝 두 점</b>으로 보여요.
+            </p>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

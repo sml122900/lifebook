@@ -62,6 +62,12 @@ model User {
   // fully skipped). Used to soft-route new users to /onboarding only once.
   onboardingCompletedAt DateTime?
 
+  // Phase L2(+) — 인생 기록 카테고리 중 사용자가 "건너뛰기"를 누른 항목.
+  // nextUnansweredCategory 가 *답함 ∪ 건너뜀* 모두를 건너뛴 채로 다음
+  // 진짜 미답을 찾도록 사용. 인덱스 카드에는 "건너뜀" 으로 별도 표시.
+  // 사용자가 같은 카테고리에 답하면 upsertLifeEvent 가 자동으로 셋에서 제거.
+  skippedLifeCategories LifeCategory[] @default([])
+
   createdAt DateTime @default(now())
 
   accounts          Account[]
@@ -464,6 +470,11 @@ model UserMemory {
   precision  EventPrecision?
   category   LifeCategory?
 
+  // Phase L2(+) — 기간(SCHOOL/WORK/MILITARY/RESIDENCE)의 끝 연도. life_event
+  // 시작 행에만 채워짐. 시간축 렌더 시 endYear 있는 행은 "시작"·"끝" 두 점
+  // 으로 split(같은 메모리 id 공유 → 룸 공유·반응은 한 단위로 유지).
+  endYear Int?
+
   @@index([userId])
   // Phase L1 — 인생 연혁 화면(L3)에서 사용자별 life_event 시간순 정렬용.
   @@index([userId, eventYear, eventMonth])
@@ -511,19 +522,24 @@ enum EventPrecision {
   APPROXIMATE
 }
 
-// Phase L1 — 인생 연혁 카테고리. 기획 3절의 10개 질문 항목을 의미 단위로
-// 9개로 묶음(첫직장+이직+은퇴 → WORK, 군대는 한국 특수성 살려 별도).
+// Phase L1 — 인생 연혁 카테고리.
+// 통합 테스트 후 10개 학령기 분리·기타 정리(2026-06-02 v3.1):
+//   - SCHOOL(통합) → ELEMENTARY/MIDDLE/HIGH/UNIVERSITY 4개로 쪼갬
+//   - CHILDHOOD → KINDERGARTEN(어린이집·유치원) 으로 재정의
+//   - RESIDENCE(큰 이사) / OTHER(그 외) 삭제 — 자유 추가는 L4 manage 영역
+// 마이그레이션: 기존 SCHOOL→ELEMENTARY, CHILDHOOD→KINDERGARTEN, RESIDENCE/OTHER 행 삭제.
 // 카테고리 추가가 필요하면 마이그레이션 동반.
 enum LifeCategory {
   BIRTH        // 출생
-  CHILDHOOD    // 유년기
-  SCHOOL       // 학교 (초/중/고/대학)
+  KINDERGARTEN // 어린이집·유치원
+  ELEMENTARY   // 초등학교
+  MIDDLE       // 중학교
+  HIGH         // 고등학교
+  UNIVERSITY   // 대학교
   MILITARY     // 군대
-  WORK         // 직업 (첫 직장 / 이직 / 창업 / 은퇴)
-  RELATIONSHIP // 연애·결혼
-  FAMILY       // 자녀·부모·형제
-  RESIDENCE    // 거주 변화 (큰 이사)
-  OTHER        // 기타 큰 사건 (병/사고/취미/종교 등)
+  WORK         // 첫 직장
+  RELATIONSHIP // 결혼
+  FAMILY       // 자녀
 }
 
 model MonthEvent {

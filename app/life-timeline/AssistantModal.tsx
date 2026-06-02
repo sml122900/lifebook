@@ -31,6 +31,7 @@ export function AssistantModal({
   fallbackMonth,
   fallbackLabel,
   initialSavedAnswers,
+  variant = "inline",
 }: {
   fallbackYear: number;
   fallbackMonth: number;
@@ -38,6 +39,10 @@ export function AssistantModal({
   // 가 무엇인지 명시 — 답이 그 시기 기준이라는 걸 알 수 있게)
   fallbackLabel: string;
   initialSavedAnswers: InitialSavedAnswer[];
+  // v3.4 — "inline" 은 페이지 상단에 박히는 큰 버튼(기존). "floating" 은
+  // 화면 우측 하단 고정 FAB(둥근 위젯). root layout 의 글로벌 비서 위젯이
+  // floating 으로 호출한다. 모달 본문 자체는 두 변형 동일.
+  variant?: "inline" | "floating";
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -65,17 +70,29 @@ export function AssistantModal({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="AI 비서와 대화"
-        className="inline-flex min-h-[56px] items-center gap-2 rounded-md border-2 border-violet-500 bg-violet-50 px-5 py-3 text-lg font-semibold text-violet-900 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-      >
-        <span aria-hidden className="text-xl">
-          🤖
-        </span>
-        <span>AI 비서와 대화</span>
-      </button>
+      {variant === "floating" ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="AI 비서와 대화"
+          title="AI 비서와 대화"
+          className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full border-2 border-violet-500 bg-violet-600 text-3xl text-white shadow-xl transition-transform hover:scale-105 hover:bg-violet-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+        >
+          <span aria-hidden>🤖</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="AI 비서와 대화"
+          className="inline-flex min-h-[56px] items-center gap-2 rounded-md border-2 border-violet-500 bg-violet-50 px-5 py-3 text-lg font-semibold text-violet-900 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+        >
+          <span aria-hidden className="text-xl">
+            🤖
+          </span>
+          <span>AI 비서와 대화</span>
+        </button>
+      )}
 
       {open && (
         <div

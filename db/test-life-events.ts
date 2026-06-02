@@ -38,7 +38,7 @@ async function main() {
         month: 3,
         title: "초등학교 입학",
         precision: "EXACT" as const,
-        category: "SCHOOL" as const,
+        category: "ELEMENTARY" as const,
       },
       {
         year: 1965,
@@ -59,7 +59,7 @@ async function main() {
         month: null,
         title: "대학교 입학",
         precision: "APPROXIMATE" as const,
-        category: "SCHOOL" as const,
+        category: "UNIVERSITY" as const,
       },
       {
         year: 1985,

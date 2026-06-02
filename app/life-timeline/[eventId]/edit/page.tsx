@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { getLifeEventById } from "@/lib/life-events";
+import { getBirthYear, getLifeEventById } from "@/lib/life-events";
 
 import { EventForm } from "../../EventForm";
 
@@ -24,7 +24,10 @@ export default async function LifeTimelineEditPage({
   }
 
   const { eventId } = await params;
-  const event = await getLifeEventById(session.user.id, eventId);
+  const [event, birthYear] = await Promise.all([
+    getLifeEventById(session.user.id, eventId),
+    getBirthYear(session.user.id),
+  ]);
   if (!event) {
     notFound();
   }
@@ -47,6 +50,7 @@ export default async function LifeTimelineEditPage({
 
       <EventForm
         mode="edit"
+        birthYear={birthYear}
         initial={{
           eventId: event.id,
           category: event.category,
@@ -54,6 +58,7 @@ export default async function LifeTimelineEditPage({
           title: event.eventTitle,
           year: event.eventYear,
           month: event.eventMonth,
+          endYear: event.endYear,
           content: event.content ?? "",
         }}
       />

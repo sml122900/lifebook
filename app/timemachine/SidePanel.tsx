@@ -185,12 +185,12 @@ function SidePanel({
           </p>
         </div>
 
-        {/* 3. 충전 버튼 */}
+        {/* 3. 토큰 화면 — 잔액·출석·충전 통합 페이지로 (v3.5) */}
         <Link
-          href="/billing"
+          href="/account/tokens"
           className="mt-3 inline-flex w-full min-h-[56px] items-center justify-center rounded-md bg-amber-700 px-4 py-3 text-lg font-bold text-white hover:bg-amber-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
-          토큰 충전하기
+          토큰 화면 열기
         </Link>
 
         {/* 3.5 새 가족 소식 — 있을 때만 (0건이면 서운한 표현 없이 숨김) */}

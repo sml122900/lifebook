@@ -1,9 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { schoolYearsForCategory } from "@/lib/age";
 import {
   getAnsweredCategories,
+  getBirthYear,
   getLifeEventForCategory,
+  getSkippedCategories,
+  isPeriodCategory,
 } from "@/lib/life-events";
 import {
   LIFE_CATEGORY_ORDER,
@@ -44,9 +48,11 @@ export default async function LifeRecordCategoryPage({
   if (!question) notFound();
 
   // 같은 사용자 진행 상태로 진행도·다음 카테고리 결정.
-  const [existing, answered] = await Promise.all([
+  const [existing, answered, skipped, birthYear] = await Promise.all([
     getLifeEventForCategory(session.user.id, category),
     getAnsweredCategories(session.user.id),
+    getSkippedCategories(session.user.id),
+    getBirthYear(session.user.id),
   ]);
 
   // 인덱스에서의 1-based 순서.
@@ -54,16 +60,23 @@ export default async function LifeRecordCategoryPage({
   const stepLabel = `${stepIndex + 1} / ${LIFE_CATEGORY_ORDER.length}`;
 
   // 다음 카테고리 = 이 카테고리 다음 미답.
-  // 답한 셋에 현재 카테고리를 미리 더해 "이번을 답한다고 가정"하고 계산
-  // (저장에 성공하든 건너뛰든 동일한 다음 단계로 흐르게).
+  // 답한 셋에 현재 카테고리를 미리 더해 "이번을 답/건너뛴다고 가정"하고
+  // 계산 (저장에 성공하든 건너뛰든 동일한 다음 단계로 흐르게).
+  // skipped 도 함께 넘겨 *이전에 건너뛴* 카테고리는 다시 후보가 되지 않게.
   const futureAnswered = new Set(answered);
   futureAnswered.add(category);
-  const next = nextUnansweredCategory(futureAnswered);
+  const next = nextUnansweredCategory(futureAnswered, skipped);
   // 완료면 /life-record/complete 로, 아니면 /life-record/[next] 로 이동.
   const nextHref = next === null ? "/life-record/complete" : `/life-record/${next}`;
 
   // 인덱스로 돌아가는 링크도 폼에서 노출. (시니어가 길을 잃지 않게)
   const backHref = "/life-record";
+
+  // L2(+) — 학령기 카테고리(KINDERGARTEN/ELEMENTARY/MIDDLE/HIGH/UNIVERSITY)
+  // 에서 birthYear 가 있으면 그 학교 연도를 역계산해 단일 안내로 띄움.
+  // 어르신은 "1972년" 은 흐려도 "13세" 는 안다는 인사이트의 보조선.
+  const schoolHint =
+    birthYear !== null ? schoolYearsForCategory(category, birthYear) : null;
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-10">
@@ -78,17 +91,38 @@ export default async function LifeRecordCategoryPage({
           {question.prompt}
         </h1>
         <p className="mt-3 text-lg text-zinc-700">{question.hint}</p>
+
+        {schoolHint && (
+          <aside
+            role="note"
+            className="mt-4 rounded-md border-2 border-amber-200 bg-amber-50 px-5 py-4 text-base text-amber-900"
+          >
+            <p>
+              {birthYear}년생이시면 {schoolHint.label}은 보통{" "}
+              <b>
+                {schoolHint.startYear}~{schoolHint.endYear}년
+              </b>
+              쯤이에요.
+            </p>
+            <p className="mt-1 text-sm text-amber-700">
+              실제 시기는 본인 기억대로 적어주세요.
+            </p>
+          </aside>
+        )}
       </header>
 
       <CategoryForm
         category={category}
         question={question}
+        isPeriod={isPeriodCategory(category)}
+        birthYear={birthYear}
         initial={
           existing
             ? {
                 title: existing.eventTitle,
                 year: existing.eventYear,
                 month: existing.eventMonth,
+                endYear: existing.endYear,
                 content: existing.content ?? "",
               }
             : null

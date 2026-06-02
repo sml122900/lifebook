@@ -5,38 +5,49 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
+import { calcAge, formatAge } from "@/lib/age";
 import type { LifeQuestion } from "@/lib/life-record/questions";
 import type { LifeCategory } from "@/lib/generated/prisma/enums";
 
-import { submitLifeRecord } from "../actions";
+import { skipLifeRecord, submitLifeRecord } from "../actions";
 
 // Phase L2 — 카테고리 폼(클라). 한 카테고리에 대해 제목·연·월·자유 응답
 // 을 한 화면에 모아 받는다. "저장하고 다음" / "건너뛰기" / "전체 목록".
+//
+// L2(+) 확장:
+//   - isPeriod=true 면 "끝난 해(선택)" 입력란 노출 — 학령기 5종/MILITARY/WORK
+//   - birthYear 가 있으면 시작/끝 연도 입력 옆에 작게 나이 표시 — 어르신이
+//     연도 떠올리기 어려운데 나이는 안다는 인사이트의 보조선
+//   - "건너뛰기" 가 server action(skipLifeRecord) 호출 — 다시 후보로 안 잡히게
 //
 // 시니어 친화:
 //   - 큰 라벨, 큰 입력 박스 (text-xl, py-3)
 //   - 명확한 에러 ("연도를 적어주세요" 등 무엇을 하면 되는지)
 //   - 음성 입력은 자유 응답에만 (제목·연도는 짧아 키보드가 더 빠름)
-//
-// "건너뛰기" 는 저장 호출 없이 다음 카테고리로 이동만. 다음에 다시 들어
-// 오면 답한 카테고리는 prefill (수정 폼), 미답은 다시 빈 폼.
+//   - 나이 표시는 *작고 보조적*으로(메인 입력 방해 X)
+//   - 끝 연도 입력은 *시작 옆에 작게* — 메인은 시작
 
 type InitialAnswer = {
   title: string;
   year: number;
   month: number | null;
+  endYear: number | null;
   content: string;
 } | null;
 
 export function CategoryForm({
   category,
   question,
+  isPeriod,
+  birthYear,
   initial,
   nextHref,
   backHref,
 }: {
   category: LifeCategory;
   question: LifeQuestion;
+  isPeriod: boolean;
+  birthYear: number | null;
   initial: InitialAnswer;
   nextHref: string;
   backHref: string;
@@ -48,6 +59,9 @@ export function CategoryForm({
   );
   const [monthText, setMonthText] = useState(
     initial?.month != null ? String(initial.month) : "",
+  );
+  const [endYearText, setEndYearText] = useState(
+    initial?.endYear != null ? String(initial.endYear) : "",
   );
   const [content, setContent] = useState(initial?.content ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -67,11 +81,13 @@ export function CategoryForm({
     setError(null);
     const year = parseIntOrNull(yearText);
     const month = parseIntOrNull(monthText);
+    const endYear = isPeriod ? parseIntOrNull(endYearText) : null;
     startTransition(async () => {
       const result = await submitLifeRecord(category, {
         title,
         year,
         month,
+        endYear,
         content: content.trim() === "" ? null : content,
       });
       if (!result.ok) {
@@ -84,9 +100,27 @@ export function CategoryForm({
   }
 
   function handleSkip() {
-    // 저장 호출 없이 다음 카테고리로. 사용자가 답하기 싫거나 모르는 경우.
-    router.push(nextHref);
+    setError(null);
+    startTransition(async () => {
+      const result = await skipLifeRecord(category);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.push(nextHref);
+      router.refresh();
+    });
   }
+
+  // 입력 연도 옆 작은 나이 보조 — birthYear 가 있고 입력한 연도가 출생 이후일 때만.
+  const yearNum = parseIntOrNull(yearText);
+  const ageForYear =
+    birthYear !== null && yearNum !== null ? calcAge(birthYear, yearNum) : null;
+  const endYearNum = parseIntOrNull(endYearText);
+  const ageForEndYear =
+    birthYear !== null && endYearNum !== null
+      ? calcAge(birthYear, endYearNum)
+      : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -116,14 +150,16 @@ export function CategoryForm({
       </section>
 
       <section className="flex flex-col gap-2">
-        <p className="text-lg font-semibold text-zinc-900">언제였어요?</p>
+        <p className="text-lg font-semibold text-zinc-900">
+          {isPeriod ? "언제 시작했어요?" : "언제였어요?"}
+        </p>
         <div className="flex items-end gap-3">
           <div className="flex-1">
             <label
               htmlFor="life-year"
               className="block text-base text-zinc-700"
             >
-              연도
+              {isPeriod ? "시작한 해" : "연도"}
             </label>
             <input
               id="life-year"
@@ -135,6 +171,11 @@ export function CategoryForm({
               placeholder="예: 1985"
               className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
             />
+            {ageForYear && (
+              <p className="mt-1 text-sm text-zinc-600">
+                그때 {formatAge(ageForYear)}쯤이에요
+              </p>
+            )}
           </div>
           <div className="w-32">
             <label
@@ -159,6 +200,42 @@ export function CategoryForm({
           정확한 달이 안 떠오르시면 비워두셔도 돼요.
         </p>
       </section>
+
+      {isPeriod && (
+        <section className="flex flex-col gap-2">
+          <label
+            htmlFor="life-end-year"
+            className="text-lg font-semibold text-zinc-900"
+          >
+            끝난 해 <span className="font-normal text-zinc-500">(선택)</span>
+          </label>
+          <div className="flex items-end gap-3">
+            <div className="w-44">
+              <input
+                id="life-end-year"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={endYearText}
+                onChange={(e) =>
+                  setEndYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
+                }
+                placeholder="예: 1991"
+                className="w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              />
+              {ageForEndYear && (
+                <p className="mt-1 text-sm text-zinc-600">
+                  그때 {formatAge(ageForEndYear)}쯤이에요
+                </p>
+              )}
+            </div>
+            <p className="flex-1 text-base text-zinc-600">
+              모르거나 아직 안 끝났으면 비워두셔도 돼요. 끝난 해를 적으시면
+              연혁에 <b>시작·끝 두 점</b>으로 표시돼요.
+            </p>
+          </div>
+        </section>
+      )}
 
       <section className="flex flex-col gap-2">
         <label

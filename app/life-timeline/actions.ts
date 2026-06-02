@@ -13,6 +13,7 @@ import type { EventPrecision, LifeCategory } from "@/lib/generated/prisma/enums"
 import {
   createLifeEvent,
   deleteLifeEvent,
+  isPeriodCategory,
   updateLifeEvent,
 } from "@/lib/life-events";
 import { getLifeQuestion } from "@/lib/life-record/questions";
@@ -27,6 +28,9 @@ export type LifeEventInputRaw = {
   title: string;
   year: number | null;
   month: number | null;
+  // L2(+) — 기간 카테고리(학령기 5종 + MILITARY + WORK)의 끝 연도.
+  // 비기간 카테고리에서 보내면 무시(헬퍼가 null 정규화).
+  endYear: number | null;
   content: string | null;
 };
 
@@ -41,6 +45,7 @@ type ValidationOk = {
   title: string;
   year: number;
   month: number | null;
+  endYear: number | null;
   content: string | null;
 };
 type ValidationFail = { ok: false; error: string };
@@ -93,6 +98,27 @@ function validate(raw: LifeEventInputRaw): ValidationOk | ValidationFail {
     month = raw.month;
   }
 
+  let endYear: number | null = null;
+  if (isPeriodCategory(category) && raw.endYear !== null) {
+    if (
+      !Number.isInteger(raw.endYear) ||
+      raw.endYear < YEAR_MIN ||
+      raw.endYear > yearMax
+    ) {
+      return {
+        ok: false,
+        error: "끝난 해는 1900년부터 내년 사이로 적어주세요.",
+      };
+    }
+    if (raw.endYear < year) {
+      return {
+        ok: false,
+        error: "끝난 해가 시작한 해보다 앞일 수 없어요.",
+      };
+    }
+    endYear = raw.endYear;
+  }
+
   let content: string | null = null;
   if (typeof raw.content === "string" && raw.content.trim() !== "") {
     if (raw.content.length > CONTENT_MAX) {
@@ -108,6 +134,7 @@ function validate(raw: LifeEventInputRaw): ValidationOk | ValidationFail {
     title,
     year,
     month,
+    endYear,
     content,
   };
 }
@@ -124,7 +151,13 @@ export async function addLifeEventAction(
   const result = await createLifeEvent(
     session.user.id,
     v.category,
-    { title: v.title, year: v.year, month: v.month, content: v.content },
+    {
+      title: v.title,
+      year: v.year,
+      month: v.month,
+      endYear: v.endYear,
+      content: v.content,
+    },
     v.precision,
   );
 
@@ -147,7 +180,13 @@ export async function updateLifeEventAction(
     session.user.id,
     eventId,
     v.category,
-    { title: v.title, year: v.year, month: v.month, content: v.content },
+    {
+      title: v.title,
+      year: v.year,
+      month: v.month,
+      endYear: v.endYear,
+      content: v.content,
+    },
     v.precision,
   );
   if (!result) {

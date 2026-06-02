@@ -50,30 +50,63 @@ export const LIFE_QUESTIONS: LifeQuestion[] = [
     optional: false,
   },
   {
-    category: "CHILDHOOD",
-    shortLabel: "유년기",
-    prompt: "어렸을 때 어디서 자라셨어요?",
-    hint: "이사가 있었다면 가장 오래 살았던 곳으로 적어주세요.",
-    titleLabel: "자란 곳",
-    titlePlaceholder: "예: 부산 동래, 강원도 시골 마을",
-    contentLabel: "그곳에서 떠오르는 장면",
-    contentPlaceholder: "예: 골목에서 친구들과 술래잡기…",
+    category: "KINDERGARTEN",
+    shortLabel: "어린이집·유치원",
+    prompt: "어린이집이나 유치원에 다니셨나요?",
+    hint: "기관 이름이 안 떠오르시면 동네나 별칭으로 적으셔도 돼요. 안 다니셨으면 건너뛰기.",
+    titleLabel: "어린이집·유치원 이름",
+    titlePlaceholder: "예: OO유치원, 동네 어린이집",
+    contentLabel: "그때 떠오르는 장면",
+    contentPlaceholder: "예: 친했던 친구, 좋아하던 놀이…",
+    optional: true,
+  },
+  {
+    category: "ELEMENTARY",
+    shortLabel: "초등학교",
+    prompt: "초등학교는 어디 다니셨어요?",
+    hint: "여러 곳 다니셨다면 가장 오래 다닌 곳으로 적어주세요.",
+    titleLabel: "초등학교 이름",
+    titlePlaceholder: "예: OO초등학교, OO국민학교",
+    contentLabel: "그 시절 친구나 장면",
+    contentPlaceholder: "예: 짝꿍 OO, 운동장에서…",
     optional: false,
   },
   {
-    category: "SCHOOL",
-    shortLabel: "학교",
-    prompt: "가장 기억에 남는 학교는 어디였어요?",
-    hint: "한 곳만 먼저 적으셔도 돼요. 더 있으면 나중에 추가할 수 있어요.",
-    titleLabel: "학교 이름",
-    titlePlaceholder: "예: 종로초등학교, 부산대학교",
-    contentLabel: "그 시절 떠오르는 친구나 장면",
-    contentPlaceholder: "예: 점심 시간에 운동장에서…",
-    optional: false,
+    category: "MIDDLE",
+    shortLabel: "중학교",
+    prompt: "중학교는 어디 다니셨어요?",
+    hint: "안 다니셨거나 기억이 흐릿하시면 건너뛰셔도 됩니다.",
+    titleLabel: "중학교 이름",
+    titlePlaceholder: "예: OO중학교",
+    contentLabel: "그 시절 떠오르는 것",
+    contentPlaceholder: "예: 친구들, 동아리, 좋아하던 선생님…",
+    optional: true,
+  },
+  {
+    category: "HIGH",
+    shortLabel: "고등학교",
+    prompt: "고등학교는 어디 다니셨어요?",
+    hint: "안 다니셨거나 기억이 흐릿하시면 건너뛰셔도 됩니다.",
+    titleLabel: "고등학교 이름",
+    titlePlaceholder: "예: OO고등학교",
+    contentLabel: "그 시절 떠오르는 것",
+    contentPlaceholder: "예: 친구들, 진로 고민, 좋아하던 과목…",
+    optional: true,
+  },
+  {
+    category: "UNIVERSITY",
+    shortLabel: "대학교",
+    prompt: "대학교에 다니셨나요?",
+    hint: "안 다니셨으면 건너뛰셔도 됩니다.",
+    titleLabel: "대학교 이름 / 전공",
+    titlePlaceholder: "예: OO대학교 OO과",
+    contentLabel: "그 시절 떠오르는 것",
+    contentPlaceholder: "예: 첫 자취, MT, 동아리…",
+    optional: true,
   },
   {
     category: "MILITARY",
-    shortLabel: "군 복무",
+    shortLabel: "군대",
     prompt: "군 복무를 하셨다면 언제, 어디서 하셨어요?",
     hint: "해당 없으시면 건너뛰셔도 됩니다.",
     titleLabel: "복무지 / 부대",
@@ -115,28 +148,6 @@ export const LIFE_QUESTIONS: LifeQuestion[] = [
     contentPlaceholder: "예: 태어난 병원, 부모님 반응…",
     optional: true,
   },
-  {
-    category: "RESIDENCE",
-    shortLabel: "큰 이사",
-    prompt: "인생에서 가장 큰 이사가 있었다면?",
-    hint: "정확한 연도가 안 떠오르시면 대략이라도 괜찮아요.",
-    titleLabel: "이사 간 곳",
-    titlePlaceholder: "예: 서울에서 부산으로, 시골에서 도시로",
-    contentLabel: "그때 떠오르는 것",
-    contentPlaceholder: "예: 짐 싸던 날, 새 동네 첫 인상…",
-    optional: true,
-  },
-  {
-    category: "OTHER",
-    shortLabel: "그 외",
-    prompt: "이 외에 인생의 큰 사건이 있다면 적어주세요.",
-    hint: "큰 병·사고, 종교, 오래된 취미 등 무엇이든 좋아요. 해당 없으시면 건너뛰기.",
-    titleLabel: "사건 이름",
-    titlePlaceholder: "예: 큰 병원 입원, 등산 시작",
-    contentLabel: "어떤 일이었는지",
-    contentPlaceholder: "자유롭게 적어주세요…",
-    optional: true,
-  },
 ];
 
 export const LIFE_CATEGORY_ORDER: LifeCategory[] = LIFE_QUESTIONS.map(
@@ -148,9 +159,16 @@ export function getLifeQuestion(category: LifeCategory): LifeQuestion | null {
   return LIFE_QUESTIONS.find((q) => q.category === category) ?? null;
 }
 
-// 다음 미답 카테고리(LIFE_CATEGORY_ORDER 순). 모두 답했으면 null.
+// 다음 미답 카테고리(LIFE_CATEGORY_ORDER 순). "답함" 또는 "건너뜀" 둘 다
+// 처리된 것으로 보고 *진짜 미답* 만 후보. 모두 처리됐으면 null.
+//
+// skipped 를 답함과 동일 취급하지 않으면, 3번을 건너뛰고 4·5·6 을 답하고
+// 7을 건너뛴 뒤 다음 미답을 물으면 다시 3번이 나오는 버그가 발생.
 export function nextUnansweredCategory(
   answered: Set<LifeCategory>,
+  skipped: Set<LifeCategory> = new Set(),
 ): LifeCategory | null {
-  return LIFE_CATEGORY_ORDER.find((c) => !answered.has(c)) ?? null;
+  return (
+    LIFE_CATEGORY_ORDER.find((c) => !answered.has(c) && !skipped.has(c)) ?? null
+  );
 }

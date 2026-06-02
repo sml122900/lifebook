@@ -4,11 +4,18 @@
 //
 // 클라가 보낸 카테고리 + 폼 값을 검증하고 upsertLifeEvent 로 저장한다.
 // userId 는 항상 서버 세션에서 — 클라가 보낸 값은 절대 신뢰하지 않는다.
+//
+// L2(+) — skipLifeRecord: "건너뛰기" 누르면 카테고리를 User.skippedLifeCategories
+// 에 기록. nextUnansweredCategory 가 다시 후보로 잡지 않도록.
 
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
-import { upsertLifeEvent } from "@/lib/life-events";
+import {
+  isPeriodCategory,
+  markCategorySkipped,
+  upsertLifeEvent,
+} from "@/lib/life-events";
 import { getLifeQuestion } from "@/lib/life-record/questions";
 import type { LifeCategory } from "@/lib/generated/prisma/enums";
 
@@ -38,6 +45,7 @@ export async function submitLifeRecord(
     title: string;
     year: number | null;
     month: number | null;
+    endYear: number | null;
     content: string | null;
   },
 ): Promise<SubmitLifeRecordResult> {
@@ -82,6 +90,29 @@ export async function submitLifeRecord(
     month = raw.month;
   }
 
+  // L2(+) — endYear 검증. 비기간 카테고리에서 보내면 무시(헬퍼가 null 정규화).
+  // 기간 카테고리에서: 비어있어도 OK(끝 모름·진행 중), 있으면 정수 + 범위.
+  let endYear: number | null = null;
+  if (isPeriodCategory(category) && raw.endYear !== null) {
+    if (
+      !Number.isInteger(raw.endYear) ||
+      raw.endYear < YEAR_MIN ||
+      raw.endYear > yearMax
+    ) {
+      return {
+        ok: false,
+        error: "끝난 해는 1900년부터 내년 사이로 적어주세요.",
+      };
+    }
+    if (raw.endYear < year) {
+      return {
+        ok: false,
+        error: "끝난 해가 시작한 해보다 앞일 수 없어요.",
+      };
+    }
+    endYear = raw.endYear;
+  }
+
   let content: string | null = null;
   if (typeof raw.content === "string" && raw.content.trim() !== "") {
     if (raw.content.length > CONTENT_MAX) {
@@ -90,10 +121,36 @@ export async function submitLifeRecord(
     content = raw.content;
   }
 
-  await upsertLifeEvent(userId, category, { title, year, month, content });
+  await upsertLifeEvent(userId, category, {
+    title,
+    year,
+    month,
+    endYear,
+    content,
+  });
 
-  // 인덱스의 진행 상태 / 카테고리 폼의 prefill 둘 다 갱신.
+  // 인덱스의 진행 상태 / 카테고리 폼의 prefill / 연혁 둘 다 갱신.
   revalidatePath("/life-record");
   revalidatePath(`/life-record/${category}`);
+  revalidatePath("/life-timeline");
+  return { ok: true };
+}
+
+// L2(+) — "건너뛰기" 액션. User.skippedLifeCategories 에 카테고리 기록.
+// upsertLifeEvent 가 답 저장 시 자동 해제하므로 일방향 표시만으로 충분.
+export async function skipLifeRecord(
+  rawCategory: string,
+): Promise<SubmitLifeRecordResult> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false, error: "로그인이 필요해요." };
+  }
+  if (!isLifeCategory(rawCategory)) {
+    return { ok: false, error: "알 수 없는 카테고리예요." };
+  }
+  await markCategorySkipped(session.user.id, rawCategory);
+
+  revalidatePath("/life-record");
+  revalidatePath(`/life-record/${rawCategory}`);
   return { ok: true };
 }

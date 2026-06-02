@@ -64,6 +64,19 @@ export default async function AccountSettingsPage() {
         </dl>
       </section>
 
+      <section className="rounded-md border-2 border-amber-300 bg-amber-50 p-5">
+        <h2 className="text-2xl font-bold text-zinc-900">토큰</h2>
+        <p className="mt-2 text-base text-zinc-700">
+          잔액 확인, 매일 출석체크, 충전을 한 화면에서.
+        </p>
+        <Link
+          href="/account/tokens"
+          className="mt-4 inline-flex min-h-[48px] items-center justify-center rounded-md bg-amber-700 px-5 py-3 text-base font-bold text-white hover:bg-amber-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+        >
+          토큰 화면 열기 →
+        </Link>
+      </section>
+
       <section className="rounded-md border-2 border-zinc-200 bg-white p-5">
         <h2 className="text-2xl font-bold text-zinc-900">화면 모드</h2>
         <p className="mt-2 text-base text-zinc-600">

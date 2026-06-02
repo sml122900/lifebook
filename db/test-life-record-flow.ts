@@ -3,10 +3,10 @@
 // 시나리오:
 //   1. 빈 상태 — getAnsweredCategories=∅, getLifeEvents=[]
 //   2. BIRTH 저장(year+month) → precision=EXACT, 미러링(year/title) OK
-//   3. CHILDHOOD 저장(year만, month=null) → precision=APPROXIMATE
+//   3. KINDERGARTEN 저장(year만, month=null) → precision=APPROXIMATE
 //   4. BIRTH 수정 → 같은 카테고리 update, 행 수 +0 (여전히 BIRTH 1행)
 //   5. 같은 카테고리 두 번 저장해도 1행만 유지
-//   6. getAnsweredCategories = {BIRTH, CHILDHOOD}
+//   6. getAnsweredCategories = {BIRTH, KINDERGARTEN}
 //   7. 시간순 정렬 (getLifeEvents) — 작은 연도가 먼저
 //   8. 가족 룸: 다른 멤버가 life_event 도 봄 (미러링 호환)
 //
@@ -54,6 +54,7 @@ async function main() {
       title: "서울 종로",
       year: 1965,
       month: 3,
+      endYear: null,
       content: "비 오는 날 새벽이었다고 들었어요.",
     });
     check("precision = EXACT (year+month)", birth.precision === "EXACT");
@@ -81,12 +82,13 @@ async function main() {
     check("title ↔ eventTitle 미러링", birthRow?.title === birthRow?.eventTitle);
     check("DB precision = EXACT", birthRow?.precision === "EXACT");
 
-    // 3) CHILDHOOD 저장 — year만 → APPROXIMATE
-    console.log("\n[CHILDHOOD 저장 (1970년, 월 모름)]");
-    const childhood = await upsertLifeEvent(alice.id, "CHILDHOOD", {
+    // 3) KINDERGARTEN 저장 — year만 → APPROXIMATE
+    console.log("\n[KINDERGARTEN 저장 (1970년, 월 모름)]");
+    const childhood = await upsertLifeEvent(alice.id, "KINDERGARTEN", {
       title: "강원도 외할머니 댁",
       year: 1970,
       month: null,
+      endYear: null,
       content: null,
     });
     check("precision = APPROXIMATE (year만)", childhood.precision === "APPROXIMATE");
@@ -100,6 +102,7 @@ async function main() {
       title: "서울 종로 (수정됨)",
       year: 1965,
       month: 4,
+      endYear: null,
       content: "사실은 4월이었어요.",
     });
     const after = await prisma.userMemory.count({
@@ -121,8 +124,8 @@ async function main() {
     // 6) 답한 카테고리 집합
     const answered = await getAnsweredCategories(alice.id);
     check(
-      "answered = {BIRTH, CHILDHOOD}",
-      answered.size === 2 && answered.has("BIRTH") && answered.has("CHILDHOOD"),
+      "answered = {BIRTH, KINDERGARTEN}",
+      answered.size === 2 && answered.has("BIRTH") && answered.has("KINDERGARTEN"),
     );
 
     // 7) 시간순 정렬
@@ -134,8 +137,8 @@ async function main() {
       );
     }
     check(
-      "BIRTH(1965.4) < CHILDHOOD(1970)",
-      ordered[0]?.category === "BIRTH" && ordered[1]?.category === "CHILDHOOD",
+      "BIRTH(1965.4) < KINDERGARTEN(1970)",
+      ordered[0]?.category === "BIRTH" && ordered[1]?.category === "KINDERGARTEN",
     );
 
     // 8) 가족 룸 호환 — bob 이 alice 의 life_event 도 봄
@@ -160,7 +163,7 @@ async function main() {
       (m) => m.title === "강원도 외할머니 댁",
     );
     check("가족 룸: bob 이 alice 의 BIRTH 봄", bobSeesBirth === true);
-    check("가족 룸: bob 이 alice 의 CHILDHOOD 봄", bobSeesChildhood === true);
+    check("가족 룸: bob 이 alice 의 KINDERGARTEN 봄", bobSeesChildhood === true);
   } finally {
     await prisma.user.delete({ where: { id: alice.id } });
     await prisma.user.delete({ where: { id: bob.id } });

@@ -42,38 +42,40 @@ async function main() {
   };
 
   try {
-    // L2 가 만들어 두는 골격: SCHOOL 1행 (upsert).
-    await upsertLifeEvent(alice.id, "SCHOOL", {
+    // L2 가 만들어 두는 골격: ELEMENTARY 1행 (upsert).
+    await upsertLifeEvent(alice.id, "ELEMENTARY", {
       title: "OO초등학교",
       year: 1972,
       month: 3,
+      endYear: null,
       content: null,
     });
 
-    // 1) createLifeEvent — 같은 SCHOOL 카테고리에 1행 더 (L4 는 여러 행 허용)
+    // 1) createLifeEvent — 같은 ELEMENTARY 카테고리에 1행 더 (L4 는 여러 행 허용)
     console.log("\n[L4: 같은 카테고리에 여러 행 허용]");
-    const second = await createLifeEvent(alice.id, "SCHOOL", {
+    const second = await createLifeEvent(alice.id, "ELEMENTARY", {
       title: "OO중학교",
       year: 1978,
       month: 3,
+      endYear: null,
       content: null,
     });
-    check("두 번째 SCHOOL 행 정상 create", typeof second.id === "string");
+    check("두 번째 ELEMENTARY 행 정상 create", typeof second.id === "string");
     const schoolRows = await prisma.userMemory.count({
       where: {
         userId: alice.id,
         createdVia: CREATED_VIA_LIFE_EVENT,
-        category: "SCHOOL",
+        category: "ELEMENTARY",
       },
     });
-    check("SCHOOL 카테고리에 2행 (L2 upsert 1 + L4 create 1)", schoolRows === 2);
+    check("ELEMENTARY 카테고리에 2행 (L2 upsert 1 + L4 create 1)", schoolRows === 2);
 
     // 2) precision 다운그레이드 — EXACT 인데 month=null
     console.log("\n[precision 다운그레이드]");
     const downgraded = await createLifeEvent(
       alice.id,
-      "OTHER",
-      { title: "추정 사건", year: 1980, month: null, content: null },
+      "FAMILY",
+      { title: "추정 사건", year: 1980, month: null, endYear: null, content: null },
       "EXACT", // 강제 EXACT 인데 month 없음 → 자동 APPROXIMATE
     );
     check(
@@ -84,8 +86,8 @@ async function main() {
     // 3) forcePrecision=APPROXIMATE — "앵커 사이" 모드 케이스
     const between = await createLifeEvent(
       alice.id,
-      "OTHER",
-      { title: "사이 이벤트", year: 1975, month: null, content: null },
+      "FAMILY",
+      { title: "사이 이벤트", year: 1975, month: null, endYear: null, content: null },
       "APPROXIMATE",
     );
     check(
@@ -98,8 +100,8 @@ async function main() {
     const updated = await updateLifeEvent(
       alice.id,
       between.id,
-      "OTHER",
-      { title: "사이 이벤트 (수정)", year: 1976, month: null, content: "조금 더 명확해진 기억" },
+      "FAMILY",
+      { title: "사이 이벤트 (수정)", year: 1976, month: null, endYear: null, content: "조금 더 명확해진 기억" },
     );
     check("본인 행 수정 성공", updated !== null && updated.id === between.id);
 
@@ -113,8 +115,8 @@ async function main() {
     const evilUpdate = await updateLifeEvent(
       eve.id,
       between.id,
-      "OTHER",
-      { title: "악의적 수정", year: 1900, month: null, content: null },
+      "FAMILY",
+      { title: "악의적 수정", year: 1900, month: null, endYear: null, content: null },
     );
     check("다른 사용자 수정 차단 (null 리턴)", evilUpdate === null);
 
@@ -168,8 +170,8 @@ async function main() {
     const updateAiChat = await updateLifeEvent(
       alice.id,
       aiChat.id,
-      "OTHER",
-      { title: "강제 변경", year: 2000, month: null, content: null },
+      "FAMILY",
+      { title: "강제 변경", year: 2000, month: null, endYear: null, content: null },
     );
     check("ai_chat 행은 update 거부 (null)", updateAiChat === null);
 

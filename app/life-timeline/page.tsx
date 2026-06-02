@@ -2,17 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { getAttendanceStatus } from "@/lib/attendance";
 import { getFamilyNews } from "@/lib/family-news";
-import { getLifeEvents } from "@/lib/life-events";
+import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
 import { getTimemachineProgress } from "@/lib/timemachine-progress";
 
 import type { InitialSavedAnswer } from "../timemachine/[year]/[month]/AssistantPanel";
-import {
-  AttendanceCard,
-  type AttendanceInitial,
-} from "../timemachine/AttendanceCard";
 import { FamilyNewsCard } from "../timemachine/FamilyNewsCard";
 import { ProgressCard } from "../timemachine/ProgressCard";
 import { AssistantModal } from "./AssistantModal";
@@ -49,23 +44,18 @@ export default async function LifeTimelinePage() {
   }
   const userId = session.user.id;
 
-  // 네 fetch 모두 독립 — 병렬.
-  const [events, attendance, progress, familyNews] = await Promise.all([
+  // 네 fetch 모두 독립 — 병렬. (출석은 /account/tokens 로 이전했고
+  // 사이드 패널 AttendanceMini 가 이미 자기 데이터를 들고 있어 여기선 안 부름.)
+  const [events, progress, familyNews, birthYear] = await Promise.all([
     getLifeEvents(userId),
-    getAttendanceStatus(userId),
     getTimemachineProgress(userId),
     getFamilyNews(userId),
+    getBirthYear(userId),
   ]);
   const userName = session.user.name ?? session.user.email ?? "회원";
   const hasEvents = events.length > 0;
   const hasFamilyNews =
     familyNews.newReactions.count > 0 || familyNews.newRecords.count > 0;
-
-  const attendanceInitial: AttendanceInitial = {
-    todayChecked: attendance.todayChecked,
-    streak: attendance.streak,
-    daysUntilNextBonus: attendance.daysUntilNextBonus,
-  };
 
   // L6 — 비서 맥락 결정. getLifeEvents 는 시간순(오래된 것부터) 이라
   // 가장 최근 이벤트는 배열 끝. 0 개면 LATEST 시드 달로 폴백.
@@ -118,7 +108,11 @@ export default async function LifeTimelinePage() {
       </header>
 
       {/* 주인공 — 연혁 (또는 빈 상태 초대) */}
-      {hasEvents ? <TimelineView events={events} /> : <EmptyState />}
+      {hasEvents ? (
+        <TimelineView events={events} birthYear={birthYear} />
+      ) : (
+        <EmptyState />
+      )}
 
       {/* L4 진입점 — "+ 추가" 가 메인 액션, 옆에 "관리" 와 "기록 보강" */}
       {hasEvents && (
@@ -152,9 +146,8 @@ export default async function LifeTimelinePage() {
         </section>
       )}
 
-      {/* 보조 요소들 — 연혁 아래로. 시각적 위계: 옅은 구분선 + 작은 섹션
-          제목으로 "여긴 보조" 임을 명확히. 동기 요소(출석·진척·가족 소식)
-          는 v2 에서 그대로 가져왔다 — 컴포넌트 무수정 재사용. */}
+      {/* 보조 요소들 — 연혁 아래로. v3.5: 출석체크 카드는 /account/tokens
+          로 이전(설정 → 토큰). 메인은 연혁 + 가족 소식 + 진척만 남김. */}
       <section
         aria-label="동기 부여"
         className="flex flex-col gap-6 border-t-2 border-zinc-200 pt-8"
@@ -163,8 +156,6 @@ export default async function LifeTimelinePage() {
 
         {/* 가족 소식 — 0건이면 카드 자체 안 보임 (서운한 표현 없음). */}
         {hasFamilyNews && <FamilyNewsCard news={familyNews} />}
-
-        <AttendanceCard initial={attendanceInitial} />
 
         <ProgressCard progress={progress} />
       </section>

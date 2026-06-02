@@ -25,8 +25,28 @@ export type LifeEvent = {
   precision: EventPrecision;
   category: LifeCategory | null;
   content: string | null;
+  // L2(+) — 기간 카테고리(SCHOOL/WORK/MILITARY/RESIDENCE)의 끝 연도.
+  // 시간축 렌더가 이 값이 있으면 "시작"·"끝" 두 점으로 split.
+  endYear: number | null;
   createdAt: Date;
 };
+
+// 기간이 의미 있는 카테고리. UI(폼) 와 헬퍼(저장 검증) 가 공유.
+// 학령기·군대·첫 직장은 "입학~졸업", "입대~제대", "입사~퇴사" 의 양 끝점이
+// 의미 있음. BIRTH·RELATIONSHIP(결혼)·FAMILY(자녀)는 단일 시점.
+const PERIOD_CATEGORIES: ReadonlySet<LifeCategory> = new Set([
+  "KINDERGARTEN",
+  "ELEMENTARY",
+  "MIDDLE",
+  "HIGH",
+  "UNIVERSITY",
+  "MILITARY",
+  "WORK",
+]);
+
+export function isPeriodCategory(category: LifeCategory): boolean {
+  return PERIOD_CATEGORIES.has(category);
+}
 
 // 사용자의 인생 이벤트를 시간순으로 반환.
 //
@@ -54,6 +74,7 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
       eventTitle: true,
       eventYear: true,
       eventMonth: true,
+      endYear: true,
       precision: true,
       category: true,
       content: true,
@@ -75,8 +96,75 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
     precision: r.precision ?? "APPROXIMATE", // 기본은 사이 이벤트
     category: r.category,
     content: r.content,
+    endYear: r.endYear,
     createdAt: r.createdAt,
   }));
+}
+
+// L2(+) — 사용자의 출생 연도 1회 조회. BIRTH 카테고리에 답한 행이 있으면
+// 그 eventYear, 없으면 null. 나이 자동 표시·SCHOOL 역계산 힌트에 사용.
+export async function getBirthYear(userId: string): Promise<number | null> {
+  const row = await prisma.userMemory.findFirst({
+    where: {
+      userId,
+      createdVia: CREATED_VIA_LIFE_EVENT,
+      category: "BIRTH",
+      eventYear: { not: null },
+    },
+    select: { eventYear: true },
+    orderBy: { createdAt: "desc" },
+  });
+  return row?.eventYear ?? null;
+}
+
+// L2(+) — 사용자가 "건너뛰기" 처리한 카테고리 셋.
+// nextUnansweredCategory 가 *답함 ∪ 건너뜀* 둘 다 끝난 것으로 취급.
+export async function getSkippedCategories(
+  userId: string,
+): Promise<Set<LifeCategory>> {
+  const row = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { skippedLifeCategories: true },
+  });
+  return new Set(row?.skippedLifeCategories ?? []);
+}
+
+// L2(+) — 한 카테고리를 "건너뜀" 으로 표시 (idempotent).
+// User.skippedLifeCategories 배열에 추가. 이미 있으면 no-op.
+export async function markCategorySkipped(
+  userId: string,
+  category: LifeCategory,
+): Promise<void> {
+  const row = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { skippedLifeCategories: true },
+  });
+  const current = row?.skippedLifeCategories ?? [];
+  if (current.includes(category)) return;
+  await prisma.user.update({
+    where: { id: userId },
+    data: { skippedLifeCategories: { set: [...current, category] } },
+  });
+}
+
+// L2(+) — 한 카테고리를 "건너뜀" 셋에서 제거 (idempotent).
+// 사용자가 같은 카테고리에 답을 저장하면 자동 호출됨(upsertLifeEvent).
+export async function unmarkCategorySkipped(
+  userId: string,
+  category: LifeCategory,
+): Promise<void> {
+  const row = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { skippedLifeCategories: true },
+  });
+  const current = row?.skippedLifeCategories ?? [];
+  if (!current.includes(category)) return;
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      skippedLifeCategories: { set: current.filter((c) => c !== category) },
+    },
+  });
 }
 
 // 인덱스(/life-record) 진행 상태용 — 해당 사용자가 답한 카테고리 집합.
@@ -114,6 +202,7 @@ export async function getLifeEventForCategory(
   eventTitle: string;
   eventYear: number;
   eventMonth: number | null;
+  endYear: number | null;
   content: string | null;
   precision: EventPrecision;
 } | null> {
@@ -129,6 +218,7 @@ export async function getLifeEventForCategory(
       title: true,
       eventYear: true,
       eventMonth: true,
+      endYear: true,
       content: true,
       precision: true,
     },
@@ -140,6 +230,7 @@ export async function getLifeEventForCategory(
     eventTitle: row.eventTitle ?? row.title,
     eventYear: row.eventYear,
     eventMonth: row.eventMonth,
+    endYear: row.endYear,
     content: row.content,
     precision: row.precision ?? "APPROXIMATE",
   };
@@ -149,6 +240,8 @@ export type LifeRecordInput = {
   title: string;
   year: number;
   month: number | null;
+  // L2(+) — 기간 카테고리의 끝 연도. 비기간 카테고리·끝 모름이면 null.
+  endYear: number | null;
   content: string | null;
 };
 
@@ -185,6 +278,12 @@ export async function upsertLifeEvent(
     orderBy: { createdAt: "desc" },
   });
 
+  // 답을 저장하면 "건너뜀" 셋에서 자동 해제 (사용자가 마음 바꾼 케이스).
+  await unmarkCategorySkipped(userId, category);
+
+  // 비기간 카테고리에서 endYear 가 잘못 들어오면 null 로 정규화.
+  const endYear = isPeriodCategory(category) ? input.endYear : null;
+
   if (existing) {
     const updated = await prisma.userMemory.update({
       where: { id: existing.id },
@@ -193,6 +292,7 @@ export async function upsertLifeEvent(
         eventTitle: input.title,
         eventYear: input.year,
         eventMonth: input.month,
+        endYear,
         precision,
         // category 는 그대로 (where 로 잡았으므로)
         // 미러링
@@ -214,6 +314,7 @@ export async function upsertLifeEvent(
       eventTitle: input.title,
       eventYear: input.year,
       eventMonth: input.month,
+      endYear,
       precision,
       category,
       // 미러링
@@ -245,6 +346,8 @@ export async function createLifeEvent(
     forcePrecision ?? (input.month !== null ? "EXACT" : "APPROXIMATE");
   if (precision === "EXACT" && input.month === null) precision = "APPROXIMATE";
 
+  const endYear = isPeriodCategory(category) ? input.endYear : null;
+
   const created = await prisma.userMemory.create({
     data: {
       userId,
@@ -252,6 +355,7 @@ export async function createLifeEvent(
       eventTitle: input.title,
       eventYear: input.year,
       eventMonth: input.month,
+      endYear,
       precision,
       category,
       year: input.year,
@@ -277,6 +381,8 @@ export async function updateLifeEvent(
     forcePrecision ?? (input.month !== null ? "EXACT" : "APPROXIMATE");
   if (precision === "EXACT" && input.month === null) precision = "APPROXIMATE";
 
+  const endYear = isPeriodCategory(category) ? input.endYear : null;
+
   // 소유 확인 후 update — updateMany 로 한 트랜잭션, 일치 안 하면 count=0.
   const result = await prisma.userMemory.updateMany({
     where: {
@@ -288,6 +394,7 @@ export async function updateLifeEvent(
       eventTitle: input.title,
       eventYear: input.year,
       eventMonth: input.month,
+      endYear,
       precision,
       category,
       year: input.year,
@@ -325,6 +432,7 @@ export async function getLifeEventById(
   eventTitle: string;
   eventYear: number;
   eventMonth: number | null;
+  endYear: number | null;
   content: string | null;
   precision: EventPrecision;
 } | null> {
@@ -341,6 +449,7 @@ export async function getLifeEventById(
       title: true,
       eventYear: true,
       eventMonth: true,
+      endYear: true,
       content: true,
       precision: true,
     },
@@ -352,6 +461,7 @@ export async function getLifeEventById(
     eventTitle: row.eventTitle ?? row.title,
     eventYear: row.eventYear,
     eventMonth: row.eventMonth,
+    endYear: row.endYear,
     content: row.content,
     precision: row.precision ?? "APPROXIMATE",
   };

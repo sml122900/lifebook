@@ -2,7 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { getAnsweredCategories } from "@/lib/life-events";
+import {
+  getAnsweredCategories,
+  getSkippedCategories,
+} from "@/lib/life-events";
 import {
   LIFE_QUESTIONS,
   nextUnansweredCategory,
@@ -35,10 +38,16 @@ export default async function LifeRecordIndexPage({
   const params = await searchParams;
   const isNewArrival = params.new === "1";
 
-  const answered = await getAnsweredCategories(session.user.id);
-  const next = nextUnansweredCategory(answered);
+  const [answered, skipped] = await Promise.all([
+    getAnsweredCategories(session.user.id),
+    getSkippedCategories(session.user.id),
+  ]);
+  const next = nextUnansweredCategory(answered, skipped);
   const totalCount = LIFE_QUESTIONS.length;
   const doneCount = answered.size;
+  const skippedCount = skipped.size;
+  // 처리율 (답함 + 건너뜀) — 진척 바·"이어서 하기" 분기에 사용.
+  const processedCount = doneCount + skippedCount;
   const allDone = next === null;
 
   const userName = session.user.name ?? session.user.email ?? "회원";
@@ -82,11 +91,16 @@ export default async function LifeRecordIndexPage({
           {allDone
             ? "골격이 모두 채워졌어요!"
             : `${totalCount}개 중 ${doneCount}개 답하셨어요`}
+          {skippedCount > 0 && !allDone && (
+            <span className="ml-2 text-base font-medium text-amber-700">
+              (건너뜀 {skippedCount}개)
+            </span>
+          )}
         </p>
         <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-amber-100">
           <div
             className="h-full bg-amber-500 transition-all"
-            style={{ width: `${(doneCount / totalCount) * 100}%` }}
+            style={{ width: `${(processedCount / totalCount) * 100}%` }}
             aria-hidden
           />
         </div>
@@ -104,7 +118,7 @@ export default async function LifeRecordIndexPage({
               prefetch
               className="inline-flex min-h-[64px] items-center justify-center rounded-md bg-zinc-900 px-8 py-4 text-xl font-bold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
             >
-              {doneCount === 0 ? "시작하기 →" : "이어서 하기 →"}
+              {processedCount === 0 ? "시작하기 →" : "이어서 하기 →"}
             </Link>
           )}
         </div>
@@ -118,6 +132,19 @@ export default async function LifeRecordIndexPage({
         <ul className="flex flex-col gap-2">
           {LIFE_QUESTIONS.map((q, i) => {
             const done = answered.has(q.category);
+            const isSkipped = !done && skipped.has(q.category);
+            // 뱃지 시각: 답함(emerald 강조) ≠ 건너뜀(zinc 담담) ≠ 아직(zinc 같지만
+            // "아직"문구). X 표시·rose 같은 부정 색 금지(기획 원칙).
+            const badgeClass = done
+              ? "bg-emerald-100 text-emerald-800"
+              : isSkipped
+                ? "bg-zinc-100 text-zinc-500"
+                : "bg-zinc-100 text-zinc-700";
+            const badgeText = done
+              ? "✓ 답함"
+              : isSkipped
+                ? "건너뜀"
+                : "아직";
             return (
               <li key={q.category}>
                 <Link
@@ -140,12 +167,10 @@ export default async function LifeRecordIndexPage({
                   <span
                     className={
                       "rounded-full px-4 py-2 text-base font-semibold " +
-                      (done
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-zinc-100 text-zinc-700")
+                      badgeClass
                     }
                   >
-                    {done ? "✓ 답함" : "아직"}
+                    {badgeText}
                   </span>
                 </Link>
               </li>
