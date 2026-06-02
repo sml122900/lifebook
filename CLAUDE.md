@@ -160,6 +160,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **A**     | **출석체크 + 사이드 패널 (동기부여 + 접근성)** | (5-28 일지)                        | ✅ 완료                           |
 | **M①②**   | **동기부여 핵심 루프 — ① 쌓이는 재미(진척) + ② 가족 반응(스탬프·알림)** | `phase/동기부여_핵심루프_기획.md`   | ✅ ①② 완료 (③④⑤ 후순위)          |
 | **L1~L7** | **v3 인생 연혁 피벗 — 매달 빈 칸 부담 → 가로 시간축의 큰 줄기** | `phase/인생연혁_기획.md`            | ✅ 완료 (v2 코드 전체 보존)       |
+| **v3.0+~v3.5** | **v3 사용성 시리즈 — 건너뛰기·기간·나이·카테고리 개편·세로축·빈공간 클릭·글로벌 위젯·토큰 통합** | (`2026-06-03` 일지)            | ✅ 완료                           |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -190,6 +191,14 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 - L5 메인 재배치 — `/timemachine` 메인 → `/life-timeline` redirect 한 줄. `lib/side-panel-data.ts` 추출로 사이드 패널 양쪽 layout 공유. 사이드 메뉴 정리("내 인생 연혁" top, "이번 달 타임머신", "내 기록" 제거). `V3WelcomeBanner` (localStorage 만). 보조 섹션 = "오늘의 한 걸음" (가족 소식 0건 숨김 + 출석 + 진척)
 - L6 AI 비서 모달 — 기존 v2 `AssistantPanel` **무수정** 재사용. `AssistantModal` 이 우측 상단 버튼 + 중앙 모달로 임베드. 맥락 = 가장 최근 life_event `(eventYear, eventMonth ?? 6)`, 0 개면 LATEST 폴백. fallbackLabel 로 답 기준 시기 명시. "타임라인 추가" → `/life-timeline/add` push (v2 keptEvents 의미 X). 저장된 답 prefetch (`listAssistantAnswers`)
 - L7 첫 진입 흐름 — **`/enter` 분기 전용 server component** (`signIn.redirectTo` + 동의 완료 redirect). 3 분기: (1) 인생 이벤트 ≥ 1 → `/life-timeline` (2) 인생 이벤트 0 + 다른 UserMemory ≥ 1 (v2 기존) → `/life-timeline` (EmptyState 권유) (3) 둘 다 0 → `/life-record?new=1` (환영 배너). `hasAnyUserMemory(userId)` findFirst 1회. **메인엔 게이트 0** — 사이드 패널 자유 이동 보존. 환영 배너는 서버 `searchParams` 만으로 (새 DB/localStorage/client 0)
+
+**v3 사용성 시리즈 (v3.0+ ~ v3.5)** — L1~L7 통합 테스트 후 발견한 결함·UX 정리. 새 모델 0 정책 계승, 마이그레이션 2건:
+- v3.0+ 건너뛰기·기간·나이 — `User.skippedLifeCategories LifeCategory[]` + `UserMemory.endYear Int?` (mig 1). `lib/age.ts` 신규 (`calcAge`/`formatAge`/`calcSchoolYears`/`schoolYearsForCategory`). `nextUnansweredCategory(answered, skipped)` 시그니처 확장 (답함 ∪ 건너뜀). `upsertLifeEvent` 답 저장 시 자동 unmarkSkipped. 인덱스 카드: 답함(emerald)≠건너뜀(zinc 담담)≠아직 (X 표시·rose 금지). 기간 카테고리 폼에 "끝난 해(선택)" + 연도 옆 작은 나이 표시. 학령 카테고리에 amber aside (역계산 힌트). 시각화에서 `expandPeriods` 가 endYear 행을 두 점으로 split(같은 메모리 id 공유 → 룸·반응 한 단위)
+- v3.1 카테고리 개편 (10개) — `SCHOOL`→`ELEMENTARY/MIDDLE/HIGH/UNIVERSITY` 4분할, `CHILDHOOD`→`KINDERGARTEN`, `RESIDENCE/OTHER` 삭제. 마이그레이션 2 (`20260602230155_v3_categories_overhaul`) 수동 SQL — Postgres 가 `ALTER TYPE DROP VALUE` 지원 X 라 enum 재생성 패턴. 트러블슈팅: `ALTER COLUMN USING ARRAY(SELECT ... unnest)` 가 `cannot use subquery in transform expression` → `"col"::text[]::"new"[]` 직접 캐스트로 우회. 매핑 정책 (사용자 결정): CHILDHOOD→KINDERGARTEN, SCHOOL→ELEMENTARY 의미 매핑, RESIDENCE/OTHER 행 삭제. `PERIOD_CATEGORIES` = 학령기 5 + MILITARY + WORK
+- v3.2 세로 타임라인 — 가로축 라벨 겹침 해소. 데스크톱(sm+) 중앙 세로선 + 좌우 교차 카드, 모바일 왼쪽 선 + 우측 카드. `computePeriodFlags` 가 시작 행 bottomHalf + 끝 행 topHalf + 중간 행 both 로 amber-500 강조 — 기간 안에 다른 이벤트가 끼어도 시선 끊김 0. 라벨에 `(만 N세)` 곁들임
+- v3.3 빈 공간 클릭으로 추가 — `LineClickArea` 클라이언트(선 ±20px 폭) onClick → 연도 추정(선형 보간) → `/life-timeline/add?year=YYYY&hint=1`. 각 점 옆 amber `+` 버튼 (h-10 w-10) — 데스크톱 `group-hover` + `group-focus-within`, 모바일 항상. pointer-events 분리: ol/li=none, 점·카드·+버튼=auto → 빈 영역만 통과. `EventForm.defaultYear` prop + `searchParams.year` 검증 + `hint=1` amber aside 안내
+- v3.4 글로벌 AI 비서 위젯 — `AssistantModal` 에 `variant?: "inline" \| "floating"` prop 추가 (모달 본문 0줄 수정). `AssistantWidget` server component (`auth()` 후 비인증이면 null, 인증되면 컨텍스트 fetch + floating 렌더). root layout `{children}` 뒤에 마운트. `fixed bottom-6 right-6 z-50 h-16 w-16 rounded-full bg-violet-600` 64×64 둥근 버튼. 사이드 패널 일부 겹침 알려진 trade-off
+- v3.5 토큰·출석 통합 페이지 — 새 `/account/tokens` 페이지에 큰 잔액 카드(`text-5xl`) + AttendanceCard (코드 0줄 수정, 정식 자리) + 거래 내역 50건 + "충전→/billing" 진입. 진입점 통일: 설정 페이지에 "토큰" amber 카드 / root header 토큰 버튼 / 사이드 패널 모두 `/account/tokens` 로. `/life-timeline` 메인에서 AttendanceCard import + 렌더 + `getAttendanceStatus` fetch 제거 (메인 fetch 5→4). 사이드 패널 AttendanceMini 는 빠른 접근용 유지 (정식 페이지 vs 빠른 진입 의미 분리). `/billing` 결제 UI 미변경 (토스 콜백 흐름 그대로)
 
 **동기부여 핵심 루프 (Phase M ①②)** — 기획 `phase/동기부여_핵심루프_기획.md`:
 - ① 쌓이는 재미 (`lib/timemachine-progress.ts` + `ProgressCard`) — 기존 T6 `UserMemory` 읽기 집계(새 모델 0). 채운 달·사건·글자 + 12개월 진척 그리드(채움 amber/빈 칸 회색). 글자 수는 `$queryRaw` `SUM(LENGTH(BTRIM))` 로 본문 미로드. 0개월=초대 문구, 압박 금지. 메인·사이드 "내 기록"·월 화면 prev/next 배지
@@ -263,10 +272,21 @@ v3 인생 연혁 (L1~L7) 신규 후속:
 - 통합 사용성 검증 — 실 사용자 시나리오 (연혁 골격 → 점 클릭으로 월 화면 → 비서 회상)
 - 비서 맥락 확장 — 전 시점 질문 모드 (지금은 (year, month) 컨텍스트 한 곳)
 - /enter 분기 telemetry — 신규 vs 기존 vs 활성 사용자 비율
-- 모바일 가로 시간축 — 가로 스크롤 vs 세로 변환
+- ~~모바일 가로 시간축 — 가로 스크롤 vs 세로 변환~~ (v3.2 에서 세로 통일로 해결)
 - v1 사건 그리드 / v2 일부 화면 정식 drop (v3 검증 후) — `EventItem`·`MonthForm` 등
 - L2 폼·L4 자유 추가 사이 데이터 정합 — 같은 카테고리 여러 행 정책 확인
 - `test-family-reactions` markSeen 2건 pre-existing 실패 (M2 영역, L7 무관) — 후속 사이클
+
+v3.0+~v3.5 신규 후속 (`docs/daily/2026-06-03.md` 참조):
+- 사이드 패널 ↔ 글로벌 AI 비서 위젯 위치 겹침 정리 (lg 에서 `right-[22rem]` 등으로 안쪽 이동)
+- `/account/tokens` 와 `/billing` 거래 내역 중복 — `reasonLabel` 상수 통합 (또는 거래내역 헬퍼 추출)
+- TimelineView 의 `expandPeriods`/`computePeriodFlags` 단위 테스트 (UI 검증 어려운 순수 함수 영역)
+- 카테고리 마이그 후 사용자가 SCHOOL→ELEMENTARY 로 매핑된 행을 실제 본인 학교(중·고·대)로 재분류하는 UX (manage 페이지에서)
+- 빈 공간 클릭의 연도 추정 정확도 (사용자 실측 후 padding 조정 — 현재는 min/max 양 끝 보간만)
+- + 버튼 호버 영역 — 데스크톱에서 점 → 버튼 마우스 이동 시 group-hover 끊김 살짝 (group div 가 자식 width 합집합이지만 마진 영역 비어있음)
+- `LATEST_YEAR/MONTH` 하드코드 (위젯·사이드·life-timeline·page.tsx 등 4 곳) — L8 후속과 함께 `new Date()` 기반 통합
+- 글로벌 위젯 RSC fetch — 모든 페이지 render 마다 `getLifeEvents` + `listAssistantAnswers` 중복. React `cache()` 도입 후보 (M3 후속과 함께 결정 필요 — 비-RSC 직접 호출 영향)
+- v3.0+ 검증 스크립트 `test-life-skip-period-age.ts` 가 새 enum(ELEMENTARY/KINDERGARTEN/FAMILY) 갱신됐지만 통합 시나리오(같은 사용자가 4 단계 모두 거치는) 는 없음 — e2e 후속
 
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
@@ -297,6 +317,14 @@ v3 인생 연혁 (L1~L7) 신규 후속:
 - [x] 인생 이벤트 저장 → 새 모델 0, 기존 `UserMemory` 에 `createdVia="life_event"` 디스크리미네이터 + 5 컬럼 nullable. `year/month/title` 미러링으로 룸·반응·진척 자동 호환
 - [x] 시간 표현 → 앵커(EXACT, 진한 큰 점) + 사이(APPROXIMATE, 작은 점/약한 색). 정확한 월 안 떠올려도 추정 연도만 채우면 됨
 - [x] 첫 진입 분기 → 메인엔 게이트 X. `/enter` 분기 전용 페이지 (로그인/동의 직후 1회 진입). 신규 가이드 보호 + 사이드 패널 자유 이동 양립
+- [x] 인생 카테고리 v3.1 (10개) → 출생·유치원·초/중/고/대·군대·첫 직장·결혼·자녀. SCHOOL 통합 분할, RESIDENCE/OTHER 삭제. 매핑: CHILDHOOD→KINDERGARTEN, SCHOOL→ELEMENTARY 의미 매핑 + 나머지 삭제
+- [x] 건너뛰기 상태 → `User.skippedLifeCategories LifeCategory[]` (새 모델 0, native enum array). 답 저장 시 자동 해제
+- [x] 기간 카테고리 끝 연도 → 한 행에 `endYear` 컬럼 (별도 행 X). 룸·반응 한 단위 보존, 시각화에서만 두 점으로 split
+- [x] 나이 자동 표시 → BIRTH eventYear 기반 `calcAge`. 폼 연도 옆 작은 텍스트 + 연혁 라벨 `(만 N세)` + 학령 카테고리 역계산 힌트
+- [x] 세로 타임라인 (v3.2) → 데스크톱·모바일 모두 세로. 데스크톱은 중앙선 좌우 교차, 모바일은 왼쪽 선 + 우측 카드. 기간은 amber-500 강조선
+- [x] 빈 공간 클릭으로 추가 (v3.3) → 선 ±20px 폭 click area + 점 옆 + 버튼. 연도 추정 후 `/life-timeline/add?year=&hint=1` prefill
+- [x] 글로벌 AI 비서 위젯 (v3.4) → root layout 우측 하단 floating FAB. `AssistantModal variant="floating"` 으로 모달 본문 재사용
+- [x] 토큰·출석 통합 (v3.5) → `/account/tokens` 신설 (잔액 + 출석 + 거래내역). `/life-timeline` 메인에서 AttendanceCard 제거. 진입점 4 곳 통일 (헤더·사이드 패널·설정). `/billing` 결제 UI 미변경
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)

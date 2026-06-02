@@ -179,3 +179,21 @@
 - **Problem**: 메인 페이지에 "처음 사용자 → 가이드 흐름 / 기존 사용자 → 메인" 분기 게이트를 두면 — *기존 사용자가 사이드 패널로 메인에 돌아왔다가 데이터 0건이라 가이드 흐름으로 매번 튕긴다*. 길을 잃음. 동시에 처음 사용자에겐 빈 메인보다 가이드가 먼저여야 함. v2 시절부터 쓰던 사용자(다른 데이터 있음)는 신규 흐름으로 가면 당황.
 - **Action**: 게이트를 메인(`/life-timeline`)에 두지 않고 **분기 전용 server component `/enter`** 신설. 로그인(`signIn.redirectTo`) + 동의 완료(`/consent` redirect, `ConsentForm.push`) 직후 도착하는 canonical 1회 진입점. 세 분기 — (1) 인생 이벤트 ≥ 1 → 메인 (2) 인생 이벤트 0 but 다른 UserMemory 있음(v2 기존 사용자) → 메인 (빈 상태 + 부드러운 권유) (3) 둘 다 0 (완전 신규) → 가이드 흐름 `?new=1` (환영 배너). 판정은 `hasAnyUserMemory(userId)` 1 findFirst — createdVia 무관 어떤 행이라도 있으면 v2 활동 흔적. 메인 자체엔 게이트 0 — 그 후 사이드 패널·직접 URL 로 자유롭게 메인 왕복. 랜딩 환영 배너는 서버 `searchParams` 만으로 — 새 DB/localStorage/client 0.
 - **Result**: 검증 — `/enter`·메인·가이드·v2 월 화면 모두 unauth 시 307→/login 정상 + 회귀 0. 시나리오 5종 (완전 신규/v2 기존/v3 활성/재로그인/직접 URL) 모두 의도대로. 게이트를 entry-only 로 분리하면 신규 보호와 자유 이동을 동시 만족. 메인에 게이트 두면 둘 중 하나 희생 — 이번 결정이 사이드 패널 패턴(자유 이동) 과 신규 가이드(첫 도착)를 둘 다 살리는 표준.
+
+## Postgres enum 재생성 마이그레이션 — 매핑·삭제·DROP 한 트랜잭션
+
+- **Problem**: v3 카테고리 개편 (`SCHOOL`→`ELEMENTARY/MIDDLE/HIGH/UNIVERSITY` 4분할, `CHILDHOOD`→`KINDERGARTEN` 재정의, `RESIDENCE/OTHER` 삭제) 에서 Postgres 가 `ALTER TYPE ... DROP VALUE` 를 지원하지 않음. Prisma migrate dev 가 enum 값 제거를 자동 처리 못하고 non-interactive 환경에서 멈춤. 동시에 production 사용자 데이터(테스트 환경엔 시드 + 본인 로그인)는 *의미 매핑* 후 보존, 매핑 불가는 *삭제* 정책으로 둘 다 만족해야.
+- **Action**: 수동 마이그레이션 SQL 작성 (`20260602230155_v3_categories_overhaul`) — 6 단계 트랜잭션: (1) 매핑 불가 enum 의 UserMemory 행 DELETE (2) `User.skippedLifeCategories` 배열에서 4종 모두 `array_remove` 4중 (3) 새 enum (`LifeCategory_new`) CREATE (4) `UserMemory.category` 컬럼 타입 ALTER + CASE 매핑 USING (5) `User.skippedLifeCategories` 배열 타입 ALTER — 처음 `USING (ARRAY(SELECT ... FROM unnest(...)))` 가 `cannot use subquery in transform expression` 에러 → text[] 경유 직접 캐스트(`"col"::text[]::"LifeCategory_new"[]`) 로 우회 (6) 옛 enum DROP + RENAME. ALTER COLUMN TYPE 직전에 DEFAULT 임시 DROP/재설정 필요 — 옛 enum default 가 새 enum 으로 자동 변환 안 됨.
+- **Result**: 마이그레이션 1 시도 후 서브쿼리 에러 → 5분 만에 text[] 캐스트 패턴 발견 → 트랜잭션 깨끗 롤백 확인(`_prisma_migrations` 행 없음) → SQL 수정 후 두 번째 시도에 적용 성공. 4종 테스트 스크립트 33+17+23+7 통과. *enum 재생성 + 데이터 매핑 + 배열 컬럼* 3개가 한 트랜잭션 안에서 일관적으로 처리되는 단일 SQL 파일 = 향후 다른 enum 변경의 표준 패턴.
+
+## 글로벌 floating 위젯 — root layout RSC + variant prop 으로 인라인 컴포넌트 무수정 재사용
+
+- **Problem**: 기존 비서 모달이 한 페이지(`/life-timeline`) 의 인라인 버튼으로만 진입 가능 — `/life-record`·`/timemachine/...`·`/account/*` 어디서든 비서 호출 흐름이 끊겼다. 위젯 패턴(우측 하단 floating action button) 으로 모든 인증된 페이지에서 진입 가능해야 하지만, 기존 `AssistantModal` 의 모달 본문은 그대로 재사용해야 (v2 AssistantPanel 무수정 정책 + 모달 안 chat / 저장 / 검색 동작 검증된 상태).
+- **Action**: `AssistantModal` 에 `variant?: "inline" \| "floating"` prop 1개 추가 — 트리거 버튼 className 만 분기, 모달 본문(open state·useEffect·AssistantPanel 임베드) 은 완전 공유. 새 `AssistantWidget` server component (`app/components/AssistantWidget.tsx`) — `auth()` 후 비인증이면 `return null`, 인증되면 `getLifeEvents`·`listAssistantAnswers` fetch → `AssistantModal variant="floating"` 렌더. root layout 의 `{children}` 뒤에 마운트 — 모든 페이지가 자동으로 위젯 받음. fixed `bottom-6 right-6 z-50` 64×64 둥근 amber-violet 버튼.
+- **Result**: 검증 — `/life-record/SCHOOL`·`/account/settings`·`/billing` 등 위젯 무관 페이지에서도 우측 하단 비서 버튼 노출 + 비인증 페이지(`/login`)는 null. tsc 0건. *모달 본문 0줄 수정* 으로 "모든 화면 위젯" 요구 만족 — variant prop 패턴이 비-침투적 재사용의 표준. RSC 가 페이지마다 컨텍스트 fetch(가장 최근 life_event) 하는 비용은 cache() 도입 시 추가 최적화 여지로 후속에 남김.
+
+## 토큰·출석 통합 페이지 신설 — 매일 들르는 화면을 메인에서 분리
+
+- **Problem**: 출석체크 카드가 `/life-timeline` (인생 연혁 메인) 에 박혀 있어 두 가지 문제 — (1) 매일 출석하러 메인 들어가는데 메인의 *연혁 본업* 시선이 흐트림 (2) `/billing` 은 충전 패키지만, 잔액 표시는 헤더에 분산, 거래 내역도 분리. 토큰 관련 정보가 4 곳에 흩어져 사용자는 자기 토큰 상태를 한눈에 못 봄.
+- **Action**: 새 페이지 `/account/tokens` — 큰 잔액 카드(`text-5xl` amber) + 기존 AttendanceCard 그대로 재사용 (코드 0줄 수정) + 거래 내역 50건 + "충전하러 가기" → `/billing` (결제 UI 자체 변경 0). 거래내역 한국어 라벨에 `daily_attendance/attendance_streak_bonus` 추가. 진입점 3 곳 통일 — 설정 페이지에 amber "토큰" 카드 추가, root header "토큰 NNN개" → `/account/tokens`, 사이드 패널 "토큰 충전하기" → "토큰 화면 열기". `/life-timeline` 메인에서 AttendanceCard import + 렌더 + getAttendanceStatus fetch 제거 (메인 fetch 5→4).
+- **Result**: 검증 — `/account/tokens`·`/billing`·`/life-timeline` 모두 307 정상, `test-attendance.ts` 회귀 통과, tsc 0건. 매일 들르는 화면이 *정식 자리*(설정 → 토큰) 를 얻고 메인은 연혁 본업으로 단순화. 사이드 패널 AttendanceMini 는 빠른 접근용으로 유지 — 두 진입점이 *빠른 접근 vs 정식 페이지* 의미를 분리해 양쪽 다 살림. /billing 미변경으로 토스 결제 콜백 흐름 그대로.
