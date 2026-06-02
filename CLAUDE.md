@@ -159,6 +159,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **V1~V4** | **타임머신 v2 — 빈 기억칸 + AI 비서 + 답 깊이 선택** | `phase/타임머신_v2_AI비서_기획.md` | ✅ V1(백엔드)·V2(UI)·V3(멀티턴+저장)·V4(깊이) 완료 |
 | **A**     | **출석체크 + 사이드 패널 (동기부여 + 접근성)** | (5-28 일지)                        | ✅ 완료                           |
 | **M①②**   | **동기부여 핵심 루프 — ① 쌓이는 재미(진척) + ② 가족 반응(스탬프·알림)** | `phase/동기부여_핵심루프_기획.md`   | ✅ ①② 완료 (③④⑤ 후순위)          |
+| **L1~L7** | **v3 인생 연혁 피벗 — 매달 빈 칸 부담 → 가로 시간축의 큰 줄기** | `phase/인생연혁_기획.md`            | ✅ 완료 (v2 코드 전체 보존)       |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -180,6 +181,15 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 - 출석체크 (`UserAttendance` 모델 + `processAttendance`) — 매일 5토큰 + 7배수 streak 마다 +30 보너스. `@@unique([userId, date])` + P2002 catch 로 race-safe. KST 처리는 `+9h.toISOString().slice(0,10)` (라이브러리 의존 0). 끊김 표현 0 (시니어 친화)
 - `AttendanceCard` 시각 — 동그라미 7개 진행도(✓ + 숫자), 보상 표, 보너스 예고 버튼. 사이드 패널 미니: 16px 작은 동그라미 + N/7
 - 사이드 패널 (`app/timemachine/layout.tsx` + `SidePanelLayout` client) — 프로필·잔액·충전·출석미니·메뉴(이번달/내기록/가족룸/회원정보/설정)·로그아웃. 데스크톱 fixed right `lg:pr-80`, 모바일 overlay + 햄버거. `localStorage` 상태 기억(첫 방문=열림). `/timemachine` 메인을 redirect→실제 콘텐츠로 변경
+
+**v3 인생 연혁 피벗 (L1~L7)** — 기획 `phase/인생연혁_기획.md`:
+- L1 데이터 모델 — 새 모델 0. `UserMemory` 에 `createdVia="life_event"` + 5 컬럼 (`eventTitle`, `eventYear`, `eventMonth`, `precision`, `category`) **모두 nullable**. `LifeCategory` (BIRTH/CHILDHOOD/SCHOOL/MILITARY/WORK/RELATIONSHIP/FAMILY/RESIDENCE/OTHER 9종) + `EventPrecision` (EXACT/APPROXIMATE). `year/month/title` 미러링 약속으로 룸·반응·진척 코드 0줄 자동 호환
+- L2 초기 질문 폼 (`/life-record`) — 9 카테고리 한 번에 한 화면, 큰 글씨, 모두 건너뛰기 가능. `lib/life-record/questions.ts` + `nextUnansweredCategory(answered)`. `upsertLifeEvent` 카테고리당 최신 1행, L4 자유 추가 행 보존
+- L3 가로 시간축 (`/life-timeline`) — `TimelineView` SVG + 점. 앵커=진한 큰 점, 사이=작은 점/약한 색. 점 클릭→`/timemachine/[year]/[month]` (month null→APPROX_DEFAULT_MONTH=6). 정렬: year ASC → month NULLS LAST → createdAt ASC. 빈 상태 = 압박 0 초대 (🌱 + violet 버튼)
+- L4 자유 추가/수정/삭제 — `/life-timeline/add`·`/manage`·`/[eventId]`. `createLifeEvent`/`updateLifeEvent`/`deleteLifeEvent` 모두 `userId + createdVia="life_event"` 강제, deleteMany/updateMany 로 일치 없으면 count=0. EXACT/APPROXIMATE 자동 결정 + 명시 EXACT인데 month null → APPROXIMATE 다운그레이드
+- L5 메인 재배치 — `/timemachine` 메인 → `/life-timeline` redirect 한 줄. `lib/side-panel-data.ts` 추출로 사이드 패널 양쪽 layout 공유. 사이드 메뉴 정리("내 인생 연혁" top, "이번 달 타임머신", "내 기록" 제거). `V3WelcomeBanner` (localStorage 만). 보조 섹션 = "오늘의 한 걸음" (가족 소식 0건 숨김 + 출석 + 진척)
+- L6 AI 비서 모달 — 기존 v2 `AssistantPanel` **무수정** 재사용. `AssistantModal` 이 우측 상단 버튼 + 중앙 모달로 임베드. 맥락 = 가장 최근 life_event `(eventYear, eventMonth ?? 6)`, 0 개면 LATEST 폴백. fallbackLabel 로 답 기준 시기 명시. "타임라인 추가" → `/life-timeline/add` push (v2 keptEvents 의미 X). 저장된 답 prefetch (`listAssistantAnswers`)
+- L7 첫 진입 흐름 — **`/enter` 분기 전용 server component** (`signIn.redirectTo` + 동의 완료 redirect). 3 분기: (1) 인생 이벤트 ≥ 1 → `/life-timeline` (2) 인생 이벤트 0 + 다른 UserMemory ≥ 1 (v2 기존) → `/life-timeline` (EmptyState 권유) (3) 둘 다 0 → `/life-record?new=1` (환영 배너). `hasAnyUserMemory(userId)` findFirst 1회. **메인엔 게이트 0** — 사이드 패널 자유 이동 보존. 환영 배너는 서버 `searchParams` 만으로 (새 DB/localStorage/client 0)
 
 **동기부여 핵심 루프 (Phase M ①②)** — 기획 `phase/동기부여_핵심루프_기획.md`:
 - ① 쌓이는 재미 (`lib/timemachine-progress.ts` + `ProgressCard`) — 기존 T6 `UserMemory` 읽기 집계(새 모델 0). 채운 달·사건·글자 + 12개월 진척 그리드(채움 amber/빈 칸 회색). 글자 수는 `$queryRaw` `SUM(LENGTH(BTRIM))` 로 본문 미로드. 0개월=초대 문구, 압박 금지. 메인·사이드 "내 기록"·월 화면 prev/next 배지
@@ -249,6 +259,15 @@ Phase A (출석 + 사이드) 신규 후속:
 - 출석 streak ≥ 30 같은 milestone UX 분기 (지금은 7배수 보너스만)
 - LATEST_YEAR/MONTH 하드코드 (출석 사이드 패널 "이번 달" 링크) — L8 후속과 함께 `new Date()` 기반으로
 
+v3 인생 연혁 (L1~L7) 신규 후속:
+- 통합 사용성 검증 — 실 사용자 시나리오 (연혁 골격 → 점 클릭으로 월 화면 → 비서 회상)
+- 비서 맥락 확장 — 전 시점 질문 모드 (지금은 (year, month) 컨텍스트 한 곳)
+- /enter 분기 telemetry — 신규 vs 기존 vs 활성 사용자 비율
+- 모바일 가로 시간축 — 가로 스크롤 vs 세로 변환
+- v1 사건 그리드 / v2 일부 화면 정식 drop (v3 검증 후) — `EventItem`·`MonthForm` 등
+- L2 폼·L4 자유 추가 사이 데이터 정합 — 같은 카테고리 여러 행 정책 확인
+- `test-family-reactions` markSeen 2건 pre-existing 실패 (M2 영역, L7 무관) — 후속 사이클
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
@@ -274,6 +293,10 @@ Phase A (출석 + 사이드) 신규 후속:
 - [x] 동기부여 ① 진척 → 기존 T6 읽기 집계(새 모델 0), 글자 수 SQL `SUM(LENGTH())`, 압박 금지(빈 칸 회색·0개월 초대)
 - [x] 감정 스탬프 범위 → **룸별**(unique 에 roomId) — 저장·조회 기준 일치 + 크로스룸 누수 차단 (전역은 A 룸 반응이 B 룸에 노출)
 - [x] 가족 소식 읽음 추적 → `FamilyFeedSeen` 사용자당 1행 lazy baseline(소급 폭주 방지) + markSeen DB 시계(`NOW()`), 메인 카드 볼 때 갱신, 0건 숨김
+- [x] 핵심 UX 모델 v3 → **인생 연혁(가로 시간축)** 이 메인, 매달 채우기 부담 제거. v2 월별 타임머신은 보조(연혁 점 클릭으로 진입)
+- [x] 인생 이벤트 저장 → 새 모델 0, 기존 `UserMemory` 에 `createdVia="life_event"` 디스크리미네이터 + 5 컬럼 nullable. `year/month/title` 미러링으로 룸·반응·진척 자동 호환
+- [x] 시간 표현 → 앵커(EXACT, 진한 큰 점) + 사이(APPROXIMATE, 작은 점/약한 색). 정확한 월 안 떠올려도 추정 연도만 채우면 됨
+- [x] 첫 진입 분기 → 메인엔 게이트 X. `/enter` 분기 전용 페이지 (로그인/동의 직후 1회 진입). 신규 가이드 보호 + 사이드 패널 자유 이동 양립
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
