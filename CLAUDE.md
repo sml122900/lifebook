@@ -161,6 +161,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **M①②**   | **동기부여 핵심 루프 — ① 쌓이는 재미(진척) + ② 가족 반응(스탬프·알림)** | `phase/동기부여_핵심루프_기획.md`   | ✅ ①② 완료 (③④⑤ 후순위)          |
 | **L1~L7** | **v3 인생 연혁 피벗 — 매달 빈 칸 부담 → 가로 시간축의 큰 줄기** | `phase/인생연혁_기획.md`            | ✅ 완료 (v2 코드 전체 보존)       |
 | **v3.0+~v3.5** | **v3 사용성 시리즈 — 건너뛰기·기간·나이·카테고리 개편·세로축·빈공간 클릭·글로벌 위젯·토큰 통합** | (`2026-06-03` 일지)            | ✅ 완료                           |
+| **P1~P3 + Place** | **인물(Person) 3단계 + 장소 매칭(데이터·API·UI·지도 타일) + 모든 카테고리 장소 확장 + v3 진단 H/M 11항목 픽스** | (`2026-06-04` 일지) | ✅ 완료 (룸·반응·진척 0줄 영향)   |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -199,6 +200,18 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 - v3.3 빈 공간 클릭으로 추가 — `LineClickArea` 클라이언트(선 ±20px 폭) onClick → 연도 추정(선형 보간) → `/life-timeline/add?year=YYYY&hint=1`. 각 점 옆 amber `+` 버튼 (h-10 w-10) — 데스크톱 `group-hover` + `group-focus-within`, 모바일 항상. pointer-events 분리: ol/li=none, 점·카드·+버튼=auto → 빈 영역만 통과. `EventForm.defaultYear` prop + `searchParams.year` 검증 + `hint=1` amber aside 안내
 - v3.4 글로벌 AI 비서 위젯 — `AssistantModal` 에 `variant?: "inline" \| "floating"` prop 추가 (모달 본문 0줄 수정). `AssistantWidget` server component (`auth()` 후 비인증이면 null, 인증되면 컨텍스트 fetch + floating 렌더). root layout `{children}` 뒤에 마운트. `fixed bottom-6 right-6 z-50 h-16 w-16 rounded-full bg-violet-600` 64×64 둥근 버튼. 사이드 패널 일부 겹침 알려진 trade-off
 - v3.5 토큰·출석 통합 페이지 — 새 `/account/tokens` 페이지에 큰 잔액 카드(`text-5xl`) + AttendanceCard (코드 0줄 수정, 정식 자리) + 거래 내역 50건 + "충전→/billing" 진입. 진입점 통일: 설정 페이지에 "토큰" amber 카드 / root header 토큰 버튼 / 사이드 패널 모두 `/account/tokens` 로. `/life-timeline` 메인에서 AttendanceCard import + 렌더 + `getAttendanceStatus` fetch 제거 (메인 fetch 5→4). 사이드 패널 AttendanceMini 는 빠른 접근용 유지 (정식 페이지 vs 빠른 진입 의미 분리). `/billing` 결제 UI 미변경 (토스 콜백 흐름 그대로)
+
+**인물(Person) P1~P3 + 장소(Place) — 2026-06-04**:
+- P1 데이터 모델 — 새 모델 2개 (`Person` + `PersonEvent`) + `UserMemory.personEvents PersonEvent[]` 역참조 1줄. 마이그 `20260603113549_p1_person_and_person_event`. `PersonEvent.@@unique([personId, memoryId])` + P2002 catch 로 idempotent 토글. 헬퍼 9개 (`lib/people.ts`) — `userId` 첫 인자 + `LinkResult` enum 4종 (`linked/already/not_found/not_life_event`) — *인생* 이벤트만 연결 허용(`createdVia="life_event"`). N+1 회피 batch 2개 (`countEventsPerPerson` groupBy / `listPeopleByEventBatch` IN). 검증 `db/test-people.ts` 39 assertion + 기존 회귀 0
+- P2 화면 — 신규 5 라우트 (`/people` 목록·`/new`·`/[id]`·`/edit`·`/link`) + 공용 `PersonForm` (datalist 관계 힌트 + birthYear 기반 나이 자동) + `DeletePersonButton` (confirm 모달, L4 패턴) + `UnlinkButton` + `LinkToggleRow` (옵티미스틱 + LinkResult 4종 안내). 진입 2 곳: 사이드 패널 "인물록" + `/life-timeline` 진입 카드 "👥 인물 기록". 연혁 카드 아래 인물 칩 (`👤 철수, 영희`, 4+ "외 N명" 압축)
+- P3 연혁에서 직접 연결 심화 — 신규 `PeopleConnectModal` (연결됨 emerald/미연결 zinc 두 섹션 + 옵티미스틱 토글 + 부모 `peopleByEventState` 즉시 동기화). `PersonForm.returnTo?: string \| null` prop 추가 — `/people/new?returnTo=...` 흐름. 카드 안 "👤" 버튼은 `<a>`+`<button>` invalid HTML 회피 위해 Link 와 형제로 분리. fetch 전략: page.tsx 가 `listPeople` 도 prefetch (총 6 fetch) → 모달 열 때 0 쿼리, 토글 1쿼리
+- Place 데이터 모델 — 마이그 `20260603134442_place_fields`. `UserMemory` 에 5 컬럼 nullable (`placeName/placeAddress/lat/lng/placeSource`). 기존 행 모두 null 무영향. life_event 미러링 패턴 유지. 모든 createdVia 재사용 가능하도록 prefix X
+- Place API (`/api/place-search`) — POST `{query, source}`. auth() 가드 (+ proxy.ts 1차). 네이버 `openapi.naver.com/v1/search/local.json` + WGS84\*10^7 좌표 변환. 구글 `places.googleapis.com/v1/places:searchText` + `X-Goog-FieldMask`. 5초 타임아웃 (AbortController). 처음엔 "auto" 분기였으나 사용자 의도 어긋남(한글로 "Tokyo Tower") → 사용자가 직접 선택하는 UI 로 변경
+- Place UI (`PlaceSearchInput`) — 3단 화면: A) 큰 버튼 2개(🗺️ 네이버 / 🌍 구글) → B) 검색 입력 + 결과 5개 + 지도 타일 (결과 hover/click → focusedIdx 강조) → C) 📍 카드 + 작은 미리보기 지도 + [다른 곳으로 바꾸기]
+- 지도 타일 렌더 — `@types/navermaps` + `@types/google.maps` + `@googlemaps/js-api-loader` 추가. `app/components/maps/{types,NaverMap,GoogleMap,PlaceMap}.tsx` 신규. 공통 `MapProps` 인터페이스로 두 SDK 흡수, `PlaceMap` 가 source 분기 dispatcher. 세 useEffect 로 책임 분리 (ready / markers 변경 / focusedIdx). 네이버 `next/script` lazy load + 100ms 폴링, 구글 `importLibrary` 함수형 API v2
+- 모든 카테고리에 장소 — 처음 8 카테고리(BIRTH/KINDERGARTEN/학령기 4/MILITARY/WORK) 게이트로 도입 후 사용자 요청으로 게이트 제거. `lib/life-events.ts` 의 `PLACE_CATEGORIES`/`isPlaceCategory` 삭제, CategoryForm `hasPlace` prop 제거. EventForm(/life-timeline/add·edit) 에도 PlaceSearchInput 섹션 + place state + payload 통합. 연혁 카드 아래 `PlacePreview` 📍 칩 + 외부 지도 새 탭 (네이버 `map.naver.com/p/search` / 구글 `maps.google.com/?q=` 분기)
+- `lib/place-types.ts` 분리 — `lib/life-events.ts` 의 prisma(node-only pg) 의존이 클라 컴포넌트에 끌려와 dns 모듈 빌드 오류. 순수 타입/상수만 분리 (`PlaceInfo` + `EMPTY_PLACE`) — 클라/서버 공용
+- v3 진단 H/M 11항목 픽스 — 신규 1000+ 줄 코드 자체 검토 후 사용자가 즉시 픽스 묶음 결정. H1 safeReturnTo open redirect 차단(URL 객체 + origin + 재구성 일치), H2 skippedLifeCategories race(`$executeRaw` + `array_append(array_remove(...))` 단일 statement), H4 `RenderEvent.originalId` 명시(`:end` slice 매직 제거 + `--end` 분리), H5 expandPeriods 정렬 제거(DB 순서 보존 + `flushPendingBefore`), H6 빈배열 NaN year push 방어, H7 placeSource 미지원 시 전체 null, M3 `lib/josa.ts` 신규(`withJosa(name, "과/와")` + FamilyNewsCard 통합), M7 startEditing query prefill, M9 Esc IME 가드(`isComposing` + input/textarea), M12 AbortController(`fetchWithTimeout`), M20 구글 placeholder 한글화
 
 **동기부여 핵심 루프 (Phase M ①②)** — 기획 `phase/동기부여_핵심루프_기획.md`:
 - ① 쌓이는 재미 (`lib/timemachine-progress.ts` + `ProgressCard`) — 기존 T6 `UserMemory` 읽기 집계(새 모델 0). 채운 달·사건·글자 + 12개월 진척 그리드(채움 amber/빈 칸 회색). 글자 수는 `$queryRaw` `SUM(LENGTH(BTRIM))` 로 본문 미로드. 0개월=초대 문구, 압박 금지. 메인·사이드 "내 기록"·월 화면 prev/next 배지
@@ -288,6 +301,36 @@ v3.0+~v3.5 신규 후속 (`docs/daily/2026-06-03.md` 참조):
 - 글로벌 위젯 RSC fetch — 모든 페이지 render 마다 `getLifeEvents` + `listAssistantAnswers` 중복. React `cache()` 도입 후보 (M3 후속과 함께 결정 필요 — 비-RSC 직접 호출 영향)
 - v3.0+ 검증 스크립트 `test-life-skip-period-age.ts` 가 새 enum(ELEMENTARY/KINDERGARTEN/FAMILY) 갱신됐지만 통합 시나리오(같은 사용자가 4 단계 모두 거치는) 는 없음 — e2e 후속
 
+인물(P) + 장소(Place) + v3 진단 미픽스 후속 (`docs/daily/2026-06-04.md` 참조):
+- H3: `PersonEvent.userId` DB 무결성 — CHECK 트리거 또는 컬럼 제거 후 JOIN 권한 검증 전환 (성능 trade-off)
+- M2: v3 신규 12+ 파일 (TimelineView, PeopleConnectModal, PlaceSearchInput, NaverMap/GoogleMap 컨테이너, /people 모든 페이지, AssistantModal 등) 다크모드 미대응
+- M4: /life-timeline page.tsx fetch 직렬화 — events 의존 `listPeopleByEventBatch` 가 5개 병렬 후 직렬. React `cache()` 도입 후보
+- M5: AssistantModal `EMPTY_SET` 모듈 상수 — 여러 인스턴스가 같은 빈 Set 공유. 미래 mutation 위험
+- M6: NaverMap `[markers, ready, onMarkerClick]` deps — 부모가 매번 새 함수 주면 마커 전부 재생성
+- M8: 네이버/구글 InfoWindow 의 자체 `escape()` 함수 — 표준 lib (DOMPurify 또는 React portal) 로 교체
+- M10: `linkPersonAction` revalidatePath 범위 (현재 3 경로 fire — 호출 컨텍스트별 분기)
+- M11: NaverMap `LatLngBounds` 초기 인자에 `markers[0]` 두 번 — 의도 불분명
+- M13: `PERIOD_CATEGORIES` `lib/life-events.ts` vs `EventForm.tsx` 중복 정의 — `lib/life-categories.ts` 추출 후보 (클라/서버 공용 = place-types.ts 패턴)
+- M14: `APPROX_DEFAULT_MONTH = 6` 중복 (TimelineView vs page.tsx) — 상수 한곳에
+- M15: `createdVia`/`placeSource` 매직 스트링 — `CREATED_VIA = {...}`, `PLACE_SOURCE = {...}` 상수 모음
+- M16: CategoryForm 클라 측 `endYear < year` 즉시 안내 (현재 서버 라운드트립 후 표시)
+- M17: 인물 detail → 비서 모달 진입로 (인물 컨텍스트 회상 자연스러운 자리)
+- M18: /enter race / `hasOther` 1쿼리 의존 — `next/cache` 비활성화 검토
+- L1: `calcAge`/`schoolYearsForCategory` 가 birthYear 미래 연도(예: 2050) 가드 부재 — 호출자 보호 X
+- L2: `lib/life-events.ts:34, 474` 등 주석에 `SCHOOL/WORK/MILITARY/RESIDENCE` v3.1 이전 enum 명 stale
+- L3: validatePlace 원본 길이 차단 부재 (trim 후만 검사) — 큰 영향 X
+- L4: countEventsPerPerson 가 PersonEvent.userId 비정규화 신뢰 — H3 와 동일 영역
+- L5: 구글 모드 결과 없을 때 안내문 한국어 고정 — 시니어 친화 OK 이지만 일관성 (M20 픽스됨)
+- L6: /api/place-search proxy.ts 가 1차 차단 — 라우트 401 가드는 defense-in-depth (도달 안 함, 의도된 패턴)
+- L7: PlaceSearchInput `onChange` deps 변경 시 핸들러 재바인딩 (useCallback OK 보장 의존)
+- L8: ProgressCard/FamilyNewsCard import path 가 `app/timemachine/...` 잔재 — 정리 후속
+- L9: EventForm category 기본값 `FAMILY` — 분류 UI 제거 후 의도된 동작이지만 룸 분류 시 가중치 영향
+- L10: UnlinkButton 가 `unlinkPersonAction` 결과 무시 — 실패 시 사용자 알림 X (LinkToggleRow 는 처리함)
+- L11: `linkPersonToEvent` 직렬 두 findFirst — 한 쿼리로 합칠 수 있지만 가독성 우선
+- L12: people/[id] 의 metYear IIFE 가독성 — 일반 함수 또는 미리 계산 변수로
+- 네이버 NCP Client ID 클라 노출 — NEXT_PUBLIC 의도된 노출. `.env.example` 에 도메인 화이트리스트 안내 추가 필요
+- 인물 모달 → 비서 모달 → /life-timeline/add 연결 흐름 — onAddEvent 가 (year, month) 컨텍스트 분리
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
@@ -325,6 +368,17 @@ v3.0+~v3.5 신규 후속 (`docs/daily/2026-06-03.md` 참조):
 - [x] 빈 공간 클릭으로 추가 (v3.3) → 선 ±20px 폭 click area + 점 옆 + 버튼. 연도 추정 후 `/life-timeline/add?year=&hint=1` prefill
 - [x] 글로벌 AI 비서 위젯 (v3.4) → root layout 우측 하단 floating FAB. `AssistantModal variant="floating"` 으로 모달 본문 재사용
 - [x] 토큰·출석 통합 (v3.5) → `/account/tokens` 신설 (잔액 + 출석 + 거래내역). `/life-timeline` 메인에서 AttendanceCard 제거. 진입점 4 곳 통일 (헤더·사이드 패널·설정). `/billing` 결제 UI 미변경
+- [x] 인물(Person) 데이터 모델 → 새 모델 2개 (`Person` + `PersonEvent`) additive only. `UserMemory.personEvents` 역참조 1줄. 룸·반응·진척·기존 createdVia 0줄 영향
+- [x] 인물 연결 정책 → *인생* 이벤트(`createdVia="life_event"`) 만 허용. timemachine_event/ai_chat 거부 (`LinkResult.not_life_event`). 인물은 인생 골격에만, 월별 회고 추억엔 X
+- [x] 인물-이벤트 토글 → P2002 catch + deleteMany count=0 으로 idempotent. 동시 클릭/재전송 안전
+- [x] 장소 매칭 → 새 모델 0, `UserMemory` 에 5 nullable 컬럼 (placeName/placeAddress/lat/lng/placeSource). 기존 행 null 무영향. life_event 미러링 패턴 유지
+- [x] 장소 검색 엔진 선택 → 자동 분기 X. 사용자가 큰 버튼 2개(🗺️ 네이버 / 🌍 구글) 로 직접 선택 (한글로 "Tokyo Tower" 같은 의도-결과 어긋남 회피)
+- [x] 장소 입력 카테고리 → 처음 8 카테고리 게이트 후 사용자 결정으로 *전체 10개 + 연혁 자유 추가/수정* 모두 허용 (결혼식장·자녀 태어난 곳도 의미 있음)
+- [x] placeSource 정규화 → 미지원 source(naver/google 외) 시 lat/lng/placeName 도 함께 null. 데이터/UI 일관성 우선
+- [x] 지도 SDK 추상화 → 공통 `MapProps` 인터페이스 + 네이버/구글 각 구현체 + `PlaceMap` source 분기 dispatcher. SDK 차이를 호출자에서 숨김
+- [x] /people/new returnTo → relative 경로만 + URL 객체로 정규화한 뒤 원본과 일치 검증. 백슬래시·encoded 우회 차단
+- [x] skippedLifeCategories race-safe → `$executeRaw` + `array_append(array_remove(...), v)` 단일 statement. Prisma read-modify-write 3단계 race window 제거
+- [x] 한국어 조사 헬퍼 → `lib/josa.ts` (`withJosa(name, "과/와")` + `objectJosa` + `subjectJosa`). 받침 유무 + 한글 외 문자 안전 처리
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
