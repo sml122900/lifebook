@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getFamilyNews } from "@/lib/family-news";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
+import { listPeople, listPeopleByEventBatch } from "@/lib/people";
 import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
 import { getTimemachineProgress } from "@/lib/timemachine-progress";
 
@@ -44,14 +45,31 @@ export default async function LifeTimelinePage() {
   }
   const userId = session.user.id;
 
-  // 네 fetch 모두 독립 — 병렬. (출석은 /account/tokens 로 이전했고
+  // 다섯 fetch 모두 독립 — 병렬. (출석은 /account/tokens 로 이전했고
   // 사이드 패널 AttendanceMini 가 이미 자기 데이터를 들고 있어 여기선 안 부름.)
-  const [events, progress, familyNews, birthYear] = await Promise.all([
-    getLifeEvents(userId),
-    getTimemachineProgress(userId),
-    getFamilyNews(userId),
-    getBirthYear(userId),
-  ]);
+  // P3 — listPeople 도 함께 prefetch (모달이 매번 fetch 하지 않게).
+  const [events, progress, familyNews, birthYear, allPeopleRows] =
+    await Promise.all([
+      getLifeEvents(userId),
+      getTimemachineProgress(userId),
+      getFamilyNews(userId),
+      getBirthYear(userId),
+      listPeople(userId),
+    ]);
+
+  // P2 — 연혁 점/카드 아래 인물 미리보기. N+1 회피: events.id IN(...) 으로
+  // 단일 쿼리. 이벤트 0 개면 헬퍼가 즉시 빈 Map 반환. RSC→client 직렬화를
+  // 위해 plain object 로 변환.
+  const peopleByEventMap = await listPeopleByEventBatch(
+    userId,
+    events.map((e) => e.id),
+  );
+  const peopleByEvent: Record<string, { id: string; name: string }[]> = {};
+  for (const [memoryId, people] of peopleByEventMap) {
+    peopleByEvent[memoryId] = people;
+  }
+  // 모달용 인물 목록 — id/name 만 추려 직렬화 크기 줄임.
+  const allPeople = allPeopleRows.map((p) => ({ id: p.id, name: p.name }));
   const userName = session.user.name ?? session.user.email ?? "회원";
   const hasEvents = events.length > 0;
   const hasFamilyNews =
@@ -109,7 +127,12 @@ export default async function LifeTimelinePage() {
 
       {/* 주인공 — 연혁 (또는 빈 상태 초대) */}
       {hasEvents ? (
-        <TimelineView events={events} birthYear={birthYear} />
+        <TimelineView
+          events={events}
+          birthYear={birthYear}
+          peopleByEvent={peopleByEvent}
+          allPeople={allPeople}
+        />
       ) : (
         <EmptyState />
       )}
@@ -135,6 +158,12 @@ export default async function LifeTimelinePage() {
               className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-5 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
             >
               이벤트 관리
+            </Link>
+            <Link
+              href="/people"
+              className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-5 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            >
+              <span aria-hidden className="mr-1">👥</span>인물 기록
             </Link>
             <Link
               href="/life-record"

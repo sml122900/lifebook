@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
+import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { calcAge, formatAge } from "@/lib/age";
+import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
 import type { EventPrecision, LifeCategory } from "@/lib/generated/prisma/enums";
-import { LIFE_QUESTIONS } from "@/lib/life-record/questions";
 
 // L2(+) — EventForm 의 카테고리 = LifeCategory enum 전체에서 자유 선택이라
 // 폼 안에서 isPeriod 를 즉시 판단해야 함(서버 도움 없이). 백엔드 헬퍼와
@@ -64,6 +65,8 @@ export type EventFormInitial = {
   month: number | null;
   endYear: number | null;
   content: string;
+  // Phase Place — 수정 모드 prefill. 신규 추가는 항상 EMPTY_PLACE 로 시작.
+  place: PlaceInfo;
 };
 
 type Mode = "between" | "exact";
@@ -99,11 +102,11 @@ export function EventForm({
           : "exact",
   );
 
-  // 카테고리 — 추가 모드 기본 BIRTH(목록 첫 카테고리), 수정 모드 기존 값.
-  // v3.1 이전엔 OTHER 가 기본이었으나 OTHER 카테고리 자체가 삭제됨.
-  const [category, setCategory] = useState<LifeCategory>(
-    initial?.category ?? "BIRTH",
-  );
+  // 카테고리 — UI 에서 분류 선택을 제거(사용자 단순화). 수정 모드는 기존
+  // 값 유지, 추가 모드는 중립값 FAMILY (BIRTH/학령기/MILITARY/WORK 가 아닌
+  // 일반 인생 사건 의미). setCategory 는 isPeriod 일관성을 위해 남겨두지만
+  // UI 에서는 호출되지 않음.
+  const [category] = useState<LifeCategory>(initial?.category ?? "FAMILY");
 
   // 정확 모드 입력 (수정 모드는 항상 이쪽)
   // v3.3 — initial(수정) → defaultYear(외부 진입 prefill) → 빈 문자열 순.
@@ -149,6 +152,7 @@ export function EventForm({
 
   const [title, setTitle] = useState(initial?.title ?? "");
   const [content, setContent] = useState(initial?.content ?? "");
+  const [place, setPlace] = useState<PlaceInfo>(initial?.place ?? EMPTY_PLACE);
 
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -162,6 +166,14 @@ export function EventForm({
   }
 
   function buildPayload(): LifeEventInputRaw | { error: string } {
+    // Phase Place — 둘 모드 공통 장소. PlaceSearchInput state 그대로.
+    const placePayload = {
+      placeName: place.placeName,
+      placeAddress: place.placeAddress,
+      lat: place.lat,
+      lng: place.lng,
+      placeSource: place.placeSource,
+    };
     if (!isEdit && formMode === "between") {
       const before = anchors.find((a) => a.id === anchorBeforeId);
       const after = anchors.find((a) => a.id === anchorAfterId);
@@ -185,6 +197,7 @@ export function EventForm({
         month: null, // 사이 이벤트는 월 없음
         endYear: null, // 사이 모드는 단일 시점
         content,
+        place: placePayload,
       };
     }
     // 정확 모드(또는 수정)
@@ -196,6 +209,7 @@ export function EventForm({
       month: parseIntOrNull(monthText),
       endYear: isPeriod ? parseIntOrNull(endYearText) : null,
       content,
+      place: placePayload,
     };
   }
 
@@ -296,10 +310,15 @@ export function EventForm({
         />
       </section>
 
-      {/* 카테고리 */}
+      {/* 장소 (선택) */}
       <section className="flex flex-col gap-2">
-        <p className="text-lg font-semibold text-zinc-900">분류</p>
-        <CategoryGrid value={category} onChange={setCategory} />
+        <p className="text-lg font-semibold text-zinc-900">
+          어디였나요? <span className="font-normal text-zinc-500">(선택)</span>
+        </p>
+        <p className="text-base text-zinc-600">
+          장소 이름을 검색해서 골라주세요. 모르시면 안 골라도 돼요.
+        </p>
+        <PlaceSearchInput value={place} onChange={setPlace} />
       </section>
 
       {/* 자유 보조 */}
@@ -624,41 +643,3 @@ function ExactSection({
   );
 }
 
-// 카테고리 라디오 그리드 — 9개 큰 버튼.
-function CategoryGrid({
-  value,
-  onChange,
-}: {
-  value: LifeCategory;
-  onChange: (v: LifeCategory) => void;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label="분류"
-      className="grid grid-cols-1 gap-2 sm:grid-cols-3"
-    >
-      {LIFE_QUESTIONS.map((q) => {
-        const selected = q.category === value;
-        return (
-          <button
-            key={q.category}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(q.category)}
-            className={
-              "rounded-md border-2 px-4 py-3 text-base font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
-              (selected
-                ? "border-amber-600 bg-amber-50 text-amber-900"
-                : "border-zinc-300 bg-white text-zinc-800 hover:border-zinc-400")
-            }
-          >
-            {selected && <span aria-hidden>● </span>}
-            {q.shortLabel}
-          </button>
-        );
-      })}
-    </div>
-  );
-}

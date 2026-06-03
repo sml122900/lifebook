@@ -14,6 +14,7 @@ import { auth } from "@/auth";
 import {
   isPeriodCategory,
   markCategorySkipped,
+  type PlaceInfo,
   upsertLifeEvent,
 } from "@/lib/life-events";
 import { getLifeQuestion } from "@/lib/life-record/questions";
@@ -39,6 +40,101 @@ function isLifeCategory(v: unknown): v is LifeCategory {
   return typeof v === "string" && getLifeQuestion(v as LifeCategory) !== null;
 }
 
+// Phase Place — 폼 측에서 보내는 raw 장소 입력. 모두 nullable + placeSource
+// 는 "naver"/"google" 화이트리스트. lat/lng 는 둘 다 있거나 둘 다 null.
+export type RawPlaceInput = {
+  placeName: string | null;
+  placeAddress: string | null;
+  lat: number | null;
+  lng: number | null;
+  placeSource: string | null;
+};
+
+const PLACE_NAME_MAX = 200;
+const PLACE_ADDR_MAX = 300;
+
+function validatePlace(
+  raw: RawPlaceInput | undefined,
+): { ok: true; place: PlaceInfo } | { ok: false; error: string } {
+  if (!raw || raw.placeName === null) {
+    return {
+      ok: true,
+      place: {
+        placeName: null,
+        placeAddress: null,
+        lat: null,
+        lng: null,
+        placeSource: null,
+      },
+    };
+  }
+  const name = typeof raw.placeName === "string" ? raw.placeName.trim() : "";
+  if (name === "") {
+    return {
+      ok: true,
+      place: {
+        placeName: null,
+        placeAddress: null,
+        lat: null,
+        lng: null,
+        placeSource: null,
+      },
+    };
+  }
+  if (name.length > PLACE_NAME_MAX) {
+    return { ok: false, error: "장소 이름이 너무 길어요." };
+  }
+  const addr =
+    typeof raw.placeAddress === "string" && raw.placeAddress.trim() !== ""
+      ? raw.placeAddress.trim()
+      : null;
+  if (addr && addr.length > PLACE_ADDR_MAX) {
+    return { ok: false, error: "장소 주소가 너무 길어요." };
+  }
+  // H7 — placeSource 가 알 수 없는 값이면 전체 거부(모두 null). 이전엔
+  // lat/lng 만 저장되고 source 만 null 로 떨어져 외부 지도 링크 폴백이
+  // 일관성 없었음. 신뢰할 수 있는 source 가 없으면 데이터 전체를 신뢰 X.
+  if (raw.placeSource !== "naver" && raw.placeSource !== "google") {
+    return {
+      ok: true,
+      place: {
+        placeName: null,
+        placeAddress: null,
+        lat: null,
+        lng: null,
+        placeSource: null,
+      },
+    };
+  }
+  const source = raw.placeSource;
+  // 좌표는 둘 다 숫자 + 정상 범위거나, 둘 다 null. 한쪽만이면 둘 다 null.
+  let lat: number | null = null;
+  let lng: number | null = null;
+  if (
+    typeof raw.lat === "number" &&
+    typeof raw.lng === "number" &&
+    Number.isFinite(raw.lat) &&
+    Number.isFinite(raw.lng) &&
+    raw.lat >= -90 &&
+    raw.lat <= 90 &&
+    raw.lng >= -180 &&
+    raw.lng <= 180
+  ) {
+    lat = raw.lat;
+    lng = raw.lng;
+  }
+  return {
+    ok: true,
+    place: {
+      placeName: name,
+      placeAddress: addr,
+      lat,
+      lng,
+      placeSource: source,
+    },
+  };
+}
+
 export async function submitLifeRecord(
   rawCategory: string,
   raw: {
@@ -47,6 +143,7 @@ export async function submitLifeRecord(
     month: number | null;
     endYear: number | null;
     content: string | null;
+    place?: RawPlaceInput;
   },
 ): Promise<SubmitLifeRecordResult> {
   const session = await auth();
@@ -121,12 +218,16 @@ export async function submitLifeRecord(
     content = raw.content;
   }
 
+  const placeResult = validatePlace(raw.place);
+  if (!placeResult.ok) return { ok: false, error: placeResult.error };
+
   await upsertLifeEvent(userId, category, {
     title,
     year,
     month,
     endYear,
     content,
+    place: placeResult.place,
   });
 
   // 인덱스의 진행 상태 / 카테고리 폼의 prefill / 연혁 둘 다 갱신.

@@ -232,6 +232,11 @@ function SidePanel({
             hint="이번 달의 사건·음악으로"
           />
           <MenuItem
+            href="/people"
+            label="인물록"
+            hint="인생에 등장한 분들"
+          />
+          <MenuItem
             href="/rooms"
             label="가족 룸"
             hint="가족·배우자와 함께 보기"

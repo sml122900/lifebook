@@ -14,6 +14,7 @@ import {
   createLifeEvent,
   deleteLifeEvent,
   isPeriodCategory,
+  type PlaceInfo,
   updateLifeEvent,
 } from "@/lib/life-events";
 import { getLifeQuestion } from "@/lib/life-record/questions";
@@ -32,7 +33,92 @@ export type LifeEventInputRaw = {
   // 비기간 카테고리에서 보내면 무시(헬퍼가 null 정규화).
   endYear: number | null;
   content: string | null;
+  // Phase Place — 모든 카테고리에서 선택 가능. 미선택이면 모두 null.
+  place?: {
+    placeName: string | null;
+    placeAddress: string | null;
+    lat: number | null;
+    lng: number | null;
+    placeSource: string | null;
+  };
 };
+
+const PLACE_NAME_MAX = 200;
+const PLACE_ADDR_MAX = 300;
+
+function validatePlace(
+  raw: LifeEventInputRaw["place"],
+): { ok: true; place: PlaceInfo } | { ok: false; error: string } {
+  if (!raw || !raw.placeName) {
+    return {
+      ok: true,
+      place: {
+        placeName: null,
+        placeAddress: null,
+        lat: null,
+        lng: null,
+        placeSource: null,
+      },
+    };
+  }
+  const name = typeof raw.placeName === "string" ? raw.placeName.trim() : "";
+  if (name === "") {
+    return {
+      ok: true,
+      place: {
+        placeName: null,
+        placeAddress: null,
+        lat: null,
+        lng: null,
+        placeSource: null,
+      },
+    };
+  }
+  if (name.length > PLACE_NAME_MAX) {
+    return { ok: false, error: "장소 이름이 너무 길어요." };
+  }
+  const addr =
+    typeof raw.placeAddress === "string" && raw.placeAddress.trim() !== ""
+      ? raw.placeAddress.trim()
+      : null;
+  if (addr && addr.length > PLACE_ADDR_MAX) {
+    return { ok: false, error: "장소 주소가 너무 길어요." };
+  }
+  // H7 — placeSource 가 알 수 없는 값이면 전체 거부(모두 null). lat/lng 만
+  // 남고 source 가 null 인 어중간한 상태 회피.
+  if (raw.placeSource !== "naver" && raw.placeSource !== "google") {
+    return {
+      ok: true,
+      place: {
+        placeName: null,
+        placeAddress: null,
+        lat: null,
+        lng: null,
+        placeSource: null,
+      },
+    };
+  }
+  const source = raw.placeSource;
+  let lat: number | null = null;
+  let lng: number | null = null;
+  if (
+    typeof raw.lat === "number" &&
+    typeof raw.lng === "number" &&
+    Number.isFinite(raw.lat) &&
+    Number.isFinite(raw.lng) &&
+    raw.lat >= -90 &&
+    raw.lat <= 90 &&
+    raw.lng >= -180 &&
+    raw.lng <= 180
+  ) {
+    lat = raw.lat;
+    lng = raw.lng;
+  }
+  return {
+    ok: true,
+    place: { placeName: name, placeAddress: addr, lat, lng, placeSource: source },
+  };
+}
 
 export type ActionResult =
   | { ok: true; id: string; precision: EventPrecision }
@@ -47,6 +133,7 @@ type ValidationOk = {
   month: number | null;
   endYear: number | null;
   content: string | null;
+  place: PlaceInfo;
 };
 type ValidationFail = { ok: false; error: string };
 
@@ -127,6 +214,9 @@ function validate(raw: LifeEventInputRaw): ValidationOk | ValidationFail {
     content = raw.content;
   }
 
+  const placeResult = validatePlace(raw.place);
+  if (!placeResult.ok) return { ok: false, error: placeResult.error };
+
   return {
     ok: true,
     category,
@@ -136,6 +226,7 @@ function validate(raw: LifeEventInputRaw): ValidationOk | ValidationFail {
     month,
     endYear,
     content,
+    place: placeResult.place,
   };
 }
 
@@ -157,6 +248,7 @@ export async function addLifeEventAction(
       month: v.month,
       endYear: v.endYear,
       content: v.content,
+      place: v.place,
     },
     v.precision,
   );
@@ -186,6 +278,7 @@ export async function updateLifeEventAction(
       month: v.month,
       endYear: v.endYear,
       content: v.content,
+      place: v.place,
     },
     v.precision,
   );

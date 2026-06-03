@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { FamilyNews } from "@/lib/family-news";
+import { objectJosa } from "@/lib/josa";
 
 import { FamilyNewsSeen } from "./FamilyNewsSeen";
 
@@ -17,14 +18,7 @@ function monthLabel(year: number, month: number | null): string {
   return month === null ? `${year}년` : `${year}년 ${month}월`;
 }
 
-// 마지막 글자 받침 유무로 을/를 선택. 한글이 아니면 받침 없음(를)으로.
-function objectJosa(word: string): "을" | "를" {
-  const ch = word.trim().at(-1);
-  if (!ch) return "를";
-  const code = ch.charCodeAt(0);
-  if (code < 0xac00 || code > 0xd7a3) return "를"; // 한글 음절이 아니면 를
-  return (code - 0xac00) % 28 !== 0 ? "을" : "를";
-}
+// 받침 유무로 조사 선택은 lib/josa.ts 의 헬퍼 사용 (다른 화면에서도 공유).
 
 export function FamilyNewsCard({ news }: { news: FamilyNews }) {
   const { newReactions, newRecords } = news;

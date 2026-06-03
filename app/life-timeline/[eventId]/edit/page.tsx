@@ -60,6 +60,7 @@ export default async function LifeTimelineEditPage({
           month: event.eventMonth,
           endYear: event.endYear,
           content: event.content ?? "",
+          place: event.place,
         }}
       />
     </main>

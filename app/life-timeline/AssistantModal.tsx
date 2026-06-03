@@ -50,7 +50,17 @@ export function AssistantModal({
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      // M9 — 한국어 IME 조합 중 Esc 는 조합 취소 의도. 모달 닫지 않음.
+      // input/textarea/contentEditable 안에서도 Esc 닫기 무시 — 사용자가
+      // 입력 손실 없이 조합/포커스만 빠지게.
+      if (e.isComposing) return;
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || t?.isContentEditable) {
+        return;
+      }
+      setOpen(false);
     };
     window.addEventListener("keydown", handler);
     const prev = document.body.style.overflow;

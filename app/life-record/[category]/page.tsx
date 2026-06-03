@@ -124,6 +124,7 @@ export default async function LifeRecordCategoryPage({
                 month: existing.eventMonth,
                 endYear: existing.endYear,
                 content: existing.content ?? "",
+                place: existing.place,
               }
             : null
         }

@@ -13,7 +13,13 @@
 // getLifeEventById.
 
 import type { EventPrecision, LifeCategory } from "./generated/prisma/enums";
+import { EMPTY_PLACE, type PlaceInfo } from "./place-types";
 import { prisma } from "./db";
+
+// 클라 컴포넌트가 PlaceInfo / EMPTY_PLACE 를 가져갈 때 prisma 가 끌려오면
+// 안 되므로 정의는 lib/place-types.ts 로 분리. 서버 코드는 여기서 re-export
+// 받아도 OK (동일 객체 / 동일 타입).
+export { EMPTY_PLACE, type PlaceInfo };
 
 export const CREATED_VIA_LIFE_EVENT = "life_event";
 
@@ -28,6 +34,9 @@ export type LifeEvent = {
   // L2(+) — 기간 카테고리(SCHOOL/WORK/MILITARY/RESIDENCE)의 끝 연도.
   // 시간축 렌더가 이 값이 있으면 "시작"·"끝" 두 점으로 split.
   endYear: number | null;
+  // Phase Place — 모두 nullable. 8개 카테고리(BIRTH·KINDERGARTEN·학령기·
+  // MILITARY·WORK)만 폼에서 입력받지만, 타입은 전 카테고리 공통.
+  place: PlaceInfo;
   createdAt: Date;
 };
 
@@ -47,6 +56,11 @@ const PERIOD_CATEGORIES: ReadonlySet<LifeCategory> = new Set([
 export function isPeriodCategory(category: LifeCategory): boolean {
   return PERIOD_CATEGORIES.has(category);
 }
+
+// Phase Place — 모든 인생 기록에 장소 첨부 허용(2026-06-03 사용자 결정).
+// 이전엔 8개 카테고리에만 노출했으나 RELATIONSHIP(결혼식장)·FAMILY(자녀
+// 태어난 곳) 도 의미 있어 게이트 제거. 헬퍼 시그니처는 호환을 위해 남기되
+// 항상 true (모든 카테고리에서 장소 입력 노출).
 
 // 사용자의 인생 이벤트를 시간순으로 반환.
 //
@@ -80,6 +94,11 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
       content: true,
       createdAt: true,
       title: true, // eventTitle 이 비어있는 방어 경로용
+      placeName: true,
+      placeAddress: true,
+      lat: true,
+      lng: true,
+      placeSource: true,
     },
     orderBy: [
       { eventYear: "asc" },
@@ -97,6 +116,13 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
     category: r.category,
     content: r.content,
     endYear: r.endYear,
+    place: {
+      placeName: r.placeName,
+      placeAddress: r.placeAddress,
+      lat: r.lat,
+      lng: r.lng,
+      placeSource: r.placeSource,
+    },
     createdAt: r.createdAt,
   }));
 }
@@ -129,42 +155,38 @@ export async function getSkippedCategories(
   return new Set(row?.skippedLifeCategories ?? []);
 }
 
-// L2(+) — 한 카테고리를 "건너뜀" 으로 표시 (idempotent).
-// User.skippedLifeCategories 배열에 추가. 이미 있으면 no-op.
+// L2(+) — 한 카테고리를 "건너뜀" 으로 표시 (idempotent + race-safe).
+// Postgres array_append/array_remove 로 한 statement 처리 — read→modify→write
+// 사이 race window 제거. array_remove 로 먼저 빼고 array_append 로 추가
+// = 항상 정확히 1개 (중복 X). 동시 두 요청이 와도 둘 다 결과는 같다.
 export async function markCategorySkipped(
   userId: string,
   category: LifeCategory,
 ): Promise<void> {
-  const row = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { skippedLifeCategories: true },
-  });
-  const current = row?.skippedLifeCategories ?? [];
-  if (current.includes(category)) return;
-  await prisma.user.update({
-    where: { id: userId },
-    data: { skippedLifeCategories: { set: [...current, category] } },
-  });
+  await prisma.$executeRaw`
+    UPDATE "User"
+    SET "skippedLifeCategories" = array_append(
+      array_remove("skippedLifeCategories", ${category}::"LifeCategory"),
+      ${category}::"LifeCategory"
+    )
+    WHERE id = ${userId}
+  `;
 }
 
-// L2(+) — 한 카테고리를 "건너뜀" 셋에서 제거 (idempotent).
+// L2(+) — 한 카테고리를 "건너뜀" 셋에서 제거 (idempotent + race-safe).
 // 사용자가 같은 카테고리에 답을 저장하면 자동 호출됨(upsertLifeEvent).
 export async function unmarkCategorySkipped(
   userId: string,
   category: LifeCategory,
 ): Promise<void> {
-  const row = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { skippedLifeCategories: true },
-  });
-  const current = row?.skippedLifeCategories ?? [];
-  if (!current.includes(category)) return;
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      skippedLifeCategories: { set: current.filter((c) => c !== category) },
-    },
-  });
+  await prisma.$executeRaw`
+    UPDATE "User"
+    SET "skippedLifeCategories" = array_remove(
+      "skippedLifeCategories",
+      ${category}::"LifeCategory"
+    )
+    WHERE id = ${userId}
+  `;
 }
 
 // 인덱스(/life-record) 진행 상태용 — 해당 사용자가 답한 카테고리 집합.
@@ -205,6 +227,7 @@ export async function getLifeEventForCategory(
   endYear: number | null;
   content: string | null;
   precision: EventPrecision;
+  place: PlaceInfo;
 } | null> {
   const row = await prisma.userMemory.findFirst({
     where: {
@@ -221,6 +244,11 @@ export async function getLifeEventForCategory(
       endYear: true,
       content: true,
       precision: true,
+      placeName: true,
+      placeAddress: true,
+      lat: true,
+      lng: true,
+      placeSource: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -233,6 +261,13 @@ export async function getLifeEventForCategory(
     endYear: row.endYear,
     content: row.content,
     precision: row.precision ?? "APPROXIMATE",
+    place: {
+      placeName: row.placeName,
+      placeAddress: row.placeAddress,
+      lat: row.lat,
+      lng: row.lng,
+      placeSource: row.placeSource,
+    },
   };
 }
 
@@ -243,6 +278,8 @@ export type LifeRecordInput = {
   // L2(+) — 기간 카테고리의 끝 연도. 비기간 카테고리·끝 모름이면 null.
   endYear: number | null;
   content: string | null;
+  // Phase Place — 입력 안 했거나 카테고리가 장소 비대상이면 EMPTY_PLACE.
+  place?: PlaceInfo;
 };
 
 // L2 저장 — 카테고리당 최신 1행을 upsert.
@@ -283,6 +320,7 @@ export async function upsertLifeEvent(
 
   // 비기간 카테고리에서 endYear 가 잘못 들어오면 null 로 정규화.
   const endYear = isPeriodCategory(category) ? input.endYear : null;
+  const place = input.place ?? EMPTY_PLACE;
 
   if (existing) {
     const updated = await prisma.userMemory.update({
@@ -300,6 +338,12 @@ export async function upsertLifeEvent(
         month: input.month,
         title: input.title,
         content: input.content,
+        // 장소
+        placeName: place.placeName,
+        placeAddress: place.placeAddress,
+        lat: place.lat,
+        lng: place.lng,
+        placeSource: place.placeSource,
       },
       select: { id: true },
     });
@@ -322,6 +366,12 @@ export async function upsertLifeEvent(
       month: input.month,
       title: input.title,
       content: input.content,
+      // 장소
+      placeName: place.placeName,
+      placeAddress: place.placeAddress,
+      lat: place.lat,
+      lng: place.lng,
+      placeSource: place.placeSource,
     },
     select: { id: true },
   });
@@ -347,6 +397,7 @@ export async function createLifeEvent(
   if (precision === "EXACT" && input.month === null) precision = "APPROXIMATE";
 
   const endYear = isPeriodCategory(category) ? input.endYear : null;
+  const place = input.place ?? EMPTY_PLACE;
 
   const created = await prisma.userMemory.create({
     data: {
@@ -362,6 +413,11 @@ export async function createLifeEvent(
       month: input.month,
       title: input.title,
       content: input.content,
+      placeName: place.placeName,
+      placeAddress: place.placeAddress,
+      lat: place.lat,
+      lng: place.lng,
+      placeSource: place.placeSource,
     },
     select: { id: true },
   });
@@ -382,6 +438,7 @@ export async function updateLifeEvent(
   if (precision === "EXACT" && input.month === null) precision = "APPROXIMATE";
 
   const endYear = isPeriodCategory(category) ? input.endYear : null;
+  const place = input.place ?? EMPTY_PLACE;
 
   // 소유 확인 후 update — updateMany 로 한 트랜잭션, 일치 안 하면 count=0.
   const result = await prisma.userMemory.updateMany({
@@ -401,6 +458,11 @@ export async function updateLifeEvent(
       month: input.month,
       title: input.title,
       content: input.content,
+      placeName: place.placeName,
+      placeAddress: place.placeAddress,
+      lat: place.lat,
+      lng: place.lng,
+      placeSource: place.placeSource,
     },
   });
   if (result.count === 0) return null;
@@ -435,6 +497,7 @@ export async function getLifeEventById(
   endYear: number | null;
   content: string | null;
   precision: EventPrecision;
+  place: PlaceInfo;
 } | null> {
   const row = await prisma.userMemory.findFirst({
     where: {
@@ -452,6 +515,11 @@ export async function getLifeEventById(
       endYear: true,
       content: true,
       precision: true,
+      placeName: true,
+      placeAddress: true,
+      lat: true,
+      lng: true,
+      placeSource: true,
     },
   });
   if (!row || row.eventYear === null || row.category === null) return null;
@@ -464,5 +532,12 @@ export async function getLifeEventById(
     endYear: row.endYear,
     content: row.content,
     precision: row.precision ?? "APPROXIMATE",
+    place: {
+      placeName: row.placeName,
+      placeAddress: row.placeAddress,
+      lat: row.lat,
+      lng: row.lng,
+      placeSource: row.placeSource,
+    },
   };
 }
