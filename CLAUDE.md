@@ -162,6 +162,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **L1~L7** | **v3 인생 연혁 피벗 — 매달 빈 칸 부담 → 가로 시간축의 큰 줄기** | `phase/인생연혁_기획.md`            | ✅ 완료 (v2 코드 전체 보존)       |
 | **v3.0+~v3.5** | **v3 사용성 시리즈 — 건너뛰기·기간·나이·카테고리 개편·세로축·빈공간 클릭·글로벌 위젯·토큰 통합** | (`2026-06-03` 일지)            | ✅ 완료                           |
 | **P1~P3 + Place** | **인물(Person) 3단계 + 장소 매칭(데이터·API·UI·지도 타일) + 모든 카테고리 장소 확장 + v3 진단 H/M 11항목 픽스** | (`2026-06-04` 일지) | ✅ 완료 (룸·반응·진척 0줄 영향)   |
+| **v3 월 OFF** | **월 화면 비활성화 — 메인 동선에서 '월' 개념 제거, 연혁 이벤트 클릭 → 편집 화면, 시드는 보존(archived)** | (`2026-06-06` 일지) | ✅ 완료                           |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -212,6 +213,15 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 - 모든 카테고리에 장소 — 처음 8 카테고리(BIRTH/KINDERGARTEN/학령기 4/MILITARY/WORK) 게이트로 도입 후 사용자 요청으로 게이트 제거. `lib/life-events.ts` 의 `PLACE_CATEGORIES`/`isPlaceCategory` 삭제, CategoryForm `hasPlace` prop 제거. EventForm(/life-timeline/add·edit) 에도 PlaceSearchInput 섹션 + place state + payload 통합. 연혁 카드 아래 `PlacePreview` 📍 칩 + 외부 지도 새 탭 (네이버 `map.naver.com/p/search` / 구글 `maps.google.com/?q=` 분기)
 - `lib/place-types.ts` 분리 — `lib/life-events.ts` 의 prisma(node-only pg) 의존이 클라 컴포넌트에 끌려와 dns 모듈 빌드 오류. 순수 타입/상수만 분리 (`PlaceInfo` + `EMPTY_PLACE`) — 클라/서버 공용
 - v3 진단 H/M 11항목 픽스 — 신규 1000+ 줄 코드 자체 검토 후 사용자가 즉시 픽스 묶음 결정. H1 safeReturnTo open redirect 차단(URL 객체 + origin + 재구성 일치), H2 skippedLifeCategories race(`$executeRaw` + `array_append(array_remove(...))` 단일 statement), H4 `RenderEvent.originalId` 명시(`:end` slice 매직 제거 + `--end` 분리), H5 expandPeriods 정렬 제거(DB 순서 보존 + `flushPendingBefore`), H6 빈배열 NaN year push 방어, H7 placeSource 미지원 시 전체 null, M3 `lib/josa.ts` 신규(`withJosa(name, "과/와")` + FamilyNewsCard 통합), M7 startEditing query prefill, M9 Esc IME 가드(`isComposing` + input/textarea), M12 AbortController(`fetchWithTimeout`), M20 구글 placeholder 한글화
+
+**v3 월 OFF — 메인 동선에서 '월' 개념 제거 (2026-06-06)**:
+- 통찰 — 사용자는 사건의 *순서* 는 기억해도 정확한 *월* 은 떠올리지 못한다. v3 피벗 때 메인은 연혁으로 옮겼지만 *클릭 동선*(점→월 화면, 사이드 "이번 달 타임머신", 진척 그리드 칸→월 화면)은 잔재로 살아 있었다. 이번에 네 진입로 모두 닫음
+- 라우트 — `app/timemachine/[year]/[month]/page.tsx` 의 `export default` 를 `redirect("/life-timeline")` 한 줄로 교체. 기존 `TimemachineMonthPage` 함수는 `_TimemachineMonthPageArchived` 로 보존 + `__preserve_archived_exports` 객체 한 번 참조로 `no-unused-vars` 회피. 부활 시 default export 만 archived 로 가리키면 끝. 직접 URL·옛 북마크·외부 링크 모두 안전하게 흡수
+- 사이드 패널 — `SidePanel.tsx` "이번 달 타임머신" `MenuItem` 한 블록 삭제, `SidePanelData` 타입에서 `currentMonthHref` 제거. `lib/side-panel-data.ts` 도 필드 + `LATEST_YEAR/MONTH` 상수 제거(사용처 0). 메뉴 6→5개
+- 연혁 이벤트 클릭 — `TimelineView.tsx` 의 `timemachineHref(e)` → `editHref(e: RenderEvent) → /life-timeline/${e.originalId}/edit`. isPeriodEnd 행도 originalId 라 "끝" 점 눌러도 같은 이야기 편집(H4 originalId 명시 픽스 활용). aria "그 시기의 타임머신 열기" → "이 이야기 편집하기". `APPROX_DEFAULT_MONTH` 상수 미사용→제거(page.tsx 비서 fallback 용은 그대로)
+- 진척 그리드 — `ProgressCard.tsx` 의 12개월 그리드 각 칸 `Link` → `<li>` 시각만. 안내문 "달별 기록 (눌러서 그 달로 이동)" → "달별 기록". aria "보러 가기" → 정보성. 채움/빔 색상은 그대로(동기부여 가치 보존)
+- 보존 — 시드(MonthEvent·ChartSong), 컴포넌트(MonthV2·MonthForm·MonthStory·EventItem·SongCard·AssistantPanel), 비서 API(`/api/timemachine/assistant`)·server actions·revalidatePath 모두 무수정. 비서는 life_event 기반 컨텍스트로 이미 동작 → 영향 0. 시대 사건/음악 DB 는 비서가 여전히 참조해 AI 채팅 용도로 살아있음
+- 검증 — tsc/build/people(39)/life-events(7)/timemachine-progress(15)/timemachine-screen 모두 통과. 새 lint 이슈 0 (기존 14건 pre-existing). build 결과에 `/timemachine/[year]/[month]` 라우트는 redirect 함수로 살아있음
 
 **동기부여 핵심 루프 (Phase M ①②)** — 기획 `phase/동기부여_핵심루프_기획.md`:
 - ① 쌓이는 재미 (`lib/timemachine-progress.ts` + `ProgressCard`) — 기존 T6 `UserMemory` 읽기 집계(새 모델 0). 채운 달·사건·글자 + 12개월 진척 그리드(채움 amber/빈 칸 회색). 글자 수는 `$queryRaw` `SUM(LENGTH(BTRIM))` 로 본문 미로드. 0개월=초대 문구, 압박 금지. 메인·사이드 "내 기록"·월 화면 prev/next 배지
@@ -331,6 +341,14 @@ v3.0+~v3.5 신규 후속 (`docs/daily/2026-06-03.md` 참조):
 - 네이버 NCP Client ID 클라 노출 — NEXT_PUBLIC 의도된 노출. `.env.example` 에 도메인 화이트리스트 안내 추가 필요
 - 인물 모달 → 비서 모달 → /life-timeline/add 연결 흐름 — onAddEvent 가 (year, month) 컨텍스트 분리
 
+v3 월 OFF 신규 후속 (`docs/daily/2026-06-06.md` 참조):
+- `/timemachine/[year]/[month]` 라우트 진입 텔레메트리 — redirect 흡수율(외부 링크·옛 북마크) 확인 후 라우트·시드 본격 제거 시점 결정
+- `AssistantPanel` 의 `(year, month)` 컨텍스트 — life_event 기반은 OK 지만 "특정 시기 외 전반적 질문" 모드도 검토 (L7·인물 모달 후속과 결합)
+- `ProgressCard` 자체 재구성 — v3 인생 연혁이 메인이라 "월별 진척" 의 가치 약화. "연도별 이야기 수" 같은 v3 친화 카드 후보
+- 사이드 패널 메뉴 5개로 줄어든 시각 여백 정리 (현재는 단순 제거만)
+- archived `_TimemachineMonthPageArchived` + `__preserve_archived_exports` 패턴 — 부활 결정 시 default export 한 줄 교체로 복구. 일정 기간 사용 0 유지 확인 후 별도 `_archived/` 폴더로 이동 검토
+- ProgressCard import path 가 여전히 `app/timemachine/ProgressCard.tsx` (CLAUDE.md L8 기존 후속과 동일 영역) — 월 도메인 폴더에 남은 v3 친화 컴포넌트 위치 재정리 시 함께
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
@@ -379,6 +397,8 @@ v3.0+~v3.5 신규 후속 (`docs/daily/2026-06-03.md` 참조):
 - [x] /people/new returnTo → relative 경로만 + URL 객체로 정규화한 뒤 원본과 일치 검증. 백슬래시·encoded 우회 차단
 - [x] skippedLifeCategories race-safe → `$executeRaw` + `array_append(array_remove(...), v)` 단일 statement. Prisma read-modify-write 3단계 race window 제거
 - [x] 한국어 조사 헬퍼 → `lib/josa.ts` (`withJosa(name, "과/와")` + `objectJosa` + `subjectJosa`). 받침 유무 + 한글 외 문자 안전 처리
+- [x] 월 화면 비활성화 정책 (2026-06-06) → **삭제 X, redirect + archived**. `/timemachine/[year]/[month]` 는 `/life-timeline` 으로 redirect, 기존 함수는 `_TimemachineMonthPageArchived` 로 보존. 시드(MonthEvent·ChartSong)·비서 API·시드 의존 컴포넌트 모두 무수정. 부활 시 default export 만 archived 로 교체
+- [x] 연혁 이벤트 클릭 동선 (2026-06-06) → `/timemachine/[year]/[month]` (월 화면) → `/life-timeline/[eventId]/edit` (이야기·장소·인물 통합 편집). 메인 동선에서 '월' 개념 완전 제거 — 사이드 "이번 달 타임머신" 메뉴·진척 그리드 칸 진입로도 함께 닫음
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
