@@ -10,14 +10,32 @@ import { getFilledMonthKeys, monthKey } from "@/lib/timemachine-progress";
 import type { InitialSavedAnswer } from "./AssistantPanel";
 import { MonthV2, type MonthV2Initial } from "./MonthV2";
 
-// Phase V2 — 타임머신 월 화면 (AI 비서 + 기억칸).
+// Lifebook v3 — 월 화면 비활성화 (2026-06-06).
 //
-// v1 의 "사건 펼쳐보기" 그리드와 자동 음악 섹션은 제거. 비서가 사용자가
-// 묻는 것에만 답한다. 사용자가 비서 답에서 "내 타임라인에 추가" 를
-// 누른 사건만 keptEvent 로 저장된다 (T6 UserMemory 구조 그대로).
+// 핵심 통찰: 사용자는 사건의 *순서* 는 기억해도 정확한 *월* 은 기억 못 한다.
+// 매달 빈 칸을 채우라는 부담은 v3 인생 연혁(/life-timeline)으로 대체.
+// 이 라우트는 메인으로 redirect 한다 — 직접 URL·옛 북마크·외부 링크 모두
+// 안전하게 흡수.
 //
-// EventItem / SongCard 컴포넌트 파일은 보존 (SongCard 는 AssistantPanel
-// 에서 음악 답에 재사용).
+// 코드 보존 정책 (사용자 명시):
+//   - 아래 _TimemachineMonthPageArchived 함수, 의존 컴포넌트(MonthV2/
+//     MonthForm/MonthStory/EventItem/SongCard), 시드 데이터(MonthEvent/
+//     ChartSong) 모두 그대로 유지.
+//   - 시대 사건/음악 DB 는 AI 비서가 여전히 참조 (시드 활용 유지).
+//   - 부활 시: default export 만 archived 함수로 교체하면 복구 끝.
+//
+// 비서는 영향 0 — AssistantModal 의 (fallbackYear, fallbackMonth) 컨텍스트
+// 는 life_event 기반으로 이미 동작하고, 시드 사건/음악 DB 도 그대로.
+
+export default function TimemachineMonthPage() {
+  redirect("/life-timeline");
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 아래는 v2 월 화면(MonthV2 + 비서) 의 원본 진입점. 사용 0 — default export
+// 가 위 redirect 로 교체됨. import 들이 unused 가 되지 않도록 함수 본문은
+// 그대로 두며, 향후 부활 시 export default 를 이 함수로 다시 가리키면 됨.
+// ─────────────────────────────────────────────────────────────────────────
 
 function prevMonth(year: number, month: number) {
   return month === 1
@@ -52,7 +70,7 @@ type PageProps = {
   params: Promise<{ year: string; month: string }>;
 };
 
-export default async function TimemachineMonthPage({ params }: PageProps) {
+async function _TimemachineMonthPageArchived({ params }: PageProps) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
@@ -171,3 +189,17 @@ export default async function TimemachineMonthPage({ params }: PageProps) {
     </main>
   );
 }
+
+// 보존된 함수에 대한 unused-vars 경고 억제. archived 함수 자체와 그 안에서
+// 만 쓰는 헬퍼·상수가 default export 에서 빠지면서 unused 가 됨.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const __preserve_archived_exports = {
+  _TimemachineMonthPageArchived,
+  prevMonth,
+  nextMonth,
+  FilledBadge,
+  LATEST_YEAR,
+  LATEST_MONTH,
+  EARLIEST_YEAR,
+  EARLIEST_MONTH,
+};

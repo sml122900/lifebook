@@ -22,14 +22,18 @@ import { V3WelcomeBanner } from "./V3WelcomeBanner";
 const LATEST_YEAR = 2026;
 const LATEST_MONTH = 5;
 // life_event 의 eventMonth 가 null(사이 이벤트)일 때 비서 fallback 의 월.
-// "그해 중반" 의미로 L3 의 timemachineHref 와 같은 값을 쓴다.
+// "그해 중반" 의미. (2026-06-06 까지는 TimelineView 의 timemachineHref 와도
+// 같은 값을 썼으나, 점 클릭 동선이 /life-timeline/[eventId]/edit 로 바뀌며
+// 이제는 비서 컨텍스트 fallback 한 용도로만 남았다.)
 const APPROX_DEFAULT_MONTH = 6;
 
 // Phase L3+L5 — 인생 연혁 화면 (v3 의 얼굴, 새 메인).
 //
-// L2 에서 사용자가 채운 life_event UserMemory 들을 시간순으로 가로 시간축
-// 에 펼쳐 보인다. 점을 누르면 그 시기의 월별 타임머신(v2)으로 들어가
-// 시대 사건·음악·비서와 함께 회고를 채울 수 있다(기획서 5번 결정).
+// L2 에서 사용자가 채운 life_event UserMemory 들을 시간순으로 세로 시간축
+// 에 펼쳐 보인다. 점을 누르면 그 이벤트의 편집 화면으로 들어가 이야기·
+// 장소·인물을 한곳에서 보강한다. (2026-06-06 까지는 점 클릭이 월별 타임
+// 머신으로 갔지만, "사용자는 사건 순서는 기억해도 정확한 월은 모른다" 는
+// 통찰에 따라 메인 동선에서 '월' 개념 제거.)
 //
 // L5 — /timemachine 메인이 여기로 옮겨졌다. 출석·진척·가족 소식 카드도
 // 모두 *연혁 아래* 로 재배치 — 연혁이 주인공, 동기 요소는 보조.

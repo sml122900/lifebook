@@ -37,7 +37,6 @@ export type SidePanelData = {
     streak: number;
   };
   familyNewsCount: number;
-  currentMonthHref: string;
 };
 
 export function SidePanelLayout({
@@ -217,19 +216,16 @@ function SidePanel({
         />
 
         {/* 5. 빠른 이동 메뉴 */}
-        {/* L5 — v3 입구 통일: "내 인생 연혁"이 메인. 월별 타임머신은
-            깊이 파고 싶을 때 들어가는 보조 도구로 재배치. */}
+        {/* v3 (2026-06-06) — 월별 타임머신 진입 동선 제거. "작년 사건의
+            정확한 월" 은 사용자가 떠올리지 못한다는 통찰에 따라 메인은
+            연혁(연/시기 중심) 하나로 통일. 월 화면 라우트는 redirect 로
+            살아있으나 사이드 진입로는 닫는다. */}
         <nav className="mt-6 flex flex-col gap-2" aria-label="빠른 이동">
           <p className="px-2 text-sm font-semibold text-zinc-600">빠른 이동</p>
           <MenuItem
             href="/life-timeline"
             label="내 인생 연혁"
             hint="한눈에 보는 인생"
-          />
-          <MenuItem
-            href={data.currentMonthHref}
-            label="이번 달 타임머신"
-            hint="이번 달의 사건·음악으로"
           />
           <MenuItem
             href="/people"

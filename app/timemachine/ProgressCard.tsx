@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import type { TimemachineProgress } from "@/lib/timemachine-progress";
 
 // 동기부여 ① 쌓이는 재미 — "내 기록 현황" 카드.
@@ -86,37 +84,39 @@ export function ProgressCard({
         </p>
       )}
 
-      {/* 진척 시각화 — 12개월 그리드. 채운 달 amber, 빈 달 연한 회색. */}
+      {/* 진척 시각화 — 12개월 그리드. 채운 달 amber, 빈 달 연한 회색.
+          2026-06-06: 칸 클릭으로 월 화면 진입은 닫음(메인 동선에서 '월'
+          개념 제거). 시각만 유지 — 채운 패턴은 동기부여 가치 그대로. */}
       <div>
         <p className="mb-3 text-base font-semibold text-zinc-700">
-          달별 기록 (눌러서 그 달로 이동)
+          달별 기록
         </p>
-        <ol className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        <ol
+          className="grid grid-cols-3 gap-2 sm:grid-cols-4"
+          aria-label="최근 12개월 기록 현황"
+        >
           {cells.map((c) => (
-            <li key={`${c.year}-${c.month}`}>
-              <Link
-                href={`/timemachine/${c.year}/${c.month}`}
-                prefetch={false}
-                aria-label={
-                  c.filled
-                    ? `${c.year}년 ${c.month}월 — 기록 있음, 보러 가기`
-                    : `${c.year}년 ${c.month}월 — 보러 가기`
-                }
-                className={
-                  "flex min-h-[72px] flex-col items-center justify-center rounded-md border-2 px-2 py-3 text-center focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
-                  (c.filled
-                    ? "border-amber-700 bg-amber-700 text-white hover:bg-amber-800"
-                    : "border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50")
-                }
-              >
-                <span className="text-xs opacity-90">{c.year}</span>
-                <span className="text-xl font-bold">{c.month}월</span>
-                {c.filled && (
-                  <span className="mt-0.5 text-xs font-semibold">
-                    {c.eventCount > 0 ? `사건 ${c.eventCount}개` : "회고"}
-                  </span>
-                )}
-              </Link>
+            <li
+              key={`${c.year}-${c.month}`}
+              aria-label={
+                c.filled
+                  ? `${c.year}년 ${c.month}월 — 기록 있음`
+                  : `${c.year}년 ${c.month}월 — 기록 없음`
+              }
+              className={
+                "flex min-h-[72px] flex-col items-center justify-center rounded-md border-2 px-2 py-3 text-center " +
+                (c.filled
+                  ? "border-amber-700 bg-amber-700 text-white"
+                  : "border-zinc-200 bg-white text-zinc-500")
+              }
+            >
+              <span className="text-xs opacity-90">{c.year}</span>
+              <span className="text-xl font-bold">{c.month}월</span>
+              {c.filled && (
+                <span className="mt-0.5 text-xs font-semibold">
+                  {c.eventCount > 0 ? `사건 ${c.eventCount}개` : "회고"}
+                </span>
+              )}
             </li>
           ))}
         </ol>

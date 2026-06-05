@@ -34,8 +34,6 @@ import {
 //   - pointer-events: ol/li 는 none, 점·카드·+버튼은 auto → ol 빈 영역
 //     클릭은 line click area 로 통과.
 
-const APPROX_DEFAULT_MONTH = 6;
-
 // H4 — id slice 매직 제거. originalId 를 명시 필드로. isPeriodEnd 행도
 // originalId === 시작 행의 id 라 lookup 가 명확.
 type RenderEvent = LifeEvent & {
@@ -129,9 +127,11 @@ function formatAgeSuffix(e: LifeEvent, birthYear: number | null): string {
   return ` (만 ${age.manAge}세)`;
 }
 
-function timemachineHref(e: LifeEvent): string {
-  const month = e.eventMonth ?? APPROX_DEFAULT_MONTH;
-  return `/timemachine/${e.eventYear}/${month}`;
+// 2026-06-06: 월 단위 회고를 메인 동선에서 뺐으므로 점·카드 클릭은
+// 이벤트의 편집 화면(이야기·장소·인물 통합)으로 보낸다. isPeriodEnd 행도
+// 원본 이벤트(originalId)의 편집으로 — "끝" 점을 눌러도 같은 이야기를 연다.
+function editHref(e: RenderEvent): string {
+  return `/life-timeline/${e.originalId}/edit`;
 }
 
 // 외부 지도 새 탭 URL. placeSource 별로 분기:
@@ -411,7 +411,7 @@ function TimelineRow({
   onOpenPeople: (e: RenderEvent) => void;
 }) {
   const exact = e.precision === "EXACT";
-  const aria = `${formatWhen(e)} ${formatTitle(e)} — 그 시기의 타임머신 열기`;
+  const aria = `${formatWhen(e)} ${formatTitle(e)} — 이 이야기 편집하기`;
 
   // 점이 놓인 라인의 가로 위치 (절대 위치 기준).
   const pointAtClass =
@@ -504,9 +504,9 @@ function TimelineRow({
       <div
         className={`group pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 ${pointAtClass}`}
       >
-        {/* 점 — Link 로 클릭 (월별 타임머신) */}
+        {/* 점 — Link 로 클릭 (이야기 편집 화면) */}
         <Link
-          href={timemachineHref(e)}
+          href={editHref(e)}
           aria-label={aria}
           className="pointer-events-auto relative block rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
@@ -560,7 +560,7 @@ function EventCard({
   const exact = e.precision === "EXACT";
   const ageSuffix = formatAgeSuffix(e, birthYear);
   const displayTitle = formatTitle(e);
-  const aria = `${formatWhen(e)} ${displayTitle} — 그 시기의 타임머신 열기`;
+  const aria = `${formatWhen(e)} ${displayTitle} — 이 이야기 편집하기`;
   // 버튼 위치: 카드의 텍스트 정렬 반대 모서리에 두면 카드 텍스트와 안 겹침.
   // align="right" (좌 카드) → 버튼은 좌상단 / align="left" (우 카드) → 우상단.
   const btnCorner =
@@ -569,7 +569,7 @@ function EventCard({
   return (
     <div className="relative w-full max-w-[18rem]">
       <Link
-        href={timemachineHref(e)}
+        href={editHref(e)}
         aria-label={aria}
         className={
           "block w-full rounded-md border-2 px-4 py-3 pr-12 transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +

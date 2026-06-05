@@ -2,19 +2,16 @@
 //
 // /timemachine 과 /life-timeline 두 곳의 layout 이 같은 사이드 패널을
 // 렌더하므로, 데이터 수집을 헬퍼 하나로 모은다. layout 자체는 짧아짐 +
-// "이번 달 타임머신" 같은 하드코드도 한 곳에서만 관리.
+// 데이터 로딩 한 곳에서만 관리.
 //
 // 새 API/모델 없음 — 기존 헬퍼 재사용.
+//
+// 2026-06-06: 월별 타임머신 진입로 제거(v3). currentMonthHref 필드 삭제 —
+// "이번 달 타임머신" 메뉴가 사라지면서 사용처 0.
 
 import { getAttendanceStatus } from "./attendance";
 import { getFamilyNewsCount } from "./family-news";
 import { getBalance } from "./tokens/wallet";
-
-// 검증 단계 시드 마지막 — "이번 달" 빠른 이동의 기본 목적지.
-// (LATEST_YEAR/MONTH 하드코드는 시드 확장 시 함께 갱신 — CLAUDE.md L8
-//  후속 항목과 동일 정책)
-const LATEST_YEAR = 2026;
-const LATEST_MONTH = 5;
 
 export type SidePanelDataInput = {
   userId: string;
@@ -31,7 +28,6 @@ export type SidePanelDataPrepared = {
   balance: number;
   attendance: { todayChecked: boolean; streak: number };
   familyNewsCount: number;
-  currentMonthHref: string;
 };
 
 export async function loadSidePanelData(
@@ -52,6 +48,5 @@ export async function loadSidePanelData(
       streak: attendance.streak,
     },
     familyNewsCount: familyNews.total,
-    currentMonthHref: `/timemachine/${LATEST_YEAR}/${LATEST_MONTH}`,
   };
 }
