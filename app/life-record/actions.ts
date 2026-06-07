@@ -142,6 +142,8 @@ export async function submitLifeRecord(
     year: number | null;
     month: number | null;
     endYear: number | null;
+    // 2026-06-07 — 끝 월(선택). endYear 가 있고 기간 카테고리일 때만 의미.
+    endMonth?: number | null;
     content: string | null;
     place?: RawPlaceInput;
   },
@@ -210,6 +212,26 @@ export async function submitLifeRecord(
     endYear = raw.endYear;
   }
 
+  // 2026-06-07 — endMonth 검증. endYear 가 있어야 의미 있음. 같은 해 안에서
+  // 끝 월이 시작 월보다 앞이면 거부(시작 월이 비어있으면 비교 안 함).
+  let endMonth: number | null = null;
+  if (isPeriodCategory(category) && endYear !== null && raw.endMonth != null) {
+    if (
+      !Number.isInteger(raw.endMonth) ||
+      raw.endMonth < 1 ||
+      raw.endMonth > 12
+    ) {
+      return { ok: false, error: "끝난 달은 1부터 12 사이로 적어주세요." };
+    }
+    if (endYear === year && month !== null && raw.endMonth < month) {
+      return {
+        ok: false,
+        error: "끝난 달이 시작한 달보다 앞일 수 없어요.",
+      };
+    }
+    endMonth = raw.endMonth;
+  }
+
   let content: string | null = null;
   if (typeof raw.content === "string" && raw.content.trim() !== "") {
     if (raw.content.length > CONTENT_MAX) {
@@ -226,6 +248,7 @@ export async function submitLifeRecord(
     year,
     month,
     endYear,
+    endMonth,
     content,
     place: placeResult.place,
   });

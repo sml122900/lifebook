@@ -2,9 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 
+import { unstashEraEventAction } from "@/app/era/actions";
 import { calcAge } from "@/lib/age";
+import {
+  SECTION_BADGE_CLASS,
+  SECTION_LABEL,
+} from "@/lib/era-labels";
 import type { LifeEvent } from "@/lib/life-events";
 
 import {
@@ -36,6 +41,7 @@ import {
 
 // H4 — id slice 매직 제거. originalId 를 명시 필드로. isPeriodEnd 행도
 // originalId === 시작 행의 id 라 lookup 가 명확.
+// E2 — kind 는 LifeEvent 에서 그대로 상속 ("life_event" | "era_event").
 type RenderEvent = LifeEvent & {
   isPeriodEnd?: boolean;
   originalId: string;
@@ -54,53 +60,70 @@ function expandPeriods(events: LifeEvent[]): RenderEvent[] {
   // 끝 점을 끼워야 할 위치 찾기 위해 endYear 기준으로 보류 — 시작 행을
   // 그대로 넣고, DB 순서를 훑으며 적절한 위치(다음 큰 시점)에 도달하면
   // 끝 점 삽입. 시작점만 있고 끝점이 시작과 같은 해면 split 안 함.
-  type Pending = { startIdx: number; endYear: number; src: LifeEvent };
+  type Pending = {
+    startIdx: number;
+    endYear: number;
+    endMonth: number | null;
+    src: LifeEvent;
+  };
   const pending: Pending[] = [];
 
+  function makeEndRow(p: Pending): RenderEvent {
+    return {
+      ...p.src,
+      id: `${p.src.id}--end`,
+      originalId: p.src.id,
+      eventYear: p.endYear,
+      // 2026-06-07 — endMonth 가 있으면 끝 점도 그 월에 자리. precision 도 EXACT.
+      eventMonth: p.endMonth,
+      precision: p.endMonth != null ? "EXACT" : "APPROXIMATE",
+      isPeriodEnd: true,
+    };
+  }
+
+  // M3 — 같은 해 안에서도 endMonth 가 있으면 month 비교로 위치 결정.
+  // endMonth 없는 끝점은 정책 유지 (같은 해 모든 사건 뒤에 자연 push).
   function flushPendingBefore(year: number, month: number | null) {
-    // year/month 가 pending 끝 시점보다 큰 경우 모두 flush.
     for (let i = pending.length - 1; i >= 0; i--) {
       const p = pending[i];
-      const reachedYear = year > p.endYear;
-      // 같은 해 안에서는 정확월/사이이벤트 무관하게 끝 점이 먼저 와야 함 —
-      // DB 순서가 month ASC NULLS LAST 라 정확월이 앞. 끝 점은 month=null
-      // 로 두므로 같은 해의 정확월보다는 뒤, 사이이벤트 직전~사이 위치.
-      // 단순화를 위해 endYear 보다 같거나 큰 첫 시점에서 flush.
-      if (reachedYear) {
-        expanded.push({
-          ...p.src,
-          id: `${p.src.id}--end`,
-          originalId: p.src.id,
-          eventYear: p.endYear,
-          eventMonth: null,
-          precision: "APPROXIMATE",
-          isPeriodEnd: true,
-        });
+      if (year > p.endYear) {
+        expanded.push(makeEndRow(p));
+        pending.splice(i, 1);
+        continue;
+      }
+      // 같은 해 + 끝점 endMonth 가 도착한 사건의 month 보다 이르다 → 끝점 먼저.
+      if (
+        year === p.endYear &&
+        p.endMonth != null &&
+        month != null &&
+        month > p.endMonth
+      ) {
+        expanded.push(makeEndRow(p));
         pending.splice(i, 1);
       }
     }
-    // 같은 해 안의 미세 위치 조정은 위에서 다루지 않음 — DB 순서 우선.
-    void month; // 미사용 가드 (미래에 month-level flush 필요 시 활용)
   }
 
   for (const e of events) {
     flushPendingBefore(e.eventYear, e.eventMonth);
     expanded.push({ ...e, originalId: e.id });
-    if (e.endYear != null && e.endYear !== e.eventYear) {
-      pending.push({ startIdx: expanded.length - 1, endYear: e.endYear, src: e });
+    // M2 — 같은 해라도 endMonth 가 명시되면 끝점 별도 표시 (EXACT 큰 점).
+    // endMonth null 인 단일해 기간(시작=끝)은 시각적 의미 없어 split 안 함.
+    if (
+      e.endYear != null &&
+      (e.endYear !== e.eventYear || e.endMonth != null)
+    ) {
+      pending.push({
+        startIdx: expanded.length - 1,
+        endYear: e.endYear,
+        endMonth: e.endMonth,
+        src: e,
+      });
     }
   }
   // 남은 pending — 더 큰 시점 이벤트가 없으면 그대로 뒤에 붙임.
   for (const p of pending) {
-    expanded.push({
-      ...p.src,
-      id: `${p.src.id}--end`,
-      originalId: p.src.id,
-      eventYear: p.endYear,
-      eventMonth: null,
-      precision: "APPROXIMATE",
-      isPeriodEnd: true,
-    });
+    expanded.push(makeEndRow(p));
   }
   return expanded;
 }
@@ -130,6 +153,10 @@ function formatAgeSuffix(e: LifeEvent, birthYear: number | null): string {
 // 2026-06-06: 월 단위 회고를 메인 동선에서 뺐으므로 점·카드 클릭은
 // 이벤트의 편집 화면(이야기·장소·인물 통합)으로 보낸다. isPeriodEnd 행도
 // 원본 이벤트(originalId)의 편집으로 — "끝" 점을 눌러도 같은 이야기를 연다.
+//
+// E2 — era_event 는 클릭 비활성. 사용자가 직접 쓴 게 아니라 시대 자료를
+// 담은 행이라 편집 의미 없음. 본인 회상 추가(content 채우기) UI 는 E3
+// 후속. 점·카드 모두 Link 대신 div 로, 카드 하단에 "내 연혁에서 빼기" 만.
 function editHref(e: RenderEvent): string {
   return `/life-timeline/${e.originalId}/edit`;
 }
@@ -179,7 +206,12 @@ function computePeriodFlags(events: RenderEvent[]): PeriodFlag[] {
         flags[i].bottomHalf = true;
       }
       flags[idx].topHalf = true;
-    } else if (e.endYear != null && e.endYear !== e.eventYear) {
+    } else if (
+      e.endYear != null &&
+      (e.endYear !== e.eventYear || e.endMonth != null)
+    ) {
+      // M2 — expandPeriods 의 split 조건과 동일하게. 같은 해 + endMonth
+      // 있는 행도 시작-끝 사이를 amber 강조선으로 잇는다.
       startIdx.set(e.originalId, idx);
     }
   });
@@ -222,10 +254,19 @@ export function TimelineView({
   // P3 — 사용자 전체 인물 목록. 팝오버가 열릴 때마다 fetch 하지 않도록 미리.
   allPeople?: PersonLite[];
 }) {
-  const renderEvents = expandPeriods(events);
+  const router = useRouter();
+  // E2 — 옵티미스틱 hide. era_event 행 빼기 클릭 시 즉시 화면에서 사라지고
+  // server action 완료 후 router.refresh() 가 events prop 을 갱신. 실패하면
+  // hidden 에서 제거 + 에러 표시(아래 EraRemoveButton).
+  const [hiddenEraIds, setHiddenEraIds] = useState<Set<string>>(new Set());
+  const visibleEvents = useMemo(
+    () => events.filter((e) => !hiddenEraIds.has(e.id)),
+    [events, hiddenEraIds],
+  );
+  const renderEvents = expandPeriods(visibleEvents);
   const flags = computePeriodFlags(renderEvents);
   const yearRange = computeYearRange(renderEvents);
-  const eventCount = events.length;
+  const eventCount = visibleEvents.length;
 
   // P3 — 모달 + 옵티미스틱 chip 동기화 상태.
   // peopleByEvent prop 은 RSC fetch 결과(스냅샷). 모달에서 토글하면 즉시
@@ -240,11 +281,35 @@ export function TimelineView({
   } | null>(null);
 
   function openFor(e: RenderEvent) {
+    // E2 — era_event 는 인물 연결 불허(정책). lib/people.ts 의 not_life_event
+    // 가드가 서버 측 단일 결정자지만, UI 에서 모달 진입 자체를 차단해 사용자
+    // 혼란 0. era_event 카드의 👤 버튼은 EventCard 에서 아예 안 그림.
+    if (e.kind === "era_event") return;
     setOpenModal({ memoryId: e.originalId, label: formatTitle(e) });
   }
 
   function handleConnectedChange(memoryId: string, connected: PersonLite[]) {
     setPeopleState((prev) => ({ ...prev, [memoryId]: connected }));
+  }
+
+  // E2 — era 빼기 옵티미스틱 토글. 자식 컴포넌트가 호출.
+  function hideEra(eventId: string) {
+    setHiddenEraIds((prev) => {
+      const next = new Set(prev);
+      next.add(eventId);
+      return next;
+    });
+  }
+  function unhideEra(eventId: string) {
+    setHiddenEraIds((prev) => {
+      if (!prev.has(eventId)) return prev;
+      const next = new Set(prev);
+      next.delete(eventId);
+      return next;
+    });
+  }
+  function refreshAfterUnstash() {
+    router.refresh();
   }
 
   return (
@@ -257,6 +322,9 @@ export function TimelineView({
           yearRange={yearRange}
           peopleByEvent={peopleState}
           onOpenPeople={openFor}
+          onEraHide={hideEra}
+          onEraUnhide={unhideEra}
+          onEraRefresh={refreshAfterUnstash}
         />
       </div>
       <div className="sm:hidden">
@@ -267,6 +335,9 @@ export function TimelineView({
           yearRange={yearRange}
           peopleByEvent={peopleState}
           onOpenPeople={openFor}
+          onEraHide={hideEra}
+          onEraUnhide={unhideEra}
+          onEraRefresh={refreshAfterUnstash}
         />
       </div>
 
@@ -300,6 +371,9 @@ function DesktopTimeline({
   yearRange,
   peopleByEvent,
   onOpenPeople,
+  onEraHide,
+  onEraUnhide,
+  onEraRefresh,
 }: {
   events: RenderEvent[];
   flags: PeriodFlag[];
@@ -307,6 +381,9 @@ function DesktopTimeline({
   yearRange: { min: number; max: number };
   peopleByEvent: PeopleByEvent;
   onOpenPeople: (e: RenderEvent) => void;
+  onEraHide: (id: string) => void;
+  onEraUnhide: (id: string) => void;
+  onEraRefresh: () => void;
 }) {
   return (
     // pointer-events-none: 빈 영역 클릭이 LineClickArea 로 통과.
@@ -337,6 +414,9 @@ function DesktopTimeline({
             cardSide={cardSide}
             people={peopleByEvent[e.originalId] ?? []}
             onOpenPeople={onOpenPeople}
+            onEraHide={onEraHide}
+            onEraUnhide={onEraUnhide}
+            onEraRefresh={onEraRefresh}
           />
         );
       })}
@@ -352,6 +432,9 @@ function MobileTimeline({
   yearRange,
   peopleByEvent,
   onOpenPeople,
+  onEraHide,
+  onEraUnhide,
+  onEraRefresh,
 }: {
   events: RenderEvent[];
   flags: PeriodFlag[];
@@ -359,6 +442,9 @@ function MobileTimeline({
   yearRange: { min: number; max: number };
   peopleByEvent: PeopleByEvent;
   onOpenPeople: (e: RenderEvent) => void;
+  onEraHide: (id: string) => void;
+  onEraUnhide: (id: string) => void;
+  onEraRefresh: () => void;
 }) {
   return (
     <ol className="pointer-events-none relative py-3">
@@ -385,6 +471,9 @@ function MobileTimeline({
             cardSide="right"
             people={peopleByEvent[e.originalId] ?? []}
             onOpenPeople={onOpenPeople}
+            onEraHide={onEraHide}
+            onEraUnhide={onEraUnhide}
+            onEraRefresh={onEraRefresh}
           />
         );
       })}
@@ -401,6 +490,9 @@ function TimelineRow({
   cardSide,
   people,
   onOpenPeople,
+  onEraHide,
+  onEraUnhide,
+  onEraRefresh,
 }: {
   e: RenderEvent;
   flag: PeriodFlag;
@@ -409,9 +501,15 @@ function TimelineRow({
   cardSide: "left" | "right";
   people: { id: string; name: string }[];
   onOpenPeople: (e: RenderEvent) => void;
+  onEraHide: (id: string) => void;
+  onEraUnhide: (id: string) => void;
+  onEraRefresh: () => void;
 }) {
   const exact = e.precision === "EXACT";
-  const aria = `${formatWhen(e)} ${formatTitle(e)} — 이 이야기 편집하기`;
+  const isEra = e.kind === "era_event";
+  const aria = isEra
+    ? `${formatWhen(e)} ${formatTitle(e)} — 시대 배경`
+    : `${formatWhen(e)} ${formatTitle(e)} — 이 이야기 편집하기`;
 
   // 점이 놓인 라인의 가로 위치 (절대 위치 기준).
   const pointAtClass =
@@ -432,18 +530,31 @@ function TimelineRow({
         <div className="flex items-center justify-end pr-14">
           {cardSide === "left" && (
             <div className="pointer-events-auto flex flex-col items-end">
-              <EventCard
-                e={e}
-                align="right"
-                birthYear={birthYear}
-                onOpenPeople={() => onOpenPeople(e)}
-              />
-              <PlacePreview place={e.place} align="right" />
-              <PeoplePreview
-                people={people}
-                align="right"
-                onClick={() => onOpenPeople(e)}
-              />
+              {isEra ? (
+                <EraCard
+                  e={e}
+                  align="right"
+                  birthYear={birthYear}
+                  onEraHide={onEraHide}
+                  onEraUnhide={onEraUnhide}
+                  onEraRefresh={onEraRefresh}
+                />
+              ) : (
+                <>
+                  <EventCard
+                    e={e}
+                    align="right"
+                    birthYear={birthYear}
+                    onOpenPeople={() => onOpenPeople(e)}
+                  />
+                  <PlacePreview place={e.place} align="right" />
+                  <PeoplePreview
+                    people={people}
+                    align="right"
+                    onClick={() => onOpenPeople(e)}
+                  />
+                </>
+              )}
             </div>
           )}
         </div>
@@ -459,18 +570,31 @@ function TimelineRow({
       >
         {(layout === "mobile" || cardSide === "right") && (
           <div className="pointer-events-auto flex flex-col items-start">
-            <EventCard
-              e={e}
-              align="left"
-              birthYear={birthYear}
-              onOpenPeople={() => onOpenPeople(e)}
-            />
-            <PlacePreview place={e.place} align="left" />
-            <PeoplePreview
-              people={people}
-              align="left"
-              onClick={() => onOpenPeople(e)}
-            />
+            {isEra ? (
+              <EraCard
+                e={e}
+                align="left"
+                birthYear={birthYear}
+                onEraHide={onEraHide}
+                onEraUnhide={onEraUnhide}
+                onEraRefresh={onEraRefresh}
+              />
+            ) : (
+              <>
+                <EventCard
+                  e={e}
+                  align="left"
+                  birthYear={birthYear}
+                  onOpenPeople={() => onOpenPeople(e)}
+                />
+                <PlacePreview place={e.place} align="left" />
+                <PeoplePreview
+                  people={people}
+                  align="left"
+                  onClick={() => onOpenPeople(e)}
+                />
+              </>
+            )}
           </div>
         )}
       </div>
@@ -504,22 +628,35 @@ function TimelineRow({
       <div
         className={`group pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 ${pointAtClass}`}
       >
-        {/* 점 — Link 로 클릭 (이야기 편집 화면) */}
-        <Link
-          href={editHref(e)}
-          aria-label={aria}
-          className="pointer-events-auto relative block rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
-        >
-          <span
-            aria-hidden
-            className={
-              "block rounded-full border-2 " +
-              (exact
-                ? "h-6 w-6 border-amber-800 bg-amber-600"
-                : "h-4 w-4 border-amber-400 border-dashed bg-amber-100")
-            }
-          />
-        </Link>
+        {/* 점 — life_event 는 Link(편집 화면) / era_event 는 클릭 비활성 div */}
+        {isEra ? (
+          <div
+            aria-label={aria}
+            className="pointer-events-auto block rounded-full"
+            title="시대 배경 — 카드 안에서 빼기 가능"
+          >
+            <span
+              aria-hidden
+              className="block h-5 w-5 rounded-full border-2 border-slate-500 bg-slate-400"
+            />
+          </div>
+        ) : (
+          <Link
+            href={editHref(e)}
+            aria-label={aria}
+            className="pointer-events-auto relative block rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          >
+            <span
+              aria-hidden
+              className={
+                "block rounded-full border-2 " +
+                (exact
+                  ? "h-6 w-6 border-amber-800 bg-amber-600"
+                  : "h-4 w-4 border-amber-400 border-dashed bg-amber-100")
+              }
+            />
+          </Link>
+        )}
 
         {/* + 버튼 — 이 사건 근처에 새 이야기 추가 */}
         <Link
@@ -611,6 +748,119 @@ function EventCard({
       >
         <span aria-hidden>👤</span>
       </button>
+    </div>
+  );
+}
+
+// E2 — era_event 전용 카드. 클릭 동선 없음(div), 인물 모달 없음, 장소 없음.
+// 시대 자료(description) + 출처 + 카테고리 뱃지 + 하단 "내 연혁에서 빼기".
+// 색조: slate (life_event 의 amber 와 즉시 구분 — "내 인생" vs "시대 배경").
+function EraCard({
+  e,
+  align,
+  birthYear,
+  onEraHide,
+  onEraUnhide,
+  onEraRefresh,
+}: {
+  e: RenderEvent;
+  align: "left" | "right";
+  birthYear: number | null;
+  onEraHide: (id: string) => void;
+  onEraUnhide: (id: string) => void;
+  onEraRefresh: () => void;
+}) {
+  const ageSuffix = formatAgeSuffix(e, birthYear);
+  const displayTitle = formatTitle(e);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function onRemove() {
+    setError(null);
+    onEraHide(e.originalId);
+    startTransition(async () => {
+      try {
+        await unstashEraEventAction(e.originalId);
+        onEraRefresh();
+      } catch (err) {
+        console.error("[era-unstash-timeline]", err);
+        onEraUnhide(e.originalId);
+        setError("잠시 후 다시 시도해 주세요.");
+      }
+    });
+  }
+
+  return (
+    <div className="relative w-full max-w-[18rem]">
+      <div
+        className={
+          "block w-full rounded-md border-2 border-slate-300 bg-slate-50 px-4 py-3 " +
+          (align === "right" ? "text-right" : "text-left")
+        }
+      >
+        {/* 상단 — "시대 배경" 뱃지 + 카테고리 뱃지 */}
+        <div
+          className={
+            "flex flex-wrap items-center gap-1.5 " +
+            (align === "right" ? "justify-end" : "justify-start")
+          }
+        >
+          <span className="inline-flex items-center rounded-full border border-slate-400 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+            시대 배경
+          </span>
+          {e.eraSection && (
+            <span
+              className={
+                "inline-flex items-center rounded-full border-2 px-2 py-0.5 text-xs font-semibold " +
+                SECTION_BADGE_CLASS[e.eraSection]
+              }
+            >
+              {SECTION_LABEL[e.eraSection]}
+            </span>
+          )}
+        </div>
+
+        <p className="mt-2 text-sm font-semibold text-slate-700">
+          {formatWhen(e)}
+          {ageSuffix && (
+            <span className="ml-1 text-xs text-slate-500">{ageSuffix}</span>
+          )}
+        </p>
+        <p className="mt-1 text-base font-bold leading-tight text-zinc-900">
+          {displayTitle}
+        </p>
+        {e.eraDescription && (
+          <p className="mt-1 text-sm leading-snug text-slate-700">
+            {e.eraDescription}
+          </p>
+        )}
+        {e.eraSource && (
+          <p className="mt-1 text-xs text-slate-500">출처: {e.eraSource}</p>
+        )}
+
+        {/* 빼기 버튼 — 카드 안 작게 */}
+        <div
+          className={
+            "mt-3 flex " +
+            (align === "right" ? "justify-end" : "justify-start")
+          }
+        >
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={isPending}
+            aria-label={`${displayTitle} — 내 연혁에서 빼기`}
+            className="inline-flex min-h-[36px] items-center justify-center rounded-md border-2 border-slate-300 bg-white px-3 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isPending ? "빼는 중…" : "내 연혁에서 빼기"}
+          </button>
+        </div>
+        {error && (
+          <p role="alert" className="mt-1 text-xs text-rose-700">
+            {error}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -773,6 +1023,13 @@ function Legend() {
           +
         </span>
         이야기 추가
+      </span>
+      <span className="flex items-center gap-2">
+        <span
+          aria-hidden
+          className="inline-block h-5 w-5 rounded-full border-2 border-slate-500 bg-slate-400"
+        />
+        시대 배경
       </span>
       <span className="text-zinc-500">
         점은 그 시기로, 빈 자리는 새 이야기로

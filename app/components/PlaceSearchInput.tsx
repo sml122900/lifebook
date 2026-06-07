@@ -106,6 +106,9 @@ export function PlaceSearchInput({
   );
 
   // debounce — query/activeSource 가 바뀔 때마다 타이머 리셋.
+  // M1 — AbortController 로 이미 발사된 fetch 도 cleanup 시 끊는다.
+  // requestIdRef 만으론 stale 응답을 *무시* 만 할 뿐 네트워크/외부 API quota
+  // 는 그대로 소모됨. signal 로 끊으면 socket 레벨에서 정리.
   useEffect(() => {
     if (activeSource === null) return;
     const trimmed = query.trim();
@@ -116,6 +119,7 @@ export function PlaceSearchInput({
       return;
     }
     const id = ++requestIdRef.current;
+    const ctrl = new AbortController();
     const timer = setTimeout(async () => {
       setLoading(true);
       setError(null);
@@ -124,6 +128,7 @@ export function PlaceSearchInput({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: trimmed, source: activeSource }),
+          signal: ctrl.signal,
         });
         const data: ApiResponse = await res.json();
         // 도착이 늦은 응답 → 무시 (사용자가 다른 입력 중).
@@ -135,7 +140,9 @@ export function PlaceSearchInput({
         } else {
           setResults(data.results);
         }
-      } catch {
+      } catch (e) {
+        // cleanup 으로 인한 취소는 정상 — 에러 메시지 띄우지 않음.
+        if (e instanceof Error && e.name === "AbortError") return;
         if (id !== requestIdRef.current) return;
         setError("장소를 찾지 못했어요. 다른 이름으로 검색해보세요.");
         setResults([]);
@@ -143,7 +150,10 @@ export function PlaceSearchInput({
         if (id === requestIdRef.current) setLoading(false);
       }
     }, DEBOUNCE_MS);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
   }, [query, activeSource]);
 
   function pick(r: PlaceResult, source: Source) {

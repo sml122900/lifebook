@@ -351,6 +351,7 @@ export async function listEventsByPerson(
           eventYear: true,
           eventMonth: true,
           endYear: true,
+          endMonth: true,
           precision: true,
           category: true,
           content: true,
@@ -391,6 +392,9 @@ export async function listEventsByPerson(
   });
 
   return filtered.map((m) => ({
+    // E2 — listEventsByPerson 은 life_event 만 필터링하므로 kind 도 일정.
+    // 인물 연결은 life_event 만 허용 정책이라 era 행은 여기 도달 X.
+    kind: "life_event" as const,
     id: m.id,
     title: m.eventTitle ?? m.title,
     eventYear: m.eventYear as number,
@@ -399,6 +403,7 @@ export async function listEventsByPerson(
     category: m.category as LifeCategory | null,
     content: m.content,
     endYear: m.endYear,
+    endMonth: m.endMonth,
     place: {
       placeName: m.placeName,
       placeAddress: m.placeAddress,
@@ -407,5 +412,8 @@ export async function listEventsByPerson(
       placeSource: m.placeSource,
     },
     createdAt: m.createdAt,
+    eraDescription: null,
+    eraSource: null,
+    eraSection: null,
   }));
 }

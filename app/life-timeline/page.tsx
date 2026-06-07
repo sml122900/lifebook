@@ -81,7 +81,11 @@ export default async function LifeTimelinePage() {
 
   // L6 — 비서 맥락 결정. getLifeEvents 는 시간순(오래된 것부터) 이라
   // 가장 최근 이벤트는 배열 끝. 0 개면 LATEST 시드 달로 폴백.
-  const lastEvent = events.length > 0 ? events[events.length - 1] : null;
+  // E2 — era_event 는 시대 자료 행이라 비서 맥락에서 제외. 사용자가 직접
+  // 쓴 인생 이벤트(life_event)만 "가장 최근" 후보. 한 줄 filter.
+  const lifeOnlyEvents = events.filter((e) => e.kind === "life_event");
+  const lastEvent =
+    lifeOnlyEvents.length > 0 ? lifeOnlyEvents[lifeOnlyEvents.length - 1] : null;
   const assistantYear = lastEvent ? lastEvent.eventYear : LATEST_YEAR;
   const assistantMonth = lastEvent
     ? lastEvent.eventMonth ?? APPROX_DEFAULT_MONTH

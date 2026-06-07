@@ -22,10 +22,10 @@ export default async function Home({
         나의 인생 연혁표를 AI와 함께 채워나가는 회고 서비스
       </p>
       <Link
-        href="/timeline"
+        href="/life-timeline"
         className="text-xl text-blue-700 underline underline-offset-4 hover:text-blue-900"
       >
-        타임라인 보러 가기 →
+        내 인생 연혁 보러 가기 →
       </Link>
     </main>
   );

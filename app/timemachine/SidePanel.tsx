@@ -228,6 +228,11 @@ function SidePanel({
             hint="한눈에 보는 인생"
           />
           <MenuItem
+            href="/era"
+            label="그 시절 둘러보기"
+            hint="1980~2010년대 큰 사건과 노래"
+          />
+          <MenuItem
             href="/people"
             label="인물록"
             hint="인생에 등장한 분들"

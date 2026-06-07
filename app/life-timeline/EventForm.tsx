@@ -64,6 +64,7 @@ export type EventFormInitial = {
   year: number;
   month: number | null;
   endYear: number | null;
+  endMonth: number | null;
   content: string;
   // Phase Place — 수정 모드 prefill. 신규 추가는 항상 EMPTY_PLACE 로 시작.
   place: PlaceInfo;
@@ -122,6 +123,9 @@ export function EventForm({
   );
   const [endYearText, setEndYearText] = useState(
     initial?.endYear != null ? String(initial.endYear) : "",
+  );
+  const [endMonthText, setEndMonthText] = useState(
+    initial?.endMonth != null ? String(initial.endMonth) : "",
   );
 
   const isPeriod = PERIOD_CATEGORIES.has(category);
@@ -196,18 +200,22 @@ export function EventForm({
         year,
         month: null, // 사이 이벤트는 월 없음
         endYear: null, // 사이 모드는 단일 시점
+        endMonth: null,
         content,
         place: placePayload,
       };
     }
     // 정확 모드(또는 수정)
+    const endYearVal = isPeriod ? parseIntOrNull(endYearText) : null;
     return {
       category,
       precision: parseIntOrNull(monthText) !== null ? "EXACT" : "APPROXIMATE",
       title,
       year: parseIntOrNull(yearText),
       month: parseIntOrNull(monthText),
-      endYear: isPeriod ? parseIntOrNull(endYearText) : null,
+      endYear: endYearVal,
+      endMonth:
+        isPeriod && endYearVal !== null ? parseIntOrNull(endMonthText) : null,
       content,
       place: placePayload,
     };
@@ -286,6 +294,8 @@ export function EventForm({
           isPeriod={isPeriod}
           endYearText={endYearText}
           setEndYearText={setEndYearText}
+          endMonthText={endMonthText}
+          setEndMonthText={setEndMonthText}
           birthYear={birthYear}
         />
       )}
@@ -531,6 +541,8 @@ function ExactSection({
   isPeriod,
   endYearText,
   setEndYearText,
+  endMonthText,
+  setEndMonthText,
   birthYear,
 }: {
   yearText: string;
@@ -540,6 +552,8 @@ function ExactSection({
   isPeriod: boolean;
   endYearText: string;
   setEndYearText: (v: string) => void;
+  endMonthText: string;
+  setEndMonthText: (v: string) => void;
   birthYear: number | null;
 }) {
   const yearNum = parseIntOrNullLocal(yearText);
@@ -606,14 +620,17 @@ function ExactSection({
 
       {isPeriod && (
         <div className="flex flex-col gap-1">
-          <label
-            htmlFor="exact-end-year"
-            className="text-base font-semibold text-zinc-900"
-          >
-            끝난 해 <span className="font-normal text-zinc-500">(선택)</span>
-          </label>
+          <p className="text-base font-semibold text-zinc-900">
+            언제 끝났어요? <span className="font-normal text-zinc-500">(선택)</span>
+          </p>
           <div className="flex items-end gap-3">
-            <div className="w-44">
+            <div className="flex-1">
+              <label
+                htmlFor="exact-end-year"
+                className="block text-base text-zinc-700"
+              >
+                끝난 해
+              </label>
               <input
                 id="exact-end-year"
                 type="text"
@@ -624,7 +641,7 @@ function ExactSection({
                   setEndYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
                 }
                 placeholder="예: 1991"
-                className="w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
               />
               {endAge && (
                 <p className="mt-1 text-sm text-zinc-600">
@@ -632,11 +649,32 @@ function ExactSection({
                 </p>
               )}
             </div>
-            <p className="flex-1 text-base text-zinc-600">
-              모르거나 아직 안 끝났으면 비워두셔도 돼요. 적으시면 연혁에{" "}
-              <b>시작·끝 두 점</b>으로 보여요.
-            </p>
+            <div className="w-32">
+              <label
+                htmlFor="exact-end-month"
+                className="block text-base text-zinc-700"
+              >
+                월 (선택)
+              </label>
+              <input
+                id="exact-end-month"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={endMonthText}
+                onChange={(e) =>
+                  setEndMonthText(e.target.value.replace(/\D/g, "").slice(0, 2))
+                }
+                placeholder="2"
+                disabled={endYearText.trim() === ""}
+                className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+              />
+            </div>
           </div>
+          <p className="text-base text-zinc-600">
+            모르거나 아직 안 끝났으면 비워두셔도 돼요. 적으시면 연혁에{" "}
+            <b>시작·끝 두 점</b>으로 보여요.
+          </p>
         </div>
       )}
     </section>

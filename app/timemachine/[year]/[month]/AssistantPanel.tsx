@@ -28,18 +28,24 @@ import {
 //   - 한 번 저장된 답은 같은 채팅 화면에서 "저장됨" 으로 disabled.
 //   - 저장된 답변 모드에서 "빼기" 가능 → 삭제 후 채팅 답에서 다시 저장 가능.
 
-// 칩마다 보조 라벨로 출처 힌트를 미리 보여줌 — 사용자가 클릭 전에
-// 무료(우리 자료)/유료(검색) 를 가늠할 수 있게.
-// 주의: "우리 자료" 라벨은 시드된 달(2025.6~2026.5)에서만 정확.
-// 시드 없는 달에선 검색 폴백이 되지만, 사용자의 보통 사용 패턴(최근 달)
-// 에선 안내가 맞는 경우가 더 많아 "보통" 으로 표현.
-const SUGGESTED_QUESTIONS: { text: string; hint: string }[] = [
-  { text: "이때 나라가 떠들썩했던 일은?", hint: "보통 우리 자료" },
-  { text: "이때 유행한 노래는?", hint: "보통 우리 자료" },
+// 2026-06-07 — 모드 선택 UI 도입에 따라 칩을 두 갈래로 분리.
+//   STORIES_CHIPS : "그 시절 이야기" 모드 — 우리 자료에서 끌어오는 질문 (무료)
+//   ASK_CHIPS     : "AI에게 물어보기" 모드 — 인터넷에서 찾아오는 질문 (토큰 사용)
+// 백엔드(/api/timemachine/assistant) 는 키워드로 분기하므로 모드 선택은
+// 어디까지나 UI 가이드. 사용자가 "stories" 모드에서 자유 질문을 던져 검색
+// 폴백이 되어도 백엔드가 정상 처리.
+const STORIES_CHIPS: { text: string; hint: string }[] = [
+  { text: "이때 유행한 노래는?", hint: "우리 자료" },
+  { text: "이때 나라가 떠들썩했던 일은?", hint: "우리 자료" },
+];
+const ASK_CHIPS: { text: string; hint: string }[] = [
   { text: "그때 인기 드라마·영화는?", hint: "인터넷 검색" },
   { text: "그 시절 유행은?", hint: "인터넷 검색" },
   { text: "그때 물가나 살림은?", hint: "인터넷 검색" },
 ];
+
+// 비서 모드. "selecting" 은 첫 진입 — 두 큰 버튼 중 고른다.
+type AssistantMode = "selecting" | "stories" | "ask";
 
 type Citation = { url: string; title: string };
 
@@ -192,7 +198,11 @@ export function AssistantPanel({
   onAddEvent: (k: KeptEventInput) => void;
   initialSavedAnswers: InitialSavedAnswer[];
 }) {
-  const [mode, setMode] = useState<"chat" | "saved">("chat");
+  // 2026-06-07 — 두 레벨의 모드:
+  //   mode : 비서 본 모드 (selecting → stories / ask). 첫 진입은 selecting.
+  //   view : 그 모드 안에서 채팅 / 저장된 답변 탭.
+  const [mode, setMode] = useState<AssistantMode>("selecting");
+  const [view, setView] = useState<"chat" | "saved">("chat");
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [savedAnswers, setSavedAnswers] = useState<SavedItem[]>(
     initialSavedAnswers,
@@ -339,76 +349,106 @@ export function AssistantPanel({
     });
   }
 
+  // 2026-06-07 — 모드 선택 화면. 첫 진입과 "← 뒤로" 후 다시 보이는 화면.
+  // 채팅 thread 와 저장된 답변 state 는 부모(이 함수)에 그대로 살아 있어,
+  // 다른 모드로 돌아와도 잃지 않음.
+  if (mode === "selecting") {
+    return (
+      <ModeSelectionView
+        savedCount={savedAnswers.length}
+        onPick={(m) => {
+          setMode(m);
+          setView("chat");
+        }}
+        onOpenSaved={() => {
+          // 모드를 정해 두지 않으면 "← 뒤로" 한 번에 다시 selecting 으로
+          // 와야 하므로 stories(무료, 가벼움)를 기본 둠.
+          setMode("stories");
+          setView("saved");
+        }}
+      />
+    );
+  }
+
+  // 모드별 상수 (selecting 이 아닐 때만 의미).
+  const chips = mode === "stories" ? STORIES_CHIPS : ASK_CHIPS;
+  const modeTitle = mode === "stories" ? "그 시절 이야기" : "AI에게 물어보기";
+  const modeIcon = mode === "stories" ? "📚" : "🔍";
+
   return (
-    <aside className="flex flex-col gap-5 rounded-md border-2 border-violet-200 bg-violet-50 p-6">
-      <div>
-        <h2 className="text-2xl font-bold text-zinc-900 sm:text-3xl">
-          비서에게 물어보기
-        </h2>
-        <p className="mt-2 text-base text-zinc-700 sm:text-lg">
-          {year}년 {month}월에 대해 궁금한 걸 골라 보세요.
-        </p>
+    <aside className="flex flex-col gap-4 rounded-md border-2 border-violet-200 bg-violet-50 p-6">
+      {/* 모드 헤더 — 뒤로 + 현재 모드 표시 */}
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setMode("selecting")}
+          className="inline-flex min-h-[44px] items-center gap-1 rounded-md border-2 border-violet-300 bg-white px-3 py-2 text-base font-semibold text-violet-900 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+        >
+          ← 뒤로
+        </button>
+        <span className="inline-flex items-center gap-1 text-base font-semibold text-violet-900 sm:text-lg">
+          <span aria-hidden>{modeIcon}</span>
+          {modeTitle}
+        </span>
       </div>
 
-      {/* 모드 토글 */}
-      <div className="flex gap-2" role="tablist" aria-label="비서 모드">
+      {/* 채팅 / 저장된 답변 탭 */}
+      <div className="flex gap-2" role="tablist" aria-label="비서 화면">
         <TabButton
-          active={mode === "chat"}
-          onClick={() => setMode("chat")}
+          active={view === "chat"}
+          onClick={() => setView("chat")}
           label={`채팅${messages.length > 0 ? ` (${messages.filter((m) => m.role === "assistant").length})` : ""}`}
         />
         <TabButton
-          active={mode === "saved"}
-          onClick={() => setMode("saved")}
+          active={view === "saved"}
+          onClick={() => setView("saved")}
           label={`저장된 답변${savedAnswers.length > 0 ? ` (${savedAnswers.length})` : ""}`}
         />
       </div>
 
-      {mode === "chat" ? (
+      {view === "chat" ? (
         <>
-          {/* V4 — 답의 깊이 토글. 칩 위에 한 줄로. 시니어 친화 라벨 + 추정
-              토큰을 미리 보여줌. 모델 이름은 절대 노출 X. */}
-          <fieldset className="flex flex-col gap-2 rounded-md border-2 border-violet-200 bg-white p-4">
-            <legend className="px-2 text-base font-semibold text-zinc-800">
-              답의 깊이
-            </legend>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {DEPTH_OPTIONS.map((opt) => {
-                const active = depth === opt.key;
-                return (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => setDepth(opt.key)}
-                    disabled={isPending}
-                    className={
-                      "flex min-h-[60px] flex-col items-start justify-center rounded-md border-2 px-4 py-2 text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
-                      (active
-                        ? "border-violet-700 bg-violet-700 text-white"
-                        : "border-violet-300 bg-white text-zinc-900 hover:bg-violet-50")
-                    }
-                  >
-                    <span className="text-base font-bold sm:text-lg">
-                      {opt.info.label}
-                    </span>
-                    <span
+          {/* V4 — 답의 깊이 토글. "AI에게 물어보기" 모드에서만 노출.
+              "그 시절 이야기" 모드는 우리 자료 = 무료라 깊이 무관. */}
+          {mode === "ask" && (
+            <fieldset className="flex flex-col gap-2 rounded-md border-2 border-violet-200 bg-white p-4">
+              <legend className="px-2 text-base font-semibold text-zinc-800">
+                답의 깊이
+              </legend>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {DEPTH_OPTIONS.map((opt) => {
+                  const active = depth === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setDepth(opt.key)}
+                      disabled={isPending}
                       className={
-                        "text-sm " + (active ? "text-violet-100" : "text-zinc-600")
+                        "flex min-h-[60px] flex-col items-start justify-center rounded-md border-2 px-4 py-2 text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
+                        (active
+                          ? "border-violet-700 bg-violet-700 text-white"
+                          : "border-violet-300 bg-white text-zinc-900 hover:bg-violet-50")
                       }
                     >
-                      {opt.info.hint}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="px-2 text-sm text-zinc-600">
-              더 정확한 답이 필요하면 &quot;자세히&quot; 또는 &quot;가장 정확하게&quot;를 골라보세요. 노래·큰 사건처럼{" "}
-              <span className="font-semibold text-emerald-700">우리 자료</span>에 있는 답은 깊이와 상관없이 무료예요.
-            </p>
-          </fieldset>
+                      <span className="text-base font-bold sm:text-lg">
+                        {opt.info.label}
+                      </span>
+                      <span
+                        className={
+                          "text-sm " + (active ? "text-violet-100" : "text-zinc-600")
+                        }
+                      >
+                        {opt.info.hint}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
 
           {/* 대화 thread — 일반 채팅방 패턴: 답이 위, 입력은 아래.
               고정 max-height + 내부 스크롤. 시니어 친화 위해 스크롤바
@@ -441,10 +481,9 @@ export function AssistantPanel({
             </div>
           )}
 
-          {/* 추천 질문 칩 — 클릭 전에 출처(무료/검색) 힌트도 함께. 입력
-              바로 위에 두어 사용자가 thread 끝에서 바로 다음 질문 선택. */}
+          {/* 모드별 추천 질문 칩 — 한 모드당 2~3개. 입력 바로 위. */}
           <div className="flex flex-wrap gap-2">
-            {SUGGESTED_QUESTIONS.map((q) => {
+            {chips.map((q) => {
               const isDb = q.hint.includes("우리 자료");
               return (
                 <button
@@ -526,6 +565,105 @@ export function AssistantPanel({
         />
       )}
     </aside>
+  );
+}
+
+// 2026-06-07 — 모드 선택 화면. 첫 진입과 "← 뒤로" 후 다시 보이는 화면.
+// 두 큰 버튼만 — 한 화면에 선택지 2개로 과부하 방지. 저장된 답이 이미 있으면
+// 작은 보조 링크 한 줄.
+function ModeSelectionView({
+  savedCount,
+  onPick,
+  onOpenSaved,
+}: {
+  savedCount: number;
+  onPick: (m: "stories" | "ask") => void;
+  onOpenSaved: () => void;
+}) {
+  return (
+    <aside className="flex flex-col gap-5 rounded-md border-2 border-violet-200 bg-violet-50 p-6">
+      <div>
+        <h2 className="text-2xl font-bold text-zinc-900 sm:text-3xl">
+          무엇을 찾아볼까요?
+        </h2>
+        <p className="mt-2 text-base text-zinc-700 sm:text-lg">
+          궁금한 게 있으면 가볍게 물어보세요.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <ModeCard
+          icon="📚"
+          title="그 시절 이야기"
+          desc="노래·큰 사건 등 우리 자료에서 골라드려요."
+          tag="무료"
+          tagClass="border-emerald-500 bg-emerald-50 text-emerald-900"
+          onClick={() => onPick("stories")}
+        />
+        <ModeCard
+          icon="🔍"
+          title="AI에게 물어보기"
+          desc="인터넷에서 찾아드려요. 더 폭넓게 답할 수 있어요."
+          tag="토큰 사용"
+          tagClass="border-zinc-400 bg-zinc-100 text-zinc-800"
+          onClick={() => onPick("ask")}
+        />
+      </div>
+
+      {savedCount > 0 && (
+        <div className="border-t-2 border-violet-200 pt-4 text-center">
+          <button
+            type="button"
+            onClick={onOpenSaved}
+            className="text-base font-semibold text-violet-800 underline hover:text-violet-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500"
+          >
+            저장된 답변 {savedCount}개 보기 →
+          </button>
+        </div>
+      )}
+    </aside>
+  );
+}
+
+function ModeCard({
+  icon,
+  title,
+  desc,
+  tag,
+  tagClass,
+  onClick,
+}: {
+  icon: string;
+  title: string;
+  desc: string;
+  tag: string;
+  tagClass: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex min-h-[96px] items-start gap-4 rounded-md border-2 border-violet-300 bg-white p-5 text-left hover:border-violet-500 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+    >
+      <span aria-hidden className="text-4xl">
+        {icon}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="text-xl font-bold text-zinc-900 sm:text-2xl">
+          {title}
+        </span>
+        <span className="text-base text-zinc-700 sm:text-lg">{desc}</span>
+        <span
+          className={
+            "mt-1 inline-flex w-fit items-center rounded-full border-2 px-3 py-0.5 text-xs font-semibold " +
+            tagClass
+          }
+        >
+          {tag}
+        </span>
+      </div>
+    </button>
   );
 }
 

@@ -34,6 +34,7 @@ type InitialAnswer = {
   year: number;
   month: number | null;
   endYear: number | null;
+  endMonth: number | null;
   content: string;
   place: PlaceInfo;
 } | null;
@@ -66,6 +67,9 @@ export function CategoryForm({
   const [endYearText, setEndYearText] = useState(
     initial?.endYear != null ? String(initial.endYear) : "",
   );
+  const [endMonthText, setEndMonthText] = useState(
+    initial?.endMonth != null ? String(initial.endMonth) : "",
+  );
   const [content, setContent] = useState(initial?.content ?? "");
   const [place, setPlace] = useState<PlaceInfo>(initial?.place ?? EMPTY_PLACE);
   const [error, setError] = useState<string | null>(null);
@@ -86,12 +90,15 @@ export function CategoryForm({
     const year = parseIntOrNull(yearText);
     const month = parseIntOrNull(monthText);
     const endYear = isPeriod ? parseIntOrNull(endYearText) : null;
+    const endMonth =
+      isPeriod && endYear !== null ? parseIntOrNull(endMonthText) : null;
     startTransition(async () => {
       const result = await submitLifeRecord(category, {
         title,
         year,
         month,
         endYear,
+        endMonth,
         content: content.trim() === "" ? null : content,
         place: {
           placeName: place.placeName,
@@ -214,14 +221,14 @@ export function CategoryForm({
 
       {isPeriod && (
         <section className="flex flex-col gap-2">
-          <label
-            htmlFor="life-end-year"
-            className="text-lg font-semibold text-zinc-900"
-          >
-            끝난 해 <span className="font-normal text-zinc-500">(선택)</span>
-          </label>
+          <p className="text-lg font-semibold text-zinc-900">
+            언제 끝났어요? <span className="font-normal text-zinc-500">(선택)</span>
+          </p>
           <div className="flex items-end gap-3">
-            <div className="w-44">
+            <div className="flex-1">
+              <label htmlFor="life-end-year" className="block text-base text-zinc-700">
+                끝난 해
+              </label>
               <input
                 id="life-end-year"
                 type="text"
@@ -232,7 +239,7 @@ export function CategoryForm({
                   setEndYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
                 }
                 placeholder="예: 1991"
-                className="w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
               />
               {ageForEndYear && (
                 <p className="mt-1 text-sm text-zinc-600">
@@ -240,11 +247,32 @@ export function CategoryForm({
                 </p>
               )}
             </div>
-            <p className="flex-1 text-base text-zinc-600">
-              모르거나 아직 안 끝났으면 비워두셔도 돼요. 끝난 해를 적으시면
-              연혁에 <b>시작·끝 두 점</b>으로 표시돼요.
-            </p>
+            <div className="w-32">
+              <label
+                htmlFor="life-end-month"
+                className="block text-base text-zinc-700"
+              >
+                월 (선택)
+              </label>
+              <input
+                id="life-end-month"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={endMonthText}
+                onChange={(e) =>
+                  setEndMonthText(e.target.value.replace(/\D/g, "").slice(0, 2))
+                }
+                placeholder="2"
+                disabled={endYearText.trim() === ""}
+                className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+              />
+            </div>
           </div>
+          <p className="text-base text-zinc-600">
+            모르거나 아직 안 끝났으면 비워두셔도 돼요. 끝난 해를 적으시면 연혁
+            에 <b>시작·끝 두 점</b>으로 표시돼요.
+          </p>
         </section>
       )}
 

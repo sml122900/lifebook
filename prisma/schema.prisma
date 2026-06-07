@@ -474,7 +474,11 @@ model UserMemory {
   // Phase L2(+) — 기간(SCHOOL/WORK/MILITARY/RESIDENCE)의 끝 연도. life_event
   // 시작 행에만 채워짐. 시간축 렌더 시 endYear 있는 행은 "시작"·"끝" 두 점
   // 으로 split(같은 메모리 id 공유 → 룸 공유·반응은 한 단위로 유지).
-  endYear Int?
+  endYear  Int?
+  // 2026-06-07 — 기간의 끝 월(선택). endYear 가 있을 때만 의미가 있고,
+  // 채워지면 시간축의 "끝" 점이 EXACT(큰 채움 점, 정확한 시점)로 보이고
+  // 라벨이 "YYYY년 MM월" 로 표시된다. null 이면 기존처럼 APPROXIMATE 끝 점.
+  endMonth Int?
 
   // Phase Place — 장소 매칭. life_event(특히 BIRTH·KINDERGARTEN·학령기 4종·
   // MILITARY·WORK) 행에서 사용자가 네이버/구글 지도 검색으로 고른 장소.
@@ -498,6 +502,11 @@ model UserMemory {
   @@index([userId])
   // Phase L1 — 인생 연혁 화면(L3)에서 사용자별 life_event 시간순 정렬용.
   @@index([userId, eventYear, eventMonth])
+  // Phase E2 — 시대 사건 클릭 담기 중복 차단은 DB-only partial unique
+  // index 로 강제됨 ("UserMemory_userId_monthEventId_createdVia_key" in
+  // migration 20260608000000_era_event_unique). Prisma `@@unique` 는
+  // partial WHERE 절을 표현하지 못해 schema 에 직접 못 적음. 코드는
+  // P2002 catch 패턴 — 클라이언트 compound where 헬퍼 없이도 안전.
 }
 
 // Phase T1 (타임머신) — 월별 사건 + 차트 음악.

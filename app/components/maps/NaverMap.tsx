@@ -20,7 +20,11 @@ import { type MapProps, SEOUL_CITY_HALL } from "./types";
 //
 // 마커 click → onMarkerClick(idx) — 호출자가 결과 pick 로 연결.
 
-const SCRIPT_SRC = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID ?? ""}`;
+// 신형 NCP Maps 키(X-NCP-APIGW-API-KEY-ID 라벨) 는 파라미터 이름이
+// ncpKeyId. 구형 ncpClientId 로 신형 키를 쓰면 "200 Authentication
+// Failed" 가 떨어진다. 환경변수 이름은 호환성 위해 그대로 두고
+// 파라미터만 신형 규격으로.
+const SCRIPT_SRC = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID ?? ""}`;
 
 export function NaverMap({
   markers,

@@ -32,6 +32,8 @@ export type LifeEventInputRaw = {
   // L2(+) — 기간 카테고리(학령기 5종 + MILITARY + WORK)의 끝 연도.
   // 비기간 카테고리에서 보내면 무시(헬퍼가 null 정규화).
   endYear: number | null;
+  // 2026-06-07 — 끝 월(선택, endYear 가 있을 때만 의미).
+  endMonth: number | null;
   content: string | null;
   // Phase Place — 모든 카테고리에서 선택 가능. 미선택이면 모두 null.
   place?: {
@@ -132,6 +134,7 @@ type ValidationOk = {
   year: number;
   month: number | null;
   endYear: number | null;
+  endMonth: number | null;
   content: string | null;
   place: PlaceInfo;
 };
@@ -206,6 +209,25 @@ function validate(raw: LifeEventInputRaw): ValidationOk | ValidationFail {
     endYear = raw.endYear;
   }
 
+  // 2026-06-07 — endMonth 검증. endYear 가 있어야 의미 있음.
+  let endMonth: number | null = null;
+  if (isPeriodCategory(category) && endYear !== null && raw.endMonth !== null) {
+    if (
+      !Number.isInteger(raw.endMonth) ||
+      raw.endMonth < 1 ||
+      raw.endMonth > 12
+    ) {
+      return { ok: false, error: "끝난 달은 1부터 12 사이로 적어주세요." };
+    }
+    if (endYear === year && month !== null && raw.endMonth < month) {
+      return {
+        ok: false,
+        error: "끝난 달이 시작한 달보다 앞일 수 없어요.",
+      };
+    }
+    endMonth = raw.endMonth;
+  }
+
   let content: string | null = null;
   if (typeof raw.content === "string" && raw.content.trim() !== "") {
     if (raw.content.length > CONTENT_MAX) {
@@ -225,6 +247,7 @@ function validate(raw: LifeEventInputRaw): ValidationOk | ValidationFail {
     year,
     month,
     endYear,
+    endMonth,
     content,
     place: placeResult.place,
   };
@@ -247,6 +270,7 @@ export async function addLifeEventAction(
       year: v.year,
       month: v.month,
       endYear: v.endYear,
+      endMonth: v.endMonth,
       content: v.content,
       place: v.place,
     },
@@ -277,6 +301,7 @@ export async function updateLifeEventAction(
       year: v.year,
       month: v.month,
       endYear: v.endYear,
+      endMonth: v.endMonth,
       content: v.content,
       place: v.place,
     },

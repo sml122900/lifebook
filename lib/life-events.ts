@@ -22,8 +22,15 @@ import { prisma } from "./db";
 export { EMPTY_PLACE, type PlaceInfo };
 
 export const CREATED_VIA_LIFE_EVENT = "life_event";
+// Phase E2 — 시대 사건 클릭 담기 흐름. lib/era-stash.ts 와 동일 상수
+// (cross-import 회피 위해 두 곳에 명시. 운영 분석 단계에서 상수 모음
+// CREATED_VIA = {...} 로 통합 후보 — CLAUDE.md M15 후속).
+export const CREATED_VIA_ERA_EVENT = "era_event";
 
 export type LifeEvent = {
+  // life_event(사용자가 직접 쓴 인생 기록) 인지 era_event(시대 사건 담기)
+  // 인지. 시각 분기·비서 컨텍스트 필터·인물 연결 가드의 단일 결정자.
+  kind: "life_event" | "era_event";
   id: string;
   title: string;
   eventYear: number;
@@ -34,10 +41,24 @@ export type LifeEvent = {
   // L2(+) — 기간 카테고리(SCHOOL/WORK/MILITARY/RESIDENCE)의 끝 연도.
   // 시간축 렌더가 이 값이 있으면 "시작"·"끝" 두 점으로 split.
   endYear: number | null;
+  // 2026-06-07 — 끝 월(선택, endYear 있을 때만 의미). 채워지면 끝 점이
+  // EXACT(큰 채움 점) + "YYYY년 MM월" 라벨로, null 이면 APPROXIMATE.
+  endMonth: number | null;
   // Phase Place — 모두 nullable. 8개 카테고리(BIRTH·KINDERGARTEN·학령기·
   // MILITARY·WORK)만 폼에서 입력받지만, 타입은 전 카테고리 공통.
   place: PlaceInfo;
   createdAt: Date;
+  // Phase E2 — era_event 행만 채워짐. 시대 자료(MonthEvent description)·
+  // 출처(source)·EventSection enum 을 연혁 카드에 작은 글씨로 표시.
+  // life_event 행은 모두 null.
+  eraDescription: string | null;
+  eraSource: string | null;
+  eraSection:
+    | "POLITICS_SOCIETY"
+    | "CULTURE"
+    | "SPORTS"
+    | "TREND"
+    | null;
 };
 
 // 기간이 의미 있는 카테고리. UI(폼) 와 헬퍼(저장 검증) 가 공유.
@@ -77,10 +98,14 @@ export function isPeriodCategory(category: LifeCategory): boolean {
 // life_event 행은 eventYear 가 항상 채워져 있는 게 약속(L1 스키마 주석).
 // 방어적으로 NULL 행은 결과에서 제외한다.
 export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
+  // Phase E2 — life_event + era_event 둘 다 가져옴. 비서 컨텍스트 등 일부
+  // 호출자는 호출 측에서 kind 로 filter (한 줄). 시간축은 둘 다 보여줌.
   const rows = await prisma.userMemory.findMany({
     where: {
       userId,
-      createdVia: CREATED_VIA_LIFE_EVENT,
+      createdVia: {
+        in: [CREATED_VIA_LIFE_EVENT, CREATED_VIA_ERA_EVENT],
+      },
       eventYear: { not: null },
     },
     select: {
@@ -89,6 +114,7 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
       eventYear: true,
       eventMonth: true,
       endYear: true,
+      endMonth: true,
       precision: true,
       category: true,
       content: true,
@@ -99,6 +125,12 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
       lat: true,
       lng: true,
       placeSource: true,
+      createdVia: true,
+      // era_event 행만 채워짐 — monthEventId join 으로 시대 자료 가져옴.
+      // monthEventId 가 SetNull 이라 시드 삭제 시 null. 안전 fallback.
+      monthEvent: {
+        select: { description: true, source: true, section: true },
+      },
     },
     orderBy: [
       { eventYear: "asc" },
@@ -107,24 +139,32 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
     ],
   });
 
-  return rows.map((r) => ({
-    id: r.id,
-    title: r.eventTitle ?? r.title,
-    eventYear: r.eventYear as number, // where 절에서 not null 보장
-    eventMonth: r.eventMonth,
-    precision: r.precision ?? "APPROXIMATE", // 기본은 사이 이벤트
-    category: r.category,
-    content: r.content,
-    endYear: r.endYear,
-    place: {
-      placeName: r.placeName,
-      placeAddress: r.placeAddress,
-      lat: r.lat,
-      lng: r.lng,
-      placeSource: r.placeSource,
-    },
-    createdAt: r.createdAt,
-  }));
+  return rows.map((r) => {
+    const isEra = r.createdVia === CREATED_VIA_ERA_EVENT;
+    return {
+      kind: isEra ? ("era_event" as const) : ("life_event" as const),
+      id: r.id,
+      title: r.eventTitle ?? r.title,
+      eventYear: r.eventYear as number, // where 절에서 not null 보장
+      eventMonth: r.eventMonth,
+      precision: r.precision ?? "APPROXIMATE", // 기본은 사이 이벤트
+      category: r.category,
+      content: r.content,
+      endYear: r.endYear,
+      endMonth: r.endMonth,
+      place: {
+        placeName: r.placeName,
+        placeAddress: r.placeAddress,
+        lat: r.lat,
+        lng: r.lng,
+        placeSource: r.placeSource,
+      },
+      createdAt: r.createdAt,
+      eraDescription: isEra ? r.monthEvent?.description ?? null : null,
+      eraSource: isEra ? r.monthEvent?.source ?? null : null,
+      eraSection: isEra ? r.monthEvent?.section ?? null : null,
+    };
+  });
 }
 
 // L2(+) — 사용자의 출생 연도 1회 조회. BIRTH 카테고리에 답한 행이 있으면
@@ -225,6 +265,7 @@ export async function getLifeEventForCategory(
   eventYear: number;
   eventMonth: number | null;
   endYear: number | null;
+  endMonth: number | null;
   content: string | null;
   precision: EventPrecision;
   place: PlaceInfo;
@@ -242,6 +283,7 @@ export async function getLifeEventForCategory(
       eventYear: true,
       eventMonth: true,
       endYear: true,
+      endMonth: true,
       content: true,
       precision: true,
       placeName: true,
@@ -259,6 +301,7 @@ export async function getLifeEventForCategory(
     eventYear: row.eventYear,
     eventMonth: row.eventMonth,
     endYear: row.endYear,
+    endMonth: row.endMonth,
     content: row.content,
     precision: row.precision ?? "APPROXIMATE",
     place: {
@@ -277,6 +320,9 @@ export type LifeRecordInput = {
   month: number | null;
   // L2(+) — 기간 카테고리의 끝 연도. 비기간 카테고리·끝 모름이면 null.
   endYear: number | null;
+  // 2026-06-07 — 끝 월(선택). endYear 가 있고 기간 카테고리일 때만 저장,
+  // 그 외엔 무조건 null 로 정규화(헬퍼). 옵셔널(기존 호출자 호환).
+  endMonth?: number | null;
   content: string | null;
   // Phase Place — 입력 안 했거나 카테고리가 장소 비대상이면 EMPTY_PLACE.
   place?: PlaceInfo;
@@ -318,8 +364,13 @@ export async function upsertLifeEvent(
   // 답을 저장하면 "건너뜀" 셋에서 자동 해제 (사용자가 마음 바꾼 케이스).
   await unmarkCategorySkipped(userId, category);
 
-  // 비기간 카테고리에서 endYear 가 잘못 들어오면 null 로 정규화.
+  // 비기간 카테고리에서 endYear/endMonth 가 잘못 들어오면 null 로 정규화.
+  // endYear 가 null 이면 endMonth 도 무조건 null (월만 있는 끝은 의미 없음).
   const endYear = isPeriodCategory(category) ? input.endYear : null;
+  const endMonth =
+    endYear !== null && isPeriodCategory(category)
+      ? input.endMonth ?? null
+      : null;
   const place = input.place ?? EMPTY_PLACE;
 
   if (existing) {
@@ -331,6 +382,7 @@ export async function upsertLifeEvent(
         eventYear: input.year,
         eventMonth: input.month,
         endYear,
+        endMonth,
         precision,
         // category 는 그대로 (where 로 잡았으므로)
         // 미러링
@@ -359,6 +411,7 @@ export async function upsertLifeEvent(
       eventYear: input.year,
       eventMonth: input.month,
       endYear,
+      endMonth,
       precision,
       category,
       // 미러링
@@ -397,6 +450,10 @@ export async function createLifeEvent(
   if (precision === "EXACT" && input.month === null) precision = "APPROXIMATE";
 
   const endYear = isPeriodCategory(category) ? input.endYear : null;
+  const endMonth =
+    endYear !== null && isPeriodCategory(category)
+      ? input.endMonth ?? null
+      : null;
   const place = input.place ?? EMPTY_PLACE;
 
   const created = await prisma.userMemory.create({
@@ -407,6 +464,7 @@ export async function createLifeEvent(
       eventYear: input.year,
       eventMonth: input.month,
       endYear,
+      endMonth,
       precision,
       category,
       year: input.year,
@@ -438,6 +496,10 @@ export async function updateLifeEvent(
   if (precision === "EXACT" && input.month === null) precision = "APPROXIMATE";
 
   const endYear = isPeriodCategory(category) ? input.endYear : null;
+  const endMonth =
+    endYear !== null && isPeriodCategory(category)
+      ? input.endMonth ?? null
+      : null;
   const place = input.place ?? EMPTY_PLACE;
 
   // 소유 확인 후 update — updateMany 로 한 트랜잭션, 일치 안 하면 count=0.
@@ -452,6 +514,7 @@ export async function updateLifeEvent(
       eventYear: input.year,
       eventMonth: input.month,
       endYear,
+      endMonth,
       precision,
       category,
       year: input.year,
@@ -495,6 +558,7 @@ export async function getLifeEventById(
   eventYear: number;
   eventMonth: number | null;
   endYear: number | null;
+  endMonth: number | null;
   content: string | null;
   precision: EventPrecision;
   place: PlaceInfo;
@@ -513,6 +577,7 @@ export async function getLifeEventById(
       eventYear: true,
       eventMonth: true,
       endYear: true,
+      endMonth: true,
       content: true,
       precision: true,
       placeName: true,
@@ -530,6 +595,7 @@ export async function getLifeEventById(
     eventYear: row.eventYear,
     eventMonth: row.eventMonth,
     endYear: row.endYear,
+    endMonth: row.endMonth,
     content: row.content,
     precision: row.precision ?? "APPROXIMATE",
     place: {

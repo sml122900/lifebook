@@ -211,12 +211,21 @@ export async function POST(req: Request) {
         : await searchGoogle(parsed.query);
     return NextResponse.json({ ok: true, source: parsed.source, results });
   } catch (e) {
-    const msg =
-      e instanceof Error && e.message
-        ? e.message
-        : "장소 검색에 실패했어요.";
+    // H1 — 외부 API 오류(403/키 미설정/네트워크 등) 의 원본 메시지는
+    // 서버 로그에만. 사용자에겐 친화 메시지 한 가지로 통일 — "구글 검색
+    // 실패 (403)" 같은 운영자용 디테일이 어르신 화면에 흐르지 않게.
+    // 입력 검증 오류(parseBody 400) 는 위에서 그대로 통과시킴 — 사용자가
+    // 무엇이 잘못됐는지 알아야 하는 경우라 가리지 않음.
+    console.error("[place-search] external API failed", {
+      source: parsed.source,
+      message: e instanceof Error ? e.message : String(e),
+    });
     return NextResponse.json(
-      { ok: false, error: msg, source: parsed.source },
+      {
+        ok: false,
+        error: "장소를 찾지 못했어요. 다른 이름으로 찾아보시겠어요?",
+        source: parsed.source,
+      },
       { status: 502 },
     );
   }
