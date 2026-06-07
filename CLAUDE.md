@@ -163,6 +163,8 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **v3.0+~v3.5** | **v3 사용성 시리즈 — 건너뛰기·기간·나이·카테고리 개편·세로축·빈공간 클릭·글로벌 위젯·토큰 통합** | (`2026-06-03` 일지)            | ✅ 완료                           |
 | **P1~P3 + Place** | **인물(Person) 3단계 + 장소 매칭(데이터·API·UI·지도 타일) + 모든 카테고리 장소 확장 + v3 진단 H/M 11항목 픽스** | (`2026-06-04` 일지) | ✅ 완료 (룸·반응·진척 0줄 영향)   |
 | **v3 월 OFF** | **월 화면 비활성화 — 메인 동선에서 '월' 개념 제거, 연혁 이벤트 클릭 → 편집 화면, 시드는 보존(archived)** | (`2026-06-06` 일지) | ✅ 완료                           |
+| **v3.6 + endMonth + 비서 UI** | **홈 link 픽스 · 기간 끝 월(endMonth) · AssistantPanel 모드 선택 · 지도 ncpKeyId · 지도 진단 5건 픽스 · Auth.js cache 복구** | (`2026-06-08` 일지) | ✅ 완료                           |
+| **E1 + E2** | **시대 연혁 둘러보기(/era) + 클릭 한 번 담기 — 1980~2019 사건 88·음악 73 시드 적재 + era_event 디스크리미네이터 + 연혁 시각 분리(slate) + 가족 룸 자동 노출** | (`2026-06-08` 일지) | ✅ E1·E2 완료 (E3 회상 추가 후속) |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -222,6 +224,26 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 - 진척 그리드 — `ProgressCard.tsx` 의 12개월 그리드 각 칸 `Link` → `<li>` 시각만. 안내문 "달별 기록 (눌러서 그 달로 이동)" → "달별 기록". aria "보러 가기" → 정보성. 채움/빔 색상은 그대로(동기부여 가치 보존)
 - 보존 — 시드(MonthEvent·ChartSong), 컴포넌트(MonthV2·MonthForm·MonthStory·EventItem·SongCard·AssistantPanel), 비서 API(`/api/timemachine/assistant`)·server actions·revalidatePath 모두 무수정. 비서는 life_event 기반 컨텍스트로 이미 동작 → 영향 0. 시대 사건/음악 DB 는 비서가 여전히 참조해 AI 채팅 용도로 살아있음
 - 검증 — tsc/build/people(39)/life-events(7)/timemachine-progress(15)/timemachine-screen 모두 통과. 새 lint 이슈 0 (기존 14건 pre-existing). build 결과에 `/timemachine/[year]/[month]` 라우트는 redirect 함수로 살아있음
+
+**v3.6 + endMonth + 비서 UI 마무리 (2026-06-08)**:
+- 홈 page link `/timeline` → `/life-timeline` 한 줄 픽스 (v3 메인 일관)
+- 기간 카테고리(학령기 5 + 군대 + 첫 직장) `endMonth Int?` 추가 — 마이그 `20260607000000_end_month_for_period_events`. ADD COLUMN 한 줄, 기존 행 무영향. 끝 점이 endMonth 있으면 EXACT 큰 점 + "YYYY년 MM월" 라벨, 없으면 기존처럼 APPROXIMATE
+- AssistantPanel 모드 선택 UI — selecting → stories(무료) / ask(토큰). "← 뒤로" + 모드별 칩 2~3개 + 깊이 토글은 ask 모드에서만. state(messages/savedAnswers/depth) 모드 전환에도 보존. 백엔드(`/api/timemachine/assistant`) 무수정
+- 네이버 NCP 신형 키 = `ncpKeyId` (X-NCP-APIGW-API-KEY-ID 라벨), 구형 `ncpClientId` 폐기. `.env.example` 에 서버용/클라용 키 분리 정책 주석 (다음 배포 함정 방지)
+- 지도 작업 점검 5건 픽스 — M2(같은 해 endMonth split: `(endYear !== eventYear || endMonth != null)`), M3(flushPendingBefore month 활용), H1(외부 API 메시지 친화 통일 + console.error 서버 로그만), H2(.env 키 분리 주석), M1(PlaceSearchInput AbortController)
+- Auth.js dev cache stale → callback 404 사고 복구 — `.next/dev` 캐시 + 좀비 node 프로세스 정리로 catch-all 라우트 재등록
+
+**시대 연혁 — E1(둘러보기) + E2(클릭 담기) (2026-06-08)**:
+- 부모님 요청 두 개 동시 해결 — "카테고리별 시대 연혁 보기" + "9·11 같은 큰 사건 클릭 한 번으로 담기"
+- **시드 적재** (E1 전제): 1980~2019 사건 88건 + 음악 73곡. `db/seed/era-events/` 폴더에 CSV + 자동 생성기(`_generate.ts`, RFC 4180 미니 파서 — 곡명/가수 안 쉼표 6건 정상 보존) + 생성된 `era-events.ts`/`era-music.ts`. `db/seed-era-events.ts` 가 deterministic id(SHA-256 24자) + per-row upsert — seed-timemachine 의 ChartSong `deleteMany+createMany` 패턴 대신 upsert 로 변경 (기존 2025-2026 음악 128곡 보존). MonthEvent 46→134 / ChartSong 128→201 (2025+ 보존 검증 통과)
+- **E1 `/era` 둘러보기** (읽기 전용): 사이드 패널 "그 시절 둘러보기" 진입 + 연대 탭 4개(1980/90/2000/2010) + 사건 카테고리 필터 5개 + 한 연대씩만 표시(시니어 친화) + 음악 "▶ 유튜브에서 듣기" 검색 링크(저작권: 임베드·음원·앨범커버 X). `lib/era-labels.ts` (한글 라벨·연대 헬퍼·youtubeSearchHref) + `lib/era-events.ts` (`year ∈ [1980, 2024)` findMany) + `app/era/{layout,page,EraView}.tsx`
+- **E2 클릭 담기**: 사건 카드 → "내 연혁에 담기" → `UserMemory(createdVia="era_event")` 한 행 생성 (year/month/title 미러링, content=null 본인 회상 자리 비움, precision=EXACT, category=null, monthEventId FK 로 출처 추적). 옵티미스틱 토글 + 담은 카드 emerald 강조 + "✓ 내 연혁에 있어요"
+- **DB partial unique** — 마이그 `20260608000000_era_event_unique`: `CREATE UNIQUE INDEX … ON UserMemory(userId, monthEventId, createdVia) WHERE monthEventId IS NOT NULL`. Prisma `@@unique` 가 partial WHERE 표현 못 함 → schema 주석만, 마이그 SQL 만 partial. 코드는 P2002 catch 패턴(`stashEraEvent` → "stashed"/"already"). 3컬럼 묶음 이유: timemachine_event 와 era_event 별도 라이프사이클 보존. 적용 전 검증(`db/check-era-unique-conflict.ts`) — 충돌 0, monthEventId 있는 행 자체 0 (era_event 가 monthEventId 첫 사용)
+- **`getLifeEvents` 확장**: `LifeEvent` 에 `kind: "life_event" | "era_event"` + `eraDescription`/`eraSource`/`eraSection` 필드. 두 createdVia 모두 가져옴 + monthEvent join. 호출자(`/life-timeline/page.tsx`)가 비서 컨텍스트는 `kind === "life_event"` filter 한 줄로 분리
+- **연혁 시각 분리** (`TimelineView` 300+ 줄 변경): life_event = amber 점/카드, **era_event = slate-400 작은 점 + slate-50 카드 + "시대 배경" 뱃지 + 시대 자료(description) + 출처**. era 점·카드 **클릭 불가**(Link X) + 👤 인물 버튼 안 그림 + PlacePreview 안 그림. 카드 하단 "내 연혁에서 빼기" 버튼(옵티미스틱 hide → server action → router.refresh()). Legend 에 "시대 배경" 항목 추가
+- **정책 가드** (이미 정함): 인물 연결 거부 — `lib/people.ts` `not_life_event` 가드 자동 처리 / 가족 룸 자동 노출 — `PersonalMemoryCard:109-113` 가 content null 시 본문 안 그려 레이아웃 0 깨짐 확인 / 비서 컨텍스트 제외 — 위 한 줄 filter
+- 검증: `db/test-era-stash.ts` 10 시나리오(담기·중복·사용자 독립·필드 매핑 8개·getLifeEvents join·인물 거부·룸 노출·idempotent 사이클·life_event 회귀) + 기존 6 스크립트 회귀 통과
+- E3 후속: era_event 본인 회상 작성 UI(content 채우기) / 가족 룸에 시대 자료 한 줄 노출 / + 버튼으로 시기별 본인 이야기 단축 추가
 
 **동기부여 핵심 루프 (Phase M ①②)** — 기획 `phase/동기부여_핵심루프_기획.md`:
 - ① 쌓이는 재미 (`lib/timemachine-progress.ts` + `ProgressCard`) — 기존 T6 `UserMemory` 읽기 집계(새 모델 0). 채운 달·사건·글자 + 12개월 진척 그리드(채움 amber/빈 칸 회색). 글자 수는 `$queryRaw` `SUM(LENGTH(BTRIM))` 로 본문 미로드. 0개월=초대 문구, 압박 금지. 메인·사이드 "내 기록"·월 화면 prev/next 배지
@@ -349,6 +371,25 @@ v3 월 OFF 신규 후속 (`docs/daily/2026-06-06.md` 참조):
 - archived `_TimemachineMonthPageArchived` + `__preserve_archived_exports` 패턴 — 부활 결정 시 default export 한 줄 교체로 복구. 일정 기간 사용 0 유지 확인 후 별도 `_archived/` 폴더로 이동 검토
 - ProgressCard import path 가 여전히 `app/timemachine/ProgressCard.tsx` (CLAUDE.md L8 기존 후속과 동일 영역) — 월 도메인 폴더에 남은 v3 친화 컴포넌트 위치 재정리 시 함께
 
+v3.6 + endMonth + 비서 UI 신규 후속 (`docs/daily/2026-06-08.md` 참조):
+- AssistantPanel 모드 선택 화면(ModeSelectionView/ModeCard) 다크모드 미대응 — CLAUDE.md M2 영역과 함께
+- TimelineView 의 `expandPeriods`/`computePeriodFlags` 같은 해 endMonth 케이스 단위 테스트 (UI 검증 어려운 순수 함수 영역)
+- `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID` 환경변수 rename → `..._KEY_ID` (의미 명확). `.env.local` 동기화 필요
+- Auth.js dev cache stale → catch-all 404 패턴 — 운영 노하우 문서화 또는 dev 시작 시 .next 자동 정리 정책 검토
+- 지도 점검 H3·M4·M5·M6·M7·L1~L8 — 인물·다크모드·매직 상수·escape 표준화 등 다음 정리 사이클로
+- 좀비 node 프로세스 (포트 3000 점유) — Windows 환경 자동 정리 스크립트 후보
+
+E1 + E2 신규 후속 (`docs/daily/2026-06-08.md` 참조):
+- **E3 era_event 본인 회상 추가 UI** — content 채우기. 카드에 "이때 어떻게 보내셨나요?" 진입로 (편집 화면 또는 인라인 입력). era 점 클릭 비활성 정책 유지 + 카드 안 작은 액션만
+- 가족 룸 시대 자료 한 줄 표시 — `listRoomMemories` 가 monthEvent join 안 함. 추가 select + `PersonalMemoryCard` 가 era_event 분기로 description 한 줄 노출. "엄마가 9·11 테러를 기억하신다" 만 보지 말고 "9·11 테러는…" 같이
+- era_event 옆 + 버튼 활용 — 그 시기에 본인 이야기 추가 단축 (`/life-timeline/add?year=` prefill 기존 패턴 재사용)
+- 시대 시드 확장 — 1980 이전(60-70년대) + 2020-2024 메우기. 어르신 회상 범위 확장 (현재 1980~2019 88건/73곡)
+- partial unique index vs PG NULL unique 동등성 검토 — 인덱스 사이즈 절감 미미. standard `@@unique` 로 단순화 가능성(드리프트 우려 0)
+- `CREATED_VIA_ERA_EVENT` 상수 lib/era-stash 와 lib/life-events 두 곳 정의 — cross-import 회피용. 상수 모음(`CREATED_VIA = {...}`) 통합 후보 (CLAUDE.md M15 영역)
+- /era + EraView 다크모드 미대응 (M2 영역)
+- /era 진입 텔레메트리 — 어떤 카테고리·연대가 많이 담기는지, 빼기 비율은 얼마인지 (시드 큐레이션 우선순위 데이터)
+- listEventsByPerson 의 `kind: "life_event" as const` 상수 매핑 — 정책상 인물 연결은 life_event 만이라 OK. 정책 변경 시 함께 봐야
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
@@ -399,6 +440,16 @@ v3 월 OFF 신규 후속 (`docs/daily/2026-06-06.md` 참조):
 - [x] 한국어 조사 헬퍼 → `lib/josa.ts` (`withJosa(name, "과/와")` + `objectJosa` + `subjectJosa`). 받침 유무 + 한글 외 문자 안전 처리
 - [x] 월 화면 비활성화 정책 (2026-06-06) → **삭제 X, redirect + archived**. `/timemachine/[year]/[month]` 는 `/life-timeline` 으로 redirect, 기존 함수는 `_TimemachineMonthPageArchived` 로 보존. 시드(MonthEvent·ChartSong)·비서 API·시드 의존 컴포넌트 모두 무수정. 부활 시 default export 만 archived 로 교체
 - [x] 연혁 이벤트 클릭 동선 (2026-06-06) → `/timemachine/[year]/[month]` (월 화면) → `/life-timeline/[eventId]/edit` (이야기·장소·인물 통합 편집). 메인 동선에서 '월' 개념 완전 제거 — 사이드 "이번 달 타임머신" 메뉴·진척 그리드 칸 진입로도 함께 닫음
+- [x] 기간 카테고리 끝 월(2026-06-08) → `UserMemory.endMonth Int?`. endMonth 있으면 끝 점이 EXACT 큰 점 + "YYYY년 MM월" 라벨. 같은 해(`endYear === eventYear`)라도 endMonth 명시되면 끝 점 split. flushPendingBefore 가 month 비교로 같은 해 다른 사건과 정렬
+- [x] AssistantPanel 모드 선택 UI (2026-06-08) → selecting → "📚 그 시절 이야기"(우리 자료 무료) / "🔍 AI에게 물어보기"(인터넷 검색 토큰). 깊이 토글은 ask 모드에서만. state(messages/savedAnswers/depth) 모드 전환에도 보존. 백엔드 무수정
+- [x] 네이버 지도 SDK 신형 키 (2026-06-08) → `?ncpKeyId=` (X-NCP-APIGW-API-KEY-ID 라벨). 구형 `ncpClientId` 와 호환 X. 환경변수명은 호환 위해 유지(`NEXT_PUBLIC_NAVER_MAP_CLIENT_ID`)
+- [x] 지도 키 분리 정책 (2026-06-08) → `.env.example` 에 서버용/클라용 명시. 구글: 서버 IP 제한 / 클라 referrer 제한. 네이버: developers.naver.com 검색 키 / NCP Maps Dynamic Map 키 (완전히 다른 시스템)
+- [x] place-search 외부 API 메시지 (2026-06-08) → 502 catch 의 `e.message` 사용자 노출 차단. 친화 메시지 한 종("장소를 찾지 못했어요…") + console.error 서버 로그만. 입력 검증 400 은 그대로 통과
+- [x] 시대 사건 클릭 담기(E2, 2026-06-08) → 새 모델 0. `UserMemory.createdVia="era_event"` + monthEventId FK + year/month/title 미러링. content=null (본인 회상 자리 비움, 시대 자료는 monthEventId join 으로 표시). precision=EXACT, category=null
+- [x] era_event 중복 차단(2026-06-08) → DB-only partial unique `(userId, monthEventId, createdVia) WHERE monthEventId IS NOT NULL`. Prisma `@@unique` 가 partial WHERE 표현 못 함 → schema 주석만. 코드는 P2002 catch 패턴. 3컬럼 묶음(timemachine_event 와 era_event 별도 라이프사이클 보존)
+- [x] era_event 카드 클릭 동선(2026-06-08) → A안 클릭 비활성 + "내 연혁에서 빼기" 버튼만. 본인 회상 추가는 E3 후속. 인물 연결도 거부(`not_life_event` 가드)
+- [x] LifeEvent kind 필드(2026-06-08) → `"life_event" | "era_event"`. 비서 컨텍스트는 호출자가 `filter(e => e.kind === "life_event")` 한 줄로 분리. life_event 만 가져오는 함수 별도 안 만듦(단순화)
+- [x] /era 음악 정책(2026-06-08) → 곡명·가수·유튜브 검색 링크만. 임베드·음원·앨범커버 X (저작권)
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
