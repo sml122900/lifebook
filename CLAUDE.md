@@ -164,7 +164,9 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **P1~P3 + Place** | **인물(Person) 3단계 + 장소 매칭(데이터·API·UI·지도 타일) + 모든 카테고리 장소 확장 + v3 진단 H/M 11항목 픽스** | (`2026-06-04` 일지) | ✅ 완료 (룸·반응·진척 0줄 영향)   |
 | **v3 월 OFF** | **월 화면 비활성화 — 메인 동선에서 '월' 개념 제거, 연혁 이벤트 클릭 → 편집 화면, 시드는 보존(archived)** | (`2026-06-06` 일지) | ✅ 완료                           |
 | **v3.6 + endMonth + 비서 UI** | **홈 link 픽스 · 기간 끝 월(endMonth) · AssistantPanel 모드 선택 · 지도 ncpKeyId · 지도 진단 5건 픽스 · Auth.js cache 복구** | (`2026-06-08` 일지) | ✅ 완료                           |
-| **E1 + E2** | **시대 연혁 둘러보기(/era) + 클릭 한 번 담기 — 1980~2019 사건 88·음악 73 시드 적재 + era_event 디스크리미네이터 + 연혁 시각 분리(slate) + 가족 룸 자동 노출** | (`2026-06-08` 일지) | ✅ E1·E2 완료 (E3 회상 추가 후속) |
+| **E1 + E2** | **시대 연혁 둘러보기(/era) + 클릭 한 번 담기 — 1980~2019 사건 88·음악 73 시드 적재 + era_event 디스크리미네이터 + 연혁 시각 분리(slate) + 가족 룸 자동 노출** | (`2026-06-08` 일지) | ✅ E1·E2 완료 |
+| **/era UX** | **텍스트 폭탄 해소 — 사건 리스트+아코디언(`grid-rows-[0fr↔1fr]`) + lucide 카테고리 아이콘 4종 + 연대별 은은한 배경(amber/emerald/sky/violet) + 사건 더 알아보기 구글 검색(민감 사건 포함 모든 사건, 정책 함수 폐기)** | (`2026-06-08` 일지 세션2) | ✅ 완료 |
+| **E3** | **era_event 본인 회상(content) 입력 — saveEraMemory + EraMemoryEditor(default/compact 양쪽 공용) + 가족 룸 자동 전파(0줄) + 17 시나리오 회귀 통과** | (`2026-06-08` 일지 세션3) | ✅ 완료 |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -243,7 +245,25 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 - **연혁 시각 분리** (`TimelineView` 300+ 줄 변경): life_event = amber 점/카드, **era_event = slate-400 작은 점 + slate-50 카드 + "시대 배경" 뱃지 + 시대 자료(description) + 출처**. era 점·카드 **클릭 불가**(Link X) + 👤 인물 버튼 안 그림 + PlacePreview 안 그림. 카드 하단 "내 연혁에서 빼기" 버튼(옵티미스틱 hide → server action → router.refresh()). Legend 에 "시대 배경" 항목 추가
 - **정책 가드** (이미 정함): 인물 연결 거부 — `lib/people.ts` `not_life_event` 가드 자동 처리 / 가족 룸 자동 노출 — `PersonalMemoryCard:109-113` 가 content null 시 본문 안 그려 레이아웃 0 깨짐 확인 / 비서 컨텍스트 제외 — 위 한 줄 filter
 - 검증: `db/test-era-stash.ts` 10 시나리오(담기·중복·사용자 독립·필드 매핑 8개·getLifeEvents join·인물 거부·룸 노출·idempotent 사이클·life_event 회귀) + 기존 6 스크립트 회귀 통과
-- E3 후속: era_event 본인 회상 작성 UI(content 채우기) / 가족 룸에 시대 자료 한 줄 노출 / + 버튼으로 시기별 본인 이야기 단축 추가
+
+**`/era` UX 개편 — 텍스트 폭탄 해소 + 시각·감성 (2026-06-08 세션 2)**:
+- 사용자가 E1+E2 직접 써본 후 "한 연대에 15건이 다 펼쳐져서 텍스트 폭탄" + "그림 없이 텍스트만이라 밋밋함" 두 문제 즉시 발견 → 한 세션에 세 축으로 해결
+- **아코디언** — `EraEventCard` → `EraEventRow`. 평소엔 헤더 한 줄(아이콘 + 제목 + 카테고리 뱃지 + ✓ + ▼), 헤더 전체 `<button>` (`min-h-[56px]` 시니어 터치) 클릭 → 펼침. 전환 = `grid-rows-[0fr ↔ 1fr]` 패턴(height auto 트랜지션 대응 + 자식 `overflow-hidden`). 여러 개 동시 펼침 허용
+- **lucide-react 아이콘** — 이모지 tofu 방지. `SECTION_ICON`: 정치사회 `Landmark` / 문화연예 `Film` / 스포츠 `Trophy` / 생활경제 `ShoppingBag`. 색은 카테고리 뱃지 톤 한 단계 진한 text-600(충돌 0). `lucide-react@^1.17.0` 추가
+- **연대 배경** — `DECADE_BG_CLASS` 추가. 사건·음악 섹션 컨테이너 `bg-{color}-50/60`. 80s amber·90s emerald·00s sky·10s violet. 카드(흰색/emerald-50) 위로 떠 보이며 색 분리, 가독성 0 영향
+- **사건 외부 검색 = 구글** — 처음엔 음악과 같은 유튜브 검색 + `showsYoutubeLink` 정책 함수(POLITICS_SOCIETY OFF + 24 키워드 부분 매칭)로 민감 사건 차단. 사용자 통찰 "구글은 위키·뉴스·백과 위주라 안전"으로 사건 전부 구글(`googleSearchHref`)로 전환, 정책 함수·키워드 죽은 코드 완전 제거(git history 가 복원 안전망 — YAGNI). 음악만 유튜브 유지(rose vs sky 톤으로 "영상·듣기" vs "정보 찾기" 분리)
+
+**E3 — era_event 본인 회상 (2026-06-08 세션 3)**:
+- E2 에서 의도적으로 비워둔 content 자리를 채우는 풀스택. 가족 룸 자동 전파 + 인물·비서 정책 보존
+- **백엔드** — `saveEraMemory(userId, monthEventId, content) → "saved"|"cleared"|"not_stashed"|"too_long"` 4 결과 enum. 권한 = `updateMany {userId, monthEventId, createdVia:"era_event"}` 단일 가드(count=0 → not_stashed). 길이 500자 + trim → 빈 문자열이면 null 정규화. 새 헬퍼 `getStashedEraMemories`(Map: monthEventId → content) 추가 (기존 `getStashedEraEventIds` 보존)
+- **server action** `saveEraMemoryAction` — auth + `revalidatePath` 세 경로(`/era`, `/life-timeline`, `/rooms`). 가족 룸 갱신 포함
+- **EraMemoryEditor 공용 컴포넌트** — `app/era/EraMemoryEditor.tsx` 신규(default/compact variant). VoiceTextarea 재사용(음성 STT). 잔량 표시 + 저장 결과별 안내. 옵티미스틱 `onSaved` 콜백으로 부모 state 즉시 동기화
+- **/era 펼친 상세** — 담은 사건만 EraMemoryEditor 항상 노출(default 톤, emerald). 안 담은 사건엔 안 보임(정책: 담아야 적을 수 있음). EraView state `Set<string>` → `Map<string, string|null>` 로 마이그
+- **/life-timeline EraCard** — viewing/editing 분리(작은 카드 시각 부담 회피). 평소 "그때 저는 — [내용]" + 작은 [수정] / content null 이면 [✏️ 그때 어떻게 지내셨나요?] 부드러운 버튼. 클릭 시 compact editor 펼침
+- **LifeEvent.monthEventId 노출** — `lib/life-events.ts` 타입 + select + 매핑에 추가(life_event=null, era_event=채워짐). EraCard 가 저장 키로 사용. `lib/people.ts` listEventsByPerson 매핑에 `monthEventId: null` 한 줄
+- **가족 룸** — `PersonalMemoryCard:109-113` 의 `{memory.content && ...}` 가드 그대로 → content 채우면 자동 노출, null 이면 안 그림. **변경 0줄**
+- **정책 보존** — 인물 연결 거부(not_life_event), 비서 컨텍스트 필터(`filter(kind === "life_event")`) 모두 무수정
+- 검증: `test-era-stash` **17 시나리오 통과**(기존 10 + E3 신규 7) + test-people(39)/test-life-events 회귀 0 + tsc/빌드 통과
 
 **동기부여 핵심 루프 (Phase M ①②)** — 기획 `phase/동기부여_핵심루프_기획.md`:
 - ① 쌓이는 재미 (`lib/timemachine-progress.ts` + `ProgressCard`) — 기존 T6 `UserMemory` 읽기 집계(새 모델 0). 채운 달·사건·글자 + 12개월 진척 그리드(채움 amber/빈 칸 회색). 글자 수는 `$queryRaw` `SUM(LENGTH(BTRIM))` 로 본문 미로드. 0개월=초대 문구, 압박 금지. 메인·사이드 "내 기록"·월 화면 prev/next 배지
@@ -380,7 +400,7 @@ v3.6 + endMonth + 비서 UI 신규 후속 (`docs/daily/2026-06-08.md` 참조):
 - 좀비 node 프로세스 (포트 3000 점유) — Windows 환경 자동 정리 스크립트 후보
 
 E1 + E2 신규 후속 (`docs/daily/2026-06-08.md` 참조):
-- **E3 era_event 본인 회상 추가 UI** — content 채우기. 카드에 "이때 어떻게 보내셨나요?" 진입로 (편집 화면 또는 인라인 입력). era 점 클릭 비활성 정책 유지 + 카드 안 작은 액션만
+- ✅ **E3 era_event 본인 회상 추가 UI** — 2026-06-08 세션 3에서 완료(EraMemoryEditor + saveEraMemory 4 결과 enum)
 - 가족 룸 시대 자료 한 줄 표시 — `listRoomMemories` 가 monthEvent join 안 함. 추가 select + `PersonalMemoryCard` 가 era_event 분기로 description 한 줄 노출. "엄마가 9·11 테러를 기억하신다" 만 보지 말고 "9·11 테러는…" 같이
 - era_event 옆 + 버튼 활용 — 그 시기에 본인 이야기 추가 단축 (`/life-timeline/add?year=` prefill 기존 패턴 재사용)
 - 시대 시드 확장 — 1980 이전(60-70년대) + 2020-2024 메우기. 어르신 회상 범위 확장 (현재 1980~2019 88건/73곡)
@@ -389,6 +409,22 @@ E1 + E2 신규 후속 (`docs/daily/2026-06-08.md` 참조):
 - /era + EraView 다크모드 미대응 (M2 영역)
 - /era 진입 텔레메트리 — 어떤 카테고리·연대가 많이 담기는지, 빼기 비율은 얼마인지 (시드 큐레이션 우선순위 데이터)
 - listEventsByPerson 의 `kind: "life_event" as const` 상수 매핑 — 정책상 인물 연결은 life_event 만이라 OK. 정책 변경 시 함께 봐야
+
+`/era` UX 개편 신규 후속 (`docs/daily/2026-06-08.md` 세션 2 참조):
+- 펼친 상세 아이콘(🔍·▶·✓·▼·▲) 다크모드 대응 — CLAUDE.md M2 영역
+- 헤더 영역 카테고리 뱃지 + ✓ + ▼ 라이트모드 정렬 — 좁은 모바일에서 길이 큰 카테고리 라벨이 사건 제목과 줄바꿈 시 시각 부담 점검
+- `expandedIds` 셋이 연대/카테고리 바뀌어 사라진 카드의 id 도 보존 — 누적 미미하나 정리 후보(가비지 컬렉션)
+- 사건 ✓ 표시는 헤더에만, 자세히 → 펼침 안 "내 연혁에 있어요" 표시도 시각 중복 가능성 — 사용성 점검
+- lucide-react 트리 셰이킹 측정 — 4 아이콘만 import 인데 번들 영향 미세하지만 비교 데이터 후속
+
+E3 신규 후속 (`docs/daily/2026-06-08.md` 세션 3 참조):
+- `EraMemoryEditor` 가 외부 prop(initialContent) 변경 시 internal value 무동기화 — 다른 클라이언트가 회상 수정 시 사용자가 새로고침해야 반영. 단일 사용자 가정 OK 이지만 가족 룸과 양쪽 화면 동시 사용 시 통보 패턴 후속
+- EraCard viewing/editing 모드 전환에 부드러운 트랜지션 미적용 — 즉시 전환. 펼침 트랜지션(`grid-rows-[0fr↔1fr]`) 적용 후보
+- /era 펼친 상세에서 안 담은 사건 펼쳤다가 담으면 회상 영역이 갑자기 나타남 — 시각 깜박임. 옵티미스틱 stash → 회상 영역 fade-in 트랜지션 후보
+- ERA_MEMORY_MAX_LENGTH 상수 lib/era-stash 와 app/era/actions(`ERA_MEMORY_LIMIT` 별명) 두 곳 export — 두 이름 중 하나로 통일 (단일 진실 원천)
+- 회상 작성 텔레메트리 — 담은 사건 중 회상 채운 비율, 평균 길이, 음성 vs 타이핑 비율 (E3 사용성 데이터)
+- /life-timeline EraCard 의 `e.content` prop 변경 시 localContent state sync 미동작 (useState 초기값만) — `useEffect` 또는 props key 패턴 검토
+- viewing 모드의 "그때 저는" 본문 + emerald-700 텍스트 톤 — 가족 룸의 표시와 시각 일관성 점검 (룸 PersonalMemoryCard 는 zinc-800 본문)
 
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
@@ -450,6 +486,12 @@ E1 + E2 신규 후속 (`docs/daily/2026-06-08.md` 참조):
 - [x] era_event 카드 클릭 동선(2026-06-08) → A안 클릭 비활성 + "내 연혁에서 빼기" 버튼만. 본인 회상 추가는 E3 후속. 인물 연결도 거부(`not_life_event` 가드)
 - [x] LifeEvent kind 필드(2026-06-08) → `"life_event" | "era_event"`. 비서 컨텍스트는 호출자가 `filter(e => e.kind === "life_event")` 한 줄로 분리. life_event 만 가져오는 함수 별도 안 만듦(단순화)
 - [x] /era 음악 정책(2026-06-08) → 곡명·가수·유튜브 검색 링크만. 임베드·음원·앨범커버 X (저작권)
+- [x] /era 사건 리스트 아코디언(2026-06-08) → 평소 헤더 한 줄, 클릭 시 펼침. `grid-rows-[0fr↔1fr]` 패턴. 여러 개 동시 펼침 허용. 카드 컴포넌트명 `EraEventCard` → `EraEventRow`
+- [x] 사건 외부 검색 = 구글 / 음악 = 유튜브(2026-06-08) → 사건은 모든 사건에 구글 검색(위키·뉴스·백과 안전). 음악은 유튜브 검색. `showsYoutubeLink` 정책 함수 + 24 키워드 폐기(git history 복원 안전망). rose(영상) vs sky(정보) 톤으로 시각 분리
+- [x] era_event content 채우기(E3, 2026-06-08) → `saveEraMemory(userId, monthEventId, content) → "saved"|"cleared"|"not_stashed"|"too_long"`. 권한 = updateMany {userId, monthEventId, createdVia:"era_event"} 단일 가드. 길이 500자, trim 후 빈 문자열 → null 정규화
+- [x] E3 양쪽 진입로 공용 컴포넌트(2026-06-08) → `EraMemoryEditor` (default/compact variant) 한 곳에서만 정의, /era 펼친 상세 + /life-timeline EraCard 가 import 해서 같은 동작. /era 는 항상 노출, EraCard 는 viewing/editing 분리(작은 카드 시각 부담 회피)
+- [x] LifeEvent.monthEventId 노출(2026-06-08) → life_event 는 null, era_event 만 채워짐. EraCard 가 회상 저장 키로 사용. `lib/people.ts` listEventsByPerson 매핑은 항상 null
+- [x] E3 가족 룸 노출(2026-06-08) → PersonalMemoryCard 변경 0줄. 기존 `{memory.content && ...}` 가드가 content 채우면 자동 노출, null 이면 안 그림
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
