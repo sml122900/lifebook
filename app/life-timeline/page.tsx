@@ -6,11 +6,9 @@ import { getFamilyNews } from "@/lib/family-news";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import { listPeople, listPeopleByEventBatch } from "@/lib/people";
 import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
-import { getTimemachineProgress } from "@/lib/timemachine-progress";
 
 import type { InitialSavedAnswer } from "../timemachine/[year]/[month]/AssistantPanel";
 import { FamilyNewsCard } from "../timemachine/FamilyNewsCard";
-import { ProgressCard } from "../timemachine/ProgressCard";
 import { AssistantModal } from "./AssistantModal";
 import { TimelineView } from "./TimelineView";
 import { V3WelcomeBanner } from "./V3WelcomeBanner";
@@ -49,17 +47,17 @@ export default async function LifeTimelinePage() {
   }
   const userId = session.user.id;
 
-  // 다섯 fetch 모두 독립 — 병렬. (출석은 /account/tokens 로 이전했고
-  // 사이드 패널 AttendanceMini 가 이미 자기 데이터를 들고 있어 여기선 안 부름.)
+  // 네 fetch 모두 독립 — 병렬. (출석은 /account/tokens 로 이전했고
+  // 사이드 패널 AttendanceMini 가 이미 자기 데이터를 들고 있어 여기선 안 부름.
+  // 진척 카드(ProgressCard)는 v3 월 OFF 후 동기부여 가치가 약해져 메인에서
+  // 뺌 — 컴포넌트·헬퍼는 보존(부활 시 import 만 다시 추가).)
   // P3 — listPeople 도 함께 prefetch (모달이 매번 fetch 하지 않게).
-  const [events, progress, familyNews, birthYear, allPeopleRows] =
-    await Promise.all([
-      getLifeEvents(userId),
-      getTimemachineProgress(userId),
-      getFamilyNews(userId),
-      getBirthYear(userId),
-      listPeople(userId),
-    ]);
+  const [events, familyNews, birthYear, allPeopleRows] = await Promise.all([
+    getLifeEvents(userId),
+    getFamilyNews(userId),
+    getBirthYear(userId),
+    listPeople(userId),
+  ]);
 
   // P2 — 연혁 점/카드 아래 인물 미리보기. N+1 회피: events.id IN(...) 으로
   // 단일 쿼리. 이벤트 0 개면 헬퍼가 즉시 빈 Map 반환. RSC→client 직렬화를
@@ -184,18 +182,18 @@ export default async function LifeTimelinePage() {
       )}
 
       {/* 보조 요소들 — 연혁 아래로. v3.5: 출석체크 카드는 /account/tokens
-          로 이전(설정 → 토큰). 메인은 연혁 + 가족 소식 + 진척만 남김. */}
-      <section
-        aria-label="동기 부여"
-        className="flex flex-col gap-6 border-t-2 border-zinc-200 pt-8"
-      >
-        <h2 className="text-2xl font-bold text-zinc-900">오늘의 한 걸음</h2>
-
-        {/* 가족 소식 — 0건이면 카드 자체 안 보임 (서운한 표현 없음). */}
-        {hasFamilyNews && <FamilyNewsCard news={familyNews} />}
-
-        <ProgressCard progress={progress} />
-      </section>
+          로 이전. 이후 ProgressCard("내 기록 현황" + 달별 그리드)도 v3 월
+          OFF 결정 후 동기부여 가치 약해져 제거 — 메인은 연혁 + 가족 소식만.
+          가족 소식 0건이면 이 섹션 자체 노출 0(헤더 포함 깔끔). */}
+      {hasFamilyNews && (
+        <section
+          aria-label="가족 소식"
+          className="flex flex-col gap-6 border-t-2 border-zinc-200 pt-8"
+        >
+          <h2 className="text-2xl font-bold text-zinc-900">오늘의 한 걸음</h2>
+          <FamilyNewsCard news={familyNews} />
+        </section>
+      )}
     </main>
   );
 }

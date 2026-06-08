@@ -2,12 +2,25 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
-  output   = "../lib/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../lib/generated/prisma"
+  // postgresqlExtensions: extensions 블록(아래) 사용을 위한 preview.
+  // vector 가 어느 스키마에 있는지 Prisma 가 인지해야 향후 migrate 가
+  // 올바른 위치에 EXTENSION 을 만든다. 기존 마이그(public 가정) 는
+  // IF NOT EXISTS 라 Supabase 의 extensions 스키마 사전 설치와 충돌 X.
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  // Prisma 7 에서 url/directUrl 은 schema.prisma 가 아닌 prisma.config.ts
+  // 의 datasource 블록에 정의 (DATABASE_URL = pooling 6543 +
+  // ?pgbouncer=true&connection_limit=1, DIRECT_URL = direct 5432 for
+  // migrate).
+  // Supabase 는 vector 확장을 "extensions" 스키마에 사전 설치. Prisma 가
+  // 향후 마이그 생성 시 이 위치를 가정. 로컬 Docker DB 는 public 에
+  // vector 가 있어 어긋나지만, 기존 마이그가 IF NOT EXISTS 라 회귀 0.
+  extensions = [vector(schema: "extensions")]
 }
 
 enum EventTier {
@@ -70,26 +83,27 @@ model User {
 
   createdAt DateTime @default(now())
 
-  accounts          Account[]
-  sessions          Session[]
-  profile           LifeProfile?
-  memories          UserMemory[]
-  triggerResponses  TriggerResponse[]
-  conversations     AIConversation[]
-  wallet            TokenWallet?
-  tokenTxs          TokenTransaction[]
-  tokenOrders       TokenOrder[]
-  ownedRooms             SharedRoom[]    @relation("SharedRoomOwner")
-  roomMemberships        RoomMember[]
-  invitesCreated         RoomInvite[]    @relation("InviteCreator")
-  comments               Comment[]
-  sharedMemoriesCreated  SharedMemory[]  @relation("SharedMemoryCreator")
-  sharedMemoriesEdited   SharedMemory[]  @relation("SharedMemoryEditor")
-  timemachineMonths      TimemachineMonth[]
-  attendances            UserAttendance[]
-  reactions              MemoryReaction[]
-  feedSeen               FamilyFeedSeen?
-  people                 Person[]
+  accounts              Account[]
+  sessions              Session[]
+  profile               LifeProfile?
+  memories              UserMemory[]
+  triggerResponses      TriggerResponse[]
+  conversations         AIConversation[]
+  wallet                TokenWallet?
+  tokenTxs              TokenTransaction[]
+  tokenOrders           TokenOrder[]
+  ownedRooms            SharedRoom[]       @relation("SharedRoomOwner")
+  roomMemberships       RoomMember[]
+  invitesCreated        RoomInvite[]       @relation("InviteCreator")
+  comments              Comment[]
+  sharedMemoriesCreated SharedMemory[]     @relation("SharedMemoryCreator")
+  sharedMemoriesEdited  SharedMemory[]     @relation("SharedMemoryEditor")
+  timemachineMonths     TimemachineMonth[]
+  attendances           UserAttendance[]
+  reactions             MemoryReaction[]
+  feedSeen              FamilyFeedSeen?
+  people                Person[]
+  photos                Photo[]
 }
 
 model Account {
@@ -149,22 +163,22 @@ model LifeProfile {
 // Prisma can't express the vector type natively, so it's Unsupported —
 // day-to-day reads/writes go through raw SQL (see lib/triggers.ts).
 model Event {
-  id          String                       @id @default(cuid())
-  year        Int
-  month       Int?
-  title       String
-  description String?
-  tier        EventTier
-  category    EventCategory
-  domain      String
-  region      String                       @default("KR")
-  sourceName  String?
-  sourceUrl   String?
-  createdAt   DateTime                     @default(now())
-  embedding         Unsupported("vector(1024)")?
-  memories          UserMemory[]
-  triggerResponses  TriggerResponse[]
-  conversations     AIConversation[]
+  id               String                       @id @default(cuid())
+  year             Int
+  month            Int?
+  title            String
+  description      String?
+  tier             EventTier
+  category         EventCategory
+  domain           String
+  region           String                       @default("KR")
+  sourceName       String?
+  sourceUrl        String?
+  createdAt        DateTime                     @default(now())
+  embedding        Unsupported("vector(1024)")?
+  memories         UserMemory[]
+  triggerResponses TriggerResponse[]
+  conversations    AIConversation[]
 
   @@index([year])
 }
@@ -189,9 +203,9 @@ model TokenTransaction {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  delta     Int      // signed: +grant/topup/refund, -ai_charge
-  reason    String   // "signup_grant" | "ai_charge" | "topup" | "refund"
-  refId     String?  // payment id, AI message id, etc.
+  delta     Int // signed: +grant/topup/refund, -ai_charge
+  reason    String // "signup_grant" | "ai_charge" | "topup" | "refund"
+  refId     String? // payment id, AI message id, etc.
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
@@ -209,16 +223,16 @@ model TokenTransaction {
 // ⚠️ Every room-scoped read MUST verify the requesting user has a
 // RoomMember row for that roomId with consentAt != null.
 model SharedRoom {
-  id             String         @id @default(cuid())
+  id             String           @id @default(cuid())
   name           String
   ownerId        String
-  owner          User           @relation("SharedRoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owner          User             @relation("SharedRoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members        RoomMember[]
   invites        RoomInvite[]
   comments       Comment[]
   reactions      MemoryReaction[]
   sharedMemories SharedMemory[]
-  createdAt      DateTime       @default(now())
+  createdAt      DateTime         @default(now())
 
   @@index([ownerId])
 }
@@ -230,7 +244,7 @@ model RoomMember {
   userId    String
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   role      RoomMemberRole
-  consentAt DateTime?      // null = invited but hasn't agreed yet
+  consentAt DateTime? // null = invited but hasn't agreed yet
   joinedAt  DateTime       @default(now())
 
   @@unique([roomId, userId])
@@ -292,7 +306,7 @@ model Comment {
   id         String     @id @default(cuid())
   roomId     String
   room       SharedRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  targetType String     // "user_memory" | "shared_memory" (later)
+  targetType String // "user_memory" | "shared_memory" (later)
   targetId   String
   authorId   String
   author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -320,11 +334,11 @@ model MemoryReaction {
   id         String     @id @default(cuid())
   roomId     String
   room       SharedRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  targetType String     // "user_memory" (shared_memory 는 추후)
+  targetType String // "user_memory" (shared_memory 는 추후)
   targetId   String
   authorId   String
   author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  stamp      String     // "touched" | "remember" | "proud" | "thanks"
+  stamp      String // "touched" | "remember" | "proud" | "thanks"
   createdAt  DateTime   @default(now())
 
   @@unique([roomId, targetType, targetId, authorId, stamp])
@@ -352,22 +366,22 @@ model FamilyFeedSeen {
 // later. paymentKey @unique means the same Toss payment cannot be
 // settled twice.
 model TokenOrder {
-  id          String           @id @default(cuid())
+  id         String           @id @default(cuid())
   // Nullable + SetNull: paid orders are retained for commerce-law
   // audit (5y); on withdrawal, userId is anonymized to null and the
   // record stays. Pending/failed/canceled are deleted in the action.
-  userId      String?
-  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
-  packageId   String
-  krw         Int
-  tokens      Int
-  status      TokenOrderStatus @default(pending)
-  paymentKey  String?          @unique
-  approvedAt  DateTime?
-  failedAt    DateTime?
-  failReason  String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  userId     String?
+  user       User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  packageId  String
+  krw        Int
+  tokens     Int
+  status     TokenOrderStatus @default(pending)
+  paymentKey String?          @unique
+  approvedAt DateTime?
+  failedAt   DateTime?
+  failReason String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
 
   @@index([userId])
 }
@@ -393,18 +407,18 @@ model AIConversation {
 }
 
 model AIMessage {
-  id              String         @id @default(cuid())
-  conversationId  String
-  conversation    AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  role            AIMessageRole
-  content         String
-  inputTokens     Int?
-  outputTokens    Int?
+  id             String         @id @default(cuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           AIMessageRole
+  content        String
+  inputTokens    Int?
+  outputTokens   Int?
   // Phase 8.3 — null = not yet settled against the wallet. Charge is
   // done per memory cycle (guided + summary together), so multiple
   // assistant messages may flip from null → now() in one transaction.
-  chargedAt       DateTime?
-  createdAt       DateTime       @default(now())
+  chargedAt      DateTime?
+  createdAt      DateTime       @default(now())
 
   @@index([conversationId])
 }
@@ -442,23 +456,23 @@ model TriggerResponse {
 //                           등 life_event 전용 필드가 채워지며, year/month/title 은
 //                           기존 코드 호환을 위해 같은 값으로 미러링한다.
 model UserMemory {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  eventId    String?
-  event      Event?   @relation(fields: [eventId], references: [id])
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId      String?
+  event        Event?      @relation(fields: [eventId], references: [id])
   // T6 — 타임머신 사건 메모는 MonthEvent 를 가리킴. SetNull 이라 시드
   // 재실행으로 MonthEvent 가 갈려도 사용자 추억 행은 살아남고 title 만
   // 비정규화로 유지된다.
   monthEventId String?
   monthEvent   MonthEvent? @relation(fields: [monthEventId], references: [id], onDelete: SetNull)
-  year       Int
-  month      Int?
-  title      String
-  content    String?
-  visibility String   @default("private")
-  createdVia String   @default("manual")
-  createdAt  DateTime @default(now())
+  year         Int
+  month        Int?
+  title        String
+  content      String?
+  visibility   String      @default("private")
+  createdVia   String      @default("manual")
+  createdAt    DateTime    @default(now())
 
   // Phase L1 — 인생 연혁(v3) 전용 컬럼. createdVia="life_event" 일 때만
   // 채워지고 그 외 행에서는 모두 NULL. 기존 year/month/title 컬럼은 그대로
@@ -498,15 +512,19 @@ model UserMemory {
   // 모델 측 제약은 createdVia 를 강제하지 않는다(헬퍼에서만 강제). cascade
   // delete 로 메모리 삭제 시 인물 링크도 함께 정리.
   personEvents PersonEvent[]
-
-  @@index([userId])
-  // Phase L1 — 인생 연혁 화면(L3)에서 사용자별 life_event 시간순 정렬용.
-  @@index([userId, eventYear, eventMonth])
+  // Phase Photo — 이 메모리에 첨부된 사진(N장). life_event 첨부형 + 독립
+  // 사진(createdVia="photo")형 둘 다 같은 1:N 구조 재사용. cascade delete
+  // 로 메모리 삭제 시 Photo row 도 정리(Storage 파일은 별도 삭제 필요).
+  photos       Photo[]
   // Phase E2 — 시대 사건 클릭 담기 중복 차단은 DB-only partial unique
   // index 로 강제됨 ("UserMemory_userId_monthEventId_createdVia_key" in
   // migration 20260608000000_era_event_unique). Prisma `@@unique` 는
   // partial WHERE 절을 표현하지 못해 schema 에 직접 못 적음. 코드는
   // P2002 catch 패턴 — 클라이언트 compound where 헬퍼 없이도 안전.
+
+  @@index([userId])
+  // Phase L1 — 인생 연혁 화면(L3)에서 사용자별 life_event 시간순 정렬용.
+  @@index([userId, eventYear, eventMonth])
 }
 
 // Phase T1 (타임머신) — 월별 사건 + 차트 음악.
@@ -559,16 +577,16 @@ enum EventPrecision {
 // 마이그레이션: 기존 SCHOOL→ELEMENTARY, CHILDHOOD→KINDERGARTEN, RESIDENCE/OTHER 행 삭제.
 // 카테고리 추가가 필요하면 마이그레이션 동반.
 enum LifeCategory {
-  BIRTH        // 출생
+  BIRTH // 출생
   KINDERGARTEN // 어린이집·유치원
-  ELEMENTARY   // 초등학교
-  MIDDLE       // 중학교
-  HIGH         // 고등학교
-  UNIVERSITY   // 대학교
-  MILITARY     // 군대
-  WORK         // 첫 직장
+  ELEMENTARY // 초등학교
+  MIDDLE // 중학교
+  HIGH // 고등학교
+  UNIVERSITY // 대학교
+  MILITARY // 군대
+  WORK // 첫 직장
   RELATIONSHIP // 결혼
-  FAMILY       // 자녀
+  FAMILY // 자녀
 }
 
 model MonthEvent {
@@ -587,7 +605,7 @@ model MonthEvent {
   endMonth    Int?
   confidence  Confidence   @default(APPROX)
   source      String?
-  memories    UserMemory[]  // T6 — 사용자가 이 사건을 "남기기" 한 추억들
+  memories    UserMemory[] // T6 — 사용자가 이 사건을 "남기기" 한 추억들
 }
 
 // @deprecated Phase T6 — 타임머신 저장이 UserMemory 로 이전됨 (한 달치
@@ -595,15 +613,15 @@ model MonthEvent {
 // 않는다. T3 보완 시점에 작성된 행이 남아있을 수 있어 모델은 유지하지만,
 // 사용자 검토 후 별도 cleanup phase 에서 drop 예정.
 model TimemachineMonth {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  year        Int
-  month       Int
-  monthStory  String   @default("")
-  keptEvents  Json     @default("[]")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  year       Int
+  month      Int
+  monthStory String   @default("")
+  keptEvents Json     @default("[]")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([userId, year, month])
   @@index([userId])
@@ -625,8 +643,8 @@ model UserAttendance {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date       String   // KST "YYYY-MM-DD"
-  streak     Int      // 이 날 출석 후 연속 일수 (1 부터)
+  date       String // KST "YYYY-MM-DD"
+  streak     Int // 이 날 출석 후 연속 일수 (1 부터)
   bonusToken Int      @default(0) // 이 날 받은 보너스 (0 또는 BONUS_CREDIT)
   createdAt  DateTime @default(now())
 
@@ -664,10 +682,10 @@ model Person {
   id        String        @id @default(cuid())
   userId    String
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String        // 필수, 최대 50자 (헬퍼에서 검증)
-  relation  String?       // "초등 친구", "직장 동료" 등 자유 텍스트, 최대 30자
-  metYear   Int?          // 처음 만난 연도 (1900~현재+1)
-  memo      String?       // 한 줄 메모, 최대 100자
+  name      String // 필수, 최대 50자 (헬퍼에서 검증)
+  relation  String? // "초등 친구", "직장 동료" 등 자유 텍스트, 최대 30자
+  metYear   Int? // 처음 만난 연도 (1900~현재+1)
+  memo      String? // 한 줄 메모, 최대 100자
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   events    PersonEvent[]
@@ -692,10 +710,45 @@ model PersonEvent {
   person    Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
   memoryId  String
   memory    UserMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
-  userId    String     // 권한 체크용 (반드시 person.userId 와 일치)
+  userId    String // 권한 체크용 (반드시 person.userId 와 일치)
   createdAt DateTime   @default(now())
 
   @@unique([personId, memoryId])
   @@index([userId])
+  @@index([memoryId])
+}
+
+// Phase Photo — 사용자의 사진 파일 메타 + Supabase Storage 경로.
+// 옵션 C 패턴: 모든 사진은 UserMemory(life_event 또는 createdVia="photo")
+// 한 행에 매여 있고 한 메모리에 여러 장 가능. 인물·장소·날짜는 메모리에
+// 매김(자동 호환). 사진 파일 자체는 Supabase Storage 의 photos 버킷에
+// {userId}/{photoId}.{ext} 경로로 저장 — service_role 키로 접근, RLS X.
+//
+// 권한 모델: userId 가 단일 결정자. 모든 read/write 헬퍼가 userId 첫 인자.
+// memory.userId 와 photo.userId 는 항상 같아야 함(헬퍼에서 강제).
+//
+// cascade:
+//   - User 삭제 → Photo cascade (DB row). Storage 파일은 별도 cleanup.
+//   - UserMemory 삭제 → Photo cascade (메모리 단위 그룹).
+//
+// 정합성 위험: Storage upload 후 DB row 생성 실패 시 orphan 파일. 후속
+// cleanup cron 또는 transaction 래핑(현재 supabase-js 가 PG transaction
+// 안 들어감 — 업로드 후 DB 생성 실패면 try/catch 로 Storage 롤백).
+model Photo {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memoryId    String
+  memory      UserMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  storagePath String // "{userId}/{photoId}.{ext}" — Storage 키
+  mimeType    String // image/jpeg | image/png | image/webp
+  fileBytes   Int // 용량 (10MB 제한은 라우트에서)
+  width       Int? // 메타 (썸네일·레이아웃 — 후속에 EXIF 추출)
+  height      Int?
+  caption     String? // 사진 1장 캡션 (선택)
+  takenAt     DateTime? // EXIF 또는 사용자 입력 (선택)
+  createdAt   DateTime   @default(now())
+
+  @@index([userId, createdAt])
   @@index([memoryId])
 }

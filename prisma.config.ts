@@ -9,6 +9,13 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Prisma 7 분리:
+    //   - runtime PrismaClient 는 lib/db.ts 의 PrismaPg adapter 가
+    //     DATABASE_URL(pooling 6543) 사용.
+    //   - CLI(migrate/pull/studio) 는 여기 url 사용 → DIRECT_URL(5432)
+    //     로 direct connection. pgbouncer transaction mode 에서 advisory
+    //     lock 안전성이 깨져 migrate 가 hang 하므로 분리 필수.
+    //   - 로컬 Docker 는 DIRECT_URL 미정의 → DATABASE_URL 폴백으로 무해.
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });

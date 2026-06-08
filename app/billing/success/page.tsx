@@ -97,10 +97,10 @@ export default async function BillingSuccessPage({
       </p>
       <div className="flex gap-3">
         <Link
-          href="/timeline"
+          href="/life-timeline"
           className="rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
         >
-          타임라인으로
+          인생 연혁으로
         </Link>
         <Link
           href="/billing"

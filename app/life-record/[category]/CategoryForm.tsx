@@ -125,7 +125,11 @@ export function CategoryForm({
         setError(result.error);
         return;
       }
-      router.push(nextHref);
+      // 인덱스 화면(/life-record)으로 — 시간 순으로 이어지는 질문이라 하나
+      // 건너뛰면 다음도 모를 확률이 높음(예: "고등학교" 모르면 "대학교"도).
+      // 자동으로 다음 질문에 박지 말고, 어느 질문이 답함/건너뜀/아직인지
+      // 한눈에 보고 원하는 것부터 고를 수 있게.
+      router.push("/life-record");
       router.refresh();
     });
   }
@@ -142,12 +146,31 @@ export function CategoryForm({
 
   return (
     <div className="flex flex-col gap-6">
-      {hasExisting && (
+      {hasExisting ? (
         <div
           className="rounded-md border-2 border-emerald-300 bg-emerald-50 px-5 py-4 text-base text-emerald-900"
           role="status"
         >
           이미 답하신 항목이에요. 수정하시려면 아래를 고친 뒤 저장해 주세요.
+        </div>
+      ) : (
+        // 새 답 작성 시 노출(이미 답한 항목 수정 흐름엔 X). "지금은 큰 줄기
+        // 한 가지만 적어도 OK + 사건은 연혁 화면에서 언제든 추가" 라는 정신
+        // 모델을 첫 답부터 심어주기 위한 안내. 시니어 친화: 키워드만 굵게,
+        // 두 단락 정도로 짧게.
+        <div
+          className="rounded-md border-2 border-sky-200 border-l-4 border-l-sky-500 bg-sky-50 px-5 py-4"
+          role="note"
+        >
+          <p className="text-base font-semibold text-sky-900">
+            지금 받는 질문은 인생 연혁의 기반이에요.
+          </p>
+          <p className="mt-1.5 text-sm text-sky-800">
+            큰 줄기 한 가지만 적어주시면 됩니다. 같은 시기에 여러 사건(예:
+            초등학교 동안 이사 두 번)이 있어도, 답을 마친 뒤 <b>인생 연혁</b>{" "}
+            화면에서 언제든 자유롭게 추가할 수 있어요. 모르거나 떠올리기
+            어려우면 <b>건너뛰기</b> 를 눌러주세요.
+          </p>
         </div>
       )}
 

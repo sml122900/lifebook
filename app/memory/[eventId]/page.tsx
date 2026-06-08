@@ -52,8 +52,8 @@ export default async function MemoryPage({ params }: PageProps) {
       select: { status: true },
     });
     if (response?.status !== "confirmed") {
-      // 미확정/무시된 트리거의 존재를 노출하지 않는다 — 그냥 타임라인으로.
-      redirect("/timeline");
+      // 미확정/무시된 트리거의 존재를 노출하지 않는다 — 그냥 메인(인생 연혁)으로.
+      redirect("/life-timeline");
     }
   }
 
@@ -77,10 +77,10 @@ export default async function MemoryPage({ params }: PageProps) {
     return (
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
         <Link
-          href="/timeline"
+          href="/life-timeline"
           className="self-start rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
         >
-          ← 타임라인으로
+          ← 인생 연혁으로
         </Link>
         <header>
           <p className="text-base text-zinc-600">
@@ -117,10 +117,10 @@ export default async function MemoryPage({ params }: PageProps) {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
       <Link
-        href="/timeline"
+        href="/life-timeline"
         className="self-start rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
       >
-        ← 타임라인으로
+        ← 인생 연혁으로
       </Link>
 
       <header>

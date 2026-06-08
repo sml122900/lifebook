@@ -202,6 +202,29 @@ export function PlaceSearchInput({
   }
 
   // ── (C) 선택 완료 ────────────────────────────────────────────
+  // 좌표 있고 source 가 둘 중 하나면 미리보기 지도.
+  const hasCoords =
+    value.lat !== null &&
+    value.lng !== null &&
+    (value.placeSource === "naver" || value.placeSource === "google");
+  // useMemo 로 참조 안정화 — 부모(EventForm)의 다른 state 변경(예:
+  // content textarea 타이핑)으로 PlaceSearchInput 이 re-render 돼도
+  // previewMarkers 가 새 배열이 되지 않도록. 새 배열이 되면 NaverMap 의
+  // markers useEffect 가 매번 발동 → 마커·InfoWindow 재생성 → InfoWindow
+  // close 버튼이 focus 빼앗아 textarea 입력 불가. 같은 좌표·이름이면
+  // 같은 참조 유지.
+  const previewMarkers = useMemo<MapMarker[]>(() => {
+    if (!hasCoords) return [];
+    return [
+      {
+        lat: value.lat as number,
+        lng: value.lng as number,
+        name: value.placeName ?? "",
+        address: value.placeAddress ?? "",
+      },
+    ];
+  }, [hasCoords, value.lat, value.lng, value.placeName, value.placeAddress]);
+
   if (hasSelected && activeSource === null) {
     const sourceLabel =
       value.placeSource === "naver"
@@ -209,21 +232,6 @@ export function PlaceSearchInput({
         : value.placeSource === "google"
           ? "구글"
           : "지도";
-    // 좌표 있고 source 가 둘 중 하나면 미리보기 지도.
-    const hasCoords =
-      value.lat !== null &&
-      value.lng !== null &&
-      (value.placeSource === "naver" || value.placeSource === "google");
-    const previewMarkers: MapMarker[] = hasCoords
-      ? [
-          {
-            lat: value.lat as number,
-            lng: value.lng as number,
-            name: value.placeName ?? "",
-            address: value.placeAddress ?? "",
-          },
-        ]
-      : [];
     return (
       <div className="flex flex-col gap-3 rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
