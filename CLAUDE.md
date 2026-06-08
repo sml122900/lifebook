@@ -167,6 +167,9 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **E1 + E2** | **시대 연혁 둘러보기(/era) + 클릭 한 번 담기 — 1980~2019 사건 88·음악 73 시드 적재 + era_event 디스크리미네이터 + 연혁 시각 분리(slate) + 가족 룸 자동 노출** | (`2026-06-08` 일지) | ✅ E1·E2 완료 |
 | **/era UX** | **텍스트 폭탄 해소 — 사건 리스트+아코디언(`grid-rows-[0fr↔1fr]`) + lucide 카테고리 아이콘 4종 + 연대별 은은한 배경(amber/emerald/sky/violet) + 사건 더 알아보기 구글 검색(민감 사건 포함 모든 사건, 정책 함수 폐기)** | (`2026-06-08` 일지 세션2) | ✅ 완료 |
 | **E3** | **era_event 본인 회상(content) 입력 — saveEraMemory + EraMemoryEditor(default/compact 양쪽 공용) + 가족 룸 자동 전파(0줄) + 17 시나리오 회귀 통과** | (`2026-06-08` 일지 세션3) | ✅ 완료 |
+| **Supabase 이전** | **Docker → Supabase Postgres + Storage. Prisma 7 url/directUrl 분리, search_path 설정, pgvector extensions 스키마, 마이그 29건 + 시드 4종 + 임베딩 재생성 + 로그인 검증** | (`2026-06-09` 일지) | ✅ 완료 |
+| **Photo 1·2** | **사진 풀스택 1·2단계 — Storage 검증(1) → Photo 모델 + UserMemory 1:N + transaction + orphan 방지(2). 3~7단계(연혁 표시·인물·장소·공유·썸네일) 후속** | (`2026-06-09` 일지) | ✅ 1·2단계 완료 |
+| **UX 픽스 5** | **PlaceSearchInput previewMarkers useMemo · ProgressCard 메인 제거 · 건너뛰기 → 인덱스 · 튜토리얼 안내 · "← 인생 연혁으로" 9곳** | (`2026-06-09` 일지) | ✅ 완료 |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -426,6 +429,36 @@ E3 신규 후속 (`docs/daily/2026-06-08.md` 세션 3 참조):
 - /life-timeline EraCard 의 `e.content` prop 변경 시 localContent state sync 미동작 (useState 초기값만) — `useEffect` 또는 props key 패턴 검토
 - viewing 모드의 "그때 저는" 본문 + emerald-700 텍스트 톤 — 가족 룸의 표시와 시각 일관성 점검 (룸 PersonalMemoryCard 는 zinc-800 본문)
 
+Supabase 이전 신규 후속 (`docs/daily/2026-06-09.md` 참조):
+- `.env.docker-backup` 정책 — 영구 보존 vs 일정 기간 후 정리 시점 결정
+- Supabase 비용 모니터링 (Free 1GB Storage + 500MB DB → 사용자 ≥ 10명 시점에 Pro 검토)
+- OnboardingForm 의 `router.push("/timeline")` (옛 메인) → `/life-timeline` 잔재 픽스 — 사용자가 짚은 onboarding 동선 정렬
+- /timeline 라우트 자체 archived 패턴 적용 후보 (v3 월 OFF 와 같이 redirect 한 줄로 교체)
+- profile/actions.ts·memory/actions.ts 의 `revalidatePath("/timeline")` 잔재 — `/life-timeline` 도 같이 또는 단일화
+- Supabase Auth 자체와 Auth.js 의 JWT 충돌 가능성 (RLS 설계 변경 시점에 주의)
+- pgbouncer connection_limit=1 정책 — 로컬 dev / serverless production 별 분기 필요시
+- Storage cleanup cron (orphan DB-만/Storage-만 잔여 시) — 현재 정상 흐름은 둘 다 정리하지만 외부 조작 방어
+
+Photo 1·2단계 신규 후속 (`docs/daily/2026-06-09.md` 참조):
+- 3단계: 인생 연혁 카드에 사진 썸네일 미리보기 + 이벤트 편집 화면에 사진 추가 섹션
+- 4단계: 인물 매칭 — `lib/people.ts` `not_life_event` 가드 확장 또는 분리(`not_life_or_photo`)
+- 5단계: 장소 매칭 — `PlaceSearchInput` 재사용으로 추가 코드 0
+- 6단계: 가족 룸 공유 — `PersonalMemoryCard` 의 사진 분기 + signed URL 권한 확장(룸 멤버)
+- 7단계: HEIC 변환·EXIF strip·takenAt 자동 추출·썸네일 별도 저장·페이지네이션
+- 8단계: 자녀 대리 업로드
+- 사진별 visibility 토글 정책 (기본 룸 공유 ON vs OFF) — 6단계에서 결정
+- service_role 키 회전 운영 절차 (1년 1회 또는 사고 시)
+- Supabase Free 용량 quota 모니터링 도구 + 사용자별 limit
+- /photos 페이지의 RSC 가 매 요청 signed URL N건 발급 — 1시간 만료 활용 캐싱 검토 (CLAUDE.md M3·M4 영역과 같이)
+- PhotosGrid 모달의 background overlay 시 body scroll lock 안 적용 — 작은 사용성 (휠로 페이지 스크롤 가능)
+- DELETE 라우트 idempotency — 같은 photoId 두 번 호출 시 두 번째는 404 (의도된 동작이지만 클라가 race 시 에러 노출 가능)
+- `_test_archived` 폴더 일정 기간 후 별도 `_archived/` 폴더로 이동 검토
+
+UX 픽스 5건 신규 후속 (`docs/daily/2026-06-09.md` 참조):
+- ProgressCard 컴포넌트 + lib/timemachine-progress.ts + db/test-timemachine-progress.ts — 메인에서 빠졌지만 코드 보존. 부활 시 import 한 줄. 일정 기간 사용 0 유지 확인 후 archive 폴더로 이동 검토
+- life-record 안내 박스 톤 — 사용자 피드백 받아 더 짧게/길게 조정 (현재 두 단락)
+- PlaceSearchInput previewMarkers 외 다른 prop 도 같은 패턴(NaverMap onMarkerClick 등) 점검 — CLAUDE.md M6 후속 영역과 함께
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
@@ -492,6 +525,14 @@ E3 신규 후속 (`docs/daily/2026-06-08.md` 세션 3 참조):
 - [x] E3 양쪽 진입로 공용 컴포넌트(2026-06-08) → `EraMemoryEditor` (default/compact variant) 한 곳에서만 정의, /era 펼친 상세 + /life-timeline EraCard 가 import 해서 같은 동작. /era 는 항상 노출, EraCard 는 viewing/editing 분리(작은 카드 시각 부담 회피)
 - [x] LifeEvent.monthEventId 노출(2026-06-08) → life_event 는 null, era_event 만 채워짐. EraCard 가 회상 저장 키로 사용. `lib/people.ts` listEventsByPerson 매핑은 항상 null
 - [x] E3 가족 룸 노출(2026-06-08) → PersonalMemoryCard 변경 0줄. 기존 `{memory.content && ...}` 가드가 content 채우면 자동 노출, null 이면 안 그림
+- [x] DB = Supabase Postgres(2026-06-09) → Docker 로컬 → Supabase 이전. pooling(6543, lib/db.ts PrismaPg adapter) + direct(5432, prisma.config.ts datasource.url 우선) 분리. 로컬 백업 .env.docker-backup 보존
+- [x] pgvector 스키마(2026-06-09) → "extensions" 스키마(Supabase 권장). `ALTER DATABASE postgres SET search_path = "$user", public, extensions;` 가 vector 컬럼 마이그 통과의 단일 조건. schema.prisma 에 `extensions = [vector(schema: "extensions")]` 명시
+- [x] .env 정책(2026-06-09) → 같은 키 중복 금지(Next @next/env 와 dotenv 우선순위 차이가 silent fail). 비밀번호 `$`/`#` 금지(dotenv 보간/주석 충돌)
+- [x] 사진 데이터 모델(2026-06-09) → 옵션 C (Photo + UserMemory 1:N). 모든 사진은 UserMemory 1행에 매여 있고(독립 = `createdVia="photo"` 신규, life_event 첨부 = 기존), 한 메모리에 사진 N장. cascade delete (User/UserMemory → Photo DB), Storage 정리는 헬퍼에서 명시
+- [x] 사진 Storage 권한(2026-06-09) → service_role 키로 서버 사이드 우회 + signed URL 발급(1시간). 클라 RLS 안 씀. NEXT_PUBLIC 접두사 금지, 진단 시 메타만(len/startsWith/exists)
+- [x] 사진 orphan 방지(2026-06-09) → 업로드는 Storage put → DB tx (실패 시 try/catch 로 Storage 롤백). 삭제는 Storage remove → DB tx(Photo + photo-only 메모리 정리, life_event 첨부는 메모리 보존)
+- [x] 사진 HEIC 정책(2026-06-09) → 1·2단계 거부 + 친화 안내("아이폰 설정→카메라→포맷→호환성"). magic number 검증으로 mimeType 위장 + 브라우저 라벨 오류(Safari HEIC→jpeg) 둘 다 차단
+- [x] 사진 1단계 archive(2026-06-09) → app/photos/test → app/photos/_test_archived (Next.js private folder 패턴, 라우트 X 코드 보존). storage.ts 의 listUserPhotos → listStoragePhotos rename(photos.ts 와 충돌 회피)
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
