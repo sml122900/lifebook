@@ -17,7 +17,10 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "../lib/db";
 import { CREATED_VIA_LIFE_EVENT, getLifeEvents } from "../lib/life-events";
 import {
+  ERA_MEMORY_MAX_LENGTH,
   getStashedEraEventIds,
+  getStashedEraMemories,
+  saveEraMemory,
   stashEraEvent,
   unstashEraEvent,
 } from "../lib/era-stash";
@@ -180,6 +183,89 @@ async function main() {
     assert(life.length === 1, `life_event 1개 (실제: ${life.length})`);
     assert(life[0].eraDescription === null, "life_event 의 eraDescription = null");
     assert(life[0].eraSection === null, "life_event 의 eraSection = null");
+    assert(life[0].monthEventId === null, "life_event 의 monthEventId = null");
+
+    console.log("\n[11] E3 — saveEraMemory 첫 회상 저장 → saved");
+    const s1 = await saveEraMemory(alice.id, me.id, "그때 회사에서 뉴스 보고 충격받았어요");
+    assert(s1 === "saved", `첫 저장 = "saved" (실제: ${s1})`);
+    const m1 = await prisma.userMemory.findFirst({
+      where: { userId: alice.id, monthEventId: me.id, createdVia: "era_event" },
+      select: { content: true },
+    });
+    assert(
+      m1?.content === "그때 회사에서 뉴스 보고 충격받았어요",
+      `content DB 저장 OK (실제: ${m1?.content})`,
+    );
+
+    console.log("\n[12] E3 — 빈 입력 → cleared (null 로 비움)");
+    const s2 = await saveEraMemory(alice.id, me.id, "   ");
+    assert(s2 === "cleared", `빈 입력 = "cleared" (실제: ${s2})`);
+    const m2 = await prisma.userMemory.findFirst({
+      where: { userId: alice.id, monthEventId: me.id, createdVia: "era_event" },
+      select: { content: true },
+    });
+    assert(m2?.content === null, `content=null 로 정규화 (실제: ${m2?.content})`);
+
+    console.log("\n[13] E3 — 안 담은 사건엔 not_stashed (다른 monthEventId)");
+    const otherMe = await prisma.monthEvent.create({
+      data: {
+        id: `test-me-other-${randomUUID()}`,
+        year: 2002,
+        section: "POLITICS_SOCIETY",
+        title: "테스트 미담은 사건",
+        confidence: "VERIFIED",
+        source: "test-era-stash.ts",
+      },
+      select: { id: true },
+    });
+    try {
+      const s3 = await saveEraMemory(alice.id, otherMe.id, "회상");
+      assert(s3 === "not_stashed", `미담은 사건 = "not_stashed" (실제: ${s3})`);
+    } finally {
+      await prisma.monthEvent.delete({ where: { id: otherMe.id } });
+    }
+
+    console.log("\n[14] E3 — 길이 초과 → too_long");
+    const longText = "가".repeat(ERA_MEMORY_MAX_LENGTH + 1);
+    const s4 = await saveEraMemory(alice.id, me.id, longText);
+    assert(s4 === "too_long", `${ERA_MEMORY_MAX_LENGTH + 1}자 = "too_long" (실제: ${s4})`);
+    const m4 = await prisma.userMemory.findFirst({
+      where: { userId: alice.id, monthEventId: me.id, createdVia: "era_event" },
+      select: { content: true },
+    });
+    assert(m4?.content === null, "길이 초과 시 DB 변경 없음 (직전 cleared 유지)");
+
+    console.log("\n[15] E3 — getStashedEraMemories: content 동시 prefetch");
+    // 저장 후 다시
+    await saveEraMemory(alice.id, me.id, "재저장된 회상");
+    const memMap = await getStashedEraMemories(alice.id);
+    assert(memMap.has(me.id), "memMap 에 me.id 키 존재");
+    assert(
+      memMap.get(me.id) === "재저장된 회상",
+      `content prefetch OK (실제: ${memMap.get(me.id)})`,
+    );
+
+    console.log("\n[16] E3 — 가족 룸에 content 자동 노출 (PersonalMemoryCard 분기 X)");
+    const roomMems2 = await listRoomMemories(room.id, bob.id);
+    const aliceEra2 = roomMems2!.find(
+      (m) => m.userId === alice.id && m.title === me.title,
+    );
+    assert(aliceEra2 !== undefined, "alice 의 era_event 가 여전히 룸에 보임");
+    if (aliceEra2) {
+      assert(
+        aliceEra2.content === "재저장된 회상",
+        `룸 뷰에서 alice 의 회상 노출 OK (실제: ${aliceEra2.content})`,
+      );
+    }
+
+    console.log("\n[17] E3 — getLifeEvents 가 monthEventId 채움 (EraCard 의 저장 키)");
+    const evs2 = await getLifeEvents(alice.id);
+    const era2 = evs2.find((e) => e.kind === "era_event");
+    assert(era2 !== undefined, "alice 에 era_event 1개");
+    if (era2) {
+      assert(era2.monthEventId === me.id, `monthEventId 매핑 OK (실제: ${era2.monthEventId})`);
+      assert(era2.content === "재저장된 회상", "content 매핑 OK");
+    }
 
     console.log("\n전체 통과");
   } finally {

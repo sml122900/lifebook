@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import {
+  ERA_MEMORY_MAX_LENGTH,
+  saveEraMemory,
   stashEraEvent,
   unstashEraEvent,
+  type SaveEraMemoryResult,
   type StashResult,
 } from "@/lib/era-stash";
 
@@ -40,3 +43,27 @@ export async function unstashEraEventAction(
   revalidatePath("/life-timeline");
   return r;
 }
+
+// Phase E3 — 담은 시대 사건의 본인 회상(content) 저장.
+// 양쪽 진입(/era 펼침 + /life-timeline EraCard) 공용. 길이 검증은
+// saveEraMemory 가 단일 결정자(서버 측). 클라이언트도 1차 가드 권장.
+// revalidatePath 는 세 경로 — 회상이 룸·연혁 양쪽에 노출되므로 가족 룸도.
+export async function saveEraMemoryAction(
+  monthEventId: string,
+  content: string,
+): Promise<SaveEraMemoryResult> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("로그인이 필요해요.");
+
+  const result = await saveEraMemory(session.user.id, monthEventId, content);
+  if (result === "saved" || result === "cleared") {
+    revalidatePath("/era");
+    revalidatePath("/life-timeline");
+    // 가족 룸의 PersonalMemoryCard 가 content 즉시 반영하도록.
+    revalidatePath("/rooms");
+  }
+  return result;
+}
+
+// 길이 상한 — 클라가 maxLength prop / 잔량 표시에 사용.
+export const ERA_MEMORY_LIMIT = ERA_MEMORY_MAX_LENGTH;

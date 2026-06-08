@@ -59,6 +59,9 @@ export type LifeEvent = {
     | "SPORTS"
     | "TREND"
     | null;
+  // Phase E3 — era_event 행의 출처 MonthEvent id. EraCard 가 본인 회상
+  // 저장(saveEraMemoryAction) 호출에 사용. life_event 행은 null.
+  monthEventId: string | null;
 };
 
 // 기간이 의미 있는 카테고리. UI(폼) 와 헬퍼(저장 검증) 가 공유.
@@ -126,6 +129,7 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
       lng: true,
       placeSource: true,
       createdVia: true,
+      monthEventId: true,
       // era_event 행만 채워짐 — monthEventId join 으로 시대 자료 가져옴.
       // monthEventId 가 SetNull 이라 시드 삭제 시 null. 안전 fallback.
       monthEvent: {
@@ -163,6 +167,7 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
       eraDescription: isEra ? r.monthEvent?.description ?? null : null,
       eraSource: isEra ? r.monthEvent?.source ?? null : null,
       eraSection: isEra ? r.monthEvent?.section ?? null : null,
+      monthEventId: isEra ? r.monthEventId : null,
     };
   });
 }

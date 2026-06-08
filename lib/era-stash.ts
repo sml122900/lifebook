@@ -97,3 +97,58 @@ export async function getStashedEraEventIds(
     rows.map((r) => r.monthEventId).filter((id): id is string => id !== null),
   );
 }
+
+// Phase E3 — 담은 사건의 본인 회상(content) 동시 prefetch.
+// "✓ 표시" + "내가 적은 회상" 둘 다 클라이언트에서 즉시 그릴 수 있게.
+// Map 은 RSC→client 직렬화가 안 되므로 호출자가 Object 로 변환해 전달.
+//
+// 반환: monthEventId → content (담은 사건만, 미입력은 null).
+export async function getStashedEraMemories(
+  userId: string,
+): Promise<Map<string, string | null>> {
+  const rows = await prisma.userMemory.findMany({
+    where: {
+      userId,
+      createdVia: CREATED_VIA_ERA_EVENT,
+      monthEventId: { not: null },
+    },
+    select: { monthEventId: true, content: true },
+  });
+  const map = new Map<string, string | null>();
+  for (const r of rows) {
+    if (r.monthEventId) map.set(r.monthEventId, r.content);
+  }
+  return map;
+}
+
+// 본인 회상(content) 길이 상한. 시니어 회상은 한 사건당 한 단락 분량이
+// 자연스럽고, UI textarea 도 작게 잡혀 있어 500 자면 넉넉. trim 후 검사.
+export const ERA_MEMORY_MAX_LENGTH = 500;
+
+export type SaveEraMemoryResult =
+  | "saved"           // content 채워서 저장
+  | "cleared"         // 빈 입력으로 → null 로 비움 (회상 삭제)
+  | "not_stashed"     // 사용자가 그 사건을 담은 적 없음 (먼저 담아야)
+  | "too_long";       // 길이 초과 — UI 가 미리 차단하지만 서버도 방어
+
+// 본인이 담은 era_event 의 content 한 행 update.
+// content 가 빈 문자열이거나 null 이면 DB 도 null 로 정규화 ("cleared").
+// 권한: createdVia="era_event" + 본인(userId) 행만 — updateMany count=0 이면
+// not_stashed(다른 사용자 행이거나 안 담은 사건). lib/people.ts 의 deleteMany
+// 가드 패턴과 동일.
+export async function saveEraMemory(
+  userId: string,
+  monthEventId: string,
+  content: string | null,
+): Promise<SaveEraMemoryResult> {
+  const trimmed = content?.trim() ?? "";
+  if (trimmed.length > ERA_MEMORY_MAX_LENGTH) return "too_long";
+  const normalized = trimmed === "" ? null : trimmed;
+
+  const result = await prisma.userMemory.updateMany({
+    where: { userId, monthEventId, createdVia: CREATED_VIA_ERA_EVENT },
+    data: { content: normalized },
+  });
+  if (result.count === 0) return "not_stashed";
+  return normalized === null ? "cleared" : "saved";
+}

@@ -415,5 +415,6 @@ export async function listEventsByPerson(
     eraDescription: null,
     eraSource: null,
     eraSection: null,
+    monthEventId: null,
   }));
 }

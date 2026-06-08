@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { unstashEraEventAction } from "@/app/era/actions";
+import { EraMemoryEditor } from "@/app/era/EraMemoryEditor";
 import { calcAge } from "@/lib/age";
 import {
   SECTION_BADGE_CLASS,
@@ -774,6 +775,13 @@ function EraCard({
   const displayTitle = formatTitle(e);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // E3 — content 옵티미스틱: server action 후 router.refresh() 가 prop 을
+  // 갱신해도 인스턴스 유지 시 EraMemoryEditor 가 internal value 우선이라
+  // 카드 표시(아래 "그때 저는")는 별도 state 로 즉시 반영.
+  const [localContent, setLocalContent] = useState<string | null>(e.content);
+  // 카드 시각 부담 최소화 — 평소엔 "그때 저는" 텍스트만, [수정] 또는 [회상
+  // 적기] 누르면 EraMemoryEditor 펼침.
+  const [isEditing, setIsEditing] = useState(false);
 
   function onRemove() {
     setError(null);
@@ -836,6 +844,65 @@ function EraCard({
         )}
         {e.eraSource && (
           <p className="mt-1 text-xs text-slate-500">출처: {e.eraSource}</p>
+        )}
+
+        {/* E3 — 본인 회상(content). 평소엔 "그때 저는" 한 줄 + [수정] 버튼,
+            없으면 부드러운 [회상 적기] 진입. 누르면 EraMemoryEditor 펼침.
+            카드가 작아 textarea 항상 노출 시 시각 부담 큼. */}
+        {e.monthEventId && (
+          <div className="mt-3">
+            {isEditing ? (
+              <EraMemoryEditor
+                monthEventId={e.monthEventId}
+                eventTitle={displayTitle}
+                initialContent={localContent}
+                onSaved={(newContent) => {
+                  setLocalContent(newContent);
+                  setIsEditing(false);
+                  onEraRefresh();
+                }}
+                variant="compact"
+              />
+            ) : localContent ? (
+              <div
+                className={
+                  "flex flex-col gap-2 " +
+                  (align === "right" ? "items-end" : "items-start")
+                }
+              >
+                <p
+                  className={
+                    "whitespace-pre-wrap text-sm leading-snug text-zinc-800 " +
+                    (align === "right" ? "text-right" : "text-left")
+                  }
+                >
+                  <span className="font-semibold text-emerald-700">
+                    그때 저는 —{" "}
+                  </span>
+                  {localContent}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="inline-flex min-h-[32px] items-center rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                >
+                  회상 수정
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className={
+                  "inline-flex min-h-[36px] items-center rounded-md border-2 border-emerald-300 bg-emerald-50/60 px-3 py-1 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500 " +
+                  (align === "right" ? "self-end" : "self-start")
+                }
+              >
+                <span aria-hidden className="mr-1">✏️</span>
+                그때 어떻게 지내셨나요?
+              </button>
+            )}
+          </div>
         )}
 
         {/* 빼기 버튼 — 카드 안 작게 */}

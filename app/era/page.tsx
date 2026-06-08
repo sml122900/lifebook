@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { listEraEvents, listEraSongs } from "@/lib/era-events";
-import { getStashedEraEventIds } from "@/lib/era-stash";
+import { getStashedEraMemories } from "@/lib/era-stash";
 
 import { EraView } from "./EraView";
 
@@ -11,18 +11,24 @@ import { EraView } from "./EraView";
 // 보고, 마음에 남는 사건은 "내 연혁에 담기" 한 번으로 본인 연혁에 추가.
 //
 // 데이터: 세 fetch 병렬. 데이터 적음(사건 88·음악 73) → 페이지네이션 X.
-// E2: getStashedEraEventIds 로 이미 담은 monthEventId 셋을 prefetch →
-// 카드에 "✓ 내 연혁에 있어요" 즉시 표시.
+// E3: getStashedEraMemories 로 (monthEventId → content) 동시 prefetch —
+// 카드 "✓" 표시 + 펼친 상세의 본인 회상 입력 영역을 한 번에 그릴 수 있게.
+// Map 직렬화 불가 → Object 로 변환해 EraView 에 전달.
 
 export default async function EraPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [events, songs, stashedIds] = await Promise.all([
+  const [events, songs, stashedMap] = await Promise.all([
     listEraEvents(),
     listEraSongs(),
-    getStashedEraEventIds(session.user.id),
+    getStashedEraMemories(session.user.id),
   ]);
+
+  const initialStashedMemories: Record<string, string | null> = {};
+  for (const [meId, content] of stashedMap) {
+    initialStashedMemories[meId] = content;
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">
@@ -41,7 +47,7 @@ export default async function EraPage() {
       <EraView
         events={events}
         songs={songs}
-        initialStashedIds={Array.from(stashedIds)}
+        initialStashedMemories={initialStashedMemories}
       />
     </main>
   );
