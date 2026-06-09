@@ -45,6 +45,9 @@ import {
 // E2 — kind 는 LifeEvent 에서 그대로 상속 ("life_event" | "era_event").
 type RenderEvent = LifeEvent & {
   isPeriodEnd?: boolean;
+  // Phase Photo (4단계+) — split 된 기간의 "시작" 행 표식. PhotoStrip 이
+  // 앵커 필터(시작 점=start/both)에 사용. 단일 점은 둘 다 false → 전부 표시.
+  isPeriodStart?: boolean;
   originalId: string;
 };
 
@@ -114,6 +117,8 @@ function expandPeriods(events: LifeEvent[]): RenderEvent[] {
       e.endYear != null &&
       (e.endYear !== e.eventYear || e.endMonth != null)
     ) {
+      // 이 행은 split 되는 기간의 시작 점 → 표식(PhotoStrip 앵커 필터용).
+      expanded[expanded.length - 1].isPeriodStart = true;
       pending.push({
         startIdx: expanded.length - 1,
         endYear: e.endYear,
@@ -241,6 +246,13 @@ function computeYearRange(events: RenderEvent[]): {
 // isPeriodEnd 행은 id 가 "원본id:end" 라 원본 id 를 lookup key 로 쓴다.
 export type PeopleByEvent = Record<string, { id: string; name: string }[]>;
 
+// Phase Photo (3단계) — RSC(page.tsx)가 발급한 (photoId → signed URL).
+// getLifeEvents 가 경로만 들고 오므로 URL 은 이 prop 으로 주입된다. 발급에
+// 실패한 사진은 키가 없어 썸네일만 누락(화면은 안 깨짐).
+export type PhotoUrls = Record<string, string>;
+// 라이트박스(보기 전용)에 띄울 한 장. 삭제는 /photos·편집 화면에서만.
+type OpenPhoto = { url: string; caption: string | null; label: string };
+
 // H4 — originalId 필드로 대체. 기존 origMemoryId(e.id.slice(0,-4)) 제거.
 
 export function TimelineView({
@@ -248,12 +260,15 @@ export function TimelineView({
   birthYear = null,
   peopleByEvent = {},
   allPeople = [],
+  photoUrls = {},
 }: {
   events: LifeEvent[];
   birthYear?: number | null;
   peopleByEvent?: PeopleByEvent;
   // P3 — 사용자 전체 인물 목록. 팝오버가 열릴 때마다 fetch 하지 않도록 미리.
   allPeople?: PersonLite[];
+  // Phase Photo (3단계) — photoId → signed URL.
+  photoUrls?: PhotoUrls;
 }) {
   const router = useRouter();
   // E2 — 옵티미스틱 hide. era_event 행 빼기 클릭 시 즉시 화면에서 사라지고
@@ -280,12 +295,14 @@ export function TimelineView({
     memoryId: string;
     label: string;
   } | null>(null);
+  // Phase Photo (3단계) — 라이트박스(보기 전용) 상태. 썸네일 클릭 시 채워짐.
+  const [openPhoto, setOpenPhoto] = useState<OpenPhoto | null>(null);
 
   function openFor(e: RenderEvent) {
-    // E2 — era_event 는 인물 연결 불허(정책). lib/people.ts 의 not_life_event
-    // 가드가 서버 측 단일 결정자지만, UI 에서 모달 진입 자체를 차단해 사용자
-    // 혼란 0. era_event 카드의 👤 버튼은 EventCard 에서 아예 안 그림.
-    if (e.kind === "era_event") return;
+    // E2/Photo — era_event·photo 는 인물 연결 불허(정책). lib/people.ts 의
+    // not_life_event 가드가 서버 측 단일 결정자지만, UI 에서 모달 진입 자체를
+    // 차단해 혼란 0. 두 종류 카드엔 👤 버튼을 아예 안 그린다.
+    if (e.kind === "era_event" || e.kind === "photo") return;
     setOpenModal({ memoryId: e.originalId, label: formatTitle(e) });
   }
 
@@ -326,6 +343,8 @@ export function TimelineView({
           onEraHide={hideEra}
           onEraUnhide={unhideEra}
           onEraRefresh={refreshAfterUnstash}
+          photoUrls={photoUrls}
+          onOpenPhoto={setOpenPhoto}
         />
       </div>
       <div className="sm:hidden">
@@ -339,6 +358,8 @@ export function TimelineView({
           onEraHide={hideEra}
           onEraUnhide={unhideEra}
           onEraRefresh={refreshAfterUnstash}
+          photoUrls={photoUrls}
+          onOpenPhoto={setOpenPhoto}
         />
       </div>
 
@@ -360,6 +381,10 @@ export function TimelineView({
           onConnectedChange={handleConnectedChange}
         />
       )}
+
+      {openPhoto && (
+        <PhotoLightbox photo={openPhoto} onClose={() => setOpenPhoto(null)} />
+      )}
     </div>
   );
 }
@@ -375,6 +400,8 @@ function DesktopTimeline({
   onEraHide,
   onEraUnhide,
   onEraRefresh,
+  photoUrls,
+  onOpenPhoto,
 }: {
   events: RenderEvent[];
   flags: PeriodFlag[];
@@ -385,6 +412,8 @@ function DesktopTimeline({
   onEraHide: (id: string) => void;
   onEraUnhide: (id: string) => void;
   onEraRefresh: () => void;
+  photoUrls: PhotoUrls;
+  onOpenPhoto: (p: OpenPhoto) => void;
 }) {
   return (
     // pointer-events-none: 빈 영역 클릭이 LineClickArea 로 통과.
@@ -418,6 +447,8 @@ function DesktopTimeline({
             onEraHide={onEraHide}
             onEraUnhide={onEraUnhide}
             onEraRefresh={onEraRefresh}
+            photoUrls={photoUrls}
+            onOpenPhoto={onOpenPhoto}
           />
         );
       })}
@@ -436,6 +467,8 @@ function MobileTimeline({
   onEraHide,
   onEraUnhide,
   onEraRefresh,
+  photoUrls,
+  onOpenPhoto,
 }: {
   events: RenderEvent[];
   flags: PeriodFlag[];
@@ -446,6 +479,8 @@ function MobileTimeline({
   onEraHide: (id: string) => void;
   onEraUnhide: (id: string) => void;
   onEraRefresh: () => void;
+  photoUrls: PhotoUrls;
+  onOpenPhoto: (p: OpenPhoto) => void;
 }) {
   return (
     <ol className="pointer-events-none relative py-3">
@@ -475,6 +510,8 @@ function MobileTimeline({
             onEraHide={onEraHide}
             onEraUnhide={onEraUnhide}
             onEraRefresh={onEraRefresh}
+            photoUrls={photoUrls}
+            onOpenPhoto={onOpenPhoto}
           />
         );
       })}
@@ -494,6 +531,8 @@ function TimelineRow({
   onEraHide,
   onEraUnhide,
   onEraRefresh,
+  photoUrls,
+  onOpenPhoto,
 }: {
   e: RenderEvent;
   flag: PeriodFlag;
@@ -505,12 +544,17 @@ function TimelineRow({
   onEraHide: (id: string) => void;
   onEraUnhide: (id: string) => void;
   onEraRefresh: () => void;
+  photoUrls: PhotoUrls;
+  onOpenPhoto: (p: OpenPhoto) => void;
 }) {
   const exact = e.precision === "EXACT";
   const isEra = e.kind === "era_event";
+  const isPhoto = e.kind === "photo";
   const aria = isEra
     ? `${formatWhen(e)} ${formatTitle(e)} — 시대 배경`
-    : `${formatWhen(e)} ${formatTitle(e)} — 이 이야기 편집하기`;
+    : isPhoto
+      ? `${e.eventYear}년 사진`
+      : `${formatWhen(e)} ${formatTitle(e)} — 이 이야기 편집하기`;
 
   // 점이 놓인 라인의 가로 위치 (절대 위치 기준).
   const pointAtClass =
@@ -540,6 +584,14 @@ function TimelineRow({
                   onEraUnhide={onEraUnhide}
                   onEraRefresh={onEraRefresh}
                 />
+              ) : isPhoto ? (
+                <PhotoCard
+                  e={e}
+                  align="right"
+                  birthYear={birthYear}
+                  photoUrls={photoUrls}
+                  onOpenPhoto={onOpenPhoto}
+                />
               ) : (
                 <>
                   <EventCard
@@ -553,6 +605,12 @@ function TimelineRow({
                     people={people}
                     align="right"
                     onClick={() => onOpenPeople(e)}
+                  />
+                  <PhotoStrip
+                    e={e}
+                    align="right"
+                    photoUrls={photoUrls}
+                    onOpenPhoto={onOpenPhoto}
                   />
                 </>
               )}
@@ -580,6 +638,14 @@ function TimelineRow({
                 onEraUnhide={onEraUnhide}
                 onEraRefresh={onEraRefresh}
               />
+            ) : isPhoto ? (
+              <PhotoCard
+                e={e}
+                align="left"
+                birthYear={birthYear}
+                photoUrls={photoUrls}
+                onOpenPhoto={onOpenPhoto}
+              />
             ) : (
               <>
                 <EventCard
@@ -593,6 +659,12 @@ function TimelineRow({
                   people={people}
                   align="left"
                   onClick={() => onOpenPeople(e)}
+                />
+                <PhotoStrip
+                  e={e}
+                  align="left"
+                  photoUrls={photoUrls}
+                  onOpenPhoto={onOpenPhoto}
                 />
               </>
             )}
@@ -640,6 +712,14 @@ function TimelineRow({
               aria-hidden
               className="block h-5 w-5 rounded-full border-2 border-slate-500 bg-slate-400"
             />
+          </div>
+        ) : isPhoto ? (
+          <div
+            aria-label={aria}
+            className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded-full border-2 border-sky-500 bg-sky-100 text-[0.7rem] leading-none"
+            title="사진"
+          >
+            <span aria-hidden>📷</span>
           </div>
         ) : (
           <Link
@@ -1019,6 +1099,205 @@ function PeoplePreview({
   );
 }
 
+// Phase Photo (3단계) — 독립 사진 메모리(kind="photo") 전용 카드.
+// 썸네일이 주인공. sky 톤으로 life_event(amber)·era_event(slate)와 즉시 구분.
+// 클릭 동선·인물·장소 없음(4·5단계). 사진 1장 = e.photos[0].
+function PhotoCard({
+  e,
+  align,
+  birthYear,
+  photoUrls,
+  onOpenPhoto,
+}: {
+  e: RenderEvent;
+  align: "left" | "right";
+  birthYear: number | null;
+  photoUrls: PhotoUrls;
+  onOpenPhoto: (p: OpenPhoto) => void;
+}) {
+  const photo = e.photos[0];
+  const url = photo ? photoUrls[photo.id] : undefined;
+  const when =
+    e.eventMonth != null
+      ? `${e.eventYear}년 ${e.eventMonth}월`
+      : `${e.eventYear}년`;
+  const ageSuffix = formatAgeSuffix(e, birthYear);
+  const caption = e.content;
+
+  return (
+    <div
+      className={
+        "w-full max-w-[18rem] rounded-md border-2 border-sky-300 bg-sky-50 p-3 " +
+        (align === "right" ? "text-right" : "text-left")
+      }
+    >
+      <div
+        className={
+          "flex items-center gap-1.5 " +
+          (align === "right" ? "justify-end" : "justify-start")
+        }
+      >
+        <span className="inline-flex items-center rounded-full border border-sky-400 bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">
+          <span aria-hidden className="mr-1">📷</span>사진
+        </span>
+      </div>
+      <p className="mt-2 text-sm font-semibold text-sky-800">
+        {when}
+        {ageSuffix && (
+          <span className="ml-1 text-xs text-sky-600">{ageSuffix}</span>
+        )}
+      </p>
+      {url ? (
+        <button
+          type="button"
+          onClick={() => onOpenPhoto({ url, caption, label: when })}
+          aria-label={`${when} 사진 크게 보기`}
+          className="mt-2 block w-full overflow-hidden rounded-md border-2 border-sky-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={caption || `${when} 사진`}
+            className="aspect-square w-full object-cover"
+            loading="lazy"
+          />
+        </button>
+      ) : (
+        <p className="mt-2 rounded-md border-2 border-dashed border-sky-200 bg-white px-3 py-6 text-center text-xs text-sky-600">
+          사진을 불러오지 못했어요.
+        </p>
+      )}
+      {caption && (
+        <p className="mt-2 text-sm leading-snug text-zinc-700">{caption}</p>
+      )}
+    </div>
+  );
+}
+
+// Phase Photo (3단계) — life_event 카드 아래 첨부 사진 썸네일 strip.
+// 최대 3장 + "외 N장". 각 썸네일 클릭 → 라이트박스. 사진 0장이면 렌더 X
+// (사진 없는 기존 연혁 그대로). 카드 Link 와 충돌 없게 형제로 둠.
+const STRIP_LIMIT = 3;
+
+function PhotoStrip({
+  e,
+  align,
+  photoUrls,
+  onOpenPhoto,
+}: {
+  e: RenderEvent;
+  align: "left" | "right";
+  photoUrls: PhotoUrls;
+  onOpenPhoto: (p: OpenPhoto) => void;
+}) {
+  if (e.photos.length === 0) return null;
+  // Phase Photo (4단계+) — 기간 이벤트의 어느 점인지에 따라 앵커 필터.
+  //   끝 점(isPeriodEnd)  : end / both
+  //   시작 점(isPeriodStart): start / both
+  //   단일 점(둘 다 아님)  : 전부 (앵커 무관)
+  const visiblePhotos = e.photos.filter((p) => {
+    if (e.isPeriodEnd) {
+      return p.periodAnchor === "end" || p.periodAnchor === "both";
+    }
+    if (e.isPeriodStart) {
+      return p.periodAnchor === "start" || p.periodAnchor === "both";
+    }
+    return true;
+  });
+  if (visiblePhotos.length === 0) return null;
+  const label = `${formatWhen(e)} ${formatTitle(e)}`;
+  const shown = visiblePhotos.slice(0, STRIP_LIMIT);
+  const extra = visiblePhotos.length - shown.length;
+  return (
+    <div
+      className={
+        "mt-1 flex max-w-[18rem] flex-wrap gap-1.5 " +
+        (align === "right" ? "justify-end" : "justify-start")
+      }
+    >
+      {shown.map((p) => {
+        const url = photoUrls[p.id];
+        if (!url) return null;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => onOpenPhoto({ url, caption: p.caption, label })}
+            aria-label={`${label} 사진 크게 보기`}
+            className="block h-16 w-16 overflow-hidden rounded-md border-2 border-amber-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt={p.caption || `${label} 사진`}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          </button>
+        );
+      })}
+      {extra > 0 && (
+        <span className="flex h-16 w-16 items-center justify-center rounded-md border-2 border-amber-200 bg-amber-50 text-sm font-semibold text-amber-800">
+          외 {extra}장
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Phase Photo (3단계) — 라이트박스(보기 전용). 삭제는 /photos·편집 화면에서만.
+// 배경 클릭·Esc 로 닫기. 타임라인은 "둘러보기" 에 집중.
+function PhotoLightbox({
+  photo,
+  onClose,
+}: {
+  photo: OpenPhoto;
+  onClose: () => void;
+}) {
+  function onBackdropClick(ev: React.MouseEvent<HTMLDivElement>) {
+    if (ev.target === ev.currentTarget) onClose();
+  }
+  function onKey(ev: React.KeyboardEvent) {
+    if (ev.key === "Escape") onClose();
+  }
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${photo.label} 사진`}
+      onClick={onBackdropClick}
+      onKeyDown={onKey}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+    >
+      <div className="flex max-h-full max-w-3xl flex-col gap-3 rounded-md bg-white p-4 sm:p-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={photo.url}
+          alt={photo.caption || `${photo.label} 사진`}
+          className="max-h-[70vh] w-auto self-center rounded-md"
+        />
+        <div className="flex flex-col gap-1">
+          <p className="text-base font-semibold text-zinc-900">{photo.label}</p>
+          {photo.caption && (
+            <p className="text-sm text-zinc-700">{photo.caption}</p>
+          )}
+        </div>
+        <div className="flex justify-end border-t-2 border-zinc-100 pt-3">
+          <button
+            type="button"
+            onClick={onClose}
+            autoFocus
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-5 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // v3.3 — 선 ±20px 폭의 클릭 area. 클릭 위치 Y → 비율 → 연도 추정 → router.push.
 // pointer-events-auto 라 점·카드 위 클릭은 점·카드가 가로채고, 빈 곳만 도달.
 function LineClickArea({
@@ -1097,6 +1376,15 @@ function Legend() {
           className="inline-block h-5 w-5 rounded-full border-2 border-slate-500 bg-slate-400"
         />
         시대 배경
+      </span>
+      <span className="flex items-center gap-2">
+        <span
+          aria-hidden
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-sky-500 bg-sky-100 text-[0.7rem] leading-none"
+        >
+          📷
+        </span>
+        사진
       </span>
       <span className="text-zinc-500">
         점은 그 시기로, 빈 자리는 새 이야기로

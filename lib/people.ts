@@ -416,5 +416,7 @@ export async function listEventsByPerson(
     eraSource: null,
     eraSection: null,
     monthEventId: null,
+    // 인물 연결은 life_event 만 — 첨부 사진 미리보기는 이 화면 범위 밖이라 빈 배열.
+    photos: [],
   }));
 }

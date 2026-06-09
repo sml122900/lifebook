@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/auth";
-import { createIndependentPhoto } from "@/lib/photos";
+import { isPhotoPeriodAnchor } from "@/lib/life-events";
+import { attachPhotoToMemory, createIndependentPhoto } from "@/lib/photos";
 import {
   ALLOWED_MIME_TYPES,
   MAX_PHOTO_BYTES,
@@ -119,7 +120,68 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── year / month / caption 검증 ─────────────────────────────
+  // ── caption 검증 (양쪽 공통) ───────────────────────────────
+  const captionRaw = form.get("caption");
+  let caption: string | null = null;
+  if (typeof captionRaw === "string") {
+    const trimmed = captionRaw.trim();
+    if (trimmed.length > CAPTION_MAX) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `한 줄 설명은 ${CAPTION_MAX}자까지 적을 수 있어요.`,
+        },
+        { status: 400 },
+      );
+    }
+    caption = trimmed === "" ? null : trimmed;
+  }
+
+  // ── 첨부 / 독립 분기 ────────────────────────────────────────
+  // memoryId 가 있으면 기존 life_event 메모리에 첨부(3단계), 없으면 독립 사진.
+  // 첨부는 year/month 가 메모리에서 상속되므로 폼 입력이 불필요.
+  const memoryIdRaw = form.get("memoryId");
+  const memoryId =
+    typeof memoryIdRaw === "string" && memoryIdRaw.trim() !== ""
+      ? memoryIdRaw.trim()
+      : null;
+
+  if (memoryId) {
+    // 기간 이벤트의 어느 점에 띄울지(start|end|both). 미지정·잘못된 값은 both.
+    const anchorRaw = form.get("periodAnchor");
+    const periodAnchor = isPhotoPeriodAnchor(anchorRaw) ? anchorRaw : "both";
+    try {
+      const result = await attachPhotoToMemory(userId, memoryId, {
+        fileBuffer: buffer,
+        mimeType: detected,
+        caption,
+        periodAnchor,
+      });
+      if (!result.ok) {
+        const msg =
+          result.reason === "memory_not_found"
+            ? "사진을 붙일 기록을 찾을 수 없어요."
+            : "이 기록에는 사진을 붙일 수 없어요.";
+        return NextResponse.json(
+          { ok: false, error: msg },
+          { status: result.reason === "memory_not_found" ? 404 : 400 },
+        );
+      }
+      return NextResponse.json({
+        ok: true,
+        photoId: result.photoId,
+        memoryId,
+      });
+    } catch (e) {
+      console.error("[photo-attach]", e);
+      return NextResponse.json(
+        { ok: false, error: "저장에 실패했어요. 잠시 후 다시 시도해 주세요." },
+        { status: 500 },
+      );
+    }
+  }
+
+  // ── 독립 사진 — year / month 검증 후 새 메모리 + Photo ──────
   const yearRaw = form.get("year");
   const yearNum = typeof yearRaw === "string" ? Number(yearRaw) : NaN;
   if (
@@ -147,22 +209,6 @@ export async function POST(req: NextRequest) {
       );
     }
     monthNum = m;
-  }
-
-  const captionRaw = form.get("caption");
-  let caption: string | null = null;
-  if (typeof captionRaw === "string") {
-    const trimmed = captionRaw.trim();
-    if (trimmed.length > CAPTION_MAX) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `한 줄 설명은 ${CAPTION_MAX}자까지 적을 수 있어요.`,
-        },
-        { status: 400 },
-      );
-    }
-    caption = trimmed === "" ? null : trimmed;
   }
 
   // ── 저장 (Storage + DB transaction, 실패 시 Storage 롤백) ──

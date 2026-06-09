@@ -26,11 +26,37 @@ export const CREATED_VIA_LIFE_EVENT = "life_event";
 // (cross-import 회피 위해 두 곳에 명시. 운영 분석 단계에서 상수 모음
 // CREATED_VIA = {...} 로 통합 후보 — CLAUDE.md M15 후속).
 export const CREATED_VIA_ERA_EVENT = "era_event";
+// Phase Photo (3단계) — 독립 사진 메모리. lib/photos.ts 가 같은 값을
+// CREATED_VIA_PHOTO 로 정의하지만, lib/photos → lib/storage(Supabase) 의존을
+// 끌어오지 않으려고 여기 로컬로 명시(life-events 는 순수 DB 유지 — test 스크립트가
+// Storage 자격증명 없이 직접 호출). era_event 와 동일한 cross-import 회피 패턴.
+const CREATED_VIA_PHOTO = "photo";
+
+// Phase Photo (4단계+) — 기간 이벤트(시작/끝 두 점)에서 사진이 어느 점에
+// 뜰지. "both"=양쪽(기본·단일 시점·기존 사진) / "start"=시작 / "end"=끝.
+export const PHOTO_PERIOD_ANCHORS = ["both", "start", "end"] as const;
+export type PhotoPeriodAnchor = (typeof PHOTO_PERIOD_ANCHORS)[number];
+export function isPhotoPeriodAnchor(v: unknown): v is PhotoPeriodAnchor {
+  return (
+    typeof v === "string" &&
+    (PHOTO_PERIOD_ANCHORS as readonly string[]).includes(v)
+  );
+}
+
+// 연혁 카드에 붙는 사진 메타 — signed URL 은 RSC(page.tsx)가 별도로 발급.
+// 여기서는 storagePath 만 들고 와 getLifeEvents 를 순수 DB 함수로 유지한다.
+export type LifeEventPhoto = {
+  id: string;
+  storagePath: string;
+  caption: string | null;
+  periodAnchor: PhotoPeriodAnchor;
+};
 
 export type LifeEvent = {
-  // life_event(사용자가 직접 쓴 인생 기록) 인지 era_event(시대 사건 담기)
-  // 인지. 시각 분기·비서 컨텍스트 필터·인물 연결 가드의 단일 결정자.
-  kind: "life_event" | "era_event";
+  // life_event(사용자가 직접 쓴 인생 기록)·era_event(시대 사건 담기)·
+  // photo(독립 사진 메모리) 셋 중 하나. 시각 분기·비서 컨텍스트 필터·인물
+  // 연결 가드의 단일 결정자. (비서·인물은 life_event 만 — photo/era 자동 제외.)
+  kind: "life_event" | "era_event" | "photo";
   id: string;
   title: string;
   eventYear: number;
@@ -62,6 +88,12 @@ export type LifeEvent = {
   // Phase E3 — era_event 행의 출처 MonthEvent id. EraCard 가 본인 회상
   // 저장(saveEraMemoryAction) 호출에 사용. life_event 행은 null.
   monthEventId: string | null;
+  // Phase Photo (3단계) — 이 메모리에 첨부된 사진(경로만).
+  //   - kind="photo" 행: 자기 사진 1장
+  //   - kind="life_event" 행: 편집 화면에서 첨부한 사진들 (없으면 [])
+  //   - kind="era_event" 행: 항상 [] (사진 첨부 대상 아님)
+  // signed URL 은 page.tsx 가 storagePath 로 배치 발급해 따로 내려보낸다.
+  photos: LifeEventPhoto[];
 };
 
 // 기간이 의미 있는 카테고리. UI(폼) 와 헬퍼(저장 검증) 가 공유.
@@ -101,13 +133,19 @@ export function isPeriodCategory(category: LifeCategory): boolean {
 // life_event 행은 eventYear 가 항상 채워져 있는 게 약속(L1 스키마 주석).
 // 방어적으로 NULL 행은 결과에서 제외한다.
 export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
-  // Phase E2 — life_event + era_event 둘 다 가져옴. 비서 컨텍스트 등 일부
-  // 호출자는 호출 측에서 kind 로 filter (한 줄). 시간축은 둘 다 보여줌.
+  // Phase E2/Photo — life_event + era_event + photo 셋 다 가져옴. 비서 컨텍스트
+  // 등 일부 호출자는 호출 측에서 kind 로 filter (한 줄). 시간축은 셋 다 보여줌.
+  // photo 메모리도 eventYear/eventMonth 를 미러링하므로(createIndependentPhoto)
+  // 같은 where/orderBy 로 자연 배치된다.
   const rows = await prisma.userMemory.findMany({
     where: {
       userId,
       createdVia: {
-        in: [CREATED_VIA_LIFE_EVENT, CREATED_VIA_ERA_EVENT],
+        in: [
+          CREATED_VIA_LIFE_EVENT,
+          CREATED_VIA_ERA_EVENT,
+          CREATED_VIA_PHOTO,
+        ],
       },
       eventYear: { not: null },
     },
@@ -135,6 +173,16 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
       monthEvent: {
         select: { description: true, source: true, section: true },
       },
+      // Phase Photo (3단계) — 첨부 사진(경로만, signed URL X). 오래된 순.
+      photos: {
+        select: {
+          id: true,
+          storagePath: true,
+          caption: true,
+          periodAnchor: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
     },
     orderBy: [
       { eventYear: "asc" },
@@ -145,8 +193,14 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
 
   return rows.map((r) => {
     const isEra = r.createdVia === CREATED_VIA_ERA_EVENT;
+    const isPhoto = r.createdVia === CREATED_VIA_PHOTO;
+    const kind: LifeEvent["kind"] = isEra
+      ? "era_event"
+      : isPhoto
+        ? "photo"
+        : "life_event";
     return {
-      kind: isEra ? ("era_event" as const) : ("life_event" as const),
+      kind,
       id: r.id,
       title: r.eventTitle ?? r.title,
       eventYear: r.eventYear as number, // where 절에서 not null 보장
@@ -168,6 +222,15 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
       eraSource: isEra ? r.monthEvent?.source ?? null : null,
       eraSection: isEra ? r.monthEvent?.section ?? null : null,
       monthEventId: isEra ? r.monthEventId : null,
+      photos: r.photos.map((p) => ({
+        id: p.id,
+        storagePath: p.storagePath,
+        caption: p.caption,
+        // 방어적 정규화 — 예기치 못한 값은 both 로(DB DEFAULT 와 일치).
+        periodAnchor: isPhotoPeriodAnchor(p.periodAnchor)
+          ? p.periodAnchor
+          : "both",
+      })),
     };
   });
 }
@@ -454,11 +517,12 @@ export async function createLifeEvent(
     forcePrecision ?? (input.month !== null ? "EXACT" : "APPROXIMATE");
   if (precision === "EXACT" && input.month === null) precision = "APPROXIMATE";
 
-  const endYear = isPeriodCategory(category) ? input.endYear : null;
-  const endMonth =
-    endYear !== null && isPeriodCategory(category)
-      ? input.endMonth ?? null
-      : null;
+  // L4(+) — EventForm 경로(자유 추가/수정)는 카테고리와 무관하게 사용자가
+  // "기간" 토글로 시작·끝을 정한다. (/life-record 의 upsertLifeEvent 는 카테고리
+  // 게이트 유지 — 거기선 카테고리가 기간 여부를 결정.) 타임라인 split 이 endYear
+  // 기준이라 endYear 가 곧 기간 표식. endYear 없으면 endMonth 도 무조건 null.
+  const endYear = input.endYear;
+  const endMonth = endYear !== null ? input.endMonth ?? null : null;
   const place = input.place ?? EMPTY_PLACE;
 
   const created = await prisma.userMemory.create({
@@ -500,11 +564,12 @@ export async function updateLifeEvent(
     forcePrecision ?? (input.month !== null ? "EXACT" : "APPROXIMATE");
   if (precision === "EXACT" && input.month === null) precision = "APPROXIMATE";
 
-  const endYear = isPeriodCategory(category) ? input.endYear : null;
-  const endMonth =
-    endYear !== null && isPeriodCategory(category)
-      ? input.endMonth ?? null
-      : null;
+  // L4(+) — EventForm 경로(자유 추가/수정)는 카테고리와 무관하게 사용자가
+  // "기간" 토글로 시작·끝을 정한다. (/life-record 의 upsertLifeEvent 는 카테고리
+  // 게이트 유지 — 거기선 카테고리가 기간 여부를 결정.) 타임라인 split 이 endYear
+  // 기준이라 endYear 가 곧 기간 표식. endYear 없으면 endMonth 도 무조건 null.
+  const endYear = input.endYear;
+  const endMonth = endYear !== null ? input.endMonth ?? null : null;
   const place = input.place ?? EMPTY_PLACE;
 
   // 소유 확인 후 update — updateMany 로 한 트랜잭션, 일치 안 하면 count=0.

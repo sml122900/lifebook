@@ -146,7 +146,14 @@ export async function listRoomMemories(roomId: string, viewerUserId: string) {
   if (memberIds.length === 0) return [];
 
   return prisma.userMemory.findMany({
-    where: { userId: { in: memberIds } },
+    where: {
+      userId: { in: memberIds },
+      // Phase Photo — 독립 사진 메모리(createdVia="photo")는 가족 룸에 이미지
+      // 없는 텍스트 카드로 새지 않게 제외. 사진의 룸 공유는 6단계에서 이미지와
+      // 함께 설계한다. life_event 에 첨부된 사진은 life_event 행으로 정상
+      // 노출(본문만, 이미지는 6단계), era_event 는 E2/E3 정책상 노출 유지.
+      createdVia: { not: "photo" },
+    },
     select: {
       id: true,
       userId: true,

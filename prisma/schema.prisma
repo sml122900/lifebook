@@ -747,7 +747,15 @@ model Photo {
   height      Int?
   caption     String? // 사진 1장 캡션 (선택)
   takenAt     DateTime? // EXIF 또는 사용자 입력 (선택)
-  createdAt   DateTime   @default(now())
+  // Phase Photo (4단계+) — 기간 이벤트(학교/군대/직장)는 시작·끝 두 점으로
+  // 그려지는데(TimelineView expandPeriods), 사진은 memoryId 한곳에 붙어 양쪽에
+  // 다 복제돼 보였다. 이 앵커로 어느 점에 띄울지 구분한다:
+  //   "both"  : 시작·끝 둘 다 (기본 — 단일 시점 이벤트·기존 사진 모두 이 값)
+  //   "start" : 시작 점에만 (입학/입대/입사 무렵)
+  //   "end"   : 끝 점에만   (졸업/제대/퇴사 무렵)
+  // 단일 시점 이벤트에선 의미 없음(항상 both 로 저장·전부 표시).
+  periodAnchor String   @default("both")
+  createdAt    DateTime  @default(now())
 
   @@index([userId, createdAt])
   @@index([memoryId])

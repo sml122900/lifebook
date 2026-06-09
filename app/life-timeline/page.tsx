@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { getFamilyNews } from "@/lib/family-news";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import { listPeople, listPeopleByEventBatch } from "@/lib/people";
+import { getSignedUrl } from "@/lib/storage";
 import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
 
 import type { InitialSavedAnswer } from "../timemachine/[year]/[month]/AssistantPanel";
@@ -69,6 +70,27 @@ export default async function LifeTimelinePage() {
   const peopleByEvent: Record<string, { id: string; name: string }[]> = {};
   for (const [memoryId, people] of peopleByEventMap) {
     peopleByEvent[memoryId] = people;
+  }
+
+  // Phase Photo (3단계) — 연혁의 모든 사진 signed URL 배치 발급. getLifeEvents
+  // 는 경로만 들고 오므로(순수 DB) Storage I/O 는 여기 RSC 에서만. 한 장이
+  // 실패해도 화면 전체가 안 깨지게 개별 try/catch — 실패분은 photoUrls 에서
+  // 빠져 썸네일만 누락된다. (7단계: 썸네일·signed URL 캐싱으로 최적화)
+  const photoUrlEntries = await Promise.all(
+    events
+      .flatMap((e) => e.photos)
+      .map(async (p) => {
+        try {
+          return [p.id, await getSignedUrl(p.storagePath)] as const;
+        } catch (err) {
+          console.error("[timeline-signed-url]", p.storagePath, err);
+          return [p.id, null] as const;
+        }
+      }),
+  );
+  const photoUrls: Record<string, string> = {};
+  for (const [id, url] of photoUrlEntries) {
+    if (url) photoUrls[id] = url;
   }
   // 모달용 인물 목록 — id/name 만 추려 직렬화 크기 줄임.
   const allPeople = allPeopleRows.map((p) => ({ id: p.id, name: p.name }));
@@ -138,6 +160,7 @@ export default async function LifeTimelinePage() {
           birthYear={birthYear}
           peopleByEvent={peopleByEvent}
           allPeople={allPeople}
+          photoUrls={photoUrls}
         />
       ) : (
         <EmptyState />

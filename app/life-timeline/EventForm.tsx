@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
 
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
@@ -78,6 +78,7 @@ export function EventForm({
   initial,
   birthYear = null,
   defaultYear = null,
+  children,
 }: {
   mode: "add" | "edit";
   anchors?: AnchorOption[];
@@ -87,6 +88,9 @@ export function EventForm({
   // 있으면 "exact" 모드로 시작(anchors 있어도 사용자가 정확한 연도를 가리키고
   // 왔으므로 between 모드가 부자연스러움). 사용자는 폼에서 변경 가능.
   defaultYear?: number | null;
+  // Phase Photo (4단계) — 폼 본문과 취소/저장 버튼 사이에 끼울 보조 섹션
+  // (편집 모드의 사진 첨부 등). 버튼이 항상 화면 맨 아래에 오도록.
+  children?: ReactNode;
 }) {
   const router = useRouter();
   const isEdit = mode === "edit";
@@ -128,7 +132,12 @@ export function EventForm({
     initial?.endMonth != null ? String(initial.endMonth) : "",
   );
 
-  const isPeriod = PERIOD_CATEGORIES.has(category);
+  // L4(+) — "기간" 은 카테고리가 아니라 사용자 선택. 학령기/군대/직장 카테고리
+  // 이거나(초기값) 이미 endYear 가 있으면 켜진 채로 시작. 자유 추가는 꺼짐 →
+  // 사용자가 토글로 켜면 시작·끝을 입력할 수 있다.
+  const [isPeriod, setIsPeriod] = useState<boolean>(
+    PERIOD_CATEGORIES.has(category) || initial?.endYear != null,
+  );
 
   // 앵커 사이 모드 입력 (추가 모드만)
   const [anchorBeforeId, setAnchorBeforeId] = useState<string>(""); // "이 사건 다음에"
@@ -292,6 +301,7 @@ export function EventForm({
           monthText={monthText}
           setMonthText={setMonthText}
           isPeriod={isPeriod}
+          onTogglePeriod={setIsPeriod}
           endYearText={endYearText}
           setEndYearText={setEndYearText}
           endMonthText={endMonthText}
@@ -357,6 +367,9 @@ export function EventForm({
           {error}
         </p>
       )}
+
+      {/* 보조 섹션(편집 모드 사진 첨부 등) — 취소/저장 버튼 바로 위. */}
+      {children}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
@@ -539,6 +552,7 @@ function ExactSection({
   monthText,
   setMonthText,
   isPeriod,
+  onTogglePeriod,
   endYearText,
   setEndYearText,
   endMonthText,
@@ -550,6 +564,7 @@ function ExactSection({
   monthText: string;
   setMonthText: (v: string) => void;
   isPeriod: boolean;
+  onTogglePeriod: (v: boolean) => void;
   endYearText: string;
   setEndYearText: (v: string) => void;
   endMonthText: string;
@@ -617,6 +632,25 @@ function ExactSection({
       <p className="text-base text-zinc-600">
         월을 적으시면 정확한 시점(앵커)으로, 비워두시면 대략 시점으로 저장돼요.
       </p>
+
+      {/* L4(+) — 기간 토글. 학교·군대처럼 한동안 이어진 일이면 끝 시점도 입력. */}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={isPeriod}
+        onClick={() => onTogglePeriod(!isPeriod)}
+        className={
+          "flex items-center gap-3 rounded-md border-2 px-4 py-3 text-left text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
+          (isPeriod
+            ? "border-amber-500 bg-amber-50 text-amber-900"
+            : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100")
+        }
+      >
+        <span aria-hidden className="text-2xl">
+          {isPeriod ? "☑" : "☐"}
+        </span>
+        한동안 이어진 일이에요 (시작~끝 기간으로 입력)
+      </button>
 
       {isPeriod && (
         <div className="flex flex-col gap-1">

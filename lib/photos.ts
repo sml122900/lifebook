@@ -16,6 +16,11 @@
 
 import { prisma } from "./db";
 import {
+  CREATED_VIA_LIFE_EVENT,
+  isPhotoPeriodAnchor,
+  type PhotoPeriodAnchor,
+} from "./life-events";
+import {
   type AllowedMimeType,
   getSignedUrl,
   removePhoto,
@@ -62,6 +67,11 @@ export async function createIndependentPhoto(
           month: input.month,
           title: trimmedCaption ?? autoTitle,
           content: trimmedCaption,
+          // Phase Photo (3단계) — eventYear/eventMonth 미러링. getLifeEvents 가
+          // eventYear 기준으로 where/orderBy 하므로, 이게 없으면 사진이 연혁
+          // 타임라인에서 통째로 빠진다. year/month 와 동일 값.
+          eventYear: input.year,
+          eventMonth: input.month,
         },
         select: { id: true },
       });
@@ -94,6 +104,92 @@ export async function createIndependentPhoto(
     }
     throw e;
   }
+}
+
+// Phase Photo (3단계) — 기존 life_event 메모리에 사진 1장 첨부.
+//
+// 독립 사진(createIndependentPhoto)과 달리 새 UserMemory 를 만들지 않고,
+// 이미 있는 life_event 메모리에 Photo 행만 매단다 (1:N 의 N 추가).
+//
+// 정책 가드 — 첨부 대상은 life_event 만:
+//   - era_event(시대 사건 담기): 사용자가 쓴 게 아니라 첨부 불가
+//   - photo(독립 사진): 이미 사진 메모리라 또 매달지 않음(독립 업로드로)
+//   - 본인 아닌 메모리: 거부
+//
+// 검증을 Storage 업로드 *전에* 하는 이유: 거부될 요청이 Storage 에 orphan
+// 파일을 남기지 않게. 업로드 후 Photo create 가 실패하면 그때 롤백.
+export type AttachPhotoInput = {
+  fileBuffer: Buffer;
+  mimeType: AllowedMimeType;
+  caption: string | null;
+  // 기간 이벤트에서 어느 점에 띄울지. 생략 시 both(단일 시점·기본).
+  periodAnchor?: PhotoPeriodAnchor;
+};
+
+export type AttachPhotoResult =
+  | { ok: true; photoId: string }
+  | { ok: false; reason: "memory_not_found" | "not_life_event" };
+
+export async function attachPhotoToMemory(
+  userId: string,
+  memoryId: string,
+  input: AttachPhotoInput,
+): Promise<AttachPhotoResult> {
+  // 1) 대상 메모리 검증 (Storage 업로드 전) — 본인 소유 + life_event
+  const memory = await prisma.userMemory.findFirst({
+    where: { id: memoryId, userId },
+    select: { id: true, createdVia: true },
+  });
+  if (!memory) return { ok: false, reason: "memory_not_found" };
+  if (memory.createdVia !== CREATED_VIA_LIFE_EVENT) {
+    return { ok: false, reason: "not_life_event" };
+  }
+
+  // 2) Storage 업로드 (검증 통과 후)
+  const uploaded = await uploadPhoto(userId, input.fileBuffer, input.mimeType);
+
+  // 3) Photo 행 생성 — 실패 시 Storage 롤백 (orphan 방지)
+  try {
+    const trimmedCaption = input.caption?.trim() ? input.caption.trim() : null;
+    const photo = await prisma.photo.create({
+      data: {
+        userId,
+        memoryId,
+        storagePath: uploaded.storagePath,
+        mimeType: uploaded.mimeType,
+        fileBytes: uploaded.bytes,
+        caption: trimmedCaption,
+        periodAnchor: input.periodAnchor ?? "both",
+      },
+      select: { id: true },
+    });
+    return { ok: true, photoId: photo.id };
+  } catch (e) {
+    try {
+      await removePhoto(uploaded.storagePath);
+    } catch (cleanupErr) {
+      console.error("[attach-photo-rollback-failed]", {
+        path: uploaded.storagePath,
+        error: cleanupErr,
+      });
+    }
+    throw e;
+  }
+}
+
+// Phase Photo (4단계+) — 첨부 사진의 periodAnchor 재태그(이미 붙은 사진을
+// 입학/졸업/전체로 옮김). 권한 = 본인 photo 만(updateMany where userId →
+// 일치 없으면 count=0). Storage 무관(메타만 수정).
+export async function updatePhotoAnchor(
+  userId: string,
+  photoId: string,
+  anchor: PhotoPeriodAnchor,
+): Promise<boolean> {
+  const result = await prisma.photo.updateMany({
+    where: { id: photoId, userId },
+    data: { periodAnchor: anchor },
+  });
+  return result.count > 0;
 }
 
 // 사진 1장 삭제. 권한 = 본인 photo 만.
@@ -156,6 +252,7 @@ export type UserPhoto = {
   month: number | null;
   bytes: number;
   mimeType: string;
+  periodAnchor: PhotoPeriodAnchor;
   createdAt: Date;
 };
 
@@ -170,6 +267,7 @@ export async function listUserPhotos(userId: string): Promise<UserPhoto[]> {
       caption: true,
       fileBytes: true,
       mimeType: true,
+      periodAnchor: true,
       createdAt: true,
       memory: { select: { year: true, month: true } },
     },
@@ -185,6 +283,49 @@ export async function listUserPhotos(userId: string): Promise<UserPhoto[]> {
       month: r.memory.month,
       bytes: r.fileBytes,
       mimeType: r.mimeType,
+      periodAnchor: isPhotoPeriodAnchor(r.periodAnchor)
+        ? r.periodAnchor
+        : ("both" as const),
+      createdAt: r.createdAt,
+    })),
+  );
+}
+
+// Phase Photo (4단계) — 한 메모리에 첨부된 사진들 + signed URL. 편집 화면에서
+// 그 이벤트의 첨부 사진을 관리(추가/삭제)할 때 사용. where 의 userId 가 소유
+// 검증 — 남의 메모리 id 를 넣어도 본인 photo 만 반환(없으면 []). 오래된 순
+// (PhotoStrip 표시 순서와 일치).
+export async function listMemoryPhotos(
+  userId: string,
+  memoryId: string,
+): Promise<UserPhoto[]> {
+  const rows = await prisma.photo.findMany({
+    where: { userId, memoryId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      storagePath: true,
+      caption: true,
+      fileBytes: true,
+      mimeType: true,
+      periodAnchor: true,
+      createdAt: true,
+      memory: { select: { year: true, month: true } },
+    },
+  });
+  return Promise.all(
+    rows.map(async (r) => ({
+      id: r.id,
+      storagePath: r.storagePath,
+      signedUrl: await getSignedUrl(r.storagePath),
+      caption: r.caption,
+      year: r.memory.year,
+      month: r.memory.month,
+      bytes: r.fileBytes,
+      mimeType: r.mimeType,
+      periodAnchor: isPhotoPeriodAnchor(r.periodAnchor)
+        ? r.periodAnchor
+        : ("both" as const),
       createdAt: r.createdAt,
     })),
   );

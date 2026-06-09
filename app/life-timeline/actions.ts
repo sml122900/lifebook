@@ -13,7 +13,6 @@ import type { EventPrecision, LifeCategory } from "@/lib/generated/prisma/enums"
 import {
   createLifeEvent,
   deleteLifeEvent,
-  isPeriodCategory,
   type PlaceInfo,
   updateLifeEvent,
 } from "@/lib/life-events";
@@ -188,8 +187,10 @@ function validate(raw: LifeEventInputRaw): ValidationOk | ValidationFail {
     month = raw.month;
   }
 
+  // L4(+) — endYear 는 카테고리 무관(EventForm 의 "기간" 토글이 제어). 폼이
+  // endYear 를 보낼 때만 검증·저장. (/life-record 는 별도 액션이라 영향 없음.)
   let endYear: number | null = null;
-  if (isPeriodCategory(category) && raw.endYear !== null) {
+  if (raw.endYear !== null) {
     if (
       !Number.isInteger(raw.endYear) ||
       raw.endYear < YEAR_MIN ||
@@ -211,7 +212,7 @@ function validate(raw: LifeEventInputRaw): ValidationOk | ValidationFail {
 
   // 2026-06-07 — endMonth 검증. endYear 가 있어야 의미 있음.
   let endMonth: number | null = null;
-  if (isPeriodCategory(category) && endYear !== null && raw.endMonth !== null) {
+  if (endYear !== null && raw.endMonth !== null) {
     if (
       !Number.isInteger(raw.endMonth) ||
       raw.endMonth < 1 ||
