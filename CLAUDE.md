@@ -170,6 +170,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **Supabase 이전** | **Docker → Supabase Postgres + Storage. Prisma 7 url/directUrl 분리, search_path 설정, pgvector extensions 스키마, 마이그 29건 + 시드 4종 + 임베딩 재생성 + 로그인 검증** | (`2026-06-09` 일지) | ✅ 완료 |
 | **Photo 1·2** | **사진 풀스택 1·2단계 — Storage 검증(1) → Photo 모델 + UserMemory 1:N + transaction + orphan 방지(2). 3~7단계(연혁 표시·인물·장소·공유·썸네일) 후속** | (`2026-06-09` 일지) | ✅ 1·2단계 완료 |
 | **UX 픽스 5** | **PlaceSearchInput previewMarkers useMemo · ProgressCard 메인 제거 · 건너뛰기 → 인덱스 · 튜토리얼 안내 · "← 인생 연혁으로" 9곳** | (`2026-06-09` 일지) | ✅ 완료 |
+| **Photo 3·4·5 + periodAnchor** | **사진 연혁 표시(3)·이벤트 첨부(4)·마무리(5) + 기간 시작/끝 사진 분리(periodAnchor) + 자유추가 기간 입력 + 룸 leak 픽스. getLifeEvents 순수 DB(경로만)·page.tsx signed URL 배치·photo=sky+📷·라이트박스 보기전용** | (`2026-06-09` 세션2 일지) | ✅ 완료 (6·7단계 후속) |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -459,6 +460,17 @@ UX 픽스 5건 신규 후속 (`docs/daily/2026-06-09.md` 참조):
 - life-record 안내 박스 톤 — 사용자 피드백 받아 더 짧게/길게 조정 (현재 두 단락)
 - PlaceSearchInput previewMarkers 외 다른 prop 도 같은 패턴(NaverMap onMarkerClick 등) 점검 — CLAUDE.md M6 후속 영역과 함께
 
+Photo 3·4·5 + periodAnchor 신규 후속 (`docs/daily/2026-06-09.md` 세션2 참조):
+- **사진 6단계(가족 룸 공유)** — `listRoomMemories` 의 `createdVia: { not: "photo" }` 제외를 해제 + signed URL 권한(룸 멤버) + PersonalMemoryCard 사진 분기(이미지 표시). 룸 leak 픽스가 이 단계의 선결 조건을 정리해 둠
+- **사진 5단계(장소)** — `PlaceSearchInput` 재사용. **인물 매칭**(4단계 일부)은 `lib/people.ts` `not_life_event` 가드 확장 또는 분리 검토
+- 사진 7단계 — HEIC 변환·EXIF strip·takenAt 자동·썸네일 별도 저장·페이지네이션·signed URL 캐싱(매 RSC N건 발급)
+- 인물·장소도 기간 시작/끝 양쪽 중복(originalId 공유) — 사진 periodAnchor 와 같은 패턴으로 4·5단계 때 처리(메모해 둠)
+- `createdVia` 매직 스트링 분산("photo" 가 rooms.ts·life-events.ts·photos.ts 세 곳) — `CREATED_VIA = {...}` 상수 모음 통합 후보(CLAUDE.md M15 영역)
+- `db/backfill-photo-eventyear.ts` — idempotent no-op(2단계 테스트 사진 이미 삭제). 기록용 보존, 일정 후 archive 후보
+- TimelineView `expandPeriods`/`computePeriodFlags`/PhotoStrip 앵커 필터 — UI 검증 어려운 순수 함수 단위 테스트 후보(CLAUDE.md 기존 후속 영역)
+- 마이그/`prisma generate` 후 dev 서버 stale 클라이언트(`Unknown field` 에러) — .next 정리 + 재시작 필요. dev 시작 시 .next 자동 정리 정책 후보(Auth.js stale 패턴과 같이)
+- /photos·EventPhotos·라이트박스 다크모드 미대응(CLAUDE.md M2 영역)
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
@@ -533,6 +545,13 @@ UX 픽스 5건 신규 후속 (`docs/daily/2026-06-09.md` 참조):
 - [x] 사진 orphan 방지(2026-06-09) → 업로드는 Storage put → DB tx (실패 시 try/catch 로 Storage 롤백). 삭제는 Storage remove → DB tx(Photo + photo-only 메모리 정리, life_event 첨부는 메모리 보존)
 - [x] 사진 HEIC 정책(2026-06-09) → 1·2단계 거부 + 친화 안내("아이폰 설정→카메라→포맷→호환성"). magic number 검증으로 mimeType 위장 + 브라우저 라벨 오류(Safari HEIC→jpeg) 둘 다 차단
 - [x] 사진 1단계 archive(2026-06-09) → app/photos/test → app/photos/_test_archived (Next.js private folder 패턴, 라우트 X 코드 보존). storage.ts 의 listUserPhotos → listStoragePhotos rename(photos.ts 와 충돌 회피)
+- [x] 사진 연혁 표시(3단계, 2026-06-09) → `getLifeEvents` 는 photos **경로만**(순수 DB 유지 — test 스크립트가 Storage 자격증명 없이 호출). signed URL 은 page.tsx(RSC)가 `Promise.all` 배치 발급(개별 try/catch). `LifeEvent.kind` 3종 + `createIndependentPhoto` eventYear/eventMonth 미러링(없으면 사진이 타임라인에서 빠짐)
+- [x] 사진 시각 구분(2026-06-09) → life=amber / era=slate / **photo=sky+📷**. 독립 사진 행(썸네일 주인공) + life_event 첨부 strip(최대 3장+"외 N장"). 라이트박스 **보기 전용**(삭제는 /photos·편집에서만). photo 행엔 인물·장소 안 그림(4·5단계)
+- [x] 사진 비서 컨텍스트(2026-06-09) → **제외**. 기존 `filter(kind==="life_event")` 가 photo(새 kind) 자동 제외 — 코드 0줄
+- [x] 사진 이벤트 첨부(4단계, 2026-06-09) → `attachPhotoToMemory` 검증을 **Storage 업로드 전에**(소유+life_event) → orphan 방지. POST `/api/photos` memoryId 분기. `EventPhotos` 형제(EventForm 무수정, 버튼은 children 으로 받아 맨 아래). 편집 화면은 삭제 OK
+- [x] periodAnchor(2026-06-09) → `Photo.periodAnchor String @default("both")`(마이그 ADD COLUMN, 기존 행·단일 시점 자동 both). 기간 split 시작/끝 점에 사진 분리(`start`/`end`/`both`). `expandPeriods` `isPeriodStart` 마킹 + `PhotoStrip` 앵커 필터. PATCH `/api/photos/[id]` 재태그. 라벨 **공통 `시작 무렵 / 기간 전체 / 끝 무렵`**(카테고리별 입학·졸업 폐기 — 학교에만 맞아서)
+- [x] 기간 = endYear 유무(2026-06-09) → 카테고리가 아니라 endYear 가 기간 표식(타임라인 split 이 이미 endYear 기준). EventForm 경로만 디커플(`createLifeEvent`/`updateLifeEvent`/`validate` 게이트 제거). **`/life-record` 의 `upsertLifeEvent` 는 카테고리 게이트 유지**(blast radius 절단). add 폼에 "한동안 이어진 일이에요" 토글
+- [x] 사진 가족 룸 노출(2026-06-09) → **6단계 전까지 제외**. `listRoomMemories` 가 createdVia 필터 없이 멤버 전체 메모리 노출 → photo(year/title 미러링)가 이미지 없는 텍스트로 새던 leak 발견. `where` 에 `createdVia: { not: "photo" }`(era_event 는 E2/E3 정책상 유지). 회귀 `test-photo-room-isolation`
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
