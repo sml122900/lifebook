@@ -2,7 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { auth } from "@/auth";
 import { isPhotoPeriodAnchor } from "@/lib/life-events";
+import { validatePlace } from "@/lib/place-validate";
 import { attachPhotoToMemory, createIndependentPhoto } from "@/lib/photos";
+
+// FormData 의 숫자 필드(lat/lng) 파싱 — 빈/비숫자면 null.
+function numFromForm(v: FormDataEntryValue | null): number | null {
+  if (typeof v !== "string" || v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 import {
   ALLOWED_MIME_TYPES,
   MAX_PHOTO_BYTES,
@@ -211,6 +219,25 @@ export async function POST(req: NextRequest) {
     monthNum = m;
   }
 
+  // ── 장소(선택) — 독립 사진에만. 미선택이면 undefined. ──────────
+  const placeNameRaw = form.get("placeName");
+  let place;
+  if (typeof placeNameRaw === "string" && placeNameRaw.trim() !== "") {
+    const addrRaw = form.get("placeAddress");
+    const srcRaw = form.get("placeSource");
+    const pv = validatePlace({
+      placeName: placeNameRaw,
+      placeAddress: typeof addrRaw === "string" ? addrRaw : null,
+      lat: numFromForm(form.get("lat")),
+      lng: numFromForm(form.get("lng")),
+      placeSource: typeof srcRaw === "string" ? srcRaw : null,
+    });
+    if (!pv.ok) {
+      return NextResponse.json({ ok: false, error: pv.error }, { status: 400 });
+    }
+    place = pv.place;
+  }
+
   // ── 저장 (Storage + DB transaction, 실패 시 Storage 롤백) ──
   try {
     const result = await createIndependentPhoto(userId, {
@@ -219,6 +246,7 @@ export async function POST(req: NextRequest) {
       year: yearNum,
       month: monthNum,
       caption,
+      place,
     });
     return NextResponse.json({
       ok: true,

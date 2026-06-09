@@ -193,11 +193,39 @@ async function main() {
       select: { id: true },
     });
     const rChat = await linkPersonToEvent(alice.id, kim.id, aiChat.id);
-    check("ai_chat 메모리 링크 → not_life_event", rChat === "not_life_event");
+    check("ai_chat 메모리 링크 → not_linkable", rChat === "not_linkable");
     const chatPersonEvents = await prisma.personEvent.count({
       where: { memoryId: aiChat.id },
     });
     check("ai_chat 에 PersonEvent 행 안 생김", chatPersonEvents === 0);
+
+    // B — photo 메모리에 인물 연결 허용 (life_event + photo). 전용 인물
+    // (photoPal)로 — kim 의 하류 카운트 검증에 영향 안 주게.
+    const photoPal = await createPerson(alice.id, {
+      name: "사진친구",
+      relation: null,
+      metYear: null,
+      memo: null,
+    });
+    const photoMem = await prisma.userMemory.create({
+      data: {
+        userId: alice.id,
+        createdVia: "photo",
+        year: 2012,
+        month: 5,
+        title: "2012년 5월 사진",
+        content: "가족 나들이",
+        eventYear: 2012,
+        eventMonth: 5,
+      },
+      select: { id: true },
+    });
+    const rPhoto = await linkPersonToEvent(alice.id, photoPal.id, photoMem.id);
+    check("photo 메모리 링크 → linked", rPhoto === "linked");
+    const photoEvents = await listEventsByPerson(alice.id, photoPal.id);
+    const photoRow = photoEvents.find((e) => e.id === photoMem.id);
+    check("listEventsByPerson 에 photo 포함", !!photoRow);
+    check("photo row kind=photo", photoRow?.kind === "photo");
 
     // 다른 사용자 인물 → not_found
     const evePerson = await prisma.person.findFirstOrThrow({

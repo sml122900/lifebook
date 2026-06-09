@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import {
-  ERA_MEMORY_MAX_LENGTH,
   saveEraMemory,
   stashEraEvent,
   unstashEraEvent,
@@ -64,6 +63,3 @@ export async function saveEraMemoryAction(
   }
   return result;
 }
-
-// 길이 상한 — 클라가 maxLength prop / 잔량 표시에 사용.
-export const ERA_MEMORY_LIMIT = ERA_MEMORY_MAX_LENGTH;

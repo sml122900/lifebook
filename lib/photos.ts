@@ -20,6 +20,7 @@ import {
   isPhotoPeriodAnchor,
   type PhotoPeriodAnchor,
 } from "./life-events";
+import { EMPTY_PLACE, type PlaceInfo } from "./place-types";
 import {
   type AllowedMimeType,
   getSignedUrl,
@@ -35,6 +36,9 @@ export type CreatePhotoInput = {
   year: number;
   month: number | null;
   caption: string | null;
+  // Phase Place (C) — 독립 사진의 장소. 미선택이면 EMPTY_PLACE. photo 메모리도
+  // UserMemory 라 place 5컬럼 그대로 저장(마이그 0).
+  place?: PlaceInfo;
 };
 
 export type CreatePhotoResult = {
@@ -58,6 +62,7 @@ export async function createIndependentPhoto(
     const monthLabel = input.month ? `${input.month}월 ` : "";
     const autoTitle = `${input.year}년 ${monthLabel}사진`;
 
+    const place = input.place ?? EMPTY_PLACE;
     const result = await prisma.$transaction(async (tx) => {
       const memory = await tx.userMemory.create({
         data: {
@@ -72,6 +77,12 @@ export async function createIndependentPhoto(
           // 타임라인에서 통째로 빠진다. year/month 와 동일 값.
           eventYear: input.year,
           eventMonth: input.month,
+          // Phase Place (C) — 독립 사진 장소(미선택이면 모두 null).
+          placeName: place.placeName,
+          placeAddress: place.placeAddress,
+          lat: place.lat,
+          lng: place.lng,
+          placeSource: place.placeSource,
         },
         select: { id: true },
       });
@@ -188,6 +199,28 @@ export async function updatePhotoAnchor(
   const result = await prisma.photo.updateMany({
     where: { id: photoId, userId },
     data: { periodAnchor: anchor },
+  });
+  return result.count > 0;
+}
+
+// Phase Place (C) — 독립 사진 메모리의 장소 수정. 권한 = 본인 photo 메모리만
+// (updateMany where {userId, createdVia:"photo"} → 일치 없으면 count=0). 장소는
+// UserMemory(메모리)에 있으므로 memoryId 로 수정. 첨부 사진은 부모 life_event
+// 장소를 상속하므로 여기 대상 X (createdVia 가드).
+export async function updatePhotoMemoryPlace(
+  userId: string,
+  memoryId: string,
+  place: PlaceInfo,
+): Promise<boolean> {
+  const result = await prisma.userMemory.updateMany({
+    where: { id: memoryId, userId, createdVia: CREATED_VIA_PHOTO },
+    data: {
+      placeName: place.placeName,
+      placeAddress: place.placeAddress,
+      lat: place.lat,
+      lng: place.lng,
+      placeSource: place.placeSource,
+    },
   });
   return result.count > 0;
 }

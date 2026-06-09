@@ -91,3 +91,43 @@ AnswerForm은 그대로 `err.message.includes("insufficient balance")`로 분기
 ## 이력서 소재 한 줄
 
 Next.js App Router의 `"use server"` 모듈 제약("async 함수만 export 가능")을 빌드 에러 메시지에서 발견 → 에러 클래스를 별도 모듈로 분리해 server action ↔ client component 간 타입 안전한 에러 분기 패턴 정립.
+
+---
+
+## 재발 사례 — number export (2026-06-10)
+
+같은 제약의 **숫자** 변형. `app/era/actions.ts`("use server")가 회상 길이 상한을 클라(`EraMemoryEditor`)에 넘기려고 상수를 재노출하고 있었다:
+
+```ts
+// app/era/actions.ts  ("use server")
+export const ERA_MEMORY_LIMIT = ERA_MEMORY_MAX_LENGTH; // = 500
+```
+
+```
+Error: A "use server" file can only export async functions, found number.
+```
+
+### 왜 그동안 안 터졌나 (핵심)
+
+이 export 는 처음부터 잘못이었지만, 한동안 페이지를 깨뜨리지 않았다. **사진 장소 저장 액션(`updatePhotoPlaceAction`)이 같은 `/life-timeline` 의 server-action 번들에 새로 합류**하면서 번들 전체가 재검증 → 그제서야 number export 가 걸렸다. 교훈: **모듈 그래프에 새 액션을 더하면 기존 "use server" 파일까지 재검증**된다. 잠재 위반은 "새 진입점"에서 표면화한다.
+
+### 왜 액션 파일을 통로로 썼었나
+
+클라 컴포넌트(`EraMemoryEditor`)가 상수를 필요로 하는데, 정의처 `lib/era-stash.ts` 는 **prisma 를 import(서버 전용)** 해서 클라가 직접 못 가져온다. 그래서 "use server" 액션 파일을 우회 통로로 쓰고 있었다 — 우회 자체가 폭탄이었다.
+
+### 해결 — 순수 상수 모듈
+
+```ts
+// lib/era-constants.ts  (use server 아님, prisma 의존 0 → 클라/서버 공용)
+export const ERA_MEMORY_MAX_LENGTH = 500;
+```
+
+- 서버(`lib/era-stash.ts`)는 `import` 후 `export { ERA_MEMORY_MAX_LENGTH }` 재노출 → 기존 `@/lib/era-stash` 호출자 무수정.
+- 클라(`EraMemoryEditor`)는 `@/lib/era-constants` 에서 직접 import.
+
+`lib/place-types.ts`(클라/서버 공용 순수 타입·상수) 와 같은 패턴. **클라가 서버 전용 모듈의 상수를 필요로 하면 → 순수 모듈로 추출**(액션 파일을 통로로 쓰지 말 것).
+
+### 핵심 학습 (추가)
+
+- `"use server"` 가 거부하는 건 클래스뿐 아니라 **모든 비-async 값**(number/string/객체/변수). 에러 메시지가 타입을 알려줌(`found number`).
+- 상수의 단일 진실 원천은 prisma 의존 여부로 가른다: 서버 전용이면 lib 안, 클라 공용이면 prisma 없는 별도 순수 모듈.

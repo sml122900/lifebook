@@ -3,6 +3,9 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
+import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
+
 // Phase Photo (2단계) — 업로드 폼.
 // 1단계 폼 + year/month/caption 입력. 시니어 친화: 큰 입력·큰 버튼·압박 X.
 // 클라 가드는 1차 (용량/연도 범위), 정확한 검증은 /api/photos.
@@ -23,6 +26,7 @@ export function PhotosUploadForm() {
   const [yearText, setYearText] = useState(String(CURRENT_YEAR));
   const [monthText, setMonthText] = useState("");
   const [caption, setCaption] = useState("");
+  const [place, setPlace] = useState<PlaceInfo>(EMPTY_PLACE);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -52,6 +56,7 @@ export function PhotosUploadForm() {
     setSelectedFile(null);
     setPreviewUrl(null);
     setCaption("");
+    setPlace(EMPTY_PLACE);
     setError(null);
     if (inputRef.current) inputRef.current.value = "";
     // year/month 는 유지 (연속 업로드 편의)
@@ -90,6 +95,14 @@ export function PhotosUploadForm() {
         fd.append("year", yearText.trim());
         if (monthText.trim() !== "") fd.append("month", monthText.trim());
         if (caption.trim() !== "") fd.append("caption", caption.trim());
+        // Phase Place (C) — 장소 선택 시 5필드. 서버가 validatePlace 로 재검증.
+        if (place.placeName) {
+          fd.append("placeName", place.placeName);
+          if (place.placeAddress) fd.append("placeAddress", place.placeAddress);
+          if (place.lat != null) fd.append("lat", String(place.lat));
+          if (place.lng != null) fd.append("lng", String(place.lng));
+          if (place.placeSource) fd.append("placeSource", place.placeSource);
+        }
 
         const res = await fetch("/api/photos", { method: "POST", body: fd });
         const data: UploadResult = await res.json();
@@ -195,6 +208,15 @@ export function PhotosUploadForm() {
               disabled={isPending}
             />
           </label>
+
+          {/* Phase Place (C) — 어디서 찍은 사진인지 (선택) */}
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-semibold text-zinc-700">
+              어디서 찍었나요?{" "}
+              <span className="font-normal text-zinc-500">(선택)</span>
+            </span>
+            <PlaceSearchInput value={place} onChange={setPlace} />
+          </div>
         </>
       )}
 

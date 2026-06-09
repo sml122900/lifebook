@@ -28,9 +28,10 @@ export const CREATED_VIA_LIFE_EVENT = "life_event";
 export const CREATED_VIA_ERA_EVENT = "era_event";
 // Phase Photo (3단계) — 독립 사진 메모리. lib/photos.ts 가 같은 값을
 // CREATED_VIA_PHOTO 로 정의하지만, lib/photos → lib/storage(Supabase) 의존을
-// 끌어오지 않으려고 여기 로컬로 명시(life-events 는 순수 DB 유지 — test 스크립트가
+// 끌어오지 않으려고 여기서도 명시(life-events 는 순수 DB 유지 — test 스크립트가
 // Storage 자격증명 없이 직접 호출). era_event 와 동일한 cross-import 회피 패턴.
-const CREATED_VIA_PHOTO = "photo";
+// export 하여 lib/people.ts(인물 연결 가드)가 storage 안 끌고 재사용.
+export const CREATED_VIA_PHOTO = "photo";
 
 // Phase Photo (4단계+) — 기간 이벤트(시작/끝 두 점)에서 사진이 어느 점에
 // 뜰지. "both"=양쪽(기본·단일 시점·기존 사진) / "start"=시작 / "end"=끝.

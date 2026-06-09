@@ -4,14 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
+import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { unstashEraEventAction } from "@/app/era/actions";
 import { EraMemoryEditor } from "@/app/era/EraMemoryEditor";
+import { updatePhotoPlaceAction } from "@/app/photos/actions";
 import { calcAge } from "@/lib/age";
 import {
   SECTION_BADGE_CLASS,
   SECTION_LABEL,
 } from "@/lib/era-labels";
 import type { LifeEvent } from "@/lib/life-events";
+import { type PlaceInfo } from "@/lib/place-types";
 
 import {
   PeopleConnectModal,
@@ -299,10 +302,10 @@ export function TimelineView({
   const [openPhoto, setOpenPhoto] = useState<OpenPhoto | null>(null);
 
   function openFor(e: RenderEvent) {
-    // E2/Photo — era_event·photo 는 인물 연결 불허(정책). lib/people.ts 의
-    // not_life_event 가드가 서버 측 단일 결정자지만, UI 에서 모달 진입 자체를
-    // 차단해 혼란 0. 두 종류 카드엔 👤 버튼을 아예 안 그린다.
-    if (e.kind === "era_event" || e.kind === "photo") return;
+    // E2 — era_event 는 인물 연결 불허(시대 자료). lib/people.ts 의 not_linkable
+    // 가드가 서버 측 단일 결정자지만, UI 에서 모달 진입 자체를 차단해 혼란 0.
+    // B — photo 는 허용(독립 사진에 인물 연결). photo 메모리는 자기 memoryId.
+    if (e.kind === "era_event") return;
     setOpenModal({ memoryId: e.originalId, label: formatTitle(e) });
   }
 
@@ -585,13 +588,21 @@ function TimelineRow({
                   onEraRefresh={onEraRefresh}
                 />
               ) : isPhoto ? (
-                <PhotoCard
-                  e={e}
-                  align="right"
-                  birthYear={birthYear}
-                  photoUrls={photoUrls}
-                  onOpenPhoto={onOpenPhoto}
-                />
+                <>
+                  <PhotoCard
+                    e={e}
+                    align="right"
+                    birthYear={birthYear}
+                    photoUrls={photoUrls}
+                    onOpenPhoto={onOpenPhoto}
+                    onOpenPeople={() => onOpenPeople(e)}
+                  />
+                  <PeoplePreview
+                    people={people}
+                    align="right"
+                    onClick={() => onOpenPeople(e)}
+                  />
+                </>
               ) : (
                 <>
                   <EventCard
@@ -600,12 +611,18 @@ function TimelineRow({
                     birthYear={birthYear}
                     onOpenPeople={() => onOpenPeople(e)}
                   />
-                  <PlacePreview place={e.place} align="right" />
-                  <PeoplePreview
-                    people={people}
-                    align="right"
-                    onClick={() => onOpenPeople(e)}
-                  />
+                  {/* A — 기간 끝 점에선 인물·장소 숨김(시작 점에 1회). 인물·장소는
+                      기간 전체 성격이라 사진처럼 anchor 안 씀. PhotoStrip 은 유지. */}
+                  {!e.isPeriodEnd && (
+                    <>
+                      <PlacePreview place={e.place} align="right" />
+                      <PeoplePreview
+                        people={people}
+                        align="right"
+                        onClick={() => onOpenPeople(e)}
+                      />
+                    </>
+                  )}
                   <PhotoStrip
                     e={e}
                     align="right"
@@ -639,13 +656,21 @@ function TimelineRow({
                 onEraRefresh={onEraRefresh}
               />
             ) : isPhoto ? (
-              <PhotoCard
-                e={e}
-                align="left"
-                birthYear={birthYear}
-                photoUrls={photoUrls}
-                onOpenPhoto={onOpenPhoto}
-              />
+              <>
+                <PhotoCard
+                  e={e}
+                  align="left"
+                  birthYear={birthYear}
+                  photoUrls={photoUrls}
+                  onOpenPhoto={onOpenPhoto}
+                  onOpenPeople={() => onOpenPeople(e)}
+                />
+                <PeoplePreview
+                  people={people}
+                  align="left"
+                  onClick={() => onOpenPeople(e)}
+                />
+              </>
             ) : (
               <>
                 <EventCard
@@ -654,12 +679,17 @@ function TimelineRow({
                   birthYear={birthYear}
                   onOpenPeople={() => onOpenPeople(e)}
                 />
-                <PlacePreview place={e.place} align="left" />
-                <PeoplePreview
-                  people={people}
-                  align="left"
-                  onClick={() => onOpenPeople(e)}
-                />
+                {/* A — 기간 끝 점에선 인물·장소 숨김(시작 점에 1회). */}
+                {!e.isPeriodEnd && (
+                  <>
+                    <PlacePreview place={e.place} align="left" />
+                    <PeoplePreview
+                      people={people}
+                      align="left"
+                      onClick={() => onOpenPeople(e)}
+                    />
+                  </>
+                )}
                 <PhotoStrip
                   e={e}
                   align="left"
@@ -1101,20 +1131,23 @@ function PeoplePreview({
 
 // Phase Photo (3단계) — 독립 사진 메모리(kind="photo") 전용 카드.
 // 썸네일이 주인공. sky 톤으로 life_event(amber)·era_event(slate)와 즉시 구분.
-// 클릭 동선·인물·장소 없음(4·5단계). 사진 1장 = e.photos[0].
+// B — 👤 인물 연결(모달). C — 📍 장소(자체 관리 모달 + 칩). 사진 1장 = e.photos[0].
 function PhotoCard({
   e,
   align,
   birthYear,
   photoUrls,
   onOpenPhoto,
+  onOpenPeople,
 }: {
   e: RenderEvent;
   align: "left" | "right";
   birthYear: number | null;
   photoUrls: PhotoUrls;
   onOpenPhoto: (p: OpenPhoto) => void;
+  onOpenPeople: () => void;
 }) {
+  const router = useRouter();
   const photo = e.photos[0];
   const url = photo ? photoUrls[photo.id] : undefined;
   const when =
@@ -1123,6 +1156,10 @@ function PhotoCard({
       : `${e.eventYear}년`;
   const ageSuffix = formatAgeSuffix(e, birthYear);
   const caption = e.content;
+  // C — 장소는 e.place(이미 이벤트에 있음)라 스레딩 불필요, 카드가 자체 관리.
+  // localPlace 옵티미스틱 — 저장 후 router.refresh() 가 prop 갱신 전까지 즉시 반영.
+  const [placeOpen, setPlaceOpen] = useState(false);
+  const [localPlace, setLocalPlace] = useState<PlaceInfo>(e.place);
 
   return (
     <div
@@ -1131,15 +1168,31 @@ function PhotoCard({
         (align === "right" ? "text-right" : "text-left")
       }
     >
-      <div
-        className={
-          "flex items-center gap-1.5 " +
-          (align === "right" ? "justify-end" : "justify-start")
-        }
-      >
+      {/* 뱃지 + 📍 장소 + 👤 인물 버튼 (B·C — EventCard 와 대칭) */}
+      <div className="flex items-center justify-between gap-1.5">
         <span className="inline-flex items-center rounded-full border border-sky-400 bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">
           <span aria-hidden className="mr-1">📷</span>사진
         </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setPlaceOpen(true)}
+            aria-label="이 사진의 장소 정하기"
+            title="장소 정하기"
+            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-zinc-300 bg-white text-base shadow-sm hover:border-sky-400 hover:bg-sky-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500"
+          >
+            <span aria-hidden>📍</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenPeople}
+            aria-label="이 사진에 함께한 인물 연결"
+            title="함께한 인물 연결"
+            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-zinc-300 bg-white text-base shadow-sm hover:border-sky-400 hover:bg-sky-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500"
+          >
+            <span aria-hidden>👤</span>
+          </button>
+        </div>
       </div>
       <p className="mt-2 text-sm font-semibold text-sky-800">
         {when}
@@ -1170,6 +1223,100 @@ function PhotoCard({
       {caption && (
         <p className="mt-2 text-sm leading-snug text-zinc-700">{caption}</p>
       )}
+
+      {/* C — 장소 칩(있으면 외부 지도 링크). 옵티미스틱 localPlace 사용. */}
+      <PlacePreview place={localPlace} align={align} />
+
+      {placeOpen && (
+        <PhotoPlaceModal
+          memoryId={e.originalId}
+          initialPlace={localPlace}
+          onClose={() => setPlaceOpen(false)}
+          onSaved={(p) => {
+            setLocalPlace(p);
+            setPlaceOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// C — 독립 사진의 장소 편집 모달. PlaceSearchInput 재사용 + updatePhotoPlaceAction.
+// 지도가 길 수 있어 위쪽 정렬 + 스크롤. 저장 성공 시 onSaved(place)로 부모가
+// 옵티미스틱 반영 + router.refresh().
+function PhotoPlaceModal({
+  memoryId,
+  initialPlace,
+  onClose,
+  onSaved,
+}: {
+  memoryId: string;
+  initialPlace: PlaceInfo;
+  onClose: () => void;
+  onSaved: (place: PlaceInfo) => void;
+}) {
+  const [place, setPlace] = useState<PlaceInfo>(initialPlace);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function save() {
+    setError(null);
+    startTransition(async () => {
+      const res = await updatePhotoPlaceAction(memoryId, place);
+      if (res.ok) {
+        onSaved(place);
+      } else {
+        setError(res.error);
+      }
+    });
+  }
+
+  function onBackdropClick(ev: React.MouseEvent<HTMLDivElement>) {
+    if (ev.target === ev.currentTarget) onClose();
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="사진 장소"
+      onClick={onBackdropClick}
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-10"
+    >
+      <div className="flex w-full max-w-lg flex-col gap-4 rounded-md bg-white p-5 sm:p-6">
+        <h2 className="text-xl font-bold text-zinc-900">
+          <span aria-hidden className="mr-1">📍</span>이 사진은 어디서 찍었나요?
+        </h2>
+        <PlaceSearchInput value={place} onChange={setPlace} />
+        {error && (
+          <p
+            role="alert"
+            className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-2 text-sm text-rose-900"
+          >
+            {error}
+          </p>
+        )}
+        <div className="flex flex-wrap justify-end gap-3 border-t-2 border-zinc-100 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-5 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 disabled:opacity-50"
+          >
+            닫기
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={isPending}
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-sky-600 px-5 py-2 text-sm font-bold text-white hover:bg-sky-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-sky-300"
+          >
+            {isPending ? "저장 중…" : "장소 저장"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

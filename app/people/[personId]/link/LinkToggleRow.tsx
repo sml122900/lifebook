@@ -73,11 +73,11 @@ export function LinkToggleRow({
               msg: "이 사건을 찾을 수 없어요. 다시 시도해주세요.",
             });
             break;
-          case "not_life_event":
+          case "not_linkable":
             setLinked(false);
             setToast({
               kind: "error",
-              msg: "인생 사건이 아니라 연결할 수 없어요.",
+              msg: "여기에는 인물을 연결할 수 없어요.",
             });
             break;
         }

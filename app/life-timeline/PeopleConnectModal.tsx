@@ -121,9 +121,9 @@ export function PeopleConnectModal({
         if (r.result === "not_found") {
           failed = true;
           msg = "이 인물 또는 이벤트를 찾을 수 없어요.";
-        } else if (r.result === "not_life_event") {
+        } else if (r.result === "not_linkable") {
           failed = true;
-          msg = "인생 사건이 아니라 연결할 수 없어요.";
+          msg = "여기에는 인물을 연결할 수 없어요.";
         }
         // "linked"/"already" 둘 다 성공으로 침묵 처리.
       }

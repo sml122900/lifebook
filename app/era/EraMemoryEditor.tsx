@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
+import { ERA_MEMORY_MAX_LENGTH } from "@/lib/era-constants";
 
-import { ERA_MEMORY_LIMIT, saveEraMemoryAction } from "./actions";
+import { saveEraMemoryAction } from "./actions";
 
 // Phase E3 — 담은 시대 사건(era_event) 의 본인 회상(content) 입력 영역.
 // /era 펼친 상세 + /life-timeline EraCard 양쪽에서 재사용 (한 컴포넌트, 같은
@@ -45,7 +46,7 @@ export function EraMemoryEditor({
   const normalized: string | null = trimmed === "" ? null : trimmed;
   const initial = initialContent ?? null;
   const hasChange = normalized !== initial;
-  const tooLong = trimmed.length > ERA_MEMORY_LIMIT;
+  const tooLong = trimmed.length > ERA_MEMORY_MAX_LENGTH;
   const disabled = isPending || !hasChange || tooLong;
 
   function onSave() {
@@ -127,7 +128,7 @@ export function EraMemoryEditor({
           }
           aria-live="polite"
         >
-          {trimmed.length} / {ERA_MEMORY_LIMIT}
+          {trimmed.length} / {ERA_MEMORY_MAX_LENGTH}
         </span>
         {savedFlash && !errorMsg && (
           <span className="text-sm font-semibold text-emerald-700" aria-live="polite">

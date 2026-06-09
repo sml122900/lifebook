@@ -16,7 +16,18 @@
 // P1 범위: CRUD + 링크/언링크 + 두 가지 조회 (이벤트→인물, 인물→이벤트).
 // P2(화면)·P3(고급) 는 별도.
 
-import { CREATED_VIA_LIFE_EVENT, type LifeEvent } from "./life-events";
+import {
+  CREATED_VIA_LIFE_EVENT,
+  CREATED_VIA_PHOTO,
+  type LifeEvent,
+} from "./life-events";
+
+// Phase Photo (B) — 인물을 붙일 수 있는 메모리 종류. *인생* 이벤트 + *사진*.
+// era_event(시대 자료)·ai_chat·timemachine_event·manual 등은 거부.
+const LINKABLE_CREATED_VIA: ReadonlySet<string> = new Set([
+  CREATED_VIA_LIFE_EVENT,
+  CREATED_VIA_PHOTO,
+]);
 import type { EventPrecision, LifeCategory } from "./generated/prisma/enums";
 import { prisma } from "./db";
 
@@ -203,10 +214,11 @@ function isP2002(e: unknown): boolean {
   );
 }
 
-export type LinkResult = "linked" | "already" | "not_found" | "not_life_event";
+export type LinkResult = "linked" | "already" | "not_found" | "not_linkable";
 
 // PersonEvent 생성. 두 ID 모두 같은 userId 소유여야 하고, memoryId 는
-// life_event 행이어야 함. 이미 연결돼 있으면 "already" (idempotent).
+// 연결 가능한 종류(life_event 또는 photo)여야 함. era_event 등은 거부.
+// 이미 연결돼 있으면 "already" (idempotent).
 export async function linkPersonToEvent(
   userId: string,
   personId: string,
@@ -224,7 +236,7 @@ export async function linkPersonToEvent(
     select: { createdVia: true },
   });
   if (!memory) return "not_found";
-  if (memory.createdVia !== CREATED_VIA_LIFE_EVENT) return "not_life_event";
+  if (!LINKABLE_CREATED_VIA.has(memory.createdVia)) return "not_linkable";
 
   try {
     await prisma.personEvent.create({
@@ -367,12 +379,12 @@ export async function listEventsByPerson(
     },
   });
 
-  // life_event 만 반환 (방어 — 링크 헬퍼가 거르지만 데이터 손상 케이스 보호).
-  // eventYear NULL 도 제외 (getLifeEvents 와 동일 약속).
+  // 연결 가능한 종류(life_event + photo)만 반환 (방어 — 링크 헬퍼가 거르지만
+  // 데이터 손상 케이스 보호). eventYear NULL 도 제외 (getLifeEvents 와 동일 약속).
   const filtered = rows
     .map((r) => r.memory)
     .filter(
-      (m) => m.createdVia === CREATED_VIA_LIFE_EVENT && m.eventYear !== null,
+      (m) => LINKABLE_CREATED_VIA.has(m.createdVia) && m.eventYear !== null,
     );
 
   filtered.sort((a, b) => {
@@ -392,9 +404,12 @@ export async function listEventsByPerson(
   });
 
   return filtered.map((m) => ({
-    // E2 — listEventsByPerson 은 life_event 만 필터링하므로 kind 도 일정.
-    // 인물 연결은 life_event 만 허용 정책이라 era 행은 여기 도달 X.
-    kind: "life_event" as const,
+    // B — life_event + photo 둘 다 연결 가능. era 행은 거부 정책이라 도달 X.
+    // 실제 createdVia 로 kind 반영 → /people/[id] 가 "철수 나온 사진"도 표시.
+    kind:
+      m.createdVia === CREATED_VIA_PHOTO
+        ? ("photo" as const)
+        : ("life_event" as const),
     id: m.id,
     title: m.eventTitle ?? m.title,
     eventYear: m.eventYear as number,

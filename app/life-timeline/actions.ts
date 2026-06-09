@@ -17,6 +17,7 @@ import {
   updateLifeEvent,
 } from "@/lib/life-events";
 import { getLifeQuestion } from "@/lib/life-record/questions";
+import { validatePlace } from "@/lib/place-validate";
 
 const YEAR_MIN = 1900;
 const TITLE_MAX = 80;
@@ -43,83 +44,6 @@ export type LifeEventInputRaw = {
     placeSource: string | null;
   };
 };
-
-const PLACE_NAME_MAX = 200;
-const PLACE_ADDR_MAX = 300;
-
-function validatePlace(
-  raw: LifeEventInputRaw["place"],
-): { ok: true; place: PlaceInfo } | { ok: false; error: string } {
-  if (!raw || !raw.placeName) {
-    return {
-      ok: true,
-      place: {
-        placeName: null,
-        placeAddress: null,
-        lat: null,
-        lng: null,
-        placeSource: null,
-      },
-    };
-  }
-  const name = typeof raw.placeName === "string" ? raw.placeName.trim() : "";
-  if (name === "") {
-    return {
-      ok: true,
-      place: {
-        placeName: null,
-        placeAddress: null,
-        lat: null,
-        lng: null,
-        placeSource: null,
-      },
-    };
-  }
-  if (name.length > PLACE_NAME_MAX) {
-    return { ok: false, error: "장소 이름이 너무 길어요." };
-  }
-  const addr =
-    typeof raw.placeAddress === "string" && raw.placeAddress.trim() !== ""
-      ? raw.placeAddress.trim()
-      : null;
-  if (addr && addr.length > PLACE_ADDR_MAX) {
-    return { ok: false, error: "장소 주소가 너무 길어요." };
-  }
-  // H7 — placeSource 가 알 수 없는 값이면 전체 거부(모두 null). lat/lng 만
-  // 남고 source 가 null 인 어중간한 상태 회피.
-  if (raw.placeSource !== "naver" && raw.placeSource !== "google") {
-    return {
-      ok: true,
-      place: {
-        placeName: null,
-        placeAddress: null,
-        lat: null,
-        lng: null,
-        placeSource: null,
-      },
-    };
-  }
-  const source = raw.placeSource;
-  let lat: number | null = null;
-  let lng: number | null = null;
-  if (
-    typeof raw.lat === "number" &&
-    typeof raw.lng === "number" &&
-    Number.isFinite(raw.lat) &&
-    Number.isFinite(raw.lng) &&
-    raw.lat >= -90 &&
-    raw.lat <= 90 &&
-    raw.lng >= -180 &&
-    raw.lng <= 180
-  ) {
-    lat = raw.lat;
-    lng = raw.lng;
-  }
-  return {
-    ok: true,
-    place: { placeName: name, placeAddress: addr, lat, lng, placeSource: source },
-  };
-}
 
 export type ActionResult =
   | { ok: true; id: string; precision: EventPrecision }

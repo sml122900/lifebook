@@ -6,7 +6,7 @@
 // 4. unstashEraEvent 후 다시 담기 가능 (idempotent 사이클)
 // 5. getStashedEraEventIds 결과 일관
 // 6. getLifeEvents 가 era_event 도 가져오고 kind 필드 정확
-// 7. era_event 는 인물 연결 거부 (lib/people.ts not_life_event 가드)
+// 7. era_event 는 인물 연결 거부 (lib/people.ts not_linkable 가드)
 // 8. 가족 룸(listRoomMemories) 가 era_event 도 자동 노출 + content=null OK
 //
 // 실행: npx tsx db/test-era-stash.ts
@@ -141,7 +141,7 @@ async function main() {
       person.id,
       memoryRow!.id,
     );
-    assert(linkResult === "not_life_event", `era_event 연결 = "not_life_event" (실제: ${linkResult})`);
+    assert(linkResult === "not_linkable", `era_event 연결 = "not_linkable" (실제: ${linkResult})`);
 
     console.log("\n[8] 가족 룸 listRoomMemories 가 era_event 도 노출");
     const roomMems = await listRoomMemories(room.id, bob.id);

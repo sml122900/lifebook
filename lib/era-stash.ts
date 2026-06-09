@@ -14,12 +14,17 @@
 //     LifeCategory 채워짐.
 //   - year/month/title 은 NOT NULL 컬럼(year)·룸 호환을 위해 MonthEvent
 //     값으로 미러링. eventYear/eventMonth/eventTitle 에도 동일 값.
-//   - 인물 연결 거부 — lib/people.ts 의 not_life_event 가드가 자동 처리.
+//   - 인물 연결 거부 — lib/people.ts 의 not_linkable 가드가 자동 처리
+//     (연결 허용은 life_event + photo 뿐, era_event 는 거부).
 //   - 가족 룸 노출 — listRoomMemories 가 createdVia 무관하게 보여줌 (자동).
 //   - 비서 컨텍스트 제외 — getLifeEvents 결과를 호출자가 kind 로 filter.
 
+import { ERA_MEMORY_MAX_LENGTH } from "./era-constants";
 import { Prisma } from "./generated/prisma/client";
 import { prisma } from "./db";
+
+// 기존 `@/lib/era-stash` 에서 길이 상한을 가져오던 호출자 호환을 위해 재노출.
+export { ERA_MEMORY_MAX_LENGTH };
 
 export const CREATED_VIA_ERA_EVENT = "era_event";
 
@@ -120,10 +125,6 @@ export async function getStashedEraMemories(
   }
   return map;
 }
-
-// 본인 회상(content) 길이 상한. 시니어 회상은 한 사건당 한 단락 분량이
-// 자연스럽고, UI textarea 도 작게 잡혀 있어 500 자면 넉넉. trim 후 검사.
-export const ERA_MEMORY_MAX_LENGTH = 500;
 
 export type SaveEraMemoryResult =
   | "saved"           // content 채워서 저장

@@ -1,11 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { PlaceInfo } from "@/lib/place-types";
 
-import { PlaceMap } from "./maps/PlaceMap";
 import type { MapMarker } from "./maps/types";
+
+// 지도 SDK(@googlemaps/js-api-loader)는 모듈 최상단에서 window 를 참조해
+// 서버 렌더(SSR) 시 평가되면 "window is not defined" 로 터진다. 지도는 순수
+// 인터랙션 요소(SEO 가치 X)이므로 ssr:false 로 서버 평가에서 제외한다.
+const PlaceMap = dynamic(
+  () => import("./maps/PlaceMap").then((m) => m.PlaceMap),
+  { ssr: false },
+);
 
 // Phase Place — 장소 검색 입력 + 결과 카드 + 지도 타일.
 //
