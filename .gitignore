@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# 프로젝트 컨텍스트 (로컬 전용 — git 추적 제외)
+CLAUDE.md
