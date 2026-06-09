@@ -4,6 +4,11 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
+import {
+  type DateSource,
+  extractPhotoDate,
+  stripGps,
+} from "@/lib/photo-exif";
 import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
 
 // Phase Photo (2단계) — 업로드 폼.
@@ -27,6 +32,10 @@ export function PhotosUploadForm() {
   const [monthText, setMonthText] = useState("");
   const [caption, setCaption] = useState("");
   const [place, setPlace] = useState<PlaceInfo>(EMPTY_PLACE);
+  // Phase Photo 6 (1단계) — EXIF 촬영시각 + 출처(자동 채움 신뢰도 표시).
+  const [takenAtIso, setTakenAtIso] = useState<string | null>(null);
+  const [dateSource, setDateSource] = useState<DateSource | null>(null);
+  const [reading, setReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -37,6 +46,8 @@ export function PhotosUploadForm() {
       setSelectedFile(null);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
+      setDateSource(null);
+      setTakenAtIso(null);
       return;
     }
     if (f.size > MAX_BYTES_CLIENT) {
@@ -49,6 +60,20 @@ export function PhotosUploadForm() {
     setSelectedFile(f);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(f));
+
+    // EXIF 촬영 날짜 → year/month 자동 prefill. 사용자가 덮어쓸 수 있음.
+    setReading(true);
+    setDateSource(null);
+    setTakenAtIso(null);
+    extractPhotoDate(f)
+      .then((d) => {
+        if (d.year !== null) setYearText(String(d.year));
+        if (d.month !== null) setMonthText(String(d.month));
+        setTakenAtIso(d.takenAt ? d.takenAt.toISOString() : null);
+        setDateSource(d.source);
+      })
+      .catch(() => setDateSource("none"))
+      .finally(() => setReading(false));
   }
 
   function onReset() {
@@ -57,6 +82,8 @@ export function PhotosUploadForm() {
     setPreviewUrl(null);
     setCaption("");
     setPlace(EMPTY_PLACE);
+    setTakenAtIso(null);
+    setDateSource(null);
     setError(null);
     if (inputRef.current) inputRef.current.value = "";
     // year/month 는 유지 (연속 업로드 편의)
@@ -90,11 +117,22 @@ export function PhotosUploadForm() {
 
     startTransition(async () => {
       try {
+        // 🚨 프라이버시 — 업로드 전 GPS 위치정보 제거(JPEG, 무손실).
+        // M1 — 제거 실패(hadGps && !stripped)면 차단(위치 누수 방지).
+        const { file: cleanFile, hadGps, stripped } = await stripGps(selectedFile);
+        if (hadGps && !stripped) {
+          setError(
+            "위치정보를 지우지 못해 올리지 못했어요. 다른 사진을 시도해 주세요.",
+          );
+          return;
+        }
+
         const fd = new FormData();
-        fd.append("file", selectedFile);
+        fd.append("file", cleanFile);
         fd.append("year", yearText.trim());
         if (monthText.trim() !== "") fd.append("month", monthText.trim());
         if (caption.trim() !== "") fd.append("caption", caption.trim());
+        if (takenAtIso) fd.append("takenAt", takenAtIso);
         // Phase Place (C) — 장소 선택 시 5필드. 서버가 validatePlace 로 재검증.
         if (place.placeName) {
           fd.append("placeName", place.placeName);
@@ -193,6 +231,9 @@ export function PhotosUploadForm() {
             </label>
           </div>
 
+          {/* Phase Photo 6 (1단계) — 날짜 자동 채움 출처 안내 */}
+          <DateSourceBadge reading={reading} source={dateSource} />
+
           <label className="flex flex-col gap-1">
             <span className="text-sm font-semibold text-zinc-700">
               한 줄 설명{" "}
@@ -250,4 +291,41 @@ export function PhotosUploadForm() {
       </div>
     </section>
   );
+}
+
+// 날짜 자동 채움 출처 — exif="확실", file="추정", none="수동 입력".
+function DateSourceBadge({
+  reading,
+  source,
+}: {
+  reading: boolean;
+  source: DateSource | null;
+}) {
+  if (reading) {
+    return (
+      <p className="text-sm text-zinc-500">사진에서 찍은 날짜 읽는 중…</p>
+    );
+  }
+  if (source === "exif") {
+    return (
+      <p className="inline-flex w-fit items-center gap-1 rounded-md border-2 border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-900">
+        <span aria-hidden>✓</span> 사진에 적힌 날짜예요 (확실)
+      </p>
+    );
+  }
+  if (source === "file") {
+    return (
+      <p className="inline-flex w-fit items-center gap-1 rounded-md border-2 border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-900">
+        <span aria-hidden>≈</span> 추정한 날짜예요. 맞는지 확인해 주세요
+      </p>
+    );
+  }
+  if (source === "none") {
+    return (
+      <p className="inline-flex w-fit items-center gap-1 rounded-md border-2 border-zinc-300 bg-zinc-50 px-3 py-1.5 text-sm text-zinc-700">
+        날짜를 못 읽었어요. 찍은 해를 적어주세요
+      </p>
+    );
+  }
+  return null;
 }

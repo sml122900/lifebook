@@ -30,12 +30,47 @@ import {
 
 export const CREATED_VIA_PHOTO = "photo";
 
+// 독립 photo 메모리(createdVia="photo")의 data 객체. createIndependentPhoto(신규
+// 업로드)와 movePhotoToMemory(사건→독립 빼기)가 공유 — autoTitle·year/month·
+// eventYear 미러링·place 컬럼을 한 곳에서. M3 픽스(중복 제거).
+function buildPhotoMemoryData(input: {
+  userId: string;
+  year: number;
+  month: number | null;
+  caption: string | null; // 이미 trim 됐다고 가정(idempotent)
+  place?: PlaceInfo;
+}) {
+  const trimmed = input.caption?.trim() ? input.caption.trim() : null;
+  const monthLabel = input.month ? `${input.month}월 ` : "";
+  const autoTitle = `${input.year}년 ${monthLabel}사진`;
+  const place = input.place ?? EMPTY_PLACE;
+  return {
+    userId: input.userId,
+    createdVia: CREATED_VIA_PHOTO,
+    year: input.year,
+    month: input.month,
+    title: trimmed ?? autoTitle,
+    content: trimmed,
+    // getLifeEvents 가 eventYear 기준 where/orderBy — 없으면 타임라인에서 빠짐.
+    eventYear: input.year,
+    eventMonth: input.month,
+    placeName: place.placeName,
+    placeAddress: place.placeAddress,
+    lat: place.lat,
+    lng: place.lng,
+    placeSource: place.placeSource,
+  };
+}
+
 export type CreatePhotoInput = {
   fileBuffer: Buffer;
   mimeType: AllowedMimeType;
   year: number;
   month: number | null;
   caption: string | null;
+  // Phase Photo 6 (1단계) — EXIF 촬영시각(또는 file.lastModified 폴백). 컬럼
+  // 이미 존재(마이그 0). 타임라인 배치는 year/month, takenAt 은 원본 보존용.
+  takenAt?: Date | null;
   // Phase Place (C) — 독립 사진의 장소. 미선택이면 EMPTY_PLACE. photo 메모리도
   // UserMemory 라 place 5컬럼 그대로 저장(마이그 0).
   place?: PlaceInfo;
@@ -59,31 +94,16 @@ export async function createIndependentPhoto(
   try {
     // 2) DB transaction — UserMemory + Photo 둘 다 만들거나 둘 다 안 만들거나
     const trimmedCaption = input.caption?.trim() ? input.caption.trim() : null;
-    const monthLabel = input.month ? `${input.month}월 ` : "";
-    const autoTitle = `${input.year}년 ${monthLabel}사진`;
 
-    const place = input.place ?? EMPTY_PLACE;
     const result = await prisma.$transaction(async (tx) => {
       const memory = await tx.userMemory.create({
-        data: {
+        data: buildPhotoMemoryData({
           userId,
-          createdVia: CREATED_VIA_PHOTO,
           year: input.year,
           month: input.month,
-          title: trimmedCaption ?? autoTitle,
-          content: trimmedCaption,
-          // Phase Photo (3단계) — eventYear/eventMonth 미러링. getLifeEvents 가
-          // eventYear 기준으로 where/orderBy 하므로, 이게 없으면 사진이 연혁
-          // 타임라인에서 통째로 빠진다. year/month 와 동일 값.
-          eventYear: input.year,
-          eventMonth: input.month,
-          // Phase Place (C) — 독립 사진 장소(미선택이면 모두 null).
-          placeName: place.placeName,
-          placeAddress: place.placeAddress,
-          lat: place.lat,
-          lng: place.lng,
-          placeSource: place.placeSource,
-        },
+          caption: trimmedCaption,
+          place: input.place,
+        }),
         select: { id: true },
       });
       const photo = await tx.photo.create({
@@ -94,6 +114,7 @@ export async function createIndependentPhoto(
           mimeType: uploaded.mimeType,
           fileBytes: uploaded.bytes,
           caption: trimmedCaption,
+          takenAt: input.takenAt ?? null,
         },
         select: { id: true },
       });
@@ -223,6 +244,105 @@ export async function updatePhotoMemoryPlace(
     },
   });
   return result.count > 0;
+}
+
+// Phase Photo 6 (3단계) — 기존 사진의 소속 메모리 이동(파일 이동 X, memoryId
+// 재지정만). 두 방향:
+//   - dest {kind:"event", memoryId} : 독립 사진 → life_event 에 첨부(넣기)
+//   - dest {kind:"independent"}      : 첨부 사진 → 새 독립 photo 메모리(빼기)
+//
+// 핵심 — 빼기가 사진을 삭제하지 않는다(어르신 사진 보존). Photo 행은 그대로,
+// 부모만 바뀐다. 이동 후 옛 부모가 photo-only 이고 비면 정리(orphan 0).
+//
+// 정책 — 넣기 대상은 life_event 만(era_event/남의 메모리 거부, attach 와 동일).
+export type MovePhotoDest =
+  | { kind: "event"; memoryId: string }
+  | { kind: "independent" };
+
+export type MovePhotoResult =
+  | "moved"
+  | "photo_not_found"
+  | "dest_not_found"
+  | "dest_not_linkable"; // 대상이 life_event 가 아님
+
+export async function movePhotoToMemory(
+  userId: string,
+  photoId: string,
+  dest: MovePhotoDest,
+): Promise<MovePhotoResult> {
+  const photo = await prisma.photo.findFirst({
+    where: { id: photoId, userId },
+    select: {
+      id: true,
+      memoryId: true,
+      caption: true,
+      takenAt: true,
+      memory: {
+        select: { createdVia: true, year: true, month: true, eventYear: true, eventMonth: true },
+      },
+    },
+  });
+  if (!photo) return "photo_not_found";
+
+  const oldMemoryId = photo.memoryId;
+  const oldCreatedVia = photo.memory.createdVia;
+
+  // 대상 메모리 결정/검증 (트랜잭션 밖에서 권한 확인)
+  if (dest.kind === "event") {
+    const target = await prisma.userMemory.findFirst({
+      where: { id: dest.memoryId, userId },
+      select: { id: true, createdVia: true },
+    });
+    if (!target) return "dest_not_found";
+    if (target.createdVia !== CREATED_VIA_LIFE_EVENT) return "dest_not_linkable";
+  }
+
+  await prisma.$transaction(async (tx) => {
+    let newMemoryId: string;
+    if (dest.kind === "event") {
+      newMemoryId = dest.memoryId;
+    } else {
+      // 독립 복귀 — 새 photo 메모리. 연/월은 takenAt 우선, 없으면 옛 부모 값.
+      const year =
+        photo.takenAt?.getFullYear() ??
+        photo.memory.eventYear ??
+        photo.memory.year;
+      const month = photo.takenAt
+        ? photo.takenAt.getMonth() + 1
+        : photo.memory.eventMonth ?? photo.memory.month;
+      const newMem = await tx.userMemory.create({
+        data: buildPhotoMemoryData({
+          userId,
+          year,
+          month,
+          caption: photo.caption,
+        }),
+        select: { id: true },
+      });
+      newMemoryId = newMem.id;
+    }
+
+    if (newMemoryId !== oldMemoryId) {
+      await tx.photo.update({
+        where: { id: photo.id },
+        data: { memoryId: newMemoryId },
+      });
+      // 옛 부모가 photo-only 이고 사진 0장이면 정리(orphan 0). life_event 부모는
+      // 다른 데이터 보존 위해 그대로 둔다.
+      if (oldCreatedVia === CREATED_VIA_PHOTO) {
+        const remaining = await tx.photo.count({
+          where: { memoryId: oldMemoryId },
+        });
+        if (remaining === 0) {
+          await tx.userMemory.deleteMany({
+            where: { id: oldMemoryId, userId, createdVia: CREATED_VIA_PHOTO },
+          });
+        }
+      }
+    }
+  });
+
+  return "moved";
 }
 
 // 사진 1장 삭제. 권한 = 본인 photo 만.

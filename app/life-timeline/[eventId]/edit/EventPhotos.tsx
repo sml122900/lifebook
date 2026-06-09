@@ -3,6 +3,8 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { detachPhotoToIndependentAction } from "@/app/photos/actions";
+import { stripGps } from "@/lib/photo-exif";
 import type { PhotoPeriodAnchor } from "@/lib/life-events";
 
 // Phase Photo (4단계) — 인생 이벤트 편집 화면의 "📷 사진" 섹션.
@@ -111,8 +113,18 @@ export function EventPhotos({
     }
     startTransition(async () => {
       try {
+        // 🚨 프라이버시 — 업로드 전 GPS 제거(다른 경로와 동일). H1 픽스.
+        // M1 — 제거 실패면 차단(위치 누수 방지).
+        const { file: cleanFile, hadGps, stripped } = await stripGps(selectedFile);
+        if (hadGps && !stripped) {
+          setError(
+            "위치정보를 지우지 못해 올리지 못했어요. 다른 사진을 시도해 주세요.",
+          );
+          return;
+        }
+
         const fd = new FormData();
-        fd.append("file", selectedFile);
+        fd.append("file", cleanFile);
         fd.append("memoryId", memoryId);
         if (caption.trim() !== "") fd.append("caption", caption.trim());
         // 단일 시점이면 attachAnchor 는 항상 both(선택지 안 보임).
@@ -156,6 +168,26 @@ export function EventPhotos({
         setAnchorOverride((m) => ({ ...m, [photoId]: prev }));
         setError("변경에 실패했어요. 잠시 후 다시 시도해 주세요.");
       }
+    });
+  }
+
+  // 3단계 — 사건에서 독립 사진으로 빼기(삭제 X). 옵티미스틱 hide(이 사건에서
+  // 사라짐) → 실패 시 복구. 사진 자체는 보존돼 /photos·연혁에 독립으로 남음.
+  function onDetach(photoId: string) {
+    setError(null);
+    setHiddenIds((prev) => new Set(prev).add(photoId));
+    startTransition(async () => {
+      const res = await detachPhotoToIndependentAction(photoId);
+      if (!res.ok) {
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(photoId);
+          return next;
+        });
+        setError(res.error);
+        return;
+      }
+      router.refresh();
     });
   }
 
@@ -254,14 +286,24 @@ export function EventPhotos({
                     />
                   </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => onDelete(p.id)}
-                  disabled={isPending}
-                  className="m-2 inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-rose-300 bg-white px-3 py-1 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  사진 지우기
-                </button>
+                <div className="m-2 flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onDetach(p.id)}
+                    disabled={isPending}
+                    className="inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-3 py-1 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    사건에서 빼기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(p.id)}
+                    disabled={isPending}
+                    className="inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-rose-300 bg-white px-3 py-1 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    사진 지우기
+                  </button>
+                </div>
               </li>
             );
           })}

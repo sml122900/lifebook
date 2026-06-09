@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { createContext, useContext, useMemo, useState, useTransition } from "react";
 
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { unstashEraEventAction } from "@/app/era/actions";
 import { EraMemoryEditor } from "@/app/era/EraMemoryEditor";
-import { updatePhotoPlaceAction } from "@/app/photos/actions";
+import {
+  movePhotoToEventAction,
+  updatePhotoPlaceAction,
+} from "@/app/photos/actions";
 import { calcAge } from "@/lib/age";
 import {
   SECTION_BADGE_CLASS,
@@ -256,6 +259,17 @@ export type PhotoUrls = Record<string, string>;
 // 라이트박스(보기 전용)에 띄울 한 장. 삭제는 /photos·편집 화면에서만.
 type OpenPhoto = { url: string; caption: string | null; label: string };
 
+// Phase Photo 6 (3단계) — 독립 사진 "사건에 넣기" 모달이 쓸 life_event 목록.
+// 딥 네스팅(Row→EventNode→PhotoCard)에 핸들러를 스레딩하지 않고 Context 로
+// 한 번에 제공. PhotoCard 가 자체 모달에서 소비(PhotoPlaceModal 패턴).
+type LifeEventOption = {
+  memoryId: string;
+  title: string;
+  year: number;
+  month: number | null;
+};
+const LifeEventOptionsContext = createContext<LifeEventOption[]>([]);
+
 // H4 — originalId 필드로 대체. 기존 origMemoryId(e.id.slice(0,-4)) 제거.
 
 export function TimelineView({
@@ -333,7 +347,22 @@ export function TimelineView({
     router.refresh();
   }
 
+  // Phase Photo 6 (3단계) — "사건에 넣기" 대상 = 본인 life_event 만(연도순).
+  const lifeEventOptions = useMemo<LifeEventOption[]>(
+    () =>
+      events
+        .filter((e) => e.kind === "life_event")
+        .map((e) => ({
+          memoryId: e.id,
+          title: e.title,
+          year: e.eventYear,
+          month: e.eventMonth,
+        })),
+    [events],
+  );
+
   return (
+    <LifeEventOptionsContext.Provider value={lifeEventOptions}>
     <div className="flex flex-col gap-6">
       <div className="hidden sm:block">
         <DesktopTimeline
@@ -389,6 +418,7 @@ export function TimelineView({
         <PhotoLightbox photo={openPhoto} onClose={() => setOpenPhoto(null)} />
       )}
     </div>
+    </LifeEventOptionsContext.Provider>
   );
 }
 
@@ -1160,6 +1190,9 @@ function PhotoCard({
   // localPlace 옵티미스틱 — 저장 후 router.refresh() 가 prop 갱신 전까지 즉시 반영.
   const [placeOpen, setPlaceOpen] = useState(false);
   const [localPlace, setLocalPlace] = useState<PlaceInfo>(e.place);
+  // 3단계 — "사건에 넣기" 모달. life_event 목록은 Context 로.
+  const [attachOpen, setAttachOpen] = useState(false);
+  const lifeEventOptions = useContext(LifeEventOptionsContext);
 
   return (
     <div
@@ -1192,6 +1225,17 @@ function PhotoCard({
           >
             <span aria-hidden>👤</span>
           </button>
+          {photo && lifeEventOptions.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setAttachOpen(true)}
+              aria-label="이 사진을 사건에 넣기"
+              title="사건에 넣기"
+              className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-zinc-300 bg-white text-base shadow-sm hover:border-sky-400 hover:bg-sky-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500"
+            >
+              <span aria-hidden>📁</span>
+            </button>
+          )}
         </div>
       </div>
       <p className="mt-2 text-sm font-semibold text-sky-800">
@@ -1239,6 +1283,133 @@ function PhotoCard({
           }}
         />
       )}
+
+      {attachOpen && photo && (
+        <AttachToEventModal
+          photoId={photo.id}
+          photoYear={e.eventYear}
+          options={lifeEventOptions}
+          onClose={() => setAttachOpen(false)}
+          onMoved={() => {
+            setAttachOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Phase Photo 6 (3단계) — 독립 사진을 사건에 넣는 모달. 본인 life_event 목록을
+// 연도순으로 보여주고, 사진 연도에 가까운 것을 위에 강조. 탭하면 이동.
+function AttachToEventModal({
+  photoId,
+  photoYear,
+  options,
+  onClose,
+  onMoved,
+}: {
+  photoId: string;
+  photoYear: number;
+  options: LifeEventOption[];
+  onClose: () => void;
+  onMoved: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  // 연도순(ASC) + 사진 연도와의 거리로 보조 정렬 — 가까운 사건이 위로.
+  const sorted = useMemo(
+    () =>
+      [...options].sort((a, b) => {
+        const da = Math.abs(a.year - photoYear);
+        const db = Math.abs(b.year - photoYear);
+        if (da !== db) return da - db;
+        return a.year - b.year;
+      }),
+    [options, photoYear],
+  );
+
+  function pick(memoryId: string) {
+    setError(null);
+    setBusyId(memoryId);
+    startTransition(async () => {
+      const res = await movePhotoToEventAction(photoId, memoryId);
+      if (res.ok) {
+        onMoved();
+      } else {
+        setError(res.error);
+        setBusyId(null);
+      }
+    });
+  }
+
+  function onBackdropClick(ev: React.MouseEvent<HTMLDivElement>) {
+    if (ev.target === ev.currentTarget) onClose();
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="사건에 넣기"
+      onClick={onBackdropClick}
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-10"
+    >
+      <div className="flex w-full max-w-lg flex-col gap-4 rounded-md bg-white p-5 sm:p-6">
+        <div>
+          <h2 className="text-xl font-bold text-zinc-900">
+            <span aria-hidden className="mr-1">📁</span>어느 사건에 넣을까요?
+          </h2>
+          <p className="mt-1 text-base text-zinc-600">
+            고른 사건에 이 사진이 함께 담겨요. 사진은 사라지지 않아요.
+          </p>
+        </div>
+        {error && (
+          <p
+            role="alert"
+            className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-2 text-sm text-rose-900"
+          >
+            {error}
+          </p>
+        )}
+        <ul className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
+          {sorted.map((o) => {
+            const when = o.month != null ? `${o.year}년 ${o.month}월` : `${o.year}년`;
+            return (
+              <li key={o.memoryId}>
+                <button
+                  type="button"
+                  onClick={() => pick(o.memoryId)}
+                  disabled={isPending}
+                  className="flex w-full min-h-[52px] items-center justify-between gap-3 rounded-md border-2 border-zinc-200 bg-white px-4 py-2 text-left hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-base font-semibold text-zinc-900">
+                      {o.title}
+                    </span>
+                    <span className="block text-sm text-zinc-500">{when}</span>
+                  </span>
+                  {busyId === o.memoryId && (
+                    <span className="text-sm text-amber-700">넣는 중…</span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="flex justify-end border-t-2 border-zinc-100 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-5 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 disabled:opacity-50"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -238,6 +238,11 @@ function SidePanel({
             hint="인생에 등장한 분들"
           />
           <MenuItem
+            href="/photos"
+            label="내 사진"
+            hint="사진 올리고 연혁에 담기"
+          />
+          <MenuItem
             href="/rooms"
             label="가족 룸"
             hint="가족·배우자와 함께 보기"

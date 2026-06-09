@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 
-import { EventForm, type AnchorOption } from "../EventForm";
+import { type AnchorOption } from "../EventForm";
+import { NewEventForm } from "./NewEventForm";
 
 // Phase L4 — 인생의 한 장면 추가하기.
 //
@@ -93,8 +94,7 @@ export default async function LifeTimelineAddPage({
         </aside>
       )}
 
-      <EventForm
-        mode="add"
+      <NewEventForm
         anchors={anchors}
         birthYear={birthYear}
         defaultYear={defaultYear}

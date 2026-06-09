@@ -172,6 +172,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **UX 픽스 5** | **PlaceSearchInput previewMarkers useMemo · ProgressCard 메인 제거 · 건너뛰기 → 인덱스 · 튜토리얼 안내 · "← 인생 연혁으로" 9곳** | (`2026-06-09` 일지) | ✅ 완료 |
 | **Photo 3·4·5 + periodAnchor** | **사진 연혁 표시(3)·이벤트 첨부(4)·마무리(5) + 기간 시작/끝 사진 분리(periodAnchor) + 자유추가 기간 입력 + 룸 leak 픽스. getLifeEvents 순수 DB(경로만)·page.tsx signed URL 배치·photo=sky+📷·라이트박스 보기전용** | (`2026-06-09` 세션2 일지) | ✅ 완료 (6·7단계 후속) |
 | **Photo×인물·장소(A·B·C) + SSR 픽스 2** | **사진 메모리 인물 연결(not_linkable·LINKABLE Set) + 장소 매칭(validatePlace 순수모듈·updatePhotoMemoryPlace) + 기간 중복 렌더 억제(isPeriodEnd suppress, 앵커X) + `"use server"` number export·`window` SSR 버그 픽스** | (`2026-06-10` 일지) | ✅ 완료 |
+| **Photo 6 (EXIF·대량·첨부/빼기)** | **EXIF 촬영일 자동(exifr lazy)·dateSource·GPS 무손실 strip(piexifjs, 4경로) + 대량 업로드(concurrency 3·부분실패·일괄연도) + movePhotoToMemory(넣기/빼기=독립복귀, 삭제X) + add 화면 사진 + 코드리뷰 H1·M1·M2·M3** | (`2026-06-10` 세션2 일지) | ✅ 완료 |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -481,6 +482,15 @@ Photo×인물·장소(A·B·C) + SSR 픽스 신규 후속 (`docs/daily/2026-06-1
 - `validatePlace` 가 이제 life-timeline·photos 두 진입 — `RawPlace` 입력 형태가 FormData(사진 API) vs 객체(life action) 두 갈래라 호출자마다 파싱. 공통 파서 후보
 - TimelineView `PhotoCard` 의 `localPlace`/`localPeople` 옵티미스틱 state — 다른 탭에서 같은 사진 장소 수정 시 미동기화(단일 사용자 가정 OK, E3 EraCard 와 같은 후속 영역)
 
+Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 세션2, 코드리뷰 L1~L3):
+- L1: 매직 스트링 "photo" 분산 — `rooms.ts:155` `{ not: "photo" }` 등이 `CREATED_VIA_PHOTO` 상수 안 씀. `CREATED_VIA = {...}` 통합(기존 M15 영역)
+- L2: BulkUploadForm 대량 dataURL 메모리 — 30장 동시 EXIF/strip 시 일시 메모리(30장 cap이라 제한적). 필요 시 strip 도 concurrency 제한
+- L3: 기간 이벤트에 넣은 사진 anchor=both 고정 — `movePhotoToEventAction` 이 기존 periodAnchor 유지. 기간 사건에 넣으면 시작·끝 양쪽 표시, 편집에서 재태그 가능하나 안내 없음
+- `stripGps`/`extractPhotoDate` 단위 테스트 부재 — FileReader(브라우저 API) 의존이라 node 불가. jsdom 또는 e2e 후보(현재 grep+빌드+사용자 실측)
+- EXIF orientation — `stripGps` 가 무손실(orientation 태그 보존)이라 OK 지만, 향후 썸네일·재인코딩(7단계) 도입 시 orientation 베이크 필요
+- 사진 7단계 — HEIC 변환·EXIF 전체 strip·썸네일 별도 저장·signed URL 캐싱·페이지네이션(현재 listUserPhotos limit 200)
+- 대량 업로드 진척/실패 텔레메트리 — 어느 dateSource 비율, 평균 배치 장수, strip 차단율(시드/UX 데이터)
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
@@ -567,6 +577,11 @@ Photo×인물·장소(A·B·C) + SSR 픽스 신규 후속 (`docs/daily/2026-06-1
 - [x] 기간 인물·장소 중복(2026-06-10) → 사진(periodAnchor) 과 달리 인물·장소는 *기간 전체* 정보 → **앵커 없이 렌더 억제**. `TimelineView` 양쪽 카드에서 `{!e.isPeriodEnd && ...}` 로 시작 점에만. Photo 컬럼·마이그 0
 - [x] era_event 길이 상한 위치(2026-06-10) → `"use server"`(app/era/actions.ts)는 number export 불가("found number"). 클라(EraMemoryEditor)는 prisma 의존 `lib/era-stash` import 못 함 → 순수 모듈 **`lib/era-constants.ts`** 단일 진실 원천(서버 재노출 + 클라 직접 import). `place-types.ts` 패턴
 - [x] 지도 SDK SSR 격리(2026-06-10) → `@googlemaps/js-api-loader` 모듈 최상단 `window.trustedTypes` → SSR `window is not defined`. `PlaceSearchInput` 이 `PlaceMap` 을 `next/dynamic({ ssr:false })` 로 로드(지도=SEO 가치 X). dispatcher 한 곳 감싸 네이버·구글 모든 사용처 차단
+- [x] 사진 EXIF·GPS(Photo 6 1단계, 2026-06-10 세션2) → `lib/photo-exif.ts`(클라). `extractPhotoDate`(DateTimeOriginal??CreateDate??lastModified??null + `dateSource` exif/file/none), `stripGps`(piexifjs GPS IFD만 무손실 제거, JPEG). exifr/piexifjs 함수 안 `await import`(초기 번들 0). `Photo.takenAt` 컬럼 기존(마이그 0)
+- [x] GPS strip 정책(2026-06-10 세션2) → **업로드 전 클라에서 제거(기기 안 떠남) + 실패 시 차단**. `hadGps && !stripped` → 그 사진 업로드 거부(load 실패도 보수적 차단). 4경로(단일/대량/새이벤트/편집첨부) 전부 적용. 회상+가족공유라 누수 0 우선
+- [x] 사진 사건 이동(Photo 6 3단계, 2026-06-10 세션2) → `movePhotoToMemory`(파일 이동 X, `Photo.memoryId` 재지정). 넣기=독립→life_event(era/남거부 `dest_not_linkable`/`dest_not_found`), **빼기=사건→독립 복귀(삭제 아님 — 어르신 사진 보존)**. 옛 photo-only 부모 비면 정리(orphan 0), life_event 부모 보존. 독립 복귀 연/월=takenAt 우선. `db/test-photo-move.ts` 17
+- [x] add 화면 사진(2026-06-10 세션2) → add 는 memoryId 없어 즉시 첨부 불가 → `NewEventForm` 이 사진 보류 + `EventForm.onAfterCreate(eventId)` 에서 생성 직후 첨부. periodAnchor=both 고정(세분은 편집). 첨부 실패는 push 전 alert(M2)
+- [x] 독립 photo 메모리 생성 단일화(M3, 2026-06-10 세션2) → `buildPhotoMemoryData` 헬퍼로 `createIndependentPhoto`·`movePhotoToMemory` 공유(autoTitle·year/month·eventYear 미러링·place)
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)

@@ -79,6 +79,7 @@ export function EventForm({
   birthYear = null,
   defaultYear = null,
   children,
+  onAfterCreate,
 }: {
   mode: "add" | "edit";
   anchors?: AnchorOption[];
@@ -91,6 +92,9 @@ export function EventForm({
   // Phase Photo (4단계) — 폼 본문과 취소/저장 버튼 사이에 끼울 보조 섹션
   // (편집 모드의 사진 첨부 등). 버튼이 항상 화면 맨 아래에 오도록.
   children?: ReactNode;
+  // Phase Photo 6 (1단계+) — 추가 모드에서 이벤트 생성 직후(memoryId 확보)
+  // 보류해 둔 사진을 첨부할 훅. push 전에 await. 실패해도 이벤트는 저장됨.
+  onAfterCreate?: (eventId: string) => Promise<void>;
 }) {
   const router = useRouter();
   const isEdit = mode === "edit";
@@ -244,6 +248,11 @@ export function EventForm({
       if (!result.ok) {
         setError(result.error);
         return;
+      }
+      // Phase Photo 6 — 추가 모드: 새 이벤트(result.id)에 보류 사진 첨부.
+      // 사진 실패는 이벤트 저장을 막지 않음(내부에서 처리, 여기선 await 만).
+      if (!isEdit && onAfterCreate) {
+        await onAfterCreate(result.id);
       }
       // 저장 후 연혁으로.
       router.push("/life-timeline");

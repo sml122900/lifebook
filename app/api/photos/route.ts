@@ -219,6 +219,14 @@ export async function POST(req: NextRequest) {
     monthNum = m;
   }
 
+  // ── takenAt(선택) — EXIF 촬영시각 ISO. 잘못된 값은 무시(null). ──
+  const takenAtRaw = form.get("takenAt");
+  let takenAt: Date | null = null;
+  if (typeof takenAtRaw === "string" && takenAtRaw.trim() !== "") {
+    const d = new Date(takenAtRaw);
+    if (!Number.isNaN(d.getTime())) takenAt = d;
+  }
+
   // ── 장소(선택) — 독립 사진에만. 미선택이면 undefined. ──────────
   const placeNameRaw = form.get("placeName");
   let place;
@@ -246,6 +254,7 @@ export async function POST(req: NextRequest) {
       year: yearNum,
       month: monthNum,
       caption,
+      takenAt,
       place,
     });
     return NextResponse.json({

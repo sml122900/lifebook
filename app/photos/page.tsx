@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -38,6 +39,12 @@ export default async function PhotosPage() {
           잘 기억하고 싶은 사진을 한 장씩 올려주세요. 연혁·인물·장소는
           이어지는 단계에서 붙여집니다.
         </p>
+        <Link
+          href="/photos/bulk"
+          className="mt-4 inline-flex min-h-[52px] items-center justify-center rounded-md border-2 border-amber-500 bg-amber-50 px-5 py-3 text-lg font-bold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+        >
+          📷 여러 장 한꺼번에 올리기
+        </Link>
       </header>
 
       <PhotosUploadForm />
