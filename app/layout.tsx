@@ -10,7 +10,7 @@ import { getBalance } from "@/lib/tokens/wallet";
 
 import "./globals.css";
 
-// 앱 전체의 최상위 레이아웃 (RSC). 모든 페이지 공통 헤더(로고·타임머신·
+// 앱 전체의 최상위 레이아웃 (RSC). 모든 페이지 공통 헤더(로고·
 // 가족 룸·토큰 잔액·계정 메뉴)와 다크모드 클래스를 여기서 그린다.
 // 세션·잔액·테마를 서버에서 미리 읽어 헤더에 박는다.
 
@@ -46,12 +46,6 @@ export default async function RootLayout({
           </Link>
           {session?.user ? (
             <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href="/timemachine"
-                className="rounded-md border-2 border-violet-300 bg-violet-50 px-4 py-2 text-base font-semibold text-violet-900 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
-              >
-                타임머신
-              </Link>
               <Link
                 href="/rooms"
                 className="hidden rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 sm:inline-block"
