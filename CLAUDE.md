@@ -175,6 +175,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **테스트 전 정비** | **헤더 "타임머신" 입구 제거(라우트·코드 보존) + 첫 방문 환영 카드(onboardingCompletedAt 재사용·마이그 0·V3 배너 배타) + dev 중 build → .next 충돌 트러블슈팅** | (`2026-06-11` 일지) | ✅ 완료 |
 | **디자인 토큰** | **라이트 온리 토큰 시스템 — `@theme` 팔레트(canvas/surface/ink/line/brand/action/danger/success/banner + 연대 틴트·스트립) + Pretendard/명조 + Button 5위계·EmptyState + 다크모드 폐기(ThemeToggle 삭제) + 100여 파일 치환 + 칩 스펙 + 사이드 패널 root 글로벌화** | (`2026-06-12` 일지) | ✅ 완료 |
 | **문장 다듬기** | **회상 AI 다듬기(맞춤법+군말·반복·비문) — refined 3컬럼(원문 비파괴) · 무료 Haiku · 전/후 카드 승인 게이트 · 길이 가드 0.6~1.2 · getLifeEvents 표시 스왑** | (`2026-06-12` 일지) | ✅ 완료 |
+| **다듬기 UX·모델·404** | **자동저장 통합(RefineSection→EventForm, 미저장 draft 오발 해소) + 연혁 카드 회상 표시(EventCard line-clamp)·revalidate /manage + 적용후 2단 상시(토글 폐기) + 깨진 입력(자모깨짐) 교정·NO_CHANGE 엄격화 + 모델 3종(빠르게/꼼꼼하게/가장 정밀=Haiku/Sonnet/Opus)·차등 차감 1/3/5(저장 시에만·402) + manage era·photo 404 kind 분기** | (`2026-06-13` 일지) | ✅ 완료 |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -507,6 +508,17 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - rose(영상)/sky(정보)/blue(스포츠) 의미 분리 보조 팔레트 + 사이드 패널 amber 강조 토큰 미전환 — 의미색 토큰화 여부 다음 정리 사이클
 - 다크모드 폐기로 기존 M2(다크모드 미대응) 후속 일괄 무의미화 — 후속 목록 정리 사이클에서 일괄 제거 후보
 
+다듬기 UX·모델·404 신규 후속 (`docs/daily/2026-06-13.md` 참조):
+- 무료→유료 전환 후 다듬기 호출 빈도·tier 분포 텔레메트리 — 어느 tier(빠르게/꼼꼼하게/가장 정밀)가 많이 쓰이는지, 신규 30토큰 소진 속도
+- opus 가 짧은 단편에서 no_change 잦은지 모니터링 — reasoning 모델 특성. 잦으면 프롬프트 보강 또는 짧은 글은 opus 비권장 안내
+- no_change 시 Anthropic 비용 흡수(특히 opus) — 호출 전 사전 게이트(잔액·최소 길이) 도입 여부. 현재 비서도 안 하는 패턴이라 미도입
+- "아니" 같은 회색지대 군말 — 문두 군말 조항에 예시 있어도 모델이 수사적 반문으로 판단해 보존. 과교정 리스크로 강제 안 함, 사용자 보고 시 재검토
+- 다듬기 토큰 라벨(1/3/5)은 안내용 근사치 — 긴 회상은 실제 더 차감. "약 N토큰" 식 기대치 관리 문구 검토
+- manage 의 era·photo 행 — 현재 "안내" 유지. 장기적으로 "목록 제외"(life_event 만) vs 유지 결정. 같은 root 로 photo 독립 메모리도 안내 대상
+- era_event 회상에 다듬기 진입로 — life_event 편집 화면만 있음(전날 후속 계속). EraMemoryEditor 에 tier 선택 다듬기 확장 여부
+- 가족 룸(`listRoomMemories`) 교정본 적용 여부 — 전날 후속 계속(룸은 원문 유지)
+- `db/test-refine-lv2.ts` — 지갑 생성 + tier/문장 인자 받게 보강됨. 실 API 일회성(회귀 자동화 아님), 일정 후 archive 후보
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
@@ -602,6 +614,10 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [x] 첫 방문 환영 카드(2026-06-11) → 새 컬럼/마이그 0 — 기존 `User.onboardingCompletedAt` 재사용(레거시 /onboarding 설정·/timeline 체크뿐, v3 신규는 영원히 null = 정확한 첫 방문 신호). 표시 = `null && 이벤트 0건`. 닫기/시작하기 모두 `updateMany where null`(레거시 완료 시각 보존). V3WelcomeBanner 와 배타 렌더 + 닫을 때 localStorage 키 동시 마킹(배너 연속 노출 차단)
 - [x] 디자인 토큰 = 라이트 온리(2026-06-12) → 다크모드 폐기(ThemeToggle·theme-actions 삭제, `color-scheme: light` 고정) — 기존 "CSS 변수 swap" 결정 대체. 토큰명에 크기 키워드 금지(base→canvas, `text-base` 충돌). 버튼 위계 5종(primary 필=bg-action 화면당 1개, destructive=빨강 필 금지), 칩 선택=banner+brand 보더(필 금지), 연대 틴트=워시 전용(텍스트 배경 금지). `docs/decisions/design-tokens-light-only.md`
 - [x] 문장 다듬기 정책(2026-06-12) → 원문 영구 보존(refinedText 별도 컬럼 + displayRefined 승인 게이트 + "원래 글 보기" 상시), 무료(Haiku, chargeOneShot 0), 길이 가드 0.6~1.2(벗어나면 no_change — 0.8 은 군말 입말 과차단 실측으로 완화), content 수정 시 refined 3필드 초기화. 표시 스왑은 getLifeEvents 한 곳(편집 화면은 원문 고정). 사투리 보존은 예시 열거로 프롬프트 고정. `docs/decisions/memory-refine.md`
+- [x] 다듬기 자동저장 UX(2026-06-13) → RefineSection 을 EventForm 안으로 이동(라이브 content 수신). [글 다듬기]=현재 textarea 자동 저장(saveMemoryContentAction)→교정→전/후 카드. "저장→재진입" 동선·미저장 draft 오발 해소. 빈 칸이면 aria-disabled+안내 토스트. 적용 후 "원래 글 보기" 토글 폐기→원래글/다듬은글 2단 상시. 메인 EventCard 에 회상 미리보기(line-clamp-2, !isPeriodEnd) 추가(스왑이 메인에 안 보이던 버그) + apply/discard/saveContent revalidate 에 /manage 추가
+- [x] 다듬기 깨진 입력 교정(2026-06-13) → 프롬프트에 자모깨짐(ㅁㄴㅇ)·오타뭉침 맥락 추정 교정(불가하면 그 부분만 삭제) + 문두 군말(근데 그니까) 제거 + NO_CHANGE 엄격화("정말 깨끗한 글에만, 하나라도 있으면 교정"). "아니" 군말은 과교정 리스크로 미반영
+- [x] 다듬기 모델 선택+차등 차감(2026-06-13) → tier 3종(haiku/sonnet/opus, UI 라벨 "빠르게/꼼꼼하게/가장 정밀"+1/3/5토큰). 무료→유료 전환(Haiku 도 1토큰, 멘탈 모델 일관성). chargeOneShot surcharge=tokensFromUsageForModel−tokensFromUsage 로 배수(정책 함수 무수정). **실제 교정본 저장될 때만 과금**(NO_CHANGE·길이가드 0) — 차감을 저장 *앞*에 둬 잔액 부족이면 저장 없이 InsufficientBalanceError→API 402. opus 4.7 temperature 거부는 supportsTemperature 가드 자동 흡수. 실측 haiku1/sonnet3/opus no_change0. `docs/decisions/memory-refine-model-tiers.md`
+- [x] manage era·photo 404(2026-06-13) → getLifeEvents 는 3종(life_event·era_event·photo) 반환인데 manage 가 무분별하게 /[id]/edit 링크 → getLifeEventById(life_event 필터) null → 404. 같은 UserMemory 테이블이라 e.kind 분기(백엔드 0): life_event=수정/삭제, era_event="그 시절 둘러보기"(/era), photo="사진 화면"(/photos) 안내. 행은 목록 유지. A안(라우트 분기+EraView focus 신규) 대신 B안(편집면이 다른 게 데이터 정직). `docs/troubleshooting/manage-era-photo-edit-404.md`
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
