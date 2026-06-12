@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -43,7 +43,7 @@ export default async function PersonDetailPage({ params }: Params) {
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-10">
       <Link
         href="/people"
-        className="self-start text-base text-zinc-600 hover:text-zinc-900 hover:underline"
+        className="self-start text-base text-ink-soft hover:text-ink hover:underline"
       >
         ← 인물록으로
       </Link>
@@ -51,21 +51,21 @@ export default async function PersonDetailPage({ params }: Params) {
       {/* 헤더 — 정보 + 수정/삭제 */}
       <section className="flex flex-col gap-4 rounded-md border-2 border-amber-200 bg-amber-50 px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <h1 className="text-4xl font-bold text-zinc-900 sm:text-5xl">
+          <h1 className="text-4xl font-bold text-ink sm:text-5xl">
             {person.name}
           </h1>
           <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             {person.relation && (
-              <span className="text-lg text-zinc-800">{person.relation}</span>
+              <span className="text-lg text-ink">{person.relation}</span>
             )}
             {person.metYear !== null && (
-              <span className="text-lg text-zinc-700">
+              <span className="text-lg text-ink-soft">
                 {person.metYear}년에 처음 만남
                 {birthYear !== null &&
                   (() => {
                     const a = calcAge(birthYear, person.metYear as number);
                     return a ? (
-                      <span className="ml-1 text-base text-zinc-600">
+                      <span className="ml-1 text-base text-ink-soft">
                         ({formatAge(a)})
                       </span>
                     ) : null;
@@ -74,7 +74,7 @@ export default async function PersonDetailPage({ params }: Params) {
             )}
           </div>
           {person.memo && (
-            <p className="mt-4 whitespace-pre-wrap text-lg text-zinc-800">
+            <p className="mt-4 whitespace-pre-wrap text-lg text-ink">
               {person.memo}
             </p>
           )}
@@ -82,7 +82,7 @@ export default async function PersonDetailPage({ params }: Params) {
         <div className="flex flex-shrink-0 flex-wrap gap-2 sm:flex-col">
           <Link
             href={`/people/${person.id}/edit`}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-4 py-2 text-base font-semibold text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             수정
           </Link>
@@ -93,7 +93,7 @@ export default async function PersonDetailPage({ params }: Params) {
       {/* 함께한 인생의 순간들 */}
       <section className="flex flex-col gap-4">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
-          <h2 className="text-2xl font-bold text-zinc-900">
+          <h2 className="text-2xl font-bold text-ink">
             함께한 인생의 순간들
           </h2>
           <Link
@@ -105,7 +105,7 @@ export default async function PersonDetailPage({ params }: Params) {
         </header>
 
         {events.length === 0 ? (
-          <p className="rounded-md border-2 border-dashed border-zinc-300 bg-white px-5 py-8 text-center text-lg text-zinc-700">
+          <p className="rounded-md border-2 border-dashed border-line bg-surface px-5 py-8 text-center text-lg text-ink-soft">
             아직 연결된 사건이 없어요. 위의 버튼으로 이 분과 함께한 순간을
             골라보세요.
           </p>
@@ -120,23 +120,23 @@ export default async function PersonDetailPage({ params }: Params) {
               return (
                 <li
                   key={e.id}
-                  className="flex flex-col gap-2 rounded-md border-2 border-zinc-200 bg-white px-5 py-4 sm:flex-row sm:items-start sm:justify-between"
+                  className="flex flex-col gap-2 rounded-md border-2 border-line bg-surface px-5 py-4 sm:flex-row sm:items-start sm:justify-between"
                 >
                   <div className="min-w-0">
-                    <p className="text-base text-zinc-600">
+                    <p className="text-base text-ink-soft">
                       {e.eventYear}
                       {e.eventMonth ? `.${String(e.eventMonth).padStart(2, "0")}` : "년쯤"}
                       {age && (
-                        <span className="ml-2 text-sm text-zinc-500">
+                        <span className="ml-2 text-sm text-ink-faint">
                           (만 {age.manAge}세)
                         </span>
                       )}
                     </p>
-                    <p className="mt-1 text-xl font-semibold text-zinc-900">
+                    <p className="mt-1 text-xl font-semibold text-ink">
                       {e.title}
                     </p>
                     {e.content && (
-                      <p className="mt-1 line-clamp-2 text-base text-zinc-700">
+                      <p className="mt-1 line-clamp-2 text-base text-ink-soft">
                         {e.content}
                       </p>
                     )}

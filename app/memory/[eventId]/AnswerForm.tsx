@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -135,7 +135,7 @@ export function AnswerForm({
     >
       <input type="hidden" name="eventId" value={eventId} />
       <input type="hidden" name="conversationId" value={conversationId} />
-      <label htmlFor="answer" className="text-lg font-semibold text-zinc-900">
+      <label htmlFor="answer" className="text-lg font-semibold text-ink">
         떠오르는 대로 적어주세요
       </label>
       <textarea
@@ -145,7 +145,7 @@ export function AnswerForm({
         onChange={(e) => setAnswer(e.target.value)}
         rows={6}
         placeholder="기억나는 장면이나 느낌을 짧게 적어도 좋아요."
-        className="w-full rounded-md border-2 border-zinc-300 px-4 py-3 text-lg focus:border-zinc-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        className="w-full rounded-md border-2 border-line px-4 py-3 text-lg focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       />
 
       {voiceSupported && (
@@ -156,10 +156,10 @@ export function AnswerForm({
             aria-pressed={recording}
             aria-label={recording ? "녹음 멈추기" : "음성으로 말하기"}
             className={
-              "flex items-center justify-center gap-3 self-start rounded-md border-2 px-6 py-4 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 " +
+              "flex items-center justify-center gap-3 self-start rounded-md border-2 px-6 py-4 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
               (recording
                 ? "border-rose-700 bg-rose-700 text-white hover:bg-rose-800"
-                : "border-zinc-400 bg-white text-zinc-900 hover:bg-zinc-100")
+                : "border-line bg-surface text-ink hover:bg-banner")
             }
           >
             <span aria-hidden className="text-2xl">
@@ -190,7 +190,7 @@ export function AnswerForm({
       <button
         type="submit"
         disabled={submitting || answer.trim() === ""}
-        className="self-end rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        className="self-end rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         {submitting ? "저장 중..." : "추억 남기기"}
       </button>

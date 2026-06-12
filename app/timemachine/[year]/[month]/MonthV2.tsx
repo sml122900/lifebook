@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, useTransition } from "react";
 
@@ -94,12 +94,12 @@ export function MonthV2({
     <div className="flex flex-col gap-8">
       <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
         {/* 좌(메인): 내 기억 입력칸 — 화면 주인공 */}
-        <section className="flex flex-col gap-4 rounded-md border-2 border-amber-200 bg-white p-6">
+        <section className="flex flex-col gap-4 rounded-md border-2 border-amber-200 bg-surface p-6">
           <div>
-            <h2 className="text-2xl font-bold text-zinc-900 sm:text-3xl">
+            <h2 className="text-2xl font-bold text-ink sm:text-3xl">
               {year}년 {month}월, 당신의 이야기
             </h2>
-            <p className="mt-2 text-base text-zinc-700 sm:text-lg">
+            <p className="mt-2 text-base text-ink-soft sm:text-lg">
               기억나는 만큼 자유롭게 적어주세요. 옆의 비서에게 물어봐도 좋아요.
             </p>
           </div>
@@ -112,14 +112,14 @@ export function MonthV2({
             rows={12}
             placeholder="그때 어떤 일이 있었는지, 누구와 어디서 지냈는지…"
             ariaLabel={`${year}년 ${month}월 내 이야기`}
-            textareaClassName="w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-4 text-lg leading-relaxed text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 sm:text-xl"
+            textareaClassName="w-full rounded-md border-2 border-line bg-surface px-4 py-4 text-lg leading-relaxed text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 sm:text-xl"
             onCleanup={cleanupVoiceTextAction}
           />
 
           {/* 비서에서 타임라인에 추가된 사건 목록 */}
           {keptEvents.length > 0 && (
-            <div className="flex flex-col gap-2 border-t-2 border-zinc-200 pt-4">
-              <p className="text-base font-semibold text-zinc-800">
+            <div className="flex flex-col gap-2 border-t-2 border-line pt-4">
+              <p className="text-base font-semibold text-ink">
                 내가 남긴 사건
               </p>
               <ul className="flex flex-col gap-2">
@@ -135,7 +135,7 @@ export function MonthV2({
                       type="button"
                       onClick={() => handleRemoveEvent(k.monthEventId)}
                       aria-label={`${k.title} 빼기`}
-                      className="shrink-0 rounded-md border-2 border-zinc-300 bg-white px-3 py-1 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+                      className="shrink-0 rounded-md border-2 border-line bg-surface px-3 py-1 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
                     >
                       빼기
                     </button>
@@ -157,7 +157,7 @@ export function MonthV2({
       </div>
 
       {/* 저장 영역 */}
-      <div className="flex flex-col gap-3 border-t-2 border-zinc-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-t-2 border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-base" aria-live="polite">
           {error ? (
             <span className="text-rose-700">{error}</span>
@@ -166,7 +166,7 @@ export function MonthV2({
               저장됨 · {savedAt.toLocaleTimeString("ko-KR")}
             </span>
           ) : (
-            <span className="text-zinc-600">
+            <span className="text-ink-soft">
               변경 사항은 &quot;저장&quot; 버튼을 눌러야 보관돼요.
             </span>
           )}
@@ -175,7 +175,7 @@ export function MonthV2({
           type="button"
           onClick={handleSave}
           disabled={isPending}
-          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-amber-700 px-8 py-4 text-xl font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-zinc-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-amber-700 px-8 py-4 text-xl font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
           {isPending ? "저장 중…" : "이 달 저장하기"}
         </button>

@@ -1,13 +1,10 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { loadSidePanelData } from "@/lib/side-panel-data";
 
-import { SidePanelLayout } from "../timemachine/SidePanel";
-
-// 시대 연혁 둘러보기(/era) 의 사이드 패널 wrapping.
-// /life-timeline / /timemachine 과 같은 패턴 — 인증 가드 + 패널 데이터
-// prefetch → SidePanelLayout. 사이드 패널 컴포넌트 자체는 재사용.
+// 시대 연혁 둘러보기(/era) 인증 가드.
+// SidePanelLayout 은 app/layout.tsx (root) 로 이동 — 모든 인증 페이지에서
+// "내 정보" 토글이 표시되도록 통합. 이 layout 은 auth 체크만 담당한다.
 
 export default async function EraLayout({
   children,
@@ -19,12 +16,5 @@ export default async function EraLayout({
     redirect("/login");
   }
 
-  const data = await loadSidePanelData({
-    userId: session.user.id,
-    userName: session.user.name,
-    userEmail: session.user.email,
-    userImage: session.user.image,
-  });
-
-  return <SidePanelLayout data={data}>{children}</SidePanelLayout>;
+  return <>{children}</>;
 }

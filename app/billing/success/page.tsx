@@ -1,7 +1,8 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { buttonClasses } from "@/components/ui/Button";
 import { settleOrderAfterToss } from "@/lib/tokens/orders";
 import { TossConfirmError, confirmTossPayment } from "@/lib/tokens/toss";
 
@@ -80,8 +81,8 @@ export default async function BillingSuccessPage({
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10">
-      <h1 className="text-3xl font-bold text-zinc-900">충전 완료!</h1>
-      <p className="text-2xl text-zinc-900">
+      <h1 className="text-3xl font-bold text-ink">충전 완료!</h1>
+      <p className="text-2xl text-ink">
         {settle.tokensCredited > 0 ? (
           <>
             <span className="font-bold">{settle.tokensCredited}개 토큰</span>이
@@ -91,20 +92,20 @@ export default async function BillingSuccessPage({
           <>이미 처리된 결제예요.</>
         )}
       </p>
-      <p className="text-lg text-zinc-800">
+      <p className="text-lg text-ink">
         남은 토큰{" "}
         <span className="font-bold">{settle.balanceAfter.toLocaleString()}개</span>
       </p>
       <div className="flex gap-3">
         <Link
           href="/life-timeline"
-          className="rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className={buttonClasses("tertiary", "lg")}
         >
           인생 연혁으로
         </Link>
         <Link
           href="/billing"
-          className="rounded-md border-2 border-zinc-300 px-6 py-4 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="rounded-md border-2 border-line px-6 py-4 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           충전 화면으로
         </Link>
@@ -117,10 +118,10 @@ function FailureScreen({ title, body }: { title: string; body: string }) {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-6 py-10">
       <h1 className="text-3xl font-bold text-rose-800">{title}</h1>
-      <p className="text-lg text-zinc-800">{body}</p>
+      <p className="text-lg text-ink">{body}</p>
       <Link
         href="/billing"
-        className="self-start rounded-md border-2 border-zinc-300 px-6 py-4 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        className="self-start rounded-md border-2 border-line px-6 py-4 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         다시 시도하기
       </Link>

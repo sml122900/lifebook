@@ -34,7 +34,7 @@ export function FamilyNewsCard({ news }: { news: FamilyNews }) {
       />
       <h2
         id="family-news-heading"
-        className="text-2xl font-bold text-zinc-900 sm:text-3xl"
+        className="text-2xl font-bold text-ink sm:text-3xl"
       >
         가족 소식
       </h2>
@@ -54,9 +54,9 @@ export function FamilyNewsCard({ news }: { news: FamilyNews }) {
               <li key={`${it.memoryId}-${i}`}>
                 <Link
                   href={`/rooms/${it.roomId}#m-${it.memoryId}`}
-                  className="flex flex-col gap-1 rounded-md border-2 border-amber-200 bg-white px-4 py-3 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                  className="flex flex-col gap-1 rounded-md border-2 border-amber-200 bg-surface px-4 py-3 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
                 >
-                  <span className="text-lg text-zinc-900">
+                  <span className="text-lg text-ink">
                     <b>{it.reactorName}</b>님이{" "}
                     <b>{monthLabel(it.year, it.month)}</b> 이야기에{" "}
                     {it.kind === "stamp" ? (
@@ -66,7 +66,7 @@ export function FamilyNewsCard({ news }: { news: FamilyNews }) {
                     )}
                   </span>
                   {it.kind === "comment" && (
-                    <span className="text-base text-zinc-700">
+                    <span className="text-base text-ink-soft">
                       “{it.detail}”
                     </span>
                   )}
@@ -92,9 +92,9 @@ export function FamilyNewsCard({ news }: { news: FamilyNews }) {
               <li key={`${it.roomId}-${i}`}>
                 <Link
                   href={`/rooms/${it.roomId}`}
-                  className="flex items-center gap-2 rounded-md border-2 border-amber-200 bg-white px-4 py-3 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                  className="flex items-center gap-2 rounded-md border-2 border-amber-200 bg-surface px-4 py-3 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
                 >
-                  <span className="text-lg text-zinc-900">
+                  <span className="text-lg text-ink">
                     <b>{it.authorName}</b>님이{" "}
                     <b>{monthLabel(it.year, it.month)}</b> 이야기를 남겼어요.
                     함께 보고 가볍게 반응해 보세요.

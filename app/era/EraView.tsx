@@ -1,10 +1,14 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, useTransition } from "react";
 
+import { buttonClasses } from "@/components/ui/Button";
 import type { EraEvent, EraSong } from "@/lib/era-events";
+import { Search } from "lucide-react";
+
 import {
   DECADE_BG_CLASS,
+  DECADE_STRIP_CLASS,
   DECADES,
   type Decade,
   SECTION_BADGE_CLASS,
@@ -194,7 +198,7 @@ export function EraView({
     <div className="flex flex-col gap-8">
       {/* 연대 탭 — 큰 버튼 4개. 시니어 친화 위해 min-h 64px. */}
       <nav aria-label="연대 선택">
-        <p className="mb-3 text-base font-semibold text-zinc-700">연대</p>
+        <p className="mb-3 text-base font-semibold text-ink-soft">연대</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {DECADES.map((d) => {
             const active = decade === d.key;
@@ -208,7 +212,7 @@ export function EraView({
                   "min-h-[64px] rounded-md border-2 px-4 py-3 text-lg font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
                   (active
                     ? "border-amber-700 bg-amber-700 text-white"
-                    : "border-amber-300 bg-white text-amber-900 hover:bg-amber-50")
+                    : "border-amber-300 bg-surface text-amber-900 hover:bg-amber-50")
                 }
               >
                 {d.label}
@@ -220,7 +224,7 @@ export function EraView({
 
       {/* 카테고리 필터 — 사건 한정 */}
       <fieldset>
-        <legend className="mb-3 text-base font-semibold text-zinc-700">
+        <legend className="mb-3 text-base font-semibold text-ink-soft">
           사건 카테고리
         </legend>
         <div className="flex flex-wrap gap-2">
@@ -236,8 +240,8 @@ export function EraView({
                 className={
                   "min-h-[48px] rounded-md border-2 px-4 py-2 text-base font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
                   (active
-                    ? "border-zinc-900 bg-zinc-900 text-white"
-                    : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100")
+                    ? "border-brand bg-banner text-action"
+                    : "border-line bg-surface text-ink-soft hover:bg-banner")
                 }
               >
                 {opt.label}
@@ -254,11 +258,11 @@ export function EraView({
       >
         <h2
           id="events-heading"
-          className="text-3xl font-bold text-zinc-900 sm:text-4xl"
+          className="text-3xl font-bold text-ink sm:text-4xl"
         >
           {decade}년대 — 큰 사건
         </h2>
-        <p className="mt-2 text-base text-zinc-700">
+        <p className="mt-2 text-base text-ink-soft">
           {totalEvents > 0
             ? `${totalEvents}건의 사건이 있어요.`
             : "이 카테고리에선 사건이 없어요. 다른 카테고리를 골라 보세요."}
@@ -310,11 +314,11 @@ export function EraView({
       >
         <h2
           id="songs-heading"
-          className="text-3xl font-bold text-zinc-900 sm:text-4xl"
+          className="text-3xl font-bold text-ink sm:text-4xl"
         >
           {decade}년대 — 그 시절 노래
         </h2>
-        <p className="mt-2 text-base text-zinc-700">
+        <p className="mt-2 text-base text-ink-soft">
           {totalSongs > 0
             ? `${totalSongs}곡이 있어요. 곡명을 누르면 유튜브에서 찾아 들으실 수 있어요.`
             : "이 연대 음악은 아직 없어요."}
@@ -392,21 +396,26 @@ function EraEventRow({
   onMemorySaved: (newContent: string | null) => void;
 }) {
   const monthLabel = event.month != null ? `${event.month}월` : null;
-  // 담은 카드는 emerald 톤으로 살짝 강조 — 펼치지 않아도 한눈에 구분.
-  const rowBorder = isStashed
-    ? "border-emerald-300 bg-emerald-50/60"
-    : "border-zinc-200 bg-white";
+  // border-l-4 스트립은 li에 고정 (담김 여부 무관). 배경 워시는 내부 div 분리 —
+  // li overflow-hidden 이 left border 4px 를 덮지 않도록.
+  const decadeKey = decadeOf(event.year);
+  const stripClass = decadeKey ? DECADE_STRIP_CLASS[decadeKey] : "border-l-zinc-200";
+  const borderClass = isStashed
+    ? "border-t-2 border-r-2 border-b-2 border-t-emerald-300 border-r-emerald-300 border-b-emerald-300 border-l-4 " + stripClass
+    : "border-t-2 border-r-2 border-b-2 border-t-line border-r-line border-b-line border-l-4 " + stripClass;
+  const bgClass = isStashed ? "bg-emerald-50/60" : "bg-surface";
   const detailId = `era-detail-${event.id}`;
   const SectionIcon = SECTION_ICON[event.section];
   return (
-    <li className={`overflow-hidden rounded-md border-2 ${rowBorder}`}>
+    <li className={`overflow-hidden rounded-md ${borderClass}`}>
+      <div className={bgClass}>
       {/* 헤더 — 전체가 클릭 영역. min-h 56px (시니어 터치 친화). */}
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isExpanded}
         aria-controls={detailId}
-        className="flex w-full min-h-[56px] items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50/70 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-inset"
+        className="flex w-full min-h-[56px] items-center gap-3 px-4 py-3 text-left hover:bg-canvas/70 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-inset"
       >
         <SectionIcon
           aria-hidden="true"
@@ -414,14 +423,14 @@ function EraEventRow({
         />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-lg font-bold leading-snug text-zinc-900 sm:text-xl">
+            <span className="text-lg font-bold leading-snug text-ink sm:text-xl">
               {event.title}
             </span>
             {monthLabel && (
-              <span className="text-sm text-zinc-500">({monthLabel})</span>
+              <span className="text-sm text-ink-faint">({monthLabel})</span>
             )}
             {event.confidence === "APPROX" && (
-              <span className="text-xs text-zinc-500">추정</span>
+              <span className="text-xs text-ink-faint">추정</span>
             )}
           </div>
         </div>
@@ -437,7 +446,7 @@ function EraEventRow({
           <span
             aria-label="내 연혁에 담음"
             title="내 연혁에 담음"
-            className="shrink-0 text-base font-bold text-emerald-700"
+            className="shrink-0 text-base font-bold text-success-deep"
           >
             ✓
           </span>
@@ -445,7 +454,7 @@ function EraEventRow({
         <span
           aria-hidden
           className={
-            "shrink-0 text-zinc-500 transition-transform duration-200 " +
+            "shrink-0 text-ink-faint transition-transform duration-200 " +
             (isExpanded ? "rotate-180" : "")
           }
         >
@@ -462,14 +471,14 @@ function EraEventRow({
         }
       >
         <div className="overflow-hidden">
-          <div className="flex flex-col gap-3 border-t-2 border-zinc-100 px-4 py-4">
+          <div className="flex flex-col gap-3 border-t-2 border-line px-4 py-4">
             {event.description && (
-              <p className="text-base leading-relaxed text-zinc-700 sm:text-lg">
+              <p className="text-base leading-relaxed text-ink-soft sm:text-lg">
                 {event.description}
               </p>
             )}
             {event.source && (
-              <p className="text-xs text-zinc-500">출처: {event.source}</p>
+              <p className="text-xs text-ink-faint">출처: {event.source}</p>
             )}
 
             {/* 구글 검색 링크 — 모든 사건에 표시. 위키·뉴스·백과 위주라 참사·
@@ -480,9 +489,9 @@ function EraEventRow({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`${event.title} 구글에서 더 알아보기 (새 탭)`}
-              className="inline-flex min-h-[44px] w-fit items-center gap-2 rounded-md border-2 border-sky-400 bg-sky-50 px-4 py-2 text-base font-semibold text-sky-900 hover:bg-sky-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="inline-flex min-h-[44px] w-fit items-center gap-2 rounded-md border-2 border-brand bg-banner px-4 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
-              <span aria-hidden>🔍</span>
+              <Search strokeWidth={1.75} aria-hidden className="h-5 w-5 text-action" />
               구글에서 더 알아보기
             </a>
 
@@ -503,28 +512,28 @@ function EraEventRow({
             <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
               {isStashed ? (
                 <>
-                  <p className="text-base font-semibold text-emerald-800">
+                  <p className="text-base font-semibold text-success-deep">
                     <span aria-hidden>✓ </span>내 연혁에 있어요
                   </p>
                   <button
                     type="button"
                     onClick={onUnstash}
                     disabled={isBusy}
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={buttonClasses("plain", "md")}
                   >
                     내 연혁에서 빼기
                   </button>
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-zinc-600">
+                  <p className="text-sm text-ink-soft">
                     기억나는 사건이면 내 연혁에 담아두세요.
                   </p>
                   <button
                     type="button"
                     onClick={onStash}
                     disabled={isBusy}
-                    className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-amber-500 bg-amber-50 px-5 py-2 text-base font-bold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-[48px] items-center justify-center rounded-md border border-brand bg-surface px-5 py-2 text-base font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     내 연혁에 담기
                   </button>
@@ -539,6 +548,7 @@ function EraEventRow({
           </div>
         </div>
       </div>
+      </div>
     </li>
   );
 }
@@ -548,17 +558,17 @@ function EraSongCard({ song }: { song: EraSong }) {
     song.month != null ? `${song.year}년 ${song.month}월` : `${song.year}년`;
   const originLabel = song.origin === "DOMESTIC" ? "국내" : "해외";
   return (
-    <li className="flex flex-col gap-2 rounded-md border-2 border-zinc-200 bg-white p-5">
+    <li className="flex flex-col gap-2 rounded-md border-2 border-line bg-surface p-5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-sm font-semibold text-zinc-600">{when}</span>
-        <span className="inline-flex items-center rounded-full border-2 border-violet-300 bg-violet-50 px-2 py-0.5 text-xs font-semibold text-violet-800">
+        <span className="text-sm font-semibold text-ink-soft">{when}</span>
+        <span className="inline-flex items-center rounded-full border-2 border-brand bg-banner px-2 py-0.5 text-xs font-semibold text-action">
           {originLabel}
         </span>
       </div>
-      <p className="text-lg font-bold leading-snug text-zinc-900 sm:text-xl">
+      <p className="text-lg font-bold leading-snug text-ink sm:text-xl">
         {song.title}
       </p>
-      <p className="text-base text-zinc-700">{song.artist}</p>
+      <p className="text-base text-ink-soft">{song.artist}</p>
       <a
         href={youtubeSearchHref(song.youtubeQuery)}
         target="_blank"

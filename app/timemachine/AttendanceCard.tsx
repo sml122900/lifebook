@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 
@@ -69,7 +69,7 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2
           id="attendance-heading"
-          className="text-2xl font-bold text-zinc-900 sm:text-3xl"
+          className="text-2xl font-bold text-ink sm:text-3xl"
         >
           출석체크
         </h2>
@@ -91,16 +91,16 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
       />
 
       {/* 이번 사이클 N/7일 */}
-      <p className="text-center text-sm text-zinc-700">
+      <p className="text-center text-sm text-ink-soft">
         이번 사이클 {cyclePos}/{BONUS_EVERY_DAYS}일
       </p>
 
       {/* 보상 표 */}
       <div
-        className="rounded-md border-2 border-amber-200 bg-white p-4"
+        className="rounded-md border-2 border-amber-200 bg-surface p-4"
         aria-labelledby="reward-heading"
       >
-        <p id="reward-heading" className="text-sm font-semibold text-zinc-700">
+        <p id="reward-heading" className="text-sm font-semibold text-ink-soft">
           이번 사이클 보상
         </p>
         <dl className="mt-2 flex flex-col gap-1.5 text-base">
@@ -109,7 +109,7 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
             label={`${BONUS_EVERY_DAYS}일 연속 보너스`}
             value={`+${BONUS_CREDIT}토큰`}
           />
-          <div className="my-1 border-t-2 border-zinc-200" />
+          <div className="my-1 border-t-2 border-line" />
           <RewardRow
             label="지금까지 받은 토큰"
             value={`${earned.toLocaleString()}토큰`}
@@ -130,13 +130,13 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
         </p>
       )}
       {todayChecked && !justChecked && (
-        <p className="rounded-md border-2 border-emerald-300 bg-white px-4 py-3 text-base text-emerald-900">
+        <p className="rounded-md border-2 border-emerald-300 bg-surface px-4 py-3 text-base text-emerald-900">
           오늘은 이미 받으셨어요. 내일 다시 와주세요.
         </p>
       )}
       {error && (
         <p
-          className="rounded-md border-2 border-rose-300 bg-white px-4 py-3 text-base text-rose-800"
+          className="rounded-md border-2 border-rose-300 bg-surface px-4 py-3 text-base text-rose-800"
           role="alert"
         >
           {error}
@@ -148,7 +148,7 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
         <button
           type="button"
           disabled
-          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-zinc-300 px-8 py-4 text-xl font-bold text-zinc-700"
+          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-line px-8 py-4 text-xl font-bold text-ink-soft"
           aria-disabled="true"
         >
           오늘 출석 완료!
@@ -158,7 +158,7 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
           type="button"
           onClick={onClick}
           disabled={isPending}
-          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-amber-700 px-8 py-4 text-xl font-bold text-white hover:bg-amber-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-400"
+          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-action px-8 py-4 text-xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending
             ? "처리 중…"
@@ -205,7 +205,7 @@ function CycleDots({
                 "flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all sm:h-14 sm:w-14 " +
                 (filled
                   ? "border-amber-700 bg-amber-700 text-white shadow"
-                  : "border-zinc-300 bg-white text-zinc-400") +
+                  : "border-line bg-surface text-ink-faint") +
                 (isToday ? " ring-4 ring-amber-300 ring-offset-2" : "")
               }
             >
@@ -245,8 +245,8 @@ function RewardRow({
       <dt
         className={
           emphasize
-            ? "text-base font-bold text-zinc-900"
-            : "text-base text-zinc-700"
+            ? "text-base font-bold text-ink"
+            : "text-base text-ink-soft"
         }
       >
         {label}
@@ -254,8 +254,8 @@ function RewardRow({
       <dd
         className={
           emphasize
-            ? "text-base font-bold text-amber-900"
-            : "text-base font-semibold text-zinc-900"
+            ? "text-base font-bold text-action"
+            : "text-base font-semibold text-ink"
         }
       >
         {value}

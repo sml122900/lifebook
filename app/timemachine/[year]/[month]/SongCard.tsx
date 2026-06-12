@@ -34,8 +34,8 @@ const ERA_PALETTES: Record<string, EraPalette> = {
     badgeFirstText: "text-white",
     badgeRest: "bg-amber-100",
     badgeRestText: "text-amber-900",
-    titleText: "text-zinc-900",
-    artistText: "text-zinc-700",
+    titleText: "text-ink",
+    artistText: "text-ink-soft",
     playBorder: "border-amber-500",
     playText: "text-amber-800",
   },
@@ -83,7 +83,7 @@ export function SongCard({ rank, title, artist, eraColor }: SongCardProps) {
         <p className={`${titleSize} ${titleWeight} ${p.titleText}`}>
           {title}
         </p>
-        <p className="mt-1 text-base text-zinc-700 sm:text-lg">{artist}</p>
+        <p className="mt-1 text-base text-ink-soft sm:text-lg">{artist}</p>
       </div>
 
       <a
@@ -91,7 +91,7 @@ export function SongCard({ rank, title, artist, eraColor }: SongCardProps) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`${title} 유튜브에서 검색 (새 탭 열림)`}
-        className={`flex shrink-0 items-center justify-center rounded-full border-2 bg-white ${p.playBorder} ${p.playText} hover:bg-zinc-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2`}
+        className={`flex shrink-0 items-center justify-center rounded-full border-2 bg-surface ${p.playBorder} ${p.playText} hover:bg-canvas focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2`}
         style={{ width: 56, height: 56 }}
       >
         <span aria-hidden className="ml-1 text-2xl">▶</span>

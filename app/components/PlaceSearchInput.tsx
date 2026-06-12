@@ -1,7 +1,9 @@
-"use client";
+﻿"use client";
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { MapPin } from "lucide-react";
 
 import type { PlaceInfo } from "@/lib/place-types";
 
@@ -244,15 +246,15 @@ export function PlaceSearchInput({
       <div className="flex flex-col gap-3 rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-base text-amber-900">
-              <span aria-hidden>📍 </span>
+            <p className="flex items-center gap-1 text-base text-amber-900">
+              <MapPin strokeWidth={1.75} aria-hidden className="h-4 w-4 shrink-0 text-amber-900" />
               <b>{value.placeName}</b>
               <span className="ml-1 text-sm text-amber-700">
                 · {sourceLabel}
               </span>
             </p>
             {value.placeAddress && value.placeAddress !== value.placeName && (
-              <p className="mt-0.5 text-sm text-zinc-700">
+              <p className="mt-0.5 text-sm text-ink-soft">
                 {value.placeAddress}
               </p>
             )}
@@ -261,14 +263,14 @@ export function PlaceSearchInput({
             <button
               type="button"
               onClick={startEditing}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
             >
               다른 곳으로 바꾸기
             </button>
             <button
               type="button"
               onClick={clearAll}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
             >
               지우기
             </button>
@@ -290,7 +292,7 @@ export function PlaceSearchInput({
   if (activeSource === null) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="text-base text-zinc-700">어디서 찾을지 골라보세요.</p>
+        <p className="text-base text-ink-soft">어디서 찾을지 골라보세요.</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <SourcePickButton
             label="🗺️ 네이버 지도에서 찾기"
@@ -301,7 +303,7 @@ export function PlaceSearchInput({
             onClick={() => setActiveSource("google")}
           />
         </div>
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-ink-soft">
           한국 장소는 네이버, 해외 장소는 구글에서 찾아보세요.
         </p>
       </div>
@@ -313,7 +315,7 @@ export function PlaceSearchInput({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-base text-zinc-700">
+        <p className="text-base text-ink-soft">
           <b>{sourceLabel} 지도</b>에서 검색 중이에요.
         </p>
         <button
@@ -324,7 +326,7 @@ export function PlaceSearchInput({
             setResults([]);
             setError(null);
           }}
-          className="inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500"
+          className="inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
         >
           엔진 바꾸기
         </button>
@@ -336,15 +338,15 @@ export function PlaceSearchInput({
         onChange={(e) => setQuery(e.target.value)}
         placeholder={
           activeSource === "naver"
-            ? "🔍 장소 검색… (예: 강원도 춘천, 코엑스)"
-            : "🔍 장소 검색… (예: 도쿄역, Eiffel Tower)"
+            ? "장소 검색… (예: 강원도 춘천, 코엑스)"
+            : "장소 검색… (예: 도쿄역, Eiffel Tower)"
         }
         maxLength={100}
         autoFocus
-        className="w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-lg text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+        className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
       />
 
-      {loading && <p className="text-sm text-zinc-600">검색 중…</p>}
+      {loading && <p className="text-sm text-ink-soft">검색 중…</p>}
 
       {error && (
         <p
@@ -371,23 +373,23 @@ export function PlaceSearchInput({
                     "flex w-full min-h-[48px] items-start gap-3 rounded-md border-2 px-4 py-2 text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 " +
                     (focused
                       ? "border-amber-500 bg-amber-100"
-                      : "border-zinc-200 bg-white hover:border-amber-400 hover:bg-amber-50")
+                      : "border-line bg-surface hover:border-amber-400 hover:bg-amber-50")
                   }
                 >
                   <span
                     aria-hidden
                     className={
-                      "mt-1 " + (focused ? "text-amber-700" : "text-zinc-500")
+                      "mt-1 " + (focused ? "text-amber-700" : "text-ink-faint")
                     }
                   >
                     {focused ? "●" : "○"}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-base font-semibold text-zinc-900">
+                    <span className="block text-base font-semibold text-ink">
                       {r.name}
                     </span>
                     {r.address && r.address !== r.name && (
-                      <span className="block text-sm text-zinc-600">
+                      <span className="block text-sm text-ink-soft">
                         {r.address}
                       </span>
                     )}
@@ -401,7 +403,7 @@ export function PlaceSearchInput({
 
       {!loading && !error && query.trim().length >= MIN_QUERY_LEN &&
         results.length === 0 && (
-          <p className="text-sm text-zinc-600">
+          <p className="text-sm text-ink-soft">
             결과가 없어요. 다른 이름으로 검색해보세요.
           </p>
         )}
@@ -418,12 +420,12 @@ export function PlaceSearchInput({
       <button
         type="button"
         onClick={clearAll}
-        className="self-start inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500"
+        className="self-start inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
       >
         선택 안 함 (장소 모름)
       </button>
 
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-ink-faint">
         장소는 안 골라도 돼요. 떠오르는 만큼만.
       </p>
     </div>

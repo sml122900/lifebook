@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -105,22 +105,22 @@ export default async function TimelinePage() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
       <header className="mb-10">
-        <h1 className="text-4xl font-bold text-zinc-900 sm:text-5xl">
+        <h1 className="text-4xl font-bold text-ink sm:text-5xl">
           타임라인
         </h1>
-        <p className="mt-3 text-zinc-800">
+        <p className="mt-3 text-ink">
           {birthYear ? `${birthYear}년생 기준 · ` : ""}
           세상 사건 {events.length}개
           {triggers.length > 0 && ` · 음악 추천 ${triggers.length}곡`}
         </p>
         {!birthYear && session?.user && (
-          <div className="mt-5 rounded-md border-2 border-zinc-200 bg-zinc-50 p-5">
-            <p className="text-zinc-800">
+          <div className="mt-5 rounded-md border-2 border-line bg-canvas p-5">
+            <p className="text-ink">
               출생연도를 알려주시면 당신이 살아온 시대 위주로 보여드릴게요.
             </p>
             <Link
               href="/onboarding"
-              className="mt-3 inline-block rounded-md border-2 border-zinc-300 px-5 py-3 text-base font-semibold text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+              className="mt-3 inline-block rounded-md border-2 border-line px-5 py-3 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               출생연도 입력하기
             </Link>
@@ -128,7 +128,7 @@ export default async function TimelinePage() {
         )}
         {triggersFailed && (
           <div className="mt-5 rounded-md border-2 border-amber-200 bg-amber-50 p-4">
-            <p className="text-base text-zinc-800">
+            <p className="text-base text-ink">
               음악 추천을 지금은 가져올 수 없어요. 잠시 후 새로고침 해주세요.
               나머지 기능은 평소처럼 사용하실 수 있어요.
             </p>
@@ -137,8 +137,8 @@ export default async function TimelinePage() {
       </header>
 
       {/* 트랙 라벨 — 데스크톱에서만 */}
-      <div className="sticky top-0 z-10 mb-6 hidden grid-cols-2 gap-8 border-b-2 border-zinc-300 bg-white py-3 md:grid">
-        <div className="text-base font-bold uppercase tracking-wide text-sky-800">
+      <div className="sticky top-0 z-10 mb-6 hidden grid-cols-2 gap-8 border-b-2 border-line bg-surface py-3 md:grid">
+        <div className="text-base font-bold uppercase tracking-wide text-action">
           세상 사건
         </div>
         <div className="text-base font-bold uppercase tracking-wide text-amber-800">
@@ -153,10 +153,10 @@ export default async function TimelinePage() {
           const ageAtYear = birthYear !== null ? year - birthYear : null;
           return (
           <li key={year}>
-            <h2 className="mb-5 flex items-baseline gap-3 text-4xl font-bold text-zinc-900 sm:text-5xl">
+            <h2 className="mb-5 flex items-baseline gap-3 text-4xl font-bold text-ink sm:text-5xl">
               <span>{year}</span>
               {ageAtYear !== null && ageAtYear >= 0 && (
-                <span className="text-xl font-medium text-zinc-600 sm:text-2xl">
+                <span className="text-xl font-medium text-ink-soft sm:text-2xl">
                   그때 {ageAtYear}살
                 </span>
               )}
@@ -166,9 +166,9 @@ export default async function TimelinePage() {
               {/* 세상 사건 트랙 — 검증 앵커 + 음악 추천(질문형)을 함께 */}
               <section
                 aria-label={`${year}년 세상 사건`}
-                className="border-l-4 border-sky-500 pl-4 md:border-l-0 md:border-r-4 md:pl-0 md:pr-6"
+                className="border-l-4 border-brand pl-4 md:border-l-0 md:border-r-4 md:pl-0 md:pr-6"
               >
-                <h3 className="mb-3 text-base font-bold uppercase tracking-wide text-sky-800 md:hidden">
+                <h3 className="mb-3 text-base font-bold uppercase tracking-wide text-action md:hidden">
                   세상 사건
                 </h3>
                 <ul className="space-y-4">
@@ -219,11 +219,11 @@ export default async function TimelinePage() {
                           key={m.id}
                           className="rounded-md border-2 border-amber-300 bg-amber-50 p-5"
                         >
-                          <div className="text-lg font-semibold text-zinc-900">
+                          <div className="text-lg font-semibold text-ink">
                             {m.title}
                           </div>
                           {m.content && (
-                            <p className="mt-2 text-zinc-800">{m.content}</p>
+                            <p className="mt-2 text-ink">{m.content}</p>
                           )}
                           {isMusic && songTitle && (
                             <div className="mt-3">
@@ -239,10 +239,10 @@ export default async function TimelinePage() {
                   </ul>
                 ) : (
                   <div className="rounded-md border-2 border-dashed border-amber-300 bg-amber-50 p-5">
-                    <p className="text-zinc-800">
+                    <p className="text-ink">
                       이 시절, 당신은 어떤 일이 있었나요?
                     </p>
-                    <p className="mt-1 text-zinc-700">
+                    <p className="mt-1 text-ink-soft">
                       곧 추억을 더할 수 있어요.
                     </p>
                   </div>

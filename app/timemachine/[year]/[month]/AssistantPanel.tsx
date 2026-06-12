@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
+import { BookOpen, Search, type LucideIcon } from "lucide-react";
+
 import { SongCard } from "./SongCard";
 import {
   saveAssistantAnswerAction,
@@ -153,7 +155,7 @@ function isSafeHttpUrl(raw: string): boolean {
   }
 }
 
-// 답의 출처 배지 — DB(우리 자료)는 emerald 강조, web/context 는 무채색.
+// 답의 출처 배지 — DB(우리 자료)는 success 강조, web/context 는 무채색.
 // 라벨은 칩 hint 와 같은 어휘 ("우리 자료"/"인터넷 검색"/"이전 답") 로 일관.
 function sourceBadge(source: "db" | "web" | "context"): {
   label: string;
@@ -163,20 +165,20 @@ function sourceBadge(source: "db" | "web" | "context"): {
     return {
       label: "우리 자료",
       className:
-        "inline-flex items-center rounded-full border-2 border-emerald-500 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-900",
+        "inline-flex items-center rounded-full border-2 border-success bg-success/10 px-3 py-1 text-xs font-semibold text-success",
     };
   }
   if (source === "web") {
     return {
       label: "인터넷 검색",
       className:
-        "inline-flex items-center rounded-full border-2 border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700",
+        "inline-flex items-center rounded-full border-2 border-line bg-canvas px-3 py-1 text-xs font-semibold text-ink-soft",
     };
   }
   return {
     label: "이전 답에서",
     className:
-      "inline-flex items-center rounded-full border-2 border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-700",
+      "inline-flex items-center rounded-full border-2 border-line bg-canvas px-3 py-1 text-xs font-semibold text-ink-soft",
   };
 }
 
@@ -373,21 +375,21 @@ export function AssistantPanel({
   // 모드별 상수 (selecting 이 아닐 때만 의미).
   const chips = mode === "stories" ? STORIES_CHIPS : ASK_CHIPS;
   const modeTitle = mode === "stories" ? "그 시절 이야기" : "AI에게 물어보기";
-  const modeIcon = mode === "stories" ? "📚" : "🔍";
+  const ModeIcon: LucideIcon = mode === "stories" ? BookOpen : Search;
 
   return (
-    <aside className="flex flex-col gap-4 rounded-md border-2 border-violet-200 bg-violet-50 p-6">
+    <aside className="flex flex-col gap-4 rounded-md border-2 border-brand bg-banner p-6">
       {/* 모드 헤더 — 뒤로 + 현재 모드 표시 */}
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => setMode("selecting")}
-          className="inline-flex min-h-[44px] items-center gap-1 rounded-md border-2 border-violet-300 bg-white px-3 py-2 text-base font-semibold text-violet-900 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+          className="inline-flex min-h-[44px] items-center gap-1 rounded-md border-2 border-brand bg-surface px-3 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           ← 뒤로
         </button>
-        <span className="inline-flex items-center gap-1 text-base font-semibold text-violet-900 sm:text-lg">
-          <span aria-hidden>{modeIcon}</span>
+        <span className="inline-flex items-center gap-1.5 text-base font-semibold text-action sm:text-lg">
+          <ModeIcon strokeWidth={1.75} aria-hidden className="h-5 w-5" />
           {modeTitle}
         </span>
       </div>
@@ -411,8 +413,8 @@ export function AssistantPanel({
           {/* V4 — 답의 깊이 토글. "AI에게 물어보기" 모드에서만 노출.
               "그 시절 이야기" 모드는 우리 자료 = 무료라 깊이 무관. */}
           {mode === "ask" && (
-            <fieldset className="flex flex-col gap-2 rounded-md border-2 border-violet-200 bg-white p-4">
-              <legend className="px-2 text-base font-semibold text-zinc-800">
+            <fieldset className="flex flex-col gap-2 rounded-md border-2 border-brand bg-surface p-4">
+              <legend className="px-2 text-base font-semibold text-ink">
                 답의 깊이
               </legend>
               <div className="grid gap-2 sm:grid-cols-3">
@@ -427,10 +429,10 @@ export function AssistantPanel({
                       onClick={() => setDepth(opt.key)}
                       disabled={isPending}
                       className={
-                        "flex min-h-[60px] flex-col items-start justify-center rounded-md border-2 px-4 py-2 text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
+                        "flex min-h-[60px] flex-col items-start justify-center rounded-md border-2 px-4 py-2 text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
                         (active
-                          ? "border-violet-700 bg-violet-700 text-white"
-                          : "border-violet-300 bg-white text-zinc-900 hover:bg-violet-50")
+                          ? "border-brand bg-banner text-action"
+                          : "border-line bg-surface text-ink-soft hover:bg-banner")
                       }
                     >
                       <span className="text-base font-bold sm:text-lg">
@@ -438,7 +440,7 @@ export function AssistantPanel({
                       </span>
                       <span
                         className={
-                          "text-sm " + (active ? "text-violet-100" : "text-zinc-600")
+                          "text-sm " + (active ? "text-action" : "text-ink-soft")
                         }
                       >
                         {opt.info.hint}
@@ -456,13 +458,13 @@ export function AssistantPanel({
           {messages.length > 0 && (
             <div
               ref={threadRef}
-              className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto overscroll-contain pr-2 [scrollbar-width:auto] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-violet-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-violet-400 [&::-webkit-scrollbar-thumb:hover]:bg-violet-500"
+              className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto overscroll-contain pr-2 [scrollbar-width:auto] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-banner [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-brand [&::-webkit-scrollbar-thumb:hover]:bg-action"
             >
               {messages.map((m) =>
                 m.role === "user" ? (
                   <div
                     key={m.key}
-                    className="self-end max-w-[90%] rounded-md bg-violet-700 px-4 py-3 text-base text-white"
+                    className="self-end max-w-[90%] rounded-md bg-action px-4 py-3 text-base text-white"
                   >
                     {m.text}
                   </div>
@@ -491,15 +493,15 @@ export function AssistantPanel({
                   type="button"
                   onClick={() => ask(q.text)}
                   disabled={isPending}
-                  className="flex min-h-[64px] flex-col items-start rounded-md border-2 border-violet-400 bg-white px-4 py-2 text-left hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-[64px] flex-col items-start rounded-md border-2 border-brand bg-surface px-4 py-2 text-left hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <span className="text-base font-semibold text-violet-900 sm:text-lg">
+                  <span className="text-base font-semibold text-action sm:text-lg">
                     {q.text}
                   </span>
                   <span
                     className={
                       "mt-0.5 text-xs font-semibold " +
-                      (isDb ? "text-emerald-700" : "text-zinc-600")
+                      (isDb ? "text-success" : "text-ink-soft")
                     }
                   >
                     {q.hint}
@@ -542,7 +544,7 @@ export function AssistantPanel({
               placeholder="직접 물어보기"
               aria-label="비서에게 직접 묻는 질문"
               disabled={isPending}
-              className="min-h-[52px] flex-1 rounded-md border-2 border-violet-300 bg-white px-4 py-3 text-lg text-zinc-900 focus:border-violet-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-50"
+              className="min-h-[52px] flex-1 rounded-md border-2 border-brand bg-surface px-4 py-3 text-lg text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-50"
             />
             <button
               type="button"
@@ -551,7 +553,7 @@ export function AssistantPanel({
                 setInputText("");
               }}
               disabled={isPending || inputText.trim() === ""}
-              className="min-h-[52px] rounded-md bg-violet-700 px-6 py-3 text-lg font-semibold text-white hover:bg-violet-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-[52px] rounded-md bg-action px-6 py-3 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending ? "찾는 중…" : "물어보기"}
             </button>
@@ -581,41 +583,41 @@ function ModeSelectionView({
   onOpenSaved: () => void;
 }) {
   return (
-    <aside className="flex flex-col gap-5 rounded-md border-2 border-violet-200 bg-violet-50 p-6">
+    <aside className="flex flex-col gap-5 rounded-md border-2 border-brand bg-banner p-6">
       <div>
-        <h2 className="text-2xl font-bold text-zinc-900 sm:text-3xl">
+        <h2 className="text-2xl font-bold text-ink sm:text-3xl">
           무엇을 찾아볼까요?
         </h2>
-        <p className="mt-2 text-base text-zinc-700 sm:text-lg">
+        <p className="mt-2 text-base text-ink-soft sm:text-lg">
           궁금한 게 있으면 가볍게 물어보세요.
         </p>
       </div>
 
       <div className="flex flex-col gap-3">
         <ModeCard
-          icon="📚"
+          icon={BookOpen}
           title="그 시절 이야기"
           desc="노래·큰 사건 등 우리 자료에서 골라드려요."
           tag="무료"
-          tagClass="border-emerald-500 bg-emerald-50 text-emerald-900"
+          tagClass="border-success bg-success/10 text-success"
           onClick={() => onPick("stories")}
         />
         <ModeCard
-          icon="🔍"
+          icon={Search}
           title="AI에게 물어보기"
           desc="인터넷에서 찾아드려요. 더 폭넓게 답할 수 있어요."
           tag="토큰 사용"
-          tagClass="border-zinc-400 bg-zinc-100 text-zinc-800"
+          tagClass="border-line bg-canvas text-ink"
           onClick={() => onPick("ask")}
         />
       </div>
 
       {savedCount > 0 && (
-        <div className="border-t-2 border-violet-200 pt-4 text-center">
+        <div className="border-t-2 border-brand pt-4 text-center">
           <button
             type="button"
             onClick={onOpenSaved}
-            className="text-base font-semibold text-violet-800 underline hover:text-violet-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500"
+            className="text-base font-semibold text-action underline hover:text-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
             저장된 답변 {savedCount}개 보기 →
           </button>
@@ -626,14 +628,14 @@ function ModeSelectionView({
 }
 
 function ModeCard({
-  icon,
+  icon: Icon,
   title,
   desc,
   tag,
   tagClass,
   onClick,
 }: {
-  icon: string;
+  icon: LucideIcon;
   title: string;
   desc: string;
   tag: string;
@@ -644,16 +646,14 @@ function ModeCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex min-h-[96px] items-start gap-4 rounded-md border-2 border-violet-300 bg-white p-5 text-left hover:border-violet-500 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+      className="group flex min-h-[96px] items-start gap-4 rounded-md border-2 border-brand bg-surface p-5 text-left hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     >
-      <span aria-hidden className="text-4xl">
-        {icon}
-      </span>
+      <Icon strokeWidth={1.75} aria-hidden className="h-8 w-8 shrink-0 text-action" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="text-xl font-bold text-zinc-900 sm:text-2xl">
+        <span className="text-xl font-bold text-ink sm:text-2xl">
           {title}
         </span>
-        <span className="text-base text-zinc-700 sm:text-lg">{desc}</span>
+        <span className="text-base text-ink-soft sm:text-lg">{desc}</span>
         <span
           className={
             "mt-1 inline-flex w-fit items-center rounded-full border-2 px-3 py-0.5 text-xs font-semibold " +
@@ -683,10 +683,10 @@ function TabButton({
       aria-selected={active}
       onClick={onClick}
       className={
-        "min-h-[44px] rounded-md border-2 px-4 py-2 text-base font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2 " +
+        "min-h-[44px] rounded-md border-2 px-4 py-2 text-base font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
         (active
-          ? "border-violet-700 bg-violet-700 text-white"
-          : "border-violet-300 bg-white text-violet-900 hover:bg-violet-100")
+          ? "border-brand bg-banner text-action"
+          : "border-line bg-surface text-ink-soft hover:bg-banner")
       }
     >
       {label}
@@ -711,18 +711,18 @@ function AssistantTurnView({
 }) {
   const a = turn.answer;
   return (
-    <div className="flex flex-col gap-4 rounded-md border-2 border-violet-300 bg-white p-5">
+    <div className="flex flex-col gap-4 rounded-md border-2 border-brand bg-surface p-5">
       {/* 상단 배지 줄 — source(우리 자료/검색/이전 답) + depth(간단히/자세히/…) */}
       <div className="flex flex-wrap items-center gap-2">
         {(() => {
           const b = sourceBadge(a.source);
           return <span className={b.className}>{b.label}</span>;
         })()}
-        <span className="inline-flex items-center rounded-full border-2 border-violet-300 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-900">
+        <span className="inline-flex items-center rounded-full border-2 border-brand bg-banner px-3 py-1 text-xs font-semibold text-action">
           {DEPTH_LABEL[a.depth]} 답
         </span>
       </div>
-      <p className="whitespace-pre-line text-lg leading-relaxed text-zinc-900">
+      <p className="whitespace-pre-line text-lg leading-relaxed text-ink">
         {a.text}
       </p>
 
@@ -747,14 +747,14 @@ function AssistantTurnView({
             return (
               <li
                 key={e.id}
-                className="flex flex-col gap-2 rounded-md border-2 border-zinc-200 bg-zinc-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-2 rounded-md border-2 border-line bg-canvas p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-lg font-semibold text-zinc-900">
+                  <p className="text-lg font-semibold text-ink">
                     {e.title}
                   </p>
                   {e.description && (
-                    <p className="mt-1 text-base text-zinc-700">
+                    <p className="mt-1 text-base text-ink-soft">
                       {e.description}
                     </p>
                   )}
@@ -765,7 +765,7 @@ function AssistantTurnView({
                     onAddEvent({ monthEventId: e.id, title: e.title })
                   }
                   disabled={already}
-                  className="shrink-0 rounded-md border-2 border-amber-500 bg-amber-50 px-4 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-600"
+                  className="shrink-0 rounded-md border-2 border-amber-500 bg-amber-50 px-4 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-line disabled:bg-canvas disabled:text-ink-soft"
                 >
                   {already ? "타임라인에 있음" : "내 타임라인에 추가"}
                 </button>
@@ -778,8 +778,8 @@ function AssistantTurnView({
       {/* 검색 답 → 출처. S1 — http(s) 만 링크, 그 외는 텍스트. */}
       {(a.source === "web" || a.source === "context") &&
         a.citations.length > 0 && (
-          <div className="border-t-2 border-zinc-200 pt-3">
-            <p className="mb-2 text-base font-semibold text-zinc-800">출처</p>
+          <div className="border-t-2 border-line pt-3">
+            <p className="mb-2 text-base font-semibold text-ink">출처</p>
             <ul className="flex flex-col gap-1">
               {a.citations.slice(0, 6).map((c) => (
                 <li key={c.url} className="text-sm">
@@ -788,12 +788,12 @@ function AssistantTurnView({
                       href={c.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-violet-800 underline hover:text-violet-900"
+                      className="text-action underline hover:text-action"
                     >
                       {c.title}
                     </a>
                   ) : (
-                    <span className="text-zinc-700">{c.title}</span>
+                    <span className="text-ink-soft">{c.title}</span>
                   )}
                 </li>
               ))}
@@ -802,8 +802,8 @@ function AssistantTurnView({
         )}
 
       {/* 하단 액션 — 차감 안내 + 저장 버튼 + 가족 공유 안내(P1) */}
-      <div className="flex flex-col gap-2 border-t-2 border-zinc-200 pt-3 sm:flex-row sm:items-end sm:justify-between">
-        <p className="text-sm text-zinc-600">
+      <div className="flex flex-col gap-2 border-t-2 border-line pt-3 sm:flex-row sm:items-end sm:justify-between">
+        <p className="text-sm text-ink-soft">
           {sourceLabel(a)}
         </p>
         <div className="flex flex-col items-stretch gap-1 sm:items-end">
@@ -811,11 +811,11 @@ function AssistantTurnView({
             type="button"
             onClick={() => onSave(turn)}
             disabled={isSaved || isBusy}
-            className="shrink-0 min-h-[44px] rounded-md border-2 border-emerald-500 bg-emerald-50 px-4 py-2 text-base font-semibold text-emerald-900 hover:bg-emerald-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-600"
+            className="shrink-0 min-h-[44px] rounded-md border-2 border-success bg-success/10 px-4 py-2 text-base font-semibold text-success hover:bg-success/20 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-line disabled:bg-canvas disabled:text-ink-soft"
           >
             {isSaved ? "저장됨" : "이 답 저장"}
           </button>
-          <p className="text-xs text-zinc-500">{FAMILY_SHARE_NOTE}</p>
+          <p className="text-xs text-ink-faint">{FAMILY_SHARE_NOTE}</p>
         </div>
       </div>
     </div>
@@ -839,7 +839,7 @@ function SavedAnswersList({
 }) {
   if (items.length === 0) {
     return (
-      <p className="rounded-md border-2 border-dashed border-violet-300 bg-white p-6 text-center text-base text-zinc-700">
+      <p className="rounded-md border-2 border-dashed border-brand bg-surface p-6 text-center text-base text-ink-soft">
         아직 저장한 답이 없어요. 채팅에서 마음에 든 답을 &quot;이 답 저장&quot; 으로
         보관해 두면, 여기서 토큰 없이 다시 볼 수 있어요. (저장된 답은 가족 룸 멤버에게도 보여요.)
       </p>
@@ -849,7 +849,7 @@ function SavedAnswersList({
     <div className="flex flex-col gap-3">
       {/* P1 — 패널 상단에 한 줄 안내. 저장된 답이 가족에게 노출됨을 명시. */}
       <p
-        className="rounded-md border-2 border-violet-300 bg-white px-4 py-2 text-sm text-zinc-700"
+        className="rounded-md border-2 border-brand bg-surface px-4 py-2 text-sm text-ink-soft"
         role="note"
       >
         저장된 답변은 가족 룸 멤버에게도 보여요.
@@ -858,11 +858,11 @@ function SavedAnswersList({
       {items.map((s) => (
         <li
           key={s.id}
-          className="flex flex-col gap-3 rounded-md border-2 border-violet-300 bg-white p-5"
+          className="flex flex-col gap-3 rounded-md border-2 border-brand bg-surface p-5"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-base font-semibold text-violet-900">
+              <p className="text-base font-semibold text-action">
                 Q. {s.question}
               </p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -871,7 +871,7 @@ function SavedAnswersList({
                   return <span className={b.className}>{b.label}</span>;
                 })()}
                 {s.answer.depth && (
-                  <span className="inline-flex items-center rounded-full border-2 border-violet-300 bg-violet-50 px-3 py-0.5 text-xs font-semibold text-violet-900">
+                  <span className="inline-flex items-center rounded-full border-2 border-brand bg-banner px-3 py-0.5 text-xs font-semibold text-action">
                     {DEPTH_LABEL[s.answer.depth]} 답
                   </span>
                 )}
@@ -882,12 +882,12 @@ function SavedAnswersList({
               onClick={() => onDelete(s.id)}
               disabled={isBusy}
               aria-label={`저장된 답 빼기: ${s.question}`}
-              className="shrink-0 rounded-md border-2 border-zinc-300 bg-white px-3 py-1 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="shrink-0 rounded-md border-2 border-line bg-surface px-3 py-1 text-sm font-semibold text-ink-soft hover:bg-canvas focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               빼기
             </button>
           </div>
-          <p className="whitespace-pre-line text-lg leading-relaxed text-zinc-900">
+          <p className="whitespace-pre-line text-lg leading-relaxed text-ink">
             {s.answer.text}
           </p>
           {s.answer.songs.length > 0 && (
@@ -908,13 +908,13 @@ function SavedAnswersList({
               {s.answer.events.map((e, i) => (
                 <li
                   key={`${e.title}-${i}`}
-                  className="rounded-md border-2 border-zinc-200 bg-zinc-50 p-4"
+                  className="rounded-md border-2 border-line bg-canvas p-4"
                 >
-                  <p className="text-base font-semibold text-zinc-900">
+                  <p className="text-base font-semibold text-ink">
                     {e.title}
                   </p>
                   {e.description && (
-                    <p className="mt-1 text-base text-zinc-700">
+                    <p className="mt-1 text-base text-ink-soft">
                       {e.description}
                     </p>
                   )}
@@ -923,8 +923,8 @@ function SavedAnswersList({
             </ul>
           )}
           {s.answer.citations.length > 0 && (
-            <div className="border-t-2 border-zinc-200 pt-3">
-              <p className="mb-2 text-sm font-semibold text-zinc-800">출처</p>
+            <div className="border-t-2 border-line pt-3">
+              <p className="mb-2 text-sm font-semibold text-ink">출처</p>
               <ul className="flex flex-col gap-1">
                 {s.answer.citations.slice(0, 6).map((c) => (
                   <li key={c.url} className="text-sm">
@@ -933,19 +933,19 @@ function SavedAnswersList({
                         href={c.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-violet-800 underline hover:text-violet-900"
+                        className="text-action underline hover:text-action"
                       >
                         {c.title}
                       </a>
                     ) : (
-                      <span className="text-zinc-700">{c.title}</span>
+                      <span className="text-ink-soft">{c.title}</span>
                     )}
                   </li>
                 ))}
               </ul>
             </div>
           )}
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-ink-faint">
             저장 · 토큰 0
           </p>
         </li>

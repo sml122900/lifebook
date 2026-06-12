@@ -33,9 +33,9 @@ export function V3WelcomeBanner() {
   return (
     <div
       role="status"
-      className="flex items-start justify-between gap-3 rounded-md border-2 border-violet-300 bg-violet-50 px-5 py-4"
+      className="flex items-start justify-between gap-3 rounded-md border-2 border-brand bg-banner px-5 py-4"
     >
-      <p className="flex-1 text-base text-violet-900 sm:text-lg">
+      <p className="flex-1 text-base text-action sm:text-lg">
         <b>Lifebook 이 새로워졌어요.</b> 이제 인생 연혁이 메인이에요 — 매달
         채우는 부담 없이 큰 줄기만 잡으시면 돼요.
       </p>
@@ -43,7 +43,7 @@ export function V3WelcomeBanner() {
         type="button"
         onClick={dismiss}
         aria-label="안내 닫기"
-        className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border-2 border-violet-300 text-xl font-bold text-violet-700 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+        className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] border-2 border-brand text-xl font-bold text-action hover:bg-surface focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         ✕
       </button>

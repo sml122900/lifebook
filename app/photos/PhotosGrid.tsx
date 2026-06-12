@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -86,7 +86,7 @@ export function PhotosGrid({ photos }: { photos: UserPhoto[] }) {
         {visible.map((p) => (
           <li
             key={p.id}
-            className="overflow-hidden rounded-md border-2 border-zinc-200 bg-white"
+            className="overflow-hidden rounded-md border-2 border-line bg-surface"
           >
             <button
               type="button"
@@ -102,11 +102,11 @@ export function PhotosGrid({ photos }: { photos: UserPhoto[] }) {
                 loading="lazy"
               />
               <div className="px-2 py-2">
-                <p className="text-xs font-semibold text-zinc-700">
+                <p className="text-xs font-semibold text-ink-soft">
                   {whenLabel(p)}
                 </p>
                 {p.caption && (
-                  <p className="mt-0.5 truncate text-xs text-zinc-600">
+                  <p className="mt-0.5 truncate text-xs text-ink-soft">
                     {p.caption}
                   </p>
                 )}
@@ -162,7 +162,7 @@ function PhotoModal({
       tabIndex={-1}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
     >
-      <div className="flex max-h-full max-w-3xl flex-col gap-3 rounded-md bg-white p-4 sm:p-6">
+      <div className="flex max-h-full max-w-3xl flex-col gap-3 rounded-md bg-surface p-4 sm:p-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={photo.signedUrl}
@@ -170,19 +170,19 @@ function PhotoModal({
           className="max-h-[70vh] w-auto self-center rounded-md"
         />
         <div className="flex flex-col gap-1">
-          <p className="text-base font-semibold text-zinc-900">{whenLabel}</p>
+          <p className="text-base font-semibold text-ink">{whenLabel}</p>
           {photo.caption && (
-            <p className="text-sm text-zinc-700">{photo.caption}</p>
+            <p className="text-sm text-ink-soft">{photo.caption}</p>
           )}
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-ink-faint">
             {(photo.bytes / 1024).toFixed(0)} KB · {photo.mimeType}
           </p>
         </div>
-        <div className="flex flex-wrap gap-3 border-t-2 border-zinc-100 pt-3">
+        <div className="flex flex-wrap gap-3 border-t-2 border-line pt-3">
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
             autoFocus
           >
             닫기
@@ -191,7 +191,7 @@ function PhotoModal({
             type="button"
             onClick={onDelete}
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-rose-400 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-rose-400 bg-surface px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? "지우는 중…" : "사진 지우기"}
           </button>

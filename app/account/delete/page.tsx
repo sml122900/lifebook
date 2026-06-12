@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -38,14 +38,14 @@ export default async function AccountDeletePage() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
       <Link
         href="/billing"
-        className="self-start rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        className="self-start rounded-md border-2 border-line px-4 py-2 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         ← 돌아가기
       </Link>
 
       <header>
-        <h1 className="text-3xl font-bold text-zinc-900">회원 탈퇴</h1>
-        <p className="mt-3 text-lg text-zinc-700">
+        <h1 className="text-3xl font-bold text-ink">회원 탈퇴</h1>
+        <p className="mt-3 text-lg text-ink-soft">
           탈퇴하면 아래 안내에 따라 정보가 처리됩니다. 한 번 진행하면 되돌릴 수
           없어요.
         </p>
@@ -53,7 +53,7 @@ export default async function AccountDeletePage() {
 
       <section className="rounded-md border-2 border-rose-200 bg-rose-50 p-5">
         <h2 className="text-2xl font-bold text-rose-900">사라지는 것</h2>
-        <ul className="mt-3 space-y-2 text-lg text-zinc-900">
+        <ul className="mt-3 space-y-2 text-lg text-ink">
           <li>· 내가 적은 추억 <b>{memoryCount}건</b> (전부)</li>
           <li>· 남은 토큰 잔액</li>
           <li>· AI 대화 기록 · 트리거 응답 · 생애 정보</li>
@@ -64,11 +64,11 @@ export default async function AccountDeletePage() {
       <section className="rounded-md border-2 border-amber-200 bg-amber-50 p-5">
         <h2 className="text-2xl font-bold text-amber-900">가족 룸</h2>
         {ownedRooms.length === 0 ? (
-          <p className="mt-3 text-lg text-zinc-900">
+          <p className="mt-3 text-lg text-ink">
             소유한 가족 룸이 없어요. 멤버로 있던 룸에서는 자동으로 나갑니다.
           </p>
         ) : (
-          <div className="mt-3 space-y-3 text-lg text-zinc-900">
+          <div className="mt-3 space-y-3 text-lg text-ink">
             <p>회원님이 만든 가족 룸은 이렇게 처리됩니다:</p>
             <ul className="space-y-2">
               {ownedRooms.map((r) => {
@@ -89,7 +89,7 @@ export default async function AccountDeletePage() {
 
       <section className="rounded-md border-2 border-emerald-200 bg-emerald-50 p-5">
         <h2 className="text-2xl font-bold text-emerald-900">남는 것</h2>
-        <ul className="mt-3 space-y-2 text-lg text-zinc-900">
+        <ul className="mt-3 space-y-2 text-lg text-ink">
           {sharedMemoryCount > 0 && (
             <li>
               · 가족과 함께 채운 공동 추억 <b>{sharedMemoryCount}건</b>은

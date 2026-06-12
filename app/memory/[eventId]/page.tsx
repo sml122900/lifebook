@@ -1,7 +1,8 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { buttonClasses } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 import { InsufficientBalanceCard } from "@/components/InsufficientBalanceCard";
 import { getOrCreateConversation } from "@/lib/memory-chat";
@@ -78,19 +79,19 @@ export default async function MemoryPage({ params }: PageProps) {
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
         <Link
           href="/life-timeline"
-          className="self-start rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className={buttonClasses("tertiary", "md", "self-start")}
         >
           ← 인생 연혁으로
         </Link>
         <header>
-          <p className="text-base text-zinc-600">
+          <p className="text-base text-ink-soft">
             {event.year}
             {event.month ? `.${String(event.month).padStart(2, "0")}` : ""}
             {ageAtYear !== null && ageAtYear >= 0 && (
               <span className="ml-2">· 그때 {ageAtYear}살</span>
             )}
           </p>
-          <h1 className="mt-2 text-3xl font-bold text-zinc-900">
+          <h1 className="mt-2 text-3xl font-bold text-ink">
             {event.title}
           </h1>
         </header>
@@ -118,30 +119,30 @@ export default async function MemoryPage({ params }: PageProps) {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
       <Link
         href="/life-timeline"
-        className="self-start rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        className={buttonClasses("tertiary", "md", "self-start")}
       >
         ← 인생 연혁으로
       </Link>
 
       <header>
-        <p className="text-base text-zinc-600">
+        <p className="text-base text-ink-soft">
           {event.year}
           {event.month ? `.${String(event.month).padStart(2, "0")}` : ""}
           {ageAtYear !== null && ageAtYear >= 0 && (
             <span className="ml-2">· 그때 {ageAtYear}살</span>
           )}
         </p>
-        <h1 className="mt-2 text-3xl font-bold text-zinc-900">{event.title}</h1>
+        <h1 className="mt-2 text-3xl font-bold text-ink">{event.title}</h1>
         {event.description && (
-          <p className="mt-3 text-lg text-zinc-800">{event.description}</p>
+          <p className="mt-3 text-lg text-ink">{event.description}</p>
         )}
       </header>
 
-      <section className="rounded-md border-2 border-zinc-200 bg-white p-6">
-        <p className="text-lg font-semibold text-zinc-900">
+      <section className="rounded-md border-2 border-line bg-surface p-6">
+        <p className="text-lg font-semibold text-ink">
           어떤 게 떠오르세요?
         </p>
-        <p className="mt-1 text-base text-zinc-600">
+        <p className="mt-1 text-base text-ink-soft">
           아래 질문 중 하나를 골라 답해도 좋고, 떠오르는 대로 자유롭게 적어도
           좋아요.
         </p>
@@ -149,7 +150,7 @@ export default async function MemoryPage({ params }: PageProps) {
           {conversation.questions.map((q, i) => (
             <li
               key={i}
-              className="rounded-md border-2 border-zinc-200 bg-zinc-50 px-4 py-3 text-lg text-zinc-800"
+              className="rounded-md border-2 border-line bg-canvas px-4 py-3 text-lg text-ink"
             >
               {q}
             </li>
@@ -166,7 +167,7 @@ export default async function MemoryPage({ params }: PageProps) {
             {conversation.pastAnswers.map((a) => (
               <li
                 key={a.id}
-                className="rounded-md border-2 border-emerald-200 bg-white px-4 py-3 text-zinc-800"
+                className="rounded-md border-2 border-emerald-200 bg-surface px-4 py-3 text-ink"
               >
                 {a.content}
               </li>

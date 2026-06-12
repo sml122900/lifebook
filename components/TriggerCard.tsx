@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import { confirmTrigger, dismissTrigger } from "@/app/timeline/actions";
 
@@ -36,12 +36,12 @@ export function TriggerCard({
         <p className="text-base font-bold uppercase tracking-wide text-emerald-800">
           ✓ 기억나는 곡
         </p>
-        <h4 className="mt-3 text-2xl font-bold text-zinc-900">{title}</h4>
-        <p className="mt-1 text-lg text-zinc-800">{artist}</p>
-        <p className="mt-3 text-base text-zinc-700">
+        <h4 className="mt-3 text-2xl font-bold text-ink">{title}</h4>
+        <p className="mt-1 text-lg text-ink">{artist}</p>
+        <p className="mt-3 text-base text-ink-soft">
           {year}
           {ageAtYear !== null && ageAtYear >= 0 && (
-            <span className="ml-2 text-zinc-600">· 그때 {ageAtYear}살</span>
+            <span className="ml-2 text-ink-soft">· 그때 {ageAtYear}살</span>
           )}
         </p>
         <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -58,16 +58,16 @@ export function TriggerCard({
   }
 
   return (
-    <article className="rounded-md border-2 border-violet-300 bg-violet-50 p-5">
-      <p className="text-base font-bold uppercase tracking-wide text-violet-800">
+    <article className="rounded-md border-2 border-brand bg-banner p-5">
+      <p className="text-base font-bold uppercase tracking-wide text-action">
         이 노래, 기억나세요?
       </p>
-      <h4 className="mt-3 text-2xl font-bold text-zinc-900">{title}</h4>
-      <p className="mt-1 text-lg text-zinc-800">{artist}</p>
-      <p className="mt-3 text-base text-zinc-700">
+      <h4 className="mt-3 text-2xl font-bold text-ink">{title}</h4>
+      <p className="mt-1 text-lg text-ink">{artist}</p>
+      <p className="mt-3 text-base text-ink-soft">
         {year}
         {ageAtYear !== null && ageAtYear >= 0 && (
-          <span className="ml-2 text-zinc-600">· 그때 {ageAtYear}살</span>
+          <span className="ml-2 text-ink-soft">· 그때 {ageAtYear}살</span>
         )}
       </p>
 
@@ -81,7 +81,7 @@ export function TriggerCard({
           <input type="hidden" name="eventId" value={id} />
           <button
             type="submit"
-            className="rounded-md bg-violet-700 px-5 py-3 text-base font-semibold text-white hover:bg-violet-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+            className="rounded-md bg-action px-5 py-3 text-base font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             기억나요
           </button>
@@ -90,7 +90,7 @@ export function TriggerCard({
           <input type="hidden" name="eventId" value={id} />
           <button
             type="submit"
-            className="rounded-md border-2 border-zinc-300 bg-white px-5 py-3 text-base font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
+            className="rounded-md border-2 border-line bg-surface px-5 py-3 text-base font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
           >
             잘 모르겠어요
           </button>

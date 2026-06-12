@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -87,17 +87,17 @@ export function LinkToggleRow({
   }
 
   return (
-    <li className="flex flex-col gap-2 rounded-md border-2 border-zinc-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-2 rounded-md border-2 border-line bg-surface px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <p className="text-base text-zinc-600">
+        <p className="text-base text-ink-soft">
           {yearLabel}
           {age && (
-            <span className="ml-2 text-sm text-zinc-500">
+            <span className="ml-2 text-sm text-ink-faint">
               (만 {age.manAge}세)
             </span>
           )}
         </p>
-        <p className="mt-1 text-xl font-semibold text-zinc-900">
+        <p className="mt-1 text-xl font-semibold text-ink">
           {event.title}
         </p>
         {toast && (
@@ -109,7 +109,7 @@ export function LinkToggleRow({
                 ? "text-rose-700"
                 : toast.kind === "ok"
                   ? "text-emerald-700"
-                  : "text-zinc-600")
+                  : "text-ink-soft")
             }
           >
             {toast.msg}
@@ -125,7 +125,7 @@ export function LinkToggleRow({
           "inline-flex min-h-[48px] min-w-[140px] items-center justify-center rounded-md border-2 px-5 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
           (linked
             ? "border-amber-600 bg-amber-600 text-white hover:bg-amber-700"
-            : "border-zinc-300 bg-white text-zinc-800 hover:border-amber-400 hover:bg-amber-50")
+            : "border-line bg-surface text-ink hover:border-amber-400 hover:bg-amber-50")
         }
       >
         {linked ? "✓ 연결됨" : "+ 연결하기"}

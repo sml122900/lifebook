@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -145,10 +145,10 @@ async function _TimemachineMonthPageArchived({ params }: PageProps) {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-10">
       <header>
-        <h1 className="text-5xl font-bold tracking-tight text-zinc-900 sm:text-6xl">
+        <h1 className="text-5xl font-bold tracking-tight text-ink sm:text-6xl">
           {year}년 {month}월
         </h1>
-        <p className="mt-5 text-xl text-zinc-800 sm:text-2xl">
+        <p className="mt-5 text-xl text-ink sm:text-2xl">
           <b>{userName}</b>님, 이 달은 어떤 달이었나요?
         </p>
       </header>
@@ -160,18 +160,18 @@ async function _TimemachineMonthPageArchived({ params }: PageProps) {
         initialSavedAnswers={initialSavedAnswers}
       />
 
-      <nav className="flex flex-col gap-3 border-t-2 border-zinc-200 pt-8 sm:flex-row sm:items-center sm:justify-between">
+      <nav className="flex flex-col gap-3 border-t-2 border-line pt-8 sm:flex-row sm:items-center sm:justify-between">
         {!atEarliest ? (
           <Link
             href={`/timemachine/${prev.year}/${prev.month}`}
             prefetch
-            className="inline-flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md bg-zinc-900 px-8 py-4 text-xl font-bold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md bg-action px-8 py-4 text-xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <span>← {prev.year}년 {prev.month}월 보기</span>
             {prevFilled && <FilledBadge />}
           </Link>
         ) : (
-          <p className="text-base text-zinc-600">
+          <p className="text-base text-ink-soft">
             여기가 가장 오래된 달이에요.
           </p>
         )}
@@ -179,7 +179,7 @@ async function _TimemachineMonthPageArchived({ params }: PageProps) {
           <Link
             href={`/timemachine/${next.year}/${next.month}`}
             prefetch
-            className="inline-flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md border-2 border-zinc-300 px-8 py-4 text-xl font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md border-2 border-line px-8 py-4 text-xl font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <span>{next.year}년 {next.month}월 보기 →</span>
             {nextFilled && <FilledBadge />}

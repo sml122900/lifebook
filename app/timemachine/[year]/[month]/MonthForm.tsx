@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 
@@ -116,7 +116,7 @@ export function MonthForm({
             if (items.length === 0) return null;
             return (
               <section key={section}>
-                <h2 className="mb-4 text-2xl font-bold text-zinc-900 sm:text-3xl">
+                <h2 className="mb-4 text-2xl font-bold text-ink sm:text-3xl">
                   {SECTION_LABEL[section]}
                 </h2>
                 <ul className="flex flex-col gap-4">
@@ -146,8 +146,8 @@ export function MonthForm({
           })}
         </div>
       ) : (
-        <div className="rounded-md border-2 border-zinc-200 bg-zinc-50 p-5">
-          <p className="text-lg text-zinc-800">
+        <div className="rounded-md border-2 border-line bg-canvas p-5">
+          <p className="text-lg text-ink">
             이 달은 아직 자료가 없어요. 다음 달로 넘어가 보세요.
           </p>
         </div>
@@ -175,7 +175,7 @@ export function MonthForm({
               저장됨 · {savedAt.toLocaleTimeString("ko-KR")}
             </span>
           ) : (
-            <span className="text-zinc-600">
+            <span className="text-ink-soft">
               변경 사항은 "저장" 버튼을 눌러야 보관돼요.
             </span>
           )}
@@ -184,7 +184,7 @@ export function MonthForm({
           type="button"
           onClick={handleSave}
           disabled={isPending}
-          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-amber-700 px-8 py-4 text-xl font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-zinc-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-amber-700 px-8 py-4 text-xl font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
           {isPending ? "저장 중…" : "이 달 저장하기"}
         </button>

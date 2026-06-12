@@ -1,4 +1,4 @@
-import {
+﻿import {
   createCommentAction,
   deleteCommentAction,
 } from "./comment-actions";
@@ -46,9 +46,9 @@ export function CommentThread({
   comments: Comment[];
 }) {
   return (
-    <div className="mt-4 flex flex-col gap-3 border-t-2 border-zinc-200 pt-4">
+    <div className="mt-4 flex flex-col gap-3 border-t-2 border-line pt-4">
       {comments.length === 0 ? (
-        <p className="text-base text-zinc-600">
+        <p className="text-base text-ink-soft">
           이 추억에 한마디 남겨보세요.
         </p>
       ) : (
@@ -58,17 +58,17 @@ export function CommentThread({
             return (
               <li
                 key={c.id}
-                className="rounded-md border-2 border-zinc-200 bg-white px-4 py-3"
+                className="rounded-md border-2 border-line bg-surface px-4 py-3"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-base font-semibold text-zinc-900">
+                  <p className="text-base font-semibold text-ink">
                     {authorLabel(c.authorId, c.author.name, c.author.email, viewerId)}
                   </p>
-                  <p className="text-sm text-zinc-600">
+                  <p className="text-sm text-ink-soft">
                     {DATE_FMT.format(c.createdAt)}
                   </p>
                 </div>
-                <p className="mt-2 whitespace-pre-wrap text-lg text-zinc-900">
+                <p className="mt-2 whitespace-pre-wrap text-lg text-ink">
                   {c.content}
                 </p>
                 {isMine && (
@@ -77,7 +77,7 @@ export function CommentThread({
                     <input type="hidden" name="roomId" value={roomId} />
                     <button
                       type="submit"
-                      className="text-base text-zinc-700 underline hover:text-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+                      className="text-base text-ink-soft underline hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     >
                       내 댓글 삭제
                     </button>
@@ -103,11 +103,11 @@ export function CommentThread({
           required
           maxLength={2000}
           placeholder="한마디 남기기"
-          className="w-full rounded-md border-2 border-zinc-300 px-4 py-3 text-lg focus:border-zinc-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="w-full rounded-md border-2 border-line px-4 py-3 text-lg focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         />
         <button
           type="submit"
-          className="self-end rounded-md bg-zinc-900 px-5 py-3 text-base font-semibold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="self-end rounded-md bg-action px-5 py-3 text-base font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           댓글 남기기
         </button>

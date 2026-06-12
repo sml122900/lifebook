@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
@@ -105,7 +105,7 @@ function SidePanel({
               ? `내 정보 패널 열기 (새 가족 소식 ${data.familyNewsCount}개)`
               : "내 정보 패널 열기"
           }
-          className="fixed right-4 top-4 z-30 inline-flex min-h-[48px] items-center gap-2 rounded-md border-2 border-amber-500 bg-white px-4 py-2 text-base font-semibold text-amber-900 shadow-md hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="fixed right-4 top-4 z-30 inline-flex min-h-[48px] items-center gap-2 rounded-md border-2 border-amber-500 bg-surface px-4 py-2 text-base font-semibold text-amber-900 shadow-md hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
           <span aria-hidden>≡</span>
           내 정보
@@ -135,19 +135,19 @@ function SidePanel({
         aria-label="내 정보 사이드 패널"
         aria-hidden={!open}
         className={
-          "fixed top-0 right-0 z-50 h-full w-80 max-w-[85vw] overflow-y-auto border-l-2 border-amber-200 bg-white p-6 shadow-xl transition-transform " +
+          "fixed top-0 right-0 z-50 h-full w-80 max-w-[85vw] overflow-y-auto border-l-2 border-amber-200 bg-surface p-6 shadow-xl transition-transform " +
           (mounted ? "" : "!transition-none ") +
           (open ? "translate-x-0" : "translate-x-full")
         }
       >
         {/* 헤더 + 닫기 */}
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-zinc-900">내 정보</h2>
+          <h2 className="text-lg font-bold text-ink">내 정보</h2>
           <button
             type="button"
             onClick={() => onToggle(false)}
             aria-label="패널 닫기"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md border-2 border-zinc-300 text-xl font-bold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md border-2 border-line text-xl font-bold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
             ✕
           </button>
@@ -170,17 +170,17 @@ function SidePanel({
               {(data.userName.trim()[0] ?? "?").toUpperCase()}
             </div>
           )}
-          <p className="text-center text-lg font-semibold text-zinc-900">
+          <p className="text-center text-lg font-semibold text-ink">
             {data.userName}
           </p>
         </div>
 
         {/* 2. 토큰 잔액 */}
         <div className="mt-6 rounded-md border-2 border-amber-200 bg-amber-50 p-4 text-center">
-          <p className="text-sm font-semibold text-zinc-700">내 토큰</p>
+          <p className="text-sm font-semibold text-ink-soft">내 토큰</p>
           <p className="mt-1 text-3xl font-bold text-amber-900">
             {data.balance.toLocaleString()}
-            <span className="ml-1 text-base font-semibold text-amber-800">토큰</span>
+            <span className="ml-1 text-base font-semibold text-action">토큰</span>
           </p>
         </div>
 
@@ -221,7 +221,7 @@ function SidePanel({
             연혁(연/시기 중심) 하나로 통일. 월 화면 라우트는 redirect 로
             살아있으나 사이드 진입로는 닫는다. */}
         <nav className="mt-6 flex flex-col gap-2" aria-label="빠른 이동">
-          <p className="px-2 text-sm font-semibold text-zinc-600">빠른 이동</p>
+          <p className="px-2 text-sm font-semibold text-ink-soft">빠른 이동</p>
           <MenuItem
             href="/life-timeline"
             label="내 인생 연혁"
@@ -262,11 +262,11 @@ function SidePanel({
         {/* 6. 로그아웃 — 다른 메뉴보다 눈에 덜 띄게 */}
         <form
           action={logoutAction}
-          className="mt-8 border-t-2 border-zinc-200 pt-4"
+          className="mt-8 border-t-2 border-line pt-4"
         >
           <button
             type="submit"
-            className="text-sm text-zinc-500 hover:text-zinc-700 hover:underline focus:outline-none focus-visible:underline"
+            className="text-sm text-ink-faint hover:text-ink-soft hover:underline focus:outline-none focus-visible:underline"
           >
             로그아웃
           </button>
@@ -288,10 +288,10 @@ function MenuItem({
   return (
     <Link
       href={href}
-      className="flex flex-col rounded-md border-2 border-zinc-200 bg-white px-4 py-3 hover:bg-amber-50 hover:border-amber-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+      className="flex flex-col rounded-md border-2 border-line bg-surface px-4 py-3 hover:bg-amber-50 hover:border-amber-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
     >
-      <span className="text-base font-semibold text-zinc-900">{label}</span>
-      <span className="mt-0.5 text-xs text-zinc-600">{hint}</span>
+      <span className="text-base font-semibold text-ink">{label}</span>
+      <span className="mt-0.5 text-xs text-ink-soft">{hint}</span>
     </Link>
   );
 }
@@ -325,8 +325,8 @@ function AttendanceMini({
   const cyclePos = attendanceCyclePosition(currentStreak);
 
   return (
-    <div className="mt-6 rounded-md border-2 border-zinc-200 bg-white p-4">
-      <p className="text-sm font-semibold text-zinc-700">오늘의 출석</p>
+    <div className="mt-6 rounded-md border-2 border-line bg-surface p-4">
+      <p className="text-sm font-semibold text-ink-soft">오늘의 출석</p>
       <p className="mt-1 text-2xl font-bold text-amber-900">
         연속 {currentStreak}일째
       </p>
@@ -347,14 +347,14 @@ function AttendanceMini({
                 "h-4 w-4 rounded-full border-2 " +
                 (filled
                   ? "border-amber-700 bg-amber-700"
-                  : "border-zinc-300 bg-white") +
+                  : "border-line bg-surface") +
                 (isToday ? " ring-2 ring-amber-300" : "")
               }
               aria-hidden
             />
           );
         })}
-        <span className="ml-1 text-xs text-zinc-600">
+        <span className="ml-1 text-xs text-ink-soft">
           {cyclePos}/{BONUS_EVERY_DAYS}
         </span>
       </ol>

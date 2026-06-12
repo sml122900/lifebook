@@ -33,13 +33,13 @@ export default async function EraPage() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">
       <header>
-        <h1 className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl">
+        <h1 className="text-4xl font-bold tracking-tight text-ink sm:text-5xl">
           그 시절 둘러보기
         </h1>
-        <p className="mt-4 text-xl text-zinc-800 sm:text-2xl">
+        <p className="mt-4 text-xl text-ink sm:text-2xl">
           1980년부터 2019년까지, 우리 모두가 같이 겪은 큰 사건과 노래들이에요.
         </p>
-        <p className="mt-2 text-base text-zinc-600">
+        <p className="mt-2 text-base text-ink-soft">
           기억나는 사건은 <b>내 연혁에 담기</b> 한 번으로 본인 연혁에 추가됩니다.
         </p>
       </header>

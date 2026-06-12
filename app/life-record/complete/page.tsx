@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -28,15 +28,15 @@ export default async function LifeRecordCompletePage() {
         <p className="text-6xl" aria-hidden>
           🌿
         </p>
-        <h1 className="mt-4 text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl">
+        <h1 className="mt-4 text-4xl font-bold tracking-tight text-ink sm:text-5xl">
           여기까지 채우셨어요
         </h1>
-        <p className="mt-4 text-xl text-zinc-800 sm:text-2xl">
+        <p className="mt-4 text-xl text-ink sm:text-2xl">
           {doneCount === totalCount
             ? "인생 골격이 모두 잡혔어요."
             : `${totalCount}개 중 ${doneCount}개의 큰 줄기를 잡으셨어요.`}
         </p>
-        <p className="mt-2 text-lg text-zinc-700">
+        <p className="mt-2 text-lg text-ink-soft">
           나머지는 언제든 천천히 채우셔도 돼요.
         </p>
       </header>
@@ -45,14 +45,14 @@ export default async function LifeRecordCompletePage() {
         <Link
           href="/timemachine"
           prefetch
-          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-violet-700 px-8 py-4 text-2xl font-bold text-white hover:bg-violet-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-action px-8 py-4 text-2xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           내 인생 연혁 보러 가기 →
         </Link>
         {doneCount < totalCount && (
           <Link
             href="/life-record"
-            className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-zinc-300 px-6 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-line px-6 py-3 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             남은 항목 더 채우기
           </Link>

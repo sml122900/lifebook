@@ -1,6 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState, useTransition } from "react";
+
+import { buttonClasses } from "@/components/ui/Button";
 import { useRouter } from "next/navigation";
 
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
@@ -158,11 +160,11 @@ export function PhotosUploadForm() {
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-md border-2 border-zinc-200 bg-zinc-50 p-5">
-      <h2 className="text-xl font-bold text-zinc-900">사진 올리기</h2>
+    <section className="flex flex-col gap-4 rounded-md border-2 border-line bg-canvas p-5">
+      <h2 className="text-xl font-bold text-ink">사진 올리기</h2>
 
       <label className="flex flex-col gap-2">
-        <span className="text-base text-zinc-700">
+        <span className="text-base text-ink-soft">
           폰에서 사진을 골라주세요 (jpeg / png / webp, 최대 10MB).
         </span>
         <input
@@ -171,7 +173,7 @@ export function PhotosUploadForm() {
           accept="image/jpeg,image/png,image/webp"
           onChange={onFileChange}
           disabled={isPending}
-          className="text-base file:mr-3 file:rounded-md file:border-2 file:border-zinc-300 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-zinc-800 hover:file:bg-zinc-100"
+          className="text-base file:mr-3 file:rounded-md file:border-2 file:border-line file:bg-surface file:px-4 file:py-2 file:text-sm file:font-semibold file:text-ink hover:file:bg-canvas"
         />
       </label>
 
@@ -181,9 +183,9 @@ export function PhotosUploadForm() {
           <img
             src={previewUrl}
             alt="미리보기"
-            className="max-h-[280px] rounded-md border-2 border-zinc-300"
+            className="max-h-[280px] rounded-md border-2 border-line"
           />
-          <p className="text-sm text-zinc-600">
+          <p className="text-sm text-ink-soft">
             {selectedFile?.name} ·{" "}
             {((selectedFile?.size ?? 0) / 1024).toFixed(0)} KB
           </p>
@@ -194,7 +196,7 @@ export function PhotosUploadForm() {
         <>
           <div className="flex flex-wrap gap-4">
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-semibold text-zinc-700">
+              <span className="text-sm font-semibold text-ink-soft">
                 찍은 해
               </span>
               <input
@@ -205,14 +207,14 @@ export function PhotosUploadForm() {
                 onChange={(e) =>
                   setYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
                 }
-                className="w-28 rounded-md border-2 border-zinc-300 bg-white px-3 py-2 text-lg text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+                className="w-28 rounded-md border-2 border-line bg-surface px-3 py-2 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
                 disabled={isPending}
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-semibold text-zinc-700">
+              <span className="text-sm font-semibold text-ink-soft">
                 달{" "}
-                <span className="font-normal text-zinc-500">
+                <span className="font-normal text-ink-faint">
                   (선택, 모르면 비워두세요)
                 </span>
               </span>
@@ -225,7 +227,7 @@ export function PhotosUploadForm() {
                   setMonthText(e.target.value.replace(/\D/g, "").slice(0, 2))
                 }
                 placeholder="1~12"
-                className="w-24 rounded-md border-2 border-zinc-300 bg-white px-3 py-2 text-lg text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+                className="w-24 rounded-md border-2 border-line bg-surface px-3 py-2 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
                 disabled={isPending}
               />
             </label>
@@ -235,9 +237,9 @@ export function PhotosUploadForm() {
           <DateSourceBadge reading={reading} source={dateSource} />
 
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-semibold text-zinc-700">
+            <span className="text-sm font-semibold text-ink-soft">
               한 줄 설명{" "}
-              <span className="font-normal text-zinc-500">(선택)</span>
+              <span className="font-normal text-ink-faint">(선택)</span>
             </span>
             <input
               type="text"
@@ -245,16 +247,16 @@ export function PhotosUploadForm() {
               onChange={(e) => setCaption(e.target.value)}
               placeholder="예: 첫 손주 백일잔치"
               maxLength={CAPTION_MAX}
-              className="w-full rounded-md border-2 border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+              className="w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
               disabled={isPending}
             />
           </label>
 
           {/* Phase Place (C) — 어디서 찍은 사진인지 (선택) */}
           <div className="flex flex-col gap-1">
-            <span className="text-sm font-semibold text-zinc-700">
+            <span className="text-sm font-semibold text-ink-soft">
               어디서 찍었나요?{" "}
-              <span className="font-normal text-zinc-500">(선택)</span>
+              <span className="font-normal text-ink-faint">(선택)</span>
             </span>
             <PlaceSearchInput value={place} onChange={setPlace} />
           </div>
@@ -275,7 +277,7 @@ export function PhotosUploadForm() {
           type="button"
           onClick={onUpload}
           disabled={!selectedFile || isPending}
-          className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-zinc-900 px-5 py-2 text-base font-bold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-400"
+          className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? "올리는 중…" : "올리기"}
         </button>
@@ -283,7 +285,7 @@ export function PhotosUploadForm() {
           <button
             type="button"
             onClick={onReset}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-4 py-2 text-base font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            className={buttonClasses("tertiary", "md")}
           >
             취소
           </button>
@@ -303,7 +305,7 @@ function DateSourceBadge({
 }) {
   if (reading) {
     return (
-      <p className="text-sm text-zinc-500">사진에서 찍은 날짜 읽는 중…</p>
+      <p className="text-sm text-ink-faint">사진에서 찍은 날짜 읽는 중…</p>
     );
   }
   if (source === "exif") {
@@ -322,7 +324,7 @@ function DateSourceBadge({
   }
   if (source === "none") {
     return (
-      <p className="inline-flex w-fit items-center gap-1 rounded-md border-2 border-zinc-300 bg-zinc-50 px-3 py-1.5 text-sm text-zinc-700">
+      <p className="inline-flex w-fit items-center gap-1 rounded-md border-2 border-line bg-canvas px-3 py-1.5 text-sm text-ink-soft">
         날짜를 못 읽었어요. 찍은 해를 적어주세요
       </p>
     );

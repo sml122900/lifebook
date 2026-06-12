@@ -1,6 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useRef, useState, useTransition } from "react";
+
+import { Camera } from "lucide-react";
+
+import { buttonClasses } from "@/components/ui/Button";
 import { useRouter } from "next/navigation";
 
 import { detachPhotoToIndependentAction } from "@/app/photos/actions";
@@ -228,12 +232,12 @@ export function EventPhotos({
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-md border-2 border-zinc-200 bg-white p-5">
+    <section className="flex flex-col gap-4 rounded-md border-2 border-line bg-surface p-5">
       <div>
-        <h2 className="text-2xl font-bold text-zinc-900">
-          <span aria-hidden className="mr-1">📷</span>사진
+        <h2 className="flex items-center gap-1.5 text-2xl font-bold text-ink">
+          <Camera strokeWidth={1.75} aria-hidden className="h-6 w-6 text-ink shrink-0" />사진
         </h2>
-        <p className="mt-1 text-base text-zinc-600">
+        <p className="mt-1 text-base text-ink-soft">
           이 이야기와 함께 남기고 싶은 사진을 붙여보세요.
         </p>
         {isPeriod && (
@@ -261,7 +265,7 @@ export function EventPhotos({
             return (
               <li
                 key={p.id}
-                className="flex flex-col overflow-hidden rounded-md border-2 border-zinc-200 bg-white"
+                className="flex flex-col overflow-hidden rounded-md border-2 border-line bg-surface"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -271,7 +275,7 @@ export function EventPhotos({
                   loading="lazy"
                 />
                 {p.caption && (
-                  <p className="truncate px-2 py-1 text-xs text-zinc-600">
+                  <p className="truncate px-2 py-1 text-xs text-ink-soft">
                     {p.caption}
                   </p>
                 )}
@@ -291,7 +295,7 @@ export function EventPhotos({
                     type="button"
                     onClick={() => onDetach(p.id)}
                     disabled={isPending}
-                    className="inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-3 py-1 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-line bg-surface px-3 py-1 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     사건에서 빼기
                   </button>
@@ -299,7 +303,7 @@ export function EventPhotos({
                     type="button"
                     onClick={() => onDelete(p.id)}
                     disabled={isPending}
-                    className="inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-rose-300 bg-white px-3 py-1 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-rose-300 bg-surface px-3 py-1 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     사진 지우기
                   </button>
@@ -311,9 +315,9 @@ export function EventPhotos({
       )}
 
       {/* 새 사진 첨부 */}
-      <div className="flex flex-col gap-3 rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-4">
+      <div className="flex flex-col gap-3 rounded-md border-2 border-dashed border-line bg-canvas p-4">
         <label className="flex flex-col gap-2">
-          <span className="text-base text-zinc-700">
+          <span className="text-base text-ink-soft">
             사진 한 장 고르기 (jpeg / png / webp, 최대 10MB)
           </span>
           <input
@@ -322,7 +326,7 @@ export function EventPhotos({
             accept="image/jpeg,image/png,image/webp"
             onChange={onFileChange}
             disabled={isPending}
-            className="text-base file:mr-3 file:rounded-md file:border-2 file:border-zinc-300 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-zinc-800 hover:file:bg-zinc-100"
+            className="text-base file:mr-3 file:rounded-md file:border-2 file:border-line file:bg-surface file:px-4 file:py-2 file:text-sm file:font-semibold file:text-ink hover:file:bg-canvas"
           />
         </label>
 
@@ -332,12 +336,12 @@ export function EventPhotos({
             <img
               src={previewUrl}
               alt="미리보기"
-              className="max-h-[220px] self-start rounded-md border-2 border-zinc-300"
+              className="max-h-[220px] self-start rounded-md border-2 border-line"
             />
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-semibold text-zinc-700">
+              <span className="text-sm font-semibold text-ink-soft">
                 한 줄 설명{" "}
-                <span className="font-normal text-zinc-500">(선택)</span>
+                <span className="font-normal text-ink-faint">(선택)</span>
               </span>
               <input
                 type="text"
@@ -346,13 +350,13 @@ export function EventPhotos({
                 placeholder="예: 입학식 날 교문 앞에서"
                 maxLength={CAPTION_MAX}
                 disabled={isPending}
-                className="w-full rounded-md border-2 border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+                className="w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
               />
             </label>
 
             {isPeriod && (
               <div className="flex flex-col gap-2">
-                <span className="text-sm font-semibold text-zinc-700">
+                <span className="text-sm font-semibold text-ink-soft">
                   이 사진은 언제쯤인가요?
                 </span>
                 <AnchorPicker
@@ -377,7 +381,7 @@ export function EventPhotos({
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-4 py-2 text-base font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500"
+                  className={buttonClasses("tertiary", "md")}
                 >
                   취소
                 </button>
@@ -422,7 +426,7 @@ function AnchorPicker({
               "inline-flex items-center justify-center rounded-md border-2 font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50 " +
               (active
                 ? "border-amber-500 bg-amber-100 text-amber-900"
-                : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100")
+                : "border-line bg-surface text-ink-soft hover:bg-banner")
             }
           >
             {o.label}

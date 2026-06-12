@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -57,16 +57,16 @@ export default async function LifeRecordIndexPage({
       {isNewArrival && (
         <div
           role="status"
-          className="flex items-start justify-between gap-3 rounded-md border-2 border-violet-300 bg-violet-50 px-5 py-4"
+          className="flex items-start justify-between gap-3 rounded-md border-2 border-brand bg-banner px-5 py-4"
         >
-          <p className="flex-1 text-base text-violet-900 sm:text-lg">
+          <p className="flex-1 text-base text-action sm:text-lg">
             <b>Lifebook 에 오신 걸 환영해요.</b> 몇 가지 질문에 떠오르는 만큼만
             답하시면 인생 연혁이 그려져요. 답하기 어려운 건 건너뛰셔도 됩니다.
           </p>
           <Link
             href="/life-record"
             aria-label="안내 닫기"
-            className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border-2 border-violet-300 text-xl font-bold text-violet-700 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+            className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border-2 border-brand text-xl font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             ✕
           </Link>
@@ -74,13 +74,13 @@ export default async function LifeRecordIndexPage({
       )}
 
       <header>
-        <h1 className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl">
+        <h1 className="text-4xl font-bold tracking-tight text-ink sm:text-5xl">
           인생 기록하기
         </h1>
-        <p className="mt-4 text-xl text-zinc-800 sm:text-2xl">
+        <p className="mt-4 text-xl text-ink sm:text-2xl">
           <b>{userName}</b>님의 인생 큰 줄기를 한 번 잡아볼까요?
         </p>
-        <p className="mt-2 text-lg text-zinc-700">
+        <p className="mt-2 text-lg text-ink-soft">
           한 번에 한 가지씩, 떠오르는 만큼만 적으셔도 괜찮아요.
           답하기 어려운 건 건너뛰셔도 됩니다.
         </p>
@@ -97,9 +97,9 @@ export default async function LifeRecordIndexPage({
             </span>
           )}
         </p>
-        <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-amber-100">
+        <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-line">
           <div
-            className="h-full bg-amber-500 transition-all"
+            className="h-full bg-brand transition-all"
             style={{ width: `${(processedCount / totalCount) * 100}%` }}
             aria-hidden
           />
@@ -108,38 +108,50 @@ export default async function LifeRecordIndexPage({
           {allDone ? (
             <Link
               href="/life-record/complete"
-              className="inline-flex min-h-[64px] items-center justify-center rounded-md bg-violet-700 px-8 py-4 text-xl font-bold text-white hover:bg-violet-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+              className="inline-flex min-h-[64px] items-center justify-center rounded-md bg-action px-8 py-4 text-xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               완료 화면으로 →
             </Link>
           ) : (
-            <Link
-              href={`/life-record/${next}`}
-              prefetch
-              className="inline-flex min-h-[64px] items-center justify-center rounded-md bg-zinc-900 px-8 py-4 text-xl font-bold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
-            >
-              {processedCount === 0 ? "시작하기 →" : "이어서 하기 →"}
-            </Link>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link
+                href={`/life-record/${next}`}
+                prefetch
+                className="inline-flex min-h-[64px] items-center justify-center rounded-md bg-action px-8 py-4 text-xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+              >
+                {processedCount === 0 ? "시작하기 →" : "이어서 하기 →"}
+              </Link>
+              {/* 3차(디자이너 확정) — 미완료 상태에도 완료 화면 진입로를
+                  secondary 로. 0개 처리 상태에선 무의미해 숨김. */}
+              {processedCount > 0 && (
+                <Link
+                  href="/life-record/complete"
+                  className="inline-flex min-h-[64px] items-center justify-center rounded-[10px] border-2 border-brand bg-surface px-8 py-4 text-xl font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+                >
+                  완료 화면으로 →
+                </Link>
+              )}
+            </div>
           )}
         </div>
       </section>
 
       <section aria-label="카테고리 목록" className="flex flex-col gap-3">
-        <h2 className="text-2xl font-bold text-zinc-900">전체 항목</h2>
-        <p className="text-base text-zinc-700">
+        <h2 className="text-2xl font-bold text-ink">전체 항목</h2>
+        <p className="text-base text-ink-soft">
           원하는 항목을 직접 골라 적으셔도 돼요.
         </p>
         <ul className="flex flex-col gap-2">
           {LIFE_QUESTIONS.map((q, i) => {
             const done = answered.has(q.category);
             const isSkipped = !done && skipped.has(q.category);
-            // 뱃지 시각: 답함(emerald 강조) ≠ 건너뜀(zinc 담담) ≠ 아직(zinc 같지만
-            // "아직"문구). X 표시·rose 같은 부정 색 금지(기획 원칙).
+            // 뱃지 시각: 답함(success-deep 강조) ≠ 건너뜀(zinc 담담) ≠ 아직(zinc
+            // 같지만 "아직"문구). X 표시·rose 같은 부정 색 금지(기획 원칙).
             const badgeClass = done
-              ? "bg-emerald-100 text-emerald-800"
+              ? "bg-[#EAF2EA] text-success-deep"
               : isSkipped
-                ? "bg-zinc-100 text-zinc-500"
-                : "bg-zinc-100 text-zinc-700";
+                ? "bg-canvas text-ink-faint"
+                : "bg-canvas text-ink-soft";
             const badgeText = done
               ? "✓ 답함"
               : isSkipped
@@ -149,16 +161,16 @@ export default async function LifeRecordIndexPage({
               <li key={q.category}>
                 <Link
                   href={`/life-record/${q.category}`}
-                  className="flex items-center justify-between gap-4 rounded-md border-2 border-zinc-200 bg-white px-5 py-4 hover:border-zinc-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+                  className="flex items-center justify-between gap-4 rounded-md border-2 border-line bg-surface px-5 py-4 hover:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
                 >
                   <div className="flex flex-col gap-1">
-                    <span className="text-base text-zinc-600">
+                    <span className="text-base text-ink-soft">
                       {i + 1} / {totalCount}
                     </span>
-                    <span className="text-xl font-bold text-zinc-900">
+                    <span className="text-xl font-bold text-ink">
                       {q.shortLabel}
                       {q.optional && (
-                        <span className="ml-2 align-middle text-base font-medium text-zinc-500">
+                        <span className="ml-2 align-middle text-base font-medium text-ink-faint">
                           (선택)
                         </span>
                       )}

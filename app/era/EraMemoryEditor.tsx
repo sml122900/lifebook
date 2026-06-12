@@ -75,18 +75,18 @@ export function EraMemoryEditor({
 
   const containerClass =
     variant === "compact"
-      ? "flex flex-col gap-2 rounded-md border border-slate-300 bg-white/70 p-3"
+      ? "flex flex-col gap-2 rounded-md border border-line bg-surface/70 p-3"
       : "flex flex-col gap-3 rounded-md border-2 border-emerald-200 bg-emerald-50/40 p-4";
   const promptClass =
     variant === "compact"
-      ? "text-sm font-semibold text-slate-800"
+      ? "text-sm font-semibold text-ink"
       : "text-base font-semibold text-emerald-900";
   const subtleClass =
-    variant === "compact" ? "text-xs text-slate-600" : "text-sm text-emerald-700";
+    variant === "compact" ? "text-xs text-ink-soft" : "text-sm text-emerald-700";
   const rows = variant === "compact" ? 2 : 3;
   const textareaClassName =
     variant === "compact"
-      ? "w-full rounded-md border-2 border-slate-300 bg-white px-3 py-2 text-base text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+      ? "w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
       : undefined; // VoiceTextarea 의 기본 (큰 글씨, 시니어 친화)
 
   return (
@@ -112,8 +112,8 @@ export function EraMemoryEditor({
           disabled={disabled}
           className={
             variant === "compact"
-              ? "inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-emerald-600 bg-emerald-600 px-4 py-1 text-sm font-bold text-white hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              : "inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-emerald-600 bg-emerald-600 px-5 py-2 text-base font-bold text-white hover:bg-emerald-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              ? "inline-flex min-h-[40px] items-center justify-center rounded-md border border-brand bg-surface px-4 py-1 text-sm font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              : "inline-flex min-h-[48px] items-center justify-center rounded-md border border-brand bg-surface px-5 py-2 text-base font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           }
         >
           {isPending
@@ -124,7 +124,7 @@ export function EraMemoryEditor({
         </button>
         <span
           className={
-            "text-sm " + (tooLong ? "font-semibold text-rose-700" : "text-zinc-500")
+            "text-sm " + (tooLong ? "font-semibold text-rose-700" : "text-ink-faint")
           }
           aria-live="polite"
         >

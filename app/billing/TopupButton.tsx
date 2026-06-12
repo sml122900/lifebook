@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
@@ -60,7 +60,7 @@ export function TopupButton({ packageId, label, clientKey, customerKey }: Props)
         type="button"
         onClick={handleClick}
         disabled={submitting}
-        className="rounded-md bg-emerald-700 px-6 py-4 text-lg font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-zinc-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
+        className="rounded-md bg-emerald-700 px-6 py-4 text-lg font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
       >
         {submitting ? "결제 창 여는 중..." : `${label} 충전`}
       </button>

@@ -1,7 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+
+import { Sparkles } from "lucide-react";
+
+import { buttonClasses } from "@/components/ui/Button";
 
 import {
   AssistantPanel,
@@ -86,20 +90,18 @@ export function AssistantModal({
           onClick={() => setOpen(true)}
           aria-label="AI 비서와 대화"
           title="AI 비서와 대화"
-          className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full border-2 border-violet-500 bg-violet-600 text-3xl text-white shadow-xl transition-transform hover:scale-105 hover:bg-violet-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+          className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full border-2 border-brand bg-surface text-action shadow-xl transition-transform hover:scale-105 hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
-          <span aria-hidden>🤖</span>
+          <Sparkles strokeWidth={1.75} aria-hidden className="h-7 w-7 text-action" />
         </button>
       ) : (
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-label="AI 비서와 대화"
-          className="inline-flex min-h-[56px] items-center gap-2 rounded-md border-2 border-violet-500 bg-violet-50 px-5 py-3 text-lg font-semibold text-violet-900 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+          className={buttonClasses("secondary", "lg")}
         >
-          <span aria-hidden className="text-xl">
-            🤖
-          </span>
+          <Sparkles strokeWidth={1.75} aria-hidden className="h-5 w-5 text-action" />
           <span>AI 비서와 대화</span>
         </button>
       )}
@@ -114,19 +116,19 @@ export function AssistantModal({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="flex w-full max-w-3xl flex-col rounded-md border-2 border-violet-300 bg-white shadow-xl"
+            className="flex w-full max-w-3xl flex-col rounded-md border-2 border-line bg-surface shadow-xl"
             style={{ maxHeight: "min(90vh, 100%)" }}
           >
             {/* 헤더 — 큰 닫기 버튼 + 맥락 안내 */}
-            <header className="flex items-start justify-between gap-3 border-b-2 border-violet-200 px-5 py-4">
+            <header className="flex items-start justify-between gap-3 border-b-2 border-brand px-5 py-4">
               <div className="min-w-0">
                 <h2
                   id="assistant-modal-title"
-                  className="text-2xl font-bold text-zinc-900"
+                  className="text-2xl font-bold text-ink"
                 >
                   AI 비서와 대화
                 </h2>
-                <p className="mt-1 text-base text-zinc-700">
+                <p className="mt-1 text-base text-ink-soft">
                   궁금한 게 있으면 가볍게 물어보세요. 답은{" "}
                   <b>{fallbackLabel}</b> 기준이에요.
                 </p>
@@ -135,7 +137,7 @@ export function AssistantModal({
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="비서 닫기"
-                className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border-2 border-zinc-300 text-2xl font-bold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+                className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md border-2 border-line text-2xl font-bold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
                 ✕
               </button>

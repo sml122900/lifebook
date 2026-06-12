@@ -1,8 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type ReactNode } from "react";
+
+import { buttonClasses } from "@/components/ui/Button";
 
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
@@ -265,7 +267,7 @@ export function EventForm({
       {/* 모드 선택 — 추가 모드 + 앵커 2개 이상일 때만 */}
       {!isEdit && anchors.length >= 2 && (
         <section className="flex flex-col gap-2">
-          <p className="text-lg font-semibold text-zinc-900">
+          <p className="text-lg font-semibold text-ink">
             시점을 어떻게 정할까요?
           </p>
           <ModeRadio
@@ -323,7 +325,7 @@ export function EventForm({
       <section className="flex flex-col gap-2">
         <label
           htmlFor="event-title"
-          className="text-lg font-semibold text-zinc-900"
+          className="text-lg font-semibold text-ink"
         >
           어떤 일이었는지 한 줄로
         </label>
@@ -335,16 +337,16 @@ export function EventForm({
           placeholder="예: 친구들과 첫 여행, 큰 병원 입원"
           maxLength={80}
           autoComplete="off"
-          className="w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         />
       </section>
 
       {/* 장소 (선택) */}
       <section className="flex flex-col gap-2">
-        <p className="text-lg font-semibold text-zinc-900">
-          어디였나요? <span className="font-normal text-zinc-500">(선택)</span>
+        <p className="text-lg font-semibold text-ink">
+          어디였나요? <span className="font-normal text-ink-faint">(선택)</span>
         </p>
-        <p className="text-base text-zinc-600">
+        <p className="text-base text-ink-soft">
           장소 이름을 검색해서 골라주세요. 모르시면 안 골라도 돼요.
         </p>
         <PlaceSearchInput value={place} onChange={setPlace} />
@@ -354,10 +356,10 @@ export function EventForm({
       <section className="flex flex-col gap-2">
         <label
           htmlFor="event-content"
-          className="text-lg font-semibold text-zinc-900"
+          className="text-lg font-semibold text-ink"
         >
           더 떠오르는 게 있다면{" "}
-          <span className="font-normal text-zinc-500">(선택)</span>
+          <span className="font-normal text-ink-faint">(선택)</span>
         </label>
         <VoiceTextarea
           value={content}
@@ -383,7 +385,7 @@ export function EventForm({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href="/life-timeline"
-          className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-zinc-300 px-5 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className={buttonClasses("tertiary", "lg")}
         >
           ← 취소
         </Link>
@@ -391,7 +393,7 @@ export function EventForm({
           type="button"
           onClick={handleSubmit}
           disabled={isPending}
-          className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-zinc-900 px-6 py-3 text-lg font-bold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           {isPending ? "저장 중…" : isEdit ? "수정 저장" : "추가하기"}
         </button>
@@ -425,19 +427,19 @@ function ModeRadio({
               "flex flex-col items-start gap-2 rounded-md border-2 px-5 py-4 text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
               (selected
                 ? "border-amber-600 bg-amber-50"
-                : "border-zinc-300 bg-white hover:border-zinc-400")
+                : "border-line bg-surface hover:border-brand")
             }
           >
             <span
               className={
                 "text-lg font-bold " +
-                (selected ? "text-amber-900" : "text-zinc-900")
+                (selected ? "text-amber-900" : "text-ink")
               }
             >
               {selected ? "● " : "○ "}
               {o.label}
             </span>
-            <span className="text-base text-zinc-700">{o.hint}</span>
+            <span className="text-base text-ink-soft">{o.hint}</span>
           </button>
         );
       })}
@@ -485,13 +487,13 @@ function BetweenSection({
       </p>
       <div className="flex flex-col gap-3">
         <label className="flex flex-col gap-1">
-          <span className="text-base font-semibold text-zinc-900">
+          <span className="text-base font-semibold text-ink">
             이 사건 <b>다음에</b> 있었어요
           </span>
           <select
             value={anchorBeforeId}
             onChange={(e) => setAnchorBeforeId(e.target.value)}
-            className="rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-lg text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           >
             <option value="">— 골라주세요 —</option>
             {anchors.map((a) => (
@@ -502,13 +504,13 @@ function BetweenSection({
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-base font-semibold text-zinc-900">
+          <span className="text-base font-semibold text-ink">
             이 사건 <b>전에</b> 있었어요
           </span>
           <select
             value={anchorAfterId}
             onChange={(e) => setAnchorAfterId(e.target.value)}
-            className="rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-lg text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           >
             <option value="">— 골라주세요 —</option>
             {anchors.map((a) => (
@@ -521,10 +523,10 @@ function BetweenSection({
       </div>
 
       <div className="mt-2 flex flex-col gap-1">
-        <label htmlFor="between-year" className="text-base text-zinc-700">
+        <label htmlFor="between-year" className="text-base text-ink-soft">
           추정 연도{" "}
           {estimatedYear !== null && (
-            <span className="text-zinc-500">
+            <span className="text-ink-faint">
               (자동으로 {estimatedYear}년으로 잡았어요 — 다르면 고쳐주세요)
             </span>
           )}
@@ -539,7 +541,7 @@ function BetweenSection({
             onYearChange(e.target.value.replace(/\D/g, "").slice(0, 4))
           }
           placeholder="예: 1985"
-          className="w-40 rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="w-40 rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         />
         {ageHint && (
           <p className="mt-1 text-sm text-amber-900">
@@ -547,7 +549,7 @@ function BetweenSection({
           </p>
         )}
       </div>
-      <p className="text-base text-zinc-700">
+      <p className="text-base text-ink-soft">
         대략적인 시점으로 저장돼요 — 연혁에서 작은 점선 점으로 보여요.
       </p>
     </section>
@@ -591,12 +593,12 @@ function ExactSection({
 
   return (
     <section className="flex flex-col gap-3">
-      <p className="text-lg font-semibold text-zinc-900">
+      <p className="text-lg font-semibold text-ink">
         {isPeriod ? "언제 시작했어요?" : "언제였어요?"}
       </p>
       <div className="flex items-end gap-3">
         <div className="flex-1">
-          <label htmlFor="exact-year" className="block text-base text-zinc-700">
+          <label htmlFor="exact-year" className="block text-base text-ink-soft">
             {isPeriod ? "시작한 해" : "연도"}
           </label>
           <input
@@ -609,10 +611,10 @@ function ExactSection({
               setYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
             }
             placeholder="예: 1985"
-            className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           />
           {startAge && (
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-1 text-sm text-ink-soft">
               그때 {formatAge(startAge)}쯤이에요
             </p>
           )}
@@ -620,7 +622,7 @@ function ExactSection({
         <div className="w-32">
           <label
             htmlFor="exact-month"
-            className="block text-base text-zinc-700"
+            className="block text-base text-ink-soft"
           >
             월 (선택)
           </label>
@@ -634,11 +636,11 @@ function ExactSection({
               setMonthText(e.target.value.replace(/\D/g, "").slice(0, 2))
             }
             placeholder="3"
-            className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           />
         </div>
       </div>
-      <p className="text-base text-zinc-600">
+      <p className="text-base text-ink-soft">
         월을 적으시면 정확한 시점(앵커)으로, 비워두시면 대략 시점으로 저장돼요.
       </p>
 
@@ -652,7 +654,7 @@ function ExactSection({
           "flex items-center gap-3 rounded-md border-2 px-4 py-3 text-left text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
           (isPeriod
             ? "border-amber-500 bg-amber-50 text-amber-900"
-            : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100")
+            : "border-line bg-surface text-ink hover:bg-banner")
         }
       >
         <span aria-hidden className="text-2xl">
@@ -663,14 +665,14 @@ function ExactSection({
 
       {isPeriod && (
         <div className="flex flex-col gap-1">
-          <p className="text-base font-semibold text-zinc-900">
-            언제 끝났어요? <span className="font-normal text-zinc-500">(선택)</span>
+          <p className="text-base font-semibold text-ink">
+            언제 끝났어요? <span className="font-normal text-ink-faint">(선택)</span>
           </p>
           <div className="flex items-end gap-3">
             <div className="flex-1">
               <label
                 htmlFor="exact-end-year"
-                className="block text-base text-zinc-700"
+                className="block text-base text-ink-soft"
               >
                 끝난 해
               </label>
@@ -684,10 +686,10 @@ function ExactSection({
                   setEndYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
                 }
                 placeholder="예: 1991"
-                className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
               />
               {endAge && (
-                <p className="mt-1 text-sm text-zinc-600">
+                <p className="mt-1 text-sm text-ink-soft">
                   그때 {formatAge(endAge)}쯤이에요
                 </p>
               )}
@@ -695,7 +697,7 @@ function ExactSection({
             <div className="w-32">
               <label
                 htmlFor="exact-end-month"
-                className="block text-base text-zinc-700"
+                className="block text-base text-ink-soft"
               >
                 월 (선택)
               </label>
@@ -710,11 +712,11 @@ function ExactSection({
                 }
                 placeholder="2"
                 disabled={endYearText.trim() === ""}
-                className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-faint"
               />
             </div>
           </div>
-          <p className="text-base text-zinc-600">
+          <p className="text-base text-ink-soft">
             모르거나 아직 안 끝났으면 비워두셔도 돼요. 적으시면 연혁에{" "}
             <b>시작·끝 두 점</b>으로 보여요.
           </p>

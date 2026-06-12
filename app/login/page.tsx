@@ -6,8 +6,8 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex max-w-md flex-col items-center gap-8 px-6 py-20">
       <header className="text-center">
-        <h1 className="text-4xl font-bold text-zinc-900">로그인</h1>
-        <p className="mt-3 text-zinc-800">
+        <h1 className="text-4xl font-bold text-ink">로그인</h1>
+        <p className="mt-3 text-ink">
           Google 계정으로 안전하게 시작합니다.
         </p>
       </header>
@@ -24,7 +24,7 @@ export default function LoginPage() {
       >
         <button
           type="submit"
-          className="min-h-[56px] w-full rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="min-h-[56px] w-full rounded-md border border-brand bg-surface px-6 py-4 text-lg font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           Google로 시작하기
         </button>

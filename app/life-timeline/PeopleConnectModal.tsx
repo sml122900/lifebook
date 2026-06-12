@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -157,18 +157,18 @@ export function PeopleConnectModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-md flex-col rounded-md border-2 border-amber-300 bg-white shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-md flex-col rounded-md border-2 border-amber-300 bg-surface shadow-xl"
       >
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-3 border-b-2 border-amber-100 px-5 py-4">
           <div className="min-w-0">
             <h2
               id="people-connect-title"
-              className="text-xl font-bold text-zinc-900"
+              className="text-xl font-bold text-ink"
             >
               함께한 분 고르기
             </h2>
-            <p className="mt-1 truncate text-sm text-zinc-600">
+            <p className="mt-1 truncate text-sm text-ink-soft">
               {eventLabel}
             </p>
           </div>
@@ -178,7 +178,7 @@ export function PeopleConnectModal({
             disabled={isPending}
             autoFocus
             aria-label="닫기"
-            className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md border-2 border-zinc-300 text-xl font-bold text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500"
+            className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md border-2 border-line text-xl font-bold text-ink-soft hover:bg-banner disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
             ✕
           </button>
@@ -213,7 +213,7 @@ export function PeopleConnectModal({
               {/* 미연결 섹션 */}
               {disconnectedList.length > 0 && (
                 <section>
-                  <h3 className="mb-2 text-sm font-semibold text-zinc-700">
+                  <h3 className="mb-2 text-sm font-semibold text-ink-soft">
                     다른 인물
                   </h3>
                   <ul className="flex flex-col gap-2">
@@ -231,7 +231,7 @@ export function PeopleConnectModal({
               )}
 
               {connectedList.length === 0 && disconnectedList.length === 0 && (
-                <p className="text-base text-zinc-700">
+                <p className="text-base text-ink-soft">
                   아직 기록된 분이 없어요.
                 </p>
               )}
@@ -284,7 +284,7 @@ function PersonRow({
           "flex w-full min-h-[48px] items-center justify-between gap-3 rounded-md border-2 px-4 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 " +
           (connected
             ? "border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
-            : "border-zinc-300 bg-white text-zinc-900 hover:border-amber-300 hover:bg-amber-50")
+            : "border-line bg-surface text-ink hover:border-amber-300 hover:bg-amber-50")
         }
       >
         <span className="truncate text-base font-semibold">{person.name}</span>
@@ -308,8 +308,8 @@ function EmptyPeople({ newPersonHref }: { newPersonHref: string }) {
       <p aria-hidden className="text-4xl">
         👥
       </p>
-      <p className="text-lg text-zinc-800">아직 기록된 분이 없어요.</p>
-      <p className="text-sm text-zinc-600">
+      <p className="text-lg text-ink">아직 기록된 분이 없어요.</p>
+      <p className="text-sm text-ink-soft">
         새 인물을 추가하면 이 사건에 연결할 수 있어요.
       </p>
       <Link

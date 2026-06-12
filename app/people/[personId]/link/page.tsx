@@ -44,15 +44,15 @@ export default async function LinkEventsPage({ params }: Params) {
       <header className="flex flex-col gap-2">
         <Link
           href={`/people/${person.id}`}
-          className="self-start text-base text-zinc-600 hover:text-zinc-900 hover:underline"
+          className="self-start text-base text-ink-soft hover:text-ink hover:underline"
         >
           ← {person.name} 상세로
         </Link>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+        <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
           {person.name}
           {withJosa(person.name, "과/와")} 함께한 사건 고르기
         </h1>
-        <p className="text-lg text-zinc-700">
+        <p className="text-lg text-ink-soft">
           연혁에 있는 사건들 중 이 분과 함께한 순간을 골라주세요. 다시 누르면
           연결이 해제돼요.
         </p>
@@ -60,7 +60,7 @@ export default async function LinkEventsPage({ params }: Params) {
 
       {allEvents.length === 0 ? (
         <section className="flex flex-col items-center gap-4 rounded-md border-2 border-amber-200 bg-amber-50 px-6 py-10 text-center">
-          <p className="text-lg text-zinc-800">
+          <p className="text-lg text-ink">
             아직 인생 사건이 없어요. 먼저 연혁에 한 장면을 더해주세요.
           </p>
           <Link

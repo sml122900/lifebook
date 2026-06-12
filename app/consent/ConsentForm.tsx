@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -66,7 +66,7 @@ export function ConsentForm() {
         {REQUIRED_ITEMS.map((item) => (
           <li
             key={item.key}
-            className="rounded-md border-2 border-zinc-200 bg-white p-5"
+            className="rounded-md border-2 border-line bg-surface p-5"
           >
             <label className="flex cursor-pointer items-start gap-4">
               <input
@@ -79,10 +79,10 @@ export function ConsentForm() {
                 className="mt-1 h-6 w-6 accent-zinc-900"
               />
               <div>
-                <div className="text-lg font-semibold text-zinc-900">
+                <div className="text-lg font-semibold text-ink">
                   {item.title}
                 </div>
-                <p className="mt-2 text-zinc-800">{item.body}</p>
+                <p className="mt-2 text-ink">{item.body}</p>
               </div>
             </label>
           </li>
@@ -92,7 +92,7 @@ export function ConsentForm() {
       <button
         type="submit"
         disabled={!canSubmit || submitting}
-        className="rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500"
+        className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:text-ink-faint"
       >
         {submitting ? "저장 중..." : "시작하기"}
       </button>

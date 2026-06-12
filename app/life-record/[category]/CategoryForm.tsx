@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -159,13 +159,13 @@ export function CategoryForm({
         // 모델을 첫 답부터 심어주기 위한 안내. 시니어 친화: 키워드만 굵게,
         // 두 단락 정도로 짧게.
         <div
-          className="rounded-md border-2 border-sky-200 border-l-4 border-l-sky-500 bg-sky-50 px-5 py-4"
+          className="rounded-md border-2 border-brand border-l-4 border-l-brand bg-banner px-5 py-4"
           role="note"
         >
-          <p className="text-base font-semibold text-sky-900">
+          <p className="text-base font-semibold text-action">
             지금 받는 질문은 인생 연혁의 기반이에요.
           </p>
-          <p className="mt-1.5 text-sm text-sky-800">
+          <p className="mt-1.5 text-sm text-action">
             큰 줄기 한 가지만 적어주시면 됩니다. 같은 시기에 여러 사건(예:
             초등학교 동안 이사 두 번)이 있어도, 답을 마친 뒤 <b>인생 연혁</b>{" "}
             화면에서 언제든 자유롭게 추가할 수 있어요. 모르거나 떠올리기
@@ -175,7 +175,7 @@ export function CategoryForm({
       )}
 
       <section className="flex flex-col gap-2">
-        <label htmlFor="life-title" className="text-lg font-semibold text-zinc-900">
+        <label htmlFor="life-title" className="text-lg font-semibold text-ink">
           {question.titleLabel}
         </label>
         <input
@@ -185,20 +185,20 @@ export function CategoryForm({
           onChange={(e) => setTitle(e.target.value)}
           placeholder={question.titlePlaceholder}
           maxLength={80}
-          className="w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           autoComplete="off"
         />
       </section>
 
       <section className="flex flex-col gap-2">
-        <p className="text-lg font-semibold text-zinc-900">
+        <p className="text-lg font-semibold text-ink">
           {isPeriod ? "언제 시작했어요?" : "언제였어요?"}
         </p>
         <div className="flex items-end gap-3">
           <div className="flex-1">
             <label
               htmlFor="life-year"
-              className="block text-base text-zinc-700"
+              className="block text-base text-ink-soft"
             >
               {isPeriod ? "시작한 해" : "연도"}
             </label>
@@ -210,10 +210,10 @@ export function CategoryForm({
               value={yearText}
               onChange={(e) => setYearText(e.target.value.replace(/\D/g, "").slice(0, 4))}
               placeholder="예: 1985"
-              className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
             />
             {ageForYear && (
-              <p className="mt-1 text-sm text-zinc-600">
+              <p className="mt-1 text-sm text-ink-soft">
                 그때 {formatAge(ageForYear)}쯤이에요
               </p>
             )}
@@ -221,7 +221,7 @@ export function CategoryForm({
           <div className="w-32">
             <label
               htmlFor="life-month"
-              className="block text-base text-zinc-700"
+              className="block text-base text-ink-soft"
             >
               월 (선택)
             </label>
@@ -233,23 +233,23 @@ export function CategoryForm({
               value={monthText}
               onChange={(e) => setMonthText(e.target.value.replace(/\D/g, "").slice(0, 2))}
               placeholder="3"
-              className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
             />
           </div>
         </div>
-        <p className="text-base text-zinc-600">
+        <p className="text-base text-ink-soft">
           정확한 달이 안 떠오르시면 비워두셔도 돼요.
         </p>
       </section>
 
       {isPeriod && (
         <section className="flex flex-col gap-2">
-          <p className="text-lg font-semibold text-zinc-900">
-            언제 끝났어요? <span className="font-normal text-zinc-500">(선택)</span>
+          <p className="text-lg font-semibold text-ink">
+            언제 끝났어요? <span className="font-normal text-ink-faint">(선택)</span>
           </p>
           <div className="flex items-end gap-3">
             <div className="flex-1">
-              <label htmlFor="life-end-year" className="block text-base text-zinc-700">
+              <label htmlFor="life-end-year" className="block text-base text-ink-soft">
                 끝난 해
               </label>
               <input
@@ -262,10 +262,10 @@ export function CategoryForm({
                   setEndYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
                 }
                 placeholder="예: 1991"
-                className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
               />
               {ageForEndYear && (
-                <p className="mt-1 text-sm text-zinc-600">
+                <p className="mt-1 text-sm text-ink-soft">
                   그때 {formatAge(ageForEndYear)}쯤이에요
                 </p>
               )}
@@ -273,7 +273,7 @@ export function CategoryForm({
             <div className="w-32">
               <label
                 htmlFor="life-end-month"
-                className="block text-base text-zinc-700"
+                className="block text-base text-ink-soft"
               >
                 월 (선택)
               </label>
@@ -288,11 +288,11 @@ export function CategoryForm({
                 }
                 placeholder="2"
                 disabled={endYearText.trim() === ""}
-                className="mt-1 w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-faint"
               />
             </div>
           </div>
-          <p className="text-base text-zinc-600">
+          <p className="text-base text-ink-soft">
             모르거나 아직 안 끝났으면 비워두셔도 돼요. 끝난 해를 적으시면 연혁
             에 <b>시작·끝 두 점</b>으로 표시돼요.
           </p>
@@ -300,10 +300,10 @@ export function CategoryForm({
       )}
 
       <section className="flex flex-col gap-2">
-        <p className="text-lg font-semibold text-zinc-900">
-          어디였나요? <span className="font-normal text-zinc-500">(선택)</span>
+        <p className="text-lg font-semibold text-ink">
+          어디였나요? <span className="font-normal text-ink-faint">(선택)</span>
         </p>
-        <p className="text-base text-zinc-600">
+        <p className="text-base text-ink-soft">
           장소 이름을 검색해서 골라주세요. 모르시면 안 골라도 돼요.
         </p>
         <PlaceSearchInput value={place} onChange={setPlace} />
@@ -312,9 +312,9 @@ export function CategoryForm({
       <section className="flex flex-col gap-2">
         <label
           htmlFor="life-content"
-          className="text-lg font-semibold text-zinc-900"
+          className="text-lg font-semibold text-ink"
         >
-          {question.contentLabel} <span className="text-zinc-500">(선택)</span>
+          {question.contentLabel} <span className="text-ink-faint">(선택)</span>
         </label>
         <VoiceTextarea
           value={content}
@@ -337,7 +337,7 @@ export function CategoryForm({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href={backHref}
-          className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-zinc-300 px-5 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-line px-5 py-3 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           ← 전체 목록
         </Link>
@@ -347,7 +347,7 @@ export function CategoryForm({
             type="button"
             onClick={handleSkip}
             disabled={isPending}
-            className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-zinc-300 px-6 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-line px-6 py-3 text-lg font-semibold text-ink hover:bg-banner disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             건너뛰기
           </button>
@@ -355,7 +355,7 @@ export function CategoryForm({
             type="button"
             onClick={handleSave}
             disabled={isPending}
-            className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-zinc-900 px-6 py-3 text-lg font-bold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             {isPending ? "저장 중…" : "저장하고 다음 →"}
           </button>

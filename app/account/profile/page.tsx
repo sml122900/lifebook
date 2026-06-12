@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { buttonClasses } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 
 import { ProfileEditForm, type ProfileInitial } from "./ProfileEditForm";
@@ -56,14 +57,14 @@ export default async function AccountProfilePage() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
       <Link
         href="/life-timeline"
-        className="self-start rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        className={buttonClasses("tertiary", "md", "self-start")}
       >
         ← 인생 연혁으로
       </Link>
 
       <header>
-        <h1 className="text-3xl font-bold text-zinc-900">회원정보</h1>
-        <p className="mt-3 text-lg text-zinc-700">
+        <h1 className="text-3xl font-bold text-ink">회원정보</h1>
+        <p className="mt-3 text-lg text-ink-soft">
           가입할 때 답하신 내용을 언제든 수정할 수 있어요. 비워두셔도 괜찮아요.
         </p>
       </header>

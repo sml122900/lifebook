@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -270,10 +270,10 @@ export function BulkUploadForm() {
   return (
     <div className="flex flex-col gap-6">
       {/* 고르기 */}
-      <label className="flex flex-col gap-2 rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-5">
-        <span className="text-lg font-semibold text-zinc-800">
+      <label className="flex flex-col gap-2 rounded-md border-2 border-dashed border-line bg-canvas p-5">
+        <span className="text-lg font-semibold text-ink">
           사진 여러 장 고르기{" "}
-          <span className="text-base font-normal text-zinc-500">
+          <span className="text-base font-normal text-ink-faint">
             (jpeg / png / webp, 최대 10MB, 한 번에 {MAX_BATCH}장)
           </span>
         </span>
@@ -283,9 +283,9 @@ export function BulkUploadForm() {
           multiple
           onChange={onPick}
           disabled={uploading}
-          className="text-base file:mr-3 file:rounded-md file:border-2 file:border-zinc-300 file:bg-white file:px-4 file:py-2 file:text-base file:font-semibold file:text-zinc-800 hover:file:bg-zinc-100"
+          className="text-base file:mr-3 file:rounded-md file:border-2 file:border-line file:bg-surface file:px-4 file:py-2 file:text-base file:font-semibold file:text-ink hover:file:bg-canvas"
         />
-        <span className="text-sm text-zinc-500">
+        <span className="text-sm text-ink-faint">
           찍은 날짜는 자동으로 읽어 와요. 위치정보는 올리기 전에 지워요.
         </span>
       </label>
@@ -300,14 +300,14 @@ export function BulkUploadForm() {
       )}
 
       {reading && (
-        <p className="text-base text-zinc-600">사진에서 찍은 날짜 읽는 중…</p>
+        <p className="text-base text-ink-soft">사진에서 찍은 날짜 읽는 중…</p>
       )}
 
       {total > 0 && (
         <>
           {/* 진행 카운트 */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-2xl font-bold text-zinc-900">
+            <p className="text-2xl font-bold text-ink">
               {total}장 중 <span className="text-emerald-700">{doneCount}장</span>{" "}
               올렸어요
             </p>
@@ -315,7 +315,7 @@ export function BulkUploadForm() {
               type="button"
               onClick={runUpload}
               disabled={uploading || remaining === 0}
-              className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-zinc-900 px-6 py-3 text-lg font-bold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-400"
+              className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {uploading
                 ? "올리는 중…"
@@ -351,7 +351,7 @@ export function BulkUploadForm() {
               </p>
               <div className="flex flex-wrap items-end gap-3">
                 <label className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold text-zinc-700">
+                  <span className="text-sm font-semibold text-ink-soft">
                     연도
                   </span>
                   <input
@@ -364,14 +364,14 @@ export function BulkUploadForm() {
                     }
                     placeholder="예: 2005"
                     disabled={uploading}
-                    className="w-32 rounded-md border-2 border-zinc-300 bg-white px-3 py-2 text-lg text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+                    className="w-32 rounded-md border-2 border-line bg-surface px-3 py-2 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
                   />
                 </label>
                 <button
                   type="button"
                   onClick={applyBulkYear}
                   disabled={uploading || bulkYear.trim() === ""}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-amber-500 bg-white px-4 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-amber-500 bg-surface px-4 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {noDateItems.length}장에 일괄 지정
                 </button>
@@ -393,7 +393,7 @@ export function BulkUploadForm() {
           {/* 연도별 그룹 */}
           {groups.map(([year, list]) => (
             <section key={year} className="flex flex-col gap-3">
-              <h3 className="text-xl font-bold text-zinc-900">{year}년</h3>
+              <h3 className="text-xl font-bold text-ink">{year}년</h3>
               <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {list.map((i) => (
                   <PhotoCard
@@ -415,10 +415,10 @@ export function BulkUploadForm() {
 
 function StatusChip({ status }: { status: Status }) {
   const map: Record<Status, { text: string; cls: string }> = {
-    ready: { text: "대기", cls: "border-zinc-300 bg-white text-zinc-600" },
+    ready: { text: "대기", cls: "border-line bg-surface text-ink-soft" },
     uploading: {
       text: "올리는 중…",
-      cls: "border-sky-300 bg-sky-50 text-sky-800",
+      cls: "border-brand bg-banner text-action",
     },
     done: { text: "✓ 완료", cls: "border-emerald-300 bg-emerald-50 text-emerald-800" },
     error: { text: "⚠ 실패", cls: "border-rose-300 bg-rose-50 text-rose-800" },
@@ -454,7 +454,7 @@ function PhotoCard({
         ? "추정 날짜"
         : null;
   return (
-    <li className="flex flex-col gap-2 overflow-hidden rounded-md border-2 border-zinc-200 bg-white p-2">
+    <li className="flex flex-col gap-2 overflow-hidden rounded-md border-2 border-line bg-surface p-2">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={item.url}
@@ -472,10 +472,10 @@ function PhotoCard({
           onChange={(e) => onYear(item.id, e.target.value)}
           placeholder="연도"
           disabled={uploading || item.status === "done"}
-          className="w-20 rounded-md border-2 border-zinc-300 bg-white px-2 py-1 text-base text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:bg-zinc-100"
+          className="w-20 rounded-md border-2 border-line bg-surface px-2 py-1 text-base text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:bg-canvas"
         />
         {item.month != null && (
-          <span className="text-sm text-zinc-500">{item.month}월</span>
+          <span className="text-sm text-ink-faint">{item.month}월</span>
         )}
         {sourceLabel && (
           <span
@@ -492,7 +492,7 @@ function PhotoCard({
         <button
           type="button"
           onClick={() => onRemove(item.id)}
-          className="inline-flex min-h-[36px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-2 py-1 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+          className="inline-flex min-h-[36px] items-center justify-center rounded-md border-2 border-line bg-surface px-2 py-1 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
           빼기
         </button>

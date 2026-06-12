@@ -1,7 +1,7 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { ButtonLink } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 import { getAttendanceStatus } from "@/lib/attendance";
 import { getBalance } from "@/lib/tokens/wallet";
@@ -77,37 +77,40 @@ export default async function TokensPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
-      <Link
+      <ButtonLink
         href="/account/settings"
-        className="self-start rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        variant="tertiary"
+        className="self-start"
       >
         ← 설정으로
-      </Link>
+      </ButtonLink>
 
       <header>
-        <h1 className="text-3xl font-bold text-zinc-900 sm:text-4xl">
+        <h1 className="text-3xl font-bold text-ink sm:text-4xl">
           내 토큰
         </h1>
-        <p className="mt-3 text-base text-zinc-700">
+        <p className="mt-3 text-base text-ink-soft">
           출석체크로 매일 받고, 부족하면 충전할 수 있어요.
         </p>
       </header>
 
       {/* 잔액 — 주인공 */}
       <section className="rounded-md border-2 border-amber-300 bg-amber-50 p-6 text-center">
-        <p className="text-base font-semibold text-zinc-700">남은 토큰</p>
+        <p className="text-base font-semibold text-ink-soft">남은 토큰</p>
         <p className="mt-2 text-5xl font-bold text-amber-900 sm:text-6xl">
           {balance.toLocaleString()}
           <span className="ml-2 text-2xl font-semibold text-amber-800">
             개
           </span>
         </p>
-        <Link
+        <ButtonLink
           href="/billing"
-          className="mt-5 inline-flex min-h-[56px] items-center justify-center rounded-md bg-amber-700 px-6 py-3 text-lg font-bold text-white hover:bg-amber-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          variant="primary"
+          size="lg"
+          className="mt-5"
         >
           토큰 충전하러 가기
-        </Link>
+        </ButtonLink>
       </section>
 
       {/* 출석체크 카드 */}
@@ -115,11 +118,11 @@ export default async function TokensPage() {
 
       {/* 거래 내역 — 50건 */}
       <section className="flex flex-col gap-4">
-        <h2 className="text-2xl font-bold text-zinc-900">거래 내역</h2>
+        <h2 className="text-2xl font-bold text-ink">거래 내역</h2>
         {txs.length === 0 ? (
-          <p className="text-lg text-zinc-700">아직 내역이 없어요.</p>
+          <p className="text-lg text-ink-soft">아직 내역이 없어요.</p>
         ) : (
-          <ul className="flex flex-col divide-y-2 divide-zinc-200 overflow-hidden rounded-md border-2 border-zinc-200 bg-white">
+          <ul className="flex flex-col divide-y-2 divide-zinc-200 overflow-hidden rounded-md border-2 border-line bg-surface">
             {txs.map((t) => {
               const positive = t.delta >= 0;
               return (
@@ -128,10 +131,10 @@ export default async function TokensPage() {
                   className="flex items-center justify-between gap-4 px-5 py-4"
                 >
                   <div className="min-w-0">
-                    <p className="text-lg font-semibold text-zinc-900">
+                    <p className="text-lg font-semibold text-ink">
                       {reasonLabel(t.reason)}
                     </p>
-                    <p className="text-base text-zinc-600">
+                    <p className="text-base text-ink-soft">
                       {DATE_FMT.format(t.createdAt)}
                     </p>
                   </div>

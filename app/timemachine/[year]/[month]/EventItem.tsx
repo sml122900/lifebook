@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 
@@ -34,14 +34,14 @@ export function EventItem({
 }) {
   if (status === "removed") {
     return (
-      <li className="flex items-center justify-between gap-3 rounded-md border-2 border-zinc-200 bg-zinc-50 px-4 py-3">
-        <span className="text-base text-zinc-600 line-through">
+      <li className="flex items-center justify-between gap-3 rounded-md border-2 border-line bg-canvas px-4 py-3">
+        <span className="text-base text-ink-soft line-through">
           {item.title}
         </span>
         <button
           type="button"
           onClick={() => onStatusChange("pending")}
-          className="min-h-[44px] rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="min-h-[44px] rounded-md border-2 border-line px-4 py-2 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           복구
         </button>
@@ -57,14 +57,14 @@ export function EventItem({
         "rounded-md border-2 p-5 " +
         (kept
           ? "border-amber-300 bg-amber-50"
-          : "border-zinc-200 bg-white")
+          : "border-line bg-surface")
       }
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <h3 className="text-xl font-semibold text-zinc-900">{item.title}</h3>
+          <h3 className="text-xl font-semibold text-ink">{item.title}</h3>
           {item.description && (
-            <p className="mt-2 text-lg text-zinc-800">{item.description}</p>
+            <p className="mt-2 text-lg text-ink">{item.description}</p>
           )}
         </div>
         <div className="flex shrink-0 gap-2">
@@ -72,7 +72,7 @@ export function EventItem({
             <button
               type="button"
               onClick={() => onStatusChange("pending")}
-              className="min-h-[60px] rounded-md border-2 border-zinc-300 bg-white px-5 py-3 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+              className="min-h-[60px] rounded-md border-2 border-line bg-surface px-5 py-3 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
               aria-label={`${item.title} 선택 취소`}
             >
               취소
@@ -90,7 +90,7 @@ export function EventItem({
               <button
                 type="button"
                 onClick={() => onStatusChange("removed")}
-                className="min-h-[60px] rounded-md border-2 border-zinc-300 bg-white px-5 py-3 text-base font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+                className="min-h-[60px] rounded-md border-2 border-line bg-surface px-5 py-3 text-base font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
                 aria-label={`${item.title} 지우기`}
               >
                 ✕ 지우기
@@ -102,7 +102,7 @@ export function EventItem({
 
       {kept && (
         <div className="mt-4 flex flex-col gap-2">
-          <span className="text-base font-medium text-zinc-800">
+          <span className="text-base font-medium text-ink">
             어떤 일이 있었나요?
           </span>
           <VoiceTextarea

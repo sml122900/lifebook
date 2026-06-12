@@ -26,12 +26,12 @@ const DOMAIN_LABEL: Record<Domain, string> = {
 // 흰 배경 대비 4.5:1 이상 보장하는 진한 단색 배지 (시니어 고대비).
 const DOMAIN_BADGE: Record<Domain, string> = {
   kr_politics: "bg-rose-700 text-white",
-  kr_society: "bg-purple-700 text-white",
+  kr_society: "bg-action text-white",
   disaster: "bg-red-800 text-white",
   sports: "bg-emerald-700 text-white",
   tech: "bg-indigo-700 text-white",
   economy: "bg-orange-700 text-white",
-  world: "bg-blue-700 text-white",
+  world: "bg-sage text-white",
 };
 
 // 알 수 없는 도메인은 회색 배지로 폴백(깨지지 않게).
@@ -65,10 +65,10 @@ export function EventCard({
   return (
     <Link
       href={`/memory/${id}`}
-      className="group block min-h-[88px] w-full rounded-md border-2 border-sky-200 bg-white p-5 text-left transition-colors hover:border-sky-500 hover:bg-sky-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+      className="group block min-h-[88px] w-full rounded-md border-2 border-brand bg-surface p-5 text-left transition-colors hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-base font-semibold text-zinc-800">
+        <span className="text-base font-semibold text-ink">
           {month ? `${String(month).padStart(2, "0")}월` : "연중"}
         </span>
         <span
@@ -77,9 +77,9 @@ export function EventCard({
           {badgeLabel(domain)}
         </span>
       </div>
-      <div className="mt-2 text-xl font-semibold text-zinc-900">{title}</div>
-      {description && <p className="mt-2 text-zinc-800">{description}</p>}
-      <p className="mt-3 text-base font-medium text-sky-700 group-hover:text-sky-900">
+      <div className="mt-2 text-xl font-semibold text-ink">{title}</div>
+      {description && <p className="mt-2 text-ink">{description}</p>}
+      <p className="mt-3 text-base font-medium text-action group-hover:text-action">
         추억 남기기 →
       </p>
     </Link>

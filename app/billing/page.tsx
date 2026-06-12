@@ -1,7 +1,8 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { buttonClasses } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 import { TOPUP_PACKAGES } from "@/lib/tokens/policy";
 import { getBalance } from "@/lib/tokens/wallet";
@@ -58,14 +59,14 @@ export default async function BillingPage() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
       <Link
         href="/life-timeline"
-        className="self-start rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        className={buttonClasses("tertiary", "md", "self-start")}
       >
         ← 인생 연혁으로
       </Link>
 
       <header>
-        <h1 className="text-3xl font-bold text-zinc-900">토큰 충전</h1>
-        <p className="mt-3 text-2xl text-zinc-900">
+        <h1 className="text-3xl font-bold text-ink">토큰 충전</h1>
+        <p className="mt-3 text-2xl text-ink">
           남은 토큰{" "}
           <span className="font-bold">{balance.toLocaleString()}개</span>
         </p>
@@ -75,11 +76,11 @@ export default async function BillingPage() {
         {TOPUP_PACKAGES.map((p) => (
           <div
             key={p.id}
-            className="flex items-center justify-between rounded-md border-2 border-zinc-200 bg-white p-5"
+            className="flex items-center justify-between rounded-md border-2 border-line bg-surface p-5"
           >
             <div>
-              <p className="text-xl font-bold text-zinc-900">{p.label}</p>
-              <p className="mt-1 text-base text-zinc-700">
+              <p className="text-xl font-bold text-ink">{p.label}</p>
+              <p className="mt-1 text-base text-ink-soft">
                 {p.tokens}개 토큰 · {p.krw.toLocaleString()}원
               </p>
             </div>
@@ -93,17 +94,17 @@ export default async function BillingPage() {
         ))}
       </section>
 
-      <p className="text-base text-zinc-600">
+      <p className="text-base text-ink-soft">
         테스트 모드입니다. 실제 청구는 일어나지 않아요. 토스 테스트 카드로
         결제해 보실 수 있습니다.
       </p>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-2xl font-bold text-zinc-900">거래 내역</h2>
+        <h2 className="text-2xl font-bold text-ink">거래 내역</h2>
         {txs.length === 0 ? (
-          <p className="text-lg text-zinc-700">아직 내역이 없어요.</p>
+          <p className="text-lg text-ink-soft">아직 내역이 없어요.</p>
         ) : (
-          <ul className="flex flex-col divide-y-2 divide-zinc-200 overflow-hidden rounded-md border-2 border-zinc-200 bg-white">
+          <ul className="flex flex-col divide-y-2 divide-zinc-200 overflow-hidden rounded-md border-2 border-line bg-surface">
             {txs.map((t) => {
               const positive = t.delta >= 0;
               return (
@@ -112,10 +113,10 @@ export default async function BillingPage() {
                   className="flex items-center justify-between gap-4 px-5 py-4"
                 >
                   <div className="min-w-0">
-                    <p className="text-lg font-semibold text-zinc-900">
+                    <p className="text-lg font-semibold text-ink">
                       {reasonLabel(t.reason)}
                     </p>
-                    <p className="text-base text-zinc-600">
+                    <p className="text-base text-ink-soft">
                       {DATE_FMT.format(t.createdAt)}
                     </p>
                   </div>

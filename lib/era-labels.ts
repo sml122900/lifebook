@@ -22,7 +22,7 @@ export const SECTION_LABEL: Record<EventSection, string> = {
 // EventCard 와 음악 카드 모두 같은 팔레트 사용.
 export const SECTION_BADGE_CLASS: Record<EventSection, string> = {
   POLITICS_SOCIETY:
-    "border-slate-400 bg-slate-50 text-slate-800",
+    "border-line bg-canvas text-ink-soft",
   CULTURE:
     "border-rose-300 bg-rose-50 text-rose-800",
   SPORTS:
@@ -78,19 +78,29 @@ export const SECTION_ICON: Record<EventSection, LucideIcon> = {
 // (border-300/bg-50 의 한 단계 진한 text-600). 뱃지 옆에 배치되더라도 시각
 // 충돌 0.
 export const SECTION_ICON_CLASS: Record<EventSection, string> = {
-  POLITICS_SOCIETY: "text-slate-600",
+  POLITICS_SOCIETY: "text-ink-soft",
   CULTURE: "text-rose-600",
   SPORTS: "text-blue-600",
   TREND: "text-emerald-600",
 };
 
-// 연대별 은은한 배경 — 사건/음악 섹션 컨테이너에 적용. /60 opacity 로 텍스트
-// 가독성 그대로 보존. 카드(흰색/emerald-50)가 위로 떠 보이며 색 분리.
-// 80s 따뜻한 amber, 90s 푸근한 emerald, 00s 산뜻한 sky, 10s 시원한 violet.
+// 연대별 은은한 배경 — 사건/음악 섹션 컨테이너에 적용. 3차: 디자인 토큰
+// decade 틴트의 10% 워시 (규칙: 텍스트 배경 금지, 스트립·점·5~10% 워시만.
+// 틴트 위 텍스트는 ink/ink-soft). 기본 팔레트(amber/emerald/sky/violet)
+// 의존 제거.
 export const DECADE_BG_CLASS: Record<Decade, string> = {
-  1980: "bg-amber-50/60",
-  1990: "bg-emerald-50/60",
-  2000: "bg-sky-50/60",
-  2010: "bg-violet-50/60",
+  1980: "bg-decade-1980/10",
+  1990: "bg-decade-1990/10",
+  2000: "bg-decade-2000/10",
+  2010: "bg-decade-2010/10",
+};
+
+// EraEventRow 좌측 4px 연대 스트립. Tailwind 정적 추출을 위해 리터럴 클래스 맵.
+// decade-strip-* 토큰(진한 채도) 사용 — 배경 워시 decade-* 와 구분.
+export const DECADE_STRIP_CLASS: Record<Decade, string> = {
+  1980: "border-l-decade-strip-1980",
+  1990: "border-l-decade-strip-1990",
+  2000: "border-l-decade-strip-2000",
+  2010: "border-l-decade-strip-2010",
 };
 

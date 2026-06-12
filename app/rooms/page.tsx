@@ -1,7 +1,8 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { listUserRooms } from "@/lib/rooms";
 
 import { createRoomAction } from "./actions";
@@ -29,24 +30,21 @@ export default async function RoomsPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
-      <Link
-        href="/life-timeline"
-        className="self-start rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
-      >
+      <ButtonLink href="/life-timeline" variant="tertiary" className="self-start">
         ← 인생 연혁으로
-      </Link>
+      </ButtonLink>
 
       <header>
-        <h1 className="text-3xl font-bold text-zinc-900">가족 룸</h1>
-        <p className="mt-3 text-lg text-zinc-800">
+        <h1 className="text-3xl font-bold text-ink">가족 룸</h1>
+        <p className="mt-3 text-lg text-ink">
           가족·배우자와 함께 추억을 떠올리는 공간이에요.
         </p>
       </header>
 
-      <section className="rounded-md border-2 border-zinc-200 bg-white p-6">
-        <h2 className="text-xl font-bold text-zinc-900">새 룸 만들기</h2>
+      <section className="rounded-md border-2 border-line bg-surface p-6">
+        <h2 className="text-xl font-bold text-ink">새 룸 만들기</h2>
         <form action={createRoomAction} className="mt-4 flex flex-col gap-3">
-          <label htmlFor="name" className="text-base font-semibold text-zinc-900">
+          <label htmlFor="name" className="text-base font-semibold text-ink">
             룸 이름
           </label>
           <input
@@ -56,21 +54,18 @@ export default async function RoomsPage() {
             required
             maxLength={50}
             placeholder="예: 우리 가족, 엄마와 나"
-            className="w-full rounded-md border-2 border-zinc-300 px-4 py-3 text-lg focus:border-zinc-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+            className="w-full rounded-md border-2 border-line px-4 py-3 text-lg focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           />
-          <button
-            type="submit"
-            className="self-end rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
-          >
+          <Button type="submit" variant="primary" size="lg" className="self-end">
             룸 만들기
-          </button>
+          </Button>
         </form>
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-2xl font-bold text-zinc-900">내가 속한 룸</h2>
+        <h2 className="text-2xl font-bold text-ink">내가 속한 룸</h2>
         {memberships.length === 0 ? (
-          <p className="text-lg text-zinc-700">
+          <p className="text-lg text-ink-soft">
             아직 가입한 룸이 없어요. 위에서 새로 만들어보세요.
           </p>
         ) : (
@@ -79,12 +74,12 @@ export default async function RoomsPage() {
               <li key={m.room.id}>
                 <Link
                   href={`/rooms/${m.room.id}`}
-                  className="block rounded-md border-2 border-zinc-200 bg-white p-5 hover:border-zinc-500 hover:bg-zinc-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+                  className="block rounded-md border-2 border-line bg-surface p-5 hover:border-brand hover:bg-canvas focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
                 >
-                  <p className="text-xl font-bold text-zinc-900">
+                  <p className="text-xl font-bold text-ink">
                     {m.room.name}
                   </p>
-                  <p className="mt-1 text-base text-zinc-700">
+                  <p className="mt-1 text-base text-ink-soft">
                     {ROLE_LABEL[m.role] ?? m.role} · 가입{" "}
                     {DATE_FMT.format(m.joinedAt)}
                   </p>

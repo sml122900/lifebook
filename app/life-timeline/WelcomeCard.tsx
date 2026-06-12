@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { buttonClasses } from "@/components/ui/Button";
+
 import { dismissWelcomeAction } from "./welcome-actions";
 
 // 첫 방문 환영 카드 — 첫 행동 하나만 제시하는 1회성 안내.
@@ -54,16 +56,13 @@ export function WelcomeCard({ userName }: { userName: string }) {
   return (
     <section
       aria-label="환영 안내"
-      className="flex flex-col gap-5 rounded-md border-2 border-amber-300 bg-amber-50 px-6 py-7"
+      className="flex flex-col gap-5 rounded-md border-2 border-brand bg-banner px-6 py-7"
     >
       <div>
-        <p aria-hidden className="text-5xl">
-          👋
-        </p>
-        <h2 className="mt-3 text-3xl font-bold text-zinc-900 sm:text-4xl">
+        <h2 className="text-3xl font-bold text-action sm:text-4xl">
           {userName}님, 환영해요.
         </h2>
-        <p className="mt-2 text-xl text-zinc-800 sm:text-2xl">
+        <p className="mt-2 text-xl text-action sm:text-2xl">
           인생의 한 장면부터 하나 적어볼까요?
         </p>
       </div>
@@ -72,14 +71,18 @@ export function WelcomeCard({ userName }: { userName: string }) {
           type="button"
           onClick={onStart}
           disabled={starting}
-          className="inline-flex min-h-[64px] flex-1 items-center justify-center rounded-md bg-amber-600 px-6 py-3 text-xl font-bold text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:opacity-60 sm:flex-initial sm:px-10"
+          className={buttonClasses(
+            "primary",
+            "lg",
+            "flex-1 text-xl sm:flex-initial sm:px-10",
+          )}
         >
           {starting ? "여는 중…" : "시작하기"}
         </button>
         <button
           type="button"
           onClick={onDismiss}
-          className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-6 py-3 text-lg font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className={buttonClasses("tertiary", "lg")}
         >
           닫기
         </button>

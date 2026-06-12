@@ -1,4 +1,4 @@
-import type { TimemachineProgress } from "@/lib/timemachine-progress";
+﻿import type { TimemachineProgress } from "@/lib/timemachine-progress";
 
 // 동기부여 ① 쌓이는 재미 — "내 기록 현황" 카드.
 // 서버 컴포넌트 (표시 전용, 상호작용 없음). 데이터는 page.tsx 가
@@ -27,19 +27,19 @@ export function ProgressCard({
 
   return (
     <section
-      className="flex flex-col gap-5 rounded-md border-2 border-amber-300 bg-white p-6"
+      className="flex flex-col gap-5 rounded-md border-2 border-amber-300 bg-surface p-6"
       aria-labelledby="progress-heading"
     >
       <h2
         id="progress-heading"
-        className="text-2xl font-bold text-zinc-900 sm:text-3xl"
+        className="text-2xl font-bold text-ink sm:text-3xl"
       >
         내 기록 현황
       </h2>
 
       {/* 채운 달 수 — 히어로. 0개월일 땐 압박 없이 초대 문구. */}
       {filledMonths > 0 ? (
-        <p className="text-xl text-zinc-800 sm:text-2xl">
+        <p className="text-xl text-ink sm:text-2xl">
           지금까지{" "}
           <b className="text-3xl font-bold text-amber-800 sm:text-4xl">
             {filledMonths}개월
@@ -47,7 +47,7 @@ export function ProgressCard({
           의 이야기를 남기셨어요.
         </p>
       ) : (
-        <p className="text-xl text-zinc-800 sm:text-2xl">
+        <p className="text-xl text-ink sm:text-2xl">
           여기에 당신의 이야기가 하나씩 쌓일 거예요. 한 달부터 시작해 보세요.
         </p>
       )}
@@ -57,7 +57,7 @@ export function ProgressCard({
         <div className="flex flex-wrap gap-3">
           {totalEvents > 0 && (
             <span className="inline-flex items-baseline gap-1 rounded-md border-2 border-amber-200 bg-amber-50 px-4 py-2">
-              <span className="text-base text-zinc-700">기록한 사건</span>
+              <span className="text-base text-ink-soft">기록한 사건</span>
               <b className="text-xl font-bold text-amber-900">
                 {totalEvents.toLocaleString()}개
               </b>
@@ -65,7 +65,7 @@ export function ProgressCard({
           )}
           {totalChars > 0 && (
             <span className="inline-flex items-baseline gap-1 rounded-md border-2 border-amber-200 bg-amber-50 px-4 py-2">
-              <span className="text-base text-zinc-700">직접 쓴 글</span>
+              <span className="text-base text-ink-soft">직접 쓴 글</span>
               <b className="text-xl font-bold text-amber-900">
                 {totalChars.toLocaleString()}자
               </b>
@@ -88,7 +88,7 @@ export function ProgressCard({
           2026-06-06: 칸 클릭으로 월 화면 진입은 닫음(메인 동선에서 '월'
           개념 제거). 시각만 유지 — 채운 패턴은 동기부여 가치 그대로. */}
       <div>
-        <p className="mb-3 text-base font-semibold text-zinc-700">
+        <p className="mb-3 text-base font-semibold text-ink-soft">
           달별 기록
         </p>
         <ol
@@ -107,7 +107,7 @@ export function ProgressCard({
                 "flex min-h-[72px] flex-col items-center justify-center rounded-md border-2 px-2 py-3 text-center " +
                 (c.filled
                   ? "border-amber-700 bg-amber-700 text-white"
-                  : "border-zinc-200 bg-white text-zinc-500")
+                  : "border-line bg-surface text-ink-faint")
               }
             >
               <span className="text-xs opacity-90">{c.year}</span>

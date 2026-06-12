@@ -30,11 +30,11 @@ export default async function EditPersonPage({ params }: Params) {
       <header className="flex flex-col gap-2">
         <Link
           href={`/people/${person.id}`}
-          className="self-start text-base text-zinc-600 hover:text-zinc-900 hover:underline"
+          className="self-start text-base text-ink-soft hover:text-ink hover:underline"
         >
           ← 인물 상세로
         </Link>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+        <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
           인물 수정
         </h1>
       </header>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -175,7 +175,7 @@ export function VoiceTextarea({
         aria-label={ariaLabel}
         className={
           textareaClassName ??
-          "w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-lg text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          "w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         }
       />
 
@@ -190,10 +190,10 @@ export function VoiceTextarea({
                 aria-label={recording ? "녹음 멈추기" : "음성으로 말하기"}
                 disabled={isPending}
                 className={
-                  "flex items-center justify-center gap-3 min-h-[60px] rounded-md border-2 px-6 py-3 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
+                  "flex items-center justify-center gap-3 min-h-[60px] rounded-md border-2 px-6 py-3 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
                   (recording
                     ? "border-rose-700 bg-rose-700 text-white hover:bg-rose-800"
-                    : "border-zinc-400 bg-white text-zinc-900 hover:bg-zinc-100")
+                    : "border-brand bg-surface text-action hover:bg-banner")
                 }
               >
                 <span aria-hidden className="text-2xl">
@@ -211,7 +211,7 @@ export function VoiceTextarea({
                   isPending || recording || value.trim() === ""
                 }
                 aria-label="AI 로 다듬기"
-                className="flex items-center justify-center gap-3 min-h-[60px] rounded-md border-2 border-violet-500 bg-violet-50 px-6 py-3 text-lg font-semibold text-violet-900 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center justify-center gap-3 min-h-[60px] rounded-md border-2 border-brand bg-banner px-6 py-3 text-lg font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span aria-hidden className="text-xl">✨</span>
                 <span>{isPending ? "다듬는 중…" : "AI 로 다듬기"}</span>

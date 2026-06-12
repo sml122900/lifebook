@@ -1,4 +1,4 @@
-import { youtubeSearchUrl } from "@/lib/music/youtube";
+﻿import { youtubeSearchUrl } from "@/lib/music/youtube";
 
 // "▶ 들어보기" — 새 탭에서 그 곡의 유튜브 검색을 연다. 음악 도메인 카드
 // (트리거 카드, /timeline 저장 추억 카드, 가족 룸 타임라인) 어디서든 재사용.
@@ -17,7 +17,7 @@ export function ListenButton({
       href={youtubeSearchUrl(title, artist)}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 rounded-md border-2 border-zinc-400 bg-white px-5 py-3 text-base font-semibold text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+      className="inline-flex items-center gap-2 rounded-md border-2 border-zinc-400 bg-surface px-5 py-3 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     >
       <span aria-hidden className="text-lg">
         ▶

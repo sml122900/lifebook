@@ -31,10 +31,10 @@ export default async function PhotosTestPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-6 py-10">
       <header>
-        <h1 className="text-3xl font-bold text-zinc-900">
+        <h1 className="text-3xl font-bold text-ink">
           사진 업로드 테스트
         </h1>
-        <p className="mt-3 text-base text-zinc-600">
+        <p className="mt-3 text-base text-ink-soft">
           Supabase Storage 1단계 검증용. jpeg / png / webp, 1장씩, 최대 10MB.
         </p>
       </header>
@@ -42,7 +42,7 @@ export default async function PhotosTestPage() {
       <TestUploadForm />
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-bold text-zinc-900">
+        <h2 className="text-xl font-bold text-ink">
           내 사진 ({photos.length})
         </h2>
         {listError && (
@@ -54,7 +54,7 @@ export default async function PhotosTestPage() {
           </p>
         )}
         {!listError && photos.length === 0 && (
-          <p className="text-sm text-zinc-600">
+          <p className="text-sm text-ink-soft">
             아직 사진이 없어요. 위에서 한 장 올려보세요.
           </p>
         )}
@@ -63,7 +63,7 @@ export default async function PhotosTestPage() {
             {photos.map((p) => (
               <li
                 key={p.path}
-                className="overflow-hidden rounded-md border-2 border-zinc-200 bg-white"
+                className="overflow-hidden rounded-md border-2 border-zinc-200 bg-surface"
               >
                 {/* 1단계는 단순 img — next/image 의 도메인 화이트리스트 부담 회피. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -73,7 +73,7 @@ export default async function PhotosTestPage() {
                   className="aspect-square w-full object-cover"
                   loading="lazy"
                 />
-                <p className="px-2 py-1 text-xs text-zinc-500">
+                <p className="px-2 py-1 text-xs text-ink-faint">
                   {(p.bytes / 1024).toFixed(0)} KB
                 </p>
               </li>
@@ -82,7 +82,7 @@ export default async function PhotosTestPage() {
         )}
       </section>
 
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-ink-faint">
         1단계 검증 페이지. DB 에는 저장 안 됨 — Storage 파일만 표시.
       </p>
     </main>

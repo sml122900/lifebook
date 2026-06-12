@@ -53,14 +53,14 @@ export default async function NewPersonPage({
       <header className="flex flex-col gap-2">
         <Link
           href={returnTo ?? "/people"}
-          className="self-start text-base text-zinc-600 hover:text-zinc-900 hover:underline"
+          className="self-start text-base text-ink-soft hover:text-ink hover:underline"
         >
           ← {returnTo ? "이전 화면으로" : "인물록으로"}
         </Link>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+        <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
           새 인물 추가
         </h1>
-        <p className="text-lg text-zinc-700">
+        <p className="text-lg text-ink-soft">
           이름만 적어도 돼요. 나머지는 떠오르는 만큼만.
         </p>
       </header>

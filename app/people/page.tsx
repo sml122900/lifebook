@@ -1,7 +1,9 @@
-import Link from "next/link";
+﻿import Link from "next/link";
+import { User } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { countEventsPerPerson, listPeople } from "@/lib/people";
 
 // Phase P2 — 인물(Person) 목록 화면.
@@ -28,10 +30,10 @@ export default async function PeopleListPage() {
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl">
+          <h1 className="text-4xl font-bold tracking-tight text-ink sm:text-5xl">
             인물록
           </h1>
-          <p className="mt-2 text-lg text-zinc-700">
+          <p className="mt-2 text-lg text-ink-soft">
             인생에 등장한 소중한 분들을 한 곳에 모아두세요.
           </p>
         </div>
@@ -44,7 +46,12 @@ export default async function PeopleListPage() {
       </header>
 
       {people.length === 0 ? (
-        <EmptyState />
+        <EmptyState
+          icon={User}
+          message="아직 기록된 인연이 없어요"
+          buttonLabel="인연 추가하기"
+          href="/people/new"
+        />
       ) : (
         <ul className="flex flex-col gap-3" aria-label="인물 카드 목록">
           {people.map((p) => {
@@ -53,25 +60,25 @@ export default async function PeopleListPage() {
               <li key={p.id}>
                 <Link
                   href={`/people/${p.id}`}
-                  className="flex flex-col gap-1 rounded-md border-2 border-zinc-200 bg-white px-5 py-4 hover:border-amber-300 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                  className="flex flex-col gap-1 rounded-md border-2 border-line bg-surface px-5 py-4 hover:border-amber-300 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
                 >
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span className="text-2xl font-bold text-zinc-900">
+                    <span className="text-2xl font-bold text-ink">
                       {p.name}
                     </span>
                     {p.relation && (
-                      <span className="text-base text-zinc-700">
+                      <span className="text-base text-ink-soft">
                         {p.relation}
                       </span>
                     )}
                     {p.metYear !== null && (
-                      <span className="text-base text-zinc-600">
+                      <span className="text-base text-ink-soft">
                         {p.metYear}년에 처음
                       </span>
                     )}
                   </div>
                   {p.memo && (
-                    <p className="line-clamp-1 text-base text-zinc-700">
+                    <p className="line-clamp-1 text-base text-ink-soft">
                       {p.memo}
                     </p>
                   )}
@@ -90,26 +97,3 @@ export default async function PeopleListPage() {
   );
 }
 
-function EmptyState() {
-  return (
-    <section className="flex flex-col items-center gap-6 rounded-md border-2 border-amber-200 bg-amber-50 px-6 py-12 text-center">
-      <p aria-hidden className="text-6xl">
-        👥
-      </p>
-      <div>
-        <h2 className="text-2xl font-bold text-zinc-900 sm:text-3xl">
-          아직 기록된 분이 없어요
-        </h2>
-        <p className="mt-2 text-lg text-zinc-700">
-          소중한 인연을 한 분씩 기록해보세요.
-        </p>
-      </div>
-      <Link
-        href="/people/new"
-        className="inline-flex min-h-[64px] items-center justify-center rounded-md bg-amber-600 px-8 py-4 text-2xl font-bold text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
-      >
-        + 첫 인물 추가하기
-      </Link>
-    </section>
-  );
-}

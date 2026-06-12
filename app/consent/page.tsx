@@ -33,8 +33,8 @@ export default async function ConsentPage() {
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
       <header className="mb-8">
-        <h1 className="text-4xl font-bold text-zinc-900">시작하기 전에</h1>
-        <p className="mt-3 text-zinc-800">
+        <h1 className="text-4xl font-bold text-ink">시작하기 전에</h1>
+        <p className="mt-3 text-ink">
           서비스를 이용하려면 아래 항목에 동의해 주세요. 각 항목은 별도로
           확인하실 수 있습니다.
         </p>

@@ -100,14 +100,14 @@ export function PersonalMemoryCard({
       <p className={`text-base font-bold uppercase tracking-wide ${tone.label}`}>
         {authorLabel(memory.userId, memory.user.name, memory.user.email, viewerId)}
         {memory.month && (
-          <span className="ml-2 text-zinc-700">
+          <span className="ml-2 text-ink-soft">
             · {String(memory.month).padStart(2, "0")}월
           </span>
         )}
       </p>
-      <p className="mt-2 text-xl font-semibold text-zinc-900">{memory.title}</p>
+      <p className="mt-2 text-xl font-semibold text-ink">{memory.title}</p>
       {memory.content && (
-        <p className="mt-2 whitespace-pre-wrap text-lg text-zinc-800">
+        <p className="mt-2 whitespace-pre-wrap text-lg text-ink">
           {memory.content}
         </p>
       )}

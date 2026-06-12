@@ -1,12 +1,15 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
+import { Noto_Serif_KR } from "next/font/google";
 import Link from "next/link";
 
-import { auth, signOut } from "@/auth";
+import "pretendard/dist/web/variable/pretendardvariable.css";
+
+import { auth } from "@/auth";
+import { ButtonLink } from "@/components/ui/Button";
 import { AssistantWidget } from "@/app/components/AssistantWidget";
 import { SessionProvider } from "@/app/components/SessionProvider";
-import { UserMenu } from "@/app/components/UserMenu";
-import { getTheme } from "@/app/components/theme-actions";
-import { getBalance } from "@/lib/tokens/wallet";
+import { SidePanelLayout } from "@/app/timemachine/SidePanel";
+import { loadSidePanelData } from "@/lib/side-panel-data";
 
 import "./globals.css";
 
@@ -19,63 +22,55 @@ export const metadata: Metadata = {
   description: "AI와 함께 채워나가는 나의 인생 연혁표",
 };
 
+// 제목용 명조. globals.css 의 --font-serif(@theme inline)가 이 변수를 참조.
+const notoSerif = Noto_Serif_KR({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-noto-serif-kr",
+  display: "swap",
+});
+
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const session = await auth();
-  // 비로그인 시 잔액 조회 생략 (null → 헤더에 토큰 수 미표시).
-  const balance = session?.user?.id ? await getBalance(session.user.id) : null;
-  // 다크모드 여부는 쿠키 기반 (theme-actions). html.dark 클래스로 CSS 변수 swap.
-  const theme = await getTheme();
+  // 인증된 사용자만 사이드 패널 데이터 로드 (토큰 잔액·출석·가족 소식 포함).
+  // 비로그인이면 null → SidePanelLayout 미렌더.
+  const sidePanelData = session?.user?.id
+    ? await loadSidePanelData({
+        userId: session.user.id,
+        userName: session.user.name,
+        userEmail: session.user.email,
+        userImage: session.user.image,
+      })
+    : null;
 
   return (
-    <html
-      lang="ko"
-      className={`h-full antialiased${theme === "dark" ? " dark" : ""}`}
-    >
-      <body className="min-h-full flex flex-col bg-white text-black text-lg leading-relaxed">
+    <html lang="ko" className={`h-full antialiased ${notoSerif.variable}`}>
+      <body className="min-h-full flex flex-col bg-canvas text-ink text-lg leading-relaxed">
         <SessionProvider>
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-6 py-4">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6 py-4">
           <Link
             href="/"
-            className="text-2xl font-bold text-zinc-900 hover:text-zinc-700"
+            className="text-2xl font-bold text-ink hover:text-ink-soft"
           >
             Lifebook
           </Link>
-          {session?.user ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                href="/rooms"
-                className="hidden rounded-md border-2 border-zinc-300 px-4 py-2 text-base font-semibold text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 sm:inline-block"
-              >
-                가족 룸
-              </Link>
-              <Link
-                href="/account/tokens"
-                className="rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
-              >
-                토큰 {balance !== null ? `${balance.toLocaleString()}개` : ""}
-              </Link>
-              <UserMenu
-                label={session.user.name ?? session.user.email ?? "내 계정"}
-                logoutAction={async () => {
-                  "use server";
-                  await signOut({ redirectTo: "/" });
-                }}
-              />
-            </div>
-          ) : (
-            <Link
-              href="/login"
-              className="rounded-md bg-zinc-900 px-4 py-2 text-base font-semibold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
-            >
+          {!session?.user && (
+            <ButtonLink href="/login" variant="secondary">
               로그인
-            </Link>
+            </ButtonLink>
           )}
         </header>
-        {children}
+        {/* 인증된 사용자 — 사이드 패널로 감싸서 모든 페이지에 "내 정보" 토글 제공.
+            비인증 페이지(로그인·동의 등)는 그대로 통과. */}
+        {sidePanelData ? (
+          <SidePanelLayout data={sidePanelData}>{children}</SidePanelLayout>
+        ) : (
+          children
+        )}
         {/* v3.4 — 글로벌 AI 비서 위젯 (인증된 사용자만 렌더). 위치는 fixed
             bottom-6 right-6. 비인증/세션 X 면 null 반환해 보이지 않는다. */}
         <AssistantWidget />

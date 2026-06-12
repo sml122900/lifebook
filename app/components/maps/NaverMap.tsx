@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
@@ -153,12 +153,12 @@ export function NaverMap({
       <Script src={SCRIPT_SRC} strategy="afterInteractive" />
       <div
         className={
-          "relative w-full overflow-hidden rounded-md border-2 border-zinc-200 bg-zinc-50 " +
+          "relative w-full overflow-hidden rounded-md border-2 border-line bg-canvas " +
           (className ?? "h-[200px]")
         }
       >
         {!ready && !error && (
-          <p className="absolute inset-0 z-10 flex items-center justify-center text-sm text-zinc-600">
+          <p className="absolute inset-0 z-10 flex items-center justify-center text-sm text-ink-soft">
             지도를 불러오는 중이에요…
           </p>
         )}

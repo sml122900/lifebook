@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -64,8 +64,8 @@ export function OnboardingForm() {
     <div className="flex flex-col gap-8">
       <ProgressBar index={index} total={QUESTIONS.length} progress={progress} />
 
-      <section className="rounded-md border-2 border-zinc-200 bg-white p-6">
-        <p className="text-xl font-semibold text-zinc-900">{current.prompt}</p>
+      <section className="rounded-md border-2 border-line bg-surface p-6">
+        <p className="text-xl font-semibold text-ink">{current.prompt}</p>
         <QuestionHint question={current} />
         <div className="mt-6">
           {/* key 로 문항마다 새 mount 강제 — 내부 입력 상태(예: TextListInput
@@ -84,7 +84,7 @@ export function OnboardingForm() {
           type="button"
           onClick={skip}
           disabled={submitting}
-          className="rounded-md border-2 border-zinc-300 px-6 py-4 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="rounded-md border-2 border-line px-6 py-4 text-lg font-semibold text-ink hover:bg-banner disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           건너뛰기
         </button>
@@ -92,7 +92,7 @@ export function OnboardingForm() {
           type="button"
           onClick={next}
           disabled={submitting}
-          className="rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           {submitting ? "저장 중..." : isLast ? "완료" : "다음"}
         </button>
@@ -112,15 +112,15 @@ function ProgressBar({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex justify-between text-base text-zinc-700">
+      <div className="flex justify-between text-base text-ink-soft">
         <span>
           {index + 1} / {total}
         </span>
         <span>{Math.round(progress)}%</span>
       </div>
-      <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-200">
+      <div className="h-3 w-full overflow-hidden rounded-full bg-line">
         <div
-          className="h-full bg-zinc-900 transition-all"
+          className="h-full bg-brand transition-all"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -134,9 +134,9 @@ function QuestionHint({ question }: { question: Question }) {
     "nicknameHint" in question ? question.nicknameHint : false;
   return (
     <>
-      {hint && <p className="mt-2 text-base text-zinc-600">{hint}</p>}
+      {hint && <p className="mt-2 text-base text-ink-soft">{hint}</p>}
       {nicknameHint && (
-        <p className="mt-2 text-base text-zinc-600">
+        <p className="mt-2 text-base text-ink-soft">
           실명 대신 별명이나 이니셜로 적어도 좋아요.
         </p>
       )}
@@ -196,7 +196,7 @@ function YearInput({
         const n = e.target.value === "" ? undefined : Number(e.target.value);
         onChange(Number.isFinite(n) ? n : undefined);
       }}
-      className="w-full rounded-md border-2 border-zinc-300 px-4 py-3 text-xl focus:border-zinc-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+      className="w-full rounded-md border-2 border-line px-4 py-3 text-xl focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     />
   );
 }
@@ -228,10 +228,10 @@ function ChipsInput({
             onClick={() => toggle(opt)}
             aria-pressed={on}
             className={
-              "rounded-full border-2 px-5 py-3 text-lg font-medium focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 " +
+              "rounded-full border-2 px-5 py-3 text-lg font-medium focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
               (on
-                ? "border-zinc-900 bg-zinc-900 text-white"
-                : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100")
+                ? "border-brand bg-banner text-action"
+                : "border-line bg-surface text-ink-soft hover:bg-banner")
             }
           >
             {opt}
@@ -269,14 +269,14 @@ function TextListInput({
           {value.map((v, i) => (
             <li
               key={i}
-              className="flex items-center justify-between rounded-md border-2 border-zinc-200 bg-zinc-50 px-4 py-3"
+              className="flex items-center justify-between rounded-md border-2 border-line bg-canvas px-4 py-3"
             >
-              <span className="text-lg text-zinc-900">{v}</span>
+              <span className="text-lg text-ink">{v}</span>
               <button
                 type="button"
                 onClick={() => remove(i)}
                 aria-label={`${v} 삭제`}
-                className="text-base text-zinc-700 underline hover:text-zinc-900"
+                className="text-base text-ink-soft underline hover:text-ink"
               >
                 삭제
               </button>
@@ -296,12 +296,12 @@ function TextListInput({
             }
           }}
           placeholder="입력 후 Enter 또는 추가 버튼"
-          className="flex-1 rounded-md border-2 border-zinc-300 px-4 py-3 text-lg focus:border-zinc-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="flex-1 rounded-md border-2 border-line px-4 py-3 text-lg focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         />
         <button
           type="button"
           onClick={add}
-          className="rounded-md border-2 border-zinc-300 px-5 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="rounded-md border-2 border-line px-5 py-3 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           추가
         </button>
@@ -322,7 +322,7 @@ function TextInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       rows={3}
-      className="w-full rounded-md border-2 border-zinc-300 px-4 py-3 text-lg focus:border-zinc-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+      className="w-full rounded-md border-2 border-line px-4 py-3 text-lg focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     />
   );
 }

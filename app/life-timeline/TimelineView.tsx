@@ -1,11 +1,14 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useMemo, useState, useTransition } from "react";
 
+import { Camera, FolderOpen, MapPin, Pencil, User } from "lucide-react";
+
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { unstashEraEventAction } from "@/app/era/actions";
+import { buttonClasses } from "@/components/ui/Button";
 import { EraMemoryEditor } from "@/app/era/EraMemoryEditor";
 import {
   movePhotoToEventAction,
@@ -29,7 +32,7 @@ import {
 // 데스크톱(sm+): 중앙 세로 베이스선 + 좌우 교차 카드 (짝수 우, 홀수 좌)
 // 모바일(sm-):   왼쪽 세로 베이스선 + 우측 카드 (한쪽으로만)
 //
-// 점 시각: EXACT 큰 채움 amber-600 / APPROXIMATE 작은 점선 amber-100.
+// 점 시각: EXACT 큰 채움 action / APPROXIMATE 작은 점선 amber-100.
 // 사이 이벤트 기본 월: 6월("그해 중반" 진입점).
 //
 // 기간(endYear): 시각화 단계에서만 두 점으로 split. 시작·끝 사이는 amber-500
@@ -396,7 +399,7 @@ export function TimelineView({
       </div>
 
       {eventCount > 0 && eventCount < 5 && (
-        <p className="text-center text-base text-zinc-600">
+        <p className="text-center text-base text-ink-soft">
           이벤트를 더 채울수록 인생 연혁이 풍성해져요.
         </p>
       )}
@@ -770,16 +773,16 @@ function TimelineRow({
           >
             <span
               aria-hidden
-              className="block h-5 w-5 rounded-full border-2 border-slate-500 bg-slate-400"
+              className={`block h-5 w-5 rounded-full border-2 border-ink-faint ${DECADE_DOT_CLASS[decadeTintKey(e.eventYear)]}`}
             />
           </div>
         ) : isPhoto ? (
           <div
             aria-label={aria}
-            className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded-full border-2 border-sky-500 bg-sky-100 text-[0.7rem] leading-none"
+            className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink-faint bg-surface"
             title="사진"
           >
-            <span aria-hidden>📷</span>
+            <Camera strokeWidth={1.75} aria-hidden className="h-3.5 w-3.5 text-ink-faint" />
           </div>
         ) : (
           <Link
@@ -792,7 +795,7 @@ function TimelineRow({
               className={
                 "block rounded-full border-2 " +
                 (exact
-                  ? "h-6 w-6 border-amber-800 bg-amber-600"
+                  ? "h-6 w-6 border-action bg-action"
                   : "h-4 w-4 border-amber-400 border-dashed bg-amber-100")
               }
             />
@@ -816,6 +819,37 @@ function TimelineRow({
       </div>
     </li>
   );
+}
+
+// 3차 — 연대(decade) 틴트. 시대(era) 카드 좌측 4px 스트립 + 시대 점에만
+// 사용 (텍스트 배경 금지 — 토큰 가이드). Tailwind 정적 추출을 위해 리터럴
+// 클래스 맵 (동적 클래스 조합 금지).
+const DECADE_STRIP_CLASS: Record<number, string> = {
+  1940: "border-l-decade-strip-1940",
+  1950: "border-l-decade-strip-1950",
+  1960: "border-l-decade-strip-1960",
+  1970: "border-l-decade-strip-1970",
+  1980: "border-l-decade-strip-1980",
+  1990: "border-l-decade-strip-1990",
+  2000: "border-l-decade-strip-2000",
+  2010: "border-l-decade-strip-2010",
+  2020: "border-l-decade-strip-2020",
+};
+const DECADE_DOT_CLASS: Record<number, string> = {
+  1940: "bg-decade-1940",
+  1950: "bg-decade-1950",
+  1960: "bg-decade-1960",
+  1970: "bg-decade-1970",
+  1980: "bg-decade-1980",
+  1990: "bg-decade-1990",
+  2000: "bg-decade-2000",
+  2010: "bg-decade-2010",
+  2020: "bg-decade-2020",
+};
+// 토큰 범위(1940~2020) 밖 연도는 가장 가까운 연대로 clamp.
+function decadeTintKey(year: number): number {
+  const d = Math.floor(year / 10) * 10;
+  return Math.min(2020, Math.max(1940, d));
 }
 
 // 좌·우 어느 방향이든 동일한 카드. align 으로 텍스트 정렬만 바꿈.
@@ -850,28 +884,27 @@ function EventCard({
         href={editHref(e)}
         aria-label={aria}
         className={
-          "block w-full rounded-md border-2 px-4 py-3 pr-12 transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
-          (exact ? "border-amber-300 bg-amber-50" : "border-zinc-200 bg-white") +
+          "block w-full rounded-md border-[1.5px] border-brand bg-surface px-4 py-3 pr-12 transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2" +
           (align === "right" ? " pl-12 pr-4 text-right" : " text-left")
         }
       >
         <p
           className={
             "text-sm " +
-            (exact ? "font-semibold text-amber-800" : "text-zinc-500")
+            (exact ? "font-bold text-action" : "text-ink-faint")
           }
         >
           {formatWhen(e)}
           {ageSuffix && (
-            <span className="ml-1 text-xs text-zinc-500">{ageSuffix}</span>
+            <span className="ml-1 text-xs text-ink-faint">{ageSuffix}</span>
           )}
         </p>
         <p
           className={
             "mt-1 leading-tight " +
             (exact
-              ? "text-base font-bold text-zinc-900"
-              : "text-base font-medium text-zinc-700")
+              ? "text-base font-bold text-ink"
+              : "text-base font-medium text-ink-soft")
           }
         >
           {displayTitle}
@@ -883,11 +916,11 @@ function EventCard({
         aria-label={`${displayTitle} — 함께한 인물 연결`}
         title="함께한 인물 연결"
         className={
-          "absolute z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 border-zinc-300 bg-white text-lg shadow-sm hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 " +
+          "absolute z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 " +
           btnCorner
         }
       >
-        <span aria-hidden>👤</span>
+        <User strokeWidth={1.75} aria-hidden className="h-5 w-5 text-ink-soft" />
       </button>
     </div>
   );
@@ -895,7 +928,8 @@ function EventCard({
 
 // E2 — era_event 전용 카드. 클릭 동선 없음(div), 인물 모달 없음, 장소 없음.
 // 시대 자료(description) + 출처 + 카테고리 뱃지 + 하단 "내 연혁에서 빼기".
-// 색조: slate (life_event 의 amber 와 즉시 구분 — "내 인생" vs "시대 배경").
+// 색조(3차): surface + line 보더 + 좌측 4px 연대 틴트 스트립 — life_event
+// 의 brand 보더와 즉시 구분 ("내 인생" vs "시대 배경").
 function EraCard({
   e,
   align,
@@ -942,8 +976,9 @@ function EraCard({
     <div className="relative w-full max-w-[18rem]">
       <div
         className={
-          "block w-full rounded-md border-2 border-slate-300 bg-slate-50 px-4 py-3 " +
-          (align === "right" ? "text-right" : "text-left")
+          "block w-full rounded-md border-t border-r border-b border-t-line border-r-line border-b-line border-l-4 bg-surface px-4 py-3 " +
+          DECADE_STRIP_CLASS[decadeTintKey(e.eventYear)] +
+          (align === "right" ? " text-right" : " text-left")
         }
       >
         {/* 상단 — "시대 배경" 뱃지 + 카테고리 뱃지 */}
@@ -953,7 +988,7 @@ function EraCard({
             (align === "right" ? "justify-end" : "justify-start")
           }
         >
-          <span className="inline-flex items-center rounded-full border border-slate-400 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+          <span className="inline-flex items-center rounded-full border border-line bg-canvas px-2 py-0.5 text-xs font-semibold text-ink-soft">
             시대 배경
           </span>
           {e.eraSection && (
@@ -968,22 +1003,22 @@ function EraCard({
           )}
         </div>
 
-        <p className="mt-2 text-sm font-semibold text-slate-700">
+        <p className="mt-2 text-sm font-semibold text-ink-soft">
           {formatWhen(e)}
           {ageSuffix && (
-            <span className="ml-1 text-xs text-slate-500">{ageSuffix}</span>
+            <span className="ml-1 text-xs text-ink-faint">{ageSuffix}</span>
           )}
         </p>
-        <p className="mt-1 text-base font-bold leading-tight text-zinc-900">
+        <p className="mt-1 text-base font-bold leading-tight text-ink">
           {displayTitle}
         </p>
         {e.eraDescription && (
-          <p className="mt-1 text-sm leading-snug text-slate-700">
+          <p className="mt-1 text-sm leading-snug text-ink-soft">
             {e.eraDescription}
           </p>
         )}
         {e.eraSource && (
-          <p className="mt-1 text-xs text-slate-500">출처: {e.eraSource}</p>
+          <p className="mt-1 text-xs text-ink-faint">출처: {e.eraSource}</p>
         )}
 
         {/* E3 — 본인 회상(content). 평소엔 "그때 저는" 한 줄 + [수정] 버튼,
@@ -1012,7 +1047,7 @@ function EraCard({
               >
                 <p
                   className={
-                    "whitespace-pre-wrap text-sm leading-snug text-zinc-800 " +
+                    "whitespace-pre-wrap text-sm leading-snug text-ink " +
                     (align === "right" ? "text-right" : "text-left")
                   }
                 >
@@ -1024,7 +1059,7 @@ function EraCard({
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="inline-flex min-h-[32px] items-center rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  className="inline-flex min-h-[32px] items-center rounded-md border border-emerald-300 bg-surface px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                 >
                   회상 수정
                 </button>
@@ -1033,12 +1068,13 @@ function EraCard({
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
-                className={
-                  "inline-flex min-h-[36px] items-center rounded-md border-2 border-emerald-300 bg-emerald-50/60 px-3 py-1 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500 " +
-                  (align === "right" ? "self-end" : "self-start")
-                }
+                className={buttonClasses(
+                  "secondary",
+                  "md",
+                  align === "right" ? "self-end" : "self-start",
+                )}
               >
-                <span aria-hidden className="mr-1">✏️</span>
+                <Pencil strokeWidth={1.75} aria-hidden className="mr-1 h-5 w-5 text-action" />
                 그때 어떻게 지내셨나요?
               </button>
             )}
@@ -1057,7 +1093,7 @@ function EraCard({
             onClick={onRemove}
             disabled={isPending}
             aria-label={`${displayTitle} — 내 연혁에서 빼기`}
-            className="inline-flex min-h-[36px] items-center justify-center rounded-md border-2 border-slate-300 bg-white px-3 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className={buttonClasses("plain", "md")}
           >
             {isPending ? "빼는 중…" : "내 연혁에서 빼기"}
           </button>
@@ -1091,11 +1127,11 @@ function PlacePreview({
         ? "구글 지도"
         : "지도";
   const className =
-    "mt-1 max-w-[18rem] text-xs leading-snug text-zinc-600 hover:text-amber-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 " +
+    "mt-1 max-w-[18rem] text-xs leading-snug text-ink-soft hover:text-amber-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 " +
     (align === "right" ? "text-right" : "text-left");
   const content = (
     <>
-      <span aria-hidden>📍 </span>
+      <MapPin strokeWidth={1.75} aria-hidden className="mr-0.5 inline-block h-3.5 w-3.5 text-ink-soft" />
       {place.placeName}
     </>
   );
@@ -1149,11 +1185,11 @@ function PeoplePreview({
       onClick={onClick}
       aria-label={`함께한 분 ${people.length}명 — 인물 연결 열기`}
       className={
-        "mt-1 max-w-[18rem] rounded-md text-xs leading-snug text-zinc-600 hover:text-amber-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 " +
+        "mt-1 max-w-[18rem] rounded-md text-xs leading-snug text-ink-soft hover:text-amber-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 " +
         (align === "right" ? "text-right" : "text-left")
       }
     >
-      <span aria-hidden>👤 </span>
+      <User strokeWidth={1.75} aria-hidden className="mr-0.5 inline-block h-3.5 w-3.5 text-ink-soft" />
       {compressNames(people)}
     </button>
   );
@@ -1197,14 +1233,14 @@ function PhotoCard({
   return (
     <div
       className={
-        "w-full max-w-[18rem] rounded-md border-2 border-sky-300 bg-sky-50 p-3 " +
+        "w-full max-w-[18rem] rounded-md border border-line bg-surface p-3 " +
         (align === "right" ? "text-right" : "text-left")
       }
     >
       {/* 뱃지 + 📍 장소 + 👤 인물 버튼 (B·C — EventCard 와 대칭) */}
       <div className="flex items-center justify-between gap-1.5">
-        <span className="inline-flex items-center rounded-full border border-sky-400 bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">
-          <span aria-hidden className="mr-1">📷</span>사진
+        <span className="inline-flex items-center rounded-full border border-ink-faint bg-surface px-2 py-0.5 text-xs font-semibold text-ink-faint">
+          <Camera strokeWidth={1.75} aria-hidden className="mr-1 h-3.5 w-3.5" />사진
         </span>
         <div className="flex items-center gap-1.5">
           <button
@@ -1212,18 +1248,18 @@ function PhotoCard({
             onClick={() => setPlaceOpen(true)}
             aria-label="이 사진의 장소 정하기"
             title="장소 정하기"
-            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-zinc-300 bg-white text-base shadow-sm hover:border-sky-400 hover:bg-sky-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500"
+            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
-            <span aria-hidden>📍</span>
+            <MapPin strokeWidth={1.75} aria-hidden className="h-4 w-4 text-ink-soft" />
           </button>
           <button
             type="button"
             onClick={onOpenPeople}
             aria-label="이 사진에 함께한 인물 연결"
             title="함께한 인물 연결"
-            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-zinc-300 bg-white text-base shadow-sm hover:border-sky-400 hover:bg-sky-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500"
+            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
-            <span aria-hidden>👤</span>
+            <User strokeWidth={1.75} aria-hidden className="h-4 w-4 text-ink-soft" />
           </button>
           {photo && lifeEventOptions.length > 0 && (
             <button
@@ -1231,17 +1267,17 @@ function PhotoCard({
               onClick={() => setAttachOpen(true)}
               aria-label="이 사진을 사건에 넣기"
               title="사건에 넣기"
-              className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-zinc-300 bg-white text-base shadow-sm hover:border-sky-400 hover:bg-sky-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500"
+              className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
             >
-              <span aria-hidden>📁</span>
+              <FolderOpen strokeWidth={1.75} aria-hidden className="h-4 w-4 text-ink-soft" />
             </button>
           )}
         </div>
       </div>
-      <p className="mt-2 text-sm font-semibold text-sky-800">
+      <p className="mt-2 text-sm font-semibold text-action">
         {when}
         {ageSuffix && (
-          <span className="ml-1 text-xs text-sky-600">{ageSuffix}</span>
+          <span className="ml-1 text-xs text-action">{ageSuffix}</span>
         )}
       </p>
       {url ? (
@@ -1249,7 +1285,7 @@ function PhotoCard({
           type="button"
           onClick={() => onOpenPhoto({ url, caption, label: when })}
           aria-label={`${when} 사진 크게 보기`}
-          className="mt-2 block w-full overflow-hidden rounded-md border-2 border-sky-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500"
+          className="mt-2 block w-full overflow-hidden rounded-md border-2 border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -1260,12 +1296,12 @@ function PhotoCard({
           />
         </button>
       ) : (
-        <p className="mt-2 rounded-md border-2 border-dashed border-sky-200 bg-white px-3 py-6 text-center text-xs text-sky-600">
+        <p className="mt-2 rounded-md border-2 border-dashed border-brand bg-surface px-3 py-6 text-center text-xs text-action">
           사진을 불러오지 못했어요.
         </p>
       )}
       {caption && (
-        <p className="mt-2 text-sm leading-snug text-zinc-700">{caption}</p>
+        <p className="mt-2 text-sm leading-snug text-ink-soft">{caption}</p>
       )}
 
       {/* C — 장소 칩(있으면 외부 지도 링크). 옵티미스틱 localPlace 사용. */}
@@ -1357,12 +1393,13 @@ function AttachToEventModal({
       onClick={onBackdropClick}
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-10"
     >
-      <div className="flex w-full max-w-lg flex-col gap-4 rounded-md bg-white p-5 sm:p-6">
+      <div className="flex w-full max-w-lg flex-col gap-4 rounded-md bg-surface p-5 sm:p-6">
         <div>
-          <h2 className="text-xl font-bold text-zinc-900">
-            <span aria-hidden className="mr-1">📁</span>어느 사건에 넣을까요?
+          <h2 className="flex items-center gap-1.5 text-xl font-bold text-ink">
+            <FolderOpen strokeWidth={1.75} aria-hidden className="h-5 w-5 shrink-0 text-ink" />
+            어느 사건에 넣을까요?
           </h2>
-          <p className="mt-1 text-base text-zinc-600">
+          <p className="mt-1 text-base text-ink-soft">
             고른 사건에 이 사진이 함께 담겨요. 사진은 사라지지 않아요.
           </p>
         </div>
@@ -1383,13 +1420,13 @@ function AttachToEventModal({
                   type="button"
                   onClick={() => pick(o.memoryId)}
                   disabled={isPending}
-                  className="flex w-full min-h-[52px] items-center justify-between gap-3 rounded-md border-2 border-zinc-200 bg-white px-4 py-2 text-left hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full min-h-[52px] items-center justify-between gap-3 rounded-md border-2 border-line bg-surface px-4 py-2 text-left hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-base font-semibold text-zinc-900">
+                    <span className="block truncate text-base font-semibold text-ink">
                       {o.title}
                     </span>
-                    <span className="block text-sm text-zinc-500">{when}</span>
+                    <span className="block text-sm text-ink-faint">{when}</span>
                   </span>
                   {busyId === o.memoryId && (
                     <span className="text-sm text-amber-700">넣는 중…</span>
@@ -1399,12 +1436,12 @@ function AttachToEventModal({
             );
           })}
         </ul>
-        <div className="flex justify-end border-t-2 border-zinc-100 pt-4">
+        <div className="flex justify-end border-t-2 border-line pt-4">
           <button
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-5 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:opacity-50"
           >
             닫기
           </button>
@@ -1456,9 +1493,10 @@ function PhotoPlaceModal({
       onClick={onBackdropClick}
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-10"
     >
-      <div className="flex w-full max-w-lg flex-col gap-4 rounded-md bg-white p-5 sm:p-6">
-        <h2 className="text-xl font-bold text-zinc-900">
-          <span aria-hidden className="mr-1">📍</span>이 사진은 어디서 찍었나요?
+      <div className="flex w-full max-w-lg flex-col gap-4 rounded-md bg-surface p-5 sm:p-6">
+        <h2 className="flex items-center gap-1.5 text-xl font-bold text-ink">
+          <MapPin strokeWidth={1.75} aria-hidden className="h-5 w-5 shrink-0 text-ink" />
+          이 사진은 어디서 찍었나요?
         </h2>
         <PlaceSearchInput value={place} onChange={setPlace} />
         {error && (
@@ -1469,12 +1507,12 @@ function PhotoPlaceModal({
             {error}
           </p>
         )}
-        <div className="flex flex-wrap justify-end gap-3 border-t-2 border-zinc-100 pt-4">
+        <div className="flex flex-wrap justify-end gap-3 border-t-2 border-line pt-4">
           <button
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-5 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:opacity-50"
           >
             닫기
           </button>
@@ -1482,7 +1520,7 @@ function PhotoPlaceModal({
             type="button"
             onClick={save}
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-sky-600 px-5 py-2 text-sm font-bold text-white hover:bg-sky-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-sky-300"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-5 py-2 text-sm font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-line"
           >
             {isPending ? "저장 중…" : "장소 저장"}
           </button>
@@ -1588,7 +1626,7 @@ function PhotoLightbox({
       tabIndex={-1}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
     >
-      <div className="flex max-h-full max-w-3xl flex-col gap-3 rounded-md bg-white p-4 sm:p-6">
+      <div className="flex max-h-full max-w-3xl flex-col gap-3 rounded-md bg-surface p-4 sm:p-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={photo.url}
@@ -1596,17 +1634,17 @@ function PhotoLightbox({
           className="max-h-[70vh] w-auto self-center rounded-md"
         />
         <div className="flex flex-col gap-1">
-          <p className="text-base font-semibold text-zinc-900">{photo.label}</p>
+          <p className="text-base font-semibold text-ink">{photo.label}</p>
           {photo.caption && (
-            <p className="text-sm text-zinc-700">{photo.caption}</p>
+            <p className="text-sm text-ink-soft">{photo.caption}</p>
           )}
         </div>
-        <div className="flex justify-end border-t-2 border-zinc-100 pt-3">
+        <div className="flex justify-end border-t-2 border-line pt-3">
           <button
             type="button"
             onClick={onClose}
             autoFocus
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-5 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
             닫기
           </button>
@@ -1657,11 +1695,11 @@ function LineClickArea({
 // 점·기간 색 의미 안내.
 function Legend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border-2 border-zinc-200 bg-white px-4 py-3 text-base text-zinc-700">
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border-2 border-line bg-surface px-4 py-3 text-base text-ink-soft">
       <span className="flex items-center gap-2">
         <span
           aria-hidden
-          className="inline-block h-5 w-5 rounded-full border-2 border-amber-800 bg-amber-600"
+          className="inline-block h-5 w-5 rounded-full border-2 border-action bg-action"
         />
         정확한 시점
       </span>
@@ -1691,20 +1729,20 @@ function Legend() {
       <span className="flex items-center gap-2">
         <span
           aria-hidden
-          className="inline-block h-5 w-5 rounded-full border-2 border-slate-500 bg-slate-400"
+          className="inline-block h-5 w-5 rounded-full border-2 border-ink-faint bg-decade-1980"
         />
         시대 배경
       </span>
       <span className="flex items-center gap-2">
         <span
           aria-hidden
-          className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-sky-500 bg-sky-100 text-[0.7rem] leading-none"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-ink-faint bg-surface"
         >
-          📷
+          <Camera strokeWidth={1.75} className="h-3.5 w-3.5 text-ink-faint" />
         </span>
         사진
       </span>
-      <span className="text-zinc-500">
+      <span className="text-ink-faint">
         점은 그 시기로, 빈 자리는 새 이야기로
       </span>
     </div>

@@ -48,25 +48,25 @@ export function SharedMemoryCard({ memory, viewerId, roomOwnerId }: Props) {
       : null;
 
   return (
-    <article className="rounded-md border-2 border-violet-300 bg-violet-50 p-5">
-      <p className="text-base font-bold uppercase tracking-wide text-violet-800">
+    <article className="rounded-md border-2 border-brand bg-banner p-5">
+      <p className="text-base font-bold uppercase tracking-wide text-action">
         우리의 추억
         {memory.month && (
-          <span className="ml-2 text-zinc-700">
+          <span className="ml-2 text-ink-soft">
             · {String(memory.month).padStart(2, "0")}월
           </span>
         )}
       </p>
-      <h4 className="mt-2 text-2xl font-bold text-zinc-900">{memory.title}</h4>
+      <h4 className="mt-2 text-2xl font-bold text-ink">{memory.title}</h4>
       {memory.content && (
-        <p className="mt-2 whitespace-pre-wrap text-lg text-zinc-800">
+        <p className="mt-2 whitespace-pre-wrap text-lg text-ink">
           {memory.content}
         </p>
       )}
-      <p className="mt-3 text-base text-zinc-700">
+      <p className="mt-3 text-base text-ink-soft">
         시작: {author}
         {editor && editor !== author && (
-          <span className="ml-2 text-zinc-600">· 마지막 편집: {editor}</span>
+          <span className="ml-2 text-ink-soft">· 마지막 편집: {editor}</span>
         )}
       </p>
 
@@ -74,7 +74,7 @@ export function SharedMemoryCard({ memory, viewerId, roomOwnerId }: Props) {
         {canEdit && (
           <Link
             href={`/rooms/${memory.roomId}/shared/${memory.id}/edit`}
-            className="rounded-md border-2 border-violet-300 bg-white px-4 py-2 text-base font-semibold text-violet-800 hover:bg-violet-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+            className="rounded-md border-2 border-brand bg-surface px-4 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             편집
           </Link>
@@ -84,7 +84,7 @@ export function SharedMemoryCard({ memory, viewerId, roomOwnerId }: Props) {
             <input type="hidden" name="memoryId" value={memory.id} />
             <button
               type="submit"
-              className="rounded-md border-2 border-rose-300 bg-white px-4 py-2 text-base font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-400 focus-visible:ring-offset-2"
+              className="rounded-md border-2 border-rose-300 bg-surface px-4 py-2 text-base font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-400 focus-visible:ring-offset-2"
             >
               삭제
             </button>

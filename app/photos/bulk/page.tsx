@@ -19,15 +19,15 @@ export default async function BulkPhotosPage() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-10">
       <header>
-        <p className="text-base text-zinc-600">
-          <Link href="/photos" className="underline hover:text-zinc-900">
+        <p className="text-base text-ink-soft">
+          <Link href="/photos" className="underline hover:text-ink">
             ← 내 사진으로
           </Link>
         </p>
-        <h1 className="mt-2 text-3xl font-bold text-zinc-900 sm:text-4xl">
+        <h1 className="mt-2 text-3xl font-bold text-ink sm:text-4xl">
           사진 여러 장 올리기
         </h1>
-        <p className="mt-3 text-lg text-zinc-700">
+        <p className="mt-3 text-lg text-ink-soft">
           여러 장을 한 번에 고르면 찍은 날짜순으로 정리해서 연혁에 담아드려요.
           날짜가 틀리면 바로 고치실 수 있어요.
         </p>

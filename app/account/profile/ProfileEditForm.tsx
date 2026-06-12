@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 
@@ -54,9 +54,9 @@ export function ProfileEditForm({ initial }: { initial: ProfileInitial }) {
       {QUESTIONS.map((q) => (
         <section
           key={q.id}
-          className="rounded-md border-2 border-zinc-200 bg-white p-5"
+          className="rounded-md border-2 border-line bg-surface p-5"
         >
-          <p className="text-lg font-semibold text-zinc-900">{q.prompt}</p>
+          <p className="text-lg font-semibold text-ink">{q.prompt}</p>
           <QuestionHint question={q} />
           <div className="mt-4">
             <FieldFor question={q} values={values} update={update} />
@@ -79,7 +79,7 @@ export function ProfileEditForm({ initial }: { initial: ProfileInitial }) {
         <button
           type="submit"
           disabled={isPending}
-          className="ml-auto min-h-[60px] rounded-md bg-zinc-900 px-6 py-4 text-lg font-bold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-400"
+          className="ml-auto min-h-[60px] rounded-md bg-action px-6 py-4 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? "저장 중…" : "저장"}
         </button>
@@ -94,9 +94,9 @@ function QuestionHint({ question }: { question: Question }) {
     "nicknameHint" in question ? question.nicknameHint : false;
   return (
     <>
-      {hint && <p className="mt-2 text-base text-zinc-600">{hint}</p>}
+      {hint && <p className="mt-2 text-base text-ink-soft">{hint}</p>}
       {nicknameHint && (
-        <p className="mt-2 text-base text-zinc-600">
+        <p className="mt-2 text-base text-ink-soft">
           실명 대신 별명이나 이니셜로 적어도 좋아요.
         </p>
       )}
@@ -170,7 +170,7 @@ function YearInput({
         const n = Number(raw);
         onChange(Number.isFinite(n) ? n : null);
       }}
-      className="w-full rounded-md border-2 border-zinc-300 px-4 py-3 text-xl focus:border-zinc-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+      className="w-full rounded-md border-2 border-line px-4 py-3 text-xl focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     />
   );
 }
@@ -202,10 +202,10 @@ function ChipsInput({
             onClick={() => toggle(opt)}
             aria-pressed={on}
             className={
-              "rounded-full border-2 px-5 py-3 text-base font-medium focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 " +
+              "rounded-full border-2 px-5 py-3 text-base font-medium focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
               (on
-                ? "border-zinc-900 bg-zinc-900 text-white"
-                : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100")
+                ? "border-brand bg-banner text-action"
+                : "border-line bg-surface text-ink-soft hover:bg-banner")
             }
           >
             {opt}
@@ -243,14 +243,14 @@ function TextListInput({
           {value.map((v, i) => (
             <li
               key={i}
-              className="flex items-center justify-between rounded-md border-2 border-zinc-200 bg-zinc-50 px-4 py-3"
+              className="flex items-center justify-between rounded-md border-2 border-line bg-canvas px-4 py-3"
             >
-              <span className="text-base text-zinc-900">{v}</span>
+              <span className="text-base text-ink">{v}</span>
               <button
                 type="button"
                 onClick={() => remove(i)}
                 aria-label={`${v} 삭제`}
-                className="text-base text-zinc-700 underline hover:text-zinc-900"
+                className="text-base text-ink-soft underline hover:text-ink"
               >
                 삭제
               </button>
@@ -270,12 +270,12 @@ function TextListInput({
             }
           }}
           placeholder="입력 후 Enter 또는 추가 버튼"
-          className="flex-1 rounded-md border-2 border-zinc-300 px-4 py-3 text-base focus:border-zinc-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="flex-1 rounded-md border-2 border-line px-4 py-3 text-base focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         />
         <button
           type="button"
           onClick={add}
-          className="rounded-md border-2 border-zinc-300 px-5 py-3 text-base font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="rounded-md border-2 border-line px-5 py-3 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           추가
         </button>
@@ -296,7 +296,7 @@ function TextInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       rows={3}
-      className="w-full rounded-md border-2 border-zinc-300 px-4 py-3 text-base focus:border-zinc-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+      className="w-full rounded-md border-2 border-line px-4 py-3 text-base focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     />
   );
 }

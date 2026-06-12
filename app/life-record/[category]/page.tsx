@@ -84,13 +84,13 @@ export default async function LifeRecordCategoryPage({
         <p className="text-base font-semibold text-amber-700">
           {stepLabel} · {question.shortLabel}
           {question.optional && (
-            <span className="ml-2 font-medium text-zinc-500">(선택)</span>
+            <span className="ml-2 font-medium text-ink-faint">(선택)</span>
           )}
         </p>
-        <h1 className="mt-2 text-3xl font-bold leading-snug tracking-tight text-zinc-900 sm:text-4xl">
+        <h1 className="mt-2 text-3xl font-bold leading-snug tracking-tight text-ink sm:text-4xl">
           {question.prompt}
         </h1>
-        <p className="mt-3 text-lg text-zinc-700">{question.hint}</p>
+        <p className="mt-3 text-lg text-ink-soft">{question.hint}</p>
 
         {schoolHint && (
           <aside

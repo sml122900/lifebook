@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -34,12 +34,12 @@ export default async function BillingFailPage({
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-6 py-10">
-      <h1 className="text-3xl font-bold text-zinc-900">결제가 취소됐어요</h1>
-      <p className="text-lg text-zinc-800">{message}</p>
-      <p className="text-base text-zinc-600">코드: {code}</p>
+      <h1 className="text-3xl font-bold text-ink">결제가 취소됐어요</h1>
+      <p className="text-lg text-ink">{message}</p>
+      <p className="text-base text-ink-soft">코드: {code}</p>
       <Link
         href="/billing"
-        className="self-start rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+        className="self-start rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         다시 시도하기
       </Link>

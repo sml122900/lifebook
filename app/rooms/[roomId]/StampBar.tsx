@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 
@@ -70,8 +70,8 @@ export function StampBar({
   }
 
   return (
-    <div className="mt-4 border-t-2 border-zinc-200 pt-4">
-      <p className="mb-2 text-base font-semibold text-zinc-700">
+    <div className="mt-4 border-t-2 border-line pt-4">
+      <p className="mb-2 text-base font-semibold text-ink-soft">
         가볍게 마음 전하기
       </p>
       <ul className="flex flex-wrap gap-2">
@@ -90,7 +90,7 @@ export function StampBar({
                   "inline-flex min-h-[56px] items-center gap-2 rounded-md border-2 px-4 py-2 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 " +
                   (active
                     ? "border-amber-600 bg-amber-100 text-amber-900"
-                    : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50")
+                    : "border-line bg-surface text-ink hover:bg-canvas")
                 }
               >
                 <span aria-hidden className="text-2xl">
@@ -103,7 +103,7 @@ export function StampBar({
                       "ml-1 inline-flex min-w-[28px] justify-center rounded-full px-2 text-base font-bold " +
                       (active
                         ? "bg-amber-600 text-white"
-                        : "bg-zinc-200 text-zinc-800")
+                        : "bg-line text-ink")
                     }
                   >
                     {count}

@@ -1,8 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+
+import { buttonClasses } from "@/components/ui/Button";
 
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { calcAge, formatAge } from "@/lib/age";
@@ -109,7 +111,7 @@ export function PersonForm({
       <section className="flex flex-col gap-2">
         <label
           htmlFor="person-name"
-          className="text-lg font-semibold text-zinc-900"
+          className="text-lg font-semibold text-ink"
         >
           이름 또는 별명{" "}
           <span className="font-normal text-rose-700">*</span>
@@ -122,9 +124,9 @@ export function PersonForm({
           maxLength={50}
           placeholder="예: 철수, 김OO 선생님, 옆집 누나"
           autoComplete="off"
-          className="w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         />
-        <p className="text-sm text-zinc-600">
+        <p className="text-sm text-ink-soft">
           실명이 부담스러우면 별명·이니셜로 적어도 돼요.
         </p>
       </section>
@@ -133,9 +135,9 @@ export function PersonForm({
       <section className="flex flex-col gap-2">
         <label
           htmlFor="person-relation"
-          className="text-lg font-semibold text-zinc-900"
+          className="text-lg font-semibold text-ink"
         >
-          관계 <span className="font-normal text-zinc-500">(선택)</span>
+          관계 <span className="font-normal text-ink-faint">(선택)</span>
         </label>
         <input
           id="person-relation"
@@ -146,7 +148,7 @@ export function PersonForm({
           list="person-relation-hints"
           placeholder="예: 초등 친구, 직장 동료, 이웃"
           autoComplete="off"
-          className="w-full rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         />
         <datalist id="person-relation-hints">
           {RELATION_HINTS.map((h) => (
@@ -159,10 +161,10 @@ export function PersonForm({
       <section className="flex flex-col gap-2">
         <label
           htmlFor="person-met-year"
-          className="text-lg font-semibold text-zinc-900"
+          className="text-lg font-semibold text-ink"
         >
           처음 만난 연도{" "}
-          <span className="font-normal text-zinc-500">(선택)</span>
+          <span className="font-normal text-ink-faint">(선택)</span>
         </label>
         <div className="flex items-center gap-3">
           <input
@@ -175,10 +177,10 @@ export function PersonForm({
               setMetYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
             }
             placeholder="예: 1985"
-            className="w-40 rounded-md border-2 border-zinc-300 bg-white px-4 py-3 text-xl text-zinc-900 focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="w-40 rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           />
           {ageHint && (
-            <p className="text-base text-zinc-700">
+            <p className="text-base text-ink-soft">
               그때 {formatAge(ageHint)}쯤이었어요
             </p>
           )}
@@ -189,9 +191,9 @@ export function PersonForm({
       <section className="flex flex-col gap-2">
         <label
           htmlFor="person-memo"
-          className="text-lg font-semibold text-zinc-900"
+          className="text-lg font-semibold text-ink"
         >
-          한 줄 메모 <span className="font-normal text-zinc-500">(선택)</span>
+          한 줄 메모 <span className="font-normal text-ink-faint">(선택)</span>
         </label>
         <VoiceTextarea
           value={memo}
@@ -200,7 +202,7 @@ export function PersonForm({
           placeholder="이 분에 대해 떠오르는 한 마디"
           ariaLabel="인물 한 줄 메모"
         />
-        <p className="text-sm text-zinc-600">최대 100자까지 적어주세요.</p>
+        <p className="text-sm text-ink-soft">최대 100자까지 적어주세요.</p>
       </section>
 
       {error && (
@@ -219,7 +221,7 @@ export function PersonForm({
               ? `/people/${initial.id}`
               : returnTo ?? "/people"
           }
-          className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-zinc-300 px-5 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className={buttonClasses("tertiary", "lg")}
         >
           ← 취소
         </Link>
@@ -227,7 +229,7 @@ export function PersonForm({
           type="button"
           onClick={handleSubmit}
           disabled={isPending}
-          className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-zinc-900 px-6 py-3 text-lg font-bold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           {isPending ? "저장 중…" : isEdit ? "수정 저장" : "추가하기"}
         </button>

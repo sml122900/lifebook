@@ -1,7 +1,9 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect } from "react";
+
+import { buttonClasses } from "@/components/ui/Button";
 
 // 라우트 세그먼트 에러 경계. 라우트 안의 서버 컴포넌트나 서버 액션이
 // throw 하면(Prisma 에러, 외부 API 에러 등 미처 못 잡은 모든 것) 발동.
@@ -25,10 +27,10 @@ export default function Error({
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-12">
-      <h1 className="text-3xl font-bold text-zinc-900 sm:text-4xl">
+      <h1 className="text-3xl font-bold text-ink sm:text-4xl">
         잠깐, 문제가 생겼어요
       </h1>
-      <p className="text-lg text-zinc-800">
+      <p className="text-lg text-ink">
         일시적인 오류일 수 있어요. 당신 잘못이 아니에요. 다시 시도하시거나
         인생 연혁으로 돌아가 주세요.
       </p>
@@ -36,19 +38,19 @@ export default function Error({
         <button
           type="button"
           onClick={reset}
-          className="rounded-md bg-zinc-900 px-6 py-4 text-lg font-semibold text-white hover:bg-zinc-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           다시 시도
         </button>
         <Link
           href="/life-timeline"
-          className="rounded-md border-2 border-zinc-300 px-6 py-4 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+          className={buttonClasses("tertiary", "lg")}
         >
           인생 연혁으로 돌아가기
         </Link>
       </div>
       {error.digest && (
-        <p className="mt-2 text-sm text-zinc-500">
+        <p className="mt-2 text-sm text-ink-faint">
           문의 시 알려주세요: {error.digest}
         </p>
       )}

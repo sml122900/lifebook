@@ -1,7 +1,8 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { buttonClasses } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 import { getFamilyNews } from "@/lib/family-news";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
@@ -149,10 +150,10 @@ export default async function LifeTimelinePage() {
 
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl">
+          <h1 className="text-4xl font-bold tracking-tight text-ink sm:text-5xl">
             내 인생 연혁
           </h1>
-          <p className="mt-3 text-xl text-zinc-800 sm:text-2xl">
+          <p className="mt-3 text-xl text-ink sm:text-2xl">
             <b>{userName}</b>님의 큰 줄기예요.
           </p>
         </div>
@@ -185,31 +186,31 @@ export default async function LifeTimelinePage() {
           aria-label="이벤트 추가 / 관리"
           className="flex flex-col gap-3 rounded-md border-2 border-amber-300 bg-amber-50 px-5 py-5"
         >
-          <p className="text-lg text-zinc-800">
+          <p className="text-lg text-ink">
             연혁을 보다 떠오르는 게 있으시면 한 장면 더 더해주세요.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link
               href="/life-timeline/add"
-              className="inline-flex min-h-[64px] flex-1 items-center justify-center rounded-md bg-amber-600 px-6 py-3 text-xl font-bold text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 sm:flex-initial"
+              className={buttonClasses("primary", "lg", "flex-1 sm:flex-initial")}
             >
               + 인생의 한 장면 추가하기
             </Link>
             <Link
               href="/life-timeline/manage"
-              className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-5 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+              className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-3 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               이벤트 관리
             </Link>
             <Link
               href="/people"
-              className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-5 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+              className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-3 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               <span aria-hidden className="mr-1">👥</span>인물 기록
             </Link>
             <Link
               href="/life-record"
-              className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-5 py-3 text-lg font-semibold text-zinc-800 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500 focus-visible:ring-offset-2"
+              className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-3 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               인생 기록 보강
             </Link>
@@ -224,9 +225,9 @@ export default async function LifeTimelinePage() {
       {hasFamilyNews && (
         <section
           aria-label="가족 소식"
-          className="flex flex-col gap-6 border-t-2 border-zinc-200 pt-8"
+          className="flex flex-col gap-6 border-t-2 border-line pt-8"
         >
-          <h2 className="text-2xl font-bold text-zinc-900">오늘의 한 걸음</h2>
+          <h2 className="text-2xl font-bold text-ink">오늘의 한 걸음</h2>
           <FamilyNewsCard news={familyNews} />
         </section>
       )}
@@ -242,17 +243,17 @@ function EmptyState() {
         🌱
       </p>
       <div>
-        <h2 className="text-3xl font-bold text-zinc-900 sm:text-4xl">
+        <h2 className="text-3xl font-bold text-ink sm:text-4xl">
           아직 인생 기록을 시작하지 않으셨네요
         </h2>
-        <p className="mt-3 text-xl text-zinc-700">
+        <p className="mt-3 text-xl text-ink-soft">
           몇 가지 질문에 떠오르는 만큼만 답하시면 인생 연혁이 그려져요.
         </p>
       </div>
       <Link
         href="/life-record"
         prefetch
-        className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-violet-700 px-8 py-4 text-2xl font-bold text-white hover:bg-violet-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+        className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-action px-8 py-4 text-2xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         인생 기록 시작하기 →
       </Link>

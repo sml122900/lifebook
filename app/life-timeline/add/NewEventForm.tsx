@@ -1,6 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
+
+import { Camera } from "lucide-react";
 
 import { stripGps } from "@/lib/photo-exif";
 
@@ -128,15 +130,13 @@ function PhotoPicker({
   onRemove: (id: string) => void;
 }) {
   return (
-    <section className="flex flex-col gap-4 rounded-md border-2 border-zinc-200 bg-white p-5">
+    <section className="flex flex-col gap-4 rounded-md border-2 border-line bg-surface p-5">
       <div>
-        <h2 className="text-2xl font-bold text-zinc-900">
-          <span aria-hidden className="mr-1">
-            📷
-          </span>
-          사진 <span className="text-base font-normal text-zinc-500">(선택)</span>
+        <h2 className="flex items-center gap-1.5 text-2xl font-bold text-ink">
+          <Camera strokeWidth={1.75} aria-hidden className="h-6 w-6 text-ink shrink-0" />
+          사진 <span className="text-base font-normal text-ink-faint">(선택)</span>
         </h2>
-        <p className="mt-1 text-base text-zinc-600">
+        <p className="mt-1 text-base text-ink-soft">
           이 이야기와 함께 남기고 싶은 사진을 골라주세요. 여러 장도 돼요.
         </p>
       </div>
@@ -155,7 +155,7 @@ function PhotoPicker({
           {pending.map((p) => (
             <li
               key={p.id}
-              className="flex flex-col overflow-hidden rounded-md border-2 border-zinc-200 bg-white"
+              className="flex flex-col overflow-hidden rounded-md border-2 border-line bg-surface"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -166,7 +166,7 @@ function PhotoPicker({
               <button
                 type="button"
                 onClick={() => onRemove(p.id)}
-                className="m-2 inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-zinc-300 bg-white px-3 py-1 text-sm font-semibold text-zinc-700 hover:bg-zinc-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-500"
+                className="m-2 inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-line bg-surface px-3 py-1 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
               >
                 빼기
               </button>
@@ -175,8 +175,8 @@ function PhotoPicker({
         </ul>
       )}
 
-      <label className="flex flex-col gap-2 rounded-md border-2 border-dashed border-zinc-300 bg-zinc-50 p-4">
-        <span className="text-base text-zinc-700">
+      <label className="flex flex-col gap-2 rounded-md border-2 border-dashed border-line bg-canvas p-4">
+        <span className="text-base text-ink-soft">
           사진 고르기 (jpeg / png / webp, 최대 10MB, 여러 장 가능)
         </span>
         <input
@@ -184,11 +184,11 @@ function PhotoPicker({
           accept="image/jpeg,image/png,image/webp"
           multiple
           onChange={onPick}
-          className="text-base file:mr-3 file:rounded-md file:border-2 file:border-zinc-300 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-zinc-800 hover:file:bg-zinc-100"
+          className="text-base file:mr-3 file:rounded-md file:border-2 file:border-line file:bg-surface file:px-4 file:py-2 file:text-sm file:font-semibold file:text-ink hover:file:bg-canvas"
         />
       </label>
 
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-ink-faint">
         저장하면 이 사진들이 사건에 함께 담겨요. 위치정보는 자동으로 지워요.
       </p>
     </section>
