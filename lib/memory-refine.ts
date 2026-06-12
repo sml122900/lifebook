@@ -1,19 +1,35 @@
 // 문장 다듬기 Lv2 (문장 정리 통합) — UserMemory.content 의 맞춤법·띄어쓰기에
-// 더해 군말 제거·긴 문장 분리·반복 정리·비문 교정까지 AI(Haiku)로 다듬어
+// 더해 군말 제거·긴 문장 분리·반복 정리·비문 교정까지 AI 로 다듬어
 // refinedText 에 별도 저장한다.
 //
 // 원칙:
 //   - 원문(content)은 영구 보존 — refinedText 는 별도 컬럼, 덮어쓰기 없음
 //   - 내용 추가·요약·생략 금지, 사투리·입버릇·특징 표현·고유명사 절대 불변
-//     (프롬프트 + 길이 80~120% 서버 검증으로 이중 강제)
-//   - 무료 — chargeOneShot 호출 없음 (Anthropic 비용은 운영 흡수,
-//     voice-cleanup 의 no-change 정책과 같은 톤)
+//     (프롬프트 + 길이 60~120% 서버 검증으로 이중 강제)
+//   - 모델 선택 + 차등 차감 — tier(haiku/sonnet/opus) 로 모델·단가가 갈린다.
+//     실제 교정본을 저장할 때만 과금(NO_CHANGE·길이가드 탈락은 0). 비서의
+//     tokensFromUsageForModel 정책을 그대로 재사용(haiku=1배 → 현행 비용).
 //   - displayRefined=true 일 때만 연혁·상세에서 refinedText 우선 표시.
 //     사용자가 [이대로 바꾸기] 를 눌러야 켜진다.
 //   - content 가 수정되면 세 필드 모두 초기화 (life-events / era-stash 쪽).
 
 import { chat } from "./ai";
 import { prisma } from "./db";
+import { chargeOneShot } from "./tokens/charge";
+import {
+  type ModelTier,
+  tokensFromUsage,
+  tokensFromUsageForModel,
+} from "./tokens/policy";
+
+// tier → 모델 ID. 비서의 DEPTH_TO_MODEL 과 같은 매핑이지만 다듬기는 depth
+// 개념이 없어 tier 를 직접 받는다. opus 4.7 은 ai.ts 의 supportsTemperature
+// 가드가 temperature 를 자동 제외(거부 회피).
+const TIER_TO_MODEL: Record<ModelTier, string> = {
+  haiku: "claude-haiku-4-5-20251001",
+  sonnet: "claude-sonnet-4-6",
+  opus: "claude-opus-4-7",
+};
 
 const SYSTEM_PROMPT = `다음 글을 다듬어라.
 허용: 맞춤법·띄어쓰기·구두점 교정, 군말(어/음/그니까/인제 등) 제거,
@@ -43,12 +59,19 @@ export type RefineStatus = "refined" | "no_change" | "not_found" | "empty";
 export type RefineResult = {
   status: RefineStatus;
   refinedText?: string;
+  // refined 일 때만 채워짐(실제 과금 발생). no_change 등은 undefined.
+  tokensSpent?: number;
+  balanceAfter?: number;
 };
 
-// 본인 메모리의 content 를 교정해 refinedText 에 저장. NO_CHANGE 면 저장 안 함.
+// 본인 메모리의 content 를 tier 모델로 교정해 refinedText 에 저장.
+// NO_CHANGE·길이가드 탈락이면 저장도 차감도 안 함. 실제 저장될 때만 과금하되,
+// 차감(chargeOneShot)을 저장 *앞*에 두어 잔액 부족이면 저장 없이
+// InsufficientBalanceError 가 위로 전파된다(API 가 402 로 변환).
 export async function refineMemorySpelling(
   userId: string,
   memoryId: string,
+  tier: ModelTier = "haiku",
 ): Promise<RefineResult> {
   const memory = await prisma.userMemory.findFirst({
     where: { id: memoryId, userId },
@@ -61,9 +84,11 @@ export async function refineMemorySpelling(
 
   const res = await chat([{ role: "user", content: original }], {
     system: SYSTEM_PROMPT,
+    model: TIER_TO_MODEL[tier],
     // 입력 본문이 그대로 다시 나오는 작업 — 긴 회상도 잘리지 않게 넉넉히.
     maxTokens: 2048,
     // 창작 여지 최소화 (voice-cleanup 0.3 보다 더 낮춤 — 교정만).
+    // opus 4.7 은 supportsTemperature=false 라 ai.ts 가 이 값을 자동 무시.
     temperature: 0.2,
   });
 
@@ -80,17 +105,38 @@ export async function refineMemorySpelling(
     return { status: "no_change" };
   }
 
-  // 길이 80~120% 서버측 체크 — 벗어나면 왜곡 의심, 저장 안 함.
+  // 길이 60~120% 서버측 체크 — 벗어나면 왜곡 의심, 저장 안 함.
   const ratio = refined.length / original.length;
   if (ratio < LENGTH_RATIO_MIN || ratio > LENGTH_RATIO_MAX) {
     return { status: "no_change" };
   }
 
+  // 차등 차감 — chargeOneShot 의 surcharge 로 tier 배수를 표현.
+  //   surcharge = tokensFromUsageForModel(tier) - tokensFromUsage(base)
+  //   → 총 cost = base + surcharge = tokensFromUsageForModel(tier).
+  //   haiku 는 multiplier=1 이라 surcharge=0 (현행 비용 그대로).
+  // 저장 *전에* 차감 → 잔액 부족이면 throw 되어 저장이 일어나지 않는다.
+  const base = tokensFromUsage(res.inputTokens, res.outputTokens);
+  const total = tokensFromUsageForModel(tier, res.inputTokens, res.outputTokens);
+  const charge = await chargeOneShot(
+    userId,
+    res.inputTokens,
+    res.outputTokens,
+    `memory_refine_${tier}`,
+    memoryId,
+    total - base,
+  );
+
   await prisma.userMemory.updateMany({
     where: { id: memoryId, userId },
     data: { refinedText: refined, refinedAt: new Date() },
   });
-  return { status: "refined", refinedText: refined };
+  return {
+    status: "refined",
+    refinedText: refined,
+    tokensSpent: charge.tokensSpent,
+    balanceAfter: charge.balanceAfter,
+  };
 }
 
 // [이대로 바꾸기] — refinedText 가 있을 때만 표시 전환. 없으면 false.

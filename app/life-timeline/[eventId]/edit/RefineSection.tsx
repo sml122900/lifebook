@@ -5,12 +5,22 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import type { ModelTier } from "@/lib/tokens/policy";
 
 import {
   applyRefinedAction,
   discardRefinedAction,
   saveMemoryContentAction,
 } from "../../actions";
+
+// 다듬기 정밀도 — tier 별 모델·토큰 비용. 사용자에겐 모델 이름 대신 "빠르게/
+// 꼼꼼하게/가장 정밀" + 토큰 비용만 노출(어르신이 비용 알고 고르게). 토큰 수는
+// 안내용 근사치(MODEL_MULTIPLIER 와 같은 1/3/5) — 실제 차감은 서버가 사용량으로.
+const TIERS: { tier: ModelTier; label: string; cost: string }[] = [
+  { tier: "haiku", label: "빠르게", cost: "1토큰" },
+  { tier: "sonnet", label: "꼼꼼하게", cost: "3토큰" },
+  { tier: "opus", label: "가장 정밀", cost: "5토큰" },
+];
 
 // 문장 다듬기 Lv2 — 편집 화면 "더 떠오르는 게 있다면" 회상을 다듬는다.
 //
@@ -49,6 +59,7 @@ export function RefineSection({
     initialRefinedText !== null && !initialDisplayRefined,
   );
   const [loading, setLoading] = useState(false);
+  const [tier, setTier] = useState<ModelTier>("haiku");
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -81,27 +92,40 @@ export function RefineSection({
         showToast(saved.error ?? "저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
         return;
       }
-      // 2) 저장된 내용을 다듬기.
+      // 2) 저장된 내용을 선택한 정밀도(tier)로 다듬기.
       const res = await fetch(`/api/memory/${memoryId}/refine`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier }),
       });
       const data = (await res.json()) as {
         ok: boolean;
         status?: string;
         refinedText?: string | null;
+        tokensSpent?: number;
+        balanceAfter?: number | null;
         error?: string;
       };
       if (!data.ok) {
+        // 402(잔액 부족) 포함 — 서버가 친화 메시지를 내려준다.
         showToast(data.error ?? "다듬기에 실패했어요. 잠시 후 다시 시도해 주세요.");
         return;
       }
       if (data.status === "no_change") {
+        // 저장된 교정본이 없으니 차감도 0 — 안내만.
         showToast("고칠 곳이 없어요. 잘 쓰셨어요!");
         return;
       }
       if (data.status === "refined" && data.refinedText) {
         setRefinedText(data.refinedText);
         setReviewing(true);
+        if (data.tokensSpent && data.tokensSpent > 0) {
+          const left =
+            typeof data.balanceAfter === "number"
+              ? ` (남은 토큰 ${data.balanceAfter}개)`
+              : "";
+          showToast(`${data.tokensSpent}토큰을 사용했어요.${left}`);
+        }
       }
     } catch {
       showToast("다듬기에 실패했어요. 잠시 후 다시 시도해 주세요.");
@@ -138,25 +162,58 @@ export function RefineSection({
       aria-label="문장 다듬기"
       className="flex flex-col gap-4 rounded-md border-2 border-line bg-surface p-5"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-ink">문장 다듬기</h2>
-        <Button
-          type="button"
-          variant="secondary"
-          size="md"
-          onClick={handleRefine}
-          disabled={loading}
-          aria-disabled={isEmpty || loading}
-          className={isEmpty && !loading ? "opacity-60" : undefined}
-        >
-          <Pencil aria-hidden strokeWidth={1.75} className="h-5 w-5" />
-          {loading ? "다듬는 중…" : "글 다듬기"}
-        </Button>
-      </div>
+      <h2 className="text-lg font-bold text-ink">문장 다듬기</h2>
       <p className="text-lg text-ink-soft">
         맞춤법과 문장을 보기 좋게 정리해 드려요. 말투와 표현은 그대로
         둡니다. 원래 글은 항상 보관돼요.
       </p>
+
+      {/* 정밀도(tier) 선택 — 칩 3개. 선택 칩은 banner+brand 보더(필 금지,
+          디자인 토큰 칩 스펙). 라벨에 토큰 비용 명시해 어르신이 비용 알고 고름. */}
+      <div role="radiogroup" aria-label="다듬기 정밀도" className="flex flex-col gap-2">
+        <p className="text-base font-semibold text-ink">
+          얼마나 꼼꼼히 다듬을까요?
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {TIERS.map((t) => {
+            const selected = tier === t.tier;
+            return (
+              <button
+                key={t.tier}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={loading}
+                onClick={() => setTier(t.tier)}
+                className={
+                  "flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-md border-2 px-4 py-3 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-60 " +
+                  (selected
+                    ? "border-brand bg-banner text-action"
+                    : "border-line bg-surface text-ink-soft hover:bg-banner")
+                }
+              >
+                <span className="text-lg font-bold">{t.label}</span>
+                <span className="text-sm">{t.cost}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <Button
+        type="button"
+        variant="secondary"
+        size="lg"
+        className={
+          "self-start" + (isEmpty && !loading ? " opacity-60" : "")
+        }
+        onClick={handleRefine}
+        disabled={loading}
+        aria-disabled={isEmpty || loading}
+      >
+        <Pencil aria-hidden strokeWidth={1.75} className="h-5 w-5" />
+        {loading ? "다듬는 중…" : "글 다듬기"}
+      </Button>
 
       {/* review — 전/후 카드 세로 배치 + 결정 버튼. "원래 글" = 방금 저장한 내용. */}
       {reviewing && refinedText && (
