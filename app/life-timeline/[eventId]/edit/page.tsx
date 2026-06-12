@@ -7,6 +7,7 @@ import { listMemoryPhotos } from "@/lib/photos";
 
 import { EventForm } from "../../EventForm";
 import { EventPhotos } from "./EventPhotos";
+import { RefineSection } from "./RefineSection";
 
 // Phase L4 — 인생 이벤트 수정 페이지. 권한 확인은 헬퍼(getLifeEventById)
 // 가 userId 일치만 통과시키므로, 결과가 null 이면 자동 404.
@@ -42,15 +43,15 @@ export default async function LifeTimelineEditPage({
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-10">
       <header>
-        <p className="text-base text-zinc-600">
+        <p className="text-base text-ink-soft">
           <Link
             href="/life-timeline/manage"
-            className="underline hover:text-zinc-900"
+            className="underline hover:text-ink"
           >
             ← 이벤트 관리
           </Link>
         </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-ink sm:text-4xl">
           이벤트 수정
         </h1>
       </header>
@@ -71,6 +72,13 @@ export default async function LifeTimelineEditPage({
           place: event.place,
         }}
       >
+        {/* 문장 다듬기 — 저장된 회상 기준. 회상 본문 아래·사진 위. */}
+        <RefineSection
+          memoryId={event.id}
+          savedContent={event.content}
+          initialRefinedText={event.refinedText}
+          initialDisplayRefined={event.displayRefined}
+        />
         {/* 사진 섹션은 폼 본문 아래·취소/저장 버튼 위에 (children). */}
         <EventPhotos
           memoryId={event.id}

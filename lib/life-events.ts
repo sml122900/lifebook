@@ -160,6 +160,9 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
       precision: true,
       category: true,
       content: true,
+      // 문장 다듬기 — displayRefined=true 면 연혁·상세에서 교정본 우선 표시.
+      refinedText: true,
+      displayRefined: true,
       createdAt: true,
       title: true, // eventTitle 이 비어있는 방어 경로용
       placeName: true,
@@ -208,7 +211,9 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
       eventMonth: r.eventMonth,
       precision: r.precision ?? "APPROXIMATE", // 기본은 사이 이벤트
       category: r.category,
-      content: r.content,
+      // 문장 다듬기 — 사용자가 [이대로 바꾸기] 한 행만 교정본으로 표시.
+      // 원문은 DB 에 그대로 (편집 화면 getLifeEventById 는 원문 반환).
+      content: r.displayRefined && r.refinedText ? r.refinedText : r.content,
       endYear: r.endYear,
       endMonth: r.endMonth,
       place: {
@@ -426,7 +431,7 @@ export async function upsertLifeEvent(
       createdVia: CREATED_VIA_LIFE_EVENT,
       category,
     },
-    select: { id: true },
+    select: { id: true, content: true },
     orderBy: { createdAt: "desc" },
   });
 
@@ -443,9 +448,15 @@ export async function upsertLifeEvent(
   const place = input.place ?? EMPTY_PLACE;
 
   if (existing) {
+    // 문장 다듬기 — content 변경 시 교정본 초기화 (updateLifeEvent 와 동일 정책).
+    const contentChanged =
+      (existing.content ?? null) !== (input.content ?? null);
     const updated = await prisma.userMemory.update({
       where: { id: existing.id },
       data: {
+        ...(contentChanged
+          ? { refinedText: null, refinedAt: null, displayRefined: false }
+          : {}),
         // life_event 전용
         eventTitle: input.title,
         eventYear: input.year,
@@ -573,6 +584,15 @@ export async function updateLifeEvent(
   const endMonth = endYear !== null ? input.endMonth ?? null : null;
   const place = input.place ?? EMPTY_PLACE;
 
+  // 문장 다듬기 — content 가 실제로 바뀌면 교정본(refined 3필드)은 옛 원문
+  // 기준이라 stale → 초기화. 장소·제목만 바꾼 경우는 보존.
+  const current = await prisma.userMemory.findFirst({
+    where: { id: eventId, userId, createdVia: CREATED_VIA_LIFE_EVENT },
+    select: { content: true },
+  });
+  if (!current) return null;
+  const contentChanged = (current.content ?? null) !== (input.content ?? null);
+
   // 소유 확인 후 update — updateMany 로 한 트랜잭션, 일치 안 하면 count=0.
   const result = await prisma.userMemory.updateMany({
     where: {
@@ -581,6 +601,9 @@ export async function updateLifeEvent(
       createdVia: CREATED_VIA_LIFE_EVENT,
     },
     data: {
+      ...(contentChanged
+        ? { refinedText: null, refinedAt: null, displayRefined: false }
+        : {}),
       eventTitle: input.title,
       eventYear: input.year,
       eventMonth: input.month,
@@ -631,6 +654,9 @@ export async function getLifeEventById(
   endYear: number | null;
   endMonth: number | null;
   content: string | null;
+  // 문장 다듬기 — 편집 화면(RefineSection)용. content 는 항상 원문.
+  refinedText: string | null;
+  displayRefined: boolean;
   precision: EventPrecision;
   place: PlaceInfo;
 } | null> {
@@ -650,6 +676,8 @@ export async function getLifeEventById(
       endYear: true,
       endMonth: true,
       content: true,
+      refinedText: true,
+      displayRefined: true,
       precision: true,
       placeName: true,
       placeAddress: true,
@@ -668,6 +696,8 @@ export async function getLifeEventById(
     endYear: row.endYear,
     endMonth: row.endMonth,
     content: row.content,
+    refinedText: row.refinedText,
+    displayRefined: row.displayRefined,
     precision: row.precision ?? "APPROXIMATE",
     place: {
       placeName: row.placeName,

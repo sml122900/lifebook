@@ -16,6 +16,7 @@ import {
   type PlaceInfo,
   updateLifeEvent,
 } from "@/lib/life-events";
+import { applyRefined, discardRefined } from "@/lib/memory-refine";
 import { getLifeQuestion } from "@/lib/life-record/questions";
 import { validatePlace } from "@/lib/place-validate";
 
@@ -240,6 +241,36 @@ export async function updateLifeEventAction(
   revalidatePath("/life-timeline/manage");
   revalidatePath(`/life-timeline/${eventId}/edit`);
   return { ok: true, id: result.id, precision: result.precision };
+}
+
+// 문장 다듬기 — [이대로 바꾸기]. refinedText 가 있는 본인 메모리만 전환.
+export async function applyRefinedAction(
+  memoryId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
+
+  const ok = await applyRefined(session.user.id, memoryId);
+  if (!ok) return { ok: false, error: "다듬은 글을 찾을 수 없어요." };
+
+  revalidatePath("/life-timeline");
+  revalidatePath(`/life-timeline/${memoryId}/edit`);
+  return { ok: true };
+}
+
+// 문장 다듬기 — [그대로 두기]. 교정본 폐기 (원문은 무변).
+export async function discardRefinedAction(
+  memoryId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
+
+  const ok = await discardRefined(session.user.id, memoryId);
+  if (!ok) return { ok: false, error: "글을 찾을 수 없어요." };
+
+  revalidatePath("/life-timeline");
+  revalidatePath(`/life-timeline/${memoryId}/edit`);
+  return { ok: true };
 }
 
 export async function deleteLifeEventAction(

@@ -146,9 +146,15 @@ export async function saveEraMemory(
   if (trimmed.length > ERA_MEMORY_MAX_LENGTH) return "too_long";
   const normalized = trimmed === "" ? null : trimmed;
 
+  // 문장 다듬기 — content 수정 경로이므로 교정본(refined 3필드)도 초기화.
   const result = await prisma.userMemory.updateMany({
     where: { userId, monthEventId, createdVia: CREATED_VIA_ERA_EVENT },
-    data: { content: normalized },
+    data: {
+      content: normalized,
+      refinedText: null,
+      refinedAt: null,
+      displayRefined: false,
+    },
   });
   if (result.count === 0) return "not_stashed";
   return normalized === null ? "cleared" : "saved";

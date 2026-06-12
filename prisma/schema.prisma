@@ -494,6 +494,14 @@ model UserMemory {
   // 라벨이 "YYYY년 MM월" 로 표시된다. null 이면 기존처럼 APPROXIMATE 끝 점.
   endMonth Int?
 
+  // 2026-06-12 — 문장 다듬기(맞춤법만). 원문(content)은 영구 보존, AI 가
+  // 맞춤법·띄어쓰기·명백한 오타만 교정한 글을 refinedText 에 따로 저장.
+  // displayRefined=true 일 때만 연혁·상세에서 refinedText 우선 표시.
+  // 사용자가 content 를 직접 수정하면 세 필드 모두 초기화(stale 방지).
+  refinedText    String?
+  refinedAt      DateTime?
+  displayRefined Boolean   @default(false)
+
   // Phase Place — 장소 매칭. life_event(특히 BIRTH·KINDERGARTEN·학령기 4종·
   // MILITARY·WORK) 행에서 사용자가 네이버/구글 지도 검색으로 고른 장소.
   // 기존 행은 모두 null — 무영향. 향후 다른 createdVia(timemachine_event)
