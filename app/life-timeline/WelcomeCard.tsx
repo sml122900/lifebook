@@ -15,7 +15,7 @@ import { dismissWelcomeAction } from "./welcome-actions";
 
 const V3_BANNER_KEY = "v3-welcome-seen";
 
-export function WelcomeCard({ userName }: { userName: string }) {
+export function WelcomeCard() {
   const router = useRouter();
   const [hidden, setHidden] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -60,10 +60,10 @@ export function WelcomeCard({ userName }: { userName: string }) {
     >
       <div>
         <h2 className="text-3xl font-bold text-action sm:text-4xl">
-          {userName}님, 환영해요.
+          당신의 이야기를 듣고 싶어요
         </h2>
         <p className="mt-2 text-xl text-action sm:text-2xl">
-          인생의 한 장면부터 하나 적어볼까요?
+          어렵지 않아요. 물어보면, 답하시면 됩니다.
         </p>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row">

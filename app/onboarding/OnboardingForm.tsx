@@ -295,7 +295,7 @@ function TextListInput({
               add();
             }
           }}
-          placeholder="입력 후 Enter 또는 추가 버튼"
+          placeholder="쓰고 나서 '추가'를 눌러주세요"
           className="flex-1 rounded-md border-2 border-line px-4 py-3 text-lg focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         />
         <button

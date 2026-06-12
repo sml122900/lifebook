@@ -174,7 +174,7 @@ export default async function LifeTimelinePage() {
           eventSource={firstEraEvent.source}
         />
       ) : showWelcome ? (
-        <WelcomeCard userName={userName} />
+        <WelcomeCard />
       ) : (
         <V3WelcomeBanner />
       )}

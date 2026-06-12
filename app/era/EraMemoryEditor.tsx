@@ -72,7 +72,7 @@ export function EraMemoryEditor({
         } else {
           // not_stashed — UI 가 이미 담았다고 표시하는데 서버는 아니라는
           // race. 사용자에게 새로고침 안내.
-          setErrorMsg("담은 사건 정보를 다시 불러올 수 없어요. 새로고침 해주세요.");
+          setErrorMsg("내용을 다시 불러올게요. 화면을 닫았다 다시 열어주세요.");
         }
       } catch (e) {
         console.error("[era-save-memory]", e);

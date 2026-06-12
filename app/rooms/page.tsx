@@ -36,8 +36,11 @@ export default async function RoomsPage() {
 
       <header>
         <h1 className="text-3xl font-bold text-ink">가족 룸</h1>
-        <p className="mt-3 text-lg text-ink">
-          가족·배우자와 함께 추억을 떠올리는 공간이에요.
+        <p className="mt-3 text-xl font-bold text-ink">
+          내 이야기를, 자식들이 읽어줍니다
+        </p>
+        <p className="mt-1 text-lg text-ink-soft">
+          한 줄씩 답하다 보면 내 인생이 정리됩니다.
         </p>
       </header>
 
