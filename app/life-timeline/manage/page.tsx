@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { buttonClasses } from "@/components/ui/Button";
 import { getLifeEvents } from "@/lib/life-events";
 import { getLifeQuestion } from "@/lib/life-record/questions";
 
@@ -104,18 +105,45 @@ export default async function LifeTimelineManagePage() {
                     )}
                   </div>
                 </div>
-                <div className="flex flex-shrink-0 gap-2">
-                  <Link
-                    href={`/life-timeline/${e.id}/edit`}
-                    className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
-                  >
-                    수정
-                  </Link>
-                  <DeleteButton
-                    eventId={e.id}
-                    eventLabel={`${whenText} ${e.title}`}
-                  />
-                </div>
+                {/* kind 별 동작. era_event·photo 는 같은 UserMemory 테이블이라
+                    이 목록에 함께 뜨지만, 편집·삭제면이 달라(EventForm 은
+                    life_event 전용 → /[id]/edit 는 404) 각자 제 화면으로 안내한다. */}
+                {e.kind === "life_event" ? (
+                  <div className="flex flex-shrink-0 gap-2">
+                    <Link
+                      href={`/life-timeline/${e.id}/edit`}
+                      className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    >
+                      수정
+                    </Link>
+                    <DeleteButton
+                      eventId={e.id}
+                      eventLabel={`${whenText} ${e.title}`}
+                    />
+                  </div>
+                ) : e.kind === "era_event" ? (
+                  <div className="flex flex-shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
+                    <Link href="/era" className={buttonClasses("secondary", "md")}>
+                      그 시절 둘러보기
+                    </Link>
+                    <p className="text-base text-ink-soft">
+                      여기서 회상을 적을 수 있어요.
+                      <br className="hidden sm:block" /> 빼기는 연혁에서 할 수 있어요.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
+                    <Link
+                      href="/photos"
+                      className={buttonClasses("secondary", "md")}
+                    >
+                      사진 화면 열기
+                    </Link>
+                    <p className="text-base text-ink-soft">
+                      사진은 사진 화면에서 관리해요.
+                    </p>
+                  </div>
+                )}
               </li>
             );
           })}
