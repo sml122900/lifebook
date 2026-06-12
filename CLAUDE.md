@@ -521,6 +521,9 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - 가족 룸(`listRoomMemories`) 교정본 적용 여부 — 전날 후속 계속(룸은 원문 유지)
 - `db/test-refine-lv2.ts` — 지갑 생성 + tier/문장 인자 받게 보강됨. 실 API 일회성(회귀 자동화 아님), 일정 후 archive 후보
 
+진입·법적 화면 톤 정리 (후순위 — 부모님 테스트 후. 지금은 모바일·결제 우선):
+- 로그인/로그아웃/계정/이메일/초대 링크/consent 동의문 + global-error·/timeline(레거시) "새로고침" 등 IT용어·외래어 — 어르신 핵심 화면(연혁·era·사진·회상)은 2026-06-13 정제 완료, 진입·법적·설정 화면은 보류. 별도 톤 패스로 일괄 정리
+
 랜딩 + 온보딩 신규 후속 (`docs/daily/2026-06-13.md` 참조):
 - 랜딩 실화면 캡처 8개 슬롯(data-slot) 채우기 — hero-timeline(9/16)·step-1~3·product-poster·book·keepsake·anniversary-book
 - 랜딩 카피 확정 — S2/S3/S5/S6 더미 → lib/landing-copy 한 파일 교체. S6 헤드라인·S2/S3/S5 본문
