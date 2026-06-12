@@ -68,6 +68,88 @@ export async function listEraEvents(): Promise<EraEvent[]> {
     }));
 }
 
+// ── 온보딩 첫 사건 선택 ──────────────────────────────────────────────
+// 가입 직후(BIRTH 외 이벤트 0건) 빈 타임라인 이탈을 줄이려, 출생연도로
+// "그 시절 누구나 아는 큰 사건" 1개를 골라 첫 회상을 유도한다.
+//
+// 선택 로직:
+//   target = birthYear + 20  (회상 융기 정점 = 청년기, 가장 생생)
+//   POLITICS_SOCIETY + VERIFIED 중 target 에 연도가 가장 가까운 1건.
+//   동률은 연도 asc → id asc 로 결정적(새로고침해도 같은 사건).
+// POLITICS_SOCIETY VERIFIED 로 한정 — 100% 인지(앵커 정신) + 1980~2018
+//   거의 매년 분포라 전 연령 자연 커버. closest-match 라 target 이 범위를
+//   벗어나도(예: 1976→1980, 2024→2018) 자동 흡수, clamp 불필요.
+//
+// v2 후속: 2002 월드컵 같은 SPORTS 앵커도 강력 → sections 파라미터로 확장
+//   여지를 열어둠(기본은 POLITICS_SOCIETY 만).
+export type MonthEventSection =
+  | "POLITICS_SOCIETY"
+  | "CULTURE"
+  | "SPORTS"
+  | "TREND";
+
+const ONBOARDING_AGE_OFFSET = 20;
+
+export type OnboardingEraEvent = {
+  id: string;
+  year: number;
+  month: number | null;
+  section: MonthEventSection;
+  title: string;
+  description: string;
+  source: string | null;
+};
+
+export async function pickOnboardingEraEvent(
+  birthYear: number,
+  sections: MonthEventSection[] = ["POLITICS_SOCIETY"],
+): Promise<OnboardingEraEvent | null> {
+  const candidates = await prisma.monthEvent.findMany({
+    where: {
+      year: { gte: 1980, lt: 2024 },
+      section: { in: sections },
+      confidence: "VERIFIED",
+    },
+    select: {
+      id: true,
+      year: true,
+      month: true,
+      section: true,
+      title: true,
+      description: true,
+      source: true,
+    },
+    // 결정적 tie-break: 같은 거리면 이른 연도 → id asc.
+    orderBy: [{ year: "asc" }, { id: "asc" }],
+  });
+
+  const valid = candidates.filter(
+    (c): c is typeof c & { year: number } => c.year !== null,
+  );
+  if (valid.length === 0) return null;
+
+  const target = birthYear + ONBOARDING_AGE_OFFSET;
+  let best = valid[0];
+  let bestDist = Math.abs(best.year - target);
+  for (const c of valid) {
+    const d = Math.abs(c.year - target);
+    // strict < 라 동률은 먼저(이른 연도·작은 id) 것을 유지 — 결정적.
+    if (d < bestDist) {
+      best = c;
+      bestDist = d;
+    }
+  }
+  return {
+    id: best.id,
+    year: best.year,
+    month: best.month,
+    section: best.section,
+    title: best.title,
+    description: best.description,
+    source: best.source,
+  };
+}
+
 // 음악 — 같은 범위. 시대 음악은 곡명/가수만 (가사·앨범커버·음원 X, 저작권).
 export async function listEraSongs(): Promise<EraSong[]> {
   const rows = await prisma.chartSong.findMany({

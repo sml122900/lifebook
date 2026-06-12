@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { buttonClasses } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
+import { pickOnboardingEraEvent } from "@/lib/era-events";
 import { getFamilyNews } from "@/lib/family-news";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import { listPeople, listPeopleByEventBatch } from "@/lib/people";
@@ -13,6 +14,7 @@ import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
 import type { InitialSavedAnswer } from "../timemachine/[year]/[month]/AssistantPanel";
 import { FamilyNewsCard } from "../timemachine/FamilyNewsCard";
 import { AssistantModal } from "./AssistantModal";
+import { FirstEraEventCard } from "./FirstEraEventCard";
 import { TimelineView } from "./TimelineView";
 import { V3WelcomeBanner } from "./V3WelcomeBanner";
 import { WelcomeCard } from "./WelcomeCard";
@@ -105,9 +107,25 @@ export default async function LifeTimelinePage() {
   const allPeople = allPeopleRows.map((p) => ({ id: p.id, name: p.name }));
   const userName = session.user.name ?? session.user.email ?? "회원";
   const hasEvents = events.length > 0;
+
+  // 온보딩 첫 사건 카드 — 출생연도는 있으나(BIRTH 이벤트 존재) 그 외 이야기가
+  // 아직 0건이면 빈 타임라인 이탈을 줄이려 "그 시절 큰 사건" 1개를 제시한다.
+  // ("이벤트 0건" 은 BIRTH 외 기준 — BIRTH 자체가 곧 출생연도라 0 과 양립 불가.)
+  // 자격일 때만 추가 1쿼리(pickOnboardingEraEvent).
+  const nonBirthCount = events.filter(
+    (e) => !(e.kind === "life_event" && e.category === "BIRTH"),
+  ).length;
+  const firstEraEvent =
+    birthYear != null && nonBirthCount === 0
+      ? await pickOnboardingEraEvent(birthYear)
+      : null;
+  const showFirstEra = firstEraEvent != null && birthYear != null;
+
   // 첫 방문 환영 카드 — 온보딩 표시 없고(신규 v3 사용자는 레거시 /onboarding
   // 을 안 거쳐 null) 연혁도 0건일 때만. 닫기/시작하기가 찍으면 다시 안 뜸.
-  const showWelcome = userRow?.onboardingCompletedAt == null && !hasEvents;
+  // 첫 사건 카드와는 택1(중복 노출 금지) — showFirstEra 우선.
+  const showWelcome =
+    !showFirstEra && userRow?.onboardingCompletedAt == null && !hasEvents;
   const hasFamilyNews =
     familyNews.newReactions.count > 0 || familyNews.newRecords.count > 0;
 
@@ -144,9 +162,22 @@ export default async function LifeTimelinePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10">
-      {/* 환영 카드(신규)와 V3 배너(v2 기존 사용자용)는 동시에 안 띄움 —
-          배너 두 장 연속은 시니어에게 부담, 신규에겐 "새로워졌어요" 무의미. */}
-      {showWelcome ? <WelcomeCard userName={userName} /> : <V3WelcomeBanner />}
+      {/* 온보딩 첫 사건 카드 > 환영 카드 > V3 배너 — 셋 다 첫 행동 유도라 택1.
+          환영/배너 동시 노출 금지(시니어 부담). 첫 사건 카드가 최우선. */}
+      {showFirstEra && firstEraEvent && birthYear != null ? (
+        <FirstEraEventCard
+          birthYear={birthYear}
+          monthEventId={firstEraEvent.id}
+          eventYear={firstEraEvent.year}
+          eventTitle={firstEraEvent.title}
+          eventDescription={firstEraEvent.description}
+          eventSource={firstEraEvent.source}
+        />
+      ) : showWelcome ? (
+        <WelcomeCard userName={userName} />
+      ) : (
+        <V3WelcomeBanner />
+      )}
 
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">

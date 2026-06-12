@@ -63,3 +63,30 @@ export async function saveEraMemoryAction(
   }
   return result;
 }
+
+// 온보딩 — 첫 시대 사건 회상. 아직 안 담긴 사건이라 stash + 회상저장을
+// 한 번에 한다("저장 시 첫 기록 생성"). 시그니처는 saveEraMemoryAction 과
+// 동일 → EraMemoryEditor 의 saveAction prop 으로 그대로 주입 가능.
+// 빈 입력은 editor 가 막으므로 빈 stash 는 생기지 않는다(방어적으로 cleared
+// 면 revalidate 만, 빈 행은 idempotent unique 로 1행 유지).
+export async function stashAndSaveFirstEraMemoryAction(
+  monthEventId: string,
+  content: string,
+): Promise<SaveEraMemoryResult> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("로그인이 필요해요.");
+  const userId = session.user.id;
+
+  // 먼저 담기(idempotent — 이미 있으면 already). 없는 사건이면 저장도 불가.
+  const stash = await stashEraEvent(userId, monthEventId);
+  if (stash === "not_found" || stash === "year_missing") {
+    return "not_stashed";
+  }
+  const result = await saveEraMemory(userId, monthEventId, content);
+  if (result === "saved" || result === "cleared") {
+    revalidatePath("/era");
+    revalidatePath("/life-timeline");
+    revalidatePath("/rooms");
+  }
+  return result;
+}

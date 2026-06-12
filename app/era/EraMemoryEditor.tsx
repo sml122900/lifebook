@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { ERA_MEMORY_MAX_LENGTH } from "@/lib/era-constants";
+import type { SaveEraMemoryResult } from "@/lib/era-stash";
 
 import { saveEraMemoryAction } from "./actions";
 
@@ -28,6 +29,7 @@ export function EraMemoryEditor({
   initialContent,
   onSaved,
   variant = "default",
+  saveAction = saveEraMemoryAction,
 }: {
   monthEventId: string;
   eventTitle: string;
@@ -36,6 +38,12 @@ export function EraMemoryEditor({
   // "default" — /era 펼친 상세(emerald 톤). "compact" — /life-timeline EraCard
   // (slate 톤, 작은 글씨, 카드 안에 자연스럽게).
   variant?: "default" | "compact";
+  // 온보딩 첫 사건은 아직 안 담긴 사건이라 stash+저장 결합 액션을 주입한다.
+  // 기본은 saveEraMemoryAction(이미 담은 사건 회상 저장) — 기존 호출자 무영향.
+  saveAction?: (
+    monthEventId: string,
+    content: string,
+  ) => Promise<SaveEraMemoryResult>;
 }) {
   const [value, setValue] = useState(initialContent ?? "");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -55,7 +63,7 @@ export function EraMemoryEditor({
     setSavedFlash(false);
     startTransition(async () => {
       try {
-        const r = await saveEraMemoryAction(monthEventId, trimmed);
+        const r = await saveAction(monthEventId, trimmed);
         if (r === "saved" || r === "cleared") {
           onSaved(normalized);
           setSavedFlash(true);
