@@ -176,6 +176,8 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **디자인 토큰** | **라이트 온리 토큰 시스템 — `@theme` 팔레트(canvas/surface/ink/line/brand/action/danger/success/banner + 연대 틴트·스트립) + Pretendard/명조 + Button 5위계·EmptyState + 다크모드 폐기(ThemeToggle 삭제) + 100여 파일 치환 + 칩 스펙 + 사이드 패널 root 글로벌화** | (`2026-06-12` 일지) | ✅ 완료 |
 | **문장 다듬기** | **회상 AI 다듬기(맞춤법+군말·반복·비문) — refined 3컬럼(원문 비파괴) · 무료 Haiku · 전/후 카드 승인 게이트 · 길이 가드 0.6~1.2 · getLifeEvents 표시 스왑** | (`2026-06-12` 일지) | ✅ 완료 |
 | **다듬기 UX·모델·404** | **자동저장 통합(RefineSection→EventForm, 미저장 draft 오발 해소) + 연혁 카드 회상 표시(EventCard line-clamp)·revalidate /manage + 적용후 2단 상시(토글 폐기) + 깨진 입력(자모깨짐) 교정·NO_CHANGE 엄격화 + 모델 3종(빠르게/꼼꼼하게/가장 정밀=Haiku/Sonnet/Opus)·차등 차감 1/3/5(저장 시에만·402) + manage era·photo 404 kind 분기** | (`2026-06-13` 일지) | ✅ 완료 |
+| **랜딩 + /privacy** | **비로그인 랜딩(/) 6섹션(히어로·작동3단계·결과물·기념일#anniversary·신뢰·CTA) — lib/landing-copy 카피 분리 + data-slot 8개 + primary S1·S6만 + `--color-ph` + 공개 정적 /privacy(데이터 원칙 골자 v0 초안, PUBLIC_PATHS 등록)** | (`2026-06-13` 일지) | ✅ 완료 |
+| **온보딩 첫 사건** | **가입 직후 빈 타임라인 이탈 해소 — birthYear+BIRTH외 0건이면 시대 앵커 1개 제시(pickOnboardingEraEvent: +20·POLITICS_SOCIETY VERIFIED·closest, 카테고리 파라미터화) + EraMemoryEditor saveAction prop 주입(stash+저장 결합) + localStorage 닫기. 스키마 0** | (`2026-06-13` 일지) | ✅ 완료 |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -519,6 +521,16 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - 가족 룸(`listRoomMemories`) 교정본 적용 여부 — 전날 후속 계속(룸은 원문 유지)
 - `db/test-refine-lv2.ts` — 지갑 생성 + tier/문장 인자 받게 보강됨. 실 API 일회성(회귀 자동화 아님), 일정 후 archive 후보
 
+랜딩 + 온보딩 신규 후속 (`docs/daily/2026-06-13.md` 참조):
+- 랜딩 실화면 캡처 8개 슬롯(data-slot) 채우기 — hero-timeline(9/16)·step-1~3·product-poster·book·keepsake·anniversary-book
+- 랜딩 카피 확정 — S2/S3/S5/S6 더미 → lib/landing-copy 한 파일 교체. S6 헤드라인·S2/S3/S5 본문
+- /privacy v0 초안 → 법적 최종 문구 확정·게시(데이터정책 소관, 별도 세션)
+- S4 CTA "선물 준비 알아보기" — 선물 안내 페이지/섹션 생기면 /login 에서 교체
+- 온보딩 첫 사건 선택 v2 — sections 확장(2002 월드컵 등 SPORTS 앵커). pickOnboardingEraEvent 이미 파라미터화됨
+- 온보딩 닫기 영속성 — 현재 localStorage 기기-로컬(기록 생기면 자동 소멸). 새 기기 재노출이 문제되면 서버 컬럼 검토(현재 스키마 0 우선)
+- 온보딩 텔레메트리 — 첫 사건 카드 제시→저장 전환율, "나중에" 비율, 어느 연대 사건이 회상으로 이어지는지
+- 첫 사건 카드 노출 시 추가 1쿼리(pickOnboardingEraEvent) — 자격자만(birthYear+nonBirth0)이라 영향 작지만 React cache() 후보(기존 M3/M4 영역)
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
@@ -618,6 +630,8 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [x] 다듬기 깨진 입력 교정(2026-06-13) → 프롬프트에 자모깨짐(ㅁㄴㅇ)·오타뭉침 맥락 추정 교정(불가하면 그 부분만 삭제) + 문두 군말(근데 그니까) 제거 + NO_CHANGE 엄격화("정말 깨끗한 글에만, 하나라도 있으면 교정"). "아니" 군말은 과교정 리스크로 미반영
 - [x] 다듬기 모델 선택+차등 차감(2026-06-13) → tier 3종(haiku/sonnet/opus, UI 라벨 "빠르게/꼼꼼하게/가장 정밀"+1/3/5토큰). 무료→유료 전환(Haiku 도 1토큰, 멘탈 모델 일관성). chargeOneShot surcharge=tokensFromUsageForModel−tokensFromUsage 로 배수(정책 함수 무수정). **실제 교정본 저장될 때만 과금**(NO_CHANGE·길이가드 0) — 차감을 저장 *앞*에 둬 잔액 부족이면 저장 없이 InsufficientBalanceError→API 402. opus 4.7 temperature 거부는 supportsTemperature 가드 자동 흡수. 실측 haiku1/sonnet3/opus no_change0. `docs/decisions/memory-refine-model-tiers.md`
 - [x] manage era·photo 404(2026-06-13) → getLifeEvents 는 3종(life_event·era_event·photo) 반환인데 manage 가 무분별하게 /[id]/edit 링크 → getLifeEventById(life_event 필터) null → 404. 같은 UserMemory 테이블이라 e.kind 분기(백엔드 0): life_event=수정/삭제, era_event="그 시절 둘러보기"(/era), photo="사진 화면"(/photos) 안내. 행은 목록 유지. A안(라우트 분기+EraView focus 신규) 대신 B안(편집면이 다른 게 데이터 정직). `docs/troubleshooting/manage-era-photo-edit-404.md`
+- [x] 랜딩(/) + 공개 /privacy(2026-06-13) → 비로그인 랜딩(로그인은 /life-timeline 리다이렉트), 6섹션 와이어 v0.2. 헤더는 기존 layout 재사용(중복 X), 카피 lib/landing-copy 분리(확정 슬롯 + 더미), 이미지 슬롯 data-slot 8개, primary S1·S6만, 본문 18px 하한, `--color-ph` 토큰. 히어로 9/16(세로 모바일)·카드 4/3. 개인정보 링크 깨짐 방지 위해 공개 정적 /privacy(데이터 원칙 골자 v0 초안 — 법적 최종본은 데이터정책 소관) 동반 + proxy PUBLIC_PATHS 등록. S4 CTA 는 /login(후속 교체)
+- [x] 온보딩 첫 사건 카드(2026-06-13) → birthYear 有 + **BIRTH 외 이벤트 0건**(getBirthYear 가 BIRTH 행 파생이라 "0건"과 모순 → 재정의)이면 시대 앵커 1개 제시. `pickOnboardingEraEvent`(target=birthYear+20, POLITICS_SOCIETY VERIFIED closest, 결정적 tie-break, sections 파라미터화로 v2 SPORTS 확장 여지). 저장 시 생성 = EraMemoryEditor optional `saveAction` prop(기존 호출자 무영향)에 stash+저장 결합 액션 주입. 닫기 = localStorage 기기-로컬(스키마 0, 기록 1건이면 자동 소멸). 첫사건>WelcomeCard>V3배너 택1. `docs/decisions/onboarding-first-era.md`
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
