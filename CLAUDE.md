@@ -173,6 +173,8 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **Photo×인물·장소(A·B·C) + SSR 픽스 2** | **사진 메모리 인물 연결(not_linkable·LINKABLE Set) + 장소 매칭(validatePlace 순수모듈·updatePhotoMemoryPlace) + 기간 중복 렌더 억제(isPeriodEnd suppress, 앵커X) + `"use server"` number export·`window` SSR 버그 픽스** | (`2026-06-10` 일지) | ✅ 완료 |
 | **Photo 6 (EXIF·대량·첨부/빼기)** | **EXIF 촬영일 자동(exifr lazy)·dateSource·GPS 무손실 strip(piexifjs, 4경로) + 대량 업로드(concurrency 3·부분실패·일괄연도) + movePhotoToMemory(넣기/빼기=독립복귀, 삭제X) + add 화면 사진 + 코드리뷰 H1·M1·M2·M3** | (`2026-06-10` 세션2 일지) | ✅ 완료 |
 | **테스트 전 정비** | **헤더 "타임머신" 입구 제거(라우트·코드 보존) + 첫 방문 환영 카드(onboardingCompletedAt 재사용·마이그 0·V3 배너 배타) + dev 중 build → .next 충돌 트러블슈팅** | (`2026-06-11` 일지) | ✅ 완료 |
+| **디자인 토큰** | **라이트 온리 토큰 시스템 — `@theme` 팔레트(canvas/surface/ink/line/brand/action/danger/success/banner + 연대 틴트·스트립) + Pretendard/명조 + Button 5위계·EmptyState + 다크모드 폐기(ThemeToggle 삭제) + 100여 파일 치환 + 칩 스펙 + 사이드 패널 root 글로벌화** | (`2026-06-12` 일지) | ✅ 완료 |
+| **문장 다듬기** | **회상 AI 다듬기(맞춤법+군말·반복·비문) — refined 3컬럼(원문 비파괴) · 무료 Haiku · 전/후 카드 승인 게이트 · 길이 가드 0.6~1.2 · getLifeEvents 표시 스왑** | (`2026-06-12` 일지) | ✅ 완료 |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -496,6 +498,15 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - dev 시작 시 `.next` 자동 정리 정책 — Auth.js stale·Prisma stale 패턴과 같은 영역(기존 후속 2건과 통합). 작업 수칙: dev 떠 있는 동안 `next build` 금지, 타입 검증은 `tsc --noEmit` 으로 분리 (`docs/troubleshooting/dev-server-build-next-conflict.md`)
 - 레거시 /onboarding·/timeline 라우트 정식 archived 검토 — onboardingCompletedAt 의미가 환영 카드로 확장됐으니 레거시 동선 정리 시 함께 (Supabase 이전 후속의 /timeline archived 항목과 동일 영역)
 
+디자인 토큰 + 문장 다듬기 신규 후속 (`docs/daily/2026-06-12.md` 참조):
+- 가족 룸(`listRoomMemories`)은 원문 표시 유지 — 룸에도 교정본(displayRefined 스왑) 적용할지 별도 결정
+- era_event 회상(EraMemoryEditor)에는 다듬기 진입로 없음 — life_event 편집 화면만. 확장 여부
+- 길이 가드 하한 0.6 실사용 모니터링 — 장문에서 모델 문장 누락이 통과할 여지(프롬프트 "빼지 마라" 조항으로 보완 중)
+- 무료 다듬기 호출 빈도 텔레메트리 — 남용 시 rate limit 검토
+- `db/test-refine-lv2.ts` — 실 API 1건 호출 일회성 스크립트(회귀 자동화 아님), 일정 후 archive 후보
+- rose(영상)/sky(정보)/blue(스포츠) 의미 분리 보조 팔레트 + 사이드 패널 amber 강조 토큰 미전환 — 의미색 토큰화 여부 다음 정리 사이클
+- 다크모드 폐기로 기존 M2(다크모드 미대응) 후속 일괄 무의미화 — 후속 목록 정리 사이클에서 일괄 제거 후보
+
 이전 바구니 2 후보 (review-pass-1 에서 발견):
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
@@ -589,6 +600,8 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [x] 독립 photo 메모리 생성 단일화(M3, 2026-06-10 세션2) → `buildPhotoMemoryData` 헬퍼로 `createIndependentPhoto`·`movePhotoToMemory` 공유(autoTitle·year/month·eventYear 미러링·place)
 - [x] 헤더 타임머신 입구(2026-06-11) → root layout 헤더의 "타임머신" 버튼 제거 — redirect 만 남은 v2 잔재 입구가 어르신 혼란 유발. 라우트·archived 코드·시드 전부 보존(비활성화+보존 원칙). 메인 동선 타임머신 입구 = 0
 - [x] 첫 방문 환영 카드(2026-06-11) → 새 컬럼/마이그 0 — 기존 `User.onboardingCompletedAt` 재사용(레거시 /onboarding 설정·/timeline 체크뿐, v3 신규는 영원히 null = 정확한 첫 방문 신호). 표시 = `null && 이벤트 0건`. 닫기/시작하기 모두 `updateMany where null`(레거시 완료 시각 보존). V3WelcomeBanner 와 배타 렌더 + 닫을 때 localStorage 키 동시 마킹(배너 연속 노출 차단)
+- [x] 디자인 토큰 = 라이트 온리(2026-06-12) → 다크모드 폐기(ThemeToggle·theme-actions 삭제, `color-scheme: light` 고정) — 기존 "CSS 변수 swap" 결정 대체. 토큰명에 크기 키워드 금지(base→canvas, `text-base` 충돌). 버튼 위계 5종(primary 필=bg-action 화면당 1개, destructive=빨강 필 금지), 칩 선택=banner+brand 보더(필 금지), 연대 틴트=워시 전용(텍스트 배경 금지). `docs/decisions/design-tokens-light-only.md`
+- [x] 문장 다듬기 정책(2026-06-12) → 원문 영구 보존(refinedText 별도 컬럼 + displayRefined 승인 게이트 + "원래 글 보기" 상시), 무료(Haiku, chargeOneShot 0), 길이 가드 0.6~1.2(벗어나면 no_change — 0.8 은 군말 입말 과차단 실측으로 완화), content 수정 시 refined 3필드 초기화. 표시 스왑은 getLifeEvents 한 곳(편집 화면은 원문 고정). 사투리 보존은 예시 열거로 프롬프트 고정. `docs/decisions/memory-refine.md`
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
