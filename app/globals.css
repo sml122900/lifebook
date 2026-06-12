@@ -24,6 +24,7 @@
   --color-success: #4d7c4d;
   --color-success-deep: #3e6b3e; /* 뱃지 텍스트용 */
   --color-banner: #fff8e8; /* 안내·강조 박스 배경 */
+  --color-ph: #e9e1d0; /* 이미지 placeholder 슬롯 배경 (실화면 캡처 끼우기 전) */
 
   /* 연대(decade) 틴트 — 텍스트 배경 금지. 스트립(4px)·점·5~10% 워시만.
      틴트 위 텍스트는 ink/ink-soft 만. */

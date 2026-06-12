@@ -10,7 +10,7 @@ import authConfig from "./auth.config";
 const { auth } = NextAuth(authConfig);
 
 // 로그인 없이 누구나 접근 가능한 페이지.
-const PUBLIC_PATHS = new Set<string>(["/", "/login"]);
+const PUBLIC_PATHS = new Set<string>(["/", "/login", "/privacy"]);
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
