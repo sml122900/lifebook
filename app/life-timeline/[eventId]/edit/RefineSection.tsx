@@ -27,7 +27,7 @@ import {
 // 상태 흐름:
 //   idle → loading(저장+다듬기) → review(전/후 카드 + 결정 버튼 2개)
 //   no_change → 토스트("고칠 곳이 없어요…") 후 idle 복귀
-//   apply → displayRefined=true (원래 글 보기 토글 노출), 재다듬기 가능
+//   apply → displayRefined=true (원래 글/다듬은 글 두 카드 상시 표시), 재다듬기 가능
 
 export function RefineSection({
   memoryId,
@@ -49,7 +49,6 @@ export function RefineSection({
     initialRefinedText !== null && !initialDisplayRefined,
   );
   const [loading, setLoading] = useState(false);
-  const [showOriginal, setShowOriginal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -103,7 +102,6 @@ export function RefineSection({
       if (data.status === "refined" && data.refinedText) {
         setRefinedText(data.refinedText);
         setReviewing(true);
-        setShowOriginal(false);
       }
     } catch {
       showToast("다듬기에 실패했어요. 잠시 후 다시 시도해 주세요.");
@@ -186,31 +184,26 @@ export function RefineSection({
         </div>
       )}
 
-      {/* 바꾼 후 — 다듬은 글 표시 중 + 원래 글 보기 토글 (원문 상시 접근) */}
+      {/* 바꾼 후 — 토글 없이 원래 글/다듬은 글 두 카드 상시 표시 (전/후와 동일
+          스타일 재사용). 재다듬기는 상단 [글 다듬기] 버튼으로 다시 돌릴 수 있다. */}
       {displayRefined && refinedText && !reviewing && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           <p className="text-lg text-ink">
-            지금은 <strong className="text-action">다듬은 글</strong>이
-            보이고 있어요.
+            <strong className="text-action">다듬은 글</strong>이 연혁에
+            표시되고 있어요. 원래 글도 보관돼 있어요.
           </p>
-          <Button
-            type="button"
-            variant="tertiary"
-            size="md"
-            className="self-start"
-            onClick={() => setShowOriginal((v) => !v)}
-            aria-expanded={showOriginal}
-          >
-            {showOriginal ? "원래 글 닫기" : "원래 글 보기"}
-          </Button>
-          {showOriginal && (
-            <div className="rounded-md border-2 border-line bg-canvas p-4">
-              <p className="text-base font-bold text-ink-soft">원래 글</p>
-              <p className="mt-2 whitespace-pre-wrap text-lg text-ink">
-                {content}
-              </p>
-            </div>
-          )}
+          <div className="rounded-md border-2 border-line bg-canvas p-4">
+            <p className="text-base font-bold text-ink-soft">원래 글</p>
+            <p className="mt-2 whitespace-pre-wrap text-lg text-ink">
+              {content}
+            </p>
+          </div>
+          <div className="rounded-md border-2 border-brand bg-banner p-4">
+            <p className="text-base font-bold text-action">다듬은 글</p>
+            <p className="mt-2 whitespace-pre-wrap text-lg text-ink">
+              {refinedText}
+            </p>
+          </div>
         </div>
       )}
 
