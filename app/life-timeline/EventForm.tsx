@@ -8,6 +8,7 @@ import { buttonClasses } from "@/components/ui/Button";
 
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
+import { RefineSection } from "./[eventId]/edit/RefineSection";
 import { calcAge, formatAge } from "@/lib/age";
 import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
 import type { EventPrecision, LifeCategory } from "@/lib/generated/prisma/enums";
@@ -80,6 +81,7 @@ export function EventForm({
   initial,
   birthYear = null,
   defaultYear = null,
+  refine = null,
   children,
   onAfterCreate,
 }: {
@@ -87,6 +89,14 @@ export function EventForm({
   anchors?: AnchorOption[];
   initial?: EventFormInitial;
   birthYear?: number | null;
+  // 문장 다듬기 — 편집 모드에서만. 회상(content) textarea 바로 아래에 렌더되어
+  // 라이브 content 를 받아 [글 다듬기]=자동 저장+교정 흐름을 돈다. 추가 모드는
+  // 아직 memoryId 가 없어 null.
+  refine?: {
+    memoryId: string;
+    initialRefinedText: string | null;
+    initialDisplayRefined: boolean;
+  } | null;
   // v3.3 — 빈 공간 클릭/+버튼으로 진입했을 때 미리 채울 연도. 추가 모드 전용.
   // 있으면 "exact" 모드로 시작(anchors 있어도 사용자가 정확한 연도를 가리키고
   // 왔으므로 between 모드가 부자연스러움). 사용자는 폼에서 변경 가능.
@@ -369,6 +379,17 @@ export function EventForm({
           ariaLabel="자유 보조 내용"
         />
       </section>
+
+      {/* 문장 다듬기 — 회상 textarea 바로 아래. 라이브 content 를 넘겨
+          [글 다듬기]=자동 저장+교정. 편집 모드(refine 있음)에서만. */}
+      {refine && (
+        <RefineSection
+          memoryId={refine.memoryId}
+          content={content}
+          initialRefinedText={refine.initialRefinedText}
+          initialDisplayRefined={refine.initialDisplayRefined}
+        />
+      )}
 
       {error && (
         <p

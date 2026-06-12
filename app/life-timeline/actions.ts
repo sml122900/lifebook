@@ -14,6 +14,7 @@ import {
   createLifeEvent,
   deleteLifeEvent,
   type PlaceInfo,
+  saveMemoryContent,
   updateLifeEvent,
 } from "@/lib/life-events";
 import { applyRefined, discardRefined } from "@/lib/memory-refine";
@@ -243,7 +244,33 @@ export async function updateLifeEventAction(
   return { ok: true, id: result.id, precision: result.precision };
 }
 
+// 문장 다듬기 UX — [글 다듬기] 가 누를 때 textarea 현재 내용을 먼저 저장.
+// content 전용 갱신(제목·연월·장소 무변). 저장 후 클라가 refine API 를 호출한다.
+export async function saveMemoryContentAction(
+  memoryId: string,
+  content: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
+
+  if (typeof content === "string" && content.length > CONTENT_MAX) {
+    return { ok: false, error: `자유 응답은 ${CONTENT_MAX}자 이내로 적어주세요.` };
+  }
+
+  const ok = await saveMemoryContent(session.user.id, memoryId, content);
+  if (!ok) {
+    return { ok: false, error: "저장하지 못했어요. 잠시 후 다시 시도해 주세요." };
+  }
+
+  revalidatePath("/life-timeline");
+  revalidatePath("/life-timeline/manage");
+  revalidatePath(`/life-timeline/${memoryId}/edit`);
+  return { ok: true };
+}
+
 // 문장 다듬기 — [이대로 바꾸기]. refinedText 가 있는 본인 메모리만 전환.
+// (revalidate 에 manage 포함 — content 가 보이는 reader 화면은 /manage 뿐이라
+//  여기가 빠지면 [이대로 바꾸기] 후에도 stale 원문이 남는다.)
 export async function applyRefinedAction(
   memoryId: string,
 ): Promise<{ ok: boolean; error?: string }> {
@@ -254,6 +281,7 @@ export async function applyRefinedAction(
   if (!ok) return { ok: false, error: "다듬은 글을 찾을 수 없어요." };
 
   revalidatePath("/life-timeline");
+  revalidatePath("/life-timeline/manage");
   revalidatePath(`/life-timeline/${memoryId}/edit`);
   return { ok: true };
 }
@@ -269,6 +297,7 @@ export async function discardRefinedAction(
   if (!ok) return { ok: false, error: "글을 찾을 수 없어요." };
 
   revalidatePath("/life-timeline");
+  revalidatePath("/life-timeline/manage");
   revalidatePath(`/life-timeline/${memoryId}/edit`);
   return { ok: true };
 }

@@ -626,6 +626,34 @@ export async function updateLifeEvent(
   return { id: eventId, precision };
 }
 
+// 문장 다듬기 UX 개편 — 편집 화면 [글 다듬기] 가 누를 때 textarea 의 현재
+// 내용을 먼저 저장한다(자동 저장). content 전용 갱신이라 제목·연월·장소는
+// 안 건드림. life_event 행만. content 가 실제로 바뀌면 교정본(refined 3필드)은
+// 옛 원문 기준이라 stale → 초기화 (updateLifeEvent 와 동일 정책).
+export async function saveMemoryContent(
+  userId: string,
+  memoryId: string,
+  content: string | null,
+): Promise<boolean> {
+  const current = await prisma.userMemory.findFirst({
+    where: { id: memoryId, userId, createdVia: CREATED_VIA_LIFE_EVENT },
+    select: { content: true },
+  });
+  if (!current) return false;
+  const normalized = content && content.trim() !== "" ? content : null;
+  const contentChanged = (current.content ?? null) !== (normalized ?? null);
+  const result = await prisma.userMemory.updateMany({
+    where: { id: memoryId, userId, createdVia: CREATED_VIA_LIFE_EVENT },
+    data: {
+      content: normalized,
+      ...(contentChanged
+        ? { refinedText: null, refinedAt: null, displayRefined: false }
+        : {}),
+    },
+  });
+  return result.count > 0;
+}
+
 // L4 — 삭제. userId 일치 + life_event 만. 다른 행은 절대 안 건드림.
 export async function deleteLifeEvent(
   userId: string,

@@ -6,25 +6,38 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 
-import { applyRefinedAction, discardRefinedAction } from "../../actions";
+import {
+  applyRefinedAction,
+  discardRefinedAction,
+  saveMemoryContentAction,
+} from "../../actions";
 
-// 문장 다듬기 Lv2 — 저장된 회상(content)의 맞춤법·띄어쓰기 + 군말·반복·비문 정리.
-// 원문 영구 보존: 교정본은 refinedText 별도 저장, [이대로 바꾸기] 를 눌러야
-// 표시가 바뀌고, 바뀐 후에도 "원래 글 보기" 로 원문 항상 접근 가능.
+// 문장 다듬기 Lv2 — 편집 화면 "더 떠오르는 게 있다면" 회상을 다듬는다.
+//
+// UX 개편 (자동 저장 + 다듬기):
+//   - 섹션은 항상 노출. textarea(content)가 비어 있으면 버튼은 비활성 스타일
+//     + aria-disabled, 눌러도 안내 토스트만.
+//   - 글이 있으면 [글 다듬기] = 현재 textarea 내용 자동 저장 → 교정 → 전/후 카드.
+//     ("수정 저장" 후 재진입하는 동선 제거. 미저장 draft 가 교정에 반영 안 돼
+//      "고칠 곳 없음" 으로 오발하던 문제도 자동 저장으로 해소.)
+//
+// 원문 보존: 교정본은 refinedText 별도 저장, [이대로 바꾸기] 를 눌러야 표시가
+// 바뀌고, 바뀐 후에도 "원래 글 보기" 로 원문 항상 접근 가능.
 //
 // 상태 흐름:
-//   idle(다듬기 버튼) → loading → review(전/후 카드 + 결정 버튼 2개)
+//   idle → loading(저장+다듬기) → review(전/후 카드 + 결정 버튼 2개)
 //   no_change → 토스트("고칠 곳이 없어요…") 후 idle 복귀
 //   apply → displayRefined=true (원래 글 보기 토글 노출), 재다듬기 가능
 
 export function RefineSection({
   memoryId,
-  savedContent,
+  content,
   initialRefinedText,
   initialDisplayRefined,
 }: {
   memoryId: string;
-  savedContent: string | null;
+  // 라이브 textarea 내용 (EventForm 의 content state). 비어 있으면 버튼 비활성.
+  content: string;
   initialRefinedText: string | null;
   initialDisplayRefined: boolean;
 }) {
@@ -52,12 +65,24 @@ export function RefineSection({
     toastTimer.current = setTimeout(() => setToast(null), 4000);
   }
 
-  // 저장된 회상이 없으면 다듬을 대상이 없음 — 섹션 자체를 안 그림.
-  if (!savedContent || savedContent.trim() === "") return null;
+  const isEmpty = content.trim() === "";
 
   async function handleRefine() {
+    // 비어 있으면 다듬을 대상이 없음 — 안내만 (버튼은 비활성 스타일이지만
+    // onClick 은 살려둬 토스트를 띄운다).
+    if (isEmpty) {
+      showToast("더 떠오르는 게 있다면 항목에 글을 입력해주세요.");
+      return;
+    }
     setLoading(true);
     try {
+      // 1) 현재 textarea 내용을 먼저 저장 (자동 저장). 실패하면 중단.
+      const saved = await saveMemoryContentAction(memoryId, content);
+      if (!saved.ok) {
+        showToast(saved.error ?? "저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      // 2) 저장된 내용을 다듬기.
       const res = await fetch(`/api/memory/${memoryId}/refine`, {
         method: "POST",
       });
@@ -123,6 +148,8 @@ export function RefineSection({
           size="md"
           onClick={handleRefine}
           disabled={loading}
+          aria-disabled={isEmpty || loading}
+          className={isEmpty && !loading ? "opacity-60" : undefined}
         >
           <Pencil aria-hidden strokeWidth={1.75} className="h-5 w-5" />
           {loading ? "다듬는 중…" : "글 다듬기"}
@@ -133,13 +160,13 @@ export function RefineSection({
         둡니다. 원래 글은 항상 보관돼요.
       </p>
 
-      {/* review — 전/후 카드 세로 배치 + 결정 버튼 */}
+      {/* review — 전/후 카드 세로 배치 + 결정 버튼. "원래 글" = 방금 저장한 내용. */}
       {reviewing && refinedText && (
         <div className="flex flex-col gap-4">
           <div className="rounded-md border-2 border-line bg-canvas p-4">
             <p className="text-base font-bold text-ink-soft">원래 글</p>
             <p className="mt-2 whitespace-pre-wrap text-lg text-ink">
-              {savedContent}
+              {content}
             </p>
           </div>
           <div className="rounded-md border-2 border-brand bg-banner p-4">
@@ -180,7 +207,7 @@ export function RefineSection({
             <div className="rounded-md border-2 border-line bg-canvas p-4">
               <p className="text-base font-bold text-ink-soft">원래 글</p>
               <p className="mt-2 whitespace-pre-wrap text-lg text-ink">
-                {savedContent}
+                {content}
               </p>
             </div>
           )}

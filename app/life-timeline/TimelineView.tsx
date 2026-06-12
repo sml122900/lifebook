@@ -909,6 +909,14 @@ function EventCard({
         >
           {displayTitle}
         </p>
+        {/* 회상 미리보기 — content 있을 때만. 다듬기 적용분(displayRefined)은
+            getLifeEvents 스왑으로 이미 e.content 에 반영됨. 기간 끝 점은 시작
+            점과 같은 이야기라 중복 표시 안 함(인물·장소와 동일 정책). */}
+        {!e.isPeriodEnd && e.content && (
+          <p className="mt-1.5 line-clamp-2 text-lg leading-snug text-ink-soft">
+            {e.content}
+          </p>
+        )}
       </Link>
       <button
         type="button"
