@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -29,28 +30,52 @@ export const metadata = {
   },
 };
 
-// 이미지 placeholder 슬롯 — 실화면 캡처를 끼우기 전 자리. data-slot 으로 식별.
+// 이미지 슬롯 — data-slot 으로 식별. src 가 있으면 실제 이미지(next/image
+// fill + object-cover)를 그리고, 없으면 caption placeholder 를 보여준다
+// (실화면 캡처 미확정인 S1·S2 슬롯은 src 없이 그대로 placeholder).
+// bg-ph 는 이미지 로딩 중 폴백 배경으로 남는다.
 function Slot({
   id,
   caption,
   className,
+  src,
+  alt,
 }: {
   id: string;
   caption: string;
   className?: string;
+  src?: string;
+  alt?: string;
 }) {
   return (
     <div
       data-slot={id}
       className={
-        "flex items-center justify-center rounded-lg border border-line bg-ph text-center " +
+        "relative flex items-center justify-center overflow-hidden rounded-lg border border-line bg-ph text-center " +
         (className ?? "")
       }
     >
-      <span className="px-4 text-base text-ink-faint">{caption}</span>
+      {src ? (
+        <Image
+          src={src}
+          alt={alt ?? caption}
+          fill
+          className="object-cover"
+          sizes="(max-width: 640px) 100vw, 320px"
+        />
+      ) : (
+        <span className="px-4 text-base text-ink-faint">{caption}</span>
+      )}
     </div>
   );
 }
+
+// 제품 슬롯 alt — title 과 다른 경우만(keepsake 는 title "인생 씨앗(가)" ≠ alt).
+const PRODUCT_ALT: Record<string, string> = {
+  "product-poster": "인생 연혁 포스터",
+  "product-book": "자서전 책",
+  "product-keepsake": "인생 씨앗",
+};
 
 export default async function Home({
   searchParams,
@@ -144,6 +169,8 @@ export default async function Home({
                 <Slot
                   id={p.slot}
                   caption={p.title}
+                  src={`/landing/${p.slot}.png`}
+                  alt={PRODUCT_ALT[p.slot] ?? p.title}
                   className="aspect-[4/3] w-full"
                 />
                 <div>
@@ -165,7 +192,10 @@ export default async function Home({
         className="mx-auto max-w-5xl scroll-mt-24 px-6 py-16"
         aria-labelledby="anniversary-title"
       >
-        <div className="grid items-center gap-8 rounded-xl border-2 border-brand bg-banner p-8 sm:p-10 lg:grid-cols-[1fr_auto]">
+        {/* 이미지 칼럼은 220px 고정 — next/image fill 은 intrinsic 너비가 0
+            이라 auto 트랙이면 칼럼이 수축해 이미지가 짜부라진다(2px). 모바일은
+            grid-cols 미지정 → 1열 스택(슬롯 w-full max-w-220 centered). */}
+        <div className="grid items-center gap-8 rounded-xl border-2 border-brand bg-banner p-8 sm:p-10 lg:grid-cols-[1fr_220px]">
           <div className="flex flex-col gap-5 text-center lg:text-left">
             <h2 id="anniversary-title" className="text-ink">
               {S4.headline}
@@ -182,6 +212,8 @@ export default async function Home({
           <Slot
             id={S4.bookSlot}
             caption={S4.bookCaption}
+            src="/landing/anniversary-book.png"
+            alt="기념일 자서전"
             className="aspect-[3/4] w-full max-w-[220px] justify-self-center border-brand/40"
           />
         </div>
