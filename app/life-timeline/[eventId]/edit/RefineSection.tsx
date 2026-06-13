@@ -15,11 +15,12 @@ import {
 
 // 다듬기 정밀도 — tier 별 모델·토큰 비용. 사용자에겐 모델 이름 대신 "빠르게/
 // 꼼꼼하게/가장 정밀" + 토큰 비용만 노출(어르신이 비용 알고 고르게). 토큰 수는
-// 안내용 근사치(MODEL_MULTIPLIER 와 같은 1/3/5) — 실제 차감은 서버가 사용량으로.
+// 안내용 근사치(다듬기 배수 REFINE_MODEL_MULTIPLIER 1/3/8) — 실제 차감은
+// 서버가 사용량으로. opus 8 은 경영방 원가 방어(비서 Opus 5배와 별개).
 const TIERS: { tier: ModelTier; label: string; cost: string }[] = [
   { tier: "haiku", label: "빠르게", cost: "1토큰" },
   { tier: "sonnet", label: "꼼꼼하게", cost: "3토큰" },
-  { tier: "opus", label: "가장 정밀", cost: "5토큰" },
+  { tier: "opus", label: "가장 정밀", cost: "8토큰" },
 ];
 
 // 문장 다듬기 Lv2 — 편집 화면 "더 떠오르는 게 있다면" 회상을 다듬는다.

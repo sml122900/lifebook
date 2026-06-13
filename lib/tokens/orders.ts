@@ -148,6 +148,30 @@ export async function settleOrderAfterToss(
   });
 }
 
+/**
+ * success 페이지 재방문/새로고침 방어 — 이미 정산된(paid) 주문이면 토스
+ * confirm 을 다시 부르지 않게 미리 알려준다. confirm 은 이미 처리된 결제에
+ * 대해 에러를 던지므로, 재호출 전에 이 체크로 "이미 충전됐어요" 화면으로
+ * 분기한다. 소유자(userId) + status=paid 일 때만 값 반환, 아니면 null.
+ */
+export async function findSettledOrder(
+  userId: string,
+  orderId: string,
+): Promise<{ balanceAfter: number } | null> {
+  const order = await prisma.tokenOrder.findUnique({
+    where: { id: orderId },
+    select: { userId: true, status: true },
+  });
+  if (!order || order.userId !== userId || order.status !== "paid") {
+    return null;
+  }
+  const wallet = await prisma.tokenWallet.findUnique({
+    where: { userId },
+    select: { balance: true },
+  });
+  return { balanceAfter: wallet?.balance ?? 0 };
+}
+
 export async function markOrderFailed(
   orderId: string,
   reason: string,

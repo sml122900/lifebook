@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { buttonClasses } from "@/components/ui/Button";
-import { settleOrderAfterToss } from "@/lib/tokens/orders";
+import { findSettledOrder, settleOrderAfterToss } from "@/lib/tokens/orders";
 import { TossConfirmError, confirmTossPayment } from "@/lib/tokens/toss";
 
 // /billing/success — 사용자가 위젯에서 결제 확인 후 토스가 여기로
@@ -43,6 +43,14 @@ export default async function BillingSuccessPage({
     );
   }
 
+  // 0. 재방문/새로고침 방어 — 이미 정산된 주문이면 토스 confirm 을 다시 부르지
+  //    않는다(이미 처리된 결제엔 confirm 이 에러를 던져 멀쩡한 충전인데도 실패
+  //    화면이 뜸). 적립은 첫 방문에서 이미 끝났으니 "이미 충전됐어요" 안내만.
+  const already = await findSettledOrder(userId, orderId);
+  if (already) {
+    return <SuccessScreen tokensCredited={0} balanceAfter={already.balanceAfter} />;
+  }
+
   // 1. 토스로 승인(서버에서만). 토스 측이 paymentKey+orderId+amount 의
   //    일관성을 검증하는 단계이기도 하다.
   let confirmed;
@@ -80,21 +88,38 @@ export default async function BillingSuccessPage({
   }
 
   return (
+    <SuccessScreen
+      tokensCredited={settle.tokensCredited}
+      balanceAfter={settle.balanceAfter}
+    />
+  );
+}
+
+// 충전 완료 화면 — 정상 적립과 "이미 충전됨"(재방문/idempotent) 양쪽 공용.
+// tokensCredited === 0 이면 이미 처리된 결제라 추가 청구가 없었음을 안내한다.
+function SuccessScreen({
+  tokensCredited,
+  balanceAfter,
+}: {
+  tokensCredited: number;
+  balanceAfter: number;
+}) {
+  return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10">
       <h1 className="text-3xl font-bold text-ink">충전 완료!</h1>
       <p className="text-2xl text-ink">
-        {settle.tokensCredited > 0 ? (
+        {tokensCredited > 0 ? (
           <>
-            <span className="font-bold">{settle.tokensCredited}개 토큰</span>이
+            <span className="font-bold">{tokensCredited}개 토큰</span>이
             적립됐어요.
           </>
         ) : (
-          <>이미 처리된 결제예요.</>
+          <>이미 충전됐어요. 추가로 결제되지 않았어요.</>
         )}
       </p>
       <p className="text-lg text-ink">
         남은 토큰{" "}
-        <span className="font-bold">{settle.balanceAfter.toLocaleString()}개</span>
+        <span className="font-bold">{balanceAfter.toLocaleString()}개</span>
       </p>
       <div className="flex gap-3">
         <Link

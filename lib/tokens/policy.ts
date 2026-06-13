@@ -9,8 +9,8 @@
 /** AI 토큰(입력+출력)을 서비스 토큰 1개로 환산하는 기준. */
 export const AI_TOKENS_PER_SERVICE_TOKEN = 2000;
 
-/** 신규 사용자에게 무료로 주는 토큰. 약 30회 추억 사이클 분량. */
-export const SIGNUP_GRANT_TOKENS = 30;
+/** 신규 사용자에게 무료로 주는 토큰. 약 50회 추억 사이클 분량(경영방 확정). */
+export const SIGNUP_GRANT_TOKENS = 50;
 
 /**
  * 추억 사이클을 "시작"하는 데 필요한 최소 잔액. Claude 응답 전엔 정확한
@@ -25,9 +25,16 @@ export const MIN_BALANCE_TO_START_CYCLE = 2;
  * Phase 8.5 는 클라가 보낸 패키지 id 로 여기서 krw+tokens 를 조회하고,
  * 토큰을 적립하기 전에 정확히 그 krw 가 결제됐는지 토스로 확인한다.
  * 클라가 보낸 금액은 절대 신뢰하지 않는다.
+ *
+ * tokens = 실제 적립 총량(기본 + 보너스). bonus 는 화면 강조용 표시값일 뿐
+ * 적립은 settleOrderAfterToss 가 order.tokens(=총량)로 한다. label 은 시니어
+ * 친화 표기 + 토스 영수증 orderName 으로 함께 쓰인다(경영방 가격 확정).
  */
 export const TOPUP_PACKAGES = [
-  { id: "starter", krw: 1000, tokens: 100, label: "스타터 100토큰" },
+  { id: "starter", krw: 1000, tokens: 100, bonus: 0, label: "1,000원 100토큰" },
+  { id: "value", krw: 3000, tokens: 330, bonus: 30, label: "3,000원 330토큰" },
+  { id: "popular", krw: 5000, tokens: 575, bonus: 75, label: "5,000원 575토큰" },
+  { id: "max", krw: 10000, tokens: 1250, bonus: 250, label: "10,000원 1,250토큰" },
 ] as const;
 
 export type TopupPackageId = (typeof TOPUP_PACKAGES)[number]["id"];
@@ -84,4 +91,22 @@ export function tokensFromUsageForModel(
   outputTokens: number,
 ): number {
   return tokensFromUsage(inputTokens, outputTokens) * MODEL_MULTIPLIER[model];
+}
+
+// 다듬기 전용 모델 배수 — 비서(MODEL_MULTIPLIER 1/3/5)와 분리한다.
+// 경영방 6번: Opus 다듬기는 원가 초과 방지를 위해 8배(비서 Opus 5배와 별개).
+// haiku/sonnet 은 비서와 동일(1/3). 다듬기 차감만 여기서 결정한다.
+export const REFINE_MODEL_MULTIPLIER: Record<ModelTier, number> = {
+  haiku: 1,
+  sonnet: 3,
+  opus: 8,
+};
+
+// 다듬기 차감용 — tokensFromUsageForModel 과 같은 구조지만 REFINE 배수 사용.
+export function tokensFromUsageForRefine(
+  model: ModelTier,
+  inputTokens: number,
+  outputTokens: number,
+): number {
+  return tokensFromUsage(inputTokens, outputTokens) * REFINE_MODEL_MULTIPLIER[model];
 }

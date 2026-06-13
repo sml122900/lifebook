@@ -7,8 +7,8 @@
 //   - 내용 추가·요약·생략 금지, 사투리·입버릇·특징 표현·고유명사 절대 불변
 //     (프롬프트 + 길이 60~120% 서버 검증으로 이중 강제)
 //   - 모델 선택 + 차등 차감 — tier(haiku/sonnet/opus) 로 모델·단가가 갈린다.
-//     실제 교정본을 저장할 때만 과금(NO_CHANGE·길이가드 탈락은 0). 비서의
-//     tokensFromUsageForModel 정책을 그대로 재사용(haiku=1배 → 현행 비용).
+//     실제 교정본을 저장할 때만 과금(NO_CHANGE·길이가드 탈락은 0). 차감 배수는
+//     다듬기 전용 REFINE_MODEL_MULTIPLIER(1/3/8) — 비서와 분리(Opus 원가 방어).
 //   - displayRefined=true 일 때만 연혁·상세에서 refinedText 우선 표시.
 //     사용자가 [이대로 바꾸기] 를 눌러야 켜진다.
 //   - content 가 수정되면 세 필드 모두 초기화 (life-events / era-stash 쪽).
@@ -19,7 +19,7 @@ import { chargeOneShot } from "./tokens/charge";
 import {
   type ModelTier,
   tokensFromUsage,
-  tokensFromUsageForModel,
+  tokensFromUsageForRefine,
 } from "./tokens/policy";
 
 // tier → 모델 ID. 비서의 DEPTH_TO_MODEL 과 같은 매핑이지만 다듬기는 depth
@@ -112,12 +112,12 @@ export async function refineMemorySpelling(
   }
 
   // 차등 차감 — chargeOneShot 의 surcharge 로 tier 배수를 표현.
-  //   surcharge = tokensFromUsageForModel(tier) - tokensFromUsage(base)
-  //   → 총 cost = base + surcharge = tokensFromUsageForModel(tier).
-  //   haiku 는 multiplier=1 이라 surcharge=0 (현행 비용 그대로).
+  //   surcharge = tokensFromUsageForRefine(tier) - tokensFromUsage(base)
+  //   → 총 cost = base + surcharge = tokensFromUsageForRefine(tier).
+  //   haiku 는 multiplier=1 이라 surcharge=0 (현행 비용 그대로). opus=8(원가 방어).
   // 저장 *전에* 차감 → 잔액 부족이면 throw 되어 저장이 일어나지 않는다.
   const base = tokensFromUsage(res.inputTokens, res.outputTokens);
-  const total = tokensFromUsageForModel(tier, res.inputTokens, res.outputTokens);
+  const total = tokensFromUsageForRefine(tier, res.inputTokens, res.outputTokens);
   const charge = await chargeOneShot(
     userId,
     res.inputTokens,

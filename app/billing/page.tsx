@@ -80,9 +80,11 @@ export default async function BillingPage() {
           >
             <div>
               <p className="text-xl font-bold text-ink">{p.label}</p>
-              <p className="mt-1 text-base text-ink-soft">
-                {p.tokens}개 토큰 · {p.krw.toLocaleString()}원
-              </p>
+              {p.bonus > 0 && (
+                <p className="mt-2 inline-block rounded-full border-2 border-brand bg-banner px-3 py-1 text-base font-bold text-action">
+                  +{p.bonus}토큰 더!
+                </p>
+              )}
             </div>
             <TopupButton
               packageId={p.id}

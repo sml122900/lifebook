@@ -48,12 +48,23 @@ async function main() {
     rec = await reconcileBalance(user.id);
     console.log(`  reconcile: wallet=${rec.walletBalance} txSum=${rec.transactionSum} match=${rec.match}`);
 
+    console.log("\n— step 4: bonus package credits total (value 3,000원 → 330토큰)");
+    const order4 = await createPendingOrder(user.id, "value");
+    console.log(`  created order ${order4.orderId} (${order4.krw}원 → ${order4.tokens}토큰)`);
+    const s4 = await settleOrderAfterToss(user.id, order4.orderId, "pk-4", order4.krw);
+    console.log(`  settle:`, s4);
+    rec = await reconcileBalance(user.id);
+    console.log(`  reconcile: wallet=${rec.walletBalance} txSum=${rec.transactionSum} match=${rec.match}`);
+
     const failures: string[] = [];
     if (!s1.ok || s1.tokensCredited !== 100 || s1.balanceAfter !== 100) failures.push("happy path didn't credit 100");
     if (!s2.ok || !s2.alreadySettled || s2.balanceAfter !== 100) failures.push("idempotency broken (re-credited)");
     if (s3.ok) failures.push("amount mismatch wasn't rejected");
-    if (!rec.match) failures.push("ledger ↔ wallet diverged");
     if (o2?.status !== "failed") failures.push("mismatched order should be FAILED");
+    // step 4 — 보너스 패키지: krw=3000 결제로 총 330토큰(기본 300 + 보너스 30) 적립.
+    if (order4.tokens !== 330) failures.push("value package tokens should be 330 (300+30 bonus)");
+    if (!s4.ok || s4.tokensCredited !== 330 || s4.balanceAfter !== 430) failures.push("bonus package didn't credit 330 (balance 100→430)");
+    if (!rec.match) failures.push("ledger ↔ wallet diverged");
 
     if (failures.length) {
       console.error("\nFAILED:");
