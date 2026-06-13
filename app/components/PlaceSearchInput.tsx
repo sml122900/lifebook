@@ -263,14 +263,14 @@ export function PlaceSearchInput({
             <button
               type="button"
               onClick={startEditing}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
             >
               다른 곳으로 바꾸기
             </button>
             <button
               type="button"
               onClick={clearAll}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
             >
               지우기
             </button>
@@ -326,7 +326,7 @@ export function PlaceSearchInput({
             setResults([]);
             setError(null);
           }}
-          className="inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+          className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
         >
           엔진 바꾸기
         </button>
@@ -420,7 +420,7 @@ export function PlaceSearchInput({
       <button
         type="button"
         onClick={clearAll}
-        className="self-start inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+        className="self-start inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
       >
         선택 안 함 (장소 모름)
       </button>

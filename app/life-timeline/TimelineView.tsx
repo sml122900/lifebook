@@ -807,7 +807,7 @@ function TimelineRow({
           href={addNearHref(e.eventYear)}
           aria-label={`${e.eventYear}년 즈음에 새 이야기 추가하기`}
           className={
-            "pointer-events-auto absolute top-1/2 left-full z-20 ml-2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-2 border-amber-400 bg-amber-100 text-2xl font-bold text-amber-800 transition-opacity hover:bg-amber-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
+            "pointer-events-auto absolute top-1/2 left-full z-20 ml-2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border-2 border-amber-400 bg-amber-100 text-2xl font-bold text-amber-800 transition-opacity hover:bg-amber-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
             // 모바일은 항상 표시, 데스크톱은 그룹 호버/포커스 시 표시
             (layout === "mobile"
               ? "opacity-100"
@@ -903,8 +903,8 @@ function EventCard({
           className={
             "mt-1 leading-tight " +
             (exact
-              ? "text-base font-bold text-ink"
-              : "text-base font-medium text-ink-soft")
+              ? "text-lg font-bold text-ink"
+              : "text-lg font-medium text-ink-soft")
           }
         >
           {displayTitle}
@@ -924,7 +924,7 @@ function EventCard({
         aria-label={`${displayTitle} — 함께한 인물 연결`}
         title="함께한 인물 연결"
         className={
-          "absolute z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 " +
+          "absolute z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 " +
           btnCorner
         }
       >
@@ -1021,7 +1021,7 @@ function EraCard({
           {displayTitle}
         </p>
         {e.eraDescription && (
-          <p className="mt-1 text-sm leading-snug text-ink-soft">
+          <p className="mt-1 text-base leading-snug text-ink-soft">
             {e.eraDescription}
           </p>
         )}
@@ -1055,7 +1055,7 @@ function EraCard({
               >
                 <p
                   className={
-                    "whitespace-pre-wrap text-sm leading-snug text-ink " +
+                    "whitespace-pre-wrap text-lg leading-snug text-ink " +
                     (align === "right" ? "text-right" : "text-left")
                   }
                 >
@@ -1067,7 +1067,7 @@ function EraCard({
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="inline-flex min-h-[32px] items-center rounded-md border border-emerald-300 bg-surface px-3 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  className="inline-flex min-h-[44px] items-center rounded-md border border-emerald-300 bg-surface px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                 >
                   회상 수정
                 </button>
@@ -1256,7 +1256,7 @@ function PhotoCard({
             onClick={() => setPlaceOpen(true)}
             aria-label="이 사진의 장소 정하기"
             title="장소 정하기"
-            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+            className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
             <MapPin strokeWidth={1.75} aria-hidden className="h-4 w-4 text-ink-soft" />
           </button>
@@ -1265,7 +1265,7 @@ function PhotoCard({
             onClick={onOpenPeople}
             aria-label="이 사진에 함께한 인물 연결"
             title="함께한 인물 연결"
-            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+            className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
             <User strokeWidth={1.75} aria-hidden className="h-4 w-4 text-ink-soft" />
           </button>
@@ -1275,7 +1275,7 @@ function PhotoCard({
               onClick={() => setAttachOpen(true)}
               aria-label="이 사진을 사건에 넣기"
               title="사건에 넣기"
-              className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+              className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
             >
               <FolderOpen strokeWidth={1.75} aria-hidden className="h-4 w-4 text-ink-soft" />
             </button>
@@ -1449,7 +1449,7 @@ function AttachToEventModal({
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:opacity-50"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:opacity-50"
           >
             닫기
           </button>
@@ -1520,7 +1520,7 @@ function PhotoPlaceModal({
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:opacity-50"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:opacity-50"
           >
             닫기
           </button>
@@ -1528,7 +1528,7 @@ function PhotoPlaceModal({
             type="button"
             onClick={save}
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-5 py-2 text-sm font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-line"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-sm font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-line"
           >
             {isPending ? "저장 중…" : "장소 저장"}
           </button>
@@ -1639,7 +1639,7 @@ function PhotoLightbox({
         <img
           src={photo.url}
           alt={photo.caption || `${photo.label} 사진`}
-          className="max-h-[70vh] w-auto self-center rounded-md"
+          className="max-h-[70vh] w-auto max-w-full self-center rounded-md"
         />
         <div className="flex flex-col gap-1">
           <p className="text-base font-semibold text-ink">{photo.label}</p>
@@ -1652,7 +1652,7 @@ function PhotoLightbox({
             type="button"
             onClick={onClose}
             autoFocus
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
             닫기
           </button>

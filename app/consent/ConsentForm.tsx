@@ -101,7 +101,7 @@ export function ConsentForm() {
                 href={item.detailHref}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="ml-10 mt-3 inline-flex min-h-[44px] items-center text-base font-semibold text-action underline hover:text-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+                className="ml-10 mt-3 inline-flex min-h-[48px] items-center text-base font-semibold text-action underline hover:text-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
               >
                 개인정보 처리방침 자세히 보기 (새 창)
               </Link>

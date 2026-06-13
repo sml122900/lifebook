@@ -366,7 +366,7 @@ function AttendanceMini({
           type="button"
           onClick={onClick}
           disabled={isPending}
-          className="mt-2 inline-flex w-full min-h-[44px] items-center justify-center rounded-md border-2 border-amber-500 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-2 inline-flex w-full min-h-[48px] items-center justify-center rounded-md border-2 border-amber-500 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? "처리 중…" : `오늘 ${DAILY_CREDIT}토큰 받기`}
         </button>

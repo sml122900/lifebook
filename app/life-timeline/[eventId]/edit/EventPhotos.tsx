@@ -295,7 +295,7 @@ export function EventPhotos({
                     type="button"
                     onClick={() => onDetach(p.id)}
                     disabled={isPending}
-                    className="inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-line bg-surface px-3 py-1 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-3 py-1 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     사건에서 빼기
                   </button>
@@ -303,7 +303,7 @@ export function EventPhotos({
                     type="button"
                     onClick={() => onDelete(p.id)}
                     disabled={isPending}
-                    className="inline-flex min-h-[40px] items-center justify-center rounded-md border-2 border-rose-300 bg-surface px-3 py-1 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-rose-300 bg-surface px-3 py-1 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     사진 지우기
                   </button>
