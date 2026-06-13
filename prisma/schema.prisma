@@ -50,6 +50,19 @@ enum TokenOrderStatus {
   canceled
 }
 
+// 실물 상품 주문 상태. 토큰(TokenOrderStatus)과 달리 paid 이후 배송 이행
+// 단계가 이어진다. v1(6/19 테스트)은 paid 까지만 도달하고 preparing~delivered
+// 는 관리자 수동(변경 UI 없음, enum 만 보유).
+enum ProductOrderStatus {
+  pending // 결제창 진입(미결제)
+  paid // 결제 승인 — 주문 접수
+  preparing // 제작/준비
+  shipped // 발송(송장)
+  delivered // 배송 완료
+  failed
+  canceled
+}
+
 enum RoomMemberRole {
   owner
   member
@@ -104,6 +117,7 @@ model User {
   feedSeen              FamilyFeedSeen?
   people                Person[]
   photos                Photo[]
+  productOrders         ProductOrder[]
 }
 
 model Account {
@@ -384,6 +398,58 @@ model TokenOrder {
   updatedAt  DateTime         @updatedAt
 
   @@index([userId])
+}
+
+// 실물 상품 주문 (포스터·부적·책). 토큰 결제 인프라(confirmTossPayment)는
+// 공용 재사용하되, 적립이 아니라 배송지 스냅샷 + 이행 상태를 기록하므로
+// TokenOrder 와 분리한 별도 모델이다.
+//
+// 결제완료(paid+) 주문은 전자상거래법상 5년 보존 — TokenOrder 와 동일하게
+// userId nullable + SetNull 로 탈퇴 시 익명화하고 레코드는 남긴다.
+// pending/failed/canceled 는 탈퇴 액션에서 삭제 대상.
+//
+// 금액: 클라가 보낸 금액은 절대 신뢰 안 함. 서버가 상수(lib/commerce/products)
+// 단가로 unitKrw 를 스냅샷하고 totalKrw = unitKrw*quantity + 배송비를 계산.
+// settle 시 totalKrw === tossAmount 대조 후에만 paid. paymentKey @unique 로
+// 같은 결제 두 번 정산 불가(TokenOrder 와 동일 idempotency).
+model ProductOrder {
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // 카탈로그 스냅샷 (lib/commerce/products 상수 id). v1 수량은 항상 1.
+  productId String // "poster" | "charm" | "book"
+  optionId  String? // 향후 옵션 확장용 (v1 미사용)
+  quantity  Int     @default(1)
+  unitKrw   Int // 주문 시점 단가 스냅샷
+  shippingKrw Int   @default(0) // 배송비 스냅샷 (균일)
+  totalKrw  Int // 서버 계산 = unitKrw*quantity + shippingKrw
+
+  // 배송지 스냅샷 (User 에 구조화 주소 없음 — 주문별 보관이 법적 발송 기록)
+  recipientName  String
+  recipientPhone String
+  postalCode     String?
+  address1       String
+  address2       String?
+  deliveryMemo   String?
+
+  // 결제
+  status     ProductOrderStatus @default(pending)
+  paymentKey String?            @unique
+  approvedAt DateTime?
+  failedAt   DateTime?
+  failReason String?
+
+  // 배송 이행 (관리자 수동 — v1 변경 UI 없음)
+  trackingCarrier String?
+  trackingNumber  String?
+  shippedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
 
 // Phase 7.5 — persisted memory conversation per (user, event). The
