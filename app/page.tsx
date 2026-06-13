@@ -40,12 +40,14 @@ function Slot({
   className,
   src,
   alt,
+  imgClassName,
 }: {
   id: string;
   caption: string;
   className?: string;
   src?: string;
   alt?: string;
+  imgClassName?: string;
 }) {
   return (
     <div
@@ -60,7 +62,7 @@ function Slot({
           src={src}
           alt={alt ?? caption}
           fill
-          className="object-cover"
+          className={"object-cover " + (imgClassName ?? "")}
           sizes="(max-width: 640px) 100vw, 320px"
         />
       ) : (
@@ -75,6 +77,13 @@ const PRODUCT_ALT: Record<string, string> = {
   "product-poster": "인생 연혁 포스터",
   "product-book": "자서전 책",
   "product-keepsake": "인생 씨앗",
+};
+
+// S2 단계 슬롯 alt — 실화면 캡처 설명.
+const STEP_ALT: Record<string, string> = {
+  "step-1-era": "그 시절 둘러보기",
+  "step-2-record": "회상 기록 화면",
+  "step-3-room": "가족 룸",
 };
 
 export default async function Home({
@@ -118,6 +127,9 @@ export default async function Home({
           <Slot
             id="hero-timeline"
             caption={S1.captionSlot}
+            src="/landing/hero-timeline.png"
+            alt="인생 연혁 화면"
+            imgClassName="object-top"
             className="aspect-[9/16] w-full max-w-[280px]"
           />
         </div>
@@ -141,6 +153,8 @@ export default async function Home({
               <Slot
                 id={step.slot}
                 caption={`${i + 1}단계 화면`}
+                src={`/landing/${step.slot}.png`}
+                alt={STEP_ALT[step.slot] ?? step.title}
                 className="aspect-[4/3] w-full"
               />
               <div>
