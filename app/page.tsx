@@ -16,6 +16,17 @@ export const metadata = {
   title: "라이프북 — 부모님의 인생을 한 권으로",
   description:
     "기억은 흐려져도 기록은 흐려지지 않습니다. 부모님의 이야기를 AI와 함께 한 권으로 남기는 회고 서비스.",
+  // 카카오톡·문자 공유 미리보기 — 랜딩 전용 카피(S1.sub 재사용). og:image 는
+  // app/opengraph-image.tsx 가 자동 생성. ⚠️ Next 는 openGraph 를 깊은 병합
+  // 하지 않아 페이지 것이 layout 것을 통째로 대체 → siteName/locale/type 을
+  // 여기서 다시 명시해야 보존된다.
+  openGraph: {
+    title: "라이프북 — 부모님의 인생을 한 권으로",
+    description: S1.sub,
+    siteName: "라이프북",
+    locale: "ko_KR",
+    type: "website",
+  },
 };
 
 // 이미지 placeholder 슬롯 — 실화면 캡처를 끼우기 전 자리. data-slot 으로 식별.

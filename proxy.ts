@@ -10,7 +10,15 @@ import authConfig from "./auth.config";
 const { auth } = NextAuth(authConfig);
 
 // 로그인 없이 누구나 접근 가능한 페이지.
-const PUBLIC_PATHS = new Set<string>(["/", "/login", "/privacy"]);
+// /opengraph-image — 카카오톡·문자 링크 미리보기 크롤러가 받아가는 OG 썸네일.
+// 점(.) 없는 경로라 matcher 에 안 걸러져 여기서 명시 공개해야 한다(미지정 시
+// 크롤러가 이미지 대신 /login 리다이렉트를 받아 미리보기가 안 뜸).
+const PUBLIC_PATHS = new Set<string>([
+  "/",
+  "/login",
+  "/privacy",
+  "/opengraph-image",
+]);
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;

@@ -18,8 +18,20 @@ import "./globals.css";
 // 세션·잔액·테마를 서버에서 미리 읽어 헤더에 박는다.
 
 export const metadata: Metadata = {
+  // 절대 URL 기준 — og:image 등 상대경로가 이 도메인으로 해석된다.
+  metadataBase: new URL("https://lifebook-mauve.vercel.app"),
   title: "Lifebook",
   description: "AI와 함께 채워나가는 나의 인생 연혁표",
+  // 카카오톡·문자 링크 미리보기용 기본값. 페이지가 openGraph 를 따로
+  // 주면 병합되어 덮어쓴다. og:image 는 app/opengraph-image.tsx 가 자동 생성.
+  openGraph: {
+    siteName: "라이프북",
+    locale: "ko_KR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 // 제목용 명조. globals.css 의 --font-serif(@theme inline)가 이 변수를 참조.
