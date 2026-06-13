@@ -178,6 +178,12 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **다듬기 UX·모델·404** | **자동저장 통합(RefineSection→EventForm, 미저장 draft 오발 해소) + 연혁 카드 회상 표시(EventCard line-clamp)·revalidate /manage + 적용후 2단 상시(토글 폐기) + 깨진 입력(자모깨짐) 교정·NO_CHANGE 엄격화 + 모델 3종(빠르게/꼼꼼하게/가장 정밀=Haiku/Sonnet/Opus)·차등 차감 1/3/5(저장 시에만·402) + manage era·photo 404 kind 분기** | (`2026-06-13` 일지) | ✅ 완료 |
 | **랜딩 + /privacy** | **비로그인 랜딩(/) 6섹션(히어로·작동3단계·결과물·기념일#anniversary·신뢰·CTA) — lib/landing-copy 카피 분리 + data-slot 8개 + primary S1·S6만 + `--color-ph` + 공개 정적 /privacy(데이터 원칙 골자 v0 초안, PUBLIC_PATHS 등록)** | (`2026-06-13` 일지) | ✅ 완료 |
 | **온보딩 첫 사건** | **가입 직후 빈 타임라인 이탈 해소 — birthYear+BIRTH외 0건이면 시대 앵커 1개 제시(pickOnboardingEraEvent: +20·POLITICS_SOCIETY VERIFIED·closest, 카테고리 파라미터화) + EraMemoryEditor saveAction prop 주입(stash+저장 결합) + localStorage 닫기. 스키마 0** | (`2026-06-13` 일지) | ✅ 완료 |
+| **privacy v1.0 + consent** | **개인정보 처리방침 v1.0(회사 약속 4조 + 1~10항, 사업자등록 전 `[ ]` placeholder) + 동의 문구 v1.0 정합(수집·이용·국외이전 Anthropic/미국·"자세히 보기"→/privacy·라이프북 한글화)** | (`2026-06-13` 세션2 일지) | ✅ 완료 |
+| **모바일 터치** | **390px 시니어 점검 — 타임라인 아이콘 버튼 32~40→44px(패딩만), 모달/링크 44→48px, 카드 회상 14→18·제목 16→18px, 라이트박스 max-w-full. 드로어 패널 확인, 점 확대 보류** | (`2026-06-13` 세션2 일지) | ✅ 완료 |
+| **토큰 패키지 4종 + Opus차감** | **TOPUP_PACKAGES 4종(1k/3k/5k/10k +보너스)·SIGNUP 30→50·Opus 다듬기 8배(REFINE_MODEL_MULTIPLIER 1/3/8, 비서 1/3/5와 분리)·success 재방문 가드(findSettledOrder)** | (`2026-06-13` 세션2 일지) | ✅ 완료 |
+| **ProductOrder + /shop** | **실물 상품 판매 — ProductOrder 모델(TokenOrder 분리)·confirm 공용 재사용·settleProductOrder·배송지 스냅샷·상수 카탈로그(포스터49k/씨앗19k/책99k+배송3k)·/shop 5라우트·테스트 배너. 마이그 순수 ADD** | `docs/decisions/product-order-commerce.md` | ✅ 완료 |
+| **랜딩 연결 + Vercel** | **S3 배지 제거→/shop 상세 링크·S4→/shop/book·proxy /shop 비로그인 둘러보기·postinstall prisma generate(배포 blocker 해소)·env 16키 인벤토리** | (`2026-06-13` 세션2 일지) | ✅ 완료 |
+| **배포 전 코드리뷰** | **보안·정합·회귀 점검(결제·인증·개인정보 통과) + A(탈퇴 ProductOrder 정리) + B(test-topup-settle 격리 P2002 픽스). C(가족룸 교정본) 출시 후** | `docs/troubleshooting/test-payment-key-collision.md` | ✅ A·B 완료 |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -635,6 +641,15 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [x] manage era·photo 404(2026-06-13) → getLifeEvents 는 3종(life_event·era_event·photo) 반환인데 manage 가 무분별하게 /[id]/edit 링크 → getLifeEventById(life_event 필터) null → 404. 같은 UserMemory 테이블이라 e.kind 분기(백엔드 0): life_event=수정/삭제, era_event="그 시절 둘러보기"(/era), photo="사진 화면"(/photos) 안내. 행은 목록 유지. A안(라우트 분기+EraView focus 신규) 대신 B안(편집면이 다른 게 데이터 정직). `docs/troubleshooting/manage-era-photo-edit-404.md`
 - [x] 랜딩(/) + 공개 /privacy(2026-06-13) → 비로그인 랜딩(로그인은 /life-timeline 리다이렉트), 6섹션 와이어 v0.2. 헤더는 기존 layout 재사용(중복 X), 카피 lib/landing-copy 분리(확정 슬롯 + 더미), 이미지 슬롯 data-slot 8개, primary S1·S6만, 본문 18px 하한, `--color-ph` 토큰. 히어로 9/16(세로 모바일)·카드 4/3. 개인정보 링크 깨짐 방지 위해 공개 정적 /privacy(데이터 원칙 골자 v0 초안 — 법적 최종본은 데이터정책 소관) 동반 + proxy PUBLIC_PATHS 등록. S4 CTA 는 /login(후속 교체)
 - [x] 온보딩 첫 사건 카드(2026-06-13) → birthYear 有 + **BIRTH 외 이벤트 0건**(getBirthYear 가 BIRTH 행 파생이라 "0건"과 모순 → 재정의)이면 시대 앵커 1개 제시. `pickOnboardingEraEvent`(target=birthYear+20, POLITICS_SOCIETY VERIFIED closest, 결정적 tie-break, sections 파라미터화로 v2 SPORTS 확장 여지). 저장 시 생성 = EraMemoryEditor optional `saveAction` prop(기존 호출자 무영향)에 stash+저장 결합 액션 주입. 닫기 = localStorage 기기-로컬(스키마 0, 기록 1건이면 자동 소멸). 첫사건>WelcomeCard>V3배너 택1. `docs/decisions/onboarding-first-era.md`
+- [x] 개인정보 처리방침 v1.0 + consent 정합(2026-06-13) → /privacy 공개 정적(회사 약속 4조 + 1~10항, 사업자등록 6/17 전까지 `[ ]` placeholder). consent 동의문이 v1.0과 정합(국외이전 Anthropic/미국 명시 + 거부권 + "자세히 보기"→/privacy). 법적 영역이라 과도한 의역 금지·정확성 우선
+- [x] 토큰 패키지 4종 + 기본지급 50(2026-06-13) → TOPUP_PACKAGES(1k/3k/5k/10k, 보너스 +30/75/250, tokens=총량 스냅샷·settle 무수정). SIGNUP_GRANT 30→50(신규만, 기존 지갑 무영향)
+- [x] Opus 다듬기 차감 8배(2026-06-13) → `REFINE_MODEL_MULTIPLIER`(1/3/8) **신설로 비서 `MODEL_MULTIPLIER`(1/3/5)와 분리**. 공유 확인 후 "다듬기만" 결정(비서 Opus는 5 유지). 원가 초과 방지. RefineSection 근사치 라벨도 8로 동기화
+- [x] 결제 success 재방문 가드(2026-06-13) → `findSettled{Order,ProductOrder}`로 confirm 호출 *전에* paid 확인 → "이미 충전/접수됐어요"(이미 처리된 결제에 confirm 재호출 시 에러화면 뜨던 것 방지). 토큰·상품 양쪽
+- [x] 실물 상품 판매(2026-06-13) → **별도 `ProductOrder` 모델 + 결제 confirm 공용 재사용**. TokenOrder와 분리 이유: settle 부수효과 정반대(적립 vs 미적립)·배송 status 추가·필수 필드 상이. 가격=상수 카탈로그(서버 진실)·배송지=주문 스냅샷·전상법 5년 SetNull. 수량 v1 1 고정. `docs/decisions/product-order-commerce.md`
+- [x] /shop 게이트(2026-06-13) → `/shop`·`/shop/<id>`(상세)는 proxy 비로그인 둘러보기 허용(랜딩 S3·S4 유입), 주문·결제(`/shop/<id>/order`·`/shop/order/*` 2단 경로)부터 로그인. 공개 페이지는 auth() 미호출이라 안전
+- [x] Vercel prisma generate(2026-06-13) → `package.json` `postinstall: prisma generate`. 생성물(lib/generated/prisma)이 gitignore·미추적이라 Vercel install 후 클라이언트 누락 → 빌드 실패. build는 `next build` 유지(분리). migrate deploy는 운영 DB에 이미 적용
+- [x] 탈퇴 시 ProductOrder 정리(2026-06-13) → `productOrder.deleteMany({pending/failed/canceled})`. paid 이후(preparing/shipped/delivered)는 FK SetNull 익명화 보존(전상법). TokenOrder 패턴과 동일하나 보존 status가 여럿이라 삭제 대상 명시
+- [ ] 가족 룸 교정본(C, 출시 후) → listRoomMemories는 원문 유지. 룸에도 다듬은 글 표시할지 미정
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
 - [ ] 타임머신 시드 시기 확장 정책 (과거로 얼마나 / 큐레이션 단위)
