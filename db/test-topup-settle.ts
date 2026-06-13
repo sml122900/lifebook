@@ -25,23 +25,30 @@ async function main() {
       data: { userId: user.id, balance: 0 },
     });
 
+    // 매 실행 고유 paymentKey — paymentKey 는 전역 @unique 라 고정 문자열을
+    // 쓰면, throwaway user 를 지워도 SetNull 로 남은 이전 TokenOrder 행과
+    // 재실행 시 P2002 로 충돌한다. user.id(cuid)로 실행마다 유일하게.
+    const pk1 = `pk-${user.id}-1`;
+    const pk2 = `pk-${user.id}-2`;
+    const pk4 = `pk-${user.id}-4`;
+
     console.log("\n— step 1: happy path");
     const order1 = await createPendingOrder(user.id, "starter");
     console.log(`  created order ${order1.orderId} (${order1.krw}원 → ${order1.tokens}토큰)`);
-    const s1 = await settleOrderAfterToss(user.id, order1.orderId, "pk-1", order1.krw);
+    const s1 = await settleOrderAfterToss(user.id, order1.orderId, pk1, order1.krw);
     console.log(`  settle:`, s1);
     let rec = await reconcileBalance(user.id);
     console.log(`  reconcile: wallet=${rec.walletBalance} txSum=${rec.transactionSum} match=${rec.match}`);
 
     console.log("\n— step 2: same paymentKey twice (idempotency)");
-    const s2 = await settleOrderAfterToss(user.id, order1.orderId, "pk-1", order1.krw);
+    const s2 = await settleOrderAfterToss(user.id, order1.orderId, pk1, order1.krw);
     console.log(`  settle:`, s2);
     rec = await reconcileBalance(user.id);
     console.log(`  reconcile: wallet=${rec.walletBalance} txSum=${rec.transactionSum} match=${rec.match}`);
 
     console.log("\n— step 3: amount mismatch (Toss reports half)");
     const order2 = await createPendingOrder(user.id, "starter");
-    const s3 = await settleOrderAfterToss(user.id, order2.orderId, "pk-2", 500);
+    const s3 = await settleOrderAfterToss(user.id, order2.orderId, pk2, 500);
     console.log(`  settle:`, s3);
     const o2 = await prisma.tokenOrder.findUnique({ where: { id: order2.orderId } });
     console.log(`  order status=${o2?.status} failReason=${o2?.failReason}`);
@@ -51,7 +58,7 @@ async function main() {
     console.log("\n— step 4: bonus package credits total (value 3,000원 → 330토큰)");
     const order4 = await createPendingOrder(user.id, "value");
     console.log(`  created order ${order4.orderId} (${order4.krw}원 → ${order4.tokens}토큰)`);
-    const s4 = await settleOrderAfterToss(user.id, order4.orderId, "pk-4", order4.krw);
+    const s4 = await settleOrderAfterToss(user.id, order4.orderId, pk4, order4.krw);
     console.log(`  settle:`, s4);
     rec = await reconcileBalance(user.id);
     console.log(`  reconcile: wallet=${rec.walletBalance} txSum=${rec.transactionSum} match=${rec.match}`);
@@ -74,6 +81,9 @@ async function main() {
       console.log("\nOK: settle is idempotent, mismatch is rejected, ledger stays consistent.");
     }
   } finally {
+    // orphan 방지 — TokenOrder.userId 는 SetNull 이라 user 삭제만으론 행이
+    // 남는다(paymentKey 가 전역 @unique 라 다음 실행과 충돌). 먼저 정리.
+    await prisma.tokenOrder.deleteMany({ where: { userId: user.id } });
     await prisma.user.delete({ where: { id: user.id } });
   }
 
