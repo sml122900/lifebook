@@ -343,3 +343,9 @@
 - **Problem**: 공개 URL 배포(부모님 폰) 전, 1주 누적분(디자인 토큰·다듬기·모바일·토큰결제·상품결제·랜딩)의 보안·정합·회귀를 점검. 회귀 중 결제 정산 테스트가 P2002로 빨강 → "결제 버그?" 의심.
 - **Action**: 심각도순 체계 점검 — 결제(서버 금액 진실·confirm 우회 불가·IDOR·idempotent), 인증(API auth+401), 개인정보(GPS strip 4경로·음성 미저장·비밀키 NEXT_PUBLIC 0), 정합(displayRefined 스왑·탈퇴 SetNull). 테스트 실패는 추적 결과 **격리 결함**으로 분해 — 고정 paymentKey + 법적 보존(SetNull)으로 남은 orphan 행이 전역 unique와 충돌, 운영 키는 토스가 유니크 발급하므로 프로덕션 발생 불가. 발견한 실수정 2건만(탈퇴 ProductOrder 정리·테스트 격리) 반영, 운영 DB orphan은 SELECT 제시 후 사용자 직접 삭제(운영 변경 수칙).
 - **Result**: 배포 차단 0으로 결론, 출시 후 후보 명확화. 3종 회귀 green 복구. *교훈*: (1) `onDelete: SetNull`로 법적 보존하는 테이블은 보존 정책과 테스트 격리를 같이 설계해야 — 안 그러면 보존된 자식 행이 다음 테스트를 깬다. (2) "테스트가 빨강"과 "프로덕션이 버그"는 다른 명제 — 분해해 입증해야 잘못된 핫픽스를 막는다.
+
+## 소셜 로그인 확장 — 스키마 0으로 카카오·네이버 추가 (게이트의 provider-무관성 입증)
+
+- **Problem**: 어르신 타깃이라 구글보다 카카오·네이버가 익숙 → 배포 전 두 소셜 로그인 추가. 인증은 모든 동선의 입구라 회귀 위험이 크고, 카카오는 이메일 미수집(닉네임만) 요구라 "이메일 없이 가입이 되는가"가 관건.
+- **Action**: 구현 전 **조사로 마이그 불필요를 입증** — ① `User.email String? @unique`(Postgres 는 unique 컬럼 NULL 다중 허용 → 무이메일 다수 OK), ② 계정 식별은 email 아닌 `Account(provider, providerAccountId)` 유니크 → provider 고유 id 로 별도 계정, ③ 동의 게이트(`proxy.ts`)·`/enter`·온보딩이 `consentComplete` 하나만 보고 provider 이름을 grep 으로도 안 봄. 결론적으로 `auth.config.ts` providers 배열 + 로그인 버튼만 추가(next-auth 내장 provider). 네이버는 "이름은 MAP인데 실제론 검색 API"였던 환경변수를 `AUTH_NAVER_ID/SECRET`로 정리해 검색 API와 로그인이 한 키 공유(developers.naver.com 한 앱). 브랜드색은 로그인 가이드 강제라 디자인 토큰의 의도된 예외로 두되 시니어 규격(56px·18px)은 유지.
+- **Result**: 스키마·마이그·패키지 0, 변경은 코드 2~3파일. tsc·build 통과, /login 버튼 3개, 동의·온보딩 자동 적용. *교훈*: (1) 인증 같은 고위험 영역은 "코드부터"가 아니라 "왜 안 건드려도 되는지"를 데이터 제약(nullable unique·식별 키)으로 먼저 입증하는 게 더 빠르고 안전하다. (2) 게이트를 처음부터 provider-무관(동의 타임스탬프 파생 플래그)으로 설계해 둔 덕에 신규 provider가 0줄로 올라탔다 — 분기 대신 불변식.

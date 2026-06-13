@@ -93,8 +93,10 @@ function parseNaverCoord(s: string | undefined): number | null {
 }
 
 async function searchNaver(query: string): Promise<PlaceResult[]> {
-  const id = process.env.NAVER_MAP_CLIENT_ID;
-  const secret = process.env.NAVER_MAP_CLIENT_SECRET;
+  // developers.naver.com 한 앱의 Client ID/Secret 으로 네이버 로그인과 검색
+  // API 를 함께 쓴다 → Auth.js 규약(AUTH_NAVER_*)으로 통일해 키를 공유.
+  const id = process.env.AUTH_NAVER_ID;
+  const secret = process.env.AUTH_NAVER_SECRET;
   if (!id || !secret || id.startsWith("여기에_")) {
     throw new Error("네이버 키가 설정 안 돼있어요.");
   }

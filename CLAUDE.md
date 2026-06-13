@@ -184,6 +184,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **ProductOrder + /shop** | **실물 상품 판매 — ProductOrder 모델(TokenOrder 분리)·confirm 공용 재사용·settleProductOrder·배송지 스냅샷·상수 카탈로그(포스터49k/씨앗19k/책99k+배송3k)·/shop 5라우트·테스트 배너. 마이그 순수 ADD** | `docs/decisions/product-order-commerce.md` | ✅ 완료 |
 | **랜딩 연결 + Vercel** | **S3 배지 제거→/shop 상세 링크·S4→/shop/book·proxy /shop 비로그인 둘러보기·postinstall prisma generate(배포 blocker 해소)·env 16키 인벤토리** | (`2026-06-13` 세션2 일지) | ✅ 완료 |
 | **배포 전 코드리뷰** | **보안·정합·회귀 점검(결제·인증·개인정보 통과) + A(탈퇴 ProductOrder 정리) + B(test-topup-settle 격리 P2002 픽스). C(가족룸 교정본) 출시 후** | `docs/troubleshooting/test-payment-key-collision.md` | ✅ A·B 완료 |
+| **소셜 로그인 확장** | **카카오·네이버 로그인 추가 — 스키마/마이그/패키지 0(next-auth 내장). 인증 게이트가 이미 provider-무관임을 입증(email nullable+unique·Account 식별·consentComplete 단일 플래그). 네이버 검색 키 → AUTH_NAVER_ID/SECRET 정리(로그인+검색 한 앱 공유). 브랜드색 토큰 예외(56px·18px 유지)** | `docs/decisions/social-login-providers.md` | ✅ 완료 (키·콜백 등록 = 사용자) |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -649,6 +650,8 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [x] /shop 게이트(2026-06-13) → `/shop`·`/shop/<id>`(상세)는 proxy 비로그인 둘러보기 허용(랜딩 S3·S4 유입), 주문·결제(`/shop/<id>/order`·`/shop/order/*` 2단 경로)부터 로그인. 공개 페이지는 auth() 미호출이라 안전
 - [x] Vercel prisma generate(2026-06-13) → `package.json` `postinstall: prisma generate`. 생성물(lib/generated/prisma)이 gitignore·미추적이라 Vercel install 후 클라이언트 누락 → 빌드 실패. build는 `next build` 유지(분리). migrate deploy는 운영 DB에 이미 적용
 - [x] 탈퇴 시 ProductOrder 정리(2026-06-13) → `productOrder.deleteMany({pending/failed/canceled})`. paid 이후(preparing/shipped/delivered)는 FK SetNull 익명화 보존(전상법). TokenOrder 패턴과 동일하나 보존 status가 여럿이라 삭제 대상 명시
+- [x] 소셜 로그인 카카오·네이버(2026-06-13 세션3) → **스키마/마이그/패키지 0**. next-auth 내장 provider 를 `auth.config.ts` `providers: [Google, Kakao, Naver]` 에 추가 + `login/page.tsx` 버튼 3개(카카오 #FEE500/네이버 #03C75A 브랜드색 = 디자인 토큰 의도된 예외, 56px·18px 유지, 순서 카카오→네이버→구글). 마이그 불필요 근거: `User.email String? @unique`(Postgres NULL 다중 허용 → 카카오 무이메일 가입 OK)·식별은 `Account(provider, providerAccountId)`(email 무관)·게이트(`proxy.ts`/`/enter`/온보딩)가 `consentComplete` 단일 플래그라 provider-무관. 별도 계정 정책(이메일 자동 병합 X = Auth.js 기본). `docs/decisions/social-login-providers.md`
+- [x] 네이버 env 정리(2026-06-13 세션3) → `NAVER_MAP_CLIENT_ID/SECRET`(이름과 달리 NCP 지도 아닌 developers.naver.com **지역 검색 API** 키, place-search 검색창용) → `AUTH_NAVER_ID/SECRET` 로 rename. 한 네이버 앱 키로 검색+로그인 공유(Auth.js 자동 인식). 코드 1줄(`place-search/route.ts`)+`.env`+`.env.example`. ⚠️ `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID`(NCP Maps 타일 SDK)는 완전히 다른 시스템 — 무수정
 - [ ] 가족 룸 교정본(C, 출시 후) → listRoomMemories는 원문 유지. 룸에도 다듬은 글 표시할지 미정
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
 - [ ] 포토북 제작·배송 파트너 (Phase 10)
