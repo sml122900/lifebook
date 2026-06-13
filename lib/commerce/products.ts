@@ -13,9 +13,9 @@ export type ProductId = "poster" | "charm" | "book";
 
 export type Product = {
   id: ProductId;
-  // 표시명(카드·상세·주문·토스 orderName). 랜딩 S3 라벨과 정합 목표.
-  // ⚠️ poster 는 경영방 대표 상품이 "인생 나무 A2" 라 S3 라벨("인생 연혁
-  //    포스터")과 다름 — S3 연결 시 라벨 정합/옵션화 결정 필요(미해결).
+  // 표시명(카드·상세·주문·토스 orderName) — 랜딩 S3 라벨과 통일.
+  // poster 대표 사양 = 느티나무 디자인 A2(49,000). 연혁형·A1 등 옵션은
+  // 출시 후 optionId 로 확장(상수에 options 추가 + 주문에 optionId 저장).
   name: string;
   spec: string; // 규격 한 줄 (A2 / 소프트커버 등)
   blurb: string; // 한 줄 소개
@@ -25,9 +25,9 @@ export type Product = {
 export const PRODUCTS: readonly Product[] = [
   {
     id: "poster",
-    name: "인생 나무 포스터",
-    spec: "A2 (420 × 594mm)",
-    blurb: "한 분의 인생을 한 그루 나무로 — 벽에 거는 큰 연혁.",
+    name: "인생 연혁 포스터",
+    spec: "느티나무 디자인 · A2 (420 × 594mm)",
+    blurb: "한 분의 인생을 느티나무 한 그루로 그린 A2 포스터 — 벽에 거는 큰 연혁.",
     unitKrw: 49000,
   },
   {

@@ -125,24 +125,24 @@ export default async function Home({
         </h2>
         <ul className="mt-10 grid gap-6 sm:grid-cols-3">
           {S3.products.map((p) => (
-            <li
-              key={p.slot}
-              className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-5"
-            >
-              <div className="relative">
+            <li key={p.slot}>
+              <Link
+                href={p.href}
+                className="flex h-full flex-col gap-4 rounded-lg border border-line bg-surface p-5 hover:border-brand hover:bg-canvas focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+              >
                 <Slot
                   id={p.slot}
                   caption={p.title}
                   className="aspect-[4/3] w-full"
                 />
-                <span className="absolute right-2 top-2 rounded-full border border-brand bg-banner px-3 py-1 text-sm font-semibold text-action">
-                  {S3.badge}
-                </span>
-              </div>
-              <div>
-                <p className="text-xl font-bold text-ink">{p.title}</p>
-                <p className="mt-1 text-lg text-ink-soft">{p.body}</p>
-              </div>
+                <div>
+                  <p className="text-xl font-bold text-ink">{p.title}</p>
+                  <p className="mt-1 text-lg text-ink-soft">{p.body}</p>
+                  <p className="mt-3 text-lg font-semibold text-action">
+                    보러 가기 →
+                  </p>
+                </div>
+              </Link>
             </li>
           ))}
         </ul>
@@ -161,10 +161,10 @@ export default async function Home({
             </h2>
             <p className="text-xl text-ink-soft">{S4.sub}</p>
             <div className="flex justify-center lg:justify-start">
-              {/* 후속: 선물 안내 페이지/섹션 생기면 href 교체 (지금은 /login). */}
-              <a href="/login" className={buttonClasses("secondary", "lg")}>
+              {/* 기념일=자서전 책 선물 맥락 → 책 상세로(비로그인 둘러보기 허용). */}
+              <Link href={S4.href} className={buttonClasses("secondary", "lg")}>
                 {S4.cta}
-              </a>
+              </Link>
             </div>
           </div>
           {/* S3 '자서전 책' 과 시각 연결되는 인접 슬롯 (별도 id) */}

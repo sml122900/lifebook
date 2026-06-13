@@ -19,6 +19,12 @@ export default auth((req) => {
   if (pathname.startsWith("/api/auth/")) return;
   if (PUBLIC_PATHS.has(pathname)) return;
 
+  // 상점 둘러보기는 비로그인 허용 — 랜딩 S3·S4 에서 상품을 바로 볼 수 있게.
+  // /shop(목록)·/shop/<id>(상세)만 공개. 주문·결제(/shop/<id>/order,
+  // /shop/order/*)는 2단 경로라 여기 안 걸리고 아래 로그인 게이트를 탄다.
+  // 공개 페이지들은 순수 상수 렌더라 auth() 호출이 없어 비로그인에 안전.
+  if (pathname === "/shop" || /^\/shop\/[^/]+$/.test(pathname)) return;
+
   // 비로그인 → 로그인 페이지로.
   const session = req.auth;
   if (!session) {

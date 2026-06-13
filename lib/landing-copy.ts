@@ -40,38 +40,41 @@ export const S2 = {
   ],
 } as const;
 
-// S3 결과물 — 전부 준비 중.
-// ※ 제품 카드 본문(body)은 마케팅 미확정 → 기존 문구 유지(라벨만 v1.0 확정).
-//   본문 확정 카피 오면 각 body 한 줄씩 교체.
+// S3 결과물 — /shop 상품 상세로 연결(배지 제거). title 은 products.ts name 과
+// 통일됨(인생 연혁 포스터 / 자서전 책 / 인생 씨앗(가)). href 는 상품 id 매핑.
+// ※ 제품 카드 본문(body)은 마케팅 미확정 → 기존 문구 유지.
 export const S3 = {
   headline: "기록은 화면에서 끝나지 않습니다",
-  badge: "준비하고 있어요",
   products: [
     {
       slot: "product-poster",
       title: "인생 연혁 포스터",
       body: "한 장에 담은 인생의 큰 줄기.",
+      href: "/shop/poster",
     },
     {
       slot: "product-book",
       title: "자서전 책",
       body: "이야기를 묶은, 세상에 하나뿐인 책.",
+      href: "/shop/book",
     },
     {
       slot: "product-keepsake",
       // ⚠️ 미확정 — "인생 씨앗(가)" 는 키프리스 상표 확인 대기(6/20).
-      //    확정 시 이 title 한 줄만 교체.
+      //    확정 시 이 title 과 products.ts name 한 줄만 교체.
       title: "인생 씨앗(가)",
       body: "곁에 두는 작은 기록물.",
+      href: "/shop/charm",
     },
   ],
 } as const;
 
-// S4 기념일·선물
+// S4 기념일·선물 — CTA 는 자서전 책 상세로(기념일=책 선물 맥락).
 export const S4 = {
   headline: "이번 생신엔, 부모님의 인생을 선물하세요",
   sub: "세상에 하나뿐인 자서전. 부모님은 답하기만 하면 됩니다.",
   cta: "선물 준비 알아보기",
+  href: "/shop/book",
   // S3 '자서전 책' 과 시각 연결되는 인접 슬롯(별도 id — product-book 과 구분).
   bookSlot: "anniversary-book",
   bookCaption: "자서전 책 미리보기",
