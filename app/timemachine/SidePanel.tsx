@@ -69,8 +69,18 @@ export function SidePanelLayout({
 
   return (
     <>
-      {/* 메인 콘텐츠 — 사이드 열림 + 데스크톱일 때만 우측 패딩 (320px=w-80) */}
-      <div className={open ? "lg:pr-80" : ""}>{children}</div>
+      {/* 메인 콘텐츠 — 사이드 열림 + 데스크톱일 때만 우측 패딩 (320px=w-80).
+          하단 패딩은 글로벌 AI 비서 FAB(우측 하단 fixed)가 스크롤 끝
+          콘텐츠를 가리지 않게(FAB 높이 64 + 여유 + safe-area). 인증 화면
+          전부가 이 래퍼를 거치므로 FAB 노출 범위와 정확히 일치. */}
+      <div
+        className={
+          (open ? "lg:pr-80 " : "") +
+          "pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
+        }
+      >
+        {children}
+      </div>
       <SidePanel
         data={data}
         open={open}

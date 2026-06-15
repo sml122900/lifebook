@@ -84,13 +84,17 @@ export function AssistantModal({
 
   return (
     <>
+      {/* 겹침 수정(surgical): z-40 으로 낮춰 사이드 패널(z-50)이 열리면 그 뒤로
+          가려지고 닫히면 다시 보이게(둘 다 동시 노출 시 겹침 0). bottom 은
+          16px + 모바일 safe-area(홈 인디케이터 회피). 색·아이콘·크기·right-6
+          은 그대로. */}
       {variant === "floating" ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-label="AI 비서와 대화"
           title="AI 비서와 대화"
-          className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full border-2 border-brand bg-surface text-action shadow-xl transition-transform hover:scale-105 hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full border-2 border-brand bg-surface text-action shadow-xl transition-transform hover:scale-105 hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <Sparkles strokeWidth={1.75} aria-hidden className="h-7 w-7 text-action" />
         </button>
