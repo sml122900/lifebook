@@ -9,6 +9,8 @@ import { buttonClasses } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getProduct, SHIPPING_KRW } from "@/lib/commerce/products";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
+
+import { PosterInteractive, type PosterSlot } from "./PosterInteractive";
 import type { MappingEvent } from "@/lib/poster/types";
 import { mapToPlacement } from "@/lib/poster/mapping";
 import { loadMasterSvg, renderPoster } from "@/lib/poster/render";
@@ -84,6 +86,17 @@ export default async function PosterPage() {
   const rawSvg = loadMasterSvg(zelkovaManifest, placement.branchCount);
   const svg = renderPoster(rawSvg, zelkovaManifest, placement);
 
+  // T3-a — placement 에서 사건→슬롯(c,e) 매핑 추출(클라 토글용). 챕터 인덱스
+  // +1 = c, 슬롯 인덱스 +1 = e (렌더러의 주입 좌표와 동일 규칙). 엔진 무수정.
+  const slots: PosterSlot[] = placement.chapters.flatMap((ch, ci) =>
+    ch.events.map((ev, ei) => ({
+      c: ci + 1,
+      e: ei + 1,
+      title: ev.title,
+      yearLabel: ev.yearLabel,
+    })),
+  );
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6 text-center">
@@ -93,11 +106,8 @@ export default async function PosterPage() {
         </p>
       </header>
 
-      {/* 읽기 전용 인라인 SVG. CSS 로 폭만 맞춤(width:100%) — 마스터의 mm
-          크기를 덮어쓰되 viewBox 비율은 유지. 비주얼은 손대지 않음. */}
-      <div className="mx-auto w-full max-w-[560px] overflow-hidden rounded-md border-2 border-line bg-surface shadow-sm [&>svg]:h-auto [&>svg]:w-full">
-        <div dangerouslySetInnerHTML={{ __html: svg }} />
-      </div>
+      {/* 포스터(유동 인라인 SVG) + 사건 체크박스 토글 (T3-a, 클라). */}
+      <PosterInteractive svg={svg} slots={slots} />
 
       <p className="mx-auto mt-4 max-w-[560px] text-center text-sm text-ink-soft">
         포스터로 만들면 더 크고 또렷하게 보여요.
