@@ -117,8 +117,14 @@ export default async function PosterPage() {
         </p>
       </header>
 
-      {/* 포스터(유동 인라인 SVG) + 사건 체크박스 토글 (T3-a, 클라). */}
-      <PosterInteractive svg={svg} slots={slots} />
+      {/* 포스터(유동 인라인 SVG) + 사건 토글/크기/텍스트 편집 (클라). */}
+      <PosterInteractive
+        svg={svg}
+        slots={slots}
+        defaultTitle={ownerName}
+        defaultFooter={placement.footerLine ?? ""}
+        defaultRoot={placement.rootLine ?? ""}
+      />
 
       <p className="mx-auto mt-4 max-w-[560px] text-center text-sm text-ink-soft">
         포스터로 만들면 더 크고 또렷하게 보여요.
