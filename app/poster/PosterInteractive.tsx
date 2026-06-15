@@ -1,15 +1,19 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // T3-a — 사건 빼고/넣기 (체크박스 → 포스터 슬롯 토글).
 //
 // 재렌더·재매핑·서버 왕복 0. 포스터 SVG 는 이미 사건마다 slot-cN-eM(비주얼)·
 // label-cN-eM(날짜)·label-cN-eM-t(제목) 그룹을 갖고 있으니, 체크를 끄면 그
-// (c,e) 3그룹에 display:none, 켜면 해제만 한다. 클릭 즉시 사라짐/나타남.
+// (c,e) 3그룹에 display:none, 켜면 해제만 한다.
 //
-// 클라 state 만(저장 X·마이그 0). 주문 연동은 후순위(T3-b).
-// T1 엔진(lib/poster/*) 무수정 — 기존 슬롯 ID 만 토글하는 인터랙션 레이어.
+// 동기화는 onChange 즉석 토글이 아니라 useEffect 로 한다(robust):
+//   - effect 는 렌더 커밋 후 실행 = svg 가 DOM 에 있는 시점 보장(타이밍 해소).
+//   - offSet 기준으로 slots 전체에 display 재적용 = 선언적·idempotent. 재마운트/
+//     재적용돼도 항상 off 상태와 일치(T3-b 가 슬롯 비주얼 바꿔도 off 재적용).
+//
+// 클라 state 만(저장 X·마이그 0). T1 엔진(lib/poster/*) 무수정.
 
 export type PosterSlot = {
   c: number;
@@ -17,6 +21,8 @@ export type PosterSlot = {
   title: string;
   yearLabel: string;
 };
+
+const keyOf = (s: PosterSlot) => `${s.c}-${s.e}`;
 
 export function PosterInteractive({
   svg,
@@ -29,35 +35,33 @@ export function PosterInteractive({
   // "꺼진" 슬롯 키 집합. 초기엔 전부 ON(빈 집합).
   const [off, setOff] = useState<Set<string>>(new Set());
 
-  const keyOf = (s: PosterSlot) => `${s.c}-${s.e}`;
-
-  const applyVisibility = useCallback(
-    (c: number, e: number, visible: boolean) => {
-      const root = containerRef.current;
-      if (!root) return;
-      const ids = [`slot-c${c}-e${e}`, `label-c${c}-e${e}`, `label-c${c}-e${e}-t`];
+  // offSet 변할 때마다 svg DOM 에 display 재적용 (마운트 시 1회 포함).
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    for (const s of slots) {
+      const hide = off.has(keyOf(s));
+      const ids = [
+        `slot-c${s.c}-e${s.e}`,
+        `label-c${s.c}-e${s.e}`,
+        `label-c${s.c}-e${s.e}-t`,
+      ];
       for (const id of ids) {
         const el = root.querySelector<SVGElement>(`#${CSS.escape(id)}`);
-        if (el) el.style.display = visible ? "" : "none";
+        if (el) el.style.display = hide ? "none" : "";
       }
-    },
-    [],
-  );
+    }
+  }, [off, slots]);
 
-  const toggle = useCallback(
-    (s: PosterSlot) => {
-      const key = keyOf(s);
-      setOff((prev) => {
-        const wasOff = prev.has(key);
-        applyVisibility(s.c, s.e, wasOff); // 꺼져 있었으면 → 보이게
-        const next = new Set(prev);
-        if (wasOff) next.delete(key);
-        else next.add(key);
-        return next;
-      });
-    },
-    [applyVisibility],
-  );
+  const toggle = (s: PosterSlot) => {
+    const key = keyOf(s);
+    setOff((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <div className="mx-auto lg:flex lg:items-start lg:gap-8">
@@ -80,7 +84,12 @@ export function PosterInteractive({
             const on = !off.has(keyOf(s));
             return (
               <li key={keyOf(s)}>
-                <label className="flex min-h-[56px] cursor-pointer items-center gap-3 px-4 py-2">
+                <label
+                  className={
+                    "flex min-h-[56px] cursor-pointer items-center gap-3 px-4 py-2 transition-opacity " +
+                    (on ? "opacity-100" : "opacity-40")
+                  }
+                >
                   <input
                     type="checkbox"
                     checked={on}
@@ -88,14 +97,16 @@ export function PosterInteractive({
                     className="h-6 w-6 shrink-0 accent-[#C8923D]"
                   />
                   <span
-                    className={
-                      "text-lg " +
-                      (on ? "text-ink" : "text-ink-soft line-through")
-                    }
+                    className={"text-lg text-ink " + (on ? "" : "line-through")}
                   >
                     {s.title}
                   </span>
-                  <span className="ml-auto shrink-0 text-base text-ink-soft">
+                  <span
+                    className={
+                      "ml-auto shrink-0 text-base text-ink-soft " +
+                      (on ? "" : "line-through")
+                    }
+                  >
                     {s.yearLabel}
                   </span>
                 </label>
