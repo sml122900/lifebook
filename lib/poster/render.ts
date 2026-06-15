@@ -93,6 +93,22 @@ function setSlotVariant(
   });
 }
 
+// 화면 유동화 — 렌더 출력의 루트 <svg> 만 손본다(마스터 파일은 mm 치수 그대로,
+// A2 인쇄용). 고정 물리치수(width="420mm" 등)를 제거하고 viewBox +
+// preserveAspectRatio + width="100%" 로 컨테이너 폭에 맞춰 비율 자동 스케일.
+// 페이지 CSS(셀렉터)와 무관하게 동작.
+function makeResponsiveRoot(svg: string): string {
+  return svg.replace(/<svg\b[^>]*>/, (tag) => {
+    let t = tag
+      .replace(/\s+width="[^"]*"/g, "")
+      .replace(/\s+height="[^"]*"/g, "");
+    if (!/\bpreserveAspectRatio=/.test(t)) {
+      t = t.replace(/>$/, ' preserveAspectRatio="xMidYMid meet">');
+    }
+    return t.replace(/>$/, ' width="100%">');
+  });
+}
+
 // 뿌리 텍스트(컨테이너 <g>) 의 첫 줄을 실제 출생 정보로, 이후 줄은 비운다
 // (가짜 부모 이름이 남지 않게). 라벨 id 가 없는 두 <text> 를 순서로 처리.
 function setRootText(svg: string, rootId: string, line: string): string {
@@ -187,6 +203,9 @@ export function renderPoster(
 
   // XML 주석 제거 — 샘플 데이터가 든 파일 머리말 주석 + 개발 주석 정리.
   svg = svg.replace(/<!--[\s\S]*?-->/g, "");
+
+  // 화면 유동화 — 루트 svg 고정 mm 치수 → width 100% (비율 viewBox 자동).
+  svg = makeResponsiveRoot(svg);
 
   return svg;
 }
