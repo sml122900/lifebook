@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,7 @@ import { Sprout } from "lucide-react";
 import { auth } from "@/auth";
 import { buttonClasses } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { getProduct, SHIPPING_KRW } from "@/lib/commerce/products";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import type { MappingEvent } from "@/lib/poster/types";
 import { mapToPlacement } from "@/lib/poster/mapping";
@@ -101,11 +103,71 @@ export default async function PosterPage() {
         포스터로 만들면 더 크고 또렷하게 보여요.
       </p>
 
+      <ProductSection />
+
       <div className="mt-8 text-center">
         <Link href="/life-timeline" className={buttonClasses("secondary", "lg")}>
           ← 인생 연혁으로
         </Link>
       </div>
     </main>
+  );
+}
+
+// T2 — "이렇게 배송됩니다" 정적 상품 섹션.
+//
+// 화면 속 나무가 사서 액자로 받는 실물 상품임을 보여주는 프레젠테이션만.
+// 인터랙션·주문·결제 연결 0. 가격·사양은 lib/commerce/products.ts 단일 출처
+// (경영재무 최종가 확정 시 products.ts 만 교체하면 자동 반영). T1 엔진 무수정.
+function ProductSection() {
+  const poster = getProduct("poster");
+  if (!poster) return null;
+
+  const won = (n: number) => n.toLocaleString("ko-KR");
+
+  return (
+    <section className="mx-auto mt-12 max-w-[680px] border-t-2 border-line pt-10">
+      <header className="text-center">
+        <h2 className="text-2xl font-bold text-ink">이렇게 배송됩니다</h2>
+        <p className="mt-2 text-lg text-ink-soft">
+          화면 속 나무를, 액자에 든 실물 포스터로 받아 보세요.
+        </p>
+      </header>
+
+      <div className="mt-8 grid items-center gap-8 lg:grid-cols-2">
+        {/* 액자 목업 (디자인방 자산). 비율 유지 — fill + aspect 컨테이너. */}
+        <div className="relative mx-auto aspect-[4/3] w-full max-w-[420px] overflow-hidden rounded-md border-2 border-line bg-surface shadow-sm">
+          <Image
+            src="/landing/product-poster.png"
+            alt="액자에 든 인생 연혁 포스터 실물"
+            fill
+            className="object-cover"
+            sizes="(max-width: 1024px) 100vw, 420px"
+          />
+        </div>
+
+        {/* 사양·가격 — 모두 products.ts 에서 읽음(하드코딩 0). */}
+        <div className="text-center lg:text-left">
+          <h3 className="text-xl font-bold text-ink">{poster.name}</h3>
+          <p className="mt-2 text-lg text-ink-soft">{poster.blurb}</p>
+
+          <ul className="mt-5 space-y-2 text-lg text-ink">
+            <li>· {poster.spec}</li>
+            <li>· 액자에 넣어 보내드려요</li>
+          </ul>
+
+          <p className="mt-6">
+            <span className="text-3xl font-bold text-ink">{won(poster.unitKrw)}원</span>
+            <span className="ml-2 text-lg text-ink-soft">
+              + 배송 {won(SHIPPING_KRW)}원
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <p className="mt-8 text-center text-base text-ink-soft">
+        주문하기는 곧 열려요.
+      </p>
+    </section>
   );
 }
