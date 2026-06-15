@@ -43,3 +43,6 @@ next-env.d.ts
 
 /lib/generated/prisma
 
+# T1 포스터 데모 렌더 출력 (실사용자 개인정보 포함 — 커밋 금지)
+/design/templates/zelkova/_demo/
+

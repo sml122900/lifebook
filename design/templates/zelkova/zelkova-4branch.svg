@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lifebook 인생 나무 포스터 — A2 마스터 템플릿 (4-branch) v0.1
+  챕터 4개: 유년기 / 학창·청년기 / 성인기 / 노년기
+  샘플: 박명자 님 14개 사건
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 594" width="420mm" height="594mm">
+  <title>박명자 님의 인생 나무 — 4-branch 마스터 v0.1</title>
+  <defs>
+    <pattern id="hanji" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+      <line x1="2" y1="3" x2="7" y2="4" stroke="#a89373" stroke-width="0.08"/>
+      <line x1="9" y1="16" x2="15" y2="17" stroke="#a89373" stroke-width="0.08"/>
+      <line x1="16" y1="8" x2="20" y2="10" stroke="#a89373" stroke-width="0.08"/>
+      <circle cx="5" cy="10" r="0.25" fill="#a89373"/>
+      <circle cx="13" cy="6" r="0.2" fill="#a89373"/>
+      <circle cx="18" cy="15" r="0.25" fill="#a89373"/>
+    </pattern>
+    <symbol id="leaf-s" viewBox="0 0 7 5"><ellipse cx="3.5" cy="2.5" rx="3" ry="1.8" fill="currentColor"/></symbol>
+    <symbol id="flower-s" viewBox="0 0 14 14">
+      <circle cx="7" cy="7" r="2.8" fill="currentColor"/>
+      <ellipse cx="7" cy="2.5" rx="1.6" ry="2.2" fill="currentColor" opacity="0.72"/>
+      <ellipse cx="7" cy="11.5" rx="1.6" ry="2.2" fill="currentColor" opacity="0.72"/>
+      <ellipse cx="2.5" cy="7" rx="2.2" ry="1.6" fill="currentColor" opacity="0.72"/>
+      <ellipse cx="11.5" cy="7" rx="2.2" ry="1.6" fill="currentColor" opacity="0.72"/>
+    </symbol>
+    <symbol id="fruit-s" viewBox="0 0 12 14">
+      <circle cx="6" cy="8" r="5" fill="currentColor"/>
+      <path d="M 6 3 C 6 0.5 8.5 0 8.5 1.8" stroke="currentColor" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+      <ellipse cx="5" cy="3.5" rx="1.8" ry="1" fill="currentColor" opacity="0.6" transform="rotate(-20 5 3.5)"/>
+    </symbol>
+    <symbol id="bird-s" viewBox="0 0 14 9">
+      <path d="M 1 5 C 3.5 2.5 5.5 1.5 7 2.8 C 8.5 1.5 10.5 2.5 13 5" stroke="currentColor" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+      <path d="M 7 2.8 L 7.2 6" stroke="currentColor" stroke-width="0.8" fill="none"/>
+    </symbol>
+    <style>
+      .idx-line{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:3.5px;fill:#857C72}
+      .chapter-lbl{font-family:'Noto Serif KR',serif;font-size:5px;font-weight:700;fill:#5C3820}
+      .event-lbl{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:3.5px;fill:#2A2520}
+      .year-lbl{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:3px;font-weight:700;fill:#5C3820}
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="420" height="594" fill="#FAF7F0"/>
+  <rect x="0" y="0" width="420" height="594" fill="url(#hanji)" opacity="0.55"/>
+
+  <!-- 제목 -->
+  <g text-anchor="middle">
+    <text x="210" y="22" font-family="'Pretendard',sans-serif" font-size="3.53" font-weight="500" fill="#857C72" letter-spacing="2">L I F E B O O K</text>
+    <text id="title-name" x="210" y="50" font-family="'Noto Serif KR',serif" font-size="19" font-weight="700" fill="#2A2520">박명자 님의 인생 나무</text>
+    <text x="210" y="70" font-family="'Noto Serif KR',serif" font-size="9" fill="#5C534A" letter-spacing="1">큰 줄기</text>
+    <line x1="178" y1="82" x2="200" y2="82" stroke="#C8923D" stroke-width="0.4"/>
+    <circle cx="210" cy="82" r="1.4" fill="#C8923D"/>
+    <line x1="220" y1="82" x2="242" y2="82" stroke="#C8923D" stroke-width="0.4"/>
+  </g>
+
+  <!-- 뿌리 -->
+  <g fill="none">
+    <path d="M 198 468 C 186 476 168 482 148 486" stroke="#5C3820" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M 168 482 C 160 488 152 492 142 494" stroke="#5C3820" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M 222 468 C 234 476 252 482 272 486" stroke="#5C3820" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M 252 482 C 260 488 268 492 278 494" stroke="#5C3820" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M 210 470 C 210 480 208 488 206 494" stroke="#5C3820" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+  <g id="root-text" text-anchor="middle">
+    <text x="210" y="502" font-family="'Noto Serif KR',serif" font-size="4.5" fill="#5C3820" font-weight="500">충북 청주 · 1942</text>
+    <text x="210" y="508" font-family="'Pretendard',sans-serif" font-size="3.2" fill="#857C72">아버지 박○○ · 어머니 김○○</text>
+  </g>
+
+  <!-- 줄기 -->
+  <path d="M 196 468 C 193 400,193 330,200 215 L 220 215 C 227 330,227 400,224 468 Z" fill="#6B4226" opacity="0.88"/>
+  <path d="M 203 440 C 203 380 204 320 206 230" stroke="#8B5E3C" stroke-width="0.4" fill="none" opacity="0.5"/>
+  <path d="M 214 445 C 215 385 215 325 214 235" stroke="#8B5E3C" stroke-width="0.3" fill="none" opacity="0.4"/>
+
+  <!-- 가지 1: 유년기 (우, y≈440) -->
+  <g id="branch-1">
+    <path d="M 219 446 C 248 432,296 410,340 382 L 344 374 C 297 400,248 422,220 436 Z" fill="#7A5030" opacity="0.85"/>
+    <!-- 잔가지 1-1: 1942 출생 -->
+    <line x1="259" y1="421" x2="249" y2="401" stroke="#8B5E3C" stroke-width="1.2" stroke-linecap="round"/>
+    <g id="slot-c1-e1" color="#6B8C5A">
+      <use href="#leaf-s" x="240" y="390" width="8" height="6"/>
+      <use href="#leaf-s" x="246" y="387" width="7" height="5" transform="rotate(20 250 390)"/>
+      <use href="#leaf-s" x="244" y="394" width="6" height="4" transform="rotate(-15 247 396)"/>
+    </g>
+    <text id="label-c1-e1" class="year-lbl" x="250" y="386">1942</text>
+    <text id="label-c1-e1-t" class="event-lbl" x="250" y="382">충북 청주 출생</text>
+    <!-- 잔가지 1-2: 1949 피난 -->
+    <line x1="301" y1="400" x2="291" y2="380" stroke="#8B5E3C" stroke-width="1.1" stroke-linecap="round"/>
+    <g id="slot-c1-e2" color="#6B8C5A">
+      <use href="#leaf-s" x="282" y="369" width="8" height="6"/>
+      <use href="#leaf-s" x="288" y="366" width="7" height="5" transform="rotate(15 292 369)"/>
+      <use href="#leaf-s" x="286" y="373" width="6" height="4" transform="rotate(-20 289 375)"/>
+    </g>
+    <text id="label-c1-e2" class="year-lbl" x="292" y="365">1949</text>
+    <text id="label-c1-e2-t" class="event-lbl" x="292" y="361">한국전쟁 피난</text>
+    <text id="chapter-1" class="chapter-lbl" x="350" y="382">유년기</text>
+  </g>
+
+  <!-- 가지 2: 학창·청년기 (좌, y≈370) -->
+  <g id="branch-2">
+    <path d="M 199 364 C 170 358,120 338,74 315 L 72 323 C 118 346,168 366,199 378 Z" fill="#7A5030" opacity="0.82"/>
+    <!-- 잔가지 2-1: 1956 입학 -->
+    <line x1="175" y1="338" x2="183" y2="319" stroke="#8B5E3C" stroke-width="1.2" stroke-linecap="round"/>
+    <g id="slot-c2-e1" color="#6B8C5A">
+      <use href="#leaf-s" x="177" y="308" width="8" height="6"/>
+      <use href="#leaf-s" x="183" y="305" width="7" height="5" transform="rotate(-15 187 308)"/>
+      <use href="#leaf-s" x="181" y="312" width="6" height="4" transform="rotate(20 184 314)"/>
+    </g>
+    <text id="label-c2-e1" class="year-lbl" x="187" y="304">1956</text>
+    <text id="label-c2-e1-t" class="event-lbl" x="187" y="300">청주국민학교 입학</text>
+    <!-- 잔가지 2-2: 1962 고교 -->
+    <line x1="143" y1="326" x2="151" y2="307" stroke="#8B5E3C" stroke-width="1.1" stroke-linecap="round"/>
+    <g id="slot-c2-e2" color="#6B8C5A">
+      <use href="#leaf-s" x="145" y="296" width="8" height="6"/>
+      <use href="#leaf-s" x="151" y="293" width="7" height="5" transform="rotate(-20 155 296)"/>
+      <use href="#leaf-s" x="149" y="300" width="6" height="4" transform="rotate(15 152 302)"/>
+    </g>
+    <text id="label-c2-e2" class="year-lbl" x="155" y="292">1962</text>
+    <text id="label-c2-e2-t" class="event-lbl" x="155" y="288">청주고등학교 입학</text>
+    <!-- 잔가지 2-3: 1968 첫 직장 -->
+    <line x1="112" y1="313" x2="120" y2="294" stroke="#8B5E3C" stroke-width="1.0" stroke-linecap="round"/>
+    <g id="slot-c2-e3" color="#6B8C5A">
+      <use href="#leaf-s" x="114" y="283" width="8" height="6"/>
+      <use href="#leaf-s" x="120" y="280" width="7" height="5" transform="rotate(-15 124 283)"/>
+      <use href="#leaf-s" x="118" y="287" width="6" height="4" transform="rotate(20 121 289)"/>
+    </g>
+    <text id="label-c2-e3" class="year-lbl" x="124" y="279">1968</text>
+    <text id="label-c2-e3-t" class="event-lbl" x="124" y="275">서울 상경, 첫 직장</text>
+    <text id="chapter-2" class="chapter-lbl" x="55" y="295" text-anchor="end">학창·청년기</text>
+  </g>
+
+  <!-- 가지 3: 성인기 (우, y≈300) -->
+  <g id="branch-3">
+    <path d="M 219 297 C 250 286,295 265,342 244 L 345 237 C 296 257,250 278,220 307 Z" fill="#7A5030" opacity="0.78"/>
+    <!-- 잔가지 3-1: 1972 결혼 (꽃) -->
+    <line x1="246" y1="282" x2="237" y2="262" stroke="#8B5E3C" stroke-width="1.1" stroke-linecap="round"/>
+    <g id="slot-c3-e1" color="#C8923D">
+      <use href="#flower-s" x="228" y="247" width="14" height="14"/>
+    </g>
+    <text id="label-c3-e1" class="year-lbl" x="244" y="245">1972</text>
+    <text id="label-c3-e1-t" class="event-lbl" x="244" y="241">결혼</text>
+    <!-- 잔가지 3-2: 1974 큰딸 (꽃) -->
+    <line x1="266" y1="272" x2="257" y2="252" stroke="#8B5E3C" stroke-width="1.1" stroke-linecap="round"/>
+    <g id="slot-c3-e2" color="#C8923D">
+      <use href="#flower-s" x="248" y="237" width="14" height="14"/>
+    </g>
+    <text id="label-c3-e2" class="year-lbl" x="264" y="235">1974</text>
+    <text id="label-c3-e2-t" class="event-lbl" x="264" y="231">큰딸 출생</text>
+    <!-- 잔가지 3-3: 1977 아들 (꽃) -->
+    <line x1="287" y1="262" x2="278" y2="242" stroke="#8B5E3C" stroke-width="1.0" stroke-linecap="round"/>
+    <g id="slot-c3-e3" color="#C8923D">
+      <use href="#flower-s" x="269" y="227" width="14" height="14"/>
+    </g>
+    <text id="label-c3-e3" class="year-lbl" x="285" y="225">1977</text>
+    <text id="label-c3-e3-t" class="event-lbl" x="285" y="221">작은아들 출생</text>
+    <!-- 잔가지 3-4: 1985 자영업 -->
+    <line x1="307" y1="254" x2="298" y2="234" stroke="#8B5E3C" stroke-width="0.9" stroke-linecap="round"/>
+    <g id="slot-c3-e4" color="#6B8C5A">
+      <use href="#leaf-s" x="289" y="223" width="8" height="6"/>
+      <use href="#leaf-s" x="295" y="220" width="7" height="5" transform="rotate(-15 299 223)"/>
+      <use href="#leaf-s" x="293" y="227" width="6" height="4" transform="rotate(20 296 229)"/>
+    </g>
+    <text id="label-c3-e4" class="year-lbl" x="299" y="219">1985</text>
+    <text id="label-c3-e4-t" class="event-lbl" x="299" y="215">자영업 시작</text>
+    <!-- 잔가지 3-5: 1995 큰딸 결혼 -->
+    <line x1="328" y1="244" x2="319" y2="224" stroke="#8B5E3C" stroke-width="0.9" stroke-linecap="round"/>
+    <g id="slot-c3-e5" color="#6B8C5A">
+      <use href="#leaf-s" x="310" y="213" width="8" height="6"/>
+      <use href="#leaf-s" x="316" y="210" width="7" height="5" transform="rotate(-20 320 213)"/>
+      <use href="#leaf-s" x="314" y="217" width="6" height="4" transform="rotate(15 317 219)"/>
+    </g>
+    <text id="label-c3-e5" class="year-lbl" x="320" y="209">1995</text>
+    <text id="label-c3-e5-t" class="event-lbl" x="320" y="205">큰딸 결혼</text>
+    <text id="chapter-3" class="chapter-lbl" x="350" y="245">성인기</text>
+  </g>
+
+  <!-- 가지 4: 노년기 (좌, y≈238) -->
+  <g id="branch-4">
+    <path d="M 199 232 C 170 225,118 212,67 192 L 65 199 C 116 219,168 232,199 242 Z" fill="#7A5030" opacity="0.74"/>
+    <!-- 잔가지 4-1: 2003 손주 (열매) -->
+    <line x1="172" y1="209" x2="179" y2="190" stroke="#8B5E3C" stroke-width="1.1" stroke-linecap="round"/>
+    <g id="slot-c4-e1" color="#C8603D">
+      <use href="#fruit-s" x="172" y="175" width="12" height="14"/>
+    </g>
+    <text id="label-c4-e1" class="year-lbl" x="183" y="175">2003</text>
+    <text id="label-c4-e1-t" class="event-lbl" x="183" y="171">첫 손주</text>
+    <!-- 잔가지 4-2: 2008 은퇴 -->
+    <line x1="145" y1="200" x2="152" y2="181" stroke="#8B5E3C" stroke-width="1.0" stroke-linecap="round"/>
+    <g id="slot-c4-e2" color="#6B8C5A">
+      <use href="#leaf-s" x="147" y="170" width="8" height="6"/>
+      <use href="#leaf-s" x="153" y="167" width="7" height="5" transform="rotate(-15 157 170)"/>
+      <use href="#leaf-s" x="151" y="174" width="6" height="4" transform="rotate(20 154 176)"/>
+    </g>
+    <text id="label-c4-e2" class="year-lbl" x="157" y="166">2008</text>
+    <text id="label-c4-e2-t" class="event-lbl" x="157" y="162">은퇴</text>
+    <!-- 잔가지 4-3: 2015 여행 -->
+    <line x1="119" y1="191" x2="126" y2="172" stroke="#8B5E3C" stroke-width="0.9" stroke-linecap="round"/>
+    <g id="slot-c4-e3" color="#6B8C5A">
+      <use href="#leaf-s" x="121" y="161" width="8" height="6"/>
+      <use href="#leaf-s" x="127" y="158" width="7" height="5" transform="rotate(-20 131 161)"/>
+      <use href="#leaf-s" x="125" y="165" width="6" height="4" transform="rotate(15 128 167)"/>
+    </g>
+    <text id="label-c4-e3" class="year-lbl" x="131" y="157">2015</text>
+    <text id="label-c4-e3-t" class="event-lbl" x="131" y="153">부부 일본 여행</text>
+    <!-- 잔가지 4-4: 2023 팔순 (꽃) -->
+    <line x1="92" y1="181" x2="99" y2="162" stroke="#8B5E3C" stroke-width="0.9" stroke-linecap="round"/>
+    <g id="slot-c4-e4" color="#C8923D">
+      <use href="#flower-s" x="91" y="147" width="14" height="14"/>
+    </g>
+    <text id="label-c4-e4" class="year-lbl" x="107" y="153">2023</text>
+    <text id="label-c4-e4-t" class="event-lbl" x="107" y="149">팔순 잔치</text>
+    <text id="chapter-4" class="chapter-lbl" x="52" y="169" text-anchor="end">노년기</text>
+  </g>
+
+  <!-- 수관 배경 -->
+  <g fill="#6B8C5A" opacity="0.15">
+    <ellipse cx="200" cy="168" rx="48" ry="36"/>
+    <ellipse cx="148" cy="210" rx="42" ry="30"/>
+    <ellipse cx="305" cy="222" rx="40" ry="28"/>
+    <ellipse cx="110" cy="260" rx="36" ry="26"/>
+    <ellipse cx="260" cy="168" rx="36" ry="26"/>
+    <ellipse cx="170" cy="185" rx="30" ry="22"/>
+  </g>
+
+  <!-- 범례 -->
+  <g transform="translate(20, 402)">
+    <text font-family="'Pretendard',sans-serif" font-size="3.5" font-weight="500" fill="#5C534A" y="0">범례</text>
+    <g transform="translate(0,6)"><use href="#leaf-s" x="0" y="0" width="8" height="6" color="#6B8C5A"/><text class="event-lbl" x="10" y="5">일반 사건</text></g>
+    <g transform="translate(0,15)"><use href="#flower-s" x="0" y="0" width="10" height="10" color="#C8923D"/><text class="event-lbl" x="12" y="7">기쁜·중요 사건</text></g>
+    <g transform="translate(0,27)"><use href="#fruit-s" x="0" y="0" width="9" height="10" color="#C8603D"/><text class="event-lbl" x="12" y="7">결실 (자녀·손주·은퇴)</text></g>
+  </g>
+
+  <!-- 푸터 -->
+  <g>
+    <line x1="80" y1="518" x2="340" y2="518" stroke="#5C534A" stroke-width="0.2" opacity="0.4"/>
+    <line x1="195" y1="518" x2="225" y2="518" stroke="#C8923D" stroke-width="0.4"/>
+    <text id="footer-credit" x="210" y="529" font-family="'Noto Serif KR',serif" font-size="5" fill="#5C534A" text-anchor="middle">박명자 · 2026년 봄 제작</text>
+    <text id="index-header" x="20" y="541" font-family="'Pretendard',sans-serif" font-size="3.5" font-weight="500" fill="#5C534A">전체 사건 색인  ·  14건</text>
+    <text x="20" y="549" class="idx-line">유년기 — 1942 충북 청주 출생  ·  1949 한국전쟁 피난</text>
+    <text x="20" y="557" class="idx-line">학창·청년기 — 1956 청주국민학교 입학  ·  1962 청주고등학교 입학  ·  1968 서울 상경·첫 직장</text>
+    <text x="20" y="565" class="idx-line">성인기 — 1972 결혼  ·  1974 큰딸 출생  ·  1977 작은아들 출생  ·  1985 자영업 시작  ·  1995 큰딸 결혼</text>
+    <text x="20" y="573" class="idx-line">노년기 — 2003 첫 손주  ·  2008 은퇴  ·  2015 부부 일본 여행  ·  2023 팔순 잔치</text>
+    <line x1="80" y1="581" x2="340" y2="581" stroke="#5C534A" stroke-width="0.15" opacity="0.3"/>
+    <text x="210" y="589" font-family="'Pretendard',sans-serif" font-size="3.53" font-weight="500" fill="#857C72" text-anchor="middle" letter-spacing="1.5">L I F E B O O K  ·  라이프북</text>
+    <text id="dev-note" x="20" y="592" font-family="'Pretendard',sans-serif" font-size="2.5" fill="#C8923D" opacity="0.7">[템플릿 v0.1 — 4-branch / 슬롯 ID: slot-cN-eM / 인쇄 출력 전 본 라인 제거]</text>
+  </g>
+  <g stroke="#C8923D" stroke-width="0.1" stroke-dasharray="1,1" fill="none" opacity="0.2">
+    <rect x="10" y="10" width="400" height="574"/>
+  </g>
+</svg>
