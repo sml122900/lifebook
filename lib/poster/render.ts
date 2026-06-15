@@ -53,6 +53,33 @@ function hideByClass(svg: string, cls: string): string {
   return svg.replace(re, (m) => m.slice(0, -1) + ' display="none">');
 }
 
+// 변형 1개의 <use> 묶음을 앵커 기준으로 찍는다.
+function buildUses(
+  spec: TemplateManifest["significanceVariants"][Variant],
+  ax: number,
+  ay: number,
+): string {
+  return spec.symbols
+    .map((s) => {
+      const x = ax + s.dx;
+      const y = ay + s.dy;
+      const t =
+        s.rotate != null
+          ? ` transform="rotate(${s.rotate} ${(x + s.w / 2).toFixed(1)} ${(
+              y +
+              s.h / 2
+            ).toFixed(1)})"`
+          : "";
+      return `<use href="${s.href}" x="${x.toFixed(1)}" y="${y.toFixed(
+        1,
+      )}" width="${s.w}" height="${s.h}"${t}/>`;
+    })
+    .join("");
+}
+
+// T3-b — S/M/L 스왑 대상 변형(잎/꽃/열매). bird(standout)는 제외.
+const SIZE_VARIANTS: Variant[] = ["leaf", "flower", "fruit"];
+
 function setSlotVariant(
   svg: string,
   slotId: string,
@@ -68,28 +95,26 @@ function setSlotVariant(
     const ax = parseFloat(anchor[1]);
     const ay = parseFloat(anchor[2]);
 
-    let v = variant;
-    if (v === "bird" && !hasBird) v = manifest.birdFallback;
-    const spec = manifest.significanceVariants[v];
+    // standout(bird) — 단일 비스왑 변형. #bird-s 없으면 폴백. S/M/L 대상 아님.
+    if (variant === "bird") {
+      const v = hasBird ? "bird" : manifest.birdFallback;
+      const spec = manifest.significanceVariants[v];
+      return `<g id="${slotId}" color="${spec.color}">${buildUses(spec, ax, ay)}</g>`;
+    }
 
-    const uses = spec.symbols
-      .map((s) => {
-        const x = ax + s.dx;
-        const y = ay + s.dy;
-        const t =
-          s.rotate != null
-            ? ` transform="rotate(${s.rotate} ${(x + s.w / 2).toFixed(1)} ${(
-                y +
-                s.h / 2
-              ).toFixed(1)})"`
-            : "";
-        return `<use href="${s.href}" x="${x.toFixed(1)}" y="${y.toFixed(
-          1,
-        )}" width="${s.w}" height="${s.h}"${t}/>`;
-      })
-      .join("");
-
-    return `<g id="${slotId}" color="${spec.color}">${uses}</g>`;
+    // T3-b — 잎/꽃/열매 3변형을 같은 anchor 에 미리 emit. active(T1 휴리스틱
+    // 결과)만 보이고 나머지는 style display:none. 클라가 S/M/L 로 스왑할 때
+    // display 만 토글(재렌더·지오메트리 계산 0). 슬롯 ID = `${slotId}-${변형}`.
+    const subs = SIZE_VARIANTS.map((v) => {
+      const spec = manifest.significanceVariants[v];
+      const hidden = v !== variant ? ' style="display:none"' : "";
+      return `<g id="${slotId}-${v}" color="${spec.color}"${hidden}>${buildUses(
+        spec,
+        ax,
+        ay,
+      )}</g>`;
+    }).join("");
+    return `<g id="${slotId}">${subs}</g>`;
   });
 }
 

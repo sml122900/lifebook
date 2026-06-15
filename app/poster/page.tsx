@@ -86,14 +86,25 @@ export default async function PosterPage() {
   const rawSvg = loadMasterSvg(zelkovaManifest, placement.branchCount);
   const svg = renderPoster(rawSvg, zelkovaManifest, placement);
 
-  // T3-a — placement 에서 사건→슬롯(c,e) 매핑 추출(클라 토글용). 챕터 인덱스
-  // +1 = c, 슬롯 인덱스 +1 = e (렌더러의 주입 좌표와 동일 규칙). 엔진 무수정.
+  // T3-a/b — placement 에서 사건→슬롯(c,e) 매핑 추출. 챕터 인덱스 +1 = c,
+  // 슬롯 인덱스 +1 = e (렌더러 주입 좌표와 동일 규칙).
+  //   sizeable = bird(standout) 아님 → S/M/L 스왑 대상
+  //   initialSize = T1 변형(잎 S / 꽃 M / 열매 L). bird 는 null.
   const slots: PosterSlot[] = placement.chapters.flatMap((ch, ci) =>
     ch.events.map((ev, ei) => ({
       c: ci + 1,
       e: ei + 1,
       title: ev.title,
       yearLabel: ev.yearLabel,
+      sizeable: ev.variant !== "bird",
+      initialSize:
+        ev.variant === "leaf"
+          ? "S"
+          : ev.variant === "flower"
+            ? "M"
+            : ev.variant === "fruit"
+              ? "L"
+              : null,
     })),
   );
 
