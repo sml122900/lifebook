@@ -343,14 +343,16 @@ export function PosterInteractive({
         rootG.style.display = "none";
       }
     }
-  }, [active, off, sizes, positions, scales, editMode, title, footer, rootText, defaultTitle, defaultFooter, defaultRoot]);
 
-  // 편집 ③ — 포스터 메모를 SVG 오버레이로 그린다(슬롯 effect 와 분리·격리).
-  // active(전환 시 새 svg) · posterMemos · editMode 변화에 재적용. idempotent.
-  useEffect(() => {
-    const svg = containerRef.current?.querySelector("svg");
-    if (svg) renderMemos(svg as SVGSVGElement, posterMemos, editMode);
-  }, [active, posterMemos, editMode]);
+    // 편집 ③ 포스터 메모 오버레이 — 슬롯과 같은 effect/타이밍·deps 에 그린다.
+    // 별도 effect 로 분리했을 땐, 슬롯-only 상태변화(positions/scales/off/size/
+    // text)로 SVG 가 재적용·재주입돼 append 된 오버레이(#poster-memos)가 지워져도
+    // 메모 effect 는 재실행 안 돼 복원 실패 → 간헐 소실(T3-a 클로버 부류). 슬롯이
+    // 자가 복원되는 모든 트리거에 메모도 함께 복원되게 한 effect 로 합쳐 해소.
+    // (슬롯 경로 kind:"slot" 무수정 — 이 줄은 순수 가산.)
+    const svgEl = root.querySelector("svg");
+    if (svgEl) renderMemos(svgEl as SVGSVGElement, posterMemos, editMode);
+  }, [active, off, sizes, positions, scales, editMode, posterMemos, title, footer, rootText, defaultTitle, defaultFooter, defaultRoot]);
 
   const selectTemplate = (id: string) => {
     if (id === activeId) return;
