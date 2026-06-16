@@ -54,6 +54,51 @@ const MAX = { title: 16, footer: 30, root: 30, note: 50 };
 // 편집 ② 연속 스케일 범위(0.5~2.0, ±0.1 스텝).
 const SCALE = { min: 0.5, max: 2.0, step: 0.1 };
 
+// 편집 ③ 포스터 메모 — 자유 좌표(viewBox 420×594, 템플릿 무관). font/margin 은
+// user 단위(화면 ≈ ×1.33 라 11 ≈ 14~15px). max=글자수.
+const MEMO = { max: 40, font: 11, margin: 12 };
+
+type PosterMemo = { id: string; text: string; x: number; y: number };
+
+function escapeXmlText(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// 포스터 메모 오버레이 — svg 의 마지막 자식 <g id="poster-memos"> 에 메모들을
+// 그린다(트리 위에 뜸). 내 소유 레이어라 innerHTML 통째 교체 = idempotent
+// (마스터 SVG·슬롯 effect 와 무관·격리). 각 메모 = translate(x,y) 그룹(드래그가
+// transform 만 갱신, ① 패턴). 배경 알약으로 가독성 + 드래그 타깃 확대.
+function renderMemos(svg: SVGSVGElement, memos: PosterMemo[], editMode: boolean) {
+  let layer = svg.querySelector<SVGGElement>("#poster-memos");
+  if (!layer) {
+    layer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    layer.setAttribute("id", "poster-memos");
+    svg.appendChild(layer);
+  }
+  layer.innerHTML = memos
+    .map((m) => {
+      const text = m.text || "새 메모";
+      const w = Math.max(24, text.length * MEMO.font * 0.72 + 10);
+      const h = MEMO.font * 1.8;
+      const cursor = editMode ? ' style="cursor:grab"' : "";
+      return (
+        `<g id="pmemo-${m.id}" data-memo-id="${m.id}" transform="translate(${m.x.toFixed(
+          2,
+        )} ${m.y.toFixed(2)})"${cursor}>` +
+        `<rect x="${(-w / 2).toFixed(1)}" y="${(-h / 2).toFixed(1)}" width="${w.toFixed(
+          1,
+        )}" height="${h.toFixed(
+          1,
+        )}" rx="2.5" fill="#FFFDF7" stroke="#C8B89C" stroke-width="0.5" opacity="0.94"/>` +
+        `<text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-family="'Pretendard','Noto Sans KR',sans-serif" font-size="${MEMO.font}" fill="#2A2520">${escapeXmlText(
+          text,
+        )}</text>` +
+        `</g>`
+      );
+    })
+    .join("");
+}
+
 // 화면 px → SVG user space (반응형 width:100% 스케일 자동 보정).
 function clientToUser(svg: SVGSVGElement, cx: number, cy: number) {
   const ctm = svg.getScreenCTM();
@@ -174,20 +219,43 @@ export function PosterInteractive({
   >({});
   // 편집 ② — 사건별 연속 스케일(슬롯 키, 기본 1). positions 와 한 transform 으로 합쳐 적용.
   const [scales, setScales] = useState<Record<string, number>>({});
-  const dragRef = useRef<{
-    slotId: string;
-    slotEl: SVGGraphicsElement;
-    svg: SVGSVGElement;
-    baseDx: number;
-    baseDy: number;
-    startX: number;
-    startY: number;
-    lastDx: number;
-    lastDy: number;
-    scale: number; // 위치 드래그 중 스케일 보존(같이 적용)
-    cx: number;
-    cy: number;
-  } | null>(null);
+
+  // 편집 ③ — 포스터 메모(자유 좌표). 슬롯 기반 ①②와 달리 viewBox 좌표라 템플릿
+  // 전환에도 유지. 저장 X·마이그 0. 별도 effect 가 SVG 오버레이로 그림.
+  const [posterMemos, setPosterMemos] = useState<PosterMemo[]>([]);
+  const memoSeq = useRef(0);
+
+  // 드래그 대상 = 슬롯(①②) 또는 메모(③). kind 로 분기 — 슬롯 경로 무수정(회귀 0).
+  const dragRef = useRef<
+    | {
+        kind: "slot";
+        slotId: string;
+        slotEl: SVGGraphicsElement;
+        svg: SVGSVGElement;
+        baseDx: number;
+        baseDy: number;
+        startX: number;
+        startY: number;
+        lastDx: number;
+        lastDy: number;
+        scale: number; // 위치 드래그 중 스케일 보존(같이 적용)
+        cx: number;
+        cy: number;
+      }
+    | {
+        kind: "memo";
+        memoId: string;
+        memoEl: SVGGraphicsElement;
+        svg: SVGSVGElement;
+        baseX: number;
+        baseY: number;
+        startX: number;
+        startY: number;
+        lastX: number;
+        lastY: number;
+      }
+    | null
+  >(null);
 
   // off + size + text 를 active SVG DOM 에 함께 적용 (마운트·전환 시 포함).
   useEffect(() => {
@@ -277,6 +345,13 @@ export function PosterInteractive({
     }
   }, [active, off, sizes, positions, scales, editMode, title, footer, rootText, defaultTitle, defaultFooter, defaultRoot]);
 
+  // 편집 ③ — 포스터 메모를 SVG 오버레이로 그린다(슬롯 effect 와 분리·격리).
+  // active(전환 시 새 svg) · posterMemos · editMode 변화에 재적용. idempotent.
+  useEffect(() => {
+    const svg = containerRef.current?.querySelector("svg");
+    if (svg) renderMemos(svg as SVGSVGElement, posterMemos, editMode);
+  }, [active, posterMemos, editMode]);
+
   const selectTemplate = (id: string) => {
     if (id === activeId) return;
     const t = templates.find((x) => x.id === id);
@@ -286,8 +361,21 @@ export function PosterInteractive({
     setSizes(initSizes(t.slots));
     setPositions({}); // 템플릿마다 원위치가 달라 리셋(off/size 처럼)
     setScales({}); // 크기도 리셋
-    // 텍스트·메모는 유지(템플릿 무관 — 메모 키 = 제목+연도)
+    // 텍스트·사건 메모·포스터 메모는 유지(템플릿 무관 — 포스터 메모는 viewBox 좌표)
   };
+
+  // 편집 ③ — 포스터 메모 추가/수정/삭제/비우기.
+  const addPosterMemo = () =>
+    setPosterMemos((prev) => [
+      ...prev,
+      { id: `m${++memoSeq.current}`, text: "새 메모", x: 210, y: 297 },
+    ]);
+  const setMemoText = (id: string, text: string) =>
+    setPosterMemos((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, text } : m)),
+    );
+  const deleteMemo = (id: string) =>
+    setPosterMemos((prev) => prev.filter((m) => m.id !== id));
 
   // 편집 ② — 사건 크기 ±스텝(0.5~2.0 클램프). 통합 effect 가 위치와 합쳐 재적용.
   const bumpScale = (slotId: string, delta: number) =>
@@ -300,14 +388,41 @@ export function PosterInteractive({
       return { ...prev, [slotId]: next };
     });
 
-  // 드래그 — 포인터 이벤트(터치+마우스 통합). 채워진 보이는 슬롯만 대상.
+  // 드래그 — 포인터 이벤트(터치+마우스 통합). 포스터 메모(③, 위에 그려짐) 우선,
+  // 없으면 채워진 보이는 슬롯(①②).
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!editMode) return;
     const root = containerRef.current;
-    const svg = root?.querySelector("svg");
+    const svg = root?.querySelector("svg") as SVGSVGElement | null;
     if (!root || !svg) return;
-
     const target = e.target as Element;
+
+    // ③ 포스터 메모 드래그
+    const memoG = target.closest("g[id^='pmemo-']") as SVGGraphicsElement | null;
+    if (memoG) {
+      const memoId = memoG.getAttribute("data-memo-id");
+      const m = posterMemos.find((x) => x.id === memoId);
+      const start = clientToUser(svg, e.clientX, e.clientY);
+      if (!memoId || !m || !start) return;
+      dragRef.current = {
+        kind: "memo",
+        memoId,
+        memoEl: memoG,
+        svg,
+        baseX: m.x,
+        baseY: m.y,
+        startX: start.x,
+        startY: start.y,
+        lastX: m.x,
+        lastY: m.y,
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      memoG.style.cursor = "grabbing";
+      e.preventDefault();
+      return;
+    }
+
+    // ①② 슬롯 드래그
     let slotId: string | null = null;
     const g = target.closest("g[id^='slot-c']"); // 심볼 잡기
     if (g) slotId = g.id;
@@ -321,16 +436,17 @@ export function PosterInteractive({
       `#${CSS.escape(slotId)}`,
     );
     if (!slotEl || getComputedStyle(slotEl).display === "none") return; // 빈/off 비대상
-    const start = clientToUser(svg as SVGSVGElement, e.clientX, e.clientY);
+    const start = clientToUser(svg, e.clientX, e.clientY);
     if (!start) return;
 
     const cur = positions[slotId] ?? { dx: 0, dy: 0 };
     const scale = scales[slotId] ?? 1;
     const center = scale !== 1 ? bboxCenter(slotEl) : { cx: 0, cy: 0 };
     dragRef.current = {
+      kind: "slot",
       slotId,
       slotEl,
-      svg: svg as SVGSVGElement,
+      svg,
       baseDx: cur.dx,
       baseDy: cur.dy,
       startX: start.x,
@@ -351,6 +467,23 @@ export function PosterInteractive({
     if (!d) return;
     const p = clientToUser(d.svg, e.clientX, e.clientY);
     if (!p) return;
+
+    if (d.kind === "memo") {
+      const vb = d.svg.viewBox.baseVal;
+      const x = Math.min(
+        Math.max(d.baseX + (p.x - d.startX), MEMO.margin),
+        vb.width - MEMO.margin,
+      );
+      const y = Math.min(
+        Math.max(d.baseY + (p.y - d.startY), MEMO.margin),
+        vb.height - MEMO.margin,
+      );
+      d.lastX = x;
+      d.lastY = y;
+      d.memoEl.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
+      return;
+    }
+
     const { dx, dy } = clampOffset(
       d.svg,
       d.slotEl,
@@ -368,11 +501,17 @@ export function PosterInteractive({
     const d = dragRef.current;
     if (!d) return;
     dragRef.current = null;
-    d.slotEl.style.cursor = "grab";
-    setPositions((prev) => ({
-      ...prev,
-      [d.slotId]: { dx: d.lastDx, dy: d.lastDy },
-    }));
+    if (d.kind === "memo") {
+      d.memoEl.style.cursor = "grab";
+      const { memoId, lastX, lastY } = d;
+      setPosterMemos((prev) =>
+        prev.map((m) => (m.id === memoId ? { ...m, x: lastX, y: lastY } : m)),
+      );
+    } else {
+      d.slotEl.style.cursor = "grab";
+      const { slotId, lastDx, lastDy } = d;
+      setPositions((prev) => ({ ...prev, [slotId]: { dx: lastDx, dy: lastDy } }));
+    }
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
@@ -496,6 +635,63 @@ export function PosterInteractive({
               </button>
             ) : null}
           </section>
+
+          {/* 편집 ③ — 포스터 메모(자유 위치). 편집 모드에서만. */}
+          {editMode ? (
+            <section className="rounded-md border-2 border-line p-4">
+              <h3 className="text-lg font-bold text-ink">포스터에 메모</h3>
+              <p className="mt-1 text-base text-ink-soft">
+                포스터 위에 한마디를 얹고, 끌어서 원하는 자리에 두세요.
+              </p>
+              <button
+                type="button"
+                onClick={addPosterMemo}
+                className="mt-3 flex min-h-[56px] w-full items-center justify-center rounded-md border-2 border-brand bg-banner text-lg font-bold text-ink transition-colors hover:opacity-90"
+              >
+                ＋ 포스터에 메모
+              </button>
+
+              {posterMemos.length > 0 ? (
+                <ul className="mt-4 space-y-3">
+                  {posterMemos.map((m) => (
+                    <li key={m.id} className="flex items-start gap-2">
+                      <label className="flex-1">
+                        <span className="sr-only">메모 내용</span>
+                        <input
+                          type="text"
+                          value={m.text}
+                          maxLength={MEMO.max}
+                          onChange={(e) => setMemoText(m.id, e.target.value)}
+                          className="w-full rounded-md border-2 border-line bg-surface px-3 py-3 text-lg text-ink focus:border-brand focus:outline-none"
+                        />
+                        <span className="mt-1 block text-right text-sm text-ink-soft">
+                          {m.text.length}/{MEMO.max}
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        aria-label="이 메모 지우기"
+                        onClick={() => deleteMemo(m.id)}
+                        className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-md border-2 border-line text-2xl font-bold text-ink-soft transition-colors hover:bg-banner"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              {posterMemos.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setPosterMemos([])}
+                  className="mt-3 flex min-h-[56px] w-full items-center justify-center rounded-md border-2 border-line text-base font-bold text-ink-soft transition-colors hover:bg-banner"
+                >
+                  메모 모두 비우기
+                </button>
+              ) : null}
+            </section>
+          ) : null}
 
           <section>
             <h3 className="text-lg font-bold text-ink">글자 바꾸기</h3>
