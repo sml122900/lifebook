@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lifebook 포스터 템플릿 — 인생 강물 (river) v0.1
+  엔진 계약: 느티나무와 동일 (slot-cN-eM / label / chapter-N / root-text / symbol 4종 / color 그룹)
+  데모용. 샘플 가짜데이터 없음(앵커는 플레이스홀더 표기).
+  메타포: 강물 = 시간의 흐름. 굽이(챕터) 5개, 사건은 물굽이 옆 슬롯.
+  슬롯 수: 총 14 (c1=2, c2=3, c3=4, c4=3, c5=2)
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 594" width="420mm" height="594mm">
+  <title>인생 강물 — river 템플릿 v0.1</title>
+  <defs>
+    <pattern id="hanji" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+      <line x1="2" y1="3" x2="7" y2="4" stroke="#a89373" stroke-width="0.08"/>
+      <line x1="9" y1="16" x2="15" y2="17" stroke="#a89373" stroke-width="0.08"/>
+      <circle cx="5" cy="10" r="0.25" fill="#a89373"/>
+      <circle cx="13" cy="6" r="0.2" fill="#a89373"/>
+    </pattern>
+    <!-- 변형 심볼 4종 — 느티나무와 동일 계약 (id·viewBox 동일) -->
+    <symbol id="leaf-s" viewBox="0 0 7 5"><ellipse cx="3.5" cy="2.5" rx="3" ry="1.8" fill="currentColor"/></symbol>
+    <symbol id="flower-s" viewBox="0 0 14 14">
+      <circle cx="7" cy="7" r="2.8" fill="currentColor"/>
+      <ellipse cx="7" cy="2.5" rx="1.6" ry="2.2" fill="currentColor" opacity="0.72"/>
+      <ellipse cx="7" cy="11.5" rx="1.6" ry="2.2" fill="currentColor" opacity="0.72"/>
+      <ellipse cx="2.5" cy="7" rx="2.2" ry="1.6" fill="currentColor" opacity="0.72"/>
+      <ellipse cx="11.5" cy="7" rx="2.2" ry="1.6" fill="currentColor" opacity="0.72"/>
+    </symbol>
+    <symbol id="fruit-s" viewBox="0 0 12 14">
+      <circle cx="6" cy="8" r="5" fill="currentColor"/>
+      <path d="M 6 3 C 6 0.5 8.5 0 8.5 1.8" stroke="currentColor" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+      <ellipse cx="5" cy="3.5" rx="1.8" ry="1" fill="currentColor" opacity="0.6" transform="rotate(-20 5 3.5)"/>
+    </symbol>
+    <symbol id="bird-s" viewBox="0 0 14 9">
+      <path d="M 1 5 C 3.5 2.5 5.5 1.5 7 2.8 C 8.5 1.5 10.5 2.5 13 5" stroke="currentColor" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+      <path d="M 7 2.8 L 7.2 6" stroke="currentColor" stroke-width="0.8" fill="none"/>
+    </symbol>
+    <style>
+      .idx-line{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:3.5px;fill:#857C72}
+      .chapter-lbl{font-family:'Noto Serif KR',serif;font-size:5px;font-weight:700;fill:#3A6A78}
+      .event-lbl{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:3.5px;fill:#2A2520}
+      .year-lbl{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:3px;font-weight:700;fill:#3A6A78}
+    </style>
+  </defs>
+
+  <!-- 종이 + 한지 결 -->
+  <rect x="0" y="0" width="420" height="594" fill="#FAF7F0"/>
+  <rect x="0" y="0" width="420" height="594" fill="url(#hanji)" opacity="0.55"/>
+
+  <!-- 제목 -->
+  <g text-anchor="middle">
+    <text x="210" y="22" font-family="'Pretendard',sans-serif" font-size="3.53" font-weight="500" fill="#857C72" letter-spacing="2">L I F E B O O K</text>
+    <text id="title-name" x="210" y="50" font-family="'Noto Serif KR',serif" font-size="19" font-weight="700" fill="#2A2520">{personName} 님의 인생 강물</text>
+    <text x="210" y="70" font-family="'Noto Serif KR',serif" font-size="9" fill="#5C534A" letter-spacing="1">흐르는 한 줄기</text>
+    <line x1="186" y1="82" x2="200" y2="82" stroke="#3A6A78" stroke-width="0.4"/>
+    <circle cx="210" cy="82" r="1.4" fill="#3A6A78"/>
+    <line x1="220" y1="82" x2="234" y2="82" stroke="#3A6A78" stroke-width="0.4"/>
+  </g>
+
+  <!-- 발원지(샘) = 출생: 상단 -->
+  <g id="source">
+    <ellipse cx="210" cy="100" rx="9" ry="4" fill="#7FB0BE" opacity="0.5"/>
+    <ellipse cx="210" cy="100" rx="5" ry="2.2" fill="#3A6A78" opacity="0.7"/>
+  </g>
+  <!-- 발원지 텍스트(=root-text 계약: 출생지·부모) -->
+  <g id="root-text" text-anchor="middle">
+    <text x="210" y="93" font-family="'Noto Serif KR',serif" font-size="4.5" fill="#3A6A78" font-weight="500">{birthPlace} · {birthYear}</text>
+    <text x="210" y="116" font-family="'Pretendard',sans-serif" font-size="3.2" fill="#857C72">{parentNames}</text>
+  </g>
+
+  <!-- 강 본류 (위→아래로 굽이치는 S자 흐름) -->
+  <path d="M 210 104
+           C 250 150, 165 195, 205 245
+           C 245 295, 160 340, 205 390
+           C 245 435, 175 475, 210 515"
+        fill="none" stroke="#A8CDD7" stroke-width="11" stroke-linecap="round" opacity="0.55"/>
+  <path d="M 210 104
+           C 250 150, 165 195, 205 245
+           C 245 295, 160 340, 205 390
+           C 245 435, 175 475, 210 515"
+        fill="none" stroke="#7FB0BE" stroke-width="5" stroke-linecap="round" opacity="0.6"/>
+  <!-- 물결 디테일 -->
+  <path d="M 210 104 C 250 150, 165 195, 205 245 C 245 295, 160 340, 205 390 C 245 435, 175 475, 210 515"
+        fill="none" stroke="#FAF7F0" stroke-width="0.6" stroke-dasharray="2,4" opacity="0.7"/>
+
+  <!-- ===== 굽이 1 (상류·유년) — 슬롯 2 ===== -->
+  <g id="branch-1">
+    <!-- 슬롯 c1-e1 -->
+    <line x1="228" y1="135" x2="250" y2="128" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c1-e1" color="#6B8C5A">
+      <use href="#leaf-s" x="252" y="121" width="8" height="6"/>
+      <use href="#leaf-s" x="258" y="118" width="7" height="5" transform="rotate(20 262 121)"/>
+      <use href="#leaf-s" x="256" y="125" width="6" height="4" transform="rotate(-15 259 127)"/>
+    </g>
+    <text id="label-c1-e1" class="year-lbl" x="262" y="117">{year}</text>
+    <text id="label-c1-e1-t" class="event-lbl" x="262" y="134">{title}</text>
+    <!-- 슬롯 c1-e2 -->
+    <line x1="190" y1="172" x2="166" y2="165" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c1-e2" color="#6B8C5A">
+      <use href="#leaf-s" x="150" y="158" width="8" height="6"/>
+      <use href="#leaf-s" x="156" y="155" width="7" height="5" transform="rotate(-15 160 158)"/>
+      <use href="#leaf-s" x="154" y="162" width="6" height="4" transform="rotate(20 157 164)"/>
+    </g>
+    <text id="label-c1-e2" class="year-lbl" x="160" y="154" text-anchor="end">{year}</text>
+    <text id="label-c1-e2-t" class="event-lbl" x="160" y="171" text-anchor="end">{title}</text>
+    <text id="chapter-1" class="chapter-lbl" x="270" y="150">상류</text>
+  </g>
+
+  <!-- ===== 굽이 2 (학창·청년) — 슬롯 3 ===== -->
+  <g id="branch-2">
+    <line x1="228" y1="225" x2="250" y2="218" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c2-e1" color="#6B8C5A">
+      <use href="#leaf-s" x="252" y="211" width="8" height="6"/>
+      <use href="#leaf-s" x="258" y="208" width="7" height="5" transform="rotate(20 262 211)"/>
+      <use href="#leaf-s" x="256" y="215" width="6" height="4" transform="rotate(-15 259 217)"/>
+    </g>
+    <text id="label-c2-e1" class="year-lbl" x="262" y="207">{year}</text>
+    <text id="label-c2-e1-t" class="event-lbl" x="262" y="224">{title}</text>
+    <line x1="188" y1="248" x2="164" y2="241" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c2-e2" color="#C8923D">
+      <use href="#flower-s" x="148" y="231" width="14" height="14"/>
+    </g>
+    <text id="label-c2-e2" class="year-lbl" x="156" y="227" text-anchor="end">{year}</text>
+    <text id="label-c2-e2-t" class="event-lbl" x="156" y="244" text-anchor="end">{title}</text>
+    <line x1="226" y1="272" x2="250" y2="265" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c2-e3" color="#6B8C5A">
+      <use href="#leaf-s" x="252" y="258" width="8" height="6"/>
+      <use href="#leaf-s" x="258" y="255" width="7" height="5" transform="rotate(20 262 258)"/>
+      <use href="#leaf-s" x="256" y="262" width="6" height="4" transform="rotate(-15 259 264)"/>
+    </g>
+    <text id="label-c2-e3" class="year-lbl" x="262" y="254">{year}</text>
+    <text id="label-c2-e3-t" class="event-lbl" x="262" y="271">{title}</text>
+    <text id="chapter-2" class="chapter-lbl" x="150" y="262" text-anchor="end">중류</text>
+  </g>
+
+  <!-- ===== 굽이 3 (성인) — 슬롯 4 ===== -->
+  <g id="branch-3">
+    <line x1="226" y1="318" x2="250" y2="311" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c3-e1" color="#C8923D">
+      <use href="#flower-s" x="252" y="304" width="14" height="14"/>
+    </g>
+    <text id="label-c3-e1" class="year-lbl" x="268" y="307">{year}</text>
+    <text id="label-c3-e1-t" class="event-lbl" x="268" y="324">{title}</text>
+    <line x1="186" y1="335" x2="162" y2="328" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c3-e2" color="#C8923D">
+      <use href="#flower-s" x="146" y="318" width="14" height="14"/>
+    </g>
+    <text id="label-c3-e2" class="year-lbl" x="154" y="314" text-anchor="end">{year}</text>
+    <text id="label-c3-e2-t" class="event-lbl" x="154" y="331" text-anchor="end">{title}</text>
+    <line x1="224" y1="358" x2="250" y2="351" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c3-e3" color="#C8603D">
+      <use href="#fruit-s" x="252" y="344" width="12" height="14"/>
+    </g>
+    <text id="label-c3-e3" class="year-lbl" x="266" y="347">{year}</text>
+    <text id="label-c3-e3-t" class="event-lbl" x="266" y="364">{title}</text>
+    <line x1="188" y1="378" x2="164" y2="371" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c3-e4" color="#6B8C5A">
+      <use href="#leaf-s" x="148" y="364" width="8" height="6"/>
+      <use href="#leaf-s" x="154" y="361" width="7" height="5" transform="rotate(-15 158 364)"/>
+      <use href="#leaf-s" x="152" y="368" width="6" height="4" transform="rotate(20 155 370)"/>
+    </g>
+    <text id="label-c3-e4" class="year-lbl" x="156" y="360" text-anchor="end">{year}</text>
+    <text id="label-c3-e4-t" class="event-lbl" x="156" y="377" text-anchor="end">{title}</text>
+    <text id="chapter-3" class="chapter-lbl" x="272" y="340">큰 물</text>
+  </g>
+
+  <!-- ===== 굽이 4 (중년) — 슬롯 3 ===== -->
+  <g id="branch-4">
+    <line x1="226" y1="418" x2="250" y2="411" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c4-e1" color="#6B8C5A">
+      <use href="#leaf-s" x="252" y="404" width="8" height="6"/>
+      <use href="#leaf-s" x="258" y="401" width="7" height="5" transform="rotate(20 262 404)"/>
+      <use href="#leaf-s" x="256" y="408" width="6" height="4" transform="rotate(-15 259 410)"/>
+    </g>
+    <text id="label-c4-e1" class="year-lbl" x="262" y="400">{year}</text>
+    <text id="label-c4-e1-t" class="event-lbl" x="262" y="417">{title}</text>
+    <line x1="186" y1="438" x2="162" y2="431" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c4-e2" color="#C8603D">
+      <use href="#fruit-s" x="146" y="424" width="12" height="14"/>
+    </g>
+    <text id="label-c4-e2" class="year-lbl" x="154" y="427" text-anchor="end">{year}</text>
+    <text id="label-c4-e2-t" class="event-lbl" x="154" y="444" text-anchor="end">{title}</text>
+    <line x1="226" y1="458" x2="250" y2="451" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c4-e3" color="#6B8C5A">
+      <use href="#leaf-s" x="252" y="444" width="8" height="6"/>
+      <use href="#leaf-s" x="258" y="441" width="7" height="5" transform="rotate(20 262 444)"/>
+      <use href="#leaf-s" x="256" y="448" width="6" height="4" transform="rotate(-15 259 450)"/>
+    </g>
+    <text id="label-c4-e3" class="year-lbl" x="262" y="440">{year}</text>
+    <text id="label-c4-e3-t" class="event-lbl" x="262" y="457">{title}</text>
+    <text id="chapter-4" class="chapter-lbl" x="150" y="430" text-anchor="end">너른 물</text>
+  </g>
+
+  <!-- ===== 굽이 5 (노년·하구) — 슬롯 2 ===== -->
+  <g id="branch-5">
+    <line x1="224" y1="490" x2="250" y2="483" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c5-e1" color="#C8923D">
+      <use href="#flower-s" x="252" y="476" width="14" height="14"/>
+    </g>
+    <text id="label-c5-e1" class="year-lbl" x="268" y="479">{year}</text>
+    <text id="label-c5-e1-t" class="event-lbl" x="268" y="496">{title}</text>
+    <line x1="190" y1="505" x2="166" y2="498" stroke="#9CC3CD" stroke-width="0.8"/>
+    <g id="slot-c5-e2" color="#6B8C5A">
+      <use href="#leaf-s" x="150" y="491" width="8" height="6"/>
+      <use href="#leaf-s" x="156" y="488" width="7" height="5" transform="rotate(-15 160 491)"/>
+      <use href="#leaf-s" x="154" y="495" width="6" height="4" transform="rotate(20 157 497)"/>
+    </g>
+    <text id="label-c5-e2" class="year-lbl" x="156" y="487" text-anchor="end">{year}</text>
+    <text id="label-c5-e2-t" class="event-lbl" x="156" y="504" text-anchor="end">{title}</text>
+    <text id="chapter-5" class="chapter-lbl" x="272" y="500">하구</text>
+  </g>
+
+  <!-- 하구 = 바다로 (강이 넓어지며 끝) -->
+  <g id="estuary" opacity="0.4">
+    <ellipse cx="210" cy="520" rx="16" ry="4" fill="#7FB0BE"/>
+    <ellipse cx="210" cy="524" rx="24" ry="3" fill="#A8CDD7"/>
+  </g>
+
+  <!-- 범례 -->
+  <g transform="translate(20, 540)">
+    <text font-family="'Pretendard',sans-serif" font-size="3.5" font-weight="500" fill="#5C534A" y="0">범례</text>
+    <g transform="translate(0,5)"><use href="#leaf-s" x="0" y="0" width="7" height="5" color="#6B8C5A"/><text class="event-lbl" x="9" y="4">일반</text></g>
+    <g transform="translate(28,5)"><use href="#flower-s" x="0" y="-2" width="9" height="9" color="#C8923D"/><text class="event-lbl" x="11" y="4">기쁨·중요</text></g>
+    <g transform="translate(70,5)"><use href="#fruit-s" x="0" y="-2" width="8" height="9" color="#C8603D"/><text class="event-lbl" x="10" y="4">결실</text></g>
+    <g transform="translate(100,5)"><use href="#bird-s" x="0" y="-1" width="10" height="7" color="#7A9CB0"/><text class="event-lbl" x="12" y="4">인연</text></g>
+  </g>
+
+  <!-- 푸터 (샘플 이름 없음 — 슬롯 표기) -->
+  <g>
+    <line x1="80" y1="556" x2="340" y2="556" stroke="#5C534A" stroke-width="0.2" opacity="0.4"/>
+    <line x1="195" y1="556" x2="225" y2="556" stroke="#3A6A78" stroke-width="0.4"/>
+    <text id="footer-credit" x="210" y="566" font-family="'Noto Serif KR',serif" font-size="5" fill="#5C534A" text-anchor="middle">{personName} · {generatedYear}</text>
+    <text x="210" y="582" font-family="'Pretendard',sans-serif" font-size="3.53" font-weight="500" fill="#857C72" text-anchor="middle" letter-spacing="1.5">L I F E B O O K  ·  라이프북</text>
+  </g>
+
+</svg>

@@ -10,10 +10,15 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { getProduct, SHIPPING_KRW } from "@/lib/commerce/products";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 
-import { PosterInteractive, type PosterSlot } from "./PosterInteractive";
+import {
+  PosterInteractive,
+  type PosterSlot,
+  type PosterTemplate,
+} from "./PosterInteractive";
 import type { MappingEvent } from "@/lib/poster/types";
 import { mapToPlacement } from "@/lib/poster/mapping";
 import { loadMasterSvg, renderPoster } from "@/lib/poster/render";
+import { riverManifest } from "@/lib/poster/templates/river";
 import { zelkovaManifest } from "@/lib/poster/templates/zelkova";
 
 // T1 STEP3 — 인생 나무 포스터 화면 (읽기 전용 데모).
@@ -76,36 +81,49 @@ export default async function PosterPage() {
     ? `${session.user.name} 님의 인생 나무`
     : "나의 인생 나무";
 
-  const placement = mapToPlacement(mapped, zelkovaManifest, {
-    birthYear,
-    ownerName,
-    rootLine,
-    footerLine: session.user.name ? `${session.user.name} · 2026년 제작` : null,
-  });
+  const footerLine = session.user.name
+    ? `${session.user.name} · 2026년 제작`
+    : null;
 
-  const rawSvg = loadMasterSvg(zelkovaManifest, placement.branchCount);
-  const svg = renderPoster(rawSvg, zelkovaManifest, placement);
+  // 자유도 #1 — 템플릿 2종(느티나무·강물)을 각각 렌더(render.ts 그대로, 매니페스트
+  // 인자만 다름) → 렌더 SVG + 슬롯맵을 클라(피커)로 전달. accent 는 피커 색점용.
+  const TEMPLATE_DEFS = [
+    { manifest: zelkovaManifest, accent: "#6B4226" },
+    { manifest: riverManifest, accent: "#3A6A78" },
+  ];
 
-  // T3-a/b — placement 에서 사건→슬롯(c,e) 매핑 추출. 챕터 인덱스 +1 = c,
-  // 슬롯 인덱스 +1 = e (렌더러 주입 좌표와 동일 규칙).
-  //   sizeable = bird(standout) 아님 → S/M/L 스왑 대상
-  //   initialSize = T1 변형(잎 S / 꽃 M / 열매 L). bird 는 null.
-  const slots: PosterSlot[] = placement.chapters.flatMap((ch, ci) =>
-    ch.events.map((ev, ei) => ({
-      c: ci + 1,
-      e: ei + 1,
-      title: ev.title,
-      yearLabel: ev.yearLabel,
-      sizeable: ev.variant !== "bird",
-      initialSize:
-        ev.variant === "leaf"
-          ? "S"
-          : ev.variant === "flower"
-            ? "M"
-            : ev.variant === "fruit"
-              ? "L"
-              : null,
-    })),
+  const templates: PosterTemplate[] = TEMPLATE_DEFS.map(
+    ({ manifest, accent }) => {
+      const placement = mapToPlacement(mapped, manifest, {
+        birthYear,
+        ownerName,
+        rootLine,
+        footerLine,
+      });
+      const rawSvg = loadMasterSvg(manifest, placement.branchCount);
+      const svg = renderPoster(rawSvg, manifest, placement);
+      // 사건→슬롯(c,e) 매핑(렌더러 주입 좌표와 동일 규칙).
+      //   sizeable = bird(standout) 아님 → S/M/L 스왑 대상
+      //   initialSize = T1 변형(잎 S / 꽃 M / 열매 L). bird 는 null.
+      const slots: PosterSlot[] = placement.chapters.flatMap((ch, ci) =>
+        ch.events.map((ev, ei) => ({
+          c: ci + 1,
+          e: ei + 1,
+          title: ev.title,
+          yearLabel: ev.yearLabel,
+          sizeable: ev.variant !== "bird",
+          initialSize:
+            ev.variant === "leaf"
+              ? "S"
+              : ev.variant === "flower"
+                ? "M"
+                : ev.variant === "fruit"
+                  ? "L"
+                  : null,
+        })),
+      );
+      return { id: manifest.id, name: manifest.name, accent, svg, slots };
+    },
   );
 
   return (
@@ -117,13 +135,12 @@ export default async function PosterPage() {
         </p>
       </header>
 
-      {/* 포스터(유동 인라인 SVG) + 사건 토글/크기/텍스트 편집 (클라). */}
+      {/* 템플릿 피커 + 포스터 + 토글/크기/텍스트 편집 (클라). */}
       <PosterInteractive
-        svg={svg}
-        slots={slots}
+        templates={templates}
         defaultTitle={ownerName}
-        defaultFooter={placement.footerLine ?? ""}
-        defaultRoot={placement.rootLine ?? ""}
+        defaultFooter={footerLine ?? ""}
+        defaultRoot={rootLine ?? ""}
       />
 
       <p className="mx-auto mt-4 max-w-[560px] text-center text-sm text-ink-soft">
