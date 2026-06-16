@@ -51,6 +51,9 @@ const SIZE_OPTIONS: { size: Size; label: string; sub: string }[] = [
 
 const MAX = { title: 16, footer: 30, root: 30, note: 50 };
 
+// 편집 ② 연속 스케일 범위(0.5~2.0, ±0.1 스텝).
+const SCALE = { min: 0.5, max: 2.0, step: 0.1 };
+
 // 화면 px → SVG user space (반응형 width:100% 스케일 자동 보정).
 function clientToUser(svg: SVGSVGElement, cx: number, cy: number) {
   const ctm = svg.getScreenCTM();
@@ -81,10 +84,39 @@ function clampOffset(
   }
 }
 
-// 슬롯 그룹 + 두 라벨에 인라인 transform 적용(같이 이동). dx=dy=0 이면 제거.
-// zelkova/river 슬롯엔 원본 transform 이 없어 안전(좌표는 use x/y 절대값).
-function applyOffset(root: HTMLElement, slotId: string, dx: number, dy: number) {
-  const t = dx || dy ? `translate(${dx.toFixed(2)} ${dy.toFixed(2)})` : "";
+// 사건(슬롯) 중심 = 변형 전 geometry 의 bbox 중심(getBBox 는 자기 transform 무시
+// → 원좌표 중심이라 안정). 스케일을 중심 기준으로 걸 때 쓴다.
+function bboxCenter(el: SVGGraphicsElement) {
+  try {
+    const b = el.getBBox();
+    return { cx: b.x + b.width / 2, cy: b.y + b.height / 2 };
+  } catch {
+    return { cx: 0, cy: 0 };
+  }
+}
+
+// 슬롯 그룹 + 두 라벨에 인라인 transform 적용(위치 이동 + 중심 기준 균일 스케일,
+// 사건 통째 동반). 셋이 같은 행렬이라 라벨이 심볼과 함께 움직이고 함께 커진다.
+// 무변형이면 속성 제거. zelkova/river 슬롯엔 원본 transform 이 없어 안전(좌표는
+// use x/y 절대값) + CSS transform 규칙도 없음(C10 패턴).
+function applyTransform(
+  root: HTMLElement,
+  slotId: string,
+  dx: number,
+  dy: number,
+  s: number,
+  cx: number,
+  cy: number,
+) {
+  const parts: string[] = [];
+  if (dx || dy) parts.push(`translate(${dx.toFixed(2)} ${dy.toFixed(2)})`);
+  if (s !== 1)
+    parts.push(
+      `translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${s.toFixed(
+        3,
+      )}) translate(${(-cx).toFixed(2)} ${(-cy).toFixed(2)})`,
+    );
+  const t = parts.join(" ");
   const base = slotId.replace(/^slot-/, "label-");
   for (const id of [slotId, base, `${base}-t`]) {
     const el = root.querySelector(`#${CSS.escape(id)}`);
@@ -140,6 +172,8 @@ export function PosterInteractive({
   const [positions, setPositions] = useState<
     Record<string, { dx: number; dy: number }>
   >({});
+  // 편집 ② — 사건별 연속 스케일(슬롯 키, 기본 1). positions 와 한 transform 으로 합쳐 적용.
+  const [scales, setScales] = useState<Record<string, number>>({});
   const dragRef = useRef<{
     slotId: string;
     slotEl: SVGGraphicsElement;
@@ -150,6 +184,9 @@ export function PosterInteractive({
     startY: number;
     lastDx: number;
     lastDy: number;
+    scale: number; // 위치 드래그 중 스케일 보존(같이 적용)
+    cx: number;
+    cy: number;
   } | null>(null);
 
   // off + size + text 를 active SVG DOM 에 함께 적용 (마운트·전환 시 포함).
@@ -175,13 +212,15 @@ export function PosterInteractive({
         }
       }
 
-      // 위치 오프셋 재적용(커밋된 positions — 같은 템플릿 재주입 시 유지).
+      // 위치+크기 재적용(커밋된 positions·scales — 같은 템플릿 재주입 시 유지).
       const p = positions[slotId];
-      applyOffset(root, slotId, p?.dx ?? 0, p?.dy ?? 0);
+      const sc = scales[slotId] ?? 1;
+      const slotEl = root.querySelector<SVGGElement>(`#${CSS.escape(slotId)}`);
+      const c = sc !== 1 && slotEl ? bboxCenter(slotEl) : { cx: 0, cy: 0 };
+      applyTransform(root, slotId, p?.dx ?? 0, p?.dy ?? 0, sc, c.cx, c.cy);
 
       // 편집 모드 시각 — 드래그 가능 표시(grab 커서 + 약한 보라 하이라이트).
       const grab = editMode && !hidden;
-      const slotEl = root.querySelector<SVGGElement>(`#${CSS.escape(slotId)}`);
       if (slotEl) {
         slotEl.style.cursor = grab ? "grab" : "";
         slotEl.style.filter = grab
@@ -236,7 +275,7 @@ export function PosterInteractive({
         rootG.style.display = "none";
       }
     }
-  }, [active, off, sizes, positions, editMode, title, footer, rootText, defaultTitle, defaultFooter, defaultRoot]);
+  }, [active, off, sizes, positions, scales, editMode, title, footer, rootText, defaultTitle, defaultFooter, defaultRoot]);
 
   const selectTemplate = (id: string) => {
     if (id === activeId) return;
@@ -246,8 +285,20 @@ export function PosterInteractive({
     setOff(new Set()); // 슬롯 구성이 달라 리셋
     setSizes(initSizes(t.slots));
     setPositions({}); // 템플릿마다 원위치가 달라 리셋(off/size 처럼)
+    setScales({}); // 크기도 리셋
     // 텍스트·메모는 유지(템플릿 무관 — 메모 키 = 제목+연도)
   };
+
+  // 편집 ② — 사건 크기 ±스텝(0.5~2.0 클램프). 통합 effect 가 위치와 합쳐 재적용.
+  const bumpScale = (slotId: string, delta: number) =>
+    setScales((prev) => {
+      const cur = prev[slotId] ?? 1;
+      const next = Math.min(
+        SCALE.max,
+        Math.max(SCALE.min, Math.round((cur + delta) * 10) / 10),
+      );
+      return { ...prev, [slotId]: next };
+    });
 
   // 드래그 — 포인터 이벤트(터치+마우스 통합). 채워진 보이는 슬롯만 대상.
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -274,6 +325,8 @@ export function PosterInteractive({
     if (!start) return;
 
     const cur = positions[slotId] ?? { dx: 0, dy: 0 };
+    const scale = scales[slotId] ?? 1;
+    const center = scale !== 1 ? bboxCenter(slotEl) : { cx: 0, cy: 0 };
     dragRef.current = {
       slotId,
       slotEl,
@@ -284,6 +337,9 @@ export function PosterInteractive({
       startY: start.y,
       lastDx: cur.dx,
       lastDy: cur.dy,
+      scale,
+      cx: center.cx,
+      cy: center.cy,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
     slotEl.style.cursor = "grabbing";
@@ -303,7 +359,9 @@ export function PosterInteractive({
     );
     d.lastDx = dx;
     d.lastDy = dy;
-    if (containerRef.current) applyOffset(containerRef.current, d.slotId, dx, dy);
+    // 위치 드래그 중에도 현재 스케일 보존(같이 적용).
+    if (containerRef.current)
+      applyTransform(containerRef.current, d.slotId, dx, dy, d.scale, d.cx, d.cy);
   };
 
   const endDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -422,16 +480,19 @@ export function PosterInteractive({
             </div>
             <p className="mt-2 text-base text-ink-soft">
               {editMode
-                ? "사건을 끌어서 원하는 자리로 옮기세요. 끄면 위치는 그대로 남아요."
-                : "켜면 사건을 끌어 위치를 옮길 수 있어요."}
+                ? "사건을 끌어 옮기고, 아래 크기 버튼으로 키우거나 줄이세요. 끄면 그대로 남아요."
+                : "켜면 사건을 끌어 옮기고 크기도 바꿀 수 있어요."}
             </p>
             {editMode ? (
               <button
                 type="button"
-                onClick={() => setPositions({})}
+                onClick={() => {
+                  setPositions({});
+                  setScales({});
+                }}
                 className="mt-3 flex min-h-[56px] w-full items-center justify-center rounded-md border-2 border-line text-base font-bold text-ink-soft transition-colors hover:bg-banner"
               >
-                ↩ 위치 초기화
+                ↩ 위치·크기 초기화
               </button>
             ) : null}
           </section>
@@ -478,6 +539,8 @@ export function PosterInteractive({
                 const on = !off.has(key);
                 const size = sizes.get(key) ?? s.initialSize;
                 const nkey = noteKeyOf(s);
+                const slotId = `slot-c${s.c}-e${s.e}`;
+                const scale = scales[slotId] ?? 1;
                 return (
                   <li key={key} className="px-4 py-3">
                     <label
@@ -546,6 +609,39 @@ export function PosterInteractive({
                         🐦 특별한 인연 — 새로 그려져요
                       </p>
                     )}
+
+                    {/* 편집 ② — 연속 크기(편집 모드 + 포함 사건만). S/M/L 변형 위에
+                        얹는 자유 배율. 통합 effect 가 위치와 함께 적용. */}
+                    {editMode && on ? (
+                      <div
+                        role="group"
+                        aria-label="사건 크기 조절"
+                        className="mt-2 flex items-center gap-2"
+                      >
+                        <span className="text-base text-ink-soft">크기</span>
+                        <button
+                          type="button"
+                          aria-label="작게"
+                          disabled={scale <= SCALE.min}
+                          onClick={() => bumpScale(slotId, -SCALE.step)}
+                          className="flex h-[56px] w-[56px] items-center justify-center rounded-md border-2 border-line text-2xl font-bold text-ink-soft transition-colors hover:bg-banner disabled:opacity-30"
+                        >
+                          −
+                        </button>
+                        <span className="min-w-[3.5rem] text-center text-base font-bold text-ink">
+                          {Math.round(scale * 100)}%
+                        </span>
+                        <button
+                          type="button"
+                          aria-label="크게"
+                          disabled={scale >= SCALE.max}
+                          onClick={() => bumpScale(slotId, SCALE.step)}
+                          className="flex h-[56px] w-[56px] items-center justify-center rounded-md border-2 border-line text-2xl font-bold text-ink-soft transition-colors hover:bg-banner disabled:opacity-30"
+                        >
+                          ＋
+                        </button>
+                      </div>
+                    ) : null}
 
                     {/* 사건별 메모 — 앱 안에서만. 제외(off)된 사건은 메모도 숨김. */}
                     {on ? (
