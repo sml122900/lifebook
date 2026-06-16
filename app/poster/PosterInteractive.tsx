@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 
 // 템플릿 피커 + 사건 빼고/넣기(체크) + 크기 S/M/L(잎/꽃/열매) + 제목·푸터·뿌리
 // 글자 편집. 전부 DOM 주입(재렌더·재매핑·서버 왕복 0).
@@ -51,6 +51,49 @@ const SIZE_OPTIONS: { size: Size; label: string; sub: string }[] = [
 
 const MAX = { title: 16, footer: 30, root: 30, note: 50 };
 
+// 화면 px → SVG user space (반응형 width:100% 스케일 자동 보정).
+function clientToUser(svg: SVGSVGElement, cx: number, cy: number) {
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  const pt = svg.createSVGPoint();
+  pt.x = cx;
+  pt.y = cy;
+  const u = pt.matrixTransform(ctm.inverse());
+  return { x: u.x, y: u.y };
+}
+
+// 사건이 viewBox 밖으로 완전히 못 나가게 오프셋 클램프(getBBox = 변형 전 기하).
+function clampOffset(
+  svg: SVGSVGElement,
+  slotEl: SVGGraphicsElement,
+  dx: number,
+  dy: number,
+) {
+  try {
+    const bb = slotEl.getBBox();
+    const vb = svg.viewBox.baseVal;
+    return {
+      dx: Math.min(Math.max(dx, -bb.x), vb.width - (bb.x + bb.width)),
+      dy: Math.min(Math.max(dy, -bb.y), vb.height - (bb.y + bb.height)),
+    };
+  } catch {
+    return { dx, dy };
+  }
+}
+
+// 슬롯 그룹 + 두 라벨에 인라인 transform 적용(같이 이동). dx=dy=0 이면 제거.
+// zelkova/river 슬롯엔 원본 transform 이 없어 안전(좌표는 use x/y 절대값).
+function applyOffset(root: HTMLElement, slotId: string, dx: number, dy: number) {
+  const t = dx || dy ? `translate(${dx.toFixed(2)} ${dy.toFixed(2)})` : "";
+  const base = slotId.replace(/^slot-/, "label-");
+  for (const id of [slotId, base, `${base}-t`]) {
+    const el = root.querySelector(`#${CSS.escape(id)}`);
+    if (!el) continue;
+    if (t) el.setAttribute("transform", t);
+    else el.removeAttribute("transform");
+  }
+}
+
 function initSizes(slots: PosterSlot[]): Map<string, Size> {
   const m = new Map<string, Size>();
   for (const s of slots) {
@@ -90,6 +133,25 @@ export function PosterInteractive({
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [openNotes, setOpenNotes] = useState<Set<string>>(new Set());
 
+  // 편집 모드(드래그) — 기본 OFF(어르신 auto 경로 보존). positions = 슬롯별
+  // 원위치 기준 오프셋(off/size 처럼 슬롯 키, 전환 시 리셋). 드래그 중엔 dragRef
+  // 로 직접 transform 갱신(빠름) → pointerup 에 state 커밋(통합 effect 가 재적용).
+  const [editMode, setEditMode] = useState(false);
+  const [positions, setPositions] = useState<
+    Record<string, { dx: number; dy: number }>
+  >({});
+  const dragRef = useRef<{
+    slotId: string;
+    slotEl: SVGGraphicsElement;
+    svg: SVGSVGElement;
+    baseDx: number;
+    baseDy: number;
+    startX: number;
+    startY: number;
+    lastDx: number;
+    lastDy: number;
+  } | null>(null);
+
   // off + size + text 를 active SVG DOM 에 함께 적용 (마운트·전환 시 포함).
   useEffect(() => {
     const root = containerRef.current;
@@ -111,6 +173,24 @@ export function PosterInteractive({
         for (const variant of ["leaf", "flower", "fruit"]) {
           setDisp(`${slotId}-${variant}`, !hidden && variant === v ? "" : "none");
         }
+      }
+
+      // 위치 오프셋 재적용(커밋된 positions — 같은 템플릿 재주입 시 유지).
+      const p = positions[slotId];
+      applyOffset(root, slotId, p?.dx ?? 0, p?.dy ?? 0);
+
+      // 편집 모드 시각 — 드래그 가능 표시(grab 커서 + 약한 보라 하이라이트).
+      const grab = editMode && !hidden;
+      const slotEl = root.querySelector<SVGGElement>(`#${CSS.escape(slotId)}`);
+      if (slotEl) {
+        slotEl.style.cursor = grab ? "grab" : "";
+        slotEl.style.filter = grab
+          ? "drop-shadow(0 0 1.2px rgba(124,92,182,0.95))"
+          : "";
+      }
+      for (const lid of [`label-c${s.c}-e${s.e}`, `label-c${s.c}-e${s.e}-t`]) {
+        const lel = root.querySelector<SVGElement>(`#${CSS.escape(lid)}`);
+        if (lel) lel.style.cursor = grab ? "grab" : "";
       }
     }
 
@@ -156,7 +236,7 @@ export function PosterInteractive({
         rootG.style.display = "none";
       }
     }
-  }, [active, off, sizes, title, footer, rootText, defaultTitle, defaultFooter, defaultRoot]);
+  }, [active, off, sizes, positions, editMode, title, footer, rootText, defaultTitle, defaultFooter, defaultRoot]);
 
   const selectTemplate = (id: string) => {
     if (id === activeId) return;
@@ -165,7 +245,81 @@ export function PosterInteractive({
     setActiveId(id);
     setOff(new Set()); // 슬롯 구성이 달라 리셋
     setSizes(initSizes(t.slots));
+    setPositions({}); // 템플릿마다 원위치가 달라 리셋(off/size 처럼)
     // 텍스트·메모는 유지(템플릿 무관 — 메모 키 = 제목+연도)
+  };
+
+  // 드래그 — 포인터 이벤트(터치+마우스 통합). 채워진 보이는 슬롯만 대상.
+  const startDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!editMode) return;
+    const root = containerRef.current;
+    const svg = root?.querySelector("svg");
+    if (!root || !svg) return;
+
+    const target = e.target as Element;
+    let slotId: string | null = null;
+    const g = target.closest("g[id^='slot-c']"); // 심볼 잡기
+    if (g) slotId = g.id;
+    else {
+      const lbl = target.closest("text[id^='label-c']"); // 라벨 잡기
+      if (lbl) slotId = lbl.id.replace(/^label-/, "slot-").replace(/-t$/, "");
+    }
+    if (!slotId) return;
+
+    const slotEl = root.querySelector<SVGGraphicsElement>(
+      `#${CSS.escape(slotId)}`,
+    );
+    if (!slotEl || getComputedStyle(slotEl).display === "none") return; // 빈/off 비대상
+    const start = clientToUser(svg as SVGSVGElement, e.clientX, e.clientY);
+    if (!start) return;
+
+    const cur = positions[slotId] ?? { dx: 0, dy: 0 };
+    dragRef.current = {
+      slotId,
+      slotEl,
+      svg: svg as SVGSVGElement,
+      baseDx: cur.dx,
+      baseDy: cur.dy,
+      startX: start.x,
+      startY: start.y,
+      lastDx: cur.dx,
+      lastDy: cur.dy,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    slotEl.style.cursor = "grabbing";
+    e.preventDefault();
+  };
+
+  const moveDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const p = clientToUser(d.svg, e.clientX, e.clientY);
+    if (!p) return;
+    const { dx, dy } = clampOffset(
+      d.svg,
+      d.slotEl,
+      d.baseDx + (p.x - d.startX),
+      d.baseDy + (p.y - d.startY),
+    );
+    d.lastDx = dx;
+    d.lastDy = dy;
+    if (containerRef.current) applyOffset(containerRef.current, d.slotId, dx, dy);
+  };
+
+  const endDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    dragRef.current = null;
+    d.slotEl.style.cursor = "grab";
+    setPositions((prev) => ({
+      ...prev,
+      [d.slotId]: { dx: d.lastDx, dy: d.lastDy },
+    }));
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* 캡처가 이미 해제됐으면 무시 */
+    }
   };
 
   const toggle = (s: PosterSlot) => {
@@ -225,16 +379,63 @@ export function PosterInteractive({
 
       <div className="mx-auto lg:flex lg:items-start lg:gap-8">
         {/* 포스터 — active 템플릿만 표시(엔진이 width=100% 로 유동화). */}
-        <div className="mx-auto w-full max-w-[560px] overflow-hidden rounded-md border-2 border-line bg-surface shadow-sm lg:mx-0 lg:flex-1">
-          <div
-            ref={containerRef}
-            key={active.id}
-            dangerouslySetInnerHTML={{ __html: active.svg }}
-          />
+        <div className="mx-auto w-full max-w-[560px] lg:mx-0 lg:flex-1">
+          {editMode ? (
+            <p className="mb-2 rounded-md bg-banner px-3 py-2 text-center text-base font-bold text-ink">
+              ✋ 사건을 손가락이나 마우스로 끌어 옮겨보세요
+            </p>
+          ) : null}
+          {/* 편집 모드 ON 시 touch-action:none 으로 드래그 중 페이지 스크롤 방지. */}
+          <div className="overflow-hidden rounded-md border-2 border-line bg-surface shadow-sm">
+            <div
+              ref={containerRef}
+              key={active.id}
+              onPointerDown={startDrag}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              style={editMode ? { touchAction: "none" } : undefined}
+              dangerouslySetInnerHTML={{ __html: active.svg }}
+            />
+          </div>
         </div>
 
-        {/* 컨트롤 — 글자 편집 + 사건 리스트 (active 기준) */}
+        {/* 컨트롤 — 편집 모드 + 글자 편집 + 사건 리스트 (active 기준) */}
         <div className="mx-auto mt-6 w-full max-w-[560px] space-y-6 lg:mt-0 lg:w-96 lg:shrink-0">
+          <section className="rounded-md border-2 border-line p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-bold text-ink">자세히 편집</h3>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={editMode}
+                onClick={() => setEditMode((v) => !v)}
+                className={
+                  "min-h-[56px] rounded-md border-2 px-5 text-lg font-bold transition-colors " +
+                  (editMode
+                    ? "border-brand bg-banner text-ink"
+                    : "border-line text-ink-soft hover:bg-banner")
+                }
+              >
+                {editMode ? "편집 켜짐" : "편집 켜기"}
+              </button>
+            </div>
+            <p className="mt-2 text-base text-ink-soft">
+              {editMode
+                ? "사건을 끌어서 원하는 자리로 옮기세요. 끄면 위치는 그대로 남아요."
+                : "켜면 사건을 끌어 위치를 옮길 수 있어요."}
+            </p>
+            {editMode ? (
+              <button
+                type="button"
+                onClick={() => setPositions({})}
+                className="mt-3 flex min-h-[56px] w-full items-center justify-center rounded-md border-2 border-line text-base font-bold text-ink-soft transition-colors hover:bg-banner"
+              >
+                ↩ 위치 초기화
+              </button>
+            ) : null}
+          </section>
+
           <section>
             <h3 className="text-lg font-bold text-ink">글자 바꾸기</h3>
             <p className="mt-1 text-base text-ink-soft">
