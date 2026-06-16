@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { BUSINESS_INFO } from "@/lib/commerce/business";
+
 // 개인정보 처리방침 v1.0 (경영방 확정). 공개 정적 페이지(비로그인 접근,
 // proxy.ts PUBLIC_PATHS 등록). 사업자 등록(6/17 예정) 전까지 [ ] placeholder
 // 노출 — 등록 후 정식 사업자 정보·시행일·수탁자 사명·국외이전 보유기간으로 교체.
@@ -146,7 +148,7 @@ export default function PrivacyPage() {
             <Row label="이전 항목" value="AI 기능 이용 시 회원님이 입력한 텍스트" />
             <Row label="이전 일시·방법" value="서비스 이용 시점에 네트워크를 통한 전송" />
             <Row label="이용 목적" value="AI 회상 보조·문장 다듬기" />
-            <Row label="보유·이용 기간" value="[Anthropic 보유기간 — 확인 후 확정]" />
+            <Row label="보유·이용 기간" value="API 처리 후 7일 이내 자동 삭제 (법령·정책 위반 대응 목적 제외, 모델 학습 미사용)" />
           </dl>
         </Article>
 
@@ -190,7 +192,7 @@ export default function PrivacyPage() {
           </p>
           <ul className="mt-1 flex flex-col gap-2">
             <li className={P}>· 토스페이먼츠㈜ — 결제 처리</li>
-            <li className={P}>· [호스팅 사업자] — 서비스 인프라 운영 및 데이터 보관</li>
+            <li className={P}>· {BUSINESS_INFO.hostingProvider} — 서비스 인프라 운영 및 데이터 보관</li>
           </ul>
         </Article>
 
@@ -204,10 +206,10 @@ export default function PrivacyPage() {
 
         <Article title="8. 개인정보 보호책임자">
           <dl className="flex flex-col gap-1 rounded-md border border-line bg-surface px-5 py-4 text-lg">
-            <Row label="성명" value="이성민" />
-            <Row label="직책" value="대표" />
-            <Row label="이메일" value="[이메일]" />
-            <Row label="전화" value="[전화]" />
+            <Row label="성명" value={BUSINESS_INFO.privacyOfficerName} />
+            <Row label="직책" value={BUSINESS_INFO.privacyOfficerTitle} />
+            <Row label="이메일" value={BUSINESS_INFO.csEmail} />
+            <Row label="전화" value={BUSINESS_INFO.csPhone} />
           </dl>
         </Article>
 
@@ -228,14 +230,14 @@ export default function PrivacyPage() {
         </Article>
       </div>
 
-      {/* 사업자 정보 — 등록 후 교체 */}
+      {/* 사업자 정보 */}
       <section className="mt-12 border-t border-line pt-6 text-base text-ink-faint">
         <dl className="flex flex-col gap-1">
-          <Row label="상호" value="[상호]" subtle />
-          <Row label="대표자" value="[대표자]" subtle />
-          <Row label="사업자등록번호" value="[등록번호]" subtle />
-          <Row label="주소" value="[주소]" subtle />
-          <Row label="문의" value="[이메일] · [전화]" subtle />
+          <Row label="상호" value={BUSINESS_INFO.companyName} subtle />
+          <Row label="대표자" value={BUSINESS_INFO.ceoName} subtle />
+          <Row label="사업자등록번호" value={BUSINESS_INFO.bizRegNo} subtle />
+          <Row label="주소" value={BUSINESS_INFO.address} subtle />
+          <Row label="문의" value={`${BUSINESS_INFO.csEmail} · ${BUSINESS_INFO.csPhone}`} subtle />
         </dl>
         <p className="mt-4">© 2026 Lifebook</p>
       </section>
