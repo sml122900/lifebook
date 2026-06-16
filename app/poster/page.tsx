@@ -19,6 +19,7 @@ import type { MappingEvent } from "@/lib/poster/types";
 import { mapToPlacement } from "@/lib/poster/mapping";
 import { loadMasterSvg, renderPoster } from "@/lib/poster/render";
 import { riverManifest } from "@/lib/poster/templates/river";
+import { sephirotManifest } from "@/lib/poster/templates/sephirot";
 import { zelkovaManifest } from "@/lib/poster/templates/zelkova";
 
 // T1 STEP3 — 인생 나무 포스터 화면 (읽기 전용 데모).
@@ -90,6 +91,7 @@ export default async function PosterPage() {
   const TEMPLATE_DEFS = [
     { manifest: zelkovaManifest, accent: "#6B4226" },
     { manifest: riverManifest, accent: "#3A6A78" },
+    { manifest: sephirotManifest, accent: "#5C4A6B" },
   ];
 
   const templates: PosterTemplate[] = TEMPLATE_DEFS.map(
