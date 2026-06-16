@@ -355,3 +355,15 @@
 - **Problem**: 6/19 배포 전, 카카오톡·문자로 링크 공유 시 미리보기(제목·설명·썸네일)가 안 떴다. OG 메타가 아예 없었고, 동적 OG 이미지(`app/opengraph-image.tsx`, 1200×630 ImageResponse)를 추가했더니 이번엔 이미지 대신 HTML 이 200 으로 돌아왔다.
 - **Action**: ① `metadataBase` + 전역 openGraph(siteName/locale/type) + twitter 카드를 layout 에, 랜딩 카피 오버라이드를 page 에. ② 동적 썸네일은 Noto Serif KR 을 **필요 글자만 subset fetch**(satori 의 woff2 미지원 회피 위해 CSS 에서 truetype URL 만 정규식 추출). ③ "200 인데 text/html" 을 `MaximumRedirection 0` 으로 추적 → 307 발견 → **미들웨어 matcher 의 점(.) 기반 정적파일 제외 규칙이 점 없는 메타데이터 라우트(`/opengraph-image`)를 못 걸러 인증 리다이렉트로 빠짐** 을 진단, PUBLIC_PATHS 등록으로 해소. ④ 인접 함정(Next 의 openGraph 비-깊은병합)까지 페이지에서 siteName 재명시로 보정.
 - **Result**: `/opengraph-image` 200 image/png, 랜딩에 og/twitter 8태그 정상. 랜딩 placeholder 8슬롯도 next/image(fill·object-cover)로 전부 실화면 교체(fill 의 intrinsic 0 으로 grid auto 트랙이 수축하던 S4 는 칼럼 폭 고정으로 해결). *교훈*: (1) "200 인데 내용이 이상"하면 리다이렉트를 의심 — 진짜 상태코드를 봐야 한다. (2) 프레임워크의 편의 규칙(matcher 의 점 제외, og 병합)은 메타데이터 파일 컨벤션 같은 경계 케이스에서 새는 추상화 — 외부 크롤러가 받는 라우트는 명시적으로 열어야 한다.
+
+## 포스터 편집기 — 검증된 렌더를 0줄 건드리고 인터랙션 4종을 올린 클라 레이어
+
+- **Problem**: 동결된 디자이너 SVG(7월까지 비주얼 판단 금지)를 종 교체형으로 렌더하고, 그 위에 편집(사건 빼기·크기·위치·메모)을 얹어야 했다. 데모 임박이라 가장 큰 리스크는 "편집을 더하다 이미 검증된 렌더를 깨는 회귀". 제약: 렌더 엔진(`render.ts`/`mapping.ts`) 무수정, 클라 휘발성, 마이그 0, 어르신 기본 동선(아무것도 안 해도 자동 렌더) 보존.
+- **Action**: **3계층 경계**(매핑=template-agnostic / 렌더러=매니페스트 구동·종지식 0 / UI=클라)로 종 지식을 매니페스트 한 곳에 가두고, 편집은 전부 `PosterInteractive` 한 파일의 **클라 후처리**로만 구현. 모든 적용을 단일 useEffect에서 state→DOM 전량 재계산(**idempotent** — 재주입·전환마다 안전, 과거 "setState 업데이터 내 DOM 변경이 재렌더로 지워지는" 버그를 post-commit effect로 일원화). 인라인 `setAttribute`/`style`로 적용해 CSS·presentation 속성 충돌 회피. 드래그는 포인터 이벤트(`setPointerCapture` + `getScreenCTM().inverse()`로 반응형 스케일 자동 보정) 인프라를 만들고, 크기(②)는 그 transform을 중심 기준 scale로 확장, 메모(③)는 별도 effect로 격리하되 `dragRef.kind` 분기로 같은 드래그를 재사용 — 슬롯 경로 무수정으로 ①② 회귀 0. 3번째 종(sephirot)은 "100% 동일" 클레임을 grep으로 검증해 슬롯 DOM 비호환(중첩 g·음수좌표·group transform)을 발견, naive 강행 대신 STOP+재작업 요청.
+- **Result**: 포스터 11커밋 전 구간 **엔진 diff 0**, 마이그 0, tsc+build 통과, 어르신 auto 경로 무변. 빈 슬롯 토큰 누수는 server가 이미 숨기지만 원인 미확인 → 방어적 "{" 스윕 가드. *교훈*: (1) 동결 자산 위에서는 "재구성(JSX 변환)"이 아니라 "id 기준 문자열 주입 + 경계"가 비주얼 드리프트를 막는다. (2) 인터랙션을 쌓을 땐 공유 인프라(포인터·transform·통합 effect)를 먼저 깔고 신규 기능은 분기(`kind`)·격리(별도 effect)로 올려 회귀 표면을 0으로 유지. (3) 외부(디자이너) "동일" 주장은 grep으로 검증 — 매번 틀렸다. (4) 조용히 망가진 산출물보다 STOP+보고가 낫다.
+
+## NUL 바이트 1개로 git이 소스를 바이너리로 오인 — 표시 vs 실체 분리 진단
+
+- **Problem**: 멀쩡한 코드 추가 커밋이 `0 insertions / Bin 15851->16736`로 나옴. git이 `.tsx`를 바이너리로 분류해 diff·blame이 깨졌다(내용 자체는 정상 커밋).
+- **Action**: git 바이너리 휴리스틱(앞부분 NUL 검출)에서 역추적 → `grep -naP '\x00'`로 메모 키 separator에 혼입된 **U+0000 단 1바이트**를 line 42에서 특정 → `perl -i -pe 's/\x00/ /g'`로 일반 공백 치환(키 동작 동일). 커밋 후에도 `git show`가 `Bin->Bin`인 것은 "부모 커밋 블롭이 아직 바이너리"라 비교 상대가 바이너리이기 때문임을 `git cat-file blob`로 현재 HEAD 블롭의 NUL 0을 확인해 분리 입증.
+- **Result**: 다음 변경부터 텍스트 diff 정상 복귀. NUL 점검을 커밋 검증 루틴(tsc/build/경계 diff)에 편입. *교훈*: "diff가 Bin"과 "파일이 깨짐"은 다른 명제 — 블롭 자체(`cat-file`)를 봐야 한다. 보이지 않는 제어문자는 `grep -P '\x00'`로 바이트 단위 추적이 가장 빠르다.
