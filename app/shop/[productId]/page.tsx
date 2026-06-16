@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { ButtonLink } from "@/components/ui/Button";
@@ -22,12 +23,15 @@ export default async function ProductDetailPage({
         ← 상점으로
       </ButtonLink>
 
-      {/* 상품 사진 슬롯 — 실사진 끼우기 전 placeholder */}
-      <div
-        data-slot={`product-${product.id}`}
-        className="mt-6 flex aspect-[4/3] w-full items-center justify-center rounded-lg border border-line bg-ph"
-      >
-        <span className="px-4 text-base text-ink-faint">{product.name} 사진</span>
+      <div className="relative mt-6 aspect-[4/3] w-full overflow-hidden rounded-lg border border-line bg-surface">
+        <Image
+          src={product.image}
+          alt={product.imageAlt}
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 672px"
+          priority
+        />
       </div>
 
       <header className="mt-6">

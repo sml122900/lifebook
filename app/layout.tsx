@@ -7,6 +7,7 @@ import "pretendard/dist/web/variable/pretendardvariable.css";
 import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
 import { AssistantWidget } from "@/app/components/AssistantWidget";
+import { Footer } from "@/app/components/Footer";
 import { SessionProvider } from "@/app/components/SessionProvider";
 import { SidePanelLayout } from "@/app/timemachine/SidePanel";
 import { loadSidePanelData } from "@/lib/side-panel-data";
@@ -86,6 +87,7 @@ export default async function RootLayout({
         {/* v3.4 — 글로벌 AI 비서 위젯 (인증된 사용자만 렌더). 위치는 fixed
             bottom-6 right-6. 비인증/세션 X 면 null 반환해 보이지 않는다. */}
         <AssistantWidget />
+        <Footer />
         </SessionProvider>
       </body>
     </html>

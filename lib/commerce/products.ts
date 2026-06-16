@@ -20,6 +20,8 @@ export type Product = {
   spec: string; // 규격 한 줄 (A2 / 소프트커버 등)
   blurb: string; // 한 줄 소개
   unitKrw: number;
+  image: string; // /public 기준 경로 — 상품별 고유 이미지(반복 금지)
+  imageAlt: string;
 };
 
 export const PRODUCTS: readonly Product[] = [
@@ -29,6 +31,8 @@ export const PRODUCTS: readonly Product[] = [
     spec: "느티나무 디자인 · A2 (420 × 594mm)",
     blurb: "한 분의 인생을 느티나무 한 그루로 그린 A2 포스터 — 벽에 거는 큰 연혁.",
     unitKrw: 49000,
+    image: "/landing/product-poster.png",
+    imageAlt: "액자에 든 인생 연혁 포스터 실물",
   },
   {
     id: "charm",
@@ -36,6 +40,8 @@ export const PRODUCTS: readonly Product[] = [
     spec: "휴대용",
     blurb: "곁에 두고 꺼내 보는 작은 인생 기록물.",
     unitKrw: 19000,
+    image: "/landing/product-keepsake.png",
+    imageAlt: "손에 쥐는 인생 씨앗 기념물",
   },
   {
     id: "book",
@@ -43,6 +49,8 @@ export const PRODUCTS: readonly Product[] = [
     spec: "소프트커버",
     blurb: "이야기를 묶은, 세상에 하나뿐인 책.",
     unitKrw: 99000,
+    image: "/landing/product-book.png",
+    imageAlt: "소프트커버 자서전 책",
   },
 ] as const;
 
