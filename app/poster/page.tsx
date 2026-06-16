@@ -209,9 +209,19 @@ function ProductSection() {
         </div>
       </div>
 
-      <p className="mt-8 text-center text-base text-ink-soft">
-        주문하기는 곧 열려요.
-      </p>
+      {/* 주문하기 — 기존 /shop 체크아웃(요약 + Toss 테스트 결제 + 서버 confirm·
+          금액 검증 + ProductOrder 영속화)으로 연결. 결제 보안 재구현 0. */}
+      <div className="mt-8 text-center">
+        <Link
+          href={`/shop/${poster.id}/order`}
+          className={buttonClasses("primary", "lg")}
+        >
+          주문하기
+        </Link>
+        <p className="mt-3 text-base text-ink-soft">
+          테스트 결제예요 — 실제로 청구·배송되지 않아요.
+        </p>
+      </div>
     </section>
   );
 }
