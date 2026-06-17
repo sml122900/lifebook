@@ -245,6 +245,12 @@ export default async function LifeTimelinePage() {
             >
               인생 기록 보강
             </Link>
+            <Link
+              href="/poster"
+              className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-amber-500 px-6 py-3 text-lg font-semibold text-white hover:bg-amber-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            >
+              이 연혁으로 포스터 만들기
+            </Link>
           </div>
         </section>
       )}
