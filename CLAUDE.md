@@ -193,6 +193,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **인앱 브라우저 구글 로그인 대응** | **카톡·인스타·네이버 인앱 WebView 구글 403 disallowed_useragent 대응 — UA 감지 후 Android(KakaoTalk 전용 API 우선·Chrome intent 폴백)/iOS(amber 배너+URL 복사) 분기. 카카오·네이버 서버 액션 무변. `InAppBrowserGuard`·`InAppIosBanner`·`InAppGoogleNote` 3 export** | `docs/troubleshooting/inapp-browser-google-login.md` | ✅ 완료 |
 | **이메일+비밀번호 회원가입·로그인 (Credentials)** | **Auth.js Credentials(Node-only, `auth.ts` 에만 추가·Edge `auth.config.ts` 무변) + bcryptjs(cost=12) + `User.passwordHash String?` 마이그 + `/signup` 신규 + `/login` 이메일 섹션. 기존 Kakao/Naver/Google OAuth·JWT 전략 완전 무변. 가입→자동 로그인 NEXT_REDIRECT re-throw 패턴** | (`2026-06-18` 일지) | ✅ 완료 |
 | **React.cache() 중복 쿼리 제거** | **request 단위 메모 — `getLifeEvents`·`listAssistantAnswers`·`getBalance`·`getAttendanceStatus`·`getFamilyNewsCount` 5종에 `async _X + export const X = cache(_X)` 패턴 적용. 함수 시그니처·반환값·호출부 0줄 수정. `/life-timeline` 1요청 DB 쿼리 −2건** | (`2026-06-18` 일지) | ✅ 완료 |
+| **연혁 → /poster 진입 버튼** | **`/life-timeline` hasEvents 액션 섹션 버튼 행에 amber-500 채움 Link 추가 — "이 연혁으로 포스터 만들기". 포스터 엔진·에디터·/poster 페이지 무수정, 마이그 0, +6줄** | (`2026-06-18` 일지 세션2) | ✅ 완료 |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 

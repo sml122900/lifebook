@@ -397,3 +397,9 @@
 - **Problem**: `/life-timeline` 요청 1회에 DB 쿼리 12+건 발생. 원인: root layout의 `AssistantWidget`(RSC)이 `getLifeEvents`·`listAssistantAnswers`를 호출하고, 같은 요청의 page.tsx도 독립적으로 동일 함수를 호출 → 함수당 2회 실행. RSC는 동일 모듈 함수를 자동 dedup 하지 않음.
 - **Action**: `async function _X + export const X = cache(_X)` 패턴 — 함수 본문 0줄 수정, 선언부만 internal rename 후 cache() 래핑. 5개 함수(`getLifeEvents`/`listAssistantAnswers`/`getBalance`/`getAttendanceStatus`/`getFamilyNewsCount`) 적용. React.cache()는 request 단위 격리(cross-request 오염 없음 — 매 요청 fresh 보장).
 - **Result**: `/life-timeline` 1요청 기준 DB 쿼리 순감 −2건(getLifeEvents 2→1, listAssistantAnswers 2→1). 5파일 +20줄, 함수 시그니처·반환값·호출부 0줄 수정. *교훈*: Next.js App Router에서 동일 RSC 함수를 여러 컴포넌트가 import하면 N번 실행된다 — React.cache()는 "모듈 함수 캐시"가 아닌 "request-scoped memo"라 인지하고 의도적으로 적용해야 함.
+
+## 기능 완성도 갭 발견 → 최소 링크로 해소 — 데모 전 진입점 추가
+
+- **Problem**: `/poster` 페이지가 엔진·편집기까지 완성됐지만 앱 내 진입 버튼이 없어 URL 직접 입력만 가능했다. 데모 당일 "어떻게 들어가요?" 상황 예상.
+- **Action**: 진입점 추가를 최소 단위로 정의(네비 링크만, 포스터 엔진·에디터·페이지 무수정). `/life-timeline` 의 `hasEvents` 액션 섹션 버튼 행 마지막에 amber-500 채움 Link 컴포넌트 +6줄. hasEvents 조건 안에 배치해 이벤트 0건 신규 사용자에겐 비노출 — 포스터에 넣을 내용이 없는 상태에서 혼란 방지.
+- **Result**: 1파일 +6줄, tsc 클린. *교훈*: "기능 완성 ≠ 사용 가능" — 진입점이 없는 페이지는 완성되지 않은 것과 같다. 데모 전 checklist 항목으로 "모든 핵심 페이지에 앱 내 진입 버튼이 있는가" 추가.
