@@ -4,7 +4,9 @@
 // 한다. Edge 전용 인스턴스는 proxy.ts 가 auth.config 만으로 따로 만든다
 // (Edge 런타임에선 Prisma 를 못 쓰기 때문).
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import bcrypt from "bcryptjs";
 import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 
 import authConfig from "./auth.config";
 import { prisma } from "./lib/db";
@@ -14,6 +16,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" }, // DB 세션 대신 JWT — Edge 미들웨어가 읽기 쉬움
   ...authConfig,
+  // Credentials 는 Node-only (bcrypt + Prisma) — auth.config.ts(Edge) 엔 넣지 않음.
+  providers: [
+    ...authConfig.providers,
+    Credentials({
+      credentials: { email: {}, password: {} },
+      async authorize(credentials) {
+        const email =
+          typeof credentials?.email === "string" ? credentials.email : null;
+        const password =
+          typeof credentials?.password === "string"
+            ? credentials.password
+            : null;
+        if (!email || !password) return null;
+
+        const user = await prisma.user.findUnique({
+          where: { email },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            passwordHash: true,
+          },
+        });
+        if (!user?.passwordHash) return null; // OAuth 전용 계정
+        const ok = await bcrypt.compare(password, user.passwordHash);
+        if (!ok) return null;
+        return { id: user.id, name: user.name, email: user.email, image: user.image };
+      },
+    }),
+  ],
   events: {
     // Auth.js 는 PrismaAdapter 가 사용자를 처음 insert 할 때 createUser 를
     // 정확히 한 번 발생시킨다. Phase 8.2 신규 가입 토큰 지급이 여기서 일어나며,

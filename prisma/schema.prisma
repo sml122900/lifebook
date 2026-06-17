@@ -94,6 +94,10 @@ model User {
   // 사용자가 같은 카테고리에 답하면 upsertLifeEvent 가 자동으로 셋에서 제거.
   skippedLifeCategories LifeCategory[] @default([])
 
+  // null = OAuth 전용 계정. Credentials 가입 시에만 채워짐.
+  // ★ 절대 평문 저장 금지 — bcrypt hash 만 저장.
+  passwordHash String?
+
   createdAt DateTime @default(now())
 
   accounts              Account[]

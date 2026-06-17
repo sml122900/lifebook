@@ -16,6 +16,7 @@ const { auth } = NextAuth(authConfig);
 const PUBLIC_PATHS = new Set<string>([
   "/",
   "/login",
+  "/signup",
   "/privacy",
   "/opengraph-image",
 ]);

@@ -5,6 +5,7 @@ import {
   InAppGoogleNote,
   InAppIosBanner,
 } from "./InAppBrowserGuard";
+import { LoginCredentialsForm } from "./LoginCredentialsForm";
 
 // 로그인 페이지. 카카오(어르신 우선)·구글 OAuth 두 가지.
 // form action(server) 으로 signIn 을 호출하고, 성공 후 /enter 로 분기한다.
@@ -99,6 +100,16 @@ export default function LoginPage() {
         </form>
           {/* 인앱에서만 노출 — 구글은 외부 브라우저에서만 */}
           <InAppGoogleNote />
+
+          {/* 구분선 */}
+          <div className="flex items-center gap-3">
+            <hr className="flex-1 border-line" />
+            <span className="text-sm text-ink-soft">또는</span>
+            <hr className="flex-1 border-line" />
+          </div>
+
+          {/* 이메일·비밀번호 로그인 */}
+          <LoginCredentialsForm />
       </div>
     </main>
     </InAppBrowserGuard>
