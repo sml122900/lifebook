@@ -367,3 +367,21 @@
 - **Problem**: 멀쩡한 코드 추가 커밋이 `0 insertions / Bin 15851->16736`로 나옴. git이 `.tsx`를 바이너리로 분류해 diff·blame이 깨졌다(내용 자체는 정상 커밋).
 - **Action**: git 바이너리 휴리스틱(앞부분 NUL 검출)에서 역추적 → `grep -naP '\x00'`로 메모 키 separator에 혼입된 **U+0000 단 1바이트**를 line 42에서 특정 → `perl -i -pe 's/\x00/ /g'`로 일반 공백 치환(키 동작 동일). 커밋 후에도 `git show`가 `Bin->Bin`인 것은 "부모 커밋 블롭이 아직 바이너리"라 비교 상대가 바이너리이기 때문임을 `git cat-file blob`로 현재 HEAD 블롭의 NUL 0을 확인해 분리 입증.
 - **Result**: 다음 변경부터 텍스트 diff 정상 복귀. NUL 점검을 커밋 검증 루틴(tsc/build/경계 diff)에 편입. *교훈*: "diff가 Bin"과 "파일이 깨짐"은 다른 명제 — 블롭 자체(`cat-file`)를 봐야 한다. 보이지 않는 제어문자는 `grep -P '\x00'`로 바이트 단위 추적이 가장 빠르다.
+
+## Google OAuth 정책 차단을 코드 없이 우회 — 인앱 브라우저 플랫폼별 대응
+
+- **Problem**: 카카오톡·인스타그램·네이버 앱 인앱 WebView에서 Google OAuth 시도 시 `403 disallowed_useragent`. 코드 버그도 설정 문제도 아닌 Google 정책 — 커스텀 UA WebView의 OAuth를 2019년부터 서버 측에서 차단. OAuth 설정(GCP Console), next-auth 파라미터로는 해결 불가.
+- **Action**: "우회"를 포기하고 **플랫폼별 브라우저 전환 유도**로 전환. UA 감지(`KAKAOTALK|Instagram|NAVER|FBAN|FBAV`)→ Android는 KakaoTalk 전용 API(`kakaotalk://web/openExternal`)와 범용 Chrome intent(`intent://…#Intent;scheme=https;package=com.android.chrome;end`)를 app-specific 분기로 mount 즉시 발사, iOS는 "···→Safari로 열기" 안내 배너+URL 복사 버튼. 카카오·네이버는 인앱에서도 작동하므로 서버 액션 무수정, 구글 버튼 아래 한 줄 안내만 추가.
+- **Result**: Android KakaoTalk에서 Chrome 자동 전환, iOS에서 Safari 유도 배너 노출. 인앱 사용자 대다수를 카카오·네이버 로그인으로 유도해 이탈 최소화. *교훈*: (1) 외부 서비스(Google OAuth)의 정책 차단은 설정 레벨에서 풀 수 없다 — 프레임워크가 제공하지 않는 layer(OS 브라우저 전환)로 올라가야 한다. (2) 앱 전용 URL 스킴(`kakaotalk://web/openExternal`)은 범용 intent의 상위 호환 — 앱 감지 후 specialized API 우선 시도, 폴백 순서 설계가 핵심.
+
+## 전자상거래법 사업자 정보 고지 — 단일 출처 패턴으로 법적 의무와 유지보수성 동시 확보
+
+- **Problem**: Toss 프로덕션 심사 통과를 위해 전자상거래법상 의무 사항(상호·대표자·사업자번호·주소·CS·통신판매업 신고번호) 6종을 모든 페이지에 고지해야 했다. 하드코딩하면 사업자등록 완료 후 일괄 업데이트 시 누락 위험.
+- **Action**: `lib/commerce/business.ts`에 `BUSINESS_INFO const` 단일 출처 정의 → `Footer` 컴포넌트가 import → root layout에 `<Footer />` 한 줄로 전 페이지 자동 고지. `/privacy` 개인정보 처리방침도 동일 const import. 통신판매업 신고번호는 "신고 예정"으로 placeholder 보존(~6/19 발급 후 단 1개 필드 교체).
+- **Result**: 전자상거래법 고지 6종 완비, 마이그 0, 변경 파일 3개. *교훈*: 법적 의무 정보는 "어디서 왔는가(출처)"가 명확해야 유지보수할 수 있다 — 비즈니스 상수(사업자번호·주소)는 UI와 법적 문서가 공유하는 단일 const로 관리.
+
+## sephirot 3번째 템플릿 — 엔진 0줄로 SVG 종 추가 검증
+
+- **Problem**: 디자이너가 제공한 sephirot SVG가 렌더 엔진의 계약(슬롯 단층·양수좌표·transform 0)을 만족하는지 사전에 알 수 없었다. naive 추가 시 DOM 비호환으로 렌더 깨짐 위험(실제로 1차 SVG에서 중첩 `<g>`, `#node` 혼입, 음수좌표 발견 → STOP 요청).
+- **Action**: **15개 항목 grep 게이트(STEP0)** — 슬롯 수·flat 구조·`#node` 혼입·음수좌표·transform·text id·symbol·가짜데이터 전수 검증. 1차 SVG 비호환 발견 → 디자이너 재작업 요청. 2차 SVG에서 전 항목 PASS 확인 후 매니페스트(`lib/poster/templates/sephirot.ts`) 작성: 챕터 메타포명 보존은 sentinel id(`__sephirot_no_chapter_inject_N`) no-op 패턴, significanceVariants는 zelkova 재사용(동일 심볼 구조). `render.ts`/`mapping.ts` diff 0.
+- **Result**: 3번째 종 추가로 렌더 엔진 1줄 수정 없음 검증 — 매니페스트 파일 1개가 종 지식 전체. *교훈*: 외부 자산(디자이너 SVG)은 "동일하다"는 구두 확인보다 grep 체크리스트가 신뢰할 수 있다 — 1차 SVG에서 3개 계약 위반이 실제로 발견됐다.
