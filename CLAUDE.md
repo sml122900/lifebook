@@ -191,6 +191,8 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **사업자 실값 + /privacy placeholder** | **BUSINESS_INFO 실값(상호·대표자·147-02-03988·주소·CS) + /privacy Anthropic 보유기간 명시(7일 이내 자동 삭제) + 보호책임자·호스팅사·사업자정보 5 Row 교체. 잔여: `[시행일]`×2(6/30)·통신판매업 신고번호(~6/19)** | (`2026-06-17` 일지) | ✅ 완료 |
 | **sephirot 3번째 템플릿** | **STEP0 15항목 grep 재검증 PASS(슬롯14 flat·`#node` 0·음수좌표 0·transform 0) → `lib/poster/templates/sephirot.ts` 매니페스트(sentinel chapter no-op·zelkova significanceVariants 재사용) → 피커 3종(`#5C4A6B`) 추가. render.ts/mapping.ts diff 0** | (`2026-06-17` 일지) | ✅ 완료 |
 | **인앱 브라우저 구글 로그인 대응** | **카톡·인스타·네이버 인앱 WebView 구글 403 disallowed_useragent 대응 — UA 감지 후 Android(KakaoTalk 전용 API 우선·Chrome intent 폴백)/iOS(amber 배너+URL 복사) 분기. 카카오·네이버 서버 액션 무변. `InAppBrowserGuard`·`InAppIosBanner`·`InAppGoogleNote` 3 export** | `docs/troubleshooting/inapp-browser-google-login.md` | ✅ 완료 |
+| **이메일+비밀번호 회원가입·로그인 (Credentials)** | **Auth.js Credentials(Node-only, `auth.ts` 에만 추가·Edge `auth.config.ts` 무변) + bcryptjs(cost=12) + `User.passwordHash String?` 마이그 + `/signup` 신규 + `/login` 이메일 섹션. 기존 Kakao/Naver/Google OAuth·JWT 전략 완전 무변. 가입→자동 로그인 NEXT_REDIRECT re-throw 패턴** | (`2026-06-18` 일지) | ✅ 완료 |
+| **React.cache() 중복 쿼리 제거** | **request 단위 메모 — `getLifeEvents`·`listAssistantAnswers`·`getBalance`·`getAttendanceStatus`·`getFamilyNewsCount` 5종에 `async _X + export const X = cache(_X)` 패턴 적용. 함수 시그니처·반환값·호출부 0줄 수정. `/life-timeline` 1요청 DB 쿼리 −2건** | (`2026-06-18` 일지) | ✅ 완료 |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 

@@ -385,3 +385,15 @@
 - **Problem**: 디자이너가 제공한 sephirot SVG가 렌더 엔진의 계약(슬롯 단층·양수좌표·transform 0)을 만족하는지 사전에 알 수 없었다. naive 추가 시 DOM 비호환으로 렌더 깨짐 위험(실제로 1차 SVG에서 중첩 `<g>`, `#node` 혼입, 음수좌표 발견 → STOP 요청).
 - **Action**: **15개 항목 grep 게이트(STEP0)** — 슬롯 수·flat 구조·`#node` 혼입·음수좌표·transform·text id·symbol·가짜데이터 전수 검증. 1차 SVG 비호환 발견 → 디자이너 재작업 요청. 2차 SVG에서 전 항목 PASS 확인 후 매니페스트(`lib/poster/templates/sephirot.ts`) 작성: 챕터 메타포명 보존은 sentinel id(`__sephirot_no_chapter_inject_N`) no-op 패턴, significanceVariants는 zelkova 재사용(동일 심볼 구조). `render.ts`/`mapping.ts` diff 0.
 - **Result**: 3번째 종 추가로 렌더 엔진 1줄 수정 없음 검증 — 매니페스트 파일 1개가 종 지식 전체. *교훈*: 외부 자산(디자이너 SVG)은 "동일하다"는 구두 확인보다 grep 체크리스트가 신뢰할 수 있다 — 1차 SVG에서 3개 계약 위반이 실제로 발견됐다.
+
+## Auth.js Credentials 도입 — OAuth 보존·Edge 분리·bcrypt 삼중 제약 동시 만족
+
+- **Problem**: 어르신 테스트 계정용 이메일+비밀번호 인증이 필요했다. 제약 세 가지가 동시에 존재 — (1) 기존 Kakao/Naver/Google OAuth 무변, (2) Auth.js Credentials는 Prisma(bcrypt) 의존으로 Edge 런타임(`auth.config.ts`) 불가 → Node-only `auth.ts` 에만 추가, (3) 비밀번호 평문 저장 절대 금지.
+- **Action**: `auth.ts`의 providers 배열을 `[...authConfig.providers, Credentials({...})]` 패턴으로 확장(Edge 파일 무수정). `authorize()` 에서 `passwordHash === null` 이면 즉시 null 반환 → OAuth 계정에 이메일+비번 시도 자동 차단(에러 코드 누출 없음). `bcryptjs`(순수 JS, native 바인딩 없음 — Vercel serverless 호환) cost=12로 해시. 가입 성공 직후 `signIn("credentials", {..., redirectTo: "/enter"})` 로 자동 로그인 — `NEXT_REDIRECT` re-throw 패턴으로 별도 redirect 코드 0. `User.passwordHash String?` nullable 스키마 추가 — 기존 OAuth 행은 null 유지.
+- **Result**: 12개 파일 +325줄, tsc 클린. 기존 OAuth 3종 완전 무변. 이메일 중복·비번 8자 미만·bcrypt 검증 실패 모두 인라인 오류 안내. *교훈*: Auth.js의 Edge/Node 경계는 콜백 위치가 아닌 **import 위치**로 결정된다 — `auth.config.ts`(Edge)에 Prisma import 시 빌드 실패 메시지가 즉시 나타나 경계가 명확히 드러남.
+
+## Next.js App Router RSC 중복 쿼리 — React.cache()로 request 단위 메모
+
+- **Problem**: `/life-timeline` 요청 1회에 DB 쿼리 12+건 발생. 원인: root layout의 `AssistantWidget`(RSC)이 `getLifeEvents`·`listAssistantAnswers`를 호출하고, 같은 요청의 page.tsx도 독립적으로 동일 함수를 호출 → 함수당 2회 실행. RSC는 동일 모듈 함수를 자동 dedup 하지 않음.
+- **Action**: `async function _X + export const X = cache(_X)` 패턴 — 함수 본문 0줄 수정, 선언부만 internal rename 후 cache() 래핑. 5개 함수(`getLifeEvents`/`listAssistantAnswers`/`getBalance`/`getAttendanceStatus`/`getFamilyNewsCount`) 적용. React.cache()는 request 단위 격리(cross-request 오염 없음 — 매 요청 fresh 보장).
+- **Result**: `/life-timeline` 1요청 기준 DB 쿼리 순감 −2건(getLifeEvents 2→1, listAssistantAnswers 2→1). 5파일 +20줄, 함수 시그니처·반환값·호출부 0줄 수정. *교훈*: Next.js App Router에서 동일 RSC 함수를 여러 컴포넌트가 import하면 N번 실행된다 — React.cache()는 "모듈 함수 캐시"가 아닌 "request-scoped memo"라 인지하고 의도적으로 적용해야 함.
