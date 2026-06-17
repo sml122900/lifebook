@@ -8,6 +8,8 @@
 //   3. 신규 가입 지급은 idempotent. TokenWallet.userId 가 @unique 라
 //      ensureWalletWithSignupGrant() 를 어디서 불러도 이중 지급 위험이 없다.
 
+import { cache } from "react";
+
 import { prisma } from "../db";
 import { SIGNUP_GRANT_TOKENS } from "./policy";
 
@@ -89,10 +91,11 @@ export async function reconcileBalance(userId: string): Promise<ReconcileReport>
  * 읽기 전용 잔액 조회. 지갑이 아직 없으면 0 (가입 후엔 없을 일이 없지만
  * 안전하게).
  */
-export async function getBalance(userId: string): Promise<number> {
+async function _getBalance(userId: string): Promise<number> {
   const w = await prisma.tokenWallet.findUnique({
     where: { userId },
     select: { balance: true },
   });
   return w?.balance ?? 0;
 }
+export const getBalance = cache(_getBalance);

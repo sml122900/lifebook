@@ -12,6 +12,8 @@
 // createLifeEvent(여러 행 허용) + updateLifeEvent + deleteLifeEvent +
 // getLifeEventById.
 
+import { cache } from "react";
+
 import type { EventPrecision, LifeCategory } from "./generated/prisma/enums";
 import { EMPTY_PLACE, type PlaceInfo } from "./place-types";
 import { prisma } from "./db";
@@ -133,7 +135,7 @@ export function isPeriodCategory(category: LifeCategory): boolean {
 //
 // life_event 행은 eventYear 가 항상 채워져 있는 게 약속(L1 스키마 주석).
 // 방어적으로 NULL 행은 결과에서 제외한다.
-export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
+async function _getLifeEvents(userId: string): Promise<LifeEvent[]> {
   // Phase E2/Photo — life_event + era_event + photo 셋 다 가져옴. 비서 컨텍스트
   // 등 일부 호출자는 호출 측에서 kind 로 filter (한 줄). 시간축은 셋 다 보여줌.
   // photo 메모리도 eventYear/eventMonth 를 미러링하므로(createIndependentPhoto)
@@ -240,6 +242,7 @@ export async function getLifeEvents(userId: string): Promise<LifeEvent[]> {
     };
   });
 }
+export const getLifeEvents = cache(_getLifeEvents);
 
 // L2(+) — 사용자의 출생 연도 1회 조회. BIRTH 카테고리에 답한 행이 있으면
 // 그 eventYear, 없으면 null. 나이 자동 표시·SCHOOL 역계산 힌트에 사용.

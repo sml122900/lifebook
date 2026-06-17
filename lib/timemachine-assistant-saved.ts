@@ -20,6 +20,8 @@
 // UserMemory 를 읽으므로 비서 저장 답도 자동으로 가족에게 노출된다.
 // 본 답 자체에 개인 식별정보가 들어가지 않으므로(공적 사실 요약) 위험 낮음.
 
+import { cache } from "react";
+
 import { prisma } from "./db";
 
 const CREATED_VIA_ASSISTANT = "timemachine_assistant";
@@ -97,7 +99,7 @@ export async function saveAssistantAnswer(
   return row.id;
 }
 
-export async function listAssistantAnswers(
+async function _listAssistantAnswers(
   userId: string,
   year: number,
   month: number,
@@ -133,6 +135,7 @@ export async function listAssistantAnswers(
   }
   return out;
 }
+export const listAssistantAnswers = cache(_listAssistantAnswers);
 
 export async function deleteAssistantAnswer(
   userId: string,

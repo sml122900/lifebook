@@ -20,6 +20,8 @@
 // 날짜로 호출해 streak·보너스 로직을 결정적으로 테스트하기 위함.
 // 운영 코드는 default(new Date()) 사용.
 
+import { cache } from "react";
+
 import { prisma } from "./db";
 import {
   BONUS_CREDIT,
@@ -152,7 +154,7 @@ export async function processAttendance(
 }
 
 /** UI 렌더용 — 현재 출석 상태. mutating 없음. */
-export async function getAttendanceStatus(
+async function _getAttendanceStatus(
   userId: string,
   now: Date = new Date(),
 ): Promise<AttendanceStatus> {
@@ -186,3 +188,4 @@ export async function getAttendanceStatus(
     daysUntilNextBonus: daysUntilNextBonusFromStreak(baseStreak + 1),
   };
 }
+export const getAttendanceStatus = cache(_getAttendanceStatus);

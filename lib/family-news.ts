@@ -11,6 +11,8 @@
 // privacy: 새 반응은 "내 기록"에 달린 것만 (반응 생성 시 룸 멤버십 가드를
 // 이미 통과). 새 이야기는 내가 동의 멤버인 룸의 다른 멤버 것만.
 
+import { cache } from "react";
+
 import { prisma } from "./db";
 import { isStampKind, stampText, type StampKind } from "./reactions-policy";
 
@@ -247,7 +249,7 @@ export async function getFamilyNews(userId: string): Promise<FamilyNews> {
 }
 
 // 사이드 패널 배지용 — 개수만. 룸 없으면 0.
-export async function getFamilyNewsCount(
+async function _getFamilyNewsCount(
   userId: string,
 ): Promise<{ reactions: number; records: number; total: number }> {
   const { authorRoom } = await myRoomsAndOtherMembers(userId);
@@ -306,6 +308,7 @@ export async function getFamilyNewsCount(
   const records = recordKeys.size;
   return { reactions, records, total: reactions + records };
 }
+export const getFamilyNewsCount = cache(_getFamilyNewsCount);
 
 // seenAt 은 DB 시계(NOW())로 — baseline(@default(now()))·활동 createdAt 과
 // 같은 시계라 "봤는데 안 빠짐"(서버/DB 시계 어긋남) 차단. 행은 보통
