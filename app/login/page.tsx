@@ -1,11 +1,23 @@
 import { signIn } from "@/auth";
 
+import {
+  InAppBrowserGuard,
+  InAppGoogleNote,
+  InAppIosBanner,
+} from "./InAppBrowserGuard";
+
 // 로그인 페이지. 카카오(어르신 우선)·구글 OAuth 두 가지.
 // form action(server) 으로 signIn 을 호출하고, 성공 후 /enter 로 분기한다.
 // L7 — /enter 가 인생 이벤트 유무를 보고 /life-timeline 또는
 // /life-record(신규) 로 분기. provider 무관 동일 동선.
+//
+// 인앱 브라우저(카톡·인스타 등) 대응:
+//   Android — mount 즉시 Chrome intent 로 외부 열기 시도.
+//   iOS     — amber 안내 배너(Safari로 열기 유도) + URL 복사 버튼.
+//   공통    — 구글 버튼 아래 짧은 안내문. 카카오·네이버는 인앱에서도 작동.
 export default function LoginPage() {
   return (
+    <InAppBrowserGuard>
     <main className="mx-auto flex max-w-md flex-col items-center gap-8 px-6 py-20">
       <header className="text-center">
         <h1 className="text-4xl font-bold text-ink">로그인</h1>
@@ -15,6 +27,9 @@ export default function LoginPage() {
       </header>
 
       <div className="flex w-full flex-col gap-4">
+          {/* iOS 인앱 안내 배너 — 인앱이 아니면 null */}
+          <InAppIosBanner />
+
         {/* 카카오 — 어르신 요청으로 우선 노출. 노란 #FEE500 + 검정 글자는
             카카오 로그인 브랜드 가이드 강제라 디자인 토큰 예외.
             단 시니어 규격(min-h 56px, 18px)은 유지. */}
@@ -82,7 +97,10 @@ export default function LoginPage() {
             Google로 시작하기
           </button>
         </form>
+          {/* 인앱에서만 노출 — 구글은 외부 브라우저에서만 */}
+          <InAppGoogleNote />
       </div>
     </main>
+    </InAppBrowserGuard>
   );
 }
