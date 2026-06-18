@@ -102,8 +102,14 @@ export default function PrivacyPage() {
               <strong className="text-ink">나. 서비스 이용 중 생성</strong> —
               회원님이 직접 입력한 인생 기록(연도·사건·회상), AI 대화 내용,
               사진(올리실 때 기기에서 위치정보(GPS)를 제거한 뒤 저장), 가족
-              룸의 공유 내용과 별명. 음성으로 입력하신 경우 기기에서 글자로
-              변환된 텍스트만 저장하며, 음성(오디오) 원본은 저장하지 않습니다.
+              룸의 공유 내용과 별명. 음성으로 입력하신 경우 글자로 변환된
+              텍스트와 녹음 파일을 함께 저장합니다.
+            </li>
+            <li className={P}>
+              <strong className="text-ink">마. 음성 녹음 파일</strong> —
+              녹음 파일은 회원님만 접근할 수 있는 비공개 서버(Supabase Storage
+              비공개 버킷)에 저장됩니다. 회고·재생 목적으로만 사용하며, 외부에
+              제공하거나 광고에 활용하지 않습니다. 회원 탈퇴 시 함께 삭제됩니다.
             </li>
             <li className={P}>
               <strong className="text-ink">다. 결제</strong> — 결제 일시·금액·
