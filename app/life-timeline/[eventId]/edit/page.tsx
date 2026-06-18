@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getBirthYear, getLifeEventById } from "@/lib/life-events";
 import { listMemoryPhotos } from "@/lib/photos";
+import { getRecordingSignedUrl } from "@/lib/storage";
 
 import { EventForm } from "../../EventForm";
 import { EventPhotos } from "./EventPhotos";
@@ -37,6 +38,14 @@ export default async function LifeTimelineEditPage({
   ]);
   if (!event) {
     notFound();
+  }
+
+  // 7c — 저장된 녹음이 있으면 signed URL 발급. 실패해도 재생 버튼만 안 보임.
+  let audioSignedUrl: string | undefined;
+  if (event.audioPath) {
+    try {
+      audioSignedUrl = await getRecordingSignedUrl(event.audioPath);
+    } catch { /* silent */ }
   }
 
   return (
@@ -75,6 +84,7 @@ export default async function LifeTimelineEditPage({
           initialRefinedText: event.refinedText,
           initialDisplayRefined: event.displayRefined,
         }}
+        audioSignedUrl={audioSignedUrl}
       >
         {/* 사진 섹션은 폼 본문 아래·취소/저장 버튼 위에 (children). */}
         <EventPhotos

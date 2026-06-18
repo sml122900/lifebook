@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 
+import { AudioPlayer } from "@/app/components/AudioPlayer";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { ERA_MEMORY_MAX_LENGTH } from "@/lib/era-constants";
 import type { SaveEraMemoryResult } from "@/lib/era-stash";
@@ -30,6 +31,7 @@ export function EraMemoryEditor({
   onSaved,
   variant = "default",
   saveAction = saveEraMemoryAction,
+  audioSignedUrl,
 }: {
   monthEventId: string;
   eventTitle: string;
@@ -44,6 +46,8 @@ export function EraMemoryEditor({
     monthEventId: string,
     content: string,
   ) => Promise<SaveEraMemoryResult>;
+  // 7c — 저장된 녹음의 signed URL. 없으면 재생 버튼 안 보임.
+  audioSignedUrl?: string;
 }) {
   const [value, setValue] = useState(initialContent ?? "");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -129,6 +133,7 @@ export function EraMemoryEditor({
           (안 적어도 괜찮아요)
         </span>
       </p>
+      {audioSignedUrl && <AudioPlayer signedUrl={audioSignedUrl} />}
       <VoiceTextarea
         value={value}
         onChange={setValue}

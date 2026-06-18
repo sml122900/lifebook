@@ -346,6 +346,7 @@ export async function getLifeEventForCategory(
   content: string | null;
   precision: EventPrecision;
   place: PlaceInfo;
+  audioPath: string | null;
 } | null> {
   const row = await prisma.userMemory.findFirst({
     where: {
@@ -368,6 +369,7 @@ export async function getLifeEventForCategory(
       lat: true,
       lng: true,
       placeSource: true,
+      audioPath: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -388,6 +390,7 @@ export async function getLifeEventForCategory(
       lng: row.lng,
       placeSource: row.placeSource,
     },
+    audioPath: row.audioPath,
   };
 }
 
@@ -690,6 +693,7 @@ export async function getLifeEventById(
   displayRefined: boolean;
   precision: EventPrecision;
   place: PlaceInfo;
+  audioPath: string | null;
 } | null> {
   const row = await prisma.userMemory.findFirst({
     where: {
@@ -715,6 +719,7 @@ export async function getLifeEventById(
       lat: true,
       lng: true,
       placeSource: true,
+      audioPath: true,
     },
   });
   if (!row || row.eventYear === null || row.category === null) return null;
@@ -737,5 +742,6 @@ export async function getLifeEventById(
       lng: row.lng,
       placeSource: row.placeSource,
     },
+    audioPath: row.audioPath,
   };
 }

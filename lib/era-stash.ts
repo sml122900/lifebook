@@ -103,25 +103,25 @@ export async function getStashedEraEventIds(
   );
 }
 
-// Phase E3 — 담은 사건의 본인 회상(content) 동시 prefetch.
-// "✓ 표시" + "내가 적은 회상" 둘 다 클라이언트에서 즉시 그릴 수 있게.
+// Phase E3 — 담은 사건의 본인 회상(content) + 음성 경로(audioPath) 동시 prefetch.
+// "✓ 표시" + "내가 적은 회상" + "저장된 녹음" 셋 다 클라이언트에서 즉시 그릴 수 있게.
 // Map 은 RSC→client 직렬화가 안 되므로 호출자가 Object 로 변환해 전달.
 //
-// 반환: monthEventId → content (담은 사건만, 미입력은 null).
+// 반환: monthEventId → { content, audioPath } (담은 사건만, 미입력은 null).
 export async function getStashedEraMemories(
   userId: string,
-): Promise<Map<string, string | null>> {
+): Promise<Map<string, { content: string | null; audioPath: string | null }>> {
   const rows = await prisma.userMemory.findMany({
     where: {
       userId,
       createdVia: CREATED_VIA_ERA_EVENT,
       monthEventId: { not: null },
     },
-    select: { monthEventId: true, content: true },
+    select: { monthEventId: true, content: true, audioPath: true },
   });
-  const map = new Map<string, string | null>();
+  const map = new Map<string, { content: string | null; audioPath: string | null }>();
   for (const r of rows) {
-    if (r.monthEventId) map.set(r.monthEventId, r.content);
+    if (r.monthEventId) map.set(r.monthEventId, { content: r.content, audioPath: r.audioPath });
   }
   return map;
 }

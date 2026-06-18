@@ -241,8 +241,8 @@ async function main() {
     const memMap = await getStashedEraMemories(alice.id);
     assert(memMap.has(me.id), "memMap 에 me.id 키 존재");
     assert(
-      memMap.get(me.id) === "재저장된 회상",
-      `content prefetch OK (실제: ${memMap.get(me.id)})`,
+      memMap.get(me.id)?.content === "재저장된 회상",
+      `content prefetch OK (실제: ${memMap.get(me.id)?.content})`,
     );
 
     console.log("\n[16] E3 — 가족 룸에 content 자동 노출 (PersonalMemoryCard 분기 X)");

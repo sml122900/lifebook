@@ -6,6 +6,7 @@ import { useMemo, useRef, useState, useTransition, type ReactNode } from "react"
 
 import { buttonClasses } from "@/components/ui/Button";
 
+import { AudioPlayer } from "@/app/components/AudioPlayer";
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { RefineSection } from "./[eventId]/edit/RefineSection";
@@ -84,6 +85,7 @@ export function EventForm({
   refine = null,
   children,
   onAfterCreate,
+  audioSignedUrl,
 }: {
   mode: "add" | "edit";
   anchors?: AnchorOption[];
@@ -107,6 +109,8 @@ export function EventForm({
   // Phase Photo 6 (1단계+) — 추가 모드에서 이벤트 생성 직후(memoryId 확보)
   // 보류해 둔 사진을 첨부할 훅. push 전에 await. 실패해도 이벤트는 저장됨.
   onAfterCreate?: (eventId: string) => Promise<void>;
+  // 7c — 저장된 녹음의 signed URL. 편집 모드 + audioPath 있는 메모리 전용.
+  audioSignedUrl?: string;
 }) {
   const router = useRouter();
   const isEdit = mode === "edit";
@@ -402,9 +406,12 @@ export function EventForm({
           captureAudio={true}
           onAudioCaptured={handleAudioCaptured}
         />
+        {audioSignedUrl && !audioBlobUrl && (
+          <AudioPlayer signedUrl={audioSignedUrl} />
+        )}
         {audioBlobUrl && (
           <div className="flex flex-col gap-1 rounded-md border-2 border-line bg-surface p-3">
-            <p className="text-sm text-ink-soft">녹음 미리 듣기 (임시)</p>
+            <p className="text-sm text-ink-soft">방금 녹음하신 내용 (저장 전)</p>
             <audio controls src={audioBlobUrl} className="w-full" />
           </div>
         )}

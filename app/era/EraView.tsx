@@ -58,12 +58,15 @@ export function EraView({
   events,
   songs,
   initialStashedMemories,
+  initialAudioSignedUrls,
 }: {
   events: EraEvent[];
   songs: EraSong[];
   // E3 — monthEventId → content. 담은 사건만 키 존재(미입력은 null 값).
   // 안 담은 사건은 키 없음. .has(id) 로 담음 여부 + .get(id) 로 회상 prefetch.
   initialStashedMemories: Record<string, string | null>;
+  // 7c — monthEventId → signed URL (audioPath 있는 사건만, 나머지 키 없음).
+  initialAudioSignedUrls: Record<string, string>;
 }) {
   const [decade, setDecade] = useState<Decade>(1980);
   const [section, setSection] = useState<SectionFilter>("ALL");
@@ -284,6 +287,7 @@ export function EraView({
                         event={e}
                         isStashed={isStashed}
                         memoryContent={memoryContent}
+                        audioSignedUrl={initialAudioSignedUrls[e.id]}
                         isExpanded={expandedIds.has(e.id)}
                         isBusy={isPending}
                         error={errorByEvent[e.id]}
@@ -374,6 +378,7 @@ function EraEventRow({
   event,
   isStashed,
   memoryContent,
+  audioSignedUrl,
   isExpanded,
   isBusy,
   error,
@@ -386,6 +391,8 @@ function EraEventRow({
   isStashed: boolean;
   // E3 — 담은 사건의 본인 회상 (null=미입력). 안 담은 사건은 null.
   memoryContent: string | null;
+  // 7c — 저장된 녹음의 signed URL. 없으면 재생 버튼 안 보임.
+  audioSignedUrl?: string;
   isExpanded: boolean;
   isBusy: boolean;
   error: string | undefined;
@@ -505,6 +512,7 @@ function EraEventRow({
                 monthEventId={event.id}
                 initialContent={memoryContent}
                 onSaved={onMemorySaved}
+                audioSignedUrl={audioSignedUrl}
               />
             )}
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 
+import { AudioPlayer } from "@/app/components/AudioPlayer";
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { RefineInline } from "@/app/components/RefineInline";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
@@ -48,6 +49,7 @@ export function CategoryForm({
   initial,
   nextHref,
   backHref,
+  audioSignedUrl,
 }: {
   category: LifeCategory;
   question: LifeQuestion;
@@ -56,6 +58,8 @@ export function CategoryForm({
   initial: InitialAnswer;
   nextHref: string;
   backHref: string;
+  // 7c — 저장된 녹음의 signed URL. 없으면 재생 버튼 안 보임.
+  audioSignedUrl?: string;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -347,9 +351,12 @@ export function CategoryForm({
           captureAudio={true}
           onAudioCaptured={handleAudioCaptured}
         />
+        {audioSignedUrl && !audioBlobUrl && (
+          <AudioPlayer signedUrl={audioSignedUrl} />
+        )}
         {audioBlobUrl && (
           <div className="flex flex-col gap-1 rounded-md border-2 border-line bg-surface p-3">
-            <p className="text-sm text-ink-soft">녹음 미리 듣기 (임시)</p>
+            <p className="text-sm text-ink-soft">방금 녹음하신 내용 (저장 전)</p>
             <audio controls src={audioBlobUrl} className="w-full" />
           </div>
         )}

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { listEraEvents, listEraSongs } from "@/lib/era-events";
 import { getStashedEraMemories } from "@/lib/era-stash";
+import { getRecordingSignedUrl } from "@/lib/storage";
 
 import { EraView } from "./EraView";
 
@@ -11,8 +12,8 @@ import { EraView } from "./EraView";
 // 보고, 마음에 남는 사건은 "내 연혁에 담기" 한 번으로 본인 연혁에 추가.
 //
 // 데이터: 세 fetch 병렬. 데이터 적음(사건 88·음악 73) → 페이지네이션 X.
-// E3: getStashedEraMemories 로 (monthEventId → content) 동시 prefetch —
-// 카드 "✓" 표시 + 펼친 상세의 본인 회상 입력 영역을 한 번에 그릴 수 있게.
+// E3: getStashedEraMemories 로 (monthEventId → content + audioPath) 동시 prefetch.
+// 7c: audioPath 가 있는 행에 대해 서명된 URL 발급해 EraView 에 전달.
 // Map 직렬화 불가 → Object 로 변환해 EraView 에 전달.
 
 export default async function EraPage() {
@@ -26,8 +27,23 @@ export default async function EraPage() {
   ]);
 
   const initialStashedMemories: Record<string, string | null> = {};
-  for (const [meId, content] of stashedMap) {
+  const audioUrlPromises: Promise<[string, string] | null>[] = [];
+
+  for (const [meId, { content, audioPath }] of stashedMap) {
     initialStashedMemories[meId] = content;
+    if (audioPath) {
+      audioUrlPromises.push(
+        getRecordingSignedUrl(audioPath)
+          .then((url) => [meId, url] as [string, string])
+          .catch(() => null),
+      );
+    }
+  }
+
+  const audioUrlResults = await Promise.all(audioUrlPromises);
+  const initialAudioSignedUrls: Record<string, string> = {};
+  for (const entry of audioUrlResults) {
+    if (entry) initialAudioSignedUrls[entry[0]] = entry[1];
   }
 
   return (
@@ -48,6 +64,7 @@ export default async function EraPage() {
         events={events}
         songs={songs}
         initialStashedMemories={initialStashedMemories}
+        initialAudioSignedUrls={initialAudioSignedUrls}
       />
     </main>
   );

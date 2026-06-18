@@ -16,6 +16,7 @@ import {
   nextUnansweredCategory,
 } from "@/lib/life-record/questions";
 import type { LifeCategory } from "@/lib/generated/prisma/enums";
+import { getRecordingSignedUrl } from "@/lib/storage";
 
 import { CategoryForm } from "./CategoryForm";
 
@@ -78,6 +79,14 @@ export default async function LifeRecordCategoryPage({
   const schoolHint =
     birthYear !== null ? schoolYearsForCategory(category, birthYear) : null;
 
+  // 7c — 저장된 녹음이 있으면 signed URL 발급. 실패해도 재생 버튼만 안 보임.
+  let audioSignedUrl: string | undefined;
+  if (existing?.audioPath) {
+    try {
+      audioSignedUrl = await getRecordingSignedUrl(existing.audioPath);
+    } catch { /* silent */ }
+  }
+
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-10">
       <header>
@@ -131,6 +140,7 @@ export default async function LifeRecordCategoryPage({
         }
         nextHref={nextHref}
         backHref={backHref}
+        audioSignedUrl={audioSignedUrl}
       />
     </main>
   );
