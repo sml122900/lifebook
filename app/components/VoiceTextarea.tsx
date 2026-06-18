@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -6,9 +6,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 // 음성으로 받아쓰는 textarea. Web Speech API (브라우저 STT) 만 사용 —
 // AI 다듬기 + 토큰 차감은 Phase T4 에서 이 위에 얹는다.
 //
-// 패턴은 app/memory/[eventId]/AnswerForm.tsx 와 동일 (시니어 친화: 큰
-// 버튼, 상태 명확, 녹음 중 빨강). Chrome/Edge/최신 Safari 만 지원하니
-// 미지원 브라우저에선 마이크 버튼을 아예 안 보여준다.
+// captureAudio=true 일 때 MediaRecorder 를 병행해 오디오 blob 도 캡처한다.
+// prop 없으면 기존과 100% 동일(오디오 로직 미작동). 5개 사용처 중
+// CategoryForm·EventForm·EraMemoryEditor 만 켬 — PersonForm 등은 무관.
 
 type SpeechRecognitionLike = {
   start: () => void;
@@ -53,6 +53,8 @@ export function VoiceTextarea({
   ariaLabel,
   textareaClassName,
   onCleanup,
+  captureAudio = false,
+  onAudioCaptured,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -61,6 +63,9 @@ export function VoiceTextarea({
   ariaLabel?: string;
   textareaClassName?: string;
   onCleanup?: CleanupCallback;
+  // opt-in 오디오 캡처 — prop 없으면 기존 동작 그대로.
+  captureAudio?: boolean;
+  onAudioCaptured?: (blob: Blob) => void;
 }) {
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -68,6 +73,11 @@ export function VoiceTextarea({
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
+
+  // MediaRecorder — captureAudio=true 일 때만 사용.
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   // AI 다듬기 상태.
   const [cleanupError, setCleanupError] = useState<string | null>(null);
@@ -78,12 +88,24 @@ export function VoiceTextarea({
   useEffect(() => {
     setVoiceSupported(getRecognitionCtor() !== null);
     return () => {
-      // 컴포넌트 unmount 시 열려있는 인식 세션 정리.
       recognitionRef.current?.stop();
+      stopMediaRecorder();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function startRecording() {
+  function stopMediaRecorder() {
+    try {
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+    } catch { /* ignore */ }
+    mediaRecorderRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }
+
+  async function startRecording() {
     const Ctor = getRecognitionCtor();
     if (!Ctor) return;
     setVoiceError(null);
@@ -98,7 +120,6 @@ export function VoiceTextarea({
         if (r.isFinal) added += r[0].transcript;
       }
       if (added) {
-        // 기존 텍스트 뒤에 이어붙임 (사용자가 타이핑하던 것 보존).
         const prev = valueRef.current;
         onChange((prev ? `${prev} ${added}` : added).trim());
       }
@@ -110,9 +131,12 @@ export function VoiceTextarea({
           : "녹음 중 문제가 생겼어요. 다시 시도해 주세요.",
       );
       setRecording(false);
+      stopMediaRecorder();
     };
     rec.onend = () => {
       setRecording(false);
+      // SpeechRecognition 이 끝나면(자동·수동 모두) MediaRecorder 도 정지.
+      stopMediaRecorder();
     };
     try {
       rec.start();
@@ -121,12 +145,39 @@ export function VoiceTextarea({
     } catch (err) {
       console.error("[voice-textarea] start failed", err);
       setVoiceError("녹음을 시작할 수 없어요.");
+      return;
+    }
+
+    // MediaRecorder 병행 (captureAudio=true 일 때만). 실패해도 STT 는 그대로.
+    if (captureAudio && onAudioCaptured) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+        const mr = new MediaRecorder(stream);
+        chunksRef.current = [];
+        mr.ondataavailable = (e) => {
+          if (e.data.size > 0) chunksRef.current.push(e.data);
+        };
+        mr.onstop = () => {
+          const blob = new Blob(chunksRef.current, {
+            type: mr.mimeType || "audio/webm",
+          });
+          if (blob.size > 0) onAudioCaptured(blob);
+          streamRef.current?.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        };
+        mr.start();
+        mediaRecorderRef.current = mr;
+      } catch {
+        // 권한 거부·미지원 — 무시하고 STT 만 동작
+      }
     }
   }
 
   function stopRecording() {
     recognitionRef.current?.stop();
     setRecording(false);
+    stopMediaRecorder();
   }
 
   function handleCleanup() {
@@ -140,7 +191,6 @@ export function VoiceTextarea({
       try {
         const result = await onCleanup(value);
         onChange(result.cleaned);
-        // H2 — 다듬기 결과가 원문과 같으면 차감도 0. UX 안내도 분기.
         if (result.tokensSpent === 0) {
           setCleanupNote("이미 정돈된 문장이라 토큰을 쓰지 않았어요.");
         } else {
@@ -167,7 +217,6 @@ export function VoiceTextarea({
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
-          // 사용자가 손대면 직전 다듬기 안내는 무효화.
           setCleanupNote(null);
         }}
         rows={rows}
@@ -207,9 +256,7 @@ export function VoiceTextarea({
               <button
                 type="button"
                 onClick={handleCleanup}
-                disabled={
-                  isPending || recording || value.trim() === ""
-                }
+                disabled={isPending || recording || value.trim() === ""}
                 aria-label="AI 로 다듬기"
                 className="flex items-center justify-center gap-3 min-h-[60px] rounded-md border-2 border-brand bg-banner px-6 py-3 text-lg font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -240,10 +287,7 @@ export function VoiceTextarea({
               {insufficient && (
                 <>
                   {" "}
-                  <Link
-                    href="/billing"
-                    className="font-semibold underline"
-                  >
+                  <Link href="/billing" className="font-semibold underline">
                     충전하러 가기
                   </Link>
                 </>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 
 import { buttonClasses } from "@/components/ui/Button";
 
@@ -184,6 +184,15 @@ export function EventForm({
   const [place, setPlace] = useState<PlaceInfo>(initial?.place ?? EMPTY_PLACE);
 
   const [error, setError] = useState<string | null>(null);
+  const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
+  const audioBlobUrlRef = useRef<string | null>(null);
+
+  function handleAudioCaptured(blob: Blob) {
+    if (audioBlobUrlRef.current) URL.revokeObjectURL(audioBlobUrlRef.current);
+    const url = URL.createObjectURL(blob);
+    audioBlobUrlRef.current = url;
+    setAudioBlobUrl(url);
+  }
   const [isPending, startTransition] = useTransition();
 
   function parseIntOrNull(t: string): number | null {
@@ -377,7 +386,15 @@ export function EventForm({
           rows={5}
           placeholder="그날의 장면, 함께 있던 사람…"
           ariaLabel="자유 보조 내용"
+          captureAudio={true}
+          onAudioCaptured={handleAudioCaptured}
         />
+        {audioBlobUrl && (
+          <div className="flex flex-col gap-1 rounded-md border-2 border-line bg-surface p-3">
+            <p className="text-sm text-ink-soft">녹음 미리 듣기 (임시)</p>
+            <audio controls src={audioBlobUrl} className="w-full" />
+          </div>
+        )}
       </section>
 
       {/* 문장 다듬기 — 회상 textarea 바로 아래. 라이브 content 를 넘겨

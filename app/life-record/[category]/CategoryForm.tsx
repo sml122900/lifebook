@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { RefineInline } from "@/app/components/RefineInline";
@@ -75,6 +75,15 @@ export function CategoryForm({
   const [place, setPlace] = useState<PlaceInfo>(initial?.place ?? EMPTY_PLACE);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
+  const audioBlobUrlRef = useRef<string | null>(null);
+
+  function handleAudioCaptured(blob: Blob) {
+    if (audioBlobUrlRef.current) URL.revokeObjectURL(audioBlobUrlRef.current);
+    const url = URL.createObjectURL(blob);
+    audioBlobUrlRef.current = url;
+    setAudioBlobUrl(url);
+  }
 
   const hasExisting = initial !== null;
 
@@ -323,7 +332,15 @@ export function CategoryForm({
           rows={5}
           placeholder={question.contentPlaceholder}
           ariaLabel={question.contentLabel}
+          captureAudio={true}
+          onAudioCaptured={handleAudioCaptured}
         />
+        {audioBlobUrl && (
+          <div className="flex flex-col gap-1 rounded-md border-2 border-line bg-surface p-3">
+            <p className="text-sm text-ink-soft">녹음 미리 듣기 (임시)</p>
+            <audio controls src={audioBlobUrl} className="w-full" />
+          </div>
+        )}
       </section>
 
       <RefineInline content={content} onApply={setContent} />

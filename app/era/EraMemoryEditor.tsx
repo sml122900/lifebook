@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { ERA_MEMORY_MAX_LENGTH } from "@/lib/era-constants";
@@ -49,6 +49,15 @@ export function EraMemoryEditor({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
+  const audioBlobUrlRef = useRef<string | null>(null);
+
+  function handleAudioCaptured(blob: Blob) {
+    if (audioBlobUrlRef.current) URL.revokeObjectURL(audioBlobUrlRef.current);
+    const url = URL.createObjectURL(blob);
+    audioBlobUrlRef.current = url;
+    setAudioBlobUrl(url);
+  }
 
   const trimmed = value.trim();
   const normalized: string | null = trimmed === "" ? null : trimmed;
@@ -112,7 +121,15 @@ export function EraMemoryEditor({
         placeholder="그때 저는… 어디서 무엇을 하고 있었어요"
         ariaLabel={`${eventTitle} 본인 회상 입력`}
         textareaClassName={textareaClassName}
+        captureAudio={true}
+        onAudioCaptured={handleAudioCaptured}
       />
+      {audioBlobUrl && (
+        <div className="flex flex-col gap-1 rounded-md border-2 border-line bg-surface p-3">
+          <p className="text-sm text-ink-soft">녹음 미리 듣기 (임시)</p>
+          <audio controls src={audioBlobUrl} className="w-full" />
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
