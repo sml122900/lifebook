@@ -70,6 +70,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             privacyConsentAt: true,
             overseasTransferConsentAt: true,
             termsConsentAt: true,
+            privacyConsentVersion: true,
           },
         });
         // 세 가지 동의(개인정보·국외이전·약관)가 모두 있어야 동의 완료.
@@ -78,6 +79,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user?.overseasTransferConsentAt &&
           user?.termsConsentAt
         );
+        // 버전 — null(신규 행 아직 없음) 이면 0으로 처리해 게이트에서 /consent 유도.
+        token.consentVersion = user?.privacyConsentVersion ?? 0;
 
         // Phase 8.2 이전에 이미 존재하던 사용자 보정 (그들은 createUser 가
         // 이미 발생했으므로 지갑이 없을 수 있음). idempotent — 이미 지갑이

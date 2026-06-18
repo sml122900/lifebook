@@ -4,6 +4,7 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 
 import authConfig from "./auth.config";
+import { CURRENT_CONSENT_VERSION } from "./lib/consent-version";
 
 // Edge 전용 NextAuth — Prisma 어댑터 없이 Node 측 인스턴스가 발급한 JWT 만
 // 읽는다 (Edge 런타임은 Prisma 사용 불가).
@@ -45,6 +46,12 @@ export default auth((req) => {
 
   // 동의 미완료 → 동의 페이지로 (JWT 의 consentComplete 는 auth.ts 가 채움).
   if (!session.consentComplete) {
+    return NextResponse.redirect(new URL("/consent", req.url));
+  }
+
+  // 동의 버전이 현재 버전보다 낮으면 재동의 요청.
+  // (수집 항목 변경 시 CURRENT_CONSENT_VERSION 을 올리면 기존 동의자가 재노출됨)
+  if ((session.consentVersion ?? 0) < CURRENT_CONSENT_VERSION) {
     return NextResponse.redirect(new URL("/consent", req.url));
   }
 });

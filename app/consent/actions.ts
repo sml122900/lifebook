@@ -1,9 +1,11 @@
 "use server";
 
-// 동의 저장 서버 액션. 3종 동의 시각을 User 행에 기록한다(이후 JWT 의
-// consentComplete 가 true 가 되어 미들웨어 게이트를 통과).
+// 동의 저장 서버 액션. 3종 동의 시각 + 동의 버전을 User 행에 기록한다.
+// 이후 JWT 의 consentComplete=true + consentVersion=CURRENT 가 되어
+// 미들웨어 게이트를 통과한다.
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { CURRENT_CONSENT_VERSION } from "@/lib/consent-version";
 
 export async function saveConsent(formData: FormData) {
   const session = await auth();
@@ -27,6 +29,7 @@ export async function saveConsent(formData: FormData) {
       privacyConsentAt: now,
       overseasTransferConsentAt: now,
       termsConsentAt: now,
+      privacyConsentVersion: CURRENT_CONSENT_VERSION,
     },
   });
 }

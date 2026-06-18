@@ -83,6 +83,9 @@ model User {
   termsConsentAt            DateTime?
   privacyConsentAt          DateTime?
   overseasTransferConsentAt DateTime?
+  // 동의 버전 (Phase 7b+). 기존 사용자 = 1(레거시), 신규·재동의 = 2+.
+  // CURRENT_CONSENT_VERSION(lib/consent-version.ts)과 비교해 게이트 통과.
+  privacyConsentVersion     Int @default(1)
 
   // Phase 4.5: marks the user as done with onboarding (completed or
   // fully skipped). Used to soft-route new users to /onboarding only once.

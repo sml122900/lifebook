@@ -54,6 +54,7 @@ export default {
         session.user.id = token.sub;
       }
       session.consentComplete = token.consentComplete === true;
+      session.consentVersion = typeof token.consentVersion === "number" ? token.consentVersion : 0;
       return session;
     },
   },
