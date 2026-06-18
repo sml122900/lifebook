@@ -38,7 +38,6 @@ import { prisma } from "./db";
 
 const NAME_MAX = 50;
 const RELATION_MAX = 30;
-const MEMO_MAX = 100;
 const MET_YEAR_MIN = 1900;
 
 function clampYearRange(): { min: number; max: number } {
@@ -79,9 +78,6 @@ function validatePersonInput(
     };
   }
   const memo = input.memo?.trim() ?? "";
-  if (memo.length > MEMO_MAX) {
-    return { ok: false, error: `메모는 ${MEMO_MAX}자 이하로 적어주세요.` };
-  }
   if (input.metYear !== null) {
     const { min, max } = clampYearRange();
     if (!Number.isInteger(input.metYear) || input.metYear < min || input.metYear > max) {

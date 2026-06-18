@@ -146,7 +146,7 @@ export function PersonForm({
           onChange={(e) => setRelation(e.target.value)}
           maxLength={30}
           list="person-relation-hints"
-          placeholder="예: 초등 친구, 직장 동료, 이웃"
+          placeholder="관계"
           autoComplete="off"
           className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         />
@@ -202,7 +202,6 @@ export function PersonForm({
           placeholder="이 분에 대해 떠오르는 한 마디"
           ariaLabel="인물 한 줄 메모"
         />
-        <p className="text-sm text-ink-soft">최대 100자까지 적어주세요.</p>
       </section>
 
       {error && (
