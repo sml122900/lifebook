@@ -64,6 +64,62 @@ export type RefineResult = {
   balanceAfter?: number;
 };
 
+// ─────────────────────────────────────────────────────────────────────
+// 순수 텍스트 교정 — UserMemory 와 무관. 호출자가 텍스트를 직접 넘긴다.
+// DB 조회·저장 없이 AI 교정 + 토큰 차감만. 온보딩·CategoryForm 같은
+// "저장 전 미리보기" 흐름에서 사용한다.
+// ─────────────────────────────────────────────────────────────────────
+export async function refineRawText(
+  userId: string,
+  text: string,
+  tier: ModelTier = "haiku",
+): Promise<RefineResult> {
+  const original = text.trim();
+  if (original === "") return { status: "empty" };
+
+  const res = await chat([{ role: "user", content: original }], {
+    system: SYSTEM_PROMPT,
+    model: TIER_TO_MODEL[tier],
+    maxTokens: 2048,
+    temperature: 0.2,
+  });
+
+  let refined = res.text.trim();
+  refined = refined.replace(/^["「『]\s*|\s*["」』]$/g, "");
+
+  const norm = (s: string) => s.trim().replace(/\s+/g, " ");
+  if (
+    refined === "" ||
+    refined === "NO_CHANGE" ||
+    norm(refined) === norm(original)
+  ) {
+    return { status: "no_change" };
+  }
+
+  const ratio = refined.length / original.length;
+  if (ratio < LENGTH_RATIO_MIN || ratio > LENGTH_RATIO_MAX) {
+    return { status: "no_change" };
+  }
+
+  const base = tokensFromUsage(res.inputTokens, res.outputTokens);
+  const total = tokensFromUsageForRefine(tier, res.inputTokens, res.outputTokens);
+  const charge = await chargeOneShot(
+    userId,
+    res.inputTokens,
+    res.outputTokens,
+    `inline_refine_${tier}`,
+    undefined,
+    total - base,
+  );
+
+  return {
+    status: "refined",
+    refinedText: refined,
+    tokensSpent: charge.tokensSpent,
+    balanceAfter: charge.balanceAfter,
+  };
+}
+
 // 본인 메모리의 content 를 tier 모델로 교정해 refinedText 에 저장.
 // NO_CHANGE·길이가드 탈락이면 저장도 차감도 안 함. 실제 저장될 때만 과금하되,
 // 차감(chargeOneShot)을 저장 *앞*에 두어 잔액 부족이면 저장 없이

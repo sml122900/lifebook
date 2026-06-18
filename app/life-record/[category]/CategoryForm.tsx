@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
+import { RefineInline } from "@/app/components/RefineInline";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { calcAge, formatAge } from "@/lib/age";
 import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
@@ -324,6 +325,8 @@ export function CategoryForm({
           ariaLabel={question.contentLabel}
         />
       </section>
+
+      <RefineInline content={content} onApply={setContent} />
 
       {error && (
         <p
