@@ -337,6 +337,13 @@ export function CategoryForm({
         </p>
       )}
 
+      <Link
+        href={`/people/new?returnTo=/life-record/${category}`}
+        className="self-start inline-flex min-h-[56px] items-center gap-2 rounded-md border-2 border-line bg-surface px-5 py-3 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+      >
+        👤 이야기에 나온 분 추가하기
+      </Link>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
           href={backHref}

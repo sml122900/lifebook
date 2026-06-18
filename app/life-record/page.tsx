@@ -73,17 +73,25 @@ export default async function LifeRecordIndexPage({
         </div>
       )}
 
-      <header>
-        <h1 className="text-4xl font-bold tracking-tight text-ink sm:text-5xl">
-          인생 기록하기
-        </h1>
-        <p className="mt-4 text-xl text-ink sm:text-2xl">
-          <b>{userName}</b>님의 인생 큰 줄기를 한 번 잡아볼까요?
-        </p>
-        <p className="mt-2 text-lg text-ink-soft">
-          한 번에 한 가지씩, 떠오르는 만큼만 적으셔도 괜찮아요.
-          답하기 어려운 건 건너뛰셔도 됩니다.
-        </p>
+      <header className="flex flex-col gap-4">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight text-ink sm:text-5xl">
+            인생 기록하기
+          </h1>
+          <p className="mt-4 text-xl text-ink sm:text-2xl">
+            <b>{userName}</b>님의 인생 큰 줄기를 한 번 잡아볼까요?
+          </p>
+          <p className="mt-2 text-lg text-ink-soft">
+            한 번에 한 가지씩, 떠오르는 만큼만 적으셔도 괜찮아요.
+            답하기 어려운 건 건너뛰셔도 됩니다.
+          </p>
+        </div>
+        <Link
+          href="/people/new?returnTo=/life-record"
+          className="self-start inline-flex min-h-[56px] items-center gap-2 rounded-md border-2 border-line bg-surface px-5 py-3 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+        >
+          👤 인물 추가하기
+        </Link>
       </header>
 
       <section className="rounded-md border-2 border-amber-300 bg-amber-50 p-6">
