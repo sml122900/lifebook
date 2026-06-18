@@ -51,11 +51,13 @@ export function EraMemoryEditor({
   const [isPending, startTransition] = useTransition();
   const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
   const audioBlobUrlRef = useRef<string | null>(null);
+  const audioBlobRef = useRef<Blob | null>(null);
 
   function handleAudioCaptured(blob: Blob) {
     if (audioBlobUrlRef.current) URL.revokeObjectURL(audioBlobUrlRef.current);
     const url = URL.createObjectURL(blob);
     audioBlobUrlRef.current = url;
+    audioBlobRef.current = blob;
     setAudioBlobUrl(url);
   }
 
@@ -76,6 +78,19 @@ export function EraMemoryEditor({
         if (r === "saved" || r === "cleared") {
           onSaved(normalized);
           setSavedFlash(true);
+          // 음성 업로드 — saved 시에만(cleared=내용 삭제라 녹음 의미 없음).
+          // 실패해도 텍스트 저장은 완료, 에러 표시 없이 진행.
+          if (r === "saved") {
+            const blob = audioBlobRef.current;
+            if (blob && blob.size > 0) {
+              try {
+                const fd = new FormData();
+                fd.append("file", blob, "recording.webm");
+                fd.append("monthEventId", monthEventId);
+                await fetch("/api/recordings", { method: "POST", body: fd });
+              } catch { /* silent */ }
+            }
+          }
         } else if (r === "too_long") {
           setErrorMsg("회상은 500자까지 적을 수 있어요.");
         } else {

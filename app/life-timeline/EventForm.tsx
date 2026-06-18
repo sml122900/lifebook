@@ -186,11 +186,13 @@ export function EventForm({
   const [error, setError] = useState<string | null>(null);
   const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
   const audioBlobUrlRef = useRef<string | null>(null);
+  const audioBlobRef = useRef<Blob | null>(null);
 
   function handleAudioCaptured(blob: Blob) {
     if (audioBlobUrlRef.current) URL.revokeObjectURL(audioBlobUrlRef.current);
     const url = URL.createObjectURL(blob);
     audioBlobUrlRef.current = url;
+    audioBlobRef.current = blob;
     setAudioBlobUrl(url);
   }
   const [isPending, startTransition] = useTransition();
@@ -274,6 +276,17 @@ export function EventForm({
       // 사진 실패는 이벤트 저장을 막지 않음(내부에서 처리, 여기선 await 만).
       if (!isEdit && onAfterCreate) {
         await onAfterCreate(result.id);
+      }
+      // 음성 업로드 — 실패해도 저장 완료, 에러 표시 없이 진행.
+      const blob = audioBlobRef.current;
+      const memoryId = result.id; // add·edit 둘 다 id 반환
+      if (blob && blob.size > 0) {
+        try {
+          const fd = new FormData();
+          fd.append("file", blob, "recording.webm");
+          fd.append("memoryId", memoryId);
+          await fetch("/api/recordings", { method: "POST", body: fd });
+        } catch { /* silent */ }
       }
       // 저장 후 연혁으로.
       router.push("/life-timeline");

@@ -77,11 +77,13 @@ export function CategoryForm({
   const [isPending, startTransition] = useTransition();
   const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
   const audioBlobUrlRef = useRef<string | null>(null);
+  const audioBlobRef = useRef<Blob | null>(null); // 업로드용 원본
 
   function handleAudioCaptured(blob: Blob) {
     if (audioBlobUrlRef.current) URL.revokeObjectURL(audioBlobUrlRef.current);
     const url = URL.createObjectURL(blob);
     audioBlobUrlRef.current = url;
+    audioBlobRef.current = blob;
     setAudioBlobUrl(url);
   }
 
@@ -121,6 +123,16 @@ export function CategoryForm({
       if (!result.ok) {
         setError(result.error);
         return;
+      }
+      // 음성 업로드 — 실패해도 텍스트 저장은 완료, 에러 표시 없이 진행.
+      const blob = audioBlobRef.current;
+      if (blob && blob.size > 0 && result.memoryId) {
+        try {
+          const fd = new FormData();
+          fd.append("file", blob, "recording.webm");
+          fd.append("memoryId", result.memoryId);
+          await fetch("/api/recordings", { method: "POST", body: fd });
+        } catch { /* silent */ }
       }
       router.push(nextHref);
       router.refresh();

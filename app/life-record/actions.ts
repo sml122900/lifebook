@@ -21,7 +21,7 @@ import { getLifeQuestion } from "@/lib/life-record/questions";
 import type { LifeCategory } from "@/lib/generated/prisma/enums";
 
 export type SubmitLifeRecordResult =
-  | { ok: true }
+  | { ok: true; memoryId?: string } // submitLifeRecord 는 채움, skipLifeRecord 는 없음
   | { ok: false; error: string };
 
 // 폼 입력 검증 규칙(저장 정책 동기):
@@ -243,7 +243,7 @@ export async function submitLifeRecord(
   const placeResult = validatePlace(raw.place);
   if (!placeResult.ok) return { ok: false, error: placeResult.error };
 
-  await upsertLifeEvent(userId, category, {
+  const { id: memoryId } = await upsertLifeEvent(userId, category, {
     title,
     year,
     month,
@@ -257,7 +257,7 @@ export async function submitLifeRecord(
   revalidatePath("/life-record");
   revalidatePath(`/life-record/${category}`);
   revalidatePath("/life-timeline");
-  return { ok: true };
+  return { ok: true, memoryId };
 }
 
 // L2(+) — "건너뛰기" 액션. User.skippedLifeCategories 에 카테고리 기록.

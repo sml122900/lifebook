@@ -26,6 +26,67 @@ export const ALLOWED_MIME_TYPES = [
 ] as const;
 export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
+// ── 녹음 버킷 ────────────────────────────────────────────────────────
+export const RECORDINGS_BUCKET = "recordings";
+export const MAX_RECORDING_BYTES = 25 * 1024 * 1024; // 25MB (~10분 webm 여유)
+export const ALLOWED_AUDIO_BASE_TYPES = [
+  "audio/webm",
+  "audio/mp4",
+  "audio/ogg",
+  "audio/mpeg",
+] as const;
+
+// codecs 접미사(예: audio/webm;codecs=opus) 허용 — MediaRecorder 브라우저 기본값.
+export function isAllowedAudioMime(mime: string): boolean {
+  const base = mime.split(";")[0].trim().toLowerCase();
+  return (ALLOWED_AUDIO_BASE_TYPES as readonly string[]).includes(base);
+}
+
+function audioExt(mime: string): string {
+  const base = mime.split(";")[0].trim().toLowerCase();
+  if (base === "audio/mp4") return "mp4";
+  if (base === "audio/ogg") return "ogg";
+  if (base === "audio/mpeg") return "mp3";
+  return "webm"; // Chrome/Edge 기본
+}
+
+export type RecordingUploadResult = {
+  storagePath: string;
+  mimeType: string;
+  bytes: number;
+};
+
+// 항목당 1개 — memoryId 를 파일명으로 사용. upsert=true 라 재녹음 시 덮어씀.
+export async function uploadRecording(
+  userId: string,
+  memoryId: string,
+  fileBuffer: Buffer,
+  mimeType: string,
+): Promise<RecordingUploadResult> {
+  const baseMime = mimeType.split(";")[0].trim().toLowerCase();
+  const storagePath = `${userId}/${memoryId}.${audioExt(mimeType)}`;
+  const client = getServiceClient();
+  const { error } = await client.storage
+    .from(RECORDINGS_BUCKET)
+    .upload(storagePath, fileBuffer, {
+      contentType: baseMime,
+      upsert: true, // 재녹음 덮어쓰기
+    });
+  if (error) throw new Error(`Recording upload 실패: ${error.message}`);
+  return { storagePath, mimeType: baseMime, bytes: fileBuffer.length };
+}
+
+export async function getRecordingSignedUrl(storagePath: string): Promise<string> {
+  const client = getServiceClient();
+  const { data, error } = await client.storage
+    .from(RECORDINGS_BUCKET)
+    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+  if (error || !data) {
+    throw new Error(`Recording signed URL 발급 실패: ${error?.message ?? "unknown"}`);
+  }
+  return data.signedUrl;
+}
+
 // signed URL 만료 (초). 1시간.
 export const SIGNED_URL_TTL_SECONDS = 3600;
 

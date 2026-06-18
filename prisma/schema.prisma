@@ -572,6 +572,10 @@ model UserMemory {
   refinedAt      DateTime?
   displayRefined Boolean   @default(false)
 
+  // Phase 7b — 음성 녹음 저장. recordings 버킷 경로(서버사이드 signed URL 발급).
+  // content(STT 텍스트)와 독립 — 둘 다 채워지거나, 텍스트만 있거나, 둘 다 null 가능.
+  audioPath String?
+
   // Phase Place — 장소 매칭. life_event(특히 BIRTH·KINDERGARTEN·학령기 4종·
   // MILITARY·WORK) 행에서 사용자가 네이버/구글 지도 검색으로 고른 장소.
   // 기존 행은 모두 null — 무영향. 향후 다른 createdVia(timemachine_event)
