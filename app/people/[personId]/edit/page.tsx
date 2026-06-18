@@ -25,6 +25,12 @@ export default async function EditPersonPage({ params }: Params) {
   ]);
   if (!person) notFound();
 
+  const EDIT_TITLE: Record<string, string> = {
+    person: "인물 수정",
+    location: "장소 수정",
+    thing: "물건 수정",
+  };
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-10">
       <header className="flex flex-col gap-2">
@@ -32,18 +38,19 @@ export default async function EditPersonPage({ params }: Params) {
           href={`/people/${person.id}`}
           className="self-start text-base text-ink-soft hover:text-ink hover:underline"
         >
-          ← 인물 상세로
+          ← 상세로
         </Link>
         <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
-          인물 수정
+          {EDIT_TITLE[person.subjectType] ?? "수정"}
         </h1>
       </header>
 
       <PersonForm
         mode="edit"
-        birthYear={birthYear}
+        birthYear={person.subjectType === "person" ? birthYear : null}
         initial={{
           id: person.id,
+          subjectType: person.subjectType,
           name: person.name,
           relation: person.relation,
           birthYear: person.birthYear,

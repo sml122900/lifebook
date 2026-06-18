@@ -1,5 +1,13 @@
 # 이력서 소재 모음 (PAR)
 
+## 단일 테이블 discriminator 패턴으로 이야기 주체 확장 — 스키마 변경 최소화
+
+- **Problem**: "인물록"에 장소·물건도 추가해달라는 요구. 옵션 A(별도 모델 2개)는 PersonEvent join table 중복·LinkResult 분기 추가·UI 합치기 3중 복잡도. 옵션 C(UserMemory 재활용)는 geo 장소(placeName/lat/lng)와 이름 충돌·의미 오염.
+- **Action**: 옵션 B — `Person.subjectType TEXT NOT NULL DEFAULT 'person'` 컬럼 1개 추가. "place" 대신 "location", "object" 대신 "thing" 명명(기존 geo 코드와 이름 충돌 원천 차단). `validatePersonInput`이 isPerson 분기로 location/thing의 person 전용 필드(relation·birthYear·metYear·category)를 null 강제 — DB 스키마 변경 없이 타입 레벨에서 제약. `PersonEvent` join table·`LinkResult`·가족 룸 코드 0줄 수정.
+- **Result**: 마이그 1(ADD COLUMN·인덱스), `/people` 탭 3분리, `PersonForm` isPerson 분기. tsc 클린·build 통과. *교훈*: "새 개념이 기존 테이블과 95% 같으면 모델 추가보다 discriminator 컬럼이 낫다" — 추가 join·N+1 쿼리·UI 합치기 없이 확장.
+
+
+
 ## 시니어 친화 회고 서비스의 풀스택 베이스 구축
 
 - **Problem**: 30대~70대 폭넓은 사용자, 특히 고령층까지 편하게 쓰는 회고 서비스가 필요. 4개 분리된 layer(인증/동의/데이터/UI)가 첫날부터 모두 동작해야 다음 phase에서 막힘 없이 진행 가능.

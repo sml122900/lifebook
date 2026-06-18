@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { pickOnboardingEraEvent } from "@/lib/era-events";
 import { getFamilyNews } from "@/lib/family-news";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
-import { listPeople, listPeopleByEventBatch } from "@/lib/people";
+import { listPeople, listPeopleByEventBatch, type SubjectType } from "@/lib/people";
 import { getSignedUrl } from "@/lib/storage";
 import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
 
@@ -78,7 +78,7 @@ export default async function LifeTimelinePage() {
     userId,
     events.map((e) => e.id),
   );
-  const peopleByEvent: Record<string, { id: string; name: string }[]> = {};
+  const peopleByEvent: Record<string, { id: string; name: string; subjectType: SubjectType }[]> = {};
   for (const [memoryId, people] of peopleByEventMap) {
     peopleByEvent[memoryId] = people;
   }
@@ -103,8 +103,8 @@ export default async function LifeTimelinePage() {
   for (const [id, url] of photoUrlEntries) {
     if (url) photoUrls[id] = url;
   }
-  // 모달용 인물 목록 — id/name 만 추려 직렬화 크기 줄임.
-  const allPeople = allPeopleRows.map((p) => ({ id: p.id, name: p.name }));
+  // 모달용 주체 목록 — id/name/subjectType 만 추려 직렬화 크기 줄임.
+  const allPeople = allPeopleRows.map((p) => ({ id: p.id, name: p.name, subjectType: p.subjectType }));
   const userName = session.user.name ?? session.user.email ?? "회원";
   const hasEvents = events.length > 0;
 

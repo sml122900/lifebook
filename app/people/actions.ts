@@ -20,11 +20,13 @@ import {
   type LinkResult,
   linkPersonToEvent,
   type PersonInput,
+  type SubjectType,
   unlinkPersonFromEvent,
   updatePerson,
 } from "@/lib/people";
 
 export type PersonInputRaw = {
+  subjectType: SubjectType;
   name: string;
   relation: string | null;
   birthYear: number | null;
@@ -47,6 +49,10 @@ export type LinkActionResult = { ok: true; result: LinkResult } | { ok: false; e
 
 // 입력 정규화 — 빈/공백 → null. 헬퍼가 trim/길이 검사 한 번 더.
 function normalize(raw: PersonInputRaw): PersonInput {
+  const subjectType: SubjectType =
+    raw.subjectType === "location" || raw.subjectType === "thing"
+      ? raw.subjectType
+      : "person";
   const name = typeof raw.name === "string" ? raw.name : "";
   const relation =
     typeof raw.relation === "string" && raw.relation.trim() !== ""
@@ -62,7 +68,7 @@ function normalize(raw: PersonInputRaw): PersonInput {
     raw.metYear !== null && Number.isInteger(raw.metYear) ? raw.metYear : null;
   const birthYear =
     raw.birthYear !== null && Number.isInteger(raw.birthYear) ? raw.birthYear : null;
-  return { name, relation, birthYear, category, memo, metYear };
+  return { subjectType, name, relation, birthYear, category, memo, metYear };
 }
 
 function errMessage(e: unknown): string {

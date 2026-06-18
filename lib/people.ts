@@ -4,14 +4,12 @@
 // 0~N 개 life_event 와 PersonEvent 조인으로 연결된다. 시각화·룸 노출·반응
 // 같은 기존 기능은 무수정 — Person/PersonEvent 는 additive only.
 //
-// 모든 함수는 userId 를 첫 인자로 받고 서버 세션 값만 신뢰한다.
-// (CLAUDE.md "userId는 항상 서버 세션에서 — 클라 입력 무시".)
+// Phase 8 — subjectType 확장: "person"|"location"|"thing".
+//   - location/thing 은 이름+메모만 (birthYear/relation/metYear/category 검증 스킵).
+//   - geo 장소(UserMemory.placeName/lat/lng) 와 완전히 별개 — 혼동 금지.
+//   - PersonEvent 조인·linkPersonToEvent·LINKABLE_CREATED_VIA 무변.
 //
-// 프라이버시 원칙 (스키마 주석과 동일):
-//   - 인물은 *인생* 이벤트 (createdVia="life_event") 에만 붙일 수 있다.
-//     timemachine_event / ai_chat 등 다른 종류 메모리에는 거부.
-//   - 별명/이니셜 허용 (실명 강제 X). 헬퍼는 자유 텍스트만 다룬다.
-//   - linkPersonToEvent 는 personId·memoryId 둘 다 같은 userId 소유 검증.
+// 모든 함수는 userId 를 첫 인자로 받고 서버 세션 값만 신뢰한다.
 //
 // P1 범위: CRUD + 링크/언링크 + 두 가지 조회 (이벤트→인물, 인물→이벤트).
 // P2(화면)·P3(고급) 는 별도.
@@ -22,7 +20,7 @@ import {
   type LifeEvent,
 } from "./life-events";
 
-// Phase Photo (B) — 인물을 붙일 수 있는 메모리 종류. *인생* 이벤트 + *사진*.
+// Phase Photo (B) — 이야기 주체를 붙일 수 있는 메모리 종류. *인생* 이벤트 + *사진*.
 // era_event(시대 자료)·ai_chat·timemachine_event·manual 등은 거부.
 const LINKABLE_CREATED_VIA: ReadonlySet<string> = new Set([
   CREATED_VIA_LIFE_EVENT,
@@ -30,6 +28,18 @@ const LINKABLE_CREATED_VIA: ReadonlySet<string> = new Set([
 ]);
 import type { EventPrecision, LifeCategory } from "./generated/prisma/enums";
 import { prisma } from "./db";
+
+// Phase 8 — 이야기 주체 유형.
+export const SUBJECT_TYPE = {
+  PERSON: "person",
+  LOCATION: "location",
+  THING: "thing",
+} as const;
+export type SubjectType = (typeof SUBJECT_TYPE)[keyof typeof SUBJECT_TYPE];
+
+function isSubjectType(v: unknown): v is SubjectType {
+  return v === "person" || v === "location" || v === "thing";
+}
 
 // ────────────────────────────────────────────────────────────────────
 // 입력 검증 — 길이 상한은 스키마 주석과 같은 값. 자유 텍스트는 trim 후
@@ -46,6 +56,7 @@ function clampYearRange(): { min: number; max: number } {
 }
 
 export type PersonInput = {
+  subjectType: SubjectType;
   name: string;
   relation: string | null;
   birthYear: number | null;
@@ -56,6 +67,7 @@ export type PersonInput = {
 
 export type Person = {
   id: string;
+  subjectType: SubjectType;
   name: string;
   relation: string | null;
   birthYear: number | null;
@@ -67,46 +79,63 @@ export type Person = {
 };
 
 // "ok" 시 정규화된 입력 반환. 실패 시 사용자에게 노출할 한국어 에러.
+// location/thing 은 person 전용 필드(relation/birthYear/metYear/category) 검증 스킵.
 function validatePersonInput(
   input: PersonInput,
 ): { ok: true; value: PersonInput } | { ok: false; error: string } {
+  const subjectType: SubjectType = isSubjectType(input.subjectType)
+    ? input.subjectType
+    : SUBJECT_TYPE.PERSON;
+  const isPerson = subjectType === SUBJECT_TYPE.PERSON;
+
   const name = input.name?.trim() ?? "";
   if (name === "") return { ok: false, error: "이름을 입력해주세요." };
   if (name.length > NAME_MAX) {
     return { ok: false, error: `이름은 ${NAME_MAX}자 이하로 적어주세요.` };
   }
-  const relation = input.relation?.trim() ?? "";
-  if (relation.length > RELATION_MAX) {
-    return {
-      ok: false,
-      error: `관계는 ${RELATION_MAX}자 이하로 적어주세요.`,
-    };
-  }
-  const category = input.category?.trim() ?? "";
-  if (category.length > CATEGORY_MAX) {
-    return { ok: false, error: `카테고리는 ${CATEGORY_MAX}자 이하로 적어주세요.` };
-  }
-  if (input.birthYear !== null) {
-    const { min, max } = clampYearRange();
-    if (!Number.isInteger(input.birthYear) || input.birthYear < min || input.birthYear > max) {
-      return { ok: false, error: `출생년도는 ${min}~${max} 사이여야 해요.` };
+
+  // person 전용 필드 — location/thing 은 스킵 (폼에서 애초에 안 받음)
+  let relation: string | null = null;
+  let category: string | null = null;
+  let birthYear: number | null = null;
+  let metYear: number | null = null;
+  if (isPerson) {
+    const r = input.relation?.trim() ?? "";
+    if (r.length > RELATION_MAX) {
+      return { ok: false, error: `관계는 ${RELATION_MAX}자 이하로 적어주세요.` };
     }
+    const c = input.category?.trim() ?? "";
+    if (c.length > CATEGORY_MAX) {
+      return { ok: false, error: `카테고리는 ${CATEGORY_MAX}자 이하로 적어주세요.` };
+    }
+    if (input.birthYear !== null) {
+      const { min, max } = clampYearRange();
+      if (!Number.isInteger(input.birthYear) || input.birthYear < min || input.birthYear > max) {
+        return { ok: false, error: `출생년도는 ${min}~${max} 사이여야 해요.` };
+      }
+    }
+    if (input.metYear !== null) {
+      const { min, max } = clampYearRange();
+      if (!Number.isInteger(input.metYear) || input.metYear < min || input.metYear > max) {
+        return { ok: false, error: `처음 만난 연도는 ${min}~${max} 사이여야 해요.` };
+      }
+    }
+    relation = r === "" ? null : r;
+    category = c === "" ? null : c;
+    birthYear = input.birthYear;
+    metYear = input.metYear;
   }
+
   const memo = input.memo?.trim() ?? "";
-  if (input.metYear !== null) {
-    const { min, max } = clampYearRange();
-    if (!Number.isInteger(input.metYear) || input.metYear < min || input.metYear > max) {
-      return { ok: false, error: `처음 만난 연도는 ${min}~${max} 사이여야 해요.` };
-    }
-  }
   return {
     ok: true,
     value: {
+      subjectType,
       name,
-      relation: relation === "" ? null : relation,
-      birthYear: input.birthYear,
-      category: category === "" ? null : category,
-      metYear: input.metYear,
+      relation,
+      birthYear,
+      category,
+      metYear,
       memo: memo === "" ? null : memo,
     },
   };
@@ -116,7 +145,20 @@ function validatePersonInput(
 // CRUD
 // ────────────────────────────────────────────────────────────────────
 
-// 새 인물 생성. 검증 실패 시 throw (server action 이 잡아 폼 에러로 변환).
+const PERSON_SELECT = {
+  id: true,
+  subjectType: true,
+  name: true,
+  relation: true,
+  birthYear: true,
+  category: true,
+  metYear: true,
+  memo: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+// 새 주체 생성. 검증 실패 시 throw (server action 이 잡아 폼 에러로 변환).
 export async function createPerson(
   userId: string,
   input: PersonInput,
@@ -125,22 +167,12 @@ export async function createPerson(
   if (!v.ok) throw new Error(v.error);
   const row = await prisma.person.create({
     data: { userId, ...v.value },
-    select: {
-      id: true,
-      name: true,
-      relation: true,
-      birthYear: true,
-      category: true,
-      metYear: true,
-      memo: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: PERSON_SELECT,
   });
-  return row;
+  return row as Person;
 }
 
-// 본인 인물만 수정. 권한 불일치 시 null (server action 이 404/403 매핑).
+// 본인 주체만 수정. 권한 불일치 시 null (server action 이 404/403 매핑).
 export async function updatePerson(
   userId: string,
   personId: string,
@@ -154,20 +186,11 @@ export async function updatePerson(
   });
   if (result.count === 0) return null;
   // updateMany 는 갱신된 행을 반환하지 않으므로 다시 조회.
-  return prisma.person.findUnique({
+  const row = await prisma.person.findUnique({
     where: { id: personId },
-    select: {
-      id: true,
-      name: true,
-      relation: true,
-      birthYear: true,
-      category: true,
-      metYear: true,
-      memo: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: PERSON_SELECT,
   });
+  return row as Person | null;
 }
 
 // 본인 인물만 삭제. cascade 로 PersonEvent 행도 함께 사라짐.
@@ -181,45 +204,27 @@ export async function deletePerson(
   return result.count > 0;
 }
 
-// 사용자 전체 인물 목록. 이름 한글 정렬은 DB locale 이슈가 있으므로
-// 기본 ASC + 후처리 안 함 (P2 UI 가 필요하면 로케일 정렬).
+// 사용자 전체 주체 목록 (person+location+thing). 탭 필터는 호출자(UI)에서.
+// 이름 한글 정렬은 DB locale 이슈가 있으므로 기본 ASC + 후처리 안 함.
 export async function listPeople(userId: string): Promise<Person[]> {
-  return prisma.person.findMany({
+  const rows = await prisma.person.findMany({
     where: { userId },
-    select: {
-      id: true,
-      name: true,
-      relation: true,
-      birthYear: true,
-      category: true,
-      metYear: true,
-      memo: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: PERSON_SELECT,
     orderBy: { name: "asc" },
   });
+  return rows as Person[];
 }
 
-// 본인 인물만 단일 조회. 권한 불일치 시 null.
+// 본인 주체만 단일 조회. 권한 불일치 시 null.
 export async function getPerson(
   userId: string,
   personId: string,
 ): Promise<Person | null> {
-  return prisma.person.findFirst({
+  const row = await prisma.person.findFirst({
     where: { id: personId, userId },
-    select: {
-      id: true,
-      name: true,
-      relation: true,
-      birthYear: true,
-      category: true,
-      metYear: true,
-      memo: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: PERSON_SELECT,
   });
+  return row as Person | null;
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -303,27 +308,27 @@ export async function countEventsPerPerson(
   return m;
 }
 
-// 연혁 화면 미리보기 — 여러 memoryId 에 대해 한 번에 인물 이름 목록 조회.
+// 연혁 화면 미리보기 — 여러 memoryId 에 대해 한 번에 주체 이름 목록 조회.
 // /life-timeline 의 인물 칩(👤 철수, 영희) 용도. 이벤트 N개에 대해 매번
 // listPeopleByEvent 부르면 N 쿼리 → 단일 IN 쿼리 1회로 회피.
 //
-// 반환: Map<memoryId, {id, name}[]> — name ko-locale 정렬.
+// 반환: Map<memoryId, {id, name, subjectType}[]> — name ko-locale 정렬.
 export async function listPeopleByEventBatch(
   userId: string,
   memoryIds: string[],
-): Promise<Map<string, { id: string; name: string }[]>> {
-  const result = new Map<string, { id: string; name: string }[]>();
+): Promise<Map<string, { id: string; name: string; subjectType: SubjectType }[]>> {
+  const result = new Map<string, { id: string; name: string; subjectType: SubjectType }[]>();
   if (memoryIds.length === 0) return result;
   const rows = await prisma.personEvent.findMany({
     where: { userId, memoryId: { in: memoryIds } },
     select: {
       memoryId: true,
-      person: { select: { id: true, name: true } },
+      person: { select: { id: true, name: true, subjectType: true } },
     },
   });
   for (const r of rows) {
     const arr = result.get(r.memoryId) ?? [];
-    arr.push(r.person);
+    arr.push({ ...r.person, subjectType: (r.person.subjectType as SubjectType) });
     result.set(r.memoryId, arr);
   }
   for (const arr of result.values()) {
@@ -341,23 +346,11 @@ export async function listPeopleByEvent(
   const rows = await prisma.personEvent.findMany({
     where: { memoryId, userId },
     select: {
-      person: {
-        select: {
-          id: true,
-          name: true,
-          relation: true,
-          birthYear: true,
-          category: true,
-          metYear: true,
-          memo: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      },
+      person: { select: PERSON_SELECT },
     },
   });
   return rows
-    .map((r) => r.person)
+    .map((r) => r.person as Person)
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
 }
 

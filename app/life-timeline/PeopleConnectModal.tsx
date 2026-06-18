@@ -23,7 +23,9 @@ import {
 //
 // 닫기: Esc / 백드롭 / X 버튼. body scroll lock + autoFocus [닫기].
 
-export type PersonLite = { id: string; name: string };
+import type { SubjectType } from "@/lib/people";
+
+export type PersonLite = { id: string; name: string; subjectType: SubjectType };
 
 export function PeopleConnectModal({
   memoryId,
@@ -287,7 +289,10 @@ function PersonRow({
             : "border-line bg-surface text-ink hover:border-amber-300 hover:bg-amber-50")
         }
       >
-        <span className="truncate text-base font-semibold">{person.name}</span>
+        <span className="truncate text-base font-semibold">
+          {person.subjectType === "location" ? "📍 " : person.subjectType === "thing" ? "📦 " : ""}
+          {person.name}
+        </span>
         <span
           aria-hidden
           className={

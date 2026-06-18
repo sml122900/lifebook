@@ -253,7 +253,7 @@ function computeYearRange(events: RenderEvent[]): {
 // 인물 미리보기 — RSC 가 prefetch 한 (memoryId → 인물 이름 목록) 을 그대로
 // 받는다. Map 은 RSC→client 직렬화가 안 되므로 plain object 로 전달.
 // isPeriodEnd 행은 id 가 "원본id:end" 라 원본 id 를 lookup key 로 쓴다.
-export type PeopleByEvent = Record<string, { id: string; name: string }[]>;
+export type PeopleByEvent = Record<string, PersonLite[]>;
 
 // Phase Photo (3단계) — RSC(page.tsx)가 발급한 (photoId → signed URL).
 // getLifeEvents 가 경로만 들고 오므로 URL 은 이 prop 으로 주입된다. 발급에

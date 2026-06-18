@@ -50,6 +50,7 @@ async function main() {
     console.log("\n[a) Person CRUD + 권한]");
 
     const kim = await createPerson(alice.id, {
+      subjectType: "person",
       name: "김초친",
       relation: "초등 친구",
       birthYear: null,
@@ -60,6 +61,7 @@ async function main() {
     check("createPerson — id/이름 채워짐", typeof kim.id === "string" && kim.name === "김초친");
 
     const lee = await createPerson(alice.id, {
+      subjectType: "person",
       name: "이중친",
       relation: null,
       birthYear: null,
@@ -72,7 +74,8 @@ async function main() {
     // 입력 검증 — 빈 이름
     let threw = false;
     try {
-      await createPerson(alice.id, { name: "   ", relation: null, birthYear: null, category: null, metYear: null, memo: null });
+      await createPerson(alice.id, {
+      subjectType: "person", name: "   ", relation: null, birthYear: null, category: null, metYear: null, memo: null });
     } catch {
       threw = true;
     }
@@ -82,6 +85,7 @@ async function main() {
     threw = false;
     try {
       await createPerson(alice.id, {
+      subjectType: "person",
         name: "x".repeat(51),
         relation: null,
         birthYear: null,
@@ -98,6 +102,7 @@ async function main() {
     threw = false;
     try {
       await createPerson(alice.id, {
+      subjectType: "person",
         name: "범위벗",
         relation: null,
         birthYear: null,
@@ -111,7 +116,8 @@ async function main() {
     check("metYear 1800 거부", threw);
 
     // listPeople — alice 만 보임 (eve 의 인물 안 섞임)
-    await createPerson(eve.id, { name: "남의친구", relation: null, birthYear: null, category: null, metYear: null, memo: null });
+    await createPerson(eve.id, {
+      subjectType: "person", name: "남의친구", relation: null, birthYear: null, category: null, metYear: null, memo: null });
     const alicePeople = await listPeople(alice.id);
     check("listPeople — alice 본인 인물만", alicePeople.length === 2);
     check(
@@ -127,6 +133,7 @@ async function main() {
 
     // updatePerson — 본인 OK
     const upd = await updatePerson(alice.id, kim.id, {
+      subjectType: "person",
       name: "김초친(수정)",
       relation: "초등 단짝",
       birthYear: null,
@@ -138,6 +145,7 @@ async function main() {
 
     // updatePerson — 남의 행 → null
     const crossUpd = await updatePerson(eve.id, kim.id, {
+      subjectType: "person",
       name: "악의수정",
       relation: null,
       birthYear: null,
@@ -214,6 +222,7 @@ async function main() {
     // B — photo 메모리에 인물 연결 허용 (life_event + photo). 전용 인물
     // (photoPal)로 — kim 의 하류 카운트 검증에 영향 안 주게.
     const photoPal = await createPerson(alice.id, {
+      subjectType: "person",
       name: "사진친구",
       relation: null,
       birthYear: null,
@@ -300,6 +309,7 @@ async function main() {
 
     // 새 인물 두 명 + trip 에 둘 다 링크
     const park = await createPerson(alice.id, {
+      subjectType: "person",
       name: "박동기",
       relation: "동기",
       birthYear: null,
@@ -308,6 +318,7 @@ async function main() {
       memo: null,
     });
     const choi = await createPerson(alice.id, {
+      subjectType: "person",
       name: "최선배",
       relation: "선배",
       birthYear: null,
