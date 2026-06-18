@@ -54,9 +54,29 @@ export default async function PersonDetailPage({ params }: Params) {
           <h1 className="text-4xl font-bold text-ink sm:text-5xl">
             {person.name}
           </h1>
-          <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+            {person.category && (
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-base font-semibold text-amber-800">
+                {person.category}
+              </span>
+            )}
             {person.relation && (
               <span className="text-lg text-ink">{person.relation}</span>
+            )}
+            {person.birthYear !== null && (
+              <span className="text-lg text-ink-soft">
+                {person.birthYear}년생
+                {birthYear !== null &&
+                  (() => {
+                    const diff = Math.abs(birthYear - (person.birthYear as number));
+                    const dir = (person.birthYear as number) < birthYear ? "위" : (person.birthYear as number) > birthYear ? "아래" : "동갑";
+                    return diff === 0 ? (
+                      <span className="ml-1 text-base">(동갑)</span>
+                    ) : (
+                      <span className="ml-1 text-base">(나보다 {diff}살 {dir})</span>
+                    );
+                  })()}
+              </span>
             )}
             {person.metYear !== null && (
               <span className="text-lg text-ink-soft">

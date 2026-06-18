@@ -762,8 +762,10 @@ model Person {
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String // 필수, 최대 50자 (헬퍼에서 검증)
   relation  String? // "초등 친구", "직장 동료" 등 자유 텍스트, 최대 30자
+  birthYear Int? // 인물 출생년도 (1900~현재)
+  category  String? // 관계 분류 — 가족·친척·친구·직장·이웃·기타 또는 자유 문자열
   metYear   Int? // 처음 만난 연도 (1900~현재+1)
-  memo      String? // 한 줄 메모, 최대 100자
+  memo      String? // 메모
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   events    PersonEvent[]

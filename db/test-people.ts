@@ -52,6 +52,8 @@ async function main() {
     const kim = await createPerson(alice.id, {
       name: "김초친",
       relation: "초등 친구",
+      birthYear: null,
+      category: null,
       metYear: 1972,
       memo: "체육 잘함",
     });
@@ -60,6 +62,8 @@ async function main() {
     const lee = await createPerson(alice.id, {
       name: "이중친",
       relation: null,
+      birthYear: null,
+      category: null,
       metYear: null,
       memo: null,
     });
@@ -68,7 +72,7 @@ async function main() {
     // 입력 검증 — 빈 이름
     let threw = false;
     try {
-      await createPerson(alice.id, { name: "   ", relation: null, metYear: null, memo: null });
+      await createPerson(alice.id, { name: "   ", relation: null, birthYear: null, category: null, metYear: null, memo: null });
     } catch {
       threw = true;
     }
@@ -80,6 +84,8 @@ async function main() {
       await createPerson(alice.id, {
         name: "x".repeat(51),
         relation: null,
+        birthYear: null,
+        category: null,
         metYear: null,
         memo: null,
       });
@@ -94,6 +100,8 @@ async function main() {
       await createPerson(alice.id, {
         name: "범위벗",
         relation: null,
+        birthYear: null,
+        category: null,
         metYear: 1800,
         memo: null,
       });
@@ -103,7 +111,7 @@ async function main() {
     check("metYear 1800 거부", threw);
 
     // listPeople — alice 만 보임 (eve 의 인물 안 섞임)
-    await createPerson(eve.id, { name: "남의친구", relation: null, metYear: null, memo: null });
+    await createPerson(eve.id, { name: "남의친구", relation: null, birthYear: null, category: null, metYear: null, memo: null });
     const alicePeople = await listPeople(alice.id);
     check("listPeople — alice 본인 인물만", alicePeople.length === 2);
     check(
@@ -121,6 +129,8 @@ async function main() {
     const upd = await updatePerson(alice.id, kim.id, {
       name: "김초친(수정)",
       relation: "초등 단짝",
+      birthYear: null,
+      category: null,
       metYear: 1973,
       memo: "체육·노래 잘함",
     });
@@ -130,6 +140,8 @@ async function main() {
     const crossUpd = await updatePerson(eve.id, kim.id, {
       name: "악의수정",
       relation: null,
+      birthYear: null,
+      category: null,
       metYear: null,
       memo: null,
     });
@@ -204,6 +216,8 @@ async function main() {
     const photoPal = await createPerson(alice.id, {
       name: "사진친구",
       relation: null,
+      birthYear: null,
+      category: null,
       metYear: null,
       memo: null,
     });
@@ -288,12 +302,16 @@ async function main() {
     const park = await createPerson(alice.id, {
       name: "박동기",
       relation: "동기",
+      birthYear: null,
+      category: null,
       metYear: 1990,
       memo: null,
     });
     const choi = await createPerson(alice.id, {
       name: "최선배",
       relation: "선배",
+      birthYear: null,
+      category: null,
       metYear: 1989,
       memo: null,
     });

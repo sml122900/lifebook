@@ -46,6 +46,8 @@ export default async function EditPersonPage({ params }: Params) {
           id: person.id,
           name: person.name,
           relation: person.relation,
+          birthYear: person.birthYear,
+          category: person.category,
           metYear: person.metYear,
           memo: person.memo,
         }}

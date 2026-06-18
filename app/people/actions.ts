@@ -27,6 +27,8 @@ import {
 export type PersonInputRaw = {
   name: string;
   relation: string | null;
+  birthYear: number | null;
+  category: string | null;
   metYear: number | null;
   memo: string | null;
 };
@@ -50,12 +52,17 @@ function normalize(raw: PersonInputRaw): PersonInput {
     typeof raw.relation === "string" && raw.relation.trim() !== ""
       ? raw.relation
       : null;
+  const category =
+    typeof raw.category === "string" && raw.category.trim() !== ""
+      ? raw.category
+      : null;
   const memo =
     typeof raw.memo === "string" && raw.memo.trim() !== "" ? raw.memo : null;
-  // metYear 가 NaN/문자열 잔재면 null 로 정규화. 헬퍼가 범위 검증.
   const metYear =
     raw.metYear !== null && Number.isInteger(raw.metYear) ? raw.metYear : null;
-  return { name, relation, memo, metYear };
+  const birthYear =
+    raw.birthYear !== null && Number.isInteger(raw.birthYear) ? raw.birthYear : null;
+  return { name, relation, birthYear, category, memo, metYear };
 }
 
 function errMessage(e: unknown): string {

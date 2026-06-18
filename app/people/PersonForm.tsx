@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,16 +15,12 @@ import {
   type PersonInputRaw,
 } from "./actions";
 
-// Phase P2 — 인물 추가/수정 공용 폼.
-//
-// 시니어 친화: 큰 라벨/입력, 큰 버튼, 자유 입력 보조에 음성(VoiceTextarea).
-// 관계는 datalist 힌트로 후보 제시 (강제 선택 X — 자유 텍스트).
-// 나이 자동 표시는 lib/age.ts 의 calcAge 재사용 — birthYear 가 없으면 표시 X.
-
 export type PersonFormInitial = {
   id: string;
   name: string;
   relation: string | null;
+  birthYear: number | null;
+  category: string | null;
   metYear: number | null;
   memo: string | null;
 };
@@ -43,18 +39,18 @@ const RELATION_HINTS = [
   "동아리",
 ];
 
+const CATEGORY_PRESETS = ["가족", "친척", "친구", "직장", "이웃", "기타"];
+
 export function PersonForm({
   mode,
   initial,
-  birthYear = null,
+  birthYear: userBirthYear = null,
   returnTo = null,
 }: {
   mode: "add" | "edit";
   initial?: PersonFormInitial;
+  // 사용자 본인의 출생년도 — metYear 나이 힌트 + 인물 나이차 계산용
   birthYear?: number | null;
-  // P3 — /people/new?returnTo=/life-timeline 같은 식으로 진입했을 때 저장
-  // 후 그 경로로 돌아간다. null 이면 기본(추가→상세, 수정→상세).
-  // 보안 — relative 경로(/로 시작) 만 허용 (외부 URL open redirect 방지).
   returnTo?: string | null;
 }) {
   const router = useRouter();
@@ -62,6 +58,13 @@ export function PersonForm({
 
   const [name, setName] = useState(initial?.name ?? "");
   const [relation, setRelation] = useState(initial?.relation ?? "");
+  const [category, setCategory] = useState(initial?.category ?? "");
+  const [personBirthYearText, setPersonBirthYearText] = useState(
+    initial?.birthYear != null ? String(initial.birthYear) : "",
+  );
+  // 나이차 헬퍼 — "나보다 N살 위/아래" 입력
+  const [ageDiffText, setAgeDiffText] = useState("");
+  const [ageDiffDir, setAgeDiffDir] = useState<"above" | "below">("above");
   const [metYearText, setMetYearText] = useState(
     initial?.metYear != null ? String(initial.metYear) : "",
   );
@@ -69,17 +72,32 @@ export function PersonForm({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // 나이 힌트 — birthYear 와 metYear 둘 다 있을 때만.
+  const personBirthYear = parseIntOrNull(personBirthYearText);
+
+  // metYear 기준 나이 힌트 (본인 생년 사용)
   const metYearNum = parseIntOrNull(metYearText);
   const ageHint =
-    birthYear !== null && metYearNum !== null
-      ? calcAge(birthYear, metYearNum)
+    userBirthYear !== null && metYearNum !== null
+      ? calcAge(userBirthYear, metYearNum)
       : null;
+
+  // 나이차 → 인물 birthYear 환산
+  function applyAgeDiff() {
+    if (userBirthYear === null) return;
+    const diff = parseIntOrNull(ageDiffText);
+    if (diff === null || diff < 0) return;
+    const computed =
+      ageDiffDir === "above" ? userBirthYear - diff : userBirthYear + diff;
+    setPersonBirthYearText(String(computed));
+    setAgeDiffText("");
+  }
 
   function buildRaw(): PersonInputRaw {
     return {
       name,
       relation: relation.trim() === "" ? null : relation,
+      birthYear: personBirthYear,
+      category: category.trim() === "" ? null : category,
       metYear: metYearNum,
       memo: memo.trim() === "" ? null : memo,
     };
@@ -97,7 +115,6 @@ export function PersonForm({
         setError(result.error);
         return;
       }
-      // returnTo 가 있으면 그곳으로 (추가 모드만; 수정은 항상 상세로).
       const dest =
         !isEdit && returnTo ? returnTo : `/people/${result.id}`;
       router.push(dest);
@@ -131,13 +148,49 @@ export function PersonForm({
         </p>
       </section>
 
-      {/* 관계 (선택, datalist 힌트) */}
+      {/* 카테고리 (선택) */}
+      <section className="flex flex-col gap-2">
+        <label className="text-lg font-semibold text-ink">
+          분류 <span className="font-normal text-ink-faint">(선택)</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {CATEGORY_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() =>
+                setCategory((prev) => (prev === preset ? "" : preset))
+              }
+              className={[
+                "min-h-[44px] rounded-full px-4 py-2 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2",
+                category === preset
+                  ? "bg-amber-500 text-white"
+                  : "border-2 border-line bg-surface text-ink hover:bg-banner",
+              ].join(" ")}
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+        <input
+          id="person-category"
+          type="text"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          maxLength={30}
+          placeholder="직접 입력 (예: 군대 전우, 교회 지인)"
+          autoComplete="off"
+          className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+        />
+      </section>
+
+      {/* 관계 (선택) */}
       <section className="flex flex-col gap-2">
         <label
           htmlFor="person-relation"
           className="text-lg font-semibold text-ink"
         >
-          관계 <span className="font-normal text-ink-faint">(선택)</span>
+          관계 설명 <span className="font-normal text-ink-faint">(선택)</span>
         </label>
         <input
           id="person-relation"
@@ -155,6 +208,86 @@ export function PersonForm({
             <option key={h} value={h} />
           ))}
         </datalist>
+      </section>
+
+      {/* 출생년도 (선택) */}
+      <section className="flex flex-col gap-2">
+        <label
+          htmlFor="person-birth-year"
+          className="text-lg font-semibold text-ink"
+        >
+          출생년도 <span className="font-normal text-ink-faint">(선택)</span>
+        </label>
+        <div className="flex items-center gap-3">
+          <input
+            id="person-birth-year"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={personBirthYearText}
+            onChange={(e) =>
+              setPersonBirthYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
+            }
+            placeholder="예: 1950"
+            className="w-40 rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          />
+          {personBirthYear !== null && userBirthYear !== null && (
+            <p className="text-base text-ink-soft">
+              나보다{" "}
+              {Math.abs(userBirthYear - personBirthYear)}살{" "}
+              {personBirthYear < userBirthYear ? "위" : personBirthYear > userBirthYear ? "아래" : "동갑"}
+            </p>
+          )}
+        </div>
+        {/* 나이차 헬퍼 — 본인 birthYear 있을 때만 */}
+        {userBirthYear !== null && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-base text-ink-soft">나보다</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={ageDiffText}
+              onChange={(e) =>
+                setAgeDiffText(e.target.value.replace(/\D/g, "").slice(0, 3))
+              }
+              placeholder="0"
+              className="w-20 rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-amber-500 focus:outline-none"
+            />
+            <span className="text-base text-ink-soft">살</span>
+            <button
+              type="button"
+              onClick={() => setAgeDiffDir("above")}
+              className={[
+                "min-h-[40px] rounded-full px-3 py-1 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
+                ageDiffDir === "above"
+                  ? "bg-amber-500 text-white"
+                  : "border border-line bg-surface text-ink",
+              ].join(" ")}
+            >
+              위
+            </button>
+            <button
+              type="button"
+              onClick={() => setAgeDiffDir("below")}
+              className={[
+                "min-h-[40px] rounded-full px-3 py-1 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
+                ageDiffDir === "below"
+                  ? "bg-amber-500 text-white"
+                  : "border border-line bg-surface text-ink",
+              ].join(" ")}
+            >
+              아래
+            </button>
+            <button
+              type="button"
+              onClick={applyAgeDiff}
+              disabled={!ageDiffText || parseIntOrNull(ageDiffText) === null}
+              className="min-h-[40px] rounded-md border border-amber-400 bg-amber-50 px-3 py-1 text-base text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+            >
+              적용
+            </button>
+          </div>
+        )}
       </section>
 
       {/* 처음 만난 연도 (선택) */}
@@ -193,14 +326,14 @@ export function PersonForm({
           htmlFor="person-memo"
           className="text-lg font-semibold text-ink"
         >
-          한 줄 메모 <span className="font-normal text-ink-faint">(선택)</span>
+          메모 <span className="font-normal text-ink-faint">(선택)</span>
         </label>
         <VoiceTextarea
           value={memo}
           onChange={setMemo}
           rows={3}
           placeholder="이 분에 대해 떠오르는 한 마디"
-          ariaLabel="인물 한 줄 메모"
+          ariaLabel="인물 메모"
         />
       </section>
 

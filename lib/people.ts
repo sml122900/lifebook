@@ -38,6 +38,7 @@ import { prisma } from "./db";
 
 const NAME_MAX = 50;
 const RELATION_MAX = 30;
+const CATEGORY_MAX = 30;
 const MET_YEAR_MIN = 1900;
 
 function clampYearRange(): { min: number; max: number } {
@@ -47,6 +48,8 @@ function clampYearRange(): { min: number; max: number } {
 export type PersonInput = {
   name: string;
   relation: string | null;
+  birthYear: number | null;
+  category: string | null;
   metYear: number | null;
   memo: string | null;
 };
@@ -55,6 +58,8 @@ export type Person = {
   id: string;
   name: string;
   relation: string | null;
+  birthYear: number | null;
+  category: string | null;
   metYear: number | null;
   memo: string | null;
   createdAt: Date;
@@ -77,6 +82,16 @@ function validatePersonInput(
       error: `관계는 ${RELATION_MAX}자 이하로 적어주세요.`,
     };
   }
+  const category = input.category?.trim() ?? "";
+  if (category.length > CATEGORY_MAX) {
+    return { ok: false, error: `카테고리는 ${CATEGORY_MAX}자 이하로 적어주세요.` };
+  }
+  if (input.birthYear !== null) {
+    const { min, max } = clampYearRange();
+    if (!Number.isInteger(input.birthYear) || input.birthYear < min || input.birthYear > max) {
+      return { ok: false, error: `출생년도는 ${min}~${max} 사이여야 해요.` };
+    }
+  }
   const memo = input.memo?.trim() ?? "";
   if (input.metYear !== null) {
     const { min, max } = clampYearRange();
@@ -89,6 +104,8 @@ function validatePersonInput(
     value: {
       name,
       relation: relation === "" ? null : relation,
+      birthYear: input.birthYear,
+      category: category === "" ? null : category,
       metYear: input.metYear,
       memo: memo === "" ? null : memo,
     },
@@ -112,6 +129,8 @@ export async function createPerson(
       id: true,
       name: true,
       relation: true,
+      birthYear: true,
+      category: true,
       metYear: true,
       memo: true,
       createdAt: true,
@@ -141,6 +160,8 @@ export async function updatePerson(
       id: true,
       name: true,
       relation: true,
+      birthYear: true,
+      category: true,
       metYear: true,
       memo: true,
       createdAt: true,
@@ -169,6 +190,8 @@ export async function listPeople(userId: string): Promise<Person[]> {
       id: true,
       name: true,
       relation: true,
+      birthYear: true,
+      category: true,
       metYear: true,
       memo: true,
       createdAt: true,
@@ -189,6 +212,8 @@ export async function getPerson(
       id: true,
       name: true,
       relation: true,
+      birthYear: true,
+      category: true,
       metYear: true,
       memo: true,
       createdAt: true,
@@ -321,6 +346,8 @@ export async function listPeopleByEvent(
           id: true,
           name: true,
           relation: true,
+          birthYear: true,
+          category: true,
           metYear: true,
           memo: true,
           createdAt: true,
