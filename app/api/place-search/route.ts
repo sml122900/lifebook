@@ -22,6 +22,7 @@ import { auth } from "@/auth";
 
 const RESULT_LIMIT = 5;
 const NETWORK_TIMEOUT_MS = 5000;
+const GOOGLE_TIMEOUT_MS = 8000; // autocomplete/detail 은 여유 있게
 
 // Google Place ID 는 base64url 계열 — 경로 주입 방지
 const PLACE_ID_RE = /^[A-Za-z0-9_-]{5,200}$/;
@@ -218,77 +219,103 @@ type GoogleAutocompleteSuggestion = {
 };
 
 async function autocompleteGoogle(input: string): Promise<AutocompleteSuggestion[]> {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key || key.startsWith("여기에_")) throw new Error("구글 키가 설정 안 돼있어요.");
+  try {
+    const key = process.env.GOOGLE_MAPS_API_KEY;
+    if (!key || key.startsWith("여기에_")) {
+      console.error("[google-autocomplete] missing key env (GOOGLE_MAPS_API_KEY)");
+      return [];
+    }
 
-  // body 는 JSON.stringify → Node.js 기본 UTF-8. Content-Type 에 charset=utf-8
-  // 명시로 서버가 별도 인코딩 재해석하지 않도록 한다 (mojibake 방지).
-  const res = await fetchWithTimeout(
-    "https://places.googleapis.com/v1/places:autocomplete",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "X-Goog-Api-Key": key,
-      },
-      body: JSON.stringify({
-        input,
-        languageCode: "ko",
-        regionCode: "KR",
-        locationBias: {
-          circle: {
-            center: { latitude: 37.5665, longitude: 126.9780 },
-            radius: 100000.0,
-          },
+    // body 는 JSON.stringify → Node.js 기본 UTF-8. Content-Type 에 charset=utf-8
+    // 명시로 서버가 별도 인코딩 재해석하지 않도록 한다 (mojibake 방지).
+    const res = await fetchWithTimeout(
+      "https://places.googleapis.com/v1/places:autocomplete",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "X-Goog-Api-Key": key,
         },
-      }),
-      cache: "no-store",
-    },
-    NETWORK_TIMEOUT_MS,
-  );
-  if (!res.ok) throw new Error(`구글 자동완성 실패 (${res.status})`);
+        body: JSON.stringify({
+          input,
+          languageCode: "ko",
+          regionCode: "KR",
+          locationBias: {
+            circle: {
+              center: { latitude: 37.5665, longitude: 126.9780 },
+              radius: 100000.0,
+            },
+          },
+        }),
+        cache: "no-store",
+      },
+      GOOGLE_TIMEOUT_MS,
+    );
 
-  const data = (await res.json()) as { suggestions?: GoogleAutocompleteSuggestion[] };
-  const items = Array.isArray(data.suggestions) ? data.suggestions : [];
-  return items
-    .slice(0, RESULT_LIMIT)
-    .flatMap((s) => {
-      const pp = s.placePrediction;
-      const text = pp?.text?.text;
-      const placeId = pp?.placeId;
-      if (!text || !placeId) return [];
-      return [{ text, placeId }];
-    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error("[google-autocomplete] status", res.status, body.slice(0, 300));
+      return [];
+    }
+
+    const data = (await res.json()) as { suggestions?: GoogleAutocompleteSuggestion[] };
+    const items = Array.isArray(data?.suggestions) ? data.suggestions : [];
+    return items
+      .slice(0, RESULT_LIMIT)
+      .flatMap((s) => {
+        const pp = s.placePrediction;
+        const text = pp?.text?.text;
+        const placeId = pp?.placeId;
+        if (!text || !placeId) return [];
+        return [{ text, placeId }];
+      });
+  } catch (e) {
+    console.error("[google-autocomplete] threw", e instanceof Error ? e.message : e);
+    return [];
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────
 // 구글 — Places API (New) 장소 상세 조회. Autocomplete 선택 후 좌표 확보용.
 // ────────────────────────────────────────────────────────────────────
 
-async function getGooglePlaceDetail(placeId: string): Promise<PlaceResult> {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key || key.startsWith("여기에_")) throw new Error("구글 키가 설정 안 돼있어요.");
+async function getGooglePlaceDetail(placeId: string): Promise<PlaceResult | null> {
+  try {
+    const key = process.env.GOOGLE_MAPS_API_KEY;
+    if (!key || key.startsWith("여기에_")) {
+      console.error("[google-detail] missing key env (GOOGLE_MAPS_API_KEY)");
+      return null;
+    }
 
-  const res = await fetchWithTimeout(
-    `https://places.googleapis.com/v1/places/${placeId}?languageCode=ko`,
-    {
-      headers: {
-        "X-Goog-Api-Key": key,
-        "X-Goog-FieldMask": "id,displayName,formattedAddress,location",
+    const res = await fetchWithTimeout(
+      `https://places.googleapis.com/v1/places/${placeId}?languageCode=ko`,
+      {
+        headers: {
+          "X-Goog-Api-Key": key,
+          "X-Goog-FieldMask": "id,displayName,formattedAddress,location",
+        },
+        cache: "no-store",
       },
-      cache: "no-store",
-    },
-    NETWORK_TIMEOUT_MS,
-  );
-  if (!res.ok) throw new Error(`구글 장소 상세 실패 (${res.status})`);
+      GOOGLE_TIMEOUT_MS,
+    );
 
-  const p = (await res.json()) as GooglePlace;
-  return {
-    name: p.displayName?.text ?? p.formattedAddress ?? "",
-    address: p.formattedAddress ?? "",
-    lat: typeof p.location?.latitude === "number" ? p.location.latitude : null,
-    lng: typeof p.location?.longitude === "number" ? p.location.longitude : null,
-  };
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error("[google-detail] status", res.status, body.slice(0, 300));
+      return null;
+    }
+
+    const p = (await res.json()) as GooglePlace;
+    return {
+      name: p.displayName?.text ?? p.formattedAddress ?? "",
+      address: p.formattedAddress ?? "",
+      lat: typeof p.location?.latitude === "number" ? p.location.latitude : null,
+      lng: typeof p.location?.longitude === "number" ? p.location.longitude : null,
+    };
+  } catch (e) {
+    console.error("[google-detail] threw", e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -330,6 +357,9 @@ export async function POST(req: Request) {
 
     if (parsed.action === "detail") {
       const result = await getGooglePlaceDetail(parsed.placeId);
+      if (!result) {
+        return NextResponse.json({ ok: false, error: "장소를 찾지 못했어요." }, { status: 502 });
+      }
       return NextResponse.json({ ok: true, action: "detail", result });
     }
 
