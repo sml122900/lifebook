@@ -1,5 +1,17 @@
 # 이력서 소재 모음 (PAR)
 
+## 인코딩 버그 진단으로 Google Autocomplete 한국어 약칭 정확도 복구
+
+- **Problem**: Google Places Autocomplete API 테스트에서 "중산고" 0건, "강남역" 0건 — 구글 한국어 POI 커버리지 문제로 오진. "중산고등학교"는 5건이지만 전부 폴란드·이탈리아 도시가 1위. 한글 ㅂ 자모가 키릴 문자 Б로 매핑된 응답이 스모킹건.
+- **Action**: 이성민 지적("브라우저 직접 검색하면 다 뜬다")으로 방향 전환. 셸 heredoc + `curl -d` 조합에서 한글이 Windows CP949로 전송된다는 가설 검증 → Python `json.dumps(ensure_ascii=False).encode('utf-8')` + `urllib.request`로 동일 쿼리 재전송. 와이어 레벨 바이트를 `xxd`로 확인(EC A4 91 = UTF-8 "중").
+- **Result**: "중산고" 5건(강남구 중산고 1위), "여의도고" 5건, "강남역" 5건 — 약칭·정식명 모두 정확. API가 아닌 요청 인코딩 버그였음. 구현 단계에서 서버 사이드 fetch는 `Content-Type: application/json; charset=utf-8` 명시 + `JSON.stringify()` (Node.js 기본 UTF-8) 패턴으로 재발 방지.
+
+## Google Places Autocomplete 2-step 플로우로 장소 검색 UX 개선
+
+- **Problem**: 기존 Google 검색(searchText)은 정확한 풀 쿼리가 필요해 약칭("중산고", "강남역")으로 검색 후 5건 결과를 리스트에서 골라야 했음. 타이핑 중 실시간 후보가 없어 UX 부자연스러움. 네이버와 달리 Google 결과는 실시간 드롭다운이 표준.
+- **Action**: `/api/place-search`에 `action:"autocomplete"` + `action:"detail"` 두 액션 추가(기존 search 경로 무변). 프론트는 Google 소스 선택 시 debounce(300ms) → `places:autocomplete` → 후보 드롭다운 → 선택 → `places/{placeId}` 상세 조회 → 좌표 확보 → 기존 C단계(지도 타일 확정) 흐름. path injection 방지: placeId 검증 정규식(`/^[A-Za-z0-9_-]{5,200}$/`). 네이버 경로 0줄 수정.
+- **Result**: "중산고" 타이핑 3자 → 강남·일산·인천 3개 중산고 후보 즉시 표시 → 선택 1번 → 좌표+지도 확정. tsc 클린·build 통과. *교훈*: 2-step(autocomplete → detail)이 1-step(searchText)보다 API 호출 1회 추가이나, 사용자가 타이핑 중 후보를 보고 방향 수정 가능해 총 시도 횟수 감소.
+
 ## 단일 테이블 discriminator 패턴으로 이야기 주체 확장 — 스키마 변경 최소화
 
 - **Problem**: "인물록"에 장소·물건도 추가해달라는 요구. 옵션 A(별도 모델 2개)는 PersonEvent join table 중복·LinkResult 분기 추가·UI 합치기 3중 복잡도. 옵션 C(UserMemory 재활용)는 geo 장소(placeName/lat/lng)와 이름 충돌·의미 오염.

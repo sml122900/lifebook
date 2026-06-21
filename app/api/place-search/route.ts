@@ -1,16 +1,20 @@
 // Phase Place — 장소 검색 API.
 //
 // POST /api/place-search
-//   { query: string, source: "naver" | "google" }
+//   { query: string, source: "naver" | "google" }          -- 기존 text search
+//   { action: "autocomplete", query: string }              -- 구글 자동완성 후보
+//   { action: "detail", placeId: string }                  -- 구글 장소 상세 조회
 //
 // 사용자가 UI 에서 네이버/구글 중 직접 선택. 자동 분기는 사용자 의도와
 // 어긋날 수 있어 (예: 한글로 "Tokyo Tower" 검색) 제거함(2026-06-03).
 //
-// 응답: { ok: true, source, results: [{name, address, lat, lng}] } (최대 5)
+// 응답: { ok: true, source, results: [...] }               -- search
+//        { ok: true, action:"autocomplete", suggestions: [{text, placeId}] }
+//        { ok: true, action:"detail", result: PlaceResult }
 //        { ok: false, error: string }
 //
 // 인증: auth() 세션 필수. 비로그인은 401. (지도 API 키 보호 + 남용 차단.)
-// 검증: query 1~100 자 trim 후.
+// 검증: query 1~100 자 trim 후. placeId 는 alphanumeric+_- 로 path injection 차단.
 
 import { NextResponse } from "next/server";
 
@@ -19,6 +23,9 @@ import { auth } from "@/auth";
 const RESULT_LIMIT = 5;
 const NETWORK_TIMEOUT_MS = 5000;
 
+// Google Place ID 는 base64url 계열 — 경로 주입 방지
+const PLACE_ID_RE = /^[A-Za-z0-9_-]{5,200}$/;
+
 export type PlaceResult = {
   name: string;        // "강원도 춘천시 근화동" (UI 표시용)
   address: string;     // 더 자세한 주소 (있으면)
@@ -26,23 +33,46 @@ export type PlaceResult = {
   lng: number | null;  // 경도
 };
 
+export type AutocompleteSuggestion = {
+  text: string;     // 표시용 전체 텍스트 (예: "서울특별시 강남역사거리")
+  placeId: string;  // 상세 조회용 ID
+};
+
 type ParsedBody =
-  | { ok: true; query: string; source: "naver" | "google" }
+  | { ok: true; action: "search"; query: string; source: "naver" | "google" }
+  | { ok: true; action: "autocomplete"; query: string }
+  | { ok: true; action: "detail"; placeId: string }
   | { ok: false; error: string };
 
 function parseBody(raw: unknown): ParsedBody {
   if (typeof raw !== "object" || raw === null) {
     return { ok: false, error: "요청 본문이 비어있어요." };
   }
-  const o = raw as { query?: unknown; source?: unknown };
+  const o = raw as Record<string, unknown>;
+  const action = typeof o.action === "string" ? o.action : "search";
+
+  if (action === "autocomplete") {
+    const q = typeof o.query === "string" ? o.query.trim() : "";
+    if (!q) return { ok: false, error: "검색어를 적어주세요." };
+    if (q.length > 100) return { ok: false, error: "검색어는 100자 이하로 적어주세요." };
+    return { ok: true, action: "autocomplete", query: q };
+  }
+
+  if (action === "detail") {
+    const id = typeof o.placeId === "string" ? o.placeId.trim() : "";
+    if (!id || !PLACE_ID_RE.test(id)) return { ok: false, error: "잘못된 장소 ID에요." };
+    return { ok: true, action: "detail", placeId: id };
+  }
+
+  // action === "search" (기존 호환)
   const q = typeof o.query === "string" ? o.query.trim() : "";
-  if (q.length === 0) return { ok: false, error: "검색어를 적어주세요." };
+  if (!q) return { ok: false, error: "검색어를 적어주세요." };
   if (q.length > 100) return { ok: false, error: "검색어는 100자 이하로 적어주세요." };
   const s = o.source;
   if (s !== "naver" && s !== "google") {
     return { ok: false, error: "잘못된 검색 엔진이에요." };
   }
-  return { ok: true, query: q, source: s };
+  return { ok: true, action: "search", query: q, source: s };
 }
 
 // M12 — AbortController 로 실제 fetch cancel. Promise.race 만 쓰면 timeout
@@ -128,7 +158,7 @@ async function searchNaver(query: string): Promise<PlaceResult[]> {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// 구글 — Places API (New) Text Search.
+// 구글 — Places API (New) Text Search (기존 검색 경로).
 // ────────────────────────────────────────────────────────────────────
 
 type GooglePlace = {
@@ -176,6 +206,92 @@ async function searchGoogle(query: string): Promise<PlaceResult[]> {
 }
 
 // ────────────────────────────────────────────────────────────────────
+// 구글 — Places API (New) Autocomplete. 타이핑 중 후보 목록 반환.
+// 좌표 없음 — 선택 후 places:get 으로 상세 조회.
+// ────────────────────────────────────────────────────────────────────
+
+type GoogleAutocompleteSuggestion = {
+  placePrediction?: {
+    text?: { text?: string };
+    placeId?: string;
+  };
+};
+
+async function autocompleteGoogle(input: string): Promise<AutocompleteSuggestion[]> {
+  const key = process.env.GOOGLE_MAPS_API_KEY;
+  if (!key || key.startsWith("여기에_")) throw new Error("구글 키가 설정 안 돼있어요.");
+
+  // body 는 JSON.stringify → Node.js 기본 UTF-8. Content-Type 에 charset=utf-8
+  // 명시로 서버가 별도 인코딩 재해석하지 않도록 한다 (mojibake 방지).
+  const res = await fetchWithTimeout(
+    "https://places.googleapis.com/v1/places:autocomplete",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "X-Goog-Api-Key": key,
+      },
+      body: JSON.stringify({
+        input,
+        languageCode: "ko",
+        regionCode: "KR",
+        locationBias: {
+          circle: {
+            center: { latitude: 37.5665, longitude: 126.9780 },
+            radius: 100000.0,
+          },
+        },
+      }),
+      cache: "no-store",
+    },
+    NETWORK_TIMEOUT_MS,
+  );
+  if (!res.ok) throw new Error(`구글 자동완성 실패 (${res.status})`);
+
+  const data = (await res.json()) as { suggestions?: GoogleAutocompleteSuggestion[] };
+  const items = Array.isArray(data.suggestions) ? data.suggestions : [];
+  return items
+    .slice(0, RESULT_LIMIT)
+    .flatMap((s) => {
+      const pp = s.placePrediction;
+      const text = pp?.text?.text;
+      const placeId = pp?.placeId;
+      if (!text || !placeId) return [];
+      return [{ text, placeId }];
+    });
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 구글 — Places API (New) 장소 상세 조회. Autocomplete 선택 후 좌표 확보용.
+// ────────────────────────────────────────────────────────────────────
+
+async function getGooglePlaceDetail(placeId: string): Promise<PlaceResult> {
+  const key = process.env.GOOGLE_MAPS_API_KEY;
+  if (!key || key.startsWith("여기에_")) throw new Error("구글 키가 설정 안 돼있어요.");
+
+  const res = await fetchWithTimeout(
+    `https://places.googleapis.com/v1/places/${placeId}?languageCode=ko`,
+    {
+      headers: {
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": "id,displayName,formattedAddress,location",
+      },
+      cache: "no-store",
+    },
+    NETWORK_TIMEOUT_MS,
+  );
+  if (!res.ok) throw new Error(`구글 장소 상세 실패 (${res.status})`);
+
+  const p = (await res.json()) as GooglePlace;
+  return {
+    name: p.displayName?.text ?? p.formattedAddress ?? "",
+    address: p.formattedAddress ?? "",
+    lat: typeof p.location?.latitude === "number" ? p.location.latitude : null,
+    lng: typeof p.location?.longitude === "number" ? p.location.longitude : null,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────
 // Handler
 // ────────────────────────────────────────────────────────────────────
 
@@ -207,6 +323,17 @@ export async function POST(req: Request) {
   }
 
   try {
+    if (parsed.action === "autocomplete") {
+      const suggestions = await autocompleteGoogle(parsed.query);
+      return NextResponse.json({ ok: true, action: "autocomplete", suggestions });
+    }
+
+    if (parsed.action === "detail") {
+      const result = await getGooglePlaceDetail(parsed.placeId);
+      return NextResponse.json({ ok: true, action: "detail", result });
+    }
+
+    // action === "search"
     const results =
       parsed.source === "naver"
         ? await searchNaver(parsed.query)
@@ -216,17 +343,16 @@ export async function POST(req: Request) {
     // H1 — 외부 API 오류(403/키 미설정/네트워크 등) 의 원본 메시지는
     // 서버 로그에만. 사용자에겐 친화 메시지 한 가지로 통일 — "구글 검색
     // 실패 (403)" 같은 운영자용 디테일이 어르신 화면에 흐르지 않게.
-    // 입력 검증 오류(parseBody 400) 는 위에서 그대로 통과시킴 — 사용자가
-    // 무엇이 잘못됐는지 알아야 하는 경우라 가리지 않음.
+    // 입력 검증 오류(parseBody 400) 는 위에서 그대로 통과시킴.
+    const action = (parsed as { action?: string }).action ?? "search";
     console.error("[place-search] external API failed", {
-      source: parsed.source,
+      action,
       message: e instanceof Error ? e.message : String(e),
     });
     return NextResponse.json(
       {
         ok: false,
         error: "장소를 찾지 못했어요. 다른 이름으로 찾아보시겠어요?",
-        source: parsed.source,
       },
       { status: 502 },
     );

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -21,15 +21,16 @@ const PlaceMap = dynamic(
 //
 // 화면 3단:
 //   (A) 미선택 + 미편집      : "어디서 찾을지" 큰 버튼 2개 (네이버 / 구글)
-//   (B) source 선택 후 편집  : 텍스트 입력 + 결과 5개 + 선택 엔진의 지도
-//                              (결과 hover/클릭 → 지도 focus / 마커 클릭 → pick)
+//   (B) source 선택 후 편집  : 텍스트 입력 + 결과 목록 + 지도(네이버만)
+//                              구글 = autocomplete 후보 드롭다운 → 선택 → 상세 조회 → (C)
+//                              네이버 = 기존 Text Search 결과 5개 + 지도 마커
 //   (C) 선택 완료            : 📍 카드 + 작은 지도 미리보기 + 버튼들
 //
 // onChange(PlaceInfo) 콜백 시그니처는 그대로 — 부모 폼 무수정.
 //
 // 시니어 친화: 큰 버튼·큰 입력·명확한 라벨, 압박 X. 지도 로딩 중에는 안내 문구.
 
-const DEBOUNCE_MS = 500;
+const DEBOUNCE_MS = 300;
 const MIN_QUERY_LEN = 2;
 
 type Source = "naver" | "google";
@@ -41,9 +42,22 @@ type PlaceResult = {
   lng: number | null;
 };
 
-type ApiResponse =
+type Suggestion = {
+  text: string;
+  placeId: string;
+};
+
+type ApiSearchResponse =
   | { ok: true; source: Source; results: PlaceResult[] }
   | { ok: false; error: string; source?: string };
+
+type ApiAutocompleteResponse =
+  | { ok: true; action: "autocomplete"; suggestions: Suggestion[] }
+  | { ok: false; error: string };
+
+type ApiDetailResponse =
+  | { ok: true; action: "detail"; result: PlaceResult }
+  | { ok: false; error: string };
 
 export function PlaceSearchInput({
   value,
@@ -55,21 +69,22 @@ export function PlaceSearchInput({
   const hasSelected = value.placeName !== null;
 
   // 편집 중인 source. null = 아직 엔진 안 고름 (A 단계).
-  // hasSelected 이면 C 단계 (어느 단계든 source 는 의미 없음).
   const [activeSource, setActiveSource] = useState<Source | null>(null);
   const [query, setQuery] = useState("");
+  // 네이버: Text Search 결과 5개 (좌표 포함)
   const [results, setResults] = useState<PlaceResult[]>([]);
+  // 구글: Autocomplete 후보 목록 (좌표 없음, placeId 로 상세 조회)
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 지도 강조 인덱스 — 결과 hover/클릭으로 설정. null = 강조 X.
+  // 지도 강조 인덱스 — 네이버 결과 hover/클릭으로 설정. null = 강조 X.
   const [focusedIdx, setFocusedIdx] = useState<number | null>(null);
 
   // 마지막으로 발사한 요청 id — 응답 도착 시 stale 한 결과 무시.
   const requestIdRef = useRef(0);
 
-  // 지도 마커 — lat/lng 있는 결과만. result.idx 와 mapMarkers.idx 매핑
-  // 보존을 위해 동일 순서로 필터(없는 결과는 마커 X). 마커 클릭 시 원본
-  // results 의 어느 항목인지 찾기 위해 originalIdx 함께 보관.
+  // 지도 마커 — 네이버 results 에서만. lat/lng 있는 결과만. originalIdx 함께.
   const mapMarkers = useMemo<(MapMarker & { originalIdx: number })[]>(() => {
     const out: (MapMarker & { originalIdx: number })[] = [];
     results.forEach((r, idx) => {
@@ -109,6 +124,7 @@ export function PlaceSearchInput({
       setActiveSource(null);
       setQuery("");
       setResults([]);
+      setSuggestions([]);
       setFocusedIdx(null);
       setError(null);
     },
@@ -116,14 +132,14 @@ export function PlaceSearchInput({
   );
 
   // debounce — query/activeSource 가 바뀔 때마다 타이머 리셋.
-  // M1 — AbortController 로 이미 발사된 fetch 도 cleanup 시 끊는다.
-  // requestIdRef 만으론 stale 응답을 *무시* 만 할 뿐 네트워크/외부 API quota
-  // 는 그대로 소모됨. signal 로 끊으면 socket 레벨에서 정리.
+  // 구글: autocomplete 엔드포인트 → suggestions 세팅.
+  // 네이버: 기존 text search → results 세팅.
   useEffect(() => {
     if (activeSource === null) return;
     const trimmed = query.trim();
     if (trimmed.length < MIN_QUERY_LEN) {
       setResults([]);
+      setSuggestions([]);
       setError(null);
       setLoading(false);
       return;
@@ -134,21 +150,38 @@ export function PlaceSearchInput({
       setLoading(true);
       setError(null);
       try {
+        const isGoogle = activeSource === "google";
+        const body = isGoogle
+          ? JSON.stringify({ action: "autocomplete", query: trimmed })
+          : JSON.stringify({ query: trimmed, source: activeSource });
+
         const res = await fetch("/api/place-search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: trimmed, source: activeSource }),
+          body,
           signal: ctrl.signal,
         });
-        const data: ApiResponse = await res.json();
-        // 도착이 늦은 응답 → 무시 (사용자가 다른 입력 중).
         if (id !== requestIdRef.current) return;
-        setFocusedIdx(null); // 새 검색 결과 → 강조 초기화
-        if (!data.ok) {
-          setError(data.error || "장소를 찾지 못했어요.");
+        setFocusedIdx(null);
+
+        if (isGoogle) {
+          const data: ApiAutocompleteResponse = await res.json();
+          if (!data.ok) {
+            setError(data.error || "장소를 찾지 못했어요.");
+            setSuggestions([]);
+          } else {
+            setSuggestions(data.suggestions);
+          }
           setResults([]);
         } else {
-          setResults(data.results);
+          const data: ApiSearchResponse = await res.json();
+          if (!data.ok) {
+            setError(data.error || "장소를 찾지 못했어요.");
+            setResults([]);
+          } else {
+            setResults(data.results);
+          }
+          setSuggestions([]);
         }
       } catch (e) {
         // cleanup 으로 인한 취소는 정상 — 에러 메시지 띄우지 않음.
@@ -156,6 +189,7 @@ export function PlaceSearchInput({
         if (id !== requestIdRef.current) return;
         setError("장소를 찾지 못했어요. 다른 이름으로 검색해보세요.");
         setResults([]);
+        setSuggestions([]);
       } finally {
         if (id === requestIdRef.current) setLoading(false);
       }
@@ -166,6 +200,7 @@ export function PlaceSearchInput({
     };
   }, [query, activeSource]);
 
+  // 네이버 결과 직접 선택
   function pick(r: PlaceResult, source: Source) {
     onChange({
       placeName: r.name,
@@ -177,8 +212,32 @@ export function PlaceSearchInput({
     setActiveSource(null);
     setQuery("");
     setResults([]);
+    setSuggestions([]);
     setFocusedIdx(null);
     setError(null);
+  }
+
+  // 구글 Autocomplete 후보 선택 → 상세 조회 → 확정
+  async function pickSuggestion(s: Suggestion) {
+    setDetailLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/place-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "detail", placeId: s.placeId }),
+      });
+      const data: ApiDetailResponse = await res.json();
+      if (data.ok) {
+        pick(data.result, "google");
+      } else {
+        setError("장소 정보를 가져오지 못했어요. 다시 선택해보세요.");
+      }
+    } catch {
+      setError("장소 정보를 가져오지 못했어요. 다시 선택해보세요.");
+    } finally {
+      setDetailLoading(false);
+    }
   }
 
   function clearAll() {
@@ -192,8 +251,10 @@ export function PlaceSearchInput({
     setActiveSource(null);
     setQuery("");
     setResults([]);
+    setSuggestions([]);
     setFocusedIdx(null);
     setError(null);
+    setDetailLoading(false);
   }
 
   function startEditing() {
@@ -203,26 +264,20 @@ export function PlaceSearchInput({
     } else {
       setActiveSource(null);
     }
-    // M7 — 기존 장소명을 검색창에 prefill. 사용자가 작은 수정만으로 다시
-    // 검색 가능. debounce 가 떨어지면 자동으로 결과가 다시 뜸.
+    // M7 — 기존 장소명을 검색창에 prefill.
     setQuery(value.placeName ?? "");
     setResults([]);
+    setSuggestions([]);
     setFocusedIdx(null);
     setError(null);
   }
 
   // ── (C) 선택 완료 ────────────────────────────────────────────
-  // 좌표 있고 source 가 둘 중 하나면 미리보기 지도.
   const hasCoords =
     value.lat !== null &&
     value.lng !== null &&
     (value.placeSource === "naver" || value.placeSource === "google");
-  // useMemo 로 참조 안정화 — 부모(EventForm)의 다른 state 변경(예:
-  // content textarea 타이핑)으로 PlaceSearchInput 이 re-render 돼도
-  // previewMarkers 가 새 배열이 되지 않도록. 새 배열이 되면 NaverMap 의
-  // markers useEffect 가 매번 발동 → 마커·InfoWindow 재생성 → InfoWindow
-  // close 버튼이 focus 빼앗아 textarea 입력 불가. 같은 좌표·이름이면
-  // 같은 참조 유지.
+
   const previewMarkers = useMemo<MapMarker[]>(() => {
     if (!hasCoords) return [];
     return [
@@ -312,6 +367,15 @@ export function PlaceSearchInput({
 
   // ── (B) 엔진 선택 후 편집 ───────────────────────────────────
   const sourceLabel = activeSource === "naver" ? "네이버" : "구글";
+  const isGoogle = activeSource === "google";
+
+  // 빈 결과 판정 — 엔진에 따라 다른 상태 참조
+  const isEmpty =
+    !loading &&
+    !error &&
+    query.trim().length >= MIN_QUERY_LEN &&
+    (isGoogle ? suggestions.length === 0 : results.length === 0);
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -324,6 +388,7 @@ export function PlaceSearchInput({
             setActiveSource(null);
             setQuery("");
             setResults([]);
+            setSuggestions([]);
             setError(null);
           }}
           className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
@@ -337,9 +402,9 @@ export function PlaceSearchInput({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={
-          activeSource === "naver"
-            ? "장소 검색… (예: 강원도 춘천, 코엑스)"
-            : "장소 검색… (예: 도쿄역, Eiffel Tower)"
+          isGoogle
+            ? "장소 검색… (예: 강남역, 중산고, 도쿄역)"
+            : "장소 검색… (예: 강원도 춘천, 코엑스)"
         }
         maxLength={100}
         autoFocus
@@ -357,7 +422,32 @@ export function PlaceSearchInput({
         </p>
       )}
 
-      {!loading && !error && results.length > 0 && (
+      {/* 구글 — Autocomplete 후보 드롭다운 */}
+      {isGoogle && !loading && !error && suggestions.length > 0 && (
+        <ul className="flex flex-col gap-1" aria-label="장소 검색 결과">
+          {suggestions.map((s) => (
+            <li key={s.placeId}>
+              <button
+                type="button"
+                onClick={() => pickSuggestion(s)}
+                disabled={detailLoading}
+                className="flex w-full min-h-[56px] items-center gap-3 rounded-md border-2 border-line bg-surface px-4 py-3 text-left text-base text-ink hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:opacity-50"
+              >
+                <span aria-hidden className="shrink-0 text-ink-faint">○</span>
+                <span className="flex-1 min-w-0 text-base">{s.text}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* 구글 — 상세 조회 중 */}
+      {isGoogle && detailLoading && (
+        <p className="text-sm text-ink-soft">장소 정보 가져오는 중…</p>
+      )}
+
+      {/* 네이버 — Text Search 결과 목록 */}
+      {!isGoogle && !loading && !error && results.length > 0 && (
         <ul className="flex flex-col gap-1" aria-label="장소 검색 결과">
           {results.map((r, i) => {
             const focused = focusedIdx === i;
@@ -401,21 +491,22 @@ export function PlaceSearchInput({
         </ul>
       )}
 
-      {!loading && !error && query.trim().length >= MIN_QUERY_LEN &&
-        results.length === 0 && (
-          <p className="text-sm text-ink-soft">
-            결과가 없어요. 다른 이름으로 검색해보세요.
-          </p>
-        )}
+      {isEmpty && (
+        <p className="text-sm text-ink-soft">
+          결과가 없어요. 다른 이름으로 검색해보세요.
+        </p>
+      )}
 
-      {/* B 단계 지도 — 결과 hover/클릭 → focusedIdx 강조, 마커 클릭 → pick. */}
-      <PlaceMap
-        source={activeSource}
-        markers={mapMarkers}
-        focusedIdx={mapFocusedIdx}
-        className="h-[200px] sm:h-[300px]"
-        onMarkerClick={handleMarkerClick}
-      />
+      {/* 지도 — 네이버 모드에서만 (구글 autocomplete 는 coords 없음) */}
+      {!isGoogle && (
+        <PlaceMap
+          source={activeSource}
+          markers={mapMarkers}
+          focusedIdx={mapFocusedIdx}
+          className="h-[200px] sm:h-[300px]"
+          onMarkerClick={handleMarkerClick}
+        />
+      )}
 
       <button
         type="button"
