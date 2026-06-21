@@ -497,16 +497,15 @@ export function PlaceSearchInput({
         </p>
       )}
 
-      {/* 지도 — 네이버 모드에서만 (구글 autocomplete 는 coords 없음) */}
-      {!isGoogle && (
-        <PlaceMap
-          source={activeSource}
-          markers={mapMarkers}
-          focusedIdx={mapFocusedIdx}
-          className="h-[200px] sm:h-[300px]"
-          onMarkerClick={handleMarkerClick}
-        />
-      )}
+      {/* 지도 — 네이버/구글 모두 표시. 구글 autocomplete 는 coords 없어
+          markers 빈 배열이지만 GoogleMap 이 기본 서울 뷰로 폴백함. */}
+      <PlaceMap
+        source={activeSource}
+        markers={mapMarkers}
+        focusedIdx={mapFocusedIdx}
+        className="h-[200px] sm:h-[300px]"
+        onMarkerClick={handleMarkerClick}
+      />
 
       <button
         type="button"
