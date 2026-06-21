@@ -246,6 +246,12 @@ export default async function LifeTimelinePage() {
               인생 기록 보강
             </Link>
             <Link
+              href="/life-timeline/free-record"
+              className="inline-flex min-h-[56px] items-center justify-center gap-2 rounded-md border-2 border-line bg-surface px-5 py-3 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            >
+              <span aria-hidden>🎙️</span>말로 기록하기
+            </Link>
+            <Link
               href="/poster"
               className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-amber-500 px-6 py-3 text-lg font-semibold text-white hover:bg-amber-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
