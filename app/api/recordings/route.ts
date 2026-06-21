@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { CURRENT_CONSENT_VERSION } from "@/lib/consent-version";
 import {
   isAllowedAudioMime,
   MAX_RECORDING_BYTES,
@@ -25,6 +26,12 @@ export async function POST(req: Request) {
     );
   }
   const userId = session.user.id;
+
+  // 오디오 저장은 v2 동의자에게만 — v1은 스킵(텍스트는 정상 저장됨).
+  // app-wide 리다이렉트 대신 여기서 조용히 거부해 루프 없이 동작.
+  if ((session.consentVersion ?? 0) < CURRENT_CONSENT_VERSION) {
+    return NextResponse.json({ ok: false, skipped: true, reason: "consent_version" }, { status: 403 });
+  }
 
   // FormData 파싱
   let file: File | null = null;
