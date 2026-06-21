@@ -50,7 +50,13 @@ export function ConsentForm() {
   const { update } = useSession();
   const router = useRouter();
 
-  const canSubmit = REQUIRED_ITEMS.every((i) => checked[i.key]);
+  const allChecked = REQUIRED_ITEMS.every((i) => checked[i.key]);
+  const canSubmit = allChecked;
+
+  function handleCheckAll(e: React.ChangeEvent<HTMLInputElement>) {
+    const next = e.target.checked;
+    setChecked(Object.fromEntries(REQUIRED_ITEMS.map((i) => [i.key, next])));
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -73,6 +79,16 @@ export function ConsentForm() {
         발송을 붙일 때 marketingConsentAt 컬럼을 추가하고 saveConsent 가
         값을 저장하게 한 "다음에야" UI 를 되살린다.
       */}
+      <label className="flex cursor-pointer items-center gap-4 rounded-md border-2 border-action bg-action/5 px-5 py-4">
+        <input
+          type="checkbox"
+          checked={allChecked}
+          onChange={handleCheckAll}
+          className="h-6 w-6 accent-zinc-900"
+        />
+        <span className="text-lg font-bold text-ink">모두 동의</span>
+      </label>
+
       <ul className="flex flex-col gap-6">
         {REQUIRED_ITEMS.map((item) => (
           <li
