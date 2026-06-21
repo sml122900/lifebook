@@ -90,6 +90,14 @@ export default async function AccountSettingsPage() {
           <dt className="text-ink-soft">개인정보 국외 이전</dt>
           <dd>{fmt(user.overseasTransferConsentAt)}</dd>
         </dl>
+        <Link
+          href="/privacy"
+          target="_blank"
+          rel="noreferrer noopener"
+          className={buttonClasses("tertiary", "md", "mt-4")}
+        >
+          개인정보 처리방침 보기 (새 창) →
+        </Link>
       </section>
 
       <section className="rounded-md border-2 border-line bg-surface p-5">
