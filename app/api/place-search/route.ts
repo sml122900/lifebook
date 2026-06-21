@@ -243,7 +243,7 @@ async function autocompleteGoogle(input: string): Promise<AutocompleteSuggestion
           locationBias: {
             circle: {
               center: { latitude: 37.5665, longitude: 126.9780 },
-              radius: 100000.0,
+              radius: 50000.0, // 구글 최대값 50 km
             },
           },
         }),
