@@ -147,6 +147,7 @@ async function _getLifeEvents(userId: string): Promise<LifeEvent[]> {
   const rows = await prisma.userMemory.findMany({
     where: {
       userId,
+      isDraft: false, // 동반자 추출 초안 제외 (검토 승인 후 live)
       createdVia: {
         in: [
           CREATED_VIA_LIFE_EVENT,

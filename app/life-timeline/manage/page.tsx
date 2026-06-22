@@ -7,6 +7,7 @@ import { getLifeEvents } from "@/lib/life-events";
 import { getLifeQuestion } from "@/lib/life-record/questions";
 
 import { DeleteButton } from "./DeleteButton";
+import { DraftReview } from "./DraftReview";
 
 // Phase L4 — 인생 이벤트 관리 페이지. 시간순 리스트 + 각 행 [수정] [삭제].
 // 점 클릭은 L3 에서 월별 타임머신으로 가는 흐름을 유지하기 위해, 수정·
@@ -51,6 +52,9 @@ export default async function LifeTimelineManagePage() {
           기록한 이벤트를 고치거나 지울 수 있어요.
         </p>
       </header>
+
+      {/* 동반자 추출 초안 — 검토 대기 목록. 없으면 null 반환(hidden). */}
+      <DraftReview userId={session.user.id} />
 
       {events.length === 0 ? (
         <section className="rounded-md border-2 border-line bg-surface p-6 text-center">

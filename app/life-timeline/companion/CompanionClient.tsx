@@ -4,9 +4,12 @@
 //
 // 루프: 동반자 오프닝(TTS) → 어르신 발화(토글 녹음) → STT → /api/companion → /api/tts → 재생 → 반복
 // Decision A: 탭 토글 (누르고 있기 X) + 10초 침묵 자동 종료 (안전망)
-// Decision D: 각 턴 audioPath 를 audioPaths 배열에 누적 — 다음 저장 스텝에서 사용
+// Decision D: 각 턴 audioPath 를 audioPaths 배열에 누적 → 세션 저장 시 영구 보존
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { saveCompanionSessionAction } from "./actions";
 
 type Phase = "opening" | "idle" | "recording" | "processing" | "playing" | "error";
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -36,11 +39,14 @@ type CompanionResult = { reply?: string; error?: string };
 // ── CompanionClient ────────────────────────────────────────────────────────
 
 export function CompanionClient() {
+  const router = useRouter();
+
   const [phase, setPhase] = useState<Phase>("opening");
   const [statusText, setStatusText] = useState("잠깐만요, 인사 준비 중이에요...");
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [audioPaths, setAudioPaths] = useState<string[]>([]); // Decision D용 누적
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // 각 렌더의 history 를 ref 에 동기화 — async 클로저에서 최신값 읽기
   const historyRef = useRef<ChatMessage[]>([]);
@@ -306,6 +312,38 @@ export function CompanionClient() {
     setStatusText("");
   }
 
+  // ── 세션 종료 + 저장 ───────────────────────────────────────────────────
+
+  async function handleEndSession() {
+    const hasContent = history.length > 2; // 오프닝 2개 이상 = 어르신 발화 있음
+    if (!hasContent) {
+      // 대화 내용 없이 종료 → 그냥 뒤로
+      router.push("/life-timeline");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const result = await saveCompanionSessionAction({
+        history,
+        audioPaths,
+      });
+
+      if (result.ok) {
+        router.push("/life-timeline/manage?draft=1");
+      } else {
+        // 저장 실패 → 에러 표시 후 재시도 가능
+        setErrorMsg(result.error ?? "저장에 실패했어요");
+        setPhase("error");
+      }
+    } catch {
+      setErrorMsg("저장 중 오류가 생겼어요");
+      setPhase("error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   // ── UI ─────────────────────────────────────────────────────────────────
 
   const isIdle = phase === "idle";
@@ -370,16 +408,26 @@ export function CompanionClient() {
         </div>
       )}
 
-      {/* Decision D 디버그 (dev 전용, 저장 스텝에서 제거) */}
-      {process.env.NODE_ENV === "development" && audioPaths.length > 0 && (
-        <details className="w-full max-w-sm text-xs text-ink-soft">
-          <summary className="cursor-pointer">녹음 경로 {audioPaths.length}건 (dev)</summary>
-          <ul className="mt-1 space-y-0.5 font-mono">
-            {audioPaths.map((p, i) => (
-              <li key={i}>{p}</li>
-            ))}
-          </ul>
-        </details>
+      {/* 대화 마치기 — 오프닝 완료 후 항상 노출 (저장 → /manage?draft=1) */}
+      {phase !== "opening" && (
+        <div className="mt-2 border-t border-line pt-6 text-center">
+          {saving ? (
+            <p className="text-lg text-ink-soft">저장 중이에요...</p>
+          ) : (
+            <button
+              onClick={handleEndSession}
+              disabled={phase === "recording" || phase === "processing"}
+              className="min-h-[48px] rounded-xl border-2 border-line bg-surface px-8 py-3 text-lg font-semibold text-ink-soft hover:border-ink-soft hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              대화 마치기
+            </button>
+          )}
+          {history.length > 2 && !saving && (
+            <p className="mt-2 text-sm text-ink-soft">
+              저장 후 검토·수정할 수 있어요
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

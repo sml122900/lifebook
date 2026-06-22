@@ -125,6 +125,7 @@ model User {
   people                Person[]
   photos                Photo[]
   productOrders         ProductOrder[]
+  companionSessions     CompanionSession[]
 }
 
 model Account {
@@ -614,6 +615,12 @@ model UserMemory {
   // partial WHERE 절을 표현하지 못해 schema 에 직접 못 적음. 코드는
   // P2002 catch 패턴 — 클라이언트 compound where 헬퍼 없이도 안전.
 
+  // Phase companion — 동반자 세션 추출 초안. isDraft=true 행은 가족
+  // 검토 전까지 타임라인·연혁 목록에서 제외. 승인 → isDraft=false(live).
+  isDraft            Boolean           @default(false)
+  companionSessionId String?
+  companionSession   CompanionSession? @relation(fields: [companionSessionId], references: [id], onDelete: SetNull)
+
   @@index([userId])
   // Phase L1 — 인생 연혁 화면(L3)에서 사용자별 life_event 시간순 정렬용.
   @@index([userId, eventYear, eventMonth])
@@ -786,6 +793,11 @@ model Person {
   updatedAt   DateTime      @updatedAt
   events      PersonEvent[]
 
+  // Phase companion — isDraft=true = 동반자 추출 후 가족 검토 대기 중.
+  isDraft            Boolean           @default(false)
+  companionSessionId String?
+  companionSession   CompanionSession? @relation(fields: [companionSessionId], references: [id], onDelete: SetNull)
+
   @@index([userId])
   @@index([userId, subjectType])
 }
@@ -856,4 +868,34 @@ model Photo {
 
   @@index([userId, createdAt])
   @@index([memoryId])
+}
+
+// Phase companion — 음성 동반자 세션 저장.
+//
+// audioPaths: recordings 버킷의 tmp_{userId}_{ts}.webm 경로 배열.
+// tmp_ 접두사는 업로드 라우트 관례일 뿐 — Supabase Storage 는 auto-delete 없음.
+// 어르신 목소리는 대체 불가 자산. 파일 이동 없이 경로 그대로 영구 보존.
+//
+// transcriptJson: JSON stringified TranscriptMessage[]
+//   [{speaker: "elder"|"companion", text: string}]
+//   OPENING_TRIGGER(메타) 제외, 실제 대화만 기록.
+//
+// 연결:
+//   UserMemory(createdVia="companion") — 원본 transcript 보관 행 (isDraft=false)
+//   UserMemory(createdVia="life_event", isDraft=true) — 추출 초안 사건들
+//   Person(isDraft=true) — 추출 초안 인물들
+//
+// 승인 흐름: isDraft=true → isDraft=false (live). 거절: delete.
+model CompanionSession {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transcriptJson String       @default("[]")
+  audioPaths     String[]
+  createdAt      DateTime     @default(now())
+
+  memories    UserMemory[]
+  draftPeople Person[]
+
+  @@index([userId, createdAt])
 }
