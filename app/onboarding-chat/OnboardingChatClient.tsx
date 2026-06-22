@@ -4,13 +4,17 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QUESTIONS } from "@/lib/onboarding/questions";
 import type { Question } from "@/lib/onboarding/questions";
-import { completeOnboardingChat } from "./actions";
-import type { ParsedAnswers } from "./actions";
+import {
+  completeOnboardingChat,
+  extractOnboardingPeople,
+  saveOnboardingPerson,
+} from "./actions";
+import type { ParsedAnswers, PersonCandidate } from "./actions";
 import { YearWidget, ChipsWidget, MultiItemWidget, PlaceableMultiItemWidget } from "./widgets";
 import type { PlaceInfo } from "@/lib/place-types";
 
 type Msg = { role: "a" | "u"; text: string };
-type Phase = "chat" | "summary" | "review" | "done";
+type Phase = "chat" | "summary" | "review" | "people" | "done";
 
 const REQUIRED_KEYS = new Set(["birthYear", "residences", "schools"]);
 const SKIP_WORDS = new Set(["넘어가기", "건너뛰기", "스킵", "skip"]);
@@ -61,6 +65,9 @@ export default function OnboardingChatClient() {
   const [isParsing, setIsParsing] = useState(false);
   const [phase, setPhase] = useState<Phase>("chat");
   const [reviewQueue, setReviewQueue] = useState<string[]>([]);
+  // People phase — 추출된 인물 후보 목록 + 현재 인덱스
+  const [candidates, setCandidates] = useState<PersonCandidate[]>([]);
+  const [candidateIdx, setCandidateIdx] = useState(0);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -83,23 +90,84 @@ export default function OnboardingChatClient() {
     if (region) answersRef.current.region = region;
   }
 
-  function saveAndComplete() {
+  // 프로필 저장 → 인물 추출 → people 페이즈 또는 직행 완료
+  function saveAndGoPeople() {
     startTransition(async () => {
       try {
         await completeOnboardingChat(answersRef.current);
       } catch (e) {
         console.error("[onboarding-chat] save", e);
       }
-      router.push("/life-timeline");
+
+      let cands: PersonCandidate[] = [];
+      try {
+        cands = await extractOnboardingPeople(answersRef.current);
+      } catch (e) {
+        console.error("[onboarding-chat] extract-people", e);
+      }
+
+      if (cands.length > 0) {
+        setCandidates(cands);
+        setCandidateIdx(0);
+        setPhase("people");
+        askCandidate(0, cands);
+      } else {
+        router.push("/life-timeline");
+      }
     });
+  }
+
+  // people 페이즈 — 현재 후보에게 성함 질문
+  function askCandidate(idx: number, cands: PersonCandidate[]) {
+    const c = cands[idx];
+    const preamble = idx === 0
+      ? "말씀하신 분들을 인물록에 추가해 드릴게요. 😊\n\n"
+      : "";
+    const question = c.name
+      ? `${c.name}님(${c.relation}) 추가할까요? 이름을 바꾸시려면 새 이름을 입력해주세요.`
+      : `${c.relation}분 말씀하셨는데, 성함이 어떻게 되세요? 별명이나 이니셜도 괜찮아요.`;
+    addBot(preamble + question);
+  }
+
+  // people 페이즈 입력 처리 — raw input = 이름 (LLM 파싱 없음)
+  async function handlePeopleInput(input: string) {
+    const isSkip = isSkipInput(input);
+    const c = candidates[candidateIdx];   // 동기 읽기
+    const idx = candidateIdx;
+    const cands = candidates;
+
+    addUser(isSkip ? "넘어가기" : input);
+    setInputVal("");
+
+    if (!isSkip && input.trim()) {
+      setIsParsing(true);
+      try {
+        await saveOnboardingPerson(input.trim(), c.relation);
+      } catch (e) {
+        console.error("[saveOnboardingPerson]", e);
+        // 실패는 무시 — /people 에서 나중에 추가 가능
+      } finally {
+        setIsParsing(false);
+      }
+    }
+
+    const nextIdx = idx + 1;
+    if (nextIdx >= cands.length) {
+      addBot("모두 정리했어요! 인물록에서 언제든 수정하실 수 있어요. 😊\n이제 라이프북을 시작해 볼까요?");
+      setPhase("done");
+      startTransition(() => { router.push("/life-timeline"); });
+    } else {
+      setCandidateIdx(nextIdx);
+      askCandidate(nextIdx, cands);
+    }
   }
 
   function showSummary() {
     const skipped = Array.from(skippedRef.current); // 항상 최신값
     if (skipped.length === 0) {
-      addBot("이제 모든 이야기 해주셨어요! 😊 라이프북을 시작해 볼까요?");
-      setPhase("done");
-      saveAndComplete();
+      addBot("이제 모든 이야기 해주셨어요! 😊");
+      // setPhase 는 saveAndGoPeople 이 결정 (people → done 또는 직행 done)
+      saveAndGoPeople();
       return;
     }
     const labels = skipped
@@ -122,10 +190,10 @@ export default function OnboardingChatClient() {
     if (isReview) {
       const newQueue = rQueue.slice(1);
       if (newQueue.length === 0) {
-        setPhase("done");
+        // setPhase 는 saveAndGoPeople → people 페이즈 또는 done 이 결정
         setReviewQueue([]);
-        addBot(`${ack}\n\n이제 모두 알려주셨어요! 😊 라이프북을 시작해 볼까요?`);
-        saveAndComplete();
+        addBot(`${ack}\n\n이제 모두 알려주셨어요! 😊`);
+        saveAndGoPeople();
       } else {
         setReviewQueue(newQueue);
         const nextQ = QUESTIONS.find((q) => q.key === newQueue[0]);
@@ -192,6 +260,12 @@ export default function OnboardingChatClient() {
     const input = rawInput.trim();
     if (!input || isParsing || isPending) return;
 
+    // People 페이즈 — LLM 파싱 없이 raw input = 이름
+    if (phase === "people") {
+      await handlePeopleInput(input);
+      return;
+    }
+
     // 현재 컨텍스트 동기적으로 캡처
     const isReview = phase === "review";
     const rQueue = reviewQueue;
@@ -221,9 +295,9 @@ export default function OnboardingChatClient() {
   function handleSummaryChoice(choice: "now" | "later") {
     if (choice === "later") {
       addUser("나중에 할게요");
-      addBot("알겠어요! 언제든 라이프북에서 더 알려주실 수 있어요. 시작해 볼까요? 😊");
-      setPhase("done");
-      saveAndComplete();
+      addBot("알겠어요! 언제든 라이프북에서 더 알려주실 수 있어요. 😊");
+      // setPhase 는 saveAndGoPeople 이 결정
+      saveAndGoPeople();
     } else {
       addUser("지금 할게요");
       const skippedArr = Array.from(skippedRef.current);
@@ -278,8 +352,9 @@ export default function OnboardingChatClient() {
 
   const disabled = isParsing || isPending;
   const canSend = inputVal.trim().length > 0 && !disabled;
-  const showInput = phase === "chat" || phase === "review";
+  const showInput = phase === "chat" || phase === "review" || phase === "people";
   const showSummaryBtns = phase === "summary";
+  const inPeoplePhase = phase === "people";
 
   // 현재 질문 — 위젯 렌더에 사용
   const currentQ =
@@ -289,7 +364,7 @@ export default function OnboardingChatClient() {
 
   // 질문 종류에 따른 위젯. key={currentQ.key} 로 질문 바뀌면 state 리셋.
   function renderWidget() {
-    if (!showInput || !currentQ) return null;
+    if (!showInput || !currentQ || inPeoplePhase) return null;
     switch (currentQ.kind) {
       case "year":
         return (
@@ -439,7 +514,7 @@ export default function OnboardingChatClient() {
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 disabled={disabled}
-                placeholder={widget ? "직접 입력하셔도 돼요…" : "답변을 입력하세요…"}
+                placeholder={inPeoplePhase ? "성함을 입력하세요…" : widget ? "직접 입력하셔도 돼요…" : "답변을 입력하세요…"}
                 className="flex-1 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
               />
               <button
@@ -456,7 +531,7 @@ export default function OnboardingChatClient() {
               disabled={disabled}
               className="text-sm text-[var(--color-ink-subtle)] hover:text-[var(--color-ink)] disabled:opacity-40"
             >
-              넘어가기 →
+              {inPeoplePhase ? "이 분은 넘어가기 →" : "넘어가기 →"}
             </button>
           </div>
         </div>
