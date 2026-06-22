@@ -197,6 +197,7 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **Phase 8** | **이야기 주체 확장 — `Person.subjectType` discriminator(인물·장소·물건) + `/people` 3탭 UI + `PersonForm` isPerson 분기 + `PeopleConnectModal` 타입 확장. `PersonEvent`·`LinkResult`·가족 룸 0줄 수정. 마이그 1(ADD COLUMN·인덱스)** | (`2026-06-19` 일지) | ✅ 완료 |
 | **장소 Autocomplete (#9)** | **Google Places Autocomplete 2-step — 인코딩 버그(CP949→UTF-8 mojibake) 진단 + `places:autocomplete` 후보 드롭다운 + `places/{placeId}` 상세 2단계. `Content-Type: charset=utf-8` 명시 + `PLACE_ID_RE` path injection 방지. `PlaceSearchInput` Google 분기(Naver 무변). 마이그 0** | (`2026-06-21` 일지) | ✅ 완료 |
 | **CLOVA Speech 조사 (#10 STEP 0)** | **WAV/OGG/WebM 세 포맷 모두 CLOVA 200 COMPLETED — 변환 불필요. 현재 `audio/webm;codecs=opus` 그대로 전달 가능. `lib/storage.ts` 무수정. Phase 1 설계 확정(FreeRecorder + lib/clova-speech.ts + /api/clova-stt + createdVia="free_recording")** | (`2026-06-21` 일지) | ✅ 완료 |
+| **온보딩 채팅 (B1~E)** | **채팅형 온보딩 4단계 — 11질문 채팅 UI(Haiku 파싱) + 인라인 위젯(LLM 0) + 장소 매핑(PlaceSearchInput 재사용) + 인물 추출(Sonnet → isDraft=false 즉시 확정)** | (`2026-06-22~23` 일지) | ✅ 완료 |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -672,6 +673,10 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [x] Google autocomplete 인코딩 정책(2026-06-21) → `Content-Type: application/json; charset=utf-8` 명시(mojibake 방지) + Node.js `JSON.stringify()` 기본 UTF-8. placeId path injection 방지 `PLACE_ID_RE = /^[A-Za-z0-9_-]{5,200}$/`. 기존 searchText/네이버 경로 무수정
 - [x] Google 장소 검색 2-step(2026-06-21) → autocomplete(후보+placeId, 좌표 없음) → detail(좌표+주소) 분리. 이유: searchText 는 완전한 이름 필요, autocomplete 는 타이핑 중 약칭("중산고") 에서도 후보 표시. API 호출 1회 추가이나 사용자 재시도 감소
 - [x] CLOVA Speech 오디오 포맷(2026-06-21) → WAV/OGG/WebM 세 포맷 모두 CLOVA `/recognizer/upload` 200 COMPLETED 확인. **변환 불필요** — 현재 `audio/webm;codecs=opus`(Chrome/Edge 기본) 그대로 전달. Phase 1 구현 시 MIME 타입 그대로 사용
+- [x] 채팅 온보딩 진입 분기(B1, 2026-06-22) → `/enter` 에서 `birthYear+이벤트 없음` 조건 → `/onboarding-chat`. 기존 `/life-record` 흐름 보존(둘 다 살아있음). `/api/onboarding-chat` 에서 필드별 파싱 프롬프트 + JSON 추출(birthYear/residences/schools 등). 필수 필드 스킵 시 1회 재요청 후 통과. 완료 시 `lib/companion.ts` `buildSystemPrompt` 에 LifeProfile 섹션 주입(동반자가 온보딩 답변 자동 활용)
+- [x] 온보딩 위젯 LLM 우회(B2, 2026-06-22) → `widgets.tsx`: `YearWidget`(숫자 입력) · `ChipsWidget`(관심분야 다중선택) · `MultiItemWidget`(항목 추가형). 위젯 선택 → `handleDirectSubmit` 으로 직접 저장(Haiku 파싱 0). 자유 텍스트 병행 허용. 어르신 친화 min-h-[56px]·연도 text-[22px]·Enter 지원
+- [x] 온보딩 장소 저장 위치(D, 2026-06-22) → `LifeProfile.residencePlaces/schoolPlaces Json?`(마이그 1). `PlaceableMultiItemWidget` 신규 — MultiItemWidget + 항목별 "📍 지도에서 찾기" 토글. `PlaceSearchInput` 재사용(새 API 0). 좌표 있는 항목만 upsert(나중 map/poster용, 현재 소비처 없음)
+- [x] 온보딩 인물 확정 정책(E, 2026-06-22~23) → `extractOnboardingPeople(answers)` — siblings·parentsInfo·closeFriends 텍스트에서 Sonnet으로 후보 최대 5명 추출 → `phase="people"` 전환, 채팅으로 하나씩 성함 확인 → `createPerson(isDraft:false)` 즉시 저장. 후보 없으면 직행. 각 후보 "이 분은 넘어가기" 허용. companion draft(isDraft=true, AI 추론)와 완전 분리 경로
 - [ ] CLOVA Phase 1 구현 → FreeRecorder 컴포넌트(통 녹음), lib/clova-speech.ts, /api/clova-stt, /life-timeline/free-record 화면, createdVia="free_recording"
 - [ ] 가족 룸 교정본(C, 출시 후) → listRoomMemories는 원문 유지. 룸에도 다듬은 글 표시할지 미정
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)
