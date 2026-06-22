@@ -37,18 +37,24 @@ function assertEnv() {
 }
 
 // CLOVA 에 오디오 제출 → token 즉시 반환. 완료 대기 금지.
+//
+// opts.diarization: 기본 false (1인 회상 → 화자 분리 불필요, 원가 절감).
+// 다대일 세션(가족 대화 등)에서만 true 로 켠다.
 export async function submitRecognition(
   audioBuffer: Buffer,
   mimeType: string,
+  opts: { diarization?: boolean } = {},
 ): Promise<{ token: string }> {
   assertEnv();
+
+  const diarizationConfig = opts.diarization
+    ? { enable: true, speakerCountMin: 1, speakerCountMax: 6 }
+    : { enable: false };
 
   const params = JSON.stringify({
     language: "ko-KR",
     completion: "async",
-    // 화자 분리 — 1인 통녹음에서도 켜두면 segment 가 명확히 분리됨.
-    // 단독 녹음이라 speakerCountMin/Max = 1 고정.
-    diarization: { enable: true, speakerCountMin: 1, speakerCountMax: 1 },
+    diarization: diarizationConfig,
     wordAlignment: true,
     fullText: true,
     noiseFiltering: true,

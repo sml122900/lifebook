@@ -2,17 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { STT_MAX_DURATION_SEC } from "@/lib/stt-cost";
+
 // Phase 10 — MediaRecorder 전용 컴포넌트. Web Speech API 없이 통녹음만.
 // VoiceTextarea 와 달리 transcript 변환은 서버(CLOVA) 에 위임.
 //
-// 사용법: <FreeRecorder onCapture={(blob, mime) => ...} />
+// 사용법: <FreeRecorder onCapture={(blob, mime, durationSec) => ...} />
 // 56px 버튼, 18px 텍스트 — 시니어 접근성.
+// STT_MAX_DURATION_SEC(90분) 도달 시 자동 정지.
 
 export function FreeRecorder({
   onCapture,
   disabled = false,
 }: {
-  onCapture: (blob: Blob, mimeType: string) => void;
+  onCapture: (blob: Blob, mimeType: string, durationSec: number) => void;
   disabled?: boolean;
 }) {
   const [state, setState] = useState<"idle" | "recording" | "recorded">("idle");
@@ -89,6 +92,7 @@ export function FreeRecorder({
       setState("recording");
       setElapsed(0);
       timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
+      // 90분 자동 정지는 아래 useEffect 에서 elapsed 를 감시해 처리.
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(
@@ -98,6 +102,19 @@ export function FreeRecorder({
       );
     }
   }
+
+  // 90분 도달 시 자동 정지
+  useEffect(() => {
+    if (state !== "recording" || elapsed < STT_MAX_DURATION_SEC) return;
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsed, state]);
 
   function stopRecording() {
     if (mediaRecorderRef.current?.state === "recording") {
@@ -112,7 +129,7 @@ export function FreeRecorder({
   function handleSend() {
     const blob = capturedBlobRef.current;
     if (!blob || blob.size === 0) return;
-    onCapture(blob, capturedMimeRef.current);
+    onCapture(blob, capturedMimeRef.current, elapsed);
   }
 
   function handleRetry() {
@@ -124,7 +141,16 @@ export function FreeRecorder({
     setError(null);
   }
 
-  const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  function fmtTime(s: number) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+    return `${m}:${String(sec).padStart(2, "0")}`;
+  }
+
+  const remaining = STT_MAX_DURATION_SEC - elapsed;
+  const nearLimit = state === "recording" && remaining <= 5 * 60 && remaining > 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -146,7 +172,13 @@ export function FreeRecorder({
           <div className="flex items-center gap-3 rounded-md bg-rose-50 px-5 py-3 text-rose-700">
             <span aria-hidden className="animate-pulse text-xl">●</span>
             <span className="text-lg font-semibold">녹음 중 {fmtTime(elapsed)}</span>
+            <span className="ml-auto text-base text-rose-500">최대 90분</span>
           </div>
+          {nearLimit && (
+            <p className="text-base text-amber-700" role="alert">
+              곧 자동으로 멈춰요 (남은 시간 {fmtTime(remaining)}).
+            </p>
+          )}
           <button
             type="button"
             onClick={stopRecording}

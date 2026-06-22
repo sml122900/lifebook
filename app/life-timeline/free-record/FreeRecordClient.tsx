@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { FreeRecorder } from "@/app/components/FreeRecorder";
-import { saveFreeRecordingAction } from "./actions";
+import { calcSttTokens } from "@/lib/stt-cost";
+import { checkSttBalanceAction, saveFreeRecordingAction } from "./actions";
 
 // Phase 1 물꼬 목록 — AI 자동 생성은 Phase 2.
 const TOPICS = [
@@ -19,11 +21,18 @@ const TOPICS = [
 type Phase =
   | "topic"        // 물꼬 선택
   | "record"       // 녹음
+  | "confirming"   // 전사 전 비용 확인 다이얼로그
   | "uploading"    // Supabase 업로드 중
   | "processing"   // CLOVA STT 폴링 중
   | "review"       // 전사 결과 + Claude 정리본 검토
-  | "saving"       // 저장 중
   | "done";        // 완료
+
+type BalanceInfo = {
+  chargingEnabled: boolean;
+  needed: number;
+  balance: number;
+  sufficient: boolean;
+};
 
 const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_TRIES = 60; // 4초 × 60 = 4분
@@ -40,23 +49,43 @@ export function FreeRecordClient({ userId }: { userId: string }) {
   const [audioPath, setAudioPath] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // ── 녹음 완료 → 업로드 → CLOVA 제출 → 폴링 → Claude 정리 ──
-  async function handleCapture(blob: Blob, mimeType: string) {
+  // confirming 단계용 상태
+  const [pendingBlob, setPendingBlob] = useState<Blob | null>(null);
+  const [pendingMime, setPendingMime] = useState("audio/webm");
+  const [durationSec, setDurationSec] = useState(0);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceInfo, setBalanceInfo] = useState<BalanceInfo | null>(null);
+
+  // ── FreeRecorder 가 녹음 완료하면 호출 → confirming 단계로 이동 ──
+  async function handleCapture(blob: Blob, mimeType: string, elapsedSec: number) {
     if (!selectedTopic) return;
+    setError(null);
+    setPendingBlob(blob);
+    setPendingMime(mimeType);
+    setDurationSec(elapsedSec);
+    setBalanceInfo(null);
+    setBalanceLoading(true);
+    setPhase("confirming");
+
+    const info = await checkSttBalanceAction(elapsedSec);
+    setBalanceLoading(false);
+    setBalanceInfo(info);
+  }
+
+  // ── confirming 다이얼로그에서 [전사 시작] 클릭 ──
+  async function handleConfirmTranscribe() {
+    if (!selectedTopic || !pendingBlob) return;
+    const blob = pendingBlob;
+    const mime = pendingMime;
+
     setError(null);
     setPhase("uploading");
     setStatus("녹음 파일을 저장하는 중이에요…");
 
     try {
-      // 1. Supabase 업로드 (임시 memoryId = UUID 대용으로 timestamp 사용)
+      // 1. 오디오 업로드
       const tmpId = `tmp_${Date.now()}`;
-      const formData = new FormData();
-      formData.append("file", blob, `recording.webm`);
-      formData.append("memoryId", tmpId);   // recordings 버킷은 memoryId 경로 사용
-      // /api/recordings 는 memoryId 소유권을 UserMemory DB 에서 확인함 →
-      // tmp_id 로는 실패. 직접 업로드 경로로 우회.
-      // → 대신 클라에서 직접 버킷 업로드 대신 multipart 로 서버 전달
-      const uploadRes = await uploadAudioDirect(userId, tmpId, blob, mimeType);
+      const uploadRes = await uploadAudioDirect(userId, tmpId, blob, mime);
       if (!uploadRes.ok || !uploadRes.audioPath) throw new Error(uploadRes.error ?? "업로드 실패");
       const path = uploadRes.audioPath;
       setAudioPath(path);
@@ -78,7 +107,17 @@ export function FreeRecordClient({ userId }: { userId: string }) {
       // 3. 폴링
       const rawText = await pollUntilDone(token);
 
-      // 4. Claude 정리
+      // 4. 전사 성공 → 토큰 차감 (과금 OFF 이면 서버가 no-op)
+      await fetch("/api/clova-stt/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioPath: path, durationSec }),
+      }).catch((e) => {
+        // 차감 실패는 비치명적 — 전사 결과는 그대로 노출
+        console.warn("[stt-charge] non-fatal error:", e instanceof Error ? e.message : e);
+      });
+
+      // 5. Claude 정리
       setStatus("AI 가 문장을 다듬는 중이에요…");
       const cleanRes = await fetch("/api/clova-stt/refine", {
         method: "POST",
@@ -110,7 +149,6 @@ export function FreeRecordClient({ userId }: { userId: string }) {
       if (!data.ok) throw new Error("폴링 실패");
       if (data.status === "COMPLETED") return data.text ?? "";
       if (data.status === "FAILED") throw new Error("음성 인식에 실패했어요.");
-      // RUNNING or SUBMITTED → 계속 대기
     }
     throw new Error("처리 시간이 너무 오래 걸려요. 짧게 나눠 녹음해 주세요.");
   }
@@ -153,8 +191,8 @@ export function FreeRecordClient({ userId }: { userId: string }) {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* 물꼬 선택 */}
-      {(phase === "topic" || phase === "record") && (
+      {/* 물꼬 선택 — topic, record, confirming 단계에서 표시 */}
+      {(phase === "topic" || phase === "record" || phase === "confirming") && (
         <section className="flex flex-col gap-4">
           <h2 className="text-xl font-bold text-ink">어떤 이야기를 해볼까요?</h2>
           <ul className="grid gap-3 sm:grid-cols-2">
@@ -162,7 +200,11 @@ export function FreeRecordClient({ userId }: { userId: string }) {
               <li key={t.key}>
                 <button
                   type="button"
-                  onClick={() => { setSelectedTopic(t); setPhase("record"); }}
+                  onClick={() => {
+                    setSelectedTopic(t);
+                    if (phase === "confirming") setPhase("record");
+                    else setPhase("record");
+                  }}
                   className={
                     "w-full min-h-[56px] rounded-md border-2 px-5 py-3 text-left text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
                     (selectedTopic?.key === t.key
@@ -190,6 +232,89 @@ export function FreeRecordClient({ userId }: { userId: string }) {
             </p>
           </div>
           <FreeRecorder onCapture={handleCapture} />
+        </section>
+      )}
+
+      {/* 전사 전 확인 다이얼로그 */}
+      {phase === "confirming" && (
+        <section className="flex flex-col gap-6 rounded-md border-2 border-line bg-surface px-6 py-6">
+          <h2 className="text-xl font-bold text-ink">전사를 시작할까요?</h2>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-lg text-ink">
+              녹음 시간:{" "}
+              <span className="font-semibold">
+                {Math.floor(durationSec / 60)}분 {durationSec % 60}초
+              </span>
+            </p>
+
+            {balanceLoading && (
+              <p className="text-base text-ink-soft">확인 중이에요…</p>
+            )}
+
+            {!balanceLoading && balanceInfo && (
+              <>
+                {!balanceInfo.chargingEnabled && (
+                  <p className="text-base text-emerald-700">
+                    지금은 무료로 전사해 드려요.
+                  </p>
+                )}
+                {balanceInfo.chargingEnabled && balanceInfo.sufficient && (
+                  <p className="text-base text-ink">
+                    약{" "}
+                    <span className="font-semibold">
+                      {calcSttTokens(durationSec)}토큰
+                    </span>
+                    이 차감돼요.{" "}
+                    <span className="text-ink-soft">
+                      (현재 잔액: {balanceInfo.balance}토큰)
+                    </span>
+                  </p>
+                )}
+                {balanceInfo.chargingEnabled && !balanceInfo.sufficient && (
+                  <div className="rounded-md bg-rose-50 px-4 py-3 text-base text-rose-700">
+                    <p>
+                      토큰이 부족해요.{" "}
+                      <span className="font-semibold">
+                        필요 {balanceInfo.needed}토큰 / 현재 {balanceInfo.balance}토큰
+                      </span>
+                    </p>
+                    <Link
+                      href="/billing"
+                      className="mt-2 inline-block text-base font-semibold text-rose-700 underline"
+                    >
+                      충전하기 →
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleConfirmTranscribe}
+              disabled={
+                balanceLoading ||
+                (balanceInfo !== null && balanceInfo.chargingEnabled && !balanceInfo.sufficient)
+              }
+              className="flex min-h-[56px] flex-1 items-center justify-center rounded-md bg-action px-6 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              전사 시작
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPendingBlob(null);
+                setBalanceInfo(null);
+                setPhase("record");
+              }}
+              className="min-h-[56px] rounded-md border-2 border-line px-6 text-lg font-semibold text-ink hover:bg-surface focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            >
+              취소
+            </button>
+          </div>
         </section>
       )}
 
@@ -266,8 +391,7 @@ function wait(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms));
 }
 
-// Supabase 직접 업로드: /api/recordings 는 DB 소유권 검사로 tmp_id 거부됨.
-// 대신 전용 업로드 엔드포인트를 사용.
+// 오디오 전용 업로드 엔드포인트 — /api/recordings 는 DB 소유권 검사로 tmp_id 거부됨.
 async function uploadAudioDirect(
   userId: string,
   tmpId: string,

@@ -4,11 +4,35 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { STT_TOKEN_CHARGING_ENABLED, calcSttTokens } from "@/lib/stt-cost";
+import { getBalance } from "@/lib/tokens/wallet";
 
 // Phase 10 — 통녹음 결과 저장.
 // UserMemory(createdVia="free_recording") 신규 행 생성.
 // year 는 현재 연도(KST)를 기본값으로 사용 — 사용자가 이야기한 시기는
 // content 안에 자연어로 포함되어 있음(Phase 2 에서 분리 예정).
+
+// 전사 시작 전 잔액 확인 + 예상 토큰 계산.
+// 과금 플래그 OFF 이면 sufficient=true 로 즉시 반환 (차감 없음).
+export async function checkSttBalanceAction(durationSec: number): Promise<{
+  chargingEnabled: boolean;
+  needed: number;
+  balance: number;
+  sufficient: boolean;
+}> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { chargingEnabled: false, needed: 0, balance: 0, sufficient: false };
+  }
+
+  if (!STT_TOKEN_CHARGING_ENABLED) {
+    return { chargingEnabled: false, needed: 0, balance: 0, sufficient: true };
+  }
+
+  const needed = calcSttTokens(durationSec);
+  const balance = await getBalance(session.user.id);
+  return { chargingEnabled: true, needed, balance, sufficient: balance >= needed };
+}
 
 export async function saveFreeRecordingAction(input: {
   audioPath: string;
