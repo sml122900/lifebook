@@ -21,7 +21,7 @@ const SILENCE_CHECK_INTERVAL_MS = 200;
 
 // 세션 안전 상한
 const MAX_TURNS_CLIENT = 50; // 50턴 = history 100개 (오프닝 1턴 포함). 도달 시 자동 저장.
-const SESSION_MAX_MS = 40 * 60 * 1000; // 40분 — 어르신 장시간 세션 안전망
+const SESSION_MAX_MS = 30 * 60 * 1000; // 30분 — 어르신 장시간 세션 안전망
 
 // STT 폴링 설정
 const STT_POLL_INTERVAL_MS = 3_000;
@@ -411,7 +411,7 @@ export function CompanionClient() {
           <p className="text-xl font-semibold text-amber-900">
             {sessionEndReason === "turns"
               ? "오늘 정말 많은 이야기 해주셨어요!"
-              : "40분이 됐어요. 오늘은 여기서 마무리할까요?"}
+              : "30분이 됐어요. 오늘은 여기서 마무리할까요?"}
           </p>
           <p className="text-base text-amber-700">
             저장 후 이어서 새 대화를 시작하시면 이전 이야기를 기억해요.
