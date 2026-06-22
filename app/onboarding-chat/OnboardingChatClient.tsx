@@ -6,7 +6,8 @@ import { QUESTIONS } from "@/lib/onboarding/questions";
 import type { Question } from "@/lib/onboarding/questions";
 import { completeOnboardingChat } from "./actions";
 import type { ParsedAnswers } from "./actions";
-import { YearWidget, ChipsWidget, MultiItemWidget } from "./widgets";
+import { YearWidget, ChipsWidget, MultiItemWidget, PlaceableMultiItemWidget } from "./widgets";
+import type { PlaceInfo } from "@/lib/place-types";
 
 type Msg = { role: "a" | "u"; text: string };
 type Phase = "chat" | "summary" | "review" | "done";
@@ -254,6 +255,27 @@ export default function OnboardingChatClient() {
     advanceAfterKey(isReview, rQueue, curIdx, buildAck(q.key, value));
   }
 
+  // 장소 매핑 포함 직접 제출 (residences·schools 전용).
+  function handleDirectSubmitWithPlaces(names: string[], places: PlaceInfo[], key: string) {
+    if (disabled) return;
+    const isReview = phase === "review";
+    const rQueue = reviewQueue;
+    const curIdx = qIdx;
+    const q = isReview ? QUESTIONS.find((qq) => qq.key === rQueue[0]) : QUESTIONS[curIdx];
+    if (!q) return;
+
+    const displayText = names.join(", ");
+    addUser(displayText || "");
+    storeAnswer(key, names);
+    // 좌표가 있는 항목만 places 저장 (없으면 null 유지)
+    const placesKey = key === "residences" ? "residencePlaces" : "schoolPlaces";
+    const hasAnyCoord = places.some((p) => p.lat !== null);
+    if (hasAnyCoord) {
+      (answersRef.current as Record<string, unknown>)[placesKey] = places;
+    }
+    advanceAfterKey(isReview, rQueue, curIdx, buildAck(key, names));
+  }
+
   const disabled = isParsing || isPending;
   const canSend = inputVal.trim().length > 0 && !disabled;
   const showInput = phase === "chat" || phase === "review";
@@ -286,6 +308,18 @@ export default function OnboardingChatClient() {
           />
         );
       case "textlist":
+        // 거주지·학교는 장소 매핑 위젯 (지도에서 찾기 포함)
+        if (currentQ.key === "residences" || currentQ.key === "schools") {
+          return (
+            <PlaceableMultiItemWidget
+              key={currentQ.key}
+              placeholder={currentQ.hint ?? "입력 후 추가 누르세요"}
+              qKey={currentQ.key}
+              onSubmit={handleDirectSubmitWithPlaces}
+              disabled={disabled}
+            />
+          );
+        }
         return (
           <MultiItemWidget
             key={currentQ.key}

@@ -165,20 +165,23 @@ model VerificationToken {
 }
 
 model LifeProfile {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  interests    String[]
-  schools      String[]
-  residences   String[]
-  parentsInfo  String?
-  siblings     String?
-  closeFriends String?
-  hobbies      String?
-  favMovies    String[]
-  favGames     String[]
-  favMusic     String[]
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interests       String[]
+  schools         String[]
+  residences      String[]
+  parentsInfo     String?
+  siblings        String?
+  closeFriends    String?
+  hobbies         String?
+  favMovies       String[]
+  favGames        String[]
+  favMusic        String[]
+  // 온보딩 장소 매핑 — [{placeName,placeAddress,lat,lng,placeSource}]. 소비처: 미구현(나중 map/poster용)
+  residencePlaces Json?
+  schoolPlaces    Json?
+  updatedAt       DateTime @updatedAt
 }
 
 // embedding is a pgvector(1024) column matching voyage-3.5 output.

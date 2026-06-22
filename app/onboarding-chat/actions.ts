@@ -6,6 +6,7 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import type { PlaceInfo } from "@/lib/place-types";
 
 export type ParsedAnswers = {
   birthYear?: number;
@@ -20,6 +21,9 @@ export type ParsedAnswers = {
   parentsInfo?: string;
   closeFriends?: string;
   hobbies?: string;
+  // 장소 매핑 — residences/schools 의 PlaceInfo 배열 (병렬). lat=null 이면 미선택.
+  residencePlaces?: PlaceInfo[];
+  schoolPlaces?: PlaceInfo[];
 };
 
 export async function completeOnboardingChat(answers: ParsedAnswers): Promise<void> {
@@ -33,7 +37,7 @@ export async function completeOnboardingChat(answers: ParsedAnswers): Promise<vo
 
   await prisma.user.update({ where: { id: userId }, data: userUpdate });
 
-  const profileData: Record<string, string | string[]> = {};
+  const profileData: Record<string, string | string[] | unknown> = {};
   const arrayFields = [
     "interests", "schools", "residences", "favMovies", "favGames", "favMusic",
   ] as const;
@@ -45,6 +49,15 @@ export async function completeOnboardingChat(answers: ParsedAnswers): Promise<vo
   for (const key of strFields) {
     const v = answers[key];
     if (v?.trim()) profileData[key] = v.trim();
+  }
+
+  // 좌표가 있는 항목만 저장 (lat !== null 필터)
+  const hasCoord = (p: PlaceInfo) => p.lat !== null;
+  if (answers.residencePlaces?.some(hasCoord)) {
+    profileData.residencePlaces = answers.residencePlaces;
+  }
+  if (answers.schoolPlaces?.some(hasCoord)) {
+    profileData.schoolPlaces = answers.schoolPlaces;
   }
 
   if (Object.keys(profileData).length > 0) {
