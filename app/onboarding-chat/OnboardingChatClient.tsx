@@ -6,6 +6,7 @@ import { QUESTIONS } from "@/lib/onboarding/questions";
 import type { Question } from "@/lib/onboarding/questions";
 import { completeOnboardingChat } from "./actions";
 import type { ParsedAnswers } from "./actions";
+import { YearWidget, ChipsWidget, MultiItemWidget } from "./widgets";
 
 type Msg = { role: "a" | "u"; text: string };
 type Phase = "chat" | "summary" | "review" | "done";
@@ -235,10 +236,79 @@ export default function OnboardingChatClient() {
     }
   }
 
+  // 위젯에서 직접 값 제출 (LLM 파싱 불필요 경로).
+  // 동기 함수 — 호출 시점의 phase/qIdx/reviewQueue 를 캡처.
+  function handleDirectSubmit(value: unknown) {
+    if (disabled) return;
+    const isReview = phase === "review";
+    const rQueue = reviewQueue;
+    const curIdx = qIdx;
+    const q = isReview ? QUESTIONS.find((qq) => qq.key === rQueue[0]) : QUESTIONS[curIdx];
+    if (!q) return;
+
+    const displayText = Array.isArray(value)
+      ? (value as string[]).join(", ")
+      : String(value);
+    addUser(displayText);
+    storeAnswer(q.key, value);
+    advanceAfterKey(isReview, rQueue, curIdx, buildAck(q.key, value));
+  }
+
   const disabled = isParsing || isPending;
   const canSend = inputVal.trim().length > 0 && !disabled;
   const showInput = phase === "chat" || phase === "review";
   const showSummaryBtns = phase === "summary";
+
+  // 현재 질문 — 위젯 렌더에 사용
+  const currentQ =
+    phase === "review" && reviewQueue.length > 0
+      ? QUESTIONS.find((q) => q.key === reviewQueue[0])
+      : QUESTIONS[qIdx];
+
+  // 질문 종류에 따른 위젯. key={currentQ.key} 로 질문 바뀌면 state 리셋.
+  function renderWidget() {
+    if (!showInput || !currentQ) return null;
+    switch (currentQ.kind) {
+      case "year":
+        return (
+          <YearWidget
+            key={currentQ.key}
+            onSubmit={(y) => handleDirectSubmit(y)}
+            disabled={disabled}
+          />
+        );
+      case "chips":
+        return (
+          <ChipsWidget
+            key={currentQ.key}
+            onSubmit={handleDirectSubmit}
+            disabled={disabled}
+          />
+        );
+      case "textlist":
+        return (
+          <MultiItemWidget
+            key={currentQ.key}
+            placeholder={currentQ.hint ?? "입력 후 추가 누르세요"}
+            onSubmit={handleDirectSubmit}
+            disabled={disabled}
+          />
+        );
+      case "tags":
+        return (
+          <MultiItemWidget
+            key={currentQ.key}
+            placeholder="항목을 입력하고 추가를 누르세요"
+            onSubmit={handleDirectSubmit}
+            disabled={disabled}
+          />
+        );
+      default:
+        return null;
+    }
+  }
+
+  const widget = renderWidget();
 
   return (
     <div className="flex h-screen flex-col bg-[var(--color-canvas)]">
@@ -303,39 +373,58 @@ export default function OnboardingChatClient() {
         </div>
       )}
 
-      {/* 입력 영역 */}
+      {/* 입력 영역 (위젯 + 텍스트 입력 병행) */}
       {showInput && (
-        <div className="space-y-2 border-t border-[var(--color-line)] px-4 py-3">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSubmit(inputVal);
-            }}
-            className="flex gap-2"
-          >
-            <input
-              value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              disabled={disabled}
-              placeholder="답변을 입력하세요…"
-              className="flex-1 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={!canSend}
-              className="rounded-xl bg-[var(--color-action)] px-5 py-3 text-[17px] font-medium text-white disabled:opacity-40"
+        <div className="border-t border-[var(--color-line)]">
+          {/* 타입별 위젯 */}
+          {widget && (
+            <div className="px-4 pt-4 pb-2">
+              {widget}
+            </div>
+          )}
+
+          {/* 구분선 */}
+          {widget && (
+            <div className="flex items-center gap-3 px-4 py-2">
+              <div className="flex-1 border-t border-[var(--color-line)]" />
+              <span className="text-[13px] text-[var(--color-ink-subtle)]">또는 직접 입력</span>
+              <div className="flex-1 border-t border-[var(--color-line)]" />
+            </div>
+          )}
+
+          {/* 텍스트 입력 */}
+          <div className="space-y-2 px-4 py-3">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit(inputVal);
+              }}
+              className="flex gap-2"
             >
-              전송
+              <input
+                value={inputVal}
+                onChange={(e) => setInputVal(e.target.value)}
+                disabled={disabled}
+                placeholder={widget ? "직접 입력하셔도 돼요…" : "답변을 입력하세요…"}
+                className="flex-1 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={!canSend}
+                className="rounded-xl bg-[var(--color-action)] px-5 py-3 text-[17px] font-medium text-white disabled:opacity-40"
+              >
+                전송
+              </button>
+            </form>
+            <button
+              type="button"
+              onClick={() => handleSubmit("넘어가기")}
+              disabled={disabled}
+              className="text-sm text-[var(--color-ink-subtle)] hover:text-[var(--color-ink)] disabled:opacity-40"
+            >
+              넘어가기 →
             </button>
-          </form>
-          <button
-            type="button"
-            onClick={() => handleSubmit("넘어가기")}
-            disabled={disabled}
-            className="text-sm text-[var(--color-ink-subtle)] hover:text-[var(--color-ink)] disabled:opacity-40"
-          >
-            넘어가기 →
-          </button>
+          </div>
         </div>
       )}
 
