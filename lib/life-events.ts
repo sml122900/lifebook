@@ -97,6 +97,10 @@ export type LifeEvent = {
   //   - kind="era_event" 행: 항상 [] (사진 첨부 대상 아님)
   // signed URL 은 page.tsx 가 storagePath 로 배치 발급해 따로 내려보낸다.
   photos: LifeEventPhoto[];
+  // Phase 10 (7c) — 녹음 파일 경로. life_event 직접 녹음이면 자기 audioPath,
+  // Phase 2 세그먼트이면 부모(free_recording).audioPath 를 병합. null=녹음 없음.
+  // signed URL 은 page.tsx RSC 에서 발급.
+  audioPath: string | null;
 };
 
 // 기간이 의미 있는 카테고리. UI(폼) 와 헬퍼(저장 검증) 가 공유.
@@ -189,6 +193,11 @@ async function _getLifeEvents(userId: string): Promise<LifeEvent[]> {
         },
         orderBy: { createdAt: "asc" },
       },
+      // Phase 10 (7c) — 직접 녹음 경로 + Phase 2 세그먼트의 부모 녹음 경로.
+      audioPath: true,
+      parentMemory: {
+        select: { audioPath: true },
+      },
     },
     orderBy: [
       { eventYear: "asc" },
@@ -239,6 +248,8 @@ async function _getLifeEvents(userId: string): Promise<LifeEvent[]> {
           ? p.periodAnchor
           : "both",
       })),
+      // Phase 10 (7c) — 직접 녹음 or 부모(Phase 2 세그먼트) 녹음 경로 병합.
+      audioPath: r.audioPath ?? r.parentMemory?.audioPath ?? null,
     };
   });
 }

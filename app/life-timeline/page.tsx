@@ -8,7 +8,7 @@ import { pickOnboardingEraEvent } from "@/lib/era-events";
 import { getFamilyNews } from "@/lib/family-news";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import { listPeople, listPeopleByEventBatch, type SubjectType } from "@/lib/people";
-import { getSignedUrl } from "@/lib/storage";
+import { getRecordingSignedUrl, getSignedUrl } from "@/lib/storage";
 import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
 
 import type { InitialSavedAnswer } from "../timemachine/[year]/[month]/AssistantPanel";
@@ -102,6 +102,24 @@ export default async function LifeTimelinePage() {
   const photoUrls: Record<string, string> = {};
   for (const [id, url] of photoUrlEntries) {
     if (url) photoUrls[id] = url;
+  }
+
+  // Phase 10 (7c) — life_event 중 audioPath 있는 항목만 signed URL 발급.
+  // 세그먼트는 lib/life-events 가 부모 audioPath 로 이미 병합(join)했음.
+  const audioUrlEntries = await Promise.all(
+    events
+      .filter((e) => e.kind === "life_event" && e.audioPath)
+      .map(async (e) => {
+        try {
+          return [e.id, await getRecordingSignedUrl(e.audioPath!)] as const;
+        } catch {
+          return [e.id, null] as const;
+        }
+      }),
+  );
+  const audioUrls: Record<string, string> = {};
+  for (const [id, url] of audioUrlEntries) {
+    if (url) audioUrls[id] = url;
   }
   // 모달용 주체 목록 — id/name/subjectType 만 추려 직렬화 크기 줄임.
   const allPeople = allPeopleRows.map((p) => ({ id: p.id, name: p.name, subjectType: p.subjectType }));
@@ -206,6 +224,7 @@ export default async function LifeTimelinePage() {
           peopleByEvent={peopleByEvent}
           allPeople={allPeople}
           photoUrls={photoUrls}
+          audioUrls={audioUrls}
         />
       ) : (
         <EmptyState />

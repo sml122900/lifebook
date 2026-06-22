@@ -6,6 +6,7 @@ import { createContext, useContext, useMemo, useState, useTransition } from "rea
 
 import { Camera, FolderOpen, MapPin, Pencil, User } from "lucide-react";
 
+import { AudioPlayer } from "@/app/components/AudioPlayer";
 import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { unstashEraEventAction } from "@/app/era/actions";
 import { buttonClasses } from "@/components/ui/Button";
@@ -273,6 +274,10 @@ type LifeEventOption = {
 };
 const LifeEventOptionsContext = createContext<LifeEventOption[]>([]);
 
+// Phase 10 (7c) — eventId → signed URL. LifeEventOptionsContext 와 같은 패턴.
+// TimelineView 에서 한 번 제공, EventCard 에서 소비. 딥 스레딩 없이.
+const AudioUrlsContext = createContext<Record<string, string>>({});
+
 // H4 — originalId 필드로 대체. 기존 origMemoryId(e.id.slice(0,-4)) 제거.
 
 export function TimelineView({
@@ -281,6 +286,7 @@ export function TimelineView({
   peopleByEvent = {},
   allPeople = [],
   photoUrls = {},
+  audioUrls = {},
 }: {
   events: LifeEvent[];
   birthYear?: number | null;
@@ -289,6 +295,8 @@ export function TimelineView({
   allPeople?: PersonLite[];
   // Phase Photo (3단계) — photoId → signed URL.
   photoUrls?: PhotoUrls;
+  // Phase 10 (7c) — eventId → 녹음 signed URL.
+  audioUrls?: Record<string, string>;
 }) {
   const router = useRouter();
   // E2 — 옵티미스틱 hide. era_event 행 빼기 클릭 시 즉시 화면에서 사라지고
@@ -365,6 +373,7 @@ export function TimelineView({
   );
 
   return (
+    <AudioUrlsContext.Provider value={audioUrls}>
     <LifeEventOptionsContext.Provider value={lifeEventOptions}>
     <div className="flex flex-col gap-6">
       <div className="hidden sm:block">
@@ -422,6 +431,7 @@ export function TimelineView({
       )}
     </div>
     </LifeEventOptionsContext.Provider>
+    </AudioUrlsContext.Provider>
   );
 }
 
@@ -873,6 +883,8 @@ function EventCard({
   const ageSuffix = formatAgeSuffix(e, birthYear);
   const displayTitle = formatTitle(e);
   const aria = `${formatWhen(e)} ${displayTitle} — 이 이야기 편집하기`;
+  // Phase 10 (7c) — 녹음 재생 버튼. 기간 끝 점엔 안 표시(시작 점에만).
+  const audioUrl = useContext(AudioUrlsContext)[e.originalId];
   // 버튼 위치: 카드의 텍스트 정렬 반대 모서리에 두면 카드 텍스트와 안 겹침.
   // align="right" (좌 카드) → 버튼은 좌상단 / align="left" (우 카드) → 우상단.
   const btnCorner =
@@ -930,6 +942,11 @@ function EventCard({
       >
         <User strokeWidth={1.75} aria-hidden className="h-5 w-5 text-ink-soft" />
       </button>
+      {!e.isPeriodEnd && audioUrl && (
+        <div className="mt-1.5 w-full max-w-[18rem]">
+          <AudioPlayer signedUrl={audioUrl} />
+        </div>
+      )}
     </div>
   );
 }
