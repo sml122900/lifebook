@@ -208,7 +208,7 @@ export async function deletePerson(
 // 이름 한글 정렬은 DB locale 이슈가 있으므로 기본 ASC + 후처리 안 함.
 export async function listPeople(userId: string): Promise<Person[]> {
   const rows = await prisma.person.findMany({
-    where: { userId },
+    where: { userId, isDraft: false },
     select: PERSON_SELECT,
     orderBy: { name: "asc" },
   });
@@ -221,7 +221,7 @@ export async function getPerson(
   personId: string,
 ): Promise<Person | null> {
   const row = await prisma.person.findFirst({
-    where: { id: personId, userId },
+    where: { id: personId, userId, isDraft: false },
     select: PERSON_SELECT,
   });
   return row as Person | null;

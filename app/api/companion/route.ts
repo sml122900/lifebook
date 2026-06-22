@@ -3,7 +3,8 @@
 //   → { reply: string }
 //
 // 프로파일(birthYear·region·인물·장소)은 서버에서 DB 조회 — 클라가 보내지 않음.
-// history 는 클라가 들고 매 턴 전송 (서버 stateless). v1 = 전체 유지, 트리밍 없음.
+// history 는 클라가 들고 매 턴 전송 (서버 stateless).
+// history 가 MAX_HISTORY_ITEMS 초과하면 오래된 앞부분을 잘라 최신 컨텍스트를 보존.
 
 import { NextResponse } from "next/server";
 
@@ -13,7 +14,8 @@ import { chat, ChatMessage } from "@/lib/ai";
 import { COMPANION_MODEL, fetchCompanionProfile, buildSystemPrompt } from "@/lib/companion";
 
 const MAX_MESSAGE_LEN = 3000; // STT 결과 최대 길이 방어
-const MAX_HISTORY_ITEMS = 100; // 50턴 (user+assistant 각 1) — 남용 방지
+// 클라와 공유 상수: CompanionClient.tsx 의 MAX_TURNS_CLIENT 와 맞춤 (클라가 먼저 막음)
+const MAX_HISTORY_ITEMS = 100; // 50턴 (user+assistant 각 1)
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -38,14 +40,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "history 는 배열이어야 해요." }, { status: 400 });
     }
     history = body.history
-      .slice(0, MAX_HISTORY_ITEMS)
       .filter(
         (h): h is ChatMessage =>
           h !== null &&
           typeof h === "object" &&
           (h.role === "user" || h.role === "assistant") &&
           typeof h.content === "string",
-      );
+      )
+      .slice(-MAX_HISTORY_ITEMS); // 최신 100개 보존 (오래된 앞부분 버림)
   } catch {
     return NextResponse.json({ error: "잘못된 요청이에요." }, { status: 400 });
   }
