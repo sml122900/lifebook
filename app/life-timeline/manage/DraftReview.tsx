@@ -1,6 +1,6 @@
 // 동반자 추출 초안 검토 섹션 (서버 컴포넌트).
 //
-// isDraft=true 인 UserMemory(life_event) + Person 을 세션별로 묶어 표시.
+// isDraft=true 인 UserMemory(life_event) + Person(person/location/thing) 을 세션별로 묶어 표시.
 // 승인/거절은 form action (server action .bind 패턴) — JavaScript 없어도 동작.
 
 import { prisma } from "@/lib/db";
@@ -12,6 +12,8 @@ import {
   rejectDraftPersonAction,
   approveAllSessionMemoriesAction,
   approveAllSessionPeopleAction,
+  approveAllSessionLocationsAction,
+  approveAllSessionThingsAction,
 } from "./draft-actions";
 
 function formatWhenDraft(
@@ -27,7 +29,7 @@ function formatWhenDraft(
 }
 
 export async function DraftReview({ userId }: { userId: string }) {
-  const [draftMemories, draftPeople] = await Promise.all([
+  const [draftMemories, draftSubjects] = await Promise.all([
     prisma.userMemory.findMany({
       where: {
         userId,
@@ -49,40 +51,44 @@ export async function DraftReview({ userId }: { userId: string }) {
     }),
   ]);
 
-  if (draftMemories.length === 0 && draftPeople.length === 0) return null;
+  const draftPeople = draftSubjects.filter((p) => p.subjectType === "person");
+  const draftLocations = draftSubjects.filter((p) => p.subjectType === "location");
+  const draftThings = draftSubjects.filter((p) => p.subjectType === "thing");
+
+  const totalCount =
+    draftMemories.length + draftPeople.length + draftLocations.length + draftThings.length;
+
+  if (totalCount === 0) return null;
 
   // 세션 ID 기준 묶기
   type SessionGroup = {
     sessionId: string;
     createdAt: Date;
     memories: typeof draftMemories;
-    people: typeof draftPeople;
+    people: typeof draftSubjects;
+    locations: typeof draftSubjects;
+    things: typeof draftSubjects;
   };
   const sessionMap = new Map<string, SessionGroup>();
 
-  for (const m of draftMemories) {
-    const sid = m.companionSessionId!;
+  function ensureSession(sid: string, createdAt: Date) {
     if (!sessionMap.has(sid)) {
-      sessionMap.set(sid, {
-        sessionId: sid,
-        createdAt: m.companionSession!.createdAt,
-        memories: [],
-        people: [],
-      });
+      sessionMap.set(sid, { sessionId: sid, createdAt, memories: [], people: [], locations: [], things: [] });
     }
-    sessionMap.get(sid)!.memories.push(m);
+    return sessionMap.get(sid)!;
+  }
+
+  for (const m of draftMemories) {
+    ensureSession(m.companionSessionId!, m.companionSession!.createdAt).memories.push(m);
   }
   for (const p of draftPeople) {
-    const sid = p.companionSessionId!;
-    if (!sessionMap.has(sid)) {
-      sessionMap.set(sid, {
-        sessionId: sid,
-        createdAt: p.companionSession!.createdAt,
-        memories: [],
-        people: [],
-      });
-    }
-    sessionMap.get(sid)!.people.push(p);
+    ensureSession(p.companionSessionId!, p.companionSession!.createdAt).people.push(p);
+  }
+  for (const l of draftLocations) {
+    ensureSession(l.companionSessionId!, l.companionSession!.createdAt).locations.push(l);
+  }
+  for (const t of draftThings) {
+    ensureSession(t.companionSessionId!, t.companionSession!.createdAt).things.push(t);
   }
 
   const sessions = [...sessionMap.values()].sort(
@@ -93,12 +99,12 @@ export async function DraftReview({ userId }: { userId: string }) {
     <section className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">
-          {draftMemories.length + draftPeople.length}
+          {totalCount}
         </span>
         <h2 className="text-2xl font-bold text-ink">동반자 대화 — 검토 대기</h2>
       </div>
       <p className="text-base text-ink-soft">
-        동반자와 나눈 이야기에서 찾아낸 내용이에요. 확인하고 연혁에 추가하거나 건너뛰어 주세요.
+        동반자와 나눈 이야기에서 찾아낸 내용이에요. 확인하고 추가하거나 건너뛰어 주세요.
       </p>
 
       {sessions.map((s) => {
@@ -113,7 +119,7 @@ export async function DraftReview({ userId }: { userId: string }) {
             key={s.sessionId}
             className="flex flex-col gap-5 rounded-xl border-2 border-amber-300 bg-amber-50 p-5"
           >
-            {/* 세션 헤더 */}
+            {/* 세션 헤더 + 일괄 승인 버튼 */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="font-semibold text-amber-900">
                 🎙 {dateStr} 대화
@@ -139,98 +145,112 @@ export async function DraftReview({ userId }: { userId: string }) {
                     </button>
                   </form>
                 )}
+                {s.locations.length > 0 && (
+                  <form action={approveAllSessionLocationsAction.bind(null, s.sessionId)}>
+                    <button
+                      type="submit"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-500 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                    >
+                      장소 {s.locations.length}곳 모두 추가
+                    </button>
+                  </form>
+                )}
+                {s.things.length > 0 && (
+                  <form action={approveAllSessionThingsAction.bind(null, s.sessionId)}>
+                    <button
+                      type="submit"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-500 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                    >
+                      물건 {s.things.length}개 모두 추가
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
 
             {/* 이야기 목록 */}
             {s.memories.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="text-sm font-semibold text-amber-700">발견된 이야기</p>
+              <SubjectSection label="발견된 이야기">
                 {s.memories.map((m) => {
                   const whenText = formatWhenDraft(m.eventYear, m.eventMonth, m.precision);
                   return (
-                    <div
+                    <DraftRow
                       key={m.id}
-                      className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white px-4 py-3 sm:flex-row sm:items-start sm:justify-between"
+                      approveAction={approveDraftMemoryAction.bind(null, m.id)}
+                      rejectAction={rejectDraftMemoryAction.bind(null, m.id)}
                     >
-                      <div className="min-w-0 flex-1">
-                        {whenText && (
-                          <p className="text-sm text-ink-soft">{whenText}</p>
-                        )}
-                        <p className="break-words font-semibold text-ink">{m.title}</p>
-                        {m.content && (
-                          <p className="mt-0.5 line-clamp-3 break-words text-sm text-ink-soft">
-                            {m.content}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-shrink-0 gap-2">
-                        <form action={approveDraftMemoryAction.bind(null, m.id)}>
-                          <button
-                            type="submit"
-                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-500 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
-                          >
-                            ✓ 추가
-                          </button>
-                        </form>
-                        <form action={rejectDraftMemoryAction.bind(null, m.id)}>
-                          <button
-                            type="submit"
-                            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink-soft hover:bg-banner"
-                          >
-                            건너뛰기
-                          </button>
-                        </form>
-                      </div>
-                    </div>
+                      {whenText && <p className="text-sm text-ink-soft">{whenText}</p>}
+                      <p className="break-words font-semibold text-ink">{m.title}</p>
+                      {m.content && (
+                        <p className="mt-0.5 line-clamp-3 break-words text-sm text-ink-soft">
+                          {m.content}
+                        </p>
+                      )}
+                    </DraftRow>
                   );
                 })}
-              </div>
+              </SubjectSection>
             )}
 
             {/* 인물 목록 */}
             {s.people.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="text-sm font-semibold text-amber-700">발견된 인물</p>
+              <SubjectSection label="발견된 인물">
                 {s.people.map((p) => (
-                  <div
+                  <DraftRow
                     key={p.id}
-                    className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    approveAction={approveDraftPersonAction.bind(null, p.id)}
+                    rejectAction={rejectDraftPersonAction.bind(null, p.id)}
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-ink">
-                        {p.name}
-                        {p.relation && (
-                          <span className="ml-1 text-sm font-normal text-ink-soft">
-                            ({p.relation})
-                          </span>
-                        )}
-                      </p>
-                      {p.memo && (
-                        <p className="mt-0.5 text-sm text-ink-soft">{p.memo}</p>
+                    <p className="font-semibold text-ink">
+                      {p.name}
+                      {p.relation && (
+                        <span className="ml-1 text-sm font-normal text-ink-soft">
+                          ({p.relation})
+                        </span>
                       )}
-                    </div>
-                    <div className="flex flex-shrink-0 gap-2">
-                      <form action={approveDraftPersonAction.bind(null, p.id)}>
-                        <button
-                          type="submit"
-                          className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-500 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
-                        >
-                          ✓ 추가
-                        </button>
-                      </form>
-                      <form action={rejectDraftPersonAction.bind(null, p.id)}>
-                        <button
-                          type="submit"
-                          className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink-soft hover:bg-banner"
-                        >
-                          건너뛰기
-                        </button>
-                      </form>
-                    </div>
-                  </div>
+                    </p>
+                    {p.memo && (
+                      <p className="mt-0.5 text-sm text-ink-soft">{p.memo}</p>
+                    )}
+                  </DraftRow>
                 ))}
-              </div>
+              </SubjectSection>
+            )}
+
+            {/* 장소 목록 */}
+            {s.locations.length > 0 && (
+              <SubjectSection label="발견된 장소">
+                {s.locations.map((l) => (
+                  <DraftRow
+                    key={l.id}
+                    approveAction={approveDraftPersonAction.bind(null, l.id)}
+                    rejectAction={rejectDraftPersonAction.bind(null, l.id)}
+                  >
+                    <p className="font-semibold text-ink">📍 {l.name}</p>
+                    {l.memo && (
+                      <p className="mt-0.5 text-sm text-ink-soft">{l.memo}</p>
+                    )}
+                  </DraftRow>
+                ))}
+              </SubjectSection>
+            )}
+
+            {/* 물건 목록 */}
+            {s.things.length > 0 && (
+              <SubjectSection label="발견된 물건">
+                {s.things.map((t) => (
+                  <DraftRow
+                    key={t.id}
+                    approveAction={approveDraftPersonAction.bind(null, t.id)}
+                    rejectAction={rejectDraftPersonAction.bind(null, t.id)}
+                  >
+                    <p className="font-semibold text-ink">🎁 {t.name}</p>
+                    {t.memo && (
+                      <p className="mt-0.5 text-sm text-ink-soft">{t.memo}</p>
+                    )}
+                  </DraftRow>
+                ))}
+              </SubjectSection>
             )}
           </div>
         );
@@ -238,5 +258,54 @@ export async function DraftReview({ userId }: { userId: string }) {
 
       <hr className="border-line" />
     </section>
+  );
+}
+
+function SubjectSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm font-semibold text-amber-700">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function DraftRow({
+  approveAction,
+  rejectAction,
+  children,
+}: {
+  approveAction: () => Promise<void>;
+  rejectAction: () => Promise<void>;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0 flex-1">{children}</div>
+      <div className="flex flex-shrink-0 gap-2">
+        <form action={approveAction}>
+          <button
+            type="submit"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-500 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+          >
+            ✓ 추가
+          </button>
+        </form>
+        <form action={rejectAction}>
+          <button
+            type="submit"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink-soft hover:bg-banner"
+          >
+            건너뛰기
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }

@@ -1,13 +1,15 @@
 "use server";
 
-// 동반자 세션 종료 → transcript + audio 저장 + 사건/인물 추출(DRAFT).
+// 동반자 세션 종료 → transcript + audio 저장 + 사건/인물/장소/물건 추출(DRAFT).
 //
 // 흐름:
 //   Phase 1: CompanionSession 생성 + transcript 원본 UserMemory 저장 (필수)
 //   Phase 2: splitRecordingTranscript → draft life_event N개 (실패 무시)
-//   Phase 3: extractPeopleFromTranscript → draft Person M개 (실패 무시)
+//   Phase 3: extractPeopleFromTranscript → draft Person(person) M개 (실패 무시)
+//   Phase 4: extractLocationsFromTranscript → draft Person(location) K개 (실패 무시)
+//   Phase 5: extractThingsFromTranscript → draft Person(thing) L개 (실패 무시)
 //
-// Phase 1 이 성공하면 ok:true 반환. Phase 2·3 실패는 draftMemoryCount/draftPeopleCount=0.
+// Phase 1 이 성공하면 ok:true 반환. Phase 2~5 실패는 각 count=0.
 // transcript+audio 는 Phase 1 실패 시에만 ok:false.
 
 import { revalidatePath } from "next/cache";
@@ -19,6 +21,8 @@ import {
   historyToTranscript,
   transcriptToSplitText,
   extractPeopleFromTranscript,
+  extractLocationsFromTranscript,
+  extractThingsFromTranscript,
 } from "@/lib/companion-extraction";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -36,6 +40,8 @@ export async function saveCompanionSessionAction(input: {
   sessionId?: string;
   draftMemoryCount?: number;
   draftPeopleCount?: number;
+  draftLocationCount?: number;
+  draftThingCount?: number;
   error?: string;
 }> {
   const session = await auth();
@@ -135,32 +141,91 @@ export async function saveCompanionSessionAction(input: {
     // Phase 1 이미 성공 — 계속 진행
   }
 
-  // ── Phase 3: 인물 추출 → draft Person ────────────────────────────────
+  // ── Phase 3~5: 인물·장소·물건 추출 병렬 ─────────────────────────────
+  // 셋 모두 같은 splitText 입력, 독립적 → Promise.all
 
   let draftPeopleCount = 0;
-  try {
-    const people = await extractPeopleFromTranscript(splitText);
+  let draftLocationCount = 0;
+  let draftThingCount = 0;
 
-    for (const p of people.slice(0, 20)) {
-      await prisma.person.create({
-        data: {
-          userId,
-          name: p.name,
-          relation: p.relation ?? null,
-          memo: p.memo ?? null,
-          subjectType: "person",
-          companionSessionId: sessionId,
-          isDraft: true, // ★ 검토 전까지 인물 목록 미노출
-        },
-      });
-      draftPeopleCount++;
+  const [peopleResult, locationsResult, thingsResult] = await Promise.allSettled([
+    extractPeopleFromTranscript(splitText),
+    extractLocationsFromTranscript(splitText),
+    extractThingsFromTranscript(splitText),
+  ]);
+
+  // Phase 3: 인물
+  if (peopleResult.status === "fulfilled") {
+    for (const p of peopleResult.value.slice(0, 20)) {
+      try {
+        await prisma.person.create({
+          data: {
+            userId,
+            name: p.name,
+            relation: p.relation ?? null,
+            memo: p.memo ?? null,
+            subjectType: "person",
+            companionSessionId: sessionId,
+            isDraft: true,
+          },
+        });
+        draftPeopleCount++;
+      } catch (e) {
+        console.error("[companion/save] phase-3 person row", e instanceof Error ? e.message : e);
+      }
     }
-  } catch (e) {
-    console.error("[companion/save] phase-3 people failed", e instanceof Error ? e.message : e);
+  } else {
+    console.error("[companion/save] phase-3 people failed", peopleResult.reason);
+  }
+
+  // Phase 4: 장소
+  if (locationsResult.status === "fulfilled") {
+    for (const l of locationsResult.value.slice(0, 10)) {
+      try {
+        await prisma.person.create({
+          data: {
+            userId,
+            name: l.name,
+            memo: l.memo ?? null,
+            subjectType: "location",
+            companionSessionId: sessionId,
+            isDraft: true,
+          },
+        });
+        draftLocationCount++;
+      } catch (e) {
+        console.error("[companion/save] phase-4 location row", e instanceof Error ? e.message : e);
+      }
+    }
+  } else {
+    console.error("[companion/save] phase-4 locations failed", locationsResult.reason);
+  }
+
+  // Phase 5: 물건
+  if (thingsResult.status === "fulfilled") {
+    for (const t of thingsResult.value.slice(0, 10)) {
+      try {
+        await prisma.person.create({
+          data: {
+            userId,
+            name: t.name,
+            memo: t.memo ?? null,
+            subjectType: "thing",
+            companionSessionId: sessionId,
+            isDraft: true,
+          },
+        });
+        draftThingCount++;
+      } catch (e) {
+        console.error("[companion/save] phase-5 thing row", e instanceof Error ? e.message : e);
+      }
+    }
+  } else {
+    console.error("[companion/save] phase-5 things failed", thingsResult.reason);
   }
 
   revalidatePath("/life-timeline/manage");
   revalidatePath("/life-timeline");
 
-  return { ok: true, sessionId, draftMemoryCount, draftPeopleCount };
+  return { ok: true, sessionId, draftMemoryCount, draftPeopleCount, draftLocationCount, draftThingCount };
 }

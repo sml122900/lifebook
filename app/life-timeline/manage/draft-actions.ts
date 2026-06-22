@@ -68,12 +68,34 @@ export async function approveAllSessionMemoriesAction(sessionId: string): Promis
   revalidateAll();
 }
 
-// 세션 전체 인물 승인
+// 세션 전체 인물 승인 (subjectType="person" 만)
 export async function approveAllSessionPeopleAction(sessionId: string): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) return;
   await prisma.person.updateMany({
-    where: { companionSessionId: sessionId, userId: session.user.id, isDraft: true },
+    where: { companionSessionId: sessionId, userId: session.user.id, isDraft: true, subjectType: "person" },
+    data: { isDraft: false },
+  });
+  revalidateAll();
+}
+
+// 세션 전체 장소 승인
+export async function approveAllSessionLocationsAction(sessionId: string): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) return;
+  await prisma.person.updateMany({
+    where: { companionSessionId: sessionId, userId: session.user.id, isDraft: true, subjectType: "location" },
+    data: { isDraft: false },
+  });
+  revalidateAll();
+}
+
+// 세션 전체 물건 승인
+export async function approveAllSessionThingsAction(sessionId: string): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) return;
+  await prisma.person.updateMany({
+    where: { companionSessionId: sessionId, userId: session.user.id, isDraft: true, subjectType: "thing" },
     data: { isDraft: false },
   });
   revalidateAll();
