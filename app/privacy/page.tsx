@@ -199,6 +199,7 @@ export default function PrivacyPage() {
           <ul className="mt-1 flex flex-col gap-2">
             <li className={P}>· 토스페이먼츠㈜ — 결제 처리</li>
             <li className={P}>· {BUSINESS_INFO.hostingProvider} — 서비스 인프라 운영 및 데이터 보관</li>
+            <li className={P}>· 네이버클라우드㈜ — 음성 텍스트 변환(STT) 처리 (국내 위탁)</li>
           </ul>
         </Article>
 
