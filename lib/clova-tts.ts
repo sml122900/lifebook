@@ -51,19 +51,33 @@ export async function synthesizeSpeech(
     format,
   });
 
-  const res = await fetch(TTS_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "X-NCP-APIGW-API-KEY-ID": process.env.NCP_TTS_KEY_ID!,
-      "X-NCP-APIGW-API-KEY": process.env.NCP_TTS_KEY_SECRET!,
-      "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
-    },
-    body: body.toString(),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
+
+  let res: Response;
+  try {
+    res = await fetch(TTS_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "X-NCP-APIGW-API-KEY-ID": process.env.NCP_TTS_KEY_ID!,
+        "X-NCP-APIGW-API-KEY": process.env.NCP_TTS_KEY_SECRET!,
+        "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+      },
+      body: body.toString(),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    const isTimeout = e instanceof Error && e.name === "AbortError";
+    throw new Error(isTimeout ? "CLOVA Voice 타임아웃 (8s)" : `CLOVA Voice 네트워크 오류: ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     const msg = await res.text().catch(() => "");
-    throw new Error(`CLOVA Voice 실패 (${res.status}): ${msg.slice(0, 200)}`);
+    // 서버 로그에만 남김 — 클라에는 친화 메시지만
+    console.error(`[clova-tts] HTTP ${res.status}`, msg.slice(0, 200));
+    throw new Error(`CLOVA Voice 실패 (${res.status})`);
   }
 
   const buf = await res.arrayBuffer();
