@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { Mic } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
 import {
@@ -238,6 +239,12 @@ function SidePanel({
             hint="한눈에 보는 인생"
           />
           <MenuItem
+            href="/life-timeline/companion"
+            label="이야기 나누기"
+            hint="말로 풀어놓는 내 이야기"
+            icon={<Mic size={16} aria-hidden />}
+          />
+          <MenuItem
             href="/era"
             label="그 시절 둘러보기"
             hint="1980~2010년대 큰 사건과 노래"
@@ -290,17 +297,22 @@ function MenuItem({
   href,
   label,
   hint,
+  icon,
 }: {
   href: string;
   label: string;
   hint: string;
+  icon?: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
       className="flex flex-col rounded-md border-2 border-line bg-surface px-4 py-3 hover:bg-amber-50 hover:border-amber-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
     >
-      <span className="text-base font-semibold text-ink">{label}</span>
+      <span className="flex items-center gap-1.5 text-base font-semibold text-ink">
+        {icon && <span className="text-ink-soft">{icon}</span>}
+        {label}
+      </span>
       <span className="mt-0.5 text-xs text-ink-soft">{hint}</span>
     </Link>
   );
