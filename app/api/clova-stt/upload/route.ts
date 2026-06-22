@@ -1,13 +1,17 @@
-// Phase 10 — 통녹음 임시 업로드.
+// Phase 10 — 녹음 업로드.
 //
 // POST /api/clova-stt/upload  (multipart/form-data)
 //   file: audio blob
 //   mimeType: string (optional, 기본 audio/webm)
 //
 // 기존 /api/recordings 는 DB UserMemory.id 소유권 검사 → 저장 전 memoryId 없음.
-// 여기서는 tmp_{userId}_{timestamp} 경로로 recordings 버킷에 직접 올리고
-// storagePath 만 반환. 저장 시 UserMemory.audioPath 에 이 경로를 씀.
+// 여기서는 rec_{timestamp} 경로로 recordings 버킷에 직접 올리고
+// storagePath 만 반환. 저장 시 UserMemory.audioPath / CompanionSession.audioPaths 에 씀.
 // (경로 prefix 가 userId 라 버킷 격리 유지)
+//
+// ⚠️ 영구 보존 파일: 특히 동반자 세션 오디오(어르신 목소리)는 대체 불가.
+//    "rec_" 로 시작하는 recordings 버킷 파일은 절대 일괄 삭제하지 마세요.
+//    정리 스크립트 작성 시 CompanionSession.audioPaths DB 먼저 확인.
 
 import { NextResponse } from "next/server";
 
@@ -56,8 +60,8 @@ export async function POST(req: Request) {
   }
 
   const ext = mimeType.split(";")[0].trim() === "audio/ogg" ? "ogg" : "webm";
-  const tmpId = `tmp_${Date.now()}`;
-  const storagePath = `${userId}/${tmpId}.${ext}`;
+  const recId = `rec_${Date.now()}`;
+  const storagePath = `${userId}/${recId}.${ext}`;
   const baseMime = mimeType.split(";")[0].trim();
 
   try {
