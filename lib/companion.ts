@@ -79,12 +79,26 @@ const COMPANION_SYSTEM_PROMPT_V3 = `\
 - 어르신이 다른 이야기로 가시면 그대로 따라간다. 정해진 순서 강요 X.
 (섹션이 없으면 = 첫 만남: 기존 첫 인사 그대로)`;
 
+export type LifeProfileSnapshot = {
+  schools: string[];
+  residences: string[];
+  interests: string[];
+  favMusic: string[];
+  favMovies: string[];
+  favGames: string[];
+  siblings: string | null;
+  parentsInfo: string | null;
+  closeFriends: string | null;
+  hobbies: string | null;
+};
+
 export type CompanionProfile = {
   birthYear: number | null;
   region: string | null;
   people: { name: string; relation: string | null }[];
   places: string[];
   coverageSummary: string | null; // 기존 기록 + 최근 세션 요약
+  lifeProfile: LifeProfileSnapshot | null; // 온보딩 수집 정보
 };
 
 // 승인된 life_event + 최근 세션 미검토 이야기를 LLM 컨텍스트용 문자열로 만든다.
@@ -142,7 +156,7 @@ async function fetchCoverageContext(userId: string): Promise<string | null> {
 
 // DB 에서 어르신 프로파일 조회. 클라가 보내지 않는다 — 서버 권한 경계 유지.
 export async function fetchCompanionProfile(userId: string): Promise<CompanionProfile> {
-  const [user, people, placeRows, coverageSummary] = await Promise.all([
+  const [user, people, placeRows, coverageSummary, rawLifeProfile] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { birthYear: true, region: true },
@@ -160,6 +174,21 @@ export async function fetchCompanionProfile(userId: string): Promise<CompanionPr
       take: 20,
     }),
     fetchCoverageContext(userId),
+    prisma.lifeProfile.findUnique({
+      where: { userId },
+      select: {
+        schools: true,
+        residences: true,
+        interests: true,
+        favMusic: true,
+        favMovies: true,
+        favGames: true,
+        siblings: true,
+        parentsInfo: true,
+        closeFriends: true,
+        hobbies: true,
+      },
+    }),
   ]);
 
   return {
@@ -168,6 +197,7 @@ export async function fetchCompanionProfile(userId: string): Promise<CompanionPr
     people: people.map((p) => ({ name: p.name, relation: p.relation })),
     places: placeRows.map((r) => r.placeName!).filter(Boolean),
     coverageSummary,
+    lifeProfile: rawLifeProfile ?? null,
   };
 }
 
@@ -189,6 +219,20 @@ export function buildSystemPrompt(profile: CompanionProfile): string {
   }
   if (profile.places.length > 0) {
     profileLines.push(`- 이미 기록된 장소: ${profile.places.join(", ")}`);
+  }
+
+  if (profile.lifeProfile) {
+    const lp = profile.lifeProfile;
+    if (lp.schools.length > 0) profileLines.push(`- 학교: ${lp.schools.join(", ")}`);
+    if (lp.residences.length > 0) profileLines.push(`- 살았던 곳: ${lp.residences.join(", ")}`);
+    if (lp.interests.length > 0) profileLines.push(`- 관심분야: ${lp.interests.join(", ")}`);
+    if (lp.favMusic.length > 0) profileLines.push(`- 좋아하는 음악: ${lp.favMusic.join(", ")}`);
+    if (lp.favMovies.length > 0) profileLines.push(`- 좋아하는 영화: ${lp.favMovies.join(", ")}`);
+    if (lp.favGames.length > 0) profileLines.push(`- 즐겨한 게임: ${lp.favGames.join(", ")}`);
+    if (lp.hobbies) profileLines.push(`- 취미: ${lp.hobbies}`);
+    if (lp.siblings) profileLines.push(`- 형제자매: ${lp.siblings}`);
+    if (lp.parentsInfo) profileLines.push(`- 부모님: ${lp.parentsInfo}`);
+    if (lp.closeFriends) profileLines.push(`- 가까운 친구: ${lp.closeFriends}`);
   }
 
   let prompt = COMPANION_SYSTEM_PROMPT_V3;

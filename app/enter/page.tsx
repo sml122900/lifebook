@@ -1,16 +1,18 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { prisma } from "@/lib/db";
 import { getLifeEvents } from "@/lib/life-events";
 import { hasAnyUserMemory } from "@/lib/user-entry";
 
-// Phase L7 — 로그인/동의 직후 도착하는 canonical 분기 페이지.
+// Phase L7 / B1 — 로그인/동의 직후 도착하는 canonical 분기 페이지.
 //
 // 결정 규칙:
 //   1) 인생 이벤트(life_event) ≥ 1 → /life-timeline (연혁 메인)
 //   2) 인생 이벤트 0, 그 외 UserMemory ≥ 1 (v2 기존 사용자)
 //        → /life-timeline (빈 상태 EmptyState 가 "인생 기록 시작하기" 권유)
-//   3) 둘 다 0 (완전 신규) → /life-record?new=1 (랜딩 안내와 함께)
+//   3) 둘 다 0, onboardingCompletedAt null → /onboarding-chat (채팅 온보딩)
+//   4) 둘 다 0, onboardingCompletedAt 있음 → /life-timeline (온보딩 완료 후 이벤트 미입력)
 //
 // 왜 /life-timeline 자체에 게이트를 안 두나:
 //   - 기존 사용자가 사이드 패널 "내 인생 연혁" 으로 돌아왔다가 인생 이벤트
@@ -34,11 +36,19 @@ export default async function EnterPage() {
     redirect("/life-timeline");
   }
 
-  // 인생 이벤트 0 — 완전 신규냐 v2 기존이냐 확인.
+  // 인생 이벤트 0 — v2 기존 사용자냐 완전 신규냐 확인.
   const hasOther = await hasAnyUserMemory(userId);
   if (hasOther) {
     redirect("/life-timeline");
   }
 
-  redirect("/life-record?new=1");
+  // 완전 신규 — 온보딩 완료 여부로 분기.
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { onboardingCompletedAt: true },
+  });
+  if (!user?.onboardingCompletedAt) {
+    redirect("/onboarding-chat");
+  }
+  redirect("/life-timeline");
 }
