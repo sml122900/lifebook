@@ -100,3 +100,23 @@ export async function approveAllSessionThingsAction(sessionId: string): Promise<
   });
   revalidateAll();
 }
+
+// 장소 승인 + 좌표 저장 (PlaceSearchInput 결과 포함)
+export async function approveLocationWithPlaceAction(
+  personId: string,
+  place: { lat: number; lng: number; placeAddress: string | null; placeSource: string },
+): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) return;
+  await prisma.person.updateMany({
+    where: { id: personId, userId: session.user.id, isDraft: true, subjectType: "location" },
+    data: {
+      isDraft: false,
+      lat: place.lat,
+      lng: place.lng,
+      placeAddress: place.placeAddress,
+      placeSource: place.placeSource,
+    },
+  });
+  revalidateAll();
+}

@@ -15,6 +15,8 @@ import {
   approveAllSessionLocationsAction,
   approveAllSessionThingsAction,
 } from "./draft-actions";
+import { DraftLocationCard } from "./DraftLocationCard";
+import { DraftPhotoUpload } from "./DraftPhotoUpload";
 
 function formatWhenDraft(
   eventYear: number | null,
@@ -174,19 +176,22 @@ export async function DraftReview({ userId }: { userId: string }) {
                 {s.memories.map((m) => {
                   const whenText = formatWhenDraft(m.eventYear, m.eventMonth, m.precision);
                   return (
-                    <DraftRow
-                      key={m.id}
-                      approveAction={approveDraftMemoryAction.bind(null, m.id)}
-                      rejectAction={rejectDraftMemoryAction.bind(null, m.id)}
-                    >
-                      {whenText && <p className="text-sm text-ink-soft">{whenText}</p>}
-                      <p className="break-words font-semibold text-ink">{m.title}</p>
-                      {m.content && (
-                        <p className="mt-0.5 line-clamp-3 break-words text-sm text-ink-soft">
-                          {m.content}
-                        </p>
-                      )}
-                    </DraftRow>
+                    <div key={m.id} className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-white px-4 py-3">
+                      <DraftRow
+                        approveAction={approveDraftMemoryAction.bind(null, m.id)}
+                        rejectAction={rejectDraftMemoryAction.bind(null, m.id)}
+                      >
+                        {whenText && <p className="text-sm text-ink-soft">{whenText}</p>}
+                        <p className="break-words font-semibold text-ink">{m.title}</p>
+                        {m.content && (
+                          <p className="mt-0.5 line-clamp-3 break-words text-sm text-ink-soft">
+                            {m.content}
+                          </p>
+                        )}
+                      </DraftRow>
+                      {/* 사진 첨부 — 승인 전/후 모두 가능 */}
+                      <DraftPhotoUpload memoryId={m.id} />
+                    </div>
                   );
                 })}
               </SubjectSection>
@@ -198,6 +203,7 @@ export async function DraftReview({ userId }: { userId: string }) {
                 {s.people.map((p) => (
                   <DraftRow
                     key={p.id}
+                    withBorder
                     approveAction={approveDraftPersonAction.bind(null, p.id)}
                     rejectAction={rejectDraftPersonAction.bind(null, p.id)}
                   >
@@ -217,20 +223,16 @@ export async function DraftReview({ userId }: { userId: string }) {
               </SubjectSection>
             )}
 
-            {/* 장소 목록 */}
+            {/* 장소 목록 — DraftLocationCard (PlaceSearchInput + 좌표 저장) */}
             {s.locations.length > 0 && (
               <SubjectSection label="발견된 장소">
                 {s.locations.map((l) => (
-                  <DraftRow
+                  <DraftLocationCard
                     key={l.id}
-                    approveAction={approveDraftPersonAction.bind(null, l.id)}
-                    rejectAction={rejectDraftPersonAction.bind(null, l.id)}
-                  >
-                    <p className="font-semibold text-ink">📍 {l.name}</p>
-                    {l.memo && (
-                      <p className="mt-0.5 text-sm text-ink-soft">{l.memo}</p>
-                    )}
-                  </DraftRow>
+                    personId={l.id}
+                    name={l.name}
+                    memo={l.memo}
+                  />
                 ))}
               </SubjectSection>
             )}
@@ -241,6 +243,7 @@ export async function DraftReview({ userId }: { userId: string }) {
                 {s.things.map((t) => (
                   <DraftRow
                     key={t.id}
+                    withBorder
                     approveAction={approveDraftPersonAction.bind(null, t.id)}
                     rejectAction={rejectDraftPersonAction.bind(null, t.id)}
                   >
@@ -276,17 +279,21 @@ function SubjectSection({
   );
 }
 
+// DraftRow — 승인/거절 버튼 래퍼. 메모리 카드는 부모가 border 처리 후 이 컴포넌트 사용.
+// 인물/물건 카드는 자체 border 포함 버전으로 사용.
 function DraftRow({
   approveAction,
   rejectAction,
   children,
+  withBorder = false,
 }: {
   approveAction: () => Promise<void>;
   rejectAction: () => Promise<void>;
   children: React.ReactNode;
+  withBorder?: boolean;
 }) {
-  return (
-    <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+  const inner = (
+    <>
       <div className="min-w-0 flex-1">{children}</div>
       <div className="flex flex-shrink-0 gap-2">
         <form action={approveAction}>
@@ -306,6 +313,19 @@ function DraftRow({
           </button>
         </form>
       </div>
+    </>
+  );
+
+  if (withBorder) {
+    return (
+      <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+        {inner}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {inner}
     </div>
   );
 }

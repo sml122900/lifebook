@@ -789,6 +789,11 @@ model Person {
   category    String? // 관계 분류 — 가족·친척·친구·직장·이웃·기타 (person 전용)
   metYear     Int? // 처음 만난 연도 (person 전용)
   memo        String? // 메모
+  // location 전용 — 장소 좌표 (PlaceSearchInput 으로 지정). person/thing 은 null.
+  lat          Float?
+  lng          Float?
+  placeAddress String?
+  placeSource  String? // "naver"|"google"
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   events      PersonEvent[]
