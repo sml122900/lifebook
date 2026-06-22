@@ -7,8 +7,8 @@ import { prisma } from "@/lib/db";
 // 모델 교체는 여기 한 줄만. (Sonnet 교체 시: "claude-sonnet-4-6")
 export const COMPANION_MODEL = "claude-haiku-4-5-20251001";
 
-// 회상 동반자 시스템 프롬프트 v2 — 변형·요약 금지.
-const COMPANION_SYSTEM_PROMPT_V2 = `\
+// 회상 동반자 시스템 프롬프트 v3 — 변형·요약 금지.
+const COMPANION_SYSTEM_PROMPT_V3 = `\
 너는 Lifebook의 회상 동반자야. 60~80대 어르신이 자기 인생 이야기를 편하게 떠올리고 들려주도록 돕는 따뜻한 말동무다. 손주가 할머니·할아버지 곁에 앉아 옛이야기를 듣는 마음으로 대한다.
 
 [목표]
@@ -69,24 +69,86 @@ const COMPANION_SYSTEM_PROMPT_V2 = `\
 짧고 따뜻하게. 보통 호응(어르신 디테일 활용) 한 마디 + 부드러운 질문 하나. 어르신이 말하게 하는 게 핵심.
 
 [활용할 맥락]
-출생연도·고향·이미 언급된 사람/장소를 자연스럽게 활용해 개인화 + 시대 앵커링.`;
+출생연도·고향·이미 언급된 사람/장소를 자연스럽게 활용해 개인화 + 시대 앵커링.
+
+[이어가기 — 이전에 나눈 이야기가 있을 때]
+([이미 나눈 이야기] 섹션에 내용이 있으면)
+- 오프닝에서 이미 들려주신 이야기를 따뜻하게 짚는다: "지난번에 ○○까지 들려주셨어요. 정말 좋았어요."
+- 그다음 시기나 아직 비어있는 부분을 자연스럽게 권한다: "오늘은 그다음 이야기, ○○ 들려주실래요?"
+- 이미 다룬 주제는 먼저 다시 묻지 않는다. (어르신이 또 하고 싶어 하시면 기꺼이 받되, 강요 X)
+- 어르신이 다른 이야기로 가시면 그대로 따라간다. 정해진 순서 강요 X.
+(섹션이 없으면 = 첫 만남: 기존 첫 인사 그대로)`;
 
 export type CompanionProfile = {
   birthYear: number | null;
   region: string | null;
   people: { name: string; relation: string | null }[];
   places: string[];
+  coverageSummary: string | null; // 기존 기록 + 최근 세션 요약
 };
+
+// 승인된 life_event + 최근 세션 미검토 이야기를 LLM 컨텍스트용 문자열로 만든다.
+// LLM 요약 없이 연도·제목 나열 (비용 0, 충분히 유용).
+async function fetchCoverageContext(userId: string): Promise<string | null> {
+  const [approvedEvents, latestSession] = await Promise.all([
+    prisma.userMemory.findMany({
+      where: {
+        userId,
+        isDraft: false,
+        createdVia: "life_event",
+        eventYear: { not: null },
+      },
+      select: { eventYear: true, eventTitle: true },
+      orderBy: { eventYear: "asc" },
+      take: 30,
+    }),
+    prisma.companionSession.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        memories: {
+          where: { isDraft: true },
+          select: { eventYear: true, eventTitle: true },
+          take: 10,
+        },
+      },
+    }),
+  ]);
+
+  const sections: string[] = [];
+
+  if (approvedEvents.length > 0) {
+    sections.push(`기록된 이야기 (${approvedEvents.length}가지):`);
+    for (const e of approvedEvents) {
+      const yearPart = e.eventYear ? `${e.eventYear}년` : "";
+      const titlePart = e.eventTitle ?? "";
+      sections.push(`- ${yearPart}${yearPart && titlePart ? ": " : ""}${titlePart}`.trim());
+    }
+  }
+
+  const pendingDrafts = latestSession?.memories ?? [];
+  if (pendingDrafts.length > 0) {
+    if (sections.length > 0) sections.push("");
+    sections.push("가장 최근 대화에서 꺼낸 이야기 (아직 검토 중):");
+    for (const m of pendingDrafts) {
+      const yearPart = m.eventYear ? `${m.eventYear}년` : "";
+      const titlePart = m.eventTitle ?? "";
+      sections.push(`- ${yearPart}${yearPart && titlePart ? ": " : ""}${titlePart}`.trim());
+    }
+  }
+
+  return sections.length > 0 ? sections.join("\n") : null;
+}
 
 // DB 에서 어르신 프로파일 조회. 클라가 보내지 않는다 — 서버 권한 경계 유지.
 export async function fetchCompanionProfile(userId: string): Promise<CompanionProfile> {
-  const [user, people, placeRows] = await Promise.all([
+  const [user, people, placeRows, coverageSummary] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { birthYear: true, region: true },
     }),
     prisma.person.findMany({
-      where: { userId, subjectType: "person" },
+      where: { userId, subjectType: "person", isDraft: false },
       select: { name: true, relation: true },
       orderBy: { name: "asc" },
       take: 20,
@@ -97,6 +159,7 @@ export async function fetchCompanionProfile(userId: string): Promise<CompanionPr
       distinct: ["placeName"],
       take: 20,
     }),
+    fetchCoverageContext(userId),
   ]);
 
   return {
@@ -104,31 +167,39 @@ export async function fetchCompanionProfile(userId: string): Promise<CompanionPr
     region: user?.region ?? null,
     people: people.map((p) => ({ name: p.name, relation: p.relation })),
     places: placeRows.map((r) => r.placeName!).filter(Boolean),
+    coverageSummary,
   };
 }
 
-// v1 프롬프트 뒤에 [어르신 프로파일] 섹션 추가.
-// 프로파일이 모두 비어있으면 v1 프롬프트만 반환.
+// 시스템 프롬프트 v3 + [어르신 프로파일] + [이미 나눈 이야기] 조합.
 export function buildSystemPrompt(profile: CompanionProfile): string {
-  const lines: string[] = [];
+  const profileLines: string[] = [];
 
   if (profile.birthYear) {
-    lines.push(`- 출생연도: ${profile.birthYear}년`);
+    profileLines.push(`- 출생연도: ${profile.birthYear}년`);
   }
   if (profile.region) {
-    lines.push(`- 출신 지역: ${profile.region}`);
+    profileLines.push(`- 출신 지역: ${profile.region}`);
   }
   if (profile.people.length > 0) {
     const list = profile.people
       .map((p) => (p.relation ? `${p.name}(${p.relation})` : p.name))
       .join(", ");
-    lines.push(`- 이미 이야기에 등장한 인물: ${list}`);
+    profileLines.push(`- 이미 이야기에 등장한 인물: ${list}`);
   }
   if (profile.places.length > 0) {
-    lines.push(`- 이미 기록된 장소: ${profile.places.join(", ")}`);
+    profileLines.push(`- 이미 기록된 장소: ${profile.places.join(", ")}`);
   }
 
-  if (lines.length === 0) return COMPANION_SYSTEM_PROMPT_V2;
+  let prompt = COMPANION_SYSTEM_PROMPT_V3;
 
-  return `${COMPANION_SYSTEM_PROMPT_V2}\n\n[어르신 프로파일]\n${lines.join("\n")}`;
+  if (profileLines.length > 0) {
+    prompt += `\n\n[어르신 프로파일]\n${profileLines.join("\n")}`;
+  }
+
+  if (profile.coverageSummary) {
+    prompt += `\n\n[이미 나눈 이야기]\n${profile.coverageSummary}`;
+  }
+
+  return prompt;
 }
