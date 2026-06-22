@@ -593,6 +593,13 @@ model UserMemory {
   lng          Float?
   placeSource  String?
 
+  // Phase 10 Phase 2 — 통녹음 분할. 원본 free_recording 이 부모, 세그먼트
+  // (life_event) 가 자식. SetNull: 원본 삭제 시 세그먼트 parentMemoryId 만
+  // null 로 남고 세그먼트 자체는 생존 (사용자 이야기 보존 우선).
+  parentMemoryId String?
+  parentMemory   UserMemory?  @relation("SegmentSource", fields: [parentMemoryId], references: [id], onDelete: SetNull)
+  childMemories  UserMemory[] @relation("SegmentSource")
+
   // Phase P1 — 이 이벤트에 연결된 인물 링크. life_event 행에만 만들어지지만
   // 모델 측 제약은 createdVia 를 강제하지 않는다(헬퍼에서만 강제). cascade
   // delete 로 메모리 삭제 시 인물 링크도 함께 정리.
@@ -610,6 +617,7 @@ model UserMemory {
   @@index([userId])
   // Phase L1 — 인생 연혁 화면(L3)에서 사용자별 life_event 시간순 정렬용.
   @@index([userId, eventYear, eventMonth])
+  @@index([parentMemoryId])
 }
 
 // Phase T1 (타임머신) — 월별 사건 + 차트 음악.
