@@ -123,14 +123,6 @@ function FieldFor({
           onChange={(v) => update("birthYear", v)}
         />
       );
-    case "chips":
-      return (
-        <ChipsInput
-          value={values[question.key]}
-          options={question.options}
-          onChange={(v) => update(question.key, v)}
-        />
-      );
     case "textlist":
     case "tags":
       return (
@@ -172,47 +164,6 @@ function YearInput({
       }}
       className="w-full rounded-md border-2 border-line px-4 py-3 text-xl focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     />
-  );
-}
-
-function ChipsInput({
-  value,
-  options,
-  onChange,
-}: {
-  value: string[];
-  options: string[];
-  onChange: (v: string[]) => void;
-}) {
-  function toggle(opt: string) {
-    if (value.includes(opt)) {
-      onChange(value.filter((v) => v !== opt));
-    } else {
-      onChange([...value, opt]);
-    }
-  }
-  return (
-    <div className="flex flex-wrap gap-3">
-      {options.map((opt) => {
-        const on = value.includes(opt);
-        return (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => toggle(opt)}
-            aria-pressed={on}
-            className={
-              "rounded-full border-2 px-5 py-3 text-base font-medium focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
-              (on
-                ? "border-brand bg-banner text-action"
-                : "border-line bg-surface text-ink-soft hover:bg-banner")
-            }
-          >
-            {opt}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 

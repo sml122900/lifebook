@@ -10,7 +10,7 @@ import {
   saveOnboardingPerson,
 } from "./actions";
 import type { ParsedAnswers, PersonCandidate } from "./actions";
-import { YearWidget, ChipsWidget, MultiItemWidget, PlaceableMultiItemWidget } from "./widgets";
+import { YearWidget, MultiItemWidget, PlaceableMultiItemWidget } from "./widgets";
 import type { PlaceInfo } from "@/lib/place-types";
 
 type Msg = { role: "a" | "u"; text: string };
@@ -22,7 +22,6 @@ const isSkipInput = (s: string) => SKIP_WORDS.has(s.trim().toLowerCase());
 
 function qDisplay(q: Question): string {
   let t = q.prompt;
-  if (q.kind === "chips") t += "\n(" + q.options.join(" · ") + ")";
   if (q.kind === "textlist" && q.hint) t += "\n" + q.hint;
   return t;
 }
@@ -31,7 +30,6 @@ function buildAck(key: string, value: unknown): string {
   if (Array.isArray(value) && (value as unknown[]).length === 0) return "";
   switch (key) {
     case "birthYear": return `${value}년생이시군요! 반갑습니다.`;
-    case "interests": return `${(value as string[]).join(", ")} 좋아하시는군요!`;
     case "residences": return `${(value as string[]).join(", ")}에서 사셨군요.`;
     case "schools": return `${(value as string[]).join(", ")} 다니셨군요, 기억해 뒀어요.`;
     case "favMovies": return `영화는 ${(value as string[]).join(", ")} 좋아하셨군요.`;
@@ -371,14 +369,6 @@ export default function OnboardingChatClient() {
           <YearWidget
             key={currentQ.key}
             onSubmit={(y) => handleDirectSubmit(y)}
-            disabled={disabled}
-          />
-        );
-      case "chips":
-        return (
-          <ChipsWidget
-            key={currentQ.key}
-            onSubmit={handleDirectSubmit}
             disabled={disabled}
           />
         );

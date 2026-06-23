@@ -17,9 +17,9 @@ const PEOPLE_EXTRACT_MODEL =
 export type ParsedAnswers = {
   birthYear?: number;
   region?: string;
-  interests?: string[];
   residences?: string[];
   schools?: string[];
+  // F3 보류: 이야기형 전환 예정 (아래 필드는 현재 온보딩에서 수집 안 함)
   favMovies?: string[];
   favGames?: string[];
   favMusic?: string[];
@@ -51,7 +51,7 @@ export async function completeOnboardingChat(answers: ParsedAnswers): Promise<vo
 
   const profileData: Record<string, string | string[] | unknown> = {};
   const arrayFields = [
-    "interests", "schools", "residences", "favMovies", "favGames", "favMusic",
+    "schools", "residences", "favMovies", "favGames", "favMusic",
   ] as const;
   for (const key of arrayFields) {
     const v = answers[key];
