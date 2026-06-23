@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { BookOpen, Search, type LucideIcon } from "lucide-react";
+import { BookOpen, Search, ListChecks, type LucideIcon } from "lucide-react";
 
 import { SongCard } from "./SongCard";
 import {
   saveAssistantAnswerAction,
   deleteAssistantAnswerAction,
 } from "./assistant-actions";
+import { getEraCatalog, addEraItemAsLifeEvent } from "./era-pick-actions";
+import type { EraEvent, EraSong } from "@/lib/era-events";
 
 // Phase V2 — AI 비서 패널.
 // Phase V3 — 멀티턴 대화 + 답변 저장/토글.
@@ -46,8 +48,35 @@ const ASK_CHIPS: { text: string; hint: string }[] = [
   { text: "그때 물가나 살림은?", hint: "인터넷 검색" },
 ];
 
-// 비서 모드. "selecting" 은 첫 진입 — 두 큰 버튼 중 고른다.
-type AssistantMode = "selecting" | "stories" | "ask";
+// G1 — 비서 모드. "selecting" = 3버튼 허브, "era-selecting" = 그 시절 갈래
+// (browse/ask), "browse"(G2) = 시대 목록에서 고르기, "tutorial" = 사용법 안내.
+// "stories"(우리 자료 채팅)는 코드 보존 — 직접 진입은 빠졌으나 저장된 답
+// 열기 경로에서 여전히 사용.
+type AssistantMode =
+  | "selecting"
+  | "era-selecting"
+  | "browse"
+  | "stories"
+  | "ask"
+  | "tutorial";
+
+// G2 — 연대 탭. 마지막(2010)은 2020~2023 도 흡수 (era-pick-actions 와 동일).
+const DECADES = [1980, 1990, 2000, 2010] as const;
+function decadeOf(year: number): number {
+  return year >= 2010 ? 2010 : Math.floor(year / 10) * 10;
+}
+function decadeLabel(d: number): string {
+  return `${d}년대`;
+}
+
+type TutorialTurn = { role: "user" | "assistant"; text: string };
+
+const TUTORIAL_CHIPS = [
+  "어떻게 시작하면 되나요?",
+  "이야기는 어떻게 기록되나요?",
+  "토큰이 뭔가요?",
+  "가족과 함께 쓸 수 있나요?",
+];
 
 type Citation = { url: string; title: string };
 
@@ -193,12 +222,15 @@ export function AssistantPanel({
   keptEventIds,
   onAddEvent,
   initialSavedAnswers,
+  onNavigate,
 }: {
   year: number;
   month: number;
   keptEventIds: Set<string>;
   onAddEvent: (k: KeptEventInput) => void;
   initialSavedAnswers: InitialSavedAnswer[];
+  // G1 — 버튼1("이야기 나누기") 클릭 시 모달 닫고 라우팅. 없으면 무시.
+  onNavigate?: (href: string) => void;
 }) {
   // 2026-06-07 — 두 레벨의 모드:
   //   mode : 비서 본 모드 (selecting → stories / ask). 첫 진입은 selecting.
@@ -219,6 +251,58 @@ export function AssistantPanel({
   // 언제든 바꿀 수 있음. 페이지를 떠나면 잊고 기본값("simple")으로 복귀.
   const [depth, setDepth] = useState<AssistantDepth>("simple");
 
+  // G1 — 튜토리얼 채팅 상태. 모드 "tutorial" 에서만 사용. 토큰 차감 X.
+  const [tutMsgs, setTutMsgs] = useState<TutorialTurn[]>([]);
+  const [tutInput, setTutInput] = useState("");
+  const [tutIsPending, startTutTransition] = useTransition();
+  const [tutError, setTutError] = useState<string | null>(null);
+  const tutThreadRef = useRef<HTMLDivElement | null>(null);
+
+  // G2 — "그 시절 목록에서 고르기" 상태. 모드 "browse" 에서만 사용. 무료.
+  const [eraData, setEraData] = useState<{ events: EraEvent[]; songs: EraSong[] } | null>(null);
+  const [eraLoading, setEraLoading] = useState(false);
+  const [eraError, setEraError] = useState<string | null>(null);
+  const [decade, setDecade] = useState<number>(1990);
+  const [eraTab, setEraTab] = useState<"events" | "songs">("events");
+  // 이번 세션에 담은 항목 key(`${kind}:${id}`) — 옵티미스틱 "✓ 담음" 표시.
+  // life_event 는 monthEventId 를 안 채워 영구 추적이 안 되므로 세션 한정.
+  const [addedKeys, setAddedKeys] = useState<Set<string>>(new Set());
+  const [, startEraTransition] = useTransition();
+
+  // browse 진입 시 카탈로그 lazy 로드 (모든 페이지에서 prefetch 안 함).
+  useEffect(() => {
+    if (mode !== "browse" || eraData || eraLoading) return;
+    setEraLoading(true);
+    setEraError(null);
+    getEraCatalog()
+      .then((d) => {
+        setEraData({ events: d.events, songs: d.songs });
+        setDecade(d.defaultDecade);
+      })
+      .catch(() => setEraError("목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요."))
+      .finally(() => setEraLoading(false));
+  }, [mode, eraData, eraLoading]);
+
+  function addEraItem(kind: "event" | "song", id: string) {
+    const key = `${kind}:${id}`;
+    if (addedKeys.has(key)) return;
+    setEraError(null);
+    setAddedKeys((prev) => new Set(prev).add(key)); // 옵티미스틱
+    startEraTransition(async () => {
+      try {
+        const res = await addEraItemAsLifeEvent(kind, id);
+        if (!res.ok) throw new Error(res.reason);
+      } catch {
+        setAddedKeys((prev) => {
+          const n = new Set(prev);
+          n.delete(key);
+          return n;
+        });
+        setEraError("담지 못했어요. 잠시 후 다시 시도해 주세요.");
+      }
+    });
+  }
+
   // 채팅 thread 스크롤 컨테이너. 새 메시지 도착 시 맨 아래(최신)로 자동
   // 이동. instant scroll — 시니어 친화 (smooth 는 살짝 어지러울 수 있음).
   // commit 후 effect 가 실행되므로 답 카드(SongCard·events 등) 렌더 끝나
@@ -226,10 +310,12 @@ export function AssistantPanel({
   const threadRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = threadRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
+
+  useEffect(() => {
+    if (tutThreadRef.current) tutThreadRef.current.scrollTop = tutThreadRef.current.scrollHeight;
+  }, [tutMsgs]);
 
   function ask(question: string) {
     const q = question.trim();
@@ -285,6 +371,29 @@ export function AssistantPanel({
         console.error("[assistant-ask]", err);
         setError("답을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.");
         rollback();
+      }
+    });
+  }
+
+  function askTutorial(q: string) {
+    const question = q.trim();
+    if (!question || tutIsPending) return;
+    setTutError(null);
+    const prior = tutMsgs.map((m) => ({ role: m.role, text: m.text }));
+    setTutMsgs((prev) => [...prev, { role: "user" as const, text: question }]);
+    startTutTransition(async () => {
+      try {
+        const res = await fetch("/api/tutorial-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, prior }),
+        });
+        if (!res.ok) throw new Error("fetch failed");
+        const data = (await res.json()) as { text?: string };
+        setTutMsgs((prev) => [...prev, { role: "assistant" as const, text: data.text ?? "..." }]);
+      } catch {
+        setTutMsgs((prev) => prev.slice(0, -1));
+        setTutError("답을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.");
       }
     });
   }
@@ -351,24 +460,223 @@ export function AssistantPanel({
     });
   }
 
-  // 2026-06-07 — 모드 선택 화면. 첫 진입과 "← 뒤로" 후 다시 보이는 화면.
-  // 채팅 thread 와 저장된 답변 state 는 부모(이 함수)에 그대로 살아 있어,
-  // 다른 모드로 돌아와도 잃지 않음.
+  // G1 — 3버튼 허브. 채팅·저장 state 는 부모에 살아 있어 모드 전환에도 보존.
   if (mode === "selecting") {
     return (
-      <ModeSelectionView
-        savedCount={savedAnswers.length}
-        onPick={(m) => {
-          setMode(m);
-          setView("chat");
-        }}
-        onOpenSaved={() => {
-          // 모드를 정해 두지 않으면 "← 뒤로" 한 번에 다시 selecting 으로
-          // 와야 하므로 stories(무료, 가벼움)를 기본 둠.
-          setMode("stories");
-          setView("saved");
-        }}
+      <HubView
+        onNavigate={onNavigate}
+        onPickEra={() => setMode("era-selecting")}
+        onPickTutorial={() => setMode("tutorial")}
       />
+    );
+  }
+
+  // G2 — "그 시절 이야기" 갈래: 목록에서 고르기(browse) vs AI 대화(ask).
+  if (mode === "era-selecting") {
+    return (
+      <EraSelectionView
+        savedCount={savedAnswers.length}
+        onPickBrowse={() => setMode("browse")}
+        onPickAsk={() => { setMode("ask"); setView("chat"); }}
+        onOpenSaved={() => { setMode("stories"); setView("saved"); }}
+        onBack={() => setMode("selecting")}
+      />
+    );
+  }
+
+  // G2 — 시대 목록에서 직접 고르기. 연대 탭 + 사건/음악 탭 + "기억나요" 담기.
+  if (mode === "browse") {
+    const items = !eraData
+      ? []
+      : eraTab === "events"
+        ? eraData.events.filter((e) => decadeOf(e.year) === decade)
+        : eraData.songs.filter((s) => decadeOf(s.year) === decade);
+
+    return (
+      <aside className="flex flex-col gap-4 rounded-md border-2 border-brand bg-banner p-6">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setMode("era-selecting")}
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-md border-2 border-brand bg-surface px-3 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          >
+            ← 뒤로
+          </button>
+          <span className="text-base font-semibold text-action sm:text-lg">
+            📋 그 시절 목록에서 고르기
+          </span>
+        </div>
+
+        <p className="text-base text-ink-soft">
+          기억나는 일이나 노래를 고르면 내 인생 연혁에 담겨요. 나중에 이야기를 덧붙일 수 있어요.
+        </p>
+
+        {/* 연대 탭 */}
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="연대 선택">
+          {DECADES.map((d) => (
+            <button
+              key={d}
+              type="button"
+              role="tab"
+              aria-selected={decade === d}
+              onClick={() => setDecade(d)}
+              className={
+                "min-h-[48px] rounded-md border-2 px-4 py-2 text-base font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
+                (decade === d
+                  ? "border-brand bg-banner text-action"
+                  : "border-line bg-surface text-ink-soft hover:bg-banner")
+              }
+            >
+              {decadeLabel(d)}
+            </button>
+          ))}
+        </div>
+
+        {/* 사건 / 음악 탭 */}
+        <div className="flex gap-2" role="tablist" aria-label="종류 선택">
+          <TabButton active={eraTab === "events"} onClick={() => setEraTab("events")} label="📅 사건" />
+          <TabButton active={eraTab === "songs"} onClick={() => setEraTab("songs")} label="🎵 음악" />
+        </div>
+
+        <div aria-live="polite">
+          {eraError && <p className="text-base text-rose-700" role="alert">{eraError}</p>}
+        </div>
+
+        {eraLoading && <p className="text-base text-ink-soft">목록을 불러오는 중…</p>}
+
+        {!eraLoading && !eraError && items.length === 0 && (
+          <p className="rounded-md border-2 border-dashed border-brand bg-surface p-6 text-center text-base text-ink-soft">
+            이 시기의 {eraTab === "events" ? "사건" : "음악"}은 아직 준비 중이에요. 다른 연대를 골라보세요.
+          </p>
+        )}
+
+        {!eraLoading && items.length > 0 && (
+          <ul className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto overscroll-contain pr-2 [scrollbar-width:auto] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-brand [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-banner [&::-webkit-scrollbar]:w-3">
+            {items.map((it) => {
+              const isEvent = eraTab === "events";
+              const key = `${isEvent ? "event" : "song"}:${it.id}`;
+              const added = addedKeys.has(key);
+              const title = isEvent
+                ? (it as EraEvent).title
+                : `${(it as EraSong).title}${(it as EraSong).artist ? ` — ${(it as EraSong).artist}` : ""}`;
+              const sub = isEvent
+                ? (it as EraEvent).description
+                : null;
+              return (
+                <li
+                  key={it.id}
+                  className="flex flex-col gap-2 rounded-md border-2 border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-lg font-semibold text-ink">
+                      <span className="text-ink-soft">{it.year}</span> {title}
+                    </p>
+                    {sub && <p className="mt-1 text-base text-ink-soft">{sub}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addEraItem(isEvent ? "event" : "song", it.id)}
+                    disabled={added}
+                    className="shrink-0 min-h-[48px] rounded-md border-2 border-amber-500 bg-amber-50 px-4 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-line disabled:bg-canvas disabled:text-ink-soft"
+                  >
+                    {added ? "✓ 담음" : "기억나요 +"}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </aside>
+    );
+  }
+
+  // G1 — 사용법 안내 챗. 토큰 차감 X, 저장 X.
+  if (mode === "tutorial") {
+    return (
+      <aside className="flex flex-col gap-4 rounded-md border-2 border-brand bg-banner p-6">
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setMode("selecting")}
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-md border-2 border-brand bg-surface px-3 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          >
+            ← 뒤로
+          </button>
+          <span className="text-base font-semibold text-action sm:text-lg">❓ 사용법 물어보기</span>
+        </div>
+
+        {tutMsgs.length === 0 && (
+          <p className="text-base text-ink-soft">
+            뭐가 궁금하세요? 아래 버튼을 누르거나 직접 물어보세요.
+          </p>
+        )}
+
+        {tutMsgs.length > 0 && (
+          <div
+            ref={tutThreadRef}
+            className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto overscroll-contain pr-2 [scrollbar-width:auto] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-brand [&::-webkit-scrollbar-thumb:hover]:bg-action [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-banner [&::-webkit-scrollbar]:w-3"
+          >
+            {tutMsgs.map((m, i) =>
+              m.role === "user" ? (
+                <div key={i} className="self-end max-w-[90%] rounded-md bg-action px-4 py-3 text-base text-white">
+                  {m.text}
+                </div>
+              ) : (
+                <div key={i} className="rounded-md border-2 border-brand bg-surface p-4">
+                  <p className="whitespace-pre-line text-lg leading-relaxed text-ink">{m.text}</p>
+                </div>
+              ),
+            )}
+          </div>
+        )}
+
+        {tutMsgs.length === 0 && (
+          <div className="flex flex-wrap gap-2">
+            {TUTORIAL_CHIPS.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => askTutorial(q)}
+                disabled={tutIsPending}
+                className="flex min-h-[56px] items-center rounded-md border-2 border-brand bg-surface px-4 py-2 text-left hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="text-base font-semibold text-action">{q}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div aria-live="polite">
+          {tutError && <p className="text-base text-rose-700" role="alert">{tutError}</p>}
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="text"
+            value={tutInput}
+            onChange={(e) => setTutInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !tutIsPending) {
+                e.preventDefault();
+                askTutorial(tutInput);
+                setTutInput("");
+              }
+            }}
+            placeholder="궁금한 점을 물어보세요"
+            aria-label="사용법 질문"
+            disabled={tutIsPending}
+            className="min-h-[52px] flex-1 rounded-md border-2 border-brand bg-surface px-4 py-3 text-lg text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-50"
+          />
+          <button
+            type="button"
+            onClick={() => { askTutorial(tutInput); setTutInput(""); }}
+            disabled={tutIsPending || tutInput.trim() === ""}
+            className="min-h-[52px] rounded-md bg-action px-6 py-3 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {tutIsPending ? "답하는 중…" : "물어보기"}
+          </button>
+        </div>
+      </aside>
     );
   }
 
@@ -383,7 +691,7 @@ export function AssistantPanel({
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"
-          onClick={() => setMode("selecting")}
+          onClick={() => setMode("era-selecting")}
           className="inline-flex min-h-[44px] items-center gap-1 rounded-md border-2 border-brand bg-surface px-3 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           ← 뒤로
@@ -570,37 +878,120 @@ export function AssistantPanel({
   );
 }
 
-// 2026-06-07 — 모드 선택 화면. 첫 진입과 "← 뒤로" 후 다시 보이는 화면.
-// 두 큰 버튼만 — 한 화면에 선택지 2개로 과부하 방지. 저장된 답이 이미 있으면
-// 작은 보조 링크 한 줄.
-function ModeSelectionView({
-  savedCount,
-  onPick,
-  onOpenSaved,
+// G1 — 허브 뷰 (3버튼). "selecting" 모드에서 렌더.
+function HubView({
+  onNavigate,
+  onPickEra,
+  onPickTutorial,
 }: {
-  savedCount: number;
-  onPick: (m: "stories" | "ask") => void;
-  onOpenSaved: () => void;
+  onNavigate?: (href: string) => void;
+  onPickEra: () => void;
+  onPickTutorial: () => void;
 }) {
   return (
     <aside className="flex flex-col gap-5 rounded-md border-2 border-brand bg-banner p-6">
       <div>
-        <h2 className="text-2xl font-bold text-ink sm:text-3xl">
-          무엇을 찾아볼까요?
-        </h2>
-        <p className="mt-2 text-base text-ink-soft sm:text-lg">
-          궁금한 게 있으면 가볍게 물어보세요.
-        </p>
+        <h2 className="text-2xl font-bold text-ink sm:text-3xl">무엇을 찾아볼까요?</h2>
+        <p className="mt-2 text-base text-ink-soft sm:text-lg">아래 중 하나를 골라보세요.</p>
+      </div>
+      <div className="flex flex-col gap-3">
+        <HubCard
+          emoji="💬"
+          title="이야기 나누기"
+          desc="AI 동반자와 이야기를 나누면 인생 연혁에 자동으로 기록돼요."
+          tag="무료"
+          tagClass="border-success bg-success/10 text-success"
+          onClick={() => onNavigate?.("/life-timeline/companion")}
+        />
+        <HubCard
+          emoji="🕰️"
+          title="그 시절 이야기"
+          desc="그 시절 노래·큰 사건을 함께 떠올려요."
+          tag="일부 토큰 사용"
+          tagClass="border-line bg-canvas text-ink"
+          onClick={onPickEra}
+        />
+        <HubCard
+          emoji="❓"
+          title="사용법 물어보기"
+          desc="Lifebook 사용 중 궁금한 점을 물어보세요."
+          tag="무료"
+          tagClass="border-success bg-success/10 text-success"
+          onClick={onPickTutorial}
+        />
+      </div>
+    </aside>
+  );
+}
+
+function HubCard({
+  emoji,
+  title,
+  desc,
+  tag,
+  tagClass,
+  onClick,
+}: {
+  emoji: string;
+  title: string;
+  desc: string;
+  tag: string;
+  tagClass: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex min-h-[96px] items-start gap-4 rounded-md border-2 border-brand bg-surface p-5 text-left hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+    >
+      <span aria-hidden className="text-3xl">{emoji}</span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="text-xl font-bold text-ink sm:text-2xl">{title}</span>
+        <span className="text-base text-ink-soft sm:text-lg">{desc}</span>
+        <span className={"mt-1 inline-flex w-fit items-center rounded-full border-2 px-3 py-0.5 text-xs font-semibold " + tagClass}>{tag}</span>
+      </div>
+    </button>
+  );
+}
+
+// G2 — "그 시절 이야기" 갈래 선택. "era-selecting" 모드에서 렌더.
+//   browse : 시대 목록에서 직접 고르기 (무료, 신규)
+//   ask    : AI 에게 물어보며 찾기 (기존, 검색 토큰)
+function EraSelectionView({
+  savedCount,
+  onPickBrowse,
+  onPickAsk,
+  onOpenSaved,
+  onBack,
+}: {
+  savedCount: number;
+  onPickBrowse: () => void;
+  onPickAsk: () => void;
+  onOpenSaved: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <aside className="flex flex-col gap-5 rounded-md border-2 border-brand bg-banner p-6">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex min-h-[44px] items-center gap-1 rounded-md border-2 border-brand bg-surface px-3 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+        >
+          ← 뒤로
+        </button>
+        <h2 className="text-xl font-bold text-ink sm:text-2xl">🕰️ 그 시절 이야기</h2>
       </div>
 
       <div className="flex flex-col gap-3">
         <ModeCard
-          icon={BookOpen}
-          title="그 시절 이야기"
-          desc="노래·큰 사건 등 우리 자료에서 골라드려요."
+          icon={ListChecks}
+          title="목록에서 고르기"
+          desc="그 시절 사건·노래를 보고 기억나는 걸 골라 담아요."
           tag="무료"
           tagClass="border-success bg-success/10 text-success"
-          onClick={() => onPick("stories")}
+          onClick={onPickBrowse}
         />
         <ModeCard
           icon={Search}
@@ -608,7 +999,7 @@ function ModeSelectionView({
           desc="인터넷에서 찾아드려요. 더 폭넓게 답할 수 있어요."
           tag="토큰 사용"
           tagClass="border-line bg-canvas text-ink"
-          onClick={() => onPick("ask")}
+          onClick={onPickAsk}
         />
       </div>
 

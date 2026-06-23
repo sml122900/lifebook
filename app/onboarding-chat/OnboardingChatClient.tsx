@@ -6,6 +6,7 @@ import { QUESTIONS } from "@/lib/onboarding/questions";
 import type { Question } from "@/lib/onboarding/questions";
 import {
   completeOnboardingChat,
+  extractAndSaveStoryEvents,
   extractOnboardingPeople,
   saveOnboardingPerson,
 } from "./actions";
@@ -84,6 +85,9 @@ export default function OnboardingChatClient() {
   const [candidateIdx, setCandidateIdx] = useState(0);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // F4 — 모델 선택 (슬러그 전달 → 서버가 화이트리스트 맵으로 변환)
+  const [model, setModel] = useState<"haiku" | "sonnet">("sonnet");
 
   // TTS — CompanionClient 동일 패턴 (stale closure 방지용 ref)
   const [ttsOn, setTtsOn] = useState(false);
@@ -253,7 +257,7 @@ export default function OnboardingChatClient() {
       const res = await fetch("/api/onboarding-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: q.key, input }),
+        body: JSON.stringify({ key: q.key, input, model }),
       });
       if (!res.ok) return null;
       const data = (await res.json()) as { value?: unknown; region?: string | null };
@@ -291,6 +295,35 @@ export default function OnboardingChatClient() {
     }
   }
 
+  // F3 이야기형 질문 처리 — Sonnet 추출 → life_event 저장 → 동적 ack
+  async function handleStorySubmit(
+    q: Question,
+    input: string,
+    isReview: boolean,
+    rQueue: string[],
+    curIdx: number,
+  ) {
+    setIsParsing(true);
+    try {
+      const { count } = await extractAndSaveStoryEvents(
+        input,
+        answersRef.current.birthYear,
+        model,
+      );
+      const ack =
+        count > 0
+          ? `감사해요! ${count}가지 이야기를 인생 연혁에 기록했어요. 😊`
+          : "말씀해 주셔서 감사해요. 😊";
+      storeAnswer(q.key, input);
+      advanceAfterKey(isReview, rQueue, curIdx, ack);
+    } catch (e) {
+      console.error("[onboarding/story]", e instanceof Error ? e.message : e);
+      advanceAfterKey(isReview, rQueue, curIdx, "말씀해 주셔서 감사해요. 😊");
+    } finally {
+      setIsParsing(false);
+    }
+  }
+
   async function handleSubmit(rawInput: string) {
     const input = rawInput.trim();
     if (!input || isParsing || isPending) return;
@@ -316,6 +349,12 @@ export default function OnboardingChatClient() {
 
     if (isSkipInput(input)) {
       handleNullOrSkip(q, isReview, rQueue, curIdx, retriedKeys);
+      return;
+    }
+
+    // F3 이야기형 질문 — parseAnswer 바이패스, 사건 추출·저장 직행
+    if (q.kind === "story") {
+      await handleStorySubmit(q, input, isReview, rQueue, curIdx);
       return;
     }
 
@@ -458,7 +497,30 @@ export default function OnboardingChatClient() {
             {qIdx + 1}&nbsp;/&nbsp;{QUESTIONS.length}
           </span>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
+          {/* 모델 선택 — 빠르게(Haiku) / 꼼꼼하게(Sonnet) */}
+          <div
+            className="flex overflow-hidden rounded-full border border-[var(--color-line)]"
+            role="group"
+            aria-label="AI 정확도 선택"
+          >
+            {(["haiku", "sonnet"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setModel(m)}
+                aria-pressed={model === m}
+                className={[
+                  "px-3 py-1 text-xs font-medium transition-colors",
+                  model === m
+                    ? "bg-[var(--color-brand)] text-white"
+                    : "text-[var(--color-ink-subtle)] hover:text-[var(--color-ink)]",
+                ].join(" ")}
+              >
+                {m === "haiku" ? "빠르게" : "꼼꼼하게"}
+              </button>
+            ))}
+          </div>
+          {/* TTS 토글 */}
           <span className="text-xs text-[var(--color-ink-subtle)]">소리로 듣기</span>
           <button
             onClick={() => setTtsOn((v) => !v)}

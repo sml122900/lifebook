@@ -9,7 +9,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { chat } from "@/lib/ai";
 
-const PARSE_MODEL = "claude-haiku-4-5-20251001";
+// 기본 파싱 모델. 클라가 슬러그를 보내면 아래 맵으로 오버라이드.
+const PARSE_MODEL_DEFAULT = "claude-haiku-4-5-20251001";
+
+// F4 — 허용된 모델만 사용 (모델 인젝션 방지)
+const PARSE_MODEL_IDS: Record<string, string> = {
+  haiku: "claude-haiku-4-5-20251001",
+  sonnet: "claude-sonnet-4-6",
+};
 const INTEREST_OPTIONS = ["영화", "드라마/예능", "음악", "게임", "스포츠", "시사/뉴스", "기술/IT"];
 
 function buildPrompt(key: string, input: string): string {
@@ -64,14 +71,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let key: string, input: string;
+  let key: string, input: string, parseModel: string;
   try {
-    const body = (await req.json()) as { key?: unknown; input?: unknown };
+    const body = (await req.json()) as { key?: unknown; input?: unknown; model?: unknown };
     if (typeof body.key !== "string" || typeof body.input !== "string") {
       return NextResponse.json({ value: null });
     }
     key = body.key;
     input = body.input.trim().slice(0, 500);
+    // model 슬러그 화이트리스트 검증 — 미매핑이면 기본값으로 폴백
+    parseModel =
+      typeof body.model === "string" && body.model in PARSE_MODEL_IDS
+        ? PARSE_MODEL_IDS[body.model]!
+        : PARSE_MODEL_DEFAULT;
   } catch {
     return NextResponse.json({ value: null });
   }
@@ -81,7 +93,7 @@ export async function POST(req: Request) {
   try {
     const prompt = buildPrompt(key, input);
     const result = await chat([{ role: "user", content: prompt }], {
-      model: PARSE_MODEL,
+      model: parseModel,
       maxTokens: 200,
       temperature: 0,
     });

@@ -8,11 +8,30 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { chat } from "@/lib/ai";
 import { createPerson } from "@/lib/people";
+import { createLifeEvent } from "@/lib/life-events";
+import type { LifeCategory } from "@/lib/generated/prisma/enums";
 import type { PlaceInfo } from "@/lib/place-types";
 
 // companion-extraction.ts 와 동일 모델 (가족 관계 disambiguation)
 const PEOPLE_EXTRACT_MODEL =
   process.env.COMPANION_EXTRACT_MODEL ?? "claude-sonnet-4-6";
+
+// F3 이야기형 질문 사건 추출 기본 모델 (F4 선택 UI로 오버라이드 가능).
+const STORY_EXTRACT_MODEL =
+  process.env.ONBOARDING_STORY_MODEL ?? "claude-sonnet-4-6";
+
+// F4 — 클라에서 받은 슬러그를 실제 모델 ID로 변환 (화이트리스트).
+const STORY_MODEL_IDS = {
+  haiku: "claude-haiku-4-5-20251001",
+  sonnet: "claude-sonnet-4-6",
+} as const;
+
+type StoryModelChoice = keyof typeof STORY_MODEL_IDS;
+
+const VALID_CATEGORIES = new Set([
+  "BIRTH", "KINDERGARTEN", "ELEMENTARY", "MIDDLE", "HIGH",
+  "UNIVERSITY", "MILITARY", "WORK", "MARRIAGE", "FAMILY",
+]);
 
 export type ParsedAnswers = {
   birthYear?: number;
@@ -133,6 +152,110 @@ ${text.slice(0, 600)}
     console.error("[extractOnboardingPeople]", e instanceof Error ? e.message : e);
     return [];
   }
+}
+
+// F3 — 이야기형 답변에서 인생 사건 추출 → life_event 즉시 등록.
+//
+// 동작:
+//   1. Sonnet 으로 사건 추출 (birthYear 로 연도 추정 보조)
+//   2. 연도가 있는 사건만 createLifeEvent(isDraft=false) — 바로 연혁 표시
+//   3. 이야기당 최대 5건 cap
+//   빈 이야기/추출 실패/연도 없는 사건 → count=0, 호출자가 넘어가기 처리
+export async function extractAndSaveStoryEvents(
+  story: string,
+  birthYear?: number,
+  model: StoryModelChoice = "sonnet",
+): Promise<{ count: number }> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const userId = session.user.id;
+
+  if (!story.trim()) return { count: 0 };
+
+  const yearHint = birthYear
+    ? `사용자는 ${birthYear}년생입니다. 연도가 명시되지 않으면 생년 + 카테고리 나이로 추정하세요: KINDERGARTEN=생년+5, ELEMENTARY=생년+8, MIDDLE=생년+14, HIGH=생년+16, UNIVERSITY=생년+20, MILITARY=생년+22, WORK=생년+25. 추정 불가능하면 null.`
+    : "연도가 불확실하면 null.";
+
+  const userMsg = `다음 이야기에서 사용자 인생의 구체적 사건을 추출하세요. ${yearHint}
+제목은 간결하게(30자 이내). content는 이야기 내용을 한 문장(100자 이내)으로 요약.
+카테고리는 다음 중 하나(맞는 게 없으면 null): ELEMENTARY, MIDDLE, HIGH, UNIVERSITY, MILITARY, WORK, MARRIAGE, FAMILY, KINDERGARTEN.
+JSON 배열만 출력: [{"title":"...","year":숫자|null,"month":숫자|null,"content":"...","category":"..."|null}]
+사건 없으면: []
+
+---이야기---
+${story.slice(0, 800)}
+---끝---`;
+
+  type RawEvent = {
+    title: string;
+    year: number | null;
+    month: number | null;
+    content: string | null;
+    category: string | null;
+  };
+
+  let events: RawEvent[] = [];
+  try {
+    const res = await chat([{ role: "user", content: userMsg }], {
+      system: "유효한 JSON 배열만 출력하세요. 다른 텍스트는 절대 출력하지 마세요.",
+      model: STORY_MODEL_IDS[model] ?? STORY_EXTRACT_MODEL,
+      maxTokens: 512,
+      temperature: 0.1,
+    });
+
+    const match = res.text.match(/\[[\s\S]*\]/);
+    if (match) {
+      const arr = JSON.parse(match[0]) as unknown[];
+      events = arr
+        .filter(
+          (x): x is Record<string, unknown> =>
+            x !== null &&
+            typeof x === "object" &&
+            typeof (x as Record<string, unknown>).title === "string",
+        )
+        .map((x) => ({
+          title: String(x.title).trim().slice(0, 100),
+          year: typeof x.year === "number" ? Math.trunc(x.year) : null,
+          month: typeof x.month === "number" ? Math.trunc(x.month) : null,
+          content:
+            typeof x.content === "string"
+              ? x.content.trim().slice(0, 500) || null
+              : null,
+          category:
+            typeof x.category === "string" && VALID_CATEGORIES.has(x.category)
+              ? x.category
+              : null,
+        }))
+        .filter((e) => e.title.length > 0);
+    }
+  } catch (e) {
+    console.error("[extractAndSaveStoryEvents/extract]", e instanceof Error ? e.message : e);
+    return { count: 0 };
+  }
+
+  // 연도 있는 사건만 저장, 이야기당 최대 5건
+  let count = 0;
+  for (const ev of events.slice(0, 5)) {
+    if (!ev.year) continue;
+    try {
+      await createLifeEvent(
+        userId,
+        (ev.category ?? "FAMILY") as LifeCategory,
+        {
+          title: ev.title,
+          year: ev.year,
+          month: ev.month,
+          content: ev.content,
+          endYear: null,
+          endMonth: null,
+        },
+      );
+      count++;
+    } catch (e) {
+      console.error("[extractAndSaveStoryEvents/save]", e instanceof Error ? e.message : e);
+    }
+  }
+  return { count };
 }
 
 // 온보딩에서 확인된 인물 저장 (isDraft=false 기본값).

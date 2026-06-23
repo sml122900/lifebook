@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PlaceInfo } from "@/lib/place-types";
-import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
+
+// Place 검색 로직은 /api/place-search 엔드포인트 재사용 (PlaceSearchInput 동일 패턴)
+const DEBOUNCE_MS = 300;
+const MIN_QUERY_LEN = 2;
+
+type PlaceResult = { name: string; address: string; lat: number | null; lng: number | null };
+type Suggestion = { text: string; placeId: string };
 
 const EMPTY_PLACE: PlaceInfo = {
   placeName: null,
@@ -111,9 +117,10 @@ export function ChipsWidget({
 }
 
 // ─── 장소 매핑 포함 항목 리스트 (residences·schools) ────────────
-// MultiItemWidget 과 동일 UX + 항목마다 "📍 지도에서 찾기" 토글.
-// PlaceSearchInput(기존 3단 flow) 재사용.
-// onSubmit(names, places, qKey) — places 는 PlaceInfo 배열(위치 미선택 = EMPTY_PLACE).
+// F5: 검색창 항상 노출 (네이버 기본) + "구글로 전환" 옵션.
+// 결과 클릭 → 좌표 포함 추가. 결과 없거나 건너뛰면 → 텍스트만 추가.
+// 검색 API: /api/place-search (PlaceSearchInput 동일 엔드포인트 재사용).
+// onSubmit(names, places, qKey) — places 는 PlaceInfo 배열(좌표 없으면 EMPTY_PLACE).
 
 type PlaceItem = { name: string; place: PlaceInfo };
 
@@ -128,115 +135,337 @@ export function PlaceableMultiItemWidget({
   onSubmit: (names: string[], places: PlaceInfo[], key: string) => void;
   disabled: boolean;
 }) {
-  const [inputVal, setInputVal] = useState("");
   const [items, setItems] = useState<PlaceItem[]>([]);
-  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
-  function add() {
-    const t = inputVal.trim();
-    if (!t || items.some((i) => i.name === t)) return;
-    // placeName 에 item 이름 넣어두면 PlaceSearchInput step B 검색창 prefill 됨
-    setItems((prev) => [...prev, { name: t, place: { ...EMPTY_PLACE, placeName: t } }]);
-    setInputVal("");
+  // 검색 상태 — 네이버 기본
+  const [source, setSource] = useState<"naver" | "google">("naver");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<PlaceResult[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+
+  // Debounce 검색 — /api/place-search 재사용 (PlaceSearchInput 동일 패턴)
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < MIN_QUERY_LEN) {
+      setResults([]);
+      setSuggestions([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    const id = ++requestIdRef.current;
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const isGoogle = source === "google";
+        const body = isGoogle
+          ? JSON.stringify({ action: "autocomplete", query: trimmed })
+          : JSON.stringify({ query: trimmed, source });
+        const res = await fetch("/api/place-search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          signal: ctrl.signal,
+        });
+        if (id !== requestIdRef.current) return;
+
+        if (isGoogle) {
+          const data = (await res.json()) as {
+            ok: boolean;
+            suggestions?: Suggestion[];
+            error?: string;
+          };
+          if (!data.ok) {
+            setError(data.error ?? "장소를 찾지 못했어요.");
+            setSuggestions([]);
+          } else {
+            setSuggestions(data.suggestions ?? []);
+          }
+          setResults([]);
+        } else {
+          const data = (await res.json()) as {
+            ok: boolean;
+            results?: PlaceResult[];
+            error?: string;
+          };
+          if (!data.ok) {
+            setError(data.error ?? "장소를 찾지 못했어요.");
+            setResults([]);
+          } else {
+            setResults(data.results ?? []);
+          }
+          setSuggestions([]);
+        }
+      } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") return;
+        if (id !== requestIdRef.current) return;
+        setError("장소를 찾지 못했어요. 다른 이름으로 검색해보세요.");
+        setResults([]);
+        setSuggestions([]);
+      } finally {
+        if (id === requestIdRef.current) setLoading(false);
+      }
+    }, DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [query, source]);
+
+  function resetSearch() {
+    setQuery("");
+    setResults([]);
+    setSuggestions([]);
+    setError(null);
+  }
+
+  function addItem(name: string, place: PlaceInfo) {
+    const trimmedName = name.trim();
+    if (!trimmedName || items.some((i) => i.name === trimmedName)) return;
+    setItems((prev) => [...prev, { name: trimmedName, place }]);
+    resetSearch();
+  }
+
+  function addWithCoords(
+    name: string,
+    address: string | null,
+    lat: number | null,
+    lng: number | null,
+    src: "naver" | "google",
+  ) {
+    addItem(name, { placeName: name, placeAddress: address, lat, lng, placeSource: src });
+  }
+
+  async function pickSuggestion(s: Suggestion) {
+    setDetailLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/place-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "detail", placeId: s.placeId }),
+      });
+      const data = (await res.json()) as {
+        ok: boolean;
+        result?: PlaceResult;
+        error?: string;
+      };
+      if (data.ok && data.result) {
+        addWithCoords(
+          data.result.name,
+          data.result.address || null,
+          data.result.lat,
+          data.result.lng,
+          "google",
+        );
+      } else {
+        setError("장소 정보를 가져오지 못했어요. 다시 선택해보세요.");
+      }
+    } catch {
+      setError("장소 정보를 가져오지 못했어요. 다시 선택해보세요.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  // 결과 없거나 "선택 안 함" — 텍스트로만 추가 (좌표 없이)
+  function addTextOnly() {
+    const t = query.trim();
+    if (!t) return;
+    addItem(t, { ...EMPTY_PLACE, placeName: t });
   }
 
   function removeItem(idx: number) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
-    if (expandedIdx === idx) setExpandedIdx(null);
-    else if (expandedIdx !== null && expandedIdx > idx) setExpandedIdx(expandedIdx - 1);
   }
 
-  function handlePlaceChange(idx: number, p: PlaceInfo) {
-    setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, place: p } : item)));
-    if (p.lat !== null) setExpandedIdx(null); // 좌표 선택하면 자동 닫기
+  function switchSource(next: "naver" | "google") {
+    setSource(next);
+    setResults([]);
+    setSuggestions([]);
+    setError(null);
+    // query 유지 — 전환 즉시 재검색 트리거
   }
 
-  const isPinned = (item: PlaceItem) => item.place.lat !== null;
+  const trimmedQuery = query.trim();
+  const isEmptyResult =
+    !loading &&
+    !error &&
+    trimmedQuery.length >= MIN_QUERY_LEN &&
+    (source === "google" ? suggestions.length === 0 : results.length === 0);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* 추가된 항목 칩 */}
       {items.length > 0 && (
-        <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
           {items.map((item, idx) => (
-            <div key={`${item.name}-${idx}`} className="space-y-1">
-              {/* 칩 + 지도 버튼 */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={[
-                    "flex items-center gap-1 rounded-full px-3 py-1 text-[15px]",
-                    isPinned(item) ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800",
-                  ].join(" ")}
-                >
-                  {isPinned(item) && <span aria-hidden>📍</span>}
-                  {item.name}
-                  <button
-                    type="button"
-                    onClick={() => removeItem(idx)}
-                    disabled={disabled}
-                    aria-label={`${item.name} 제거`}
-                    className="leading-none opacity-60 hover:opacity-100"
-                  >
-                    ×
-                  </button>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
-                  disabled={disabled}
-                  className={[
-                    "text-[13px]",
-                    isPinned(item) ? "text-emerald-700" : "text-[var(--color-ink-subtle)]",
-                    "hover:text-[var(--color-ink)]",
-                  ].join(" ")}
-                >
-                  {expandedIdx === idx
-                    ? "닫기 ▲"
-                    : isPinned(item)
-                    ? "📍 바꾸기"
-                    : "📍 지도에서 찾기"}
-                </button>
-              </div>
-
-              {/* PlaceSearchInput 인라인 (DraftLocationCard 패턴 재사용) */}
-              {expandedIdx === idx && (
-                <div className="rounded-xl border border-[var(--color-line)] bg-white p-3">
-                  <PlaceSearchInput
-                    value={item.place}
-                    onChange={(p: PlaceInfo) => handlePlaceChange(idx, p)}
-                  />
-                </div>
-              )}
-            </div>
+            <span
+              key={`${item.name}-${idx}`}
+              className={[
+                "flex items-center gap-1 rounded-full px-3 py-1.5 text-[15px]",
+                item.place.lat !== null
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-amber-100 text-amber-800",
+              ].join(" ")}
+            >
+              {item.place.lat !== null && <span aria-hidden>📍</span>}
+              {item.name}
+              <button
+                type="button"
+                onClick={() => removeItem(idx)}
+                disabled={disabled}
+                aria-label={`${item.name} 제거`}
+                className="leading-none opacity-60 hover:opacity-100"
+              >
+                ×
+              </button>
+            </span>
           ))}
         </div>
       )}
 
-      {/* 텍스트 입력 + 추가 */}
-      <div className="flex gap-2">
-        <input
-          value={inputVal}
-          onChange={(e) => setInputVal(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") { e.preventDefault(); add(); }
-          }}
-          placeholder={placeholder}
-          disabled={disabled}
-          className="w-0 flex-1 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
-        />
+      {/* 검색 엔진 헤더 + 전환 버튼 */}
+      <div className="flex items-center justify-between">
+        <span className="text-[15px] font-medium text-[var(--color-ink)]">
+          {source === "naver" ? "🗺️ 네이버 지도 검색" : "🌍 구글 지도 검색"}
+        </span>
         <button
           type="button"
-          onClick={add}
-          disabled={!inputVal.trim() || disabled}
-          className="min-h-[56px] rounded-xl border border-[var(--color-brand)] px-4 text-[17px] font-medium text-[var(--color-brand)] disabled:opacity-40"
+          onClick={() => switchSource(source === "naver" ? "google" : "naver")}
+          disabled={disabled}
+          className="text-[13px] text-[var(--color-brand)] underline-offset-2 hover:underline disabled:opacity-50"
         >
-          추가
+          {source === "naver" ? "구글로 전환" : "네이버로 전환"}
         </button>
       </div>
 
+      {/* 검색 입력 (항상 노출) */}
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={
+          source === "naver"
+            ? (placeholder || "장소 이름 검색… (예: 서울 마포구)")
+            : "장소 이름 검색… (예: 강남역, Tokyo Station)"
+        }
+        disabled={disabled}
+        className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
+      />
+
+      {loading && (
+        <p className="text-[14px] text-[var(--color-ink-subtle)]">검색 중…</p>
+      )}
+      {error && (
+        <p
+          role="alert"
+          className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[14px] text-amber-900"
+        >
+          {error}
+        </p>
+      )}
+
+      {/* 네이버 결과 */}
+      {source === "naver" && !loading && !error && results.length > 0 && (
+        <ul className="flex flex-col gap-1" aria-label="장소 검색 결과">
+          {results.map((r, i) => (
+            <li key={`${r.name}-${i}`}>
+              <button
+                type="button"
+                onClick={() =>
+                  addWithCoords(r.name, r.address || null, r.lat, r.lng, "naver")
+                }
+                disabled={disabled}
+                className="flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-left hover:border-[var(--color-brand)] hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--color-brand)] disabled:opacity-50"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[17px] font-medium text-[var(--color-ink)]">
+                    {r.name}
+                  </span>
+                  {r.address && r.address !== r.name && (
+                    <span className="block text-[14px] text-[var(--color-ink-subtle)]">
+                      {r.address}
+                    </span>
+                  )}
+                </span>
+                <span
+                  aria-hidden
+                  className="shrink-0 text-[13px] font-semibold text-[var(--color-brand)]"
+                >
+                  추가 +
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* 구글 Autocomplete 결과 */}
+      {source === "google" && !loading && !error && suggestions.length > 0 && (
+        <ul className="flex flex-col gap-1" aria-label="장소 검색 결과">
+          {suggestions.map((s) => (
+            <li key={s.placeId}>
+              <button
+                type="button"
+                onClick={() => pickSuggestion(s)}
+                disabled={detailLoading || disabled}
+                className="flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-left hover:border-[var(--color-brand)] hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--color-brand)] disabled:opacity-50"
+              >
+                <span className="min-w-0 flex-1 text-[17px] text-[var(--color-ink)]">
+                  {s.text}
+                </span>
+                <span
+                  aria-hidden
+                  className="shrink-0 text-[13px] font-semibold text-[var(--color-brand)]"
+                >
+                  {detailLoading ? "…" : "추가 +"}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {source === "google" && detailLoading && (
+        <p className="text-[14px] text-[var(--color-ink-subtle)]">
+          장소 정보 가져오는 중…
+        </p>
+      )}
+
+      {isEmptyResult && (
+        <p className="text-[14px] text-[var(--color-ink-subtle)]">
+          결과가 없어요. 다른 이름으로 검색해보세요.
+        </p>
+      )}
+
+      {/* 텍스트로만 추가 — 결과 없거나 선택 안 할 때 */}
+      {trimmedQuery && (
+        <button
+          type="button"
+          onClick={addTextOnly}
+          disabled={disabled}
+          className="w-full min-h-[48px] rounded-xl border border-dashed border-[var(--color-line)] bg-white px-4 py-2 text-left text-[15px] text-[var(--color-ink-subtle)] hover:border-[var(--color-brand)] hover:text-[var(--color-ink)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--color-brand)] disabled:opacity-50"
+        >
+          📝 &ldquo;{trimmedQuery}&rdquo; 장소 검색 없이 추가
+        </button>
+      )}
+
+      {/* 완료 */}
       <button
         type="button"
         onClick={() =>
-          onSubmit(items.map((i) => i.name), items.map((i) => i.place), qKey)
+          onSubmit(
+            items.map((i) => i.name),
+            items.map((i) => i.place),
+            qKey,
+          )
         }
         disabled={items.length === 0 || disabled}
         className="w-full min-h-[56px] rounded-xl bg-[var(--color-action)] py-3 text-[17px] font-medium text-white disabled:opacity-40"

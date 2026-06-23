@@ -155,6 +155,7 @@ export function AssistantModal({
                 keptEventIds={EMPTY_SET}
                 onAddEvent={handleAddEvent}
                 initialSavedAnswers={initialSavedAnswers}
+                onNavigate={(href) => { setOpen(false); router.push(href); }}
               />
             </div>
           </div>

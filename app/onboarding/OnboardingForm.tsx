@@ -166,6 +166,9 @@ function QuestionInput({
       );
     case "text":
       return <TextInput value={(value as string | undefined) ?? ""} onChange={onChange} />;
+    case "story":
+      // 이야기형 질문은 채팅 온보딩 전용 — 정적 위저드에서는 표시하지 않음
+      return null;
   }
 }
 

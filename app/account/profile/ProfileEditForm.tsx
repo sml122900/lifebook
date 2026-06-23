@@ -51,7 +51,7 @@ export function ProfileEditForm({ initial }: { initial: ProfileInitial }) {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-6">
-      {QUESTIONS.map((q) => (
+      {QUESTIONS.filter((q) => q.kind !== "story").map((q) => (
         <section
           key={q.id}
           className="rounded-md border-2 border-line bg-surface p-5"

@@ -15,7 +15,15 @@ export type Question =
       prompt: string;
       hint?: string;
     }
-  // F3 보류: 이야기형 전환 예정
+  // F3 이야기형 — 이야기 받고 Sonnet으로 life_event 추출·저장
+  | {
+      id: string;
+      kind: "story";
+      key: string;
+      prompt: string;
+      optional: true;
+    }
+  // (F3 보류 → 이야기형 전환 완료. 아래 타입은 questions.ts에서 더 이상 사용 안 됨)
   | {
       id: string;
       kind: "tags";
@@ -54,12 +62,26 @@ export const QUESTIONS: Question[] = [
     prompt: "다닌 학교를 알려주세요.",
     hint: "기억나는 만큼만 적어도 좋아요.",
   },
-  // ── F3 보류: 이야기형 대화로 전환 예정 ─────────────────────────────────────
-  // { id: "fav-movies", kind: "tags", key: "favMovies", ... }
-  // { id: "fav-games",  kind: "tags", key: "favGames",  ... }
-  // { id: "fav-music",  kind: "tags", key: "favMusic",  ... }
-  // { id: "siblings",   kind: "text", key: "siblings",  ... }
-  // { id: "parents",    kind: "text", key: "parentsInfo", ... }
-  // { id: "close-friends", kind: "text", key: "closeFriends", ... }
-  // { id: "hobbies",    kind: "text", key: "hobbies",   ... }
+  // ── F3 이야기형 질문 (사건 추출 → life_event 즉시 등록) ─────────────────────
+  {
+    id: "school-life",
+    kind: "story",
+    key: "schoolLife",
+    prompt: "학창 시절 기억나는 일이 있으신가요? 편하게 이야기해 주세요.",
+    optional: true,
+  },
+  {
+    id: "work-life",
+    kind: "story",
+    key: "workLife",
+    prompt: "젊을 때나 직장 생활에서 기억나는 일이 있으세요?",
+    optional: true,
+  },
+  {
+    id: "family-life",
+    kind: "story",
+    key: "familyLife",
+    prompt: "가족이나 가까운 분들과 있었던 기억나는 이야기가 있으신가요?",
+    optional: true,
+  },
 ];
