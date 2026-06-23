@@ -39,6 +39,22 @@ function buildAck(key: string, value: unknown): string {
   }
 }
 
+// 브라우저 한국어 음성 선택 — onvoiceschanged 비동기 대응 (CompanionClient 동일 패턴)
+function getKoreanVoice(): Promise<SpeechSynthesisVoice | null> {
+  return new Promise((resolve) => {
+    const voices = speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      resolve(voices.find((v) => v.lang.startsWith("ko")) ?? null);
+      return;
+    }
+    const timer = setTimeout(() => resolve(null), 2_000);
+    speechSynthesis.onvoiceschanged = () => {
+      clearTimeout(timer);
+      resolve(speechSynthesis.getVoices().find((v) => v.lang.startsWith("ko")) ?? null);
+    };
+  });
+}
+
 const WELCOME =
   "안녕하세요! 저는 라이프북 도우미예요. 😊\n이야기를 시작하기 전에 몇 가지 여쭤봐도 될까요?\n나중에 함께 기억 여행을 할 때 도움이 될 거예요.\n언제든지 '넘어가기'를 눌러 건너뛰셔도 괜찮아요.";
 const RETRY_MSG =
@@ -69,12 +85,33 @@ export default function OnboardingChatClient() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // TTS — CompanionClient 동일 패턴 (stale closure 방지용 ref)
+  const [ttsOn, setTtsOn] = useState(false);
+  const ttsOnRef = useRef(false);
+  ttsOnRef.current = ttsOn;
+
+  async function speakText(text: string): Promise<void> {
+    if (!ttsOnRef.current) return;
+    const voice = await getKoreanVoice();
+    await new Promise<void>((resolve) => {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "ko-KR";
+      if (voice) utter.voice = voice;
+      utter.rate = 0.88;
+      utter.onend = () => resolve();
+      utter.onerror = () => resolve();
+      speechSynthesis.speak(utter);
+    });
+  }
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const addBot = (text: string) =>
+  const addBot = (text: string) => {
     setMessages((prev) => [...prev, { role: "a", text }]);
+    void speakText(text); // 비블로킹 — ttsOnRef OFF면 즉시 반환
+  };
   const addUser = (text: string) =>
     setMessages((prev) => [...prev, { role: "u", text }]);
 
@@ -411,17 +448,36 @@ export default function OnboardingChatClient() {
 
   return (
     <div className="flex h-screen flex-col bg-[var(--color-canvas)]">
-      {/* 진행 표시 */}
-      {phase === "chat" && (
-        <div className="flex items-center border-b border-[var(--color-line)] px-4 py-3">
-          <span className="text-sm font-medium text-[var(--color-ink)]">
-            라이프북 시작하기
-          </span>
-          <span className="ml-auto text-sm text-[var(--color-ink-subtle)]">
+      {/* 헤더 — 진행 표시 + TTS 토글 */}
+      <div className="flex items-center border-b border-[var(--color-line)] px-4 py-3 flex-shrink-0">
+        <span className="text-sm font-medium text-[var(--color-ink)]">
+          {phase === "chat" ? "라이프북 시작하기" : " "}
+        </span>
+        {phase === "chat" && (
+          <span className="mx-3 text-sm text-[var(--color-ink-subtle)]">
             {qIdx + 1}&nbsp;/&nbsp;{QUESTIONS.length}
           </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-[var(--color-ink-subtle)]">소리로 듣기</span>
+          <button
+            onClick={() => setTtsOn((v) => !v)}
+            className={[
+              "relative inline-flex h-6 w-10 items-center rounded-full transition-colors",
+              ttsOn ? "bg-[var(--color-action)]" : "bg-[var(--color-line)]",
+            ].join(" ")}
+            aria-pressed={ttsOn}
+            aria-label="TTS 켜기/끄기"
+          >
+            <span
+              className={[
+                "inline-block h-4 w-4 rounded-full bg-white shadow transition-transform",
+                ttsOn ? "translate-x-5" : "translate-x-1",
+              ].join(" ")}
+            />
+          </button>
         </div>
-      )}
+      </div>
 
       {/* 채팅 영역 */}
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
