@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { CURRENT_CONSENT_VERSION } from "@/lib/consent-version";
 
 import { ConsentForm } from "./ConsentForm";
 
@@ -9,6 +10,9 @@ import { ConsentForm } from "./ConsentForm";
 // 아직이면 미들웨어(proxy.ts)가 여기로 보낸다. 이미 다 동의했으면
 // /enter 로 통과시킨다 — /enter 가 인생 이벤트 유무를 보고 신규/기존을
 // 분기한다 (Phase L7).
+//
+// 버전 체크: timestamp 있어도 privacyConsentVersion < CURRENT 이면 폼 재노출.
+// (버전만 올라가면 기존 동의자도 재동의 필요 — 버전 없이 스킵하면 루프 발생)
 export default async function ConsentPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -19,13 +23,15 @@ export default async function ConsentPage() {
       privacyConsentAt: true,
       overseasTransferConsentAt: true,
       termsConsentAt: true,
+      privacyConsentVersion: true,
     },
   });
 
   if (
     user?.privacyConsentAt &&
     user?.overseasTransferConsentAt &&
-    user?.termsConsentAt
+    user?.termsConsentAt &&
+    (user?.privacyConsentVersion ?? 0) >= CURRENT_CONSENT_VERSION
   ) {
     redirect("/enter");
   }
