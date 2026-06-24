@@ -37,7 +37,8 @@ export type LifeEventInputRaw = {
   // 2026-06-07 — 끝 월(선택, endYear 가 있을 때만 의미).
   endMonth: number | null;
   content: string | null;
-  // Phase Place — 모든 카테고리에서 선택 가능. 미선택이면 모두 null.
+  // Phase Place — 모든 카테고리에서 선택 가능(장소 1:N). 미선택이면 빈 배열.
+  // 단일 place 는 옛 호출자 호환용(있으면 [place] 로 흡수). 신규는 places[].
   place?: {
     placeName: string | null;
     placeAddress: string | null;
@@ -45,6 +46,13 @@ export type LifeEventInputRaw = {
     lng: number | null;
     placeSource: string | null;
   };
+  places?: {
+    placeName: string | null;
+    placeAddress: string | null;
+    lat: number | null;
+    lng: number | null;
+    placeSource: string | null;
+  }[];
 };
 
 export type ActionResult =
@@ -61,7 +69,7 @@ type ValidationOk = {
   endYear: number | null;
   endMonth: number | null;
   content: string | null;
-  place: PlaceInfo;
+  places: PlaceInfo[];
 };
 type ValidationFail = { ok: false; error: string };
 
@@ -163,8 +171,15 @@ function validate(raw: LifeEventInputRaw): ValidationOk | ValidationFail {
     content = raw.content;
   }
 
-  const placeResult = validatePlace(raw.place);
-  if (!placeResult.ok) return { ok: false, error: placeResult.error };
+  // Phase Place(1:N) — places[] 우선, 없으면 단일 place 를 [place] 로 흡수.
+  // 각 항목 validatePlace 로 검증(placeName 있고 source 정상인 것만 채택).
+  const rawPlaces = raw.places ?? (raw.place ? [raw.place] : []);
+  const places: PlaceInfo[] = [];
+  for (const rp of rawPlaces) {
+    const pr = validatePlace(rp);
+    if (!pr.ok) return { ok: false, error: pr.error };
+    if (pr.place.placeName) places.push(pr.place);
+  }
 
   return {
     ok: true,
@@ -176,7 +191,7 @@ function validate(raw: LifeEventInputRaw): ValidationOk | ValidationFail {
     endYear,
     endMonth,
     content,
-    place: placeResult.place,
+    places,
   };
 }
 
@@ -199,7 +214,7 @@ export async function addLifeEventAction(
       endYear: v.endYear,
       endMonth: v.endMonth,
       content: v.content,
-      place: v.place,
+      places: v.places,
     },
     v.precision,
   );
@@ -230,7 +245,7 @@ export async function updateLifeEventAction(
       endYear: v.endYear,
       endMonth: v.endMonth,
       content: v.content,
-      place: v.place,
+      places: v.places,
     },
     v.precision,
   );

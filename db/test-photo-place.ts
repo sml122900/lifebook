@@ -15,7 +15,7 @@ import { prisma } from "../lib/db";
 import {
   createIndependentPhoto,
   deletePhotoOwned,
-  updatePhotoMemoryPlace,
+  updatePhotoMemoryPlaces,
 } from "../lib/photos";
 
 const PNG_1x1 = Buffer.from(
@@ -96,8 +96,8 @@ async function main() {
   check("getLifeEvents place.placeName 반영", photoRow?.place.placeName === "강원도 춘천시", photoRow?.place);
   check("kind=photo 유지", photoRow?.kind === "photo", photoRow?.kind);
 
-  console.log("\n[2] updatePhotoMemoryPlace 수정 (춘천 → 서울)");
-  const ok = await updatePhotoMemoryPlace(me.id, r.memoryId, SEOUL);
+  console.log("\n[2] updatePhotoMemoryPlaces 수정 (춘천 → 서울)");
+  const ok = await updatePhotoMemoryPlaces(me.id, r.memoryId, [SEOUL]);
   check("수정 ok", ok === true, ok);
   const mem2 = await prisma.userMemory.findUnique({
     where: { id: r.memoryId },
@@ -106,8 +106,8 @@ async function main() {
   check("placeName 서울로 변경", mem2?.placeName === "서울특별시청", mem2);
   check("placeSource google 로 변경", mem2?.placeSource === "google", mem2);
 
-  console.log("\n[3] 가드 — life_event 메모리엔 updatePhotoMemoryPlace X");
-  const guardLife = await updatePhotoMemoryPlace(me.id, lifeMem.id, SEOUL);
+  console.log("\n[3] 가드 — life_event 메모리엔 updatePhotoMemoryPlaces X");
+  const guardLife = await updatePhotoMemoryPlaces(me.id, lifeMem.id, [SEOUL]);
   check("life_event 대상 → false", guardLife === false, guardLife);
   const lifeRow = await prisma.userMemory.findUnique({
     where: { id: lifeMem.id },
@@ -116,7 +116,7 @@ async function main() {
   check("life_event 장소 안 바뀜(null 유지)", lifeRow?.placeName === null, lifeRow);
 
   console.log("\n[4] 남이 수정 시도 → false");
-  const denied = await updatePhotoMemoryPlace(other.id, r.memoryId, CHUNCHEON);
+  const denied = await updatePhotoMemoryPlaces(other.id, r.memoryId, [CHUNCHEON]);
   check("남의 시도 → false", denied === false, denied);
   const mem3 = await prisma.userMemory.findUnique({
     where: { id: r.memoryId },

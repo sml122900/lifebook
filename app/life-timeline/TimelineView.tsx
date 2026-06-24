@@ -7,7 +7,7 @@ import { createContext, useContext, useMemo, useState, useTransition } from "rea
 import { Camera, FolderOpen, MapPin, Pencil, User } from "lucide-react";
 
 import { AudioPlayer } from "@/app/components/AudioPlayer";
-import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
+import { PlacesEditor } from "@/app/components/PlacesEditor";
 import { unstashEraEventAction } from "@/app/era/actions";
 import { buttonClasses } from "@/components/ui/Button";
 import { EraMemoryEditor } from "@/app/era/EraMemoryEditor";
@@ -658,7 +658,7 @@ function TimelineRow({
                       기간 전체 성격이라 사진처럼 anchor 안 씀. PhotoStrip 은 유지. */}
                   {!e.isPeriodEnd && (
                     <>
-                      <PlacePreview place={e.place} align="right" />
+                      <PlacePreview places={e.places} align="right" />
                       <PeoplePreview
                         people={people}
                         align="right"
@@ -725,7 +725,7 @@ function TimelineRow({
                 {/* A — 기간 끝 점에선 인물·장소 숨김(시작 점에 1회). */}
                 {!e.isPeriodEnd && (
                   <>
-                    <PlacePreview place={e.place} align="left" />
+                    <PlacePreview places={e.places} align="left" />
                     <PeoplePreview
                       people={people}
                       align="left"
@@ -1133,17 +1133,41 @@ function EraCard({
   );
 }
 
-// 장소 미리보기 — 카드 아래 "📍 강원도 춘천" 작은 글씨. placeName 없으면
-// 렌더 X. 칩은 외부 a 태그 (target=_blank) — 카드 Link 와 다른 동작이라
-// 부모 카드 Link 와 충돌 없음(별도 형제).
+// 장소 미리보기 — 카드 아래 "📍 강원도 춘천" 작은 글씨들. 장소 1:N 이라
+// places[] 를 순회해 칩을 세로로 나열한다(어르신 친화 — 한 줄에 하나씩, 핀이
+// 명확히 구분). placeName 있는 것만, 하나도 없으면 섹션 자체를 렌더 X(빈 핀 X).
 function PlacePreview({
+  places,
+  align,
+}: {
+  places: LifeEvent["places"];
+  align: "left" | "right";
+}) {
+  const valid = places.filter((p) => p.placeName);
+  if (valid.length === 0) return null;
+  return (
+    <div
+      className={
+        "mt-1 flex max-w-[18rem] flex-col gap-0.5 " +
+        (align === "right" ? "items-end" : "items-start")
+      }
+    >
+      {valid.map((place, i) => (
+        <PlaceChip key={i} place={place} align={align} />
+      ))}
+    </div>
+  );
+}
+
+// 장소 칩 1개 — 외부 지도 새 탭 a 태그 (placeSource 별 분기는 externalMapHref).
+// 카드 Link 와 다른 동작이라 부모 카드 Link 와 충돌 없음(별도 형제).
+function PlaceChip({
   place,
   align,
 }: {
-  place: LifeEvent["place"];
+  place: PlaceInfo;
   align: "left" | "right";
 }) {
-  if (!place.placeName) return null;
   const href = externalMapHref(place);
   const sourceLabel =
     place.placeSource === "naver"
@@ -1152,7 +1176,7 @@ function PlacePreview({
         ? "구글 지도"
         : "지도";
   const className =
-    "mt-1 max-w-[18rem] text-xs leading-snug text-ink-soft hover:text-amber-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 " +
+    "text-xs leading-snug text-ink-soft hover:text-amber-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 " +
     (align === "right" ? "text-right" : "text-left");
   const content = (
     <>
@@ -1247,10 +1271,11 @@ function PhotoCard({
       : `${e.eventYear}년`;
   const ageSuffix = formatAgeSuffix(e, birthYear);
   const caption = e.content;
-  // C — 장소는 e.place(이미 이벤트에 있음)라 스레딩 불필요, 카드가 자체 관리.
-  // localPlace 옵티미스틱 — 저장 후 router.refresh() 가 prop 갱신 전까지 즉시 반영.
+  // C — 장소는 e.places(이미 이벤트에 있음)라 스레딩 불필요, 카드가 자체 관리.
+  // localPlaces 옵티미스틱 — 저장 후 router.refresh() 가 prop 갱신 전까지 즉시 반영.
+  // 입력은 아직 단일(PhotoPlaceModal) — H5 에서 다중 입력. 표시만 배열.
   const [placeOpen, setPlaceOpen] = useState(false);
-  const [localPlace, setLocalPlace] = useState<PlaceInfo>(e.place);
+  const [localPlaces, setLocalPlaces] = useState<PlaceInfo[]>(e.places);
   // 3단계 — "사건에 넣기" 모달. life_event 목록은 Context 로.
   const [attachOpen, setAttachOpen] = useState(false);
   const lifeEventOptions = useContext(LifeEventOptionsContext);
@@ -1329,16 +1354,16 @@ function PhotoCard({
         <p className="mt-2 text-sm leading-snug text-ink-soft">{caption}</p>
       )}
 
-      {/* C — 장소 칩(있으면 외부 지도 링크). 옵티미스틱 localPlace 사용. */}
-      <PlacePreview place={localPlace} align={align} />
+      {/* C — 장소 칩들(있으면 외부 지도 링크). 옵티미스틱 localPlaces 사용. */}
+      <PlacePreview places={localPlaces} align={align} />
 
       {placeOpen && (
         <PhotoPlaceModal
           memoryId={e.originalId}
-          initialPlace={localPlace}
+          initialPlaces={localPlaces}
           onClose={() => setPlaceOpen(false)}
-          onSaved={(p) => {
-            setLocalPlace(p);
+          onSaved={(ps) => {
+            setLocalPlaces(ps);
             setPlaceOpen(false);
             router.refresh();
           }}
@@ -1476,30 +1501,39 @@ function AttachToEventModal({
   );
 }
 
-// C — 독립 사진의 장소 편집 모달. PlaceSearchInput 재사용 + updatePhotoPlaceAction.
-// 지도가 길 수 있어 위쪽 정렬 + 스크롤. 저장 성공 시 onSaved(place)로 부모가
-// 옵티미스틱 반영 + router.refresh().
+// C — 독립 사진의 장소 편집 모달(장소 1:N). PlacesEditor 재사용 +
+// updatePhotoPlaceAction. 사진은 보통 1곳이지만 여러 곳도 추가 가능(기본 0~1).
+// 저장 성공 시 onSaved(places)로 부모가 옵티미스틱 반영 + router.refresh().
 function PhotoPlaceModal({
   memoryId,
-  initialPlace,
+  initialPlaces,
   onClose,
   onSaved,
 }: {
   memoryId: string;
-  initialPlace: PlaceInfo;
+  initialPlaces: PlaceInfo[];
   onClose: () => void;
-  onSaved: (place: PlaceInfo) => void;
+  onSaved: (places: PlaceInfo[]) => void;
 }) {
-  const [place, setPlace] = useState<PlaceInfo>(initialPlace);
+  const [places, setPlaces] = useState<PlaceInfo[]>(initialPlaces);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function save() {
     setError(null);
     startTransition(async () => {
-      const res = await updatePhotoPlaceAction(memoryId, place);
+      const res = await updatePhotoPlaceAction(
+        memoryId,
+        places.map((p) => ({
+          placeName: p.placeName,
+          placeAddress: p.placeAddress,
+          lat: p.lat,
+          lng: p.lng,
+          placeSource: p.placeSource,
+        })),
+      );
       if (res.ok) {
-        onSaved(place);
+        onSaved(places);
       } else {
         setError(res.error);
       }
@@ -1523,7 +1557,7 @@ function PhotoPlaceModal({
           <MapPin strokeWidth={1.75} aria-hidden className="h-5 w-5 shrink-0 text-ink" />
           이 사진은 어디서 찍었나요?
         </h2>
-        <PlaceSearchInput value={place} onChange={setPlace} />
+        <PlacesEditor value={places} onChange={setPlaces} />
         {error && (
           <p
             role="alert"

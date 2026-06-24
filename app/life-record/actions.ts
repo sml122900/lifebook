@@ -145,7 +145,9 @@ export async function submitLifeRecord(
     // 2026-06-07 — 끝 월(선택). endYear 가 있고 기간 카테고리일 때만 의미.
     endMonth?: number | null;
     content: string | null;
+    // Phase Place(1:N) — 단일 place 는 옛 호출자 호환, 신규는 places[].
     place?: RawPlaceInput;
+    places?: RawPlaceInput[];
   },
 ): Promise<SubmitLifeRecordResult> {
   const session = await auth();
@@ -240,8 +242,14 @@ export async function submitLifeRecord(
     content = raw.content;
   }
 
-  const placeResult = validatePlace(raw.place);
-  if (!placeResult.ok) return { ok: false, error: placeResult.error };
+  // Phase Place(1:N) — places[] 우선, 없으면 단일 place 흡수. 유효한 것만.
+  const rawPlaces = raw.places ?? (raw.place ? [raw.place] : []);
+  const places: PlaceInfo[] = [];
+  for (const rp of rawPlaces) {
+    const pr = validatePlace(rp);
+    if (!pr.ok) return { ok: false, error: pr.error };
+    if (pr.place.placeName) places.push(pr.place);
+  }
 
   const { id: memoryId } = await upsertLifeEvent(userId, category, {
     title,
@@ -250,7 +258,7 @@ export async function submitLifeRecord(
     endYear,
     endMonth,
     content,
-    place: placeResult.place,
+    places,
   });
 
   // 인덱스의 진행 상태 / 카테고리 폼의 prefill / 연혁 둘 다 갱신.

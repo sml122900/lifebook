@@ -54,11 +54,30 @@ function buildPhotoMemoryData(input: {
     // getLifeEvents 가 eventYear 기준 where/orderBy — 없으면 타임라인에서 빠짐.
     eventYear: input.year,
     eventMonth: input.month,
+    // 장소 5컬럼 (호환 — H6 에서 제거)
     placeName: place.placeName,
     placeAddress: place.placeAddress,
     lat: place.lat,
     lng: place.lng,
     placeSource: place.placeSource,
+    // 장소 1:N — 사진은 단일 입력이라 [place] 로 래핑(placeName 있을 때만).
+    // 호출부가 validatePlace 로 사전 검증하므로 placeName 가드면 충분.
+    ...(place.placeName
+      ? {
+          places: {
+            create: [
+              {
+                placeName: place.placeName,
+                placeAddress: place.placeAddress,
+                lat: place.lat,
+                lng: place.lng,
+                placeSource: place.placeSource,
+                sortOrder: 0,
+              },
+            ],
+          },
+        }
+      : {}),
   };
 }
 
@@ -228,22 +247,56 @@ export async function updatePhotoAnchor(
 // (updateMany where {userId, createdVia:"photo"} → 일치 없으면 count=0). 장소는
 // UserMemory(메모리)에 있으므로 memoryId 로 수정. 첨부 사진은 부모 life_event
 // 장소를 상속하므로 여기 대상 X (createdVia 가드).
-export async function updatePhotoMemoryPlace(
+export async function updatePhotoMemoryPlaces(
   userId: string,
   memoryId: string,
-  place: PlaceInfo,
+  places: PlaceInfo[],
 ): Promise<boolean> {
-  const result = await prisma.userMemory.updateMany({
+  // 소유·종류 가드를 트랜잭션 *앞* 에 — MemoryPlace 의 deleteMany/create 는
+  // userId 컬럼이 없어(메모리 통해 연결) 자체 가드가 불가. 먼저 본인 photo
+  // 메모리인지 확인하고, 아니면 트랜잭션 진입 없이 false (남의 장소 삭제 차단).
+  const owned = await prisma.userMemory.findFirst({
     where: { id: memoryId, userId, createdVia: CREATED_VIA_PHOTO },
-    data: {
-      placeName: place.placeName,
-      placeAddress: place.placeAddress,
-      lat: place.lat,
-      lng: place.lng,
-      placeSource: place.placeSource,
-    },
+    select: { id: true },
   });
-  return result.count > 0;
+  if (!owned) return false;
+
+  // placeName 있는 것만 채택. 5컬럼은 첫 장소(primary)로 호환 write.
+  const valid = places.filter((p) => p.placeName);
+  const primary = valid[0] ?? EMPTY_PLACE;
+
+  // 장소 update = 기존 MemoryPlace 싹 지우고 새로 생성. 메모리 update +
+  // 장소 삭제 + 장소 생성을 한 트랜잭션으로 → 원자적(부분 실패 시 전체 롤백).
+  await prisma.$transaction([
+    prisma.userMemory.update({
+      where: { id: memoryId },
+      data: {
+        // 장소 5컬럼 (호환 — H6 에서 제거)
+        placeName: primary.placeName,
+        placeAddress: primary.placeAddress,
+        lat: primary.lat,
+        lng: primary.lng,
+        placeSource: primary.placeSource,
+      },
+    }),
+    prisma.memoryPlace.deleteMany({ where: { memoryId } }),
+    ...(valid.length
+      ? [
+          prisma.memoryPlace.createMany({
+            data: valid.map((p, i) => ({
+              memoryId,
+              placeName: p.placeName as string,
+              placeAddress: p.placeAddress,
+              lat: p.lat,
+              lng: p.lng,
+              placeSource: p.placeSource,
+              sortOrder: i,
+            })),
+          }),
+        ]
+      : []),
+  ]);
+  return true;
 }
 
 // Phase Photo 6 (3단계) — 기존 사진의 소속 메모리 이동(파일 이동 X, memoryId
@@ -406,6 +459,10 @@ export type UserPhoto = {
   bytes: number;
   mimeType: string;
   periodAnchor: PhotoPeriodAnchor;
+  // 장소 1:N — 이 사진이 매인 메모리의 장소들(sortOrder 순). 독립 사진
+  // (createdVia="photo")은 자기 메모리의 장소, 첨부 사진은 부모 이벤트의
+  // 장소. 없으면 빈 배열. (소비처는 H4 UI — 이번엔 읽기만.)
+  places: PlaceInfo[];
   createdAt: Date;
 };
 
@@ -422,7 +479,22 @@ export async function listUserPhotos(userId: string): Promise<UserPhoto[]> {
       mimeType: true,
       periodAnchor: true,
       createdAt: true,
-      memory: { select: { year: true, month: true } },
+      memory: {
+        select: {
+          year: true,
+          month: true,
+          places: {
+            select: {
+              placeName: true,
+              placeAddress: true,
+              lat: true,
+              lng: true,
+              placeSource: true,
+            },
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          },
+        },
+      },
     },
   });
   // signed URL 병렬 발급 (각 photo 독립)
@@ -434,6 +506,13 @@ export async function listUserPhotos(userId: string): Promise<UserPhoto[]> {
       caption: r.caption,
       year: r.memory.year,
       month: r.memory.month,
+      places: r.memory.places.map((p) => ({
+        placeName: p.placeName,
+        placeAddress: p.placeAddress,
+        lat: p.lat,
+        lng: p.lng,
+        placeSource: p.placeSource,
+      })),
       bytes: r.fileBytes,
       mimeType: r.mimeType,
       periodAnchor: isPhotoPeriodAnchor(r.periodAnchor)
@@ -463,7 +542,22 @@ export async function listMemoryPhotos(
       mimeType: true,
       periodAnchor: true,
       createdAt: true,
-      memory: { select: { year: true, month: true } },
+      memory: {
+        select: {
+          year: true,
+          month: true,
+          places: {
+            select: {
+              placeName: true,
+              placeAddress: true,
+              lat: true,
+              lng: true,
+              placeSource: true,
+            },
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          },
+        },
+      },
     },
   });
   return Promise.all(
@@ -474,6 +568,13 @@ export async function listMemoryPhotos(
       caption: r.caption,
       year: r.memory.year,
       month: r.memory.month,
+      places: r.memory.places.map((p) => ({
+        placeName: p.placeName,
+        placeAddress: p.placeAddress,
+        lat: p.lat,
+        lng: p.lng,
+        placeSource: p.placeSource,
+      })),
       bytes: r.fileBytes,
       mimeType: r.mimeType,
       periodAnchor: isPhotoPeriodAnchor(r.periodAnchor)

@@ -68,12 +68,14 @@ export default async function PosterPage() {
   }));
 
   // 뿌리 줄 = 출생지 · 출생연도 (있으면). 없으면 렌더러가 root-text 를 숨김.
+  // 장소 1:N — 출생지는 보통 1곳이라 places[] 의 첫 장소를 쓴다.
   const birth = lifeEvents.find((e) => e.category === "BIRTH");
+  const birthPlaceName = birth?.places.find((p) => p.placeName)?.placeName ?? null;
   const rootLine =
-    birth?.place.placeName && birthYear
-      ? `${birth.place.placeName} · ${birthYear}`
-      : birth?.place.placeName
-        ? birth.place.placeName
+    birthPlaceName && birthYear
+      ? `${birthPlaceName} · ${birthYear}`
+      : birthPlaceName
+        ? birthPlaceName
         : birthYear
           ? `${birthYear}`
           : null;

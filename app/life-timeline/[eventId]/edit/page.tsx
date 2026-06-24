@@ -77,7 +77,7 @@ export default async function LifeTimelineEditPage({
           endYear: event.endYear,
           endMonth: event.endMonth,
           content: event.content ?? "",
-          place: event.place,
+          places: event.places,
         }}
         refine={{
           memoryId: event.id,

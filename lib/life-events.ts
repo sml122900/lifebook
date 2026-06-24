@@ -16,6 +16,7 @@ import { cache } from "react";
 
 import type { EventPrecision, LifeCategory } from "./generated/prisma/enums";
 import { EMPTY_PLACE, type PlaceInfo } from "./place-types";
+import { validatePlace } from "./place-validate";
 import { prisma } from "./db";
 
 // 클라 컴포넌트가 PlaceInfo / EMPTY_PLACE 를 가져갈 때 prisma 가 끌려오면
@@ -75,7 +76,12 @@ export type LifeEvent = {
   endMonth: number | null;
   // Phase Place — 모두 nullable. 8개 카테고리(BIRTH·KINDERGARTEN·학령기·
   // MILITARY·WORK)만 폼에서 입력받지만, 타입은 전 카테고리 공통.
+  // ⚠️ 단일 place 는 호환·롤백용으로 당분간 유지(읽기/쓰기 코드 전환은
+  // 후속). 새 1:N 표현은 아래 places[]. UI 전환(H4) 후 단일 place 제거 예정.
   place: PlaceInfo;
+  // 장소 1:N — MemoryPlace 행들(sortOrder 순). 백필로 기존 단일 place 도
+  // 여기 들어와 있다. 장소 없으면 빈 배열.
+  places: PlaceInfo[];
   createdAt: Date;
   // Phase E2 — era_event 행만 채워짐. 시대 자료(MonthEvent description)·
   // 출처(source)·EventSection enum 을 연혁 카드에 작은 글씨로 표시.
@@ -177,6 +183,17 @@ async function _getLifeEvents(userId: string): Promise<LifeEvent[]> {
       lat: true,
       lng: true,
       placeSource: true,
+      // 장소 1:N — MemoryPlace(sortOrder 순). 단일 place 와 당분간 공존.
+      places: {
+        select: {
+          placeName: true,
+          placeAddress: true,
+          lat: true,
+          lng: true,
+          placeSource: true,
+        },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      },
       createdVia: true,
       monthEventId: true,
       // era_event 행만 채워짐 — monthEventId join 으로 시대 자료 가져옴.
@@ -235,6 +252,13 @@ async function _getLifeEvents(userId: string): Promise<LifeEvent[]> {
         lng: r.lng,
         placeSource: r.placeSource,
       },
+      places: r.places.map((p) => ({
+        placeName: p.placeName,
+        placeAddress: p.placeAddress,
+        lat: p.lat,
+        lng: p.lng,
+        placeSource: p.placeSource,
+      })),
       createdAt: r.createdAt,
       eraDescription: isEra ? r.monthEvent?.description ?? null : null,
       eraSource: isEra ? r.monthEvent?.source ?? null : null,
@@ -358,6 +382,7 @@ export async function getLifeEventForCategory(
   content: string | null;
   precision: EventPrecision;
   place: PlaceInfo;
+  places: PlaceInfo[];
   audioPath: string | null;
 } | null> {
   const row = await prisma.userMemory.findFirst({
@@ -381,6 +406,16 @@ export async function getLifeEventForCategory(
       lat: true,
       lng: true,
       placeSource: true,
+      places: {
+        select: {
+          placeName: true,
+          placeAddress: true,
+          lat: true,
+          lng: true,
+          placeSource: true,
+        },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      },
       audioPath: true,
     },
     orderBy: { createdAt: "desc" },
@@ -402,6 +437,13 @@ export async function getLifeEventForCategory(
       lng: row.lng,
       placeSource: row.placeSource,
     },
+    places: row.places.map((p) => ({
+      placeName: p.placeName,
+      placeAddress: p.placeAddress,
+      lat: p.lat,
+      lng: p.lng,
+      placeSource: p.placeSource,
+    })),
     audioPath: row.audioPath,
   };
 }
@@ -417,8 +459,46 @@ export type LifeRecordInput = {
   endMonth?: number | null;
   content: string | null;
   // Phase Place — 입력 안 했거나 카테고리가 장소 비대상이면 EMPTY_PLACE.
+  // ⚠️ 단일 place 는 호환용(UI 가 아직 단일 입력). 1:N 입력은 places[].
+  // 둘 다 오면 places[] 우선, 단일만 오면 [place] 로 래핑(normalizePlaces).
   place?: PlaceInfo;
+  // 장소 1:N 입력. UI(H5) 전환 후 주 경로. 유효한 것만 MemoryPlace 로 저장.
+  places?: PlaceInfo[];
 };
+
+// 입력의 장소를 1:N 으로 정규화한다.
+//   - places[] 가 있으면 그것을, 없으면 단일 place 를 [place] 로(호환).
+//   - 각 항목을 validatePlace 로 거른다(placeName 있고 source 정상인 것만).
+//   - valid : MemoryPlace 로 저장할 배열(sortOrder = 인덱스).
+//   - primary : 5컬럼 호환 write 용 대표 장소(valid[0] 또는 EMPTY).
+function normalizePlaces(input: LifeRecordInput): {
+  valid: PlaceInfo[];
+  primary: PlaceInfo;
+} {
+  const raw: PlaceInfo[] =
+    input.places ?? (input.place ? [input.place] : []);
+  const valid: PlaceInfo[] = [];
+  for (const p of raw) {
+    const res = validatePlace(p);
+    // validatePlace 는 placeName 없거나 source 비정상이면 EMPTY(placeName=null)
+    // 를 ok 로 돌려줌 → placeName 있는 것만 실제 장소로 채택.
+    if (res.ok && res.place.placeName) valid.push(res.place);
+  }
+  return { valid, primary: valid[0] ?? EMPTY_PLACE };
+}
+
+// MemoryPlace.create 용 데이터(메모리 id 없이 — 중첩 create 에 쓰는 형태).
+function placeCreateData(valid: PlaceInfo[]) {
+  return valid.map((p, i) => ({
+    // valid 라 placeName 은 non-null 보장.
+    placeName: p.placeName as string,
+    placeAddress: p.placeAddress,
+    lat: p.lat,
+    lng: p.lng,
+    placeSource: p.placeSource,
+    sortOrder: i,
+  }));
+}
 
 // L2 저장 — 카테고리당 최신 1행을 upsert.
 //
@@ -463,43 +543,58 @@ export async function upsertLifeEvent(
     endYear !== null && isPeriodCategory(category)
       ? input.endMonth ?? null
       : null;
-  const place = input.place ?? EMPTY_PLACE;
+  // 장소 1:N — valid 는 MemoryPlace 로, primary 는 5컬럼 호환 write 로.
+  const { valid, primary } = normalizePlaces(input);
 
   if (existing) {
     // 문장 다듬기 — content 변경 시 교정본 초기화 (updateLifeEvent 와 동일 정책).
     const contentChanged =
       (existing.content ?? null) !== (input.content ?? null);
-    const updated = await prisma.userMemory.update({
-      where: { id: existing.id },
-      data: {
-        ...(contentChanged
-          ? { refinedText: null, refinedAt: null, displayRefined: false }
-          : {}),
-        // life_event 전용
-        eventTitle: input.title,
-        eventYear: input.year,
-        eventMonth: input.month,
-        endYear,
-        endMonth,
-        precision,
-        // category 는 그대로 (where 로 잡았으므로)
-        // 미러링
-        year: input.year,
-        month: input.month,
-        title: input.title,
-        content: input.content,
-        // 장소
-        placeName: place.placeName,
-        placeAddress: place.placeAddress,
-        lat: place.lat,
-        lng: place.lng,
-        placeSource: place.placeSource,
-      },
-      select: { id: true },
-    });
+    // 장소 update = 기존 MemoryPlace 싹 지우고 새로 생성(간단·정확).
+    // 메모리 update + 장소 삭제 + 장소 생성을 한 트랜잭션으로 → 원자적.
+    const places = placeCreateData(valid);
+    const [updated] = await prisma.$transaction([
+      prisma.userMemory.update({
+        where: { id: existing.id },
+        data: {
+          ...(contentChanged
+            ? { refinedText: null, refinedAt: null, displayRefined: false }
+            : {}),
+          // life_event 전용
+          eventTitle: input.title,
+          eventYear: input.year,
+          eventMonth: input.month,
+          endYear,
+          endMonth,
+          precision,
+          // category 는 그대로 (where 로 잡았으므로)
+          // 미러링
+          year: input.year,
+          month: input.month,
+          title: input.title,
+          content: input.content,
+          // 장소 5컬럼 (호환 — H6 에서 제거)
+          placeName: primary.placeName,
+          placeAddress: primary.placeAddress,
+          lat: primary.lat,
+          lng: primary.lng,
+          placeSource: primary.placeSource,
+        },
+        select: { id: true },
+      }),
+      prisma.memoryPlace.deleteMany({ where: { memoryId: existing.id } }),
+      ...(places.length
+        ? [
+            prisma.memoryPlace.createMany({
+              data: places.map((p) => ({ ...p, memoryId: existing.id })),
+            }),
+          ]
+        : []),
+    ]);
     return { id: updated.id, precision };
   }
 
+  // create — 중첩 create 로 MemoryPlace 동시 생성(암묵 트랜잭션, 원자적).
   const created = await prisma.userMemory.create({
     data: {
       userId,
@@ -517,12 +612,14 @@ export async function upsertLifeEvent(
       month: input.month,
       title: input.title,
       content: input.content,
-      // 장소
-      placeName: place.placeName,
-      placeAddress: place.placeAddress,
-      lat: place.lat,
-      lng: place.lng,
-      placeSource: place.placeSource,
+      // 장소 5컬럼 (호환 — H6 에서 제거)
+      placeName: primary.placeName,
+      placeAddress: primary.placeAddress,
+      lat: primary.lat,
+      lng: primary.lng,
+      placeSource: primary.placeSource,
+      // 장소 1:N
+      places: { create: placeCreateData(valid) },
     },
     select: { id: true },
   });
@@ -553,8 +650,10 @@ export async function createLifeEvent(
   // 기준이라 endYear 가 곧 기간 표식. endYear 없으면 endMonth 도 무조건 null.
   const endYear = input.endYear;
   const endMonth = endYear !== null ? input.endMonth ?? null : null;
-  const place = input.place ?? EMPTY_PLACE;
+  // 장소 1:N — valid 는 MemoryPlace 로, primary 는 5컬럼 호환 write 로.
+  const { valid, primary } = normalizePlaces(input);
 
+  // 중첩 create 로 MemoryPlace 동시 생성(암묵 트랜잭션, 원자적).
   const created = await prisma.userMemory.create({
     data: {
       userId,
@@ -570,11 +669,14 @@ export async function createLifeEvent(
       month: input.month,
       title: input.title,
       content: input.content,
-      placeName: place.placeName,
-      placeAddress: place.placeAddress,
-      lat: place.lat,
-      lng: place.lng,
-      placeSource: place.placeSource,
+      // 장소 5컬럼 (호환 — H6 에서 제거)
+      placeName: primary.placeName,
+      placeAddress: primary.placeAddress,
+      lat: primary.lat,
+      lng: primary.lng,
+      placeSource: primary.placeSource,
+      // 장소 1:N
+      places: { create: placeCreateData(valid) },
     },
     select: { id: true },
   });
@@ -600,10 +702,12 @@ export async function updateLifeEvent(
   // 기준이라 endYear 가 곧 기간 표식. endYear 없으면 endMonth 도 무조건 null.
   const endYear = input.endYear;
   const endMonth = endYear !== null ? input.endMonth ?? null : null;
-  const place = input.place ?? EMPTY_PLACE;
+  // 장소 1:N — valid 는 MemoryPlace 로, primary 는 5컬럼 호환 write 로.
+  const { valid, primary } = normalizePlaces(input);
 
   // 문장 다듬기 — content 가 실제로 바뀌면 교정본(refined 3필드)은 옛 원문
   // 기준이라 stale → 초기화. 장소·제목만 바꾼 경우는 보존.
+  // 이 findFirst 의 where(id+userId+createdVia)가 곧 소유 검증 — null 이면 반환.
   const current = await prisma.userMemory.findFirst({
     where: { id: eventId, userId, createdVia: CREATED_VIA_LIFE_EVENT },
     select: { content: true },
@@ -611,35 +715,49 @@ export async function updateLifeEvent(
   if (!current) return null;
   const contentChanged = (current.content ?? null) !== (input.content ?? null);
 
-  // 소유 확인 후 update — updateMany 로 한 트랜잭션, 일치 안 하면 count=0.
-  const result = await prisma.userMemory.updateMany({
-    where: {
-      id: eventId,
-      userId,
-      createdVia: CREATED_VIA_LIFE_EVENT,
-    },
-    data: {
-      ...(contentChanged
-        ? { refinedText: null, refinedAt: null, displayRefined: false }
-        : {}),
-      eventTitle: input.title,
-      eventYear: input.year,
-      eventMonth: input.month,
-      endYear,
-      endMonth,
-      precision,
-      category,
-      year: input.year,
-      month: input.month,
-      title: input.title,
-      content: input.content,
-      placeName: place.placeName,
-      placeAddress: place.placeAddress,
-      lat: place.lat,
-      lng: place.lng,
-      placeSource: place.placeSource,
-    },
-  });
+  // 장소 update = 기존 MemoryPlace 싹 지우고 새로 생성. 메모리 update +
+  // 장소 삭제 + 장소 생성을 한 트랜잭션으로 → 원자적(부분 실패 시 전체 롤백).
+  // updateMany 의 where 로 소유 재확인(race 시 count=0 → 롤백 후 null).
+  const places = placeCreateData(valid);
+  const [result] = await prisma.$transaction([
+    prisma.userMemory.updateMany({
+      where: {
+        id: eventId,
+        userId,
+        createdVia: CREATED_VIA_LIFE_EVENT,
+      },
+      data: {
+        ...(contentChanged
+          ? { refinedText: null, refinedAt: null, displayRefined: false }
+          : {}),
+        eventTitle: input.title,
+        eventYear: input.year,
+        eventMonth: input.month,
+        endYear,
+        endMonth,
+        precision,
+        category,
+        year: input.year,
+        month: input.month,
+        title: input.title,
+        content: input.content,
+        // 장소 5컬럼 (호환 — H6 에서 제거)
+        placeName: primary.placeName,
+        placeAddress: primary.placeAddress,
+        lat: primary.lat,
+        lng: primary.lng,
+        placeSource: primary.placeSource,
+      },
+    }),
+    prisma.memoryPlace.deleteMany({ where: { memoryId: eventId } }),
+    ...(places.length
+      ? [
+          prisma.memoryPlace.createMany({
+            data: places.map((p) => ({ ...p, memoryId: eventId })),
+          }),
+        ]
+      : []),
+  ]);
   if (result.count === 0) return null;
   return { id: eventId, precision };
 }
@@ -705,6 +823,7 @@ export async function getLifeEventById(
   displayRefined: boolean;
   precision: EventPrecision;
   place: PlaceInfo;
+  places: PlaceInfo[];
   audioPath: string | null;
 } | null> {
   const row = await prisma.userMemory.findFirst({
@@ -731,6 +850,16 @@ export async function getLifeEventById(
       lat: true,
       lng: true,
       placeSource: true,
+      places: {
+        select: {
+          placeName: true,
+          placeAddress: true,
+          lat: true,
+          lng: true,
+          placeSource: true,
+        },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      },
       audioPath: true,
     },
   });
@@ -754,6 +883,13 @@ export async function getLifeEventById(
       lng: row.lng,
       placeSource: row.placeSource,
     },
+    places: row.places.map((p) => ({
+      placeName: p.placeName,
+      placeAddress: p.placeAddress,
+      lat: p.lat,
+      lng: p.lng,
+      placeSource: p.placeSource,
+    })),
     audioPath: row.audioPath,
   };
 }

@@ -8,27 +8,29 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import { validatePlace, type RawPlace } from "@/lib/place-validate";
+import { type PlaceInfo } from "@/lib/place-types";
 import {
   type MovePhotoResult,
   movePhotoToMemory,
-  updatePhotoMemoryPlace,
+  updatePhotoMemoryPlaces,
 } from "@/lib/photos";
 
 export async function updatePhotoPlaceAction(
   memoryId: string,
-  rawPlace: RawPlace,
+  rawPlaces: RawPlace[],
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await auth();
   if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
 
-  const result = validatePlace(rawPlace);
-  if (!result.ok) return result;
+  // 장소 1:N — 각 항목 검증, 유효한 것만(placeName 있음) 채택.
+  const places: PlaceInfo[] = [];
+  for (const rp of rawPlaces) {
+    const result = validatePlace(rp);
+    if (!result.ok) return result;
+    if (result.place.placeName) places.push(result.place);
+  }
 
-  const ok = await updatePhotoMemoryPlace(
-    session.user.id,
-    memoryId,
-    result.place,
-  );
+  const ok = await updatePhotoMemoryPlaces(session.user.id, memoryId, places);
   if (!ok) return { ok: false, error: "사진을 찾을 수 없어요." };
 
   revalidatePath("/life-timeline");

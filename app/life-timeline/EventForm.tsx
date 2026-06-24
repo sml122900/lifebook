@@ -7,11 +7,11 @@ import { useMemo, useRef, useState, useTransition, type ReactNode } from "react"
 import { buttonClasses } from "@/components/ui/Button";
 
 import { AudioPlayer } from "@/app/components/AudioPlayer";
-import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
+import { PlacesEditor } from "@/app/components/PlacesEditor";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { RefineSection } from "./[eventId]/edit/RefineSection";
 import { calcAge, formatAge } from "@/lib/age";
-import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
+import { type PlaceInfo } from "@/lib/place-types";
 import type { EventPrecision, LifeCategory } from "@/lib/generated/prisma/enums";
 
 // L2(+) — EventForm 의 카테고리 = LifeCategory enum 전체에서 자유 선택이라
@@ -70,8 +70,8 @@ export type EventFormInitial = {
   endYear: number | null;
   endMonth: number | null;
   content: string;
-  // Phase Place — 수정 모드 prefill. 신규 추가는 항상 EMPTY_PLACE 로 시작.
-  place: PlaceInfo;
+  // Phase Place — 수정 모드 prefill(장소 1:N). 신규 추가는 빈 배열로 시작.
+  places: PlaceInfo[];
 };
 
 type Mode = "between" | "exact";
@@ -185,7 +185,7 @@ export function EventForm({
 
   const [title, setTitle] = useState(initial?.title ?? "");
   const [content, setContent] = useState(initial?.content ?? "");
-  const [place, setPlace] = useState<PlaceInfo>(initial?.place ?? EMPTY_PLACE);
+  const [places, setPlaces] = useState<PlaceInfo[]>(initial?.places ?? []);
 
   const [error, setError] = useState<string | null>(null);
   const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
@@ -210,14 +210,14 @@ export function EventForm({
   }
 
   function buildPayload(): LifeEventInputRaw | { error: string } {
-    // Phase Place — 둘 모드 공통 장소. PlaceSearchInput state 그대로.
-    const placePayload = {
-      placeName: place.placeName,
-      placeAddress: place.placeAddress,
-      lat: place.lat,
-      lng: place.lng,
-      placeSource: place.placeSource,
-    };
+    // Phase Place — 둘 모드 공통 장소(1:N). PlacesEditor state 그대로.
+    const placesPayload = places.map((p) => ({
+      placeName: p.placeName,
+      placeAddress: p.placeAddress,
+      lat: p.lat,
+      lng: p.lng,
+      placeSource: p.placeSource,
+    }));
     if (!isEdit && formMode === "between") {
       const before = anchors.find((a) => a.id === anchorBeforeId);
       const after = anchors.find((a) => a.id === anchorAfterId);
@@ -242,7 +242,7 @@ export function EventForm({
         endYear: null, // 사이 모드는 단일 시점
         endMonth: null,
         content,
-        place: placePayload,
+        places: placesPayload,
       };
     }
     // 정확 모드(또는 수정)
@@ -257,7 +257,7 @@ export function EventForm({
       endMonth:
         isPeriod && endYearVal !== null ? parseIntOrNull(endMonthText) : null,
       content,
-      place: placePayload,
+      places: placesPayload,
     };
   }
 
@@ -377,15 +377,15 @@ export function EventForm({
         />
       </section>
 
-      {/* 장소 (선택) */}
+      {/* 장소 (선택, 여러 곳 가능) */}
       <section className="flex flex-col gap-2">
         <p className="text-lg font-semibold text-ink">
           어디였나요? <span className="font-normal text-ink-faint">(선택)</span>
         </p>
         <p className="text-base text-ink-soft">
-          장소 이름을 검색해서 골라주세요. 모르시면 안 골라도 돼요.
+          장소 이름을 검색해서 골라주세요. 여러 곳이면 더 추가할 수 있어요. 모르시면 안 골라도 돼요.
         </p>
-        <PlaceSearchInput value={place} onChange={setPlace} />
+        <PlacesEditor value={places} onChange={setPlaces} />
       </section>
 
       {/* 자유 보조 */}

@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 
 import { AudioPlayer } from "@/app/components/AudioPlayer";
-import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
+import { PlacesEditor } from "@/app/components/PlacesEditor";
 import { RefineInline } from "@/app/components/RefineInline";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { calcAge, formatAge } from "@/lib/age";
-import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
+import { type PlaceInfo } from "@/lib/place-types";
 import type { LifeQuestion } from "@/lib/life-record/questions";
 import type { LifeCategory } from "@/lib/generated/prisma/enums";
 
@@ -38,7 +38,7 @@ type InitialAnswer = {
   endYear: number | null;
   endMonth: number | null;
   content: string;
-  place: PlaceInfo;
+  places: PlaceInfo[];
 } | null;
 
 export function CategoryForm({
@@ -76,7 +76,7 @@ export function CategoryForm({
     initial?.endMonth != null ? String(initial.endMonth) : "",
   );
   const [content, setContent] = useState(initial?.content ?? "");
-  const [place, setPlace] = useState<PlaceInfo>(initial?.place ?? EMPTY_PLACE);
+  const [places, setPlaces] = useState<PlaceInfo[]>(initial?.places ?? []);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
@@ -116,13 +116,13 @@ export function CategoryForm({
         endYear,
         endMonth,
         content: content.trim() === "" ? null : content,
-        place: {
-          placeName: place.placeName,
-          placeAddress: place.placeAddress,
-          lat: place.lat,
-          lng: place.lng,
-          placeSource: place.placeSource,
-        },
+        places: places.map((p) => ({
+          placeName: p.placeName,
+          placeAddress: p.placeAddress,
+          lat: p.lat,
+          lng: p.lng,
+          placeSource: p.placeSource,
+        })),
       });
       if (!result.ok) {
         setError(result.error);
@@ -332,7 +332,7 @@ export function CategoryForm({
         <p className="text-base text-ink-soft">
           장소 이름을 검색해서 골라주세요. 모르시면 안 골라도 돼요.
         </p>
-        <PlaceSearchInput value={place} onChange={setPlace} />
+        <PlacesEditor value={places} onChange={setPlaces} />
       </section>
 
       <section className="flex flex-col gap-2">
