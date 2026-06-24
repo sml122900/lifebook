@@ -17,6 +17,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { splitRecordingTranscript } from "@/lib/free-recording-split";
+import { resolveBirthYear } from "@/lib/life-events";
+import { redactTranscript } from "@/lib/transcript-redact";
 import {
   historyToTranscript,
   transcriptToSplitText,
@@ -49,16 +51,45 @@ export async function saveCompanionSessionAction(input: {
 
   const userId = session.user.id;
 
-  // birthYear 는 split 추론용. 서버에서 직접 조회.
-  const userRow = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { birthYear: true },
-  });
-  const birthYear = userRow?.birthYear ?? null;
+  // birthYear 는 split 추론용. S5 — 컬럼 없으면 BIRTH 이벤트서 파생.
+  const birthYear = await resolveBirthYear(userId);
+
+  // S2 — 기존 연혁·인물 주입(중복 회피). split·extract 가 이미 있는 사건/인물을
+  // 다시 만들지 않도록. (fetchCoverageContext 패턴.)
+  const [existingEventRows, existingPersonRows] = await Promise.all([
+    prisma.userMemory.findMany({
+      where: {
+        userId,
+        isDraft: false,
+        createdVia: "life_event",
+        eventYear: { not: null },
+      },
+      select: { eventYear: true, eventTitle: true },
+      orderBy: { eventYear: "asc" },
+      take: 40,
+    }),
+    prisma.person.findMany({
+      where: { userId, subjectType: "person", isDraft: false },
+      select: { name: true, relation: true },
+      take: 40,
+    }),
+  ]);
+  const existingForSplit = existingEventRows.map((e) => ({
+    year: e.eventYear,
+    title: e.eventTitle ?? "",
+  }));
+  const existingForPeople = existingPersonRows.map((p) => ({
+    name: p.name,
+    relation: p.relation,
+  }));
 
   const transcriptMessages = historyToTranscript(input.history);
   const transcriptJson = JSON.stringify(transcriptMessages);
   const splitText = transcriptToSplitText(transcriptMessages);
+
+  // S1 — 추출 입력용 리댁션 사본. "쓰지 마라" 구간을 추출 LLM 이 못 보게 제거.
+  // 원본 splitText/transcriptJson/audio 는 그대로 보존(부모 메모리에 저장).
+  const redactedText = redactTranscript(splitText).redacted;
 
   const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const currentYear = nowKst.getUTCFullYear();
@@ -105,7 +136,7 @@ export async function saveCompanionSessionAction(input: {
 
   let draftMemoryCount = 0;
   try {
-    const splitResult = await splitRecordingTranscript(splitText, "동반자 대화", birthYear);
+    const splitResult = await splitRecordingTranscript(redactedText, "동반자 대화", birthYear, existingForSplit);
 
     for (const seg of splitResult.segments.slice(0, 10)) {
       const eventYear = typeof seg.estimatedYear === "number" ? seg.estimatedYear : null;
@@ -142,16 +173,16 @@ export async function saveCompanionSessionAction(input: {
   }
 
   // ── Phase 3~5: 인물·장소·물건 추출 병렬 ─────────────────────────────
-  // 셋 모두 같은 splitText 입력, 독립적 → Promise.all
+  // 셋 모두 같은 리댁션 사본 입력, 독립적 → Promise.all
 
   let draftPeopleCount = 0;
   let draftLocationCount = 0;
   let draftThingCount = 0;
 
   const [peopleResult, locationsResult, thingsResult] = await Promise.allSettled([
-    extractPeopleFromTranscript(splitText),
-    extractLocationsFromTranscript(splitText),
-    extractThingsFromTranscript(splitText),
+    extractPeopleFromTranscript(redactedText, existingForPeople),
+    extractLocationsFromTranscript(redactedText),
+    extractThingsFromTranscript(redactedText),
   ]);
 
   // Phase 3: 인물

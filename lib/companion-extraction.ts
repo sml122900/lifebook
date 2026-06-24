@@ -72,16 +72,31 @@ function parseJsonArray(raw: string): unknown[] {
 
 // 대화에서 언급된 실제 인물 추출 (Sonnet, 서버).
 // 추출 실패 시 [] 반환 — 호출자가 실패 무시하고 계속하도록.
+// 이름 정규화 — 공백 제거 후 비교(코드 dedup 용). "배 숙재" == "배숙재".
+function normalizeName(n: string): string {
+  return n.replace(/\s+/g, "");
+}
+
 export async function extractPeopleFromTranscript(
   conversationText: string,
+  existingPeople: { name: string; relation: string | null }[] = [],
 ): Promise<ExtractedPerson[]> {
   if (!conversationText.trim()) return [];
 
+  // S2 — 인물 중복 회피는 *코드 레벨* 로 한다(프롬프트 주입 X).
+  // 이유: 이미 기록된 인물(주로 친척) 목록을 프롬프트에 넣으면 모델이
+  // "가족은 이미 안다"고 일반화해 새 인물(배우자·자녀 등)까지 전부 []로
+  // 억제했다(실측). 프롬프트는 프라이버시만, 중복은 추출 후 이름 매칭으로 제거.
   const userMsg = `다음 대화에서 언급된 실제 인물(가족·친구·직장 동료 등)만 추출하세요.
 장소명·사물·동물·역사적 인물(대통령·연예인 등)·단순 직책("선생님""사장님")은 제외하세요.
 같은 이름이 여러 사람일 때, 문맥으로 관계를 구분하세요(예: 언니 스승 ≠ 어르신 스승).
+★프라이버시(절대): 화자가 "쓰지 마라/빼줘/기록하지 마"라고 거부한 인물, 특히 거절·험담
+맥락의 타인(예: 거절한 혼처 상대와 그 집안)은 추출하지 마세요(이름·신상 모두 버림).
+★이름 단정 금지: 이름이 전사에서 불명확하거나 들을 때마다 흔들리면 추측해서 지어내지
+마세요. 확실한 이름만 name 에 넣고, 불확실하면 관계를 name 으로 쓰세요(예: "남편",
+"사촌 언니"). 관계어("고종사촌"·"외삼촌" 등)를 사람 이름처럼 변형(예: "고종원")하지 마세요.
 반드시 유효한 JSON 배열만 출력하세요:
-[{"name":"이름","relation":"관계(예:남동생)","memo":"한 줄 특징"}]
+[{"name":"이름 또는 관계","relation":"관계(예:남동생)","memo":"한 줄 특징"}]
 인물이 없으면: []
 
 ---대화---
@@ -96,6 +111,9 @@ ${conversationText.slice(0, 8000)}
       temperature: 0.1,
     });
 
+    // S2 — 코드 dedup: 이미 기록된 인물과 이름이 같으면(공백 무시) 제외.
+    const existingNames = new Set(existingPeople.map((p) => normalizeName(p.name)));
+
     return parseJsonArray(res.text)
       .filter((x): x is Record<string, unknown> =>
         x !== null && typeof x === "object" && typeof (x as Record<string, unknown>).name === "string",
@@ -105,7 +123,7 @@ ${conversationText.slice(0, 8000)}
         relation: typeof x.relation === "string" ? x.relation.trim().slice(0, 30) || null : null,
         memo: typeof x.memo === "string" ? x.memo.trim().slice(0, 100) || null : null,
       }))
-      .filter((p) => p.name.length > 0);
+      .filter((p) => p.name.length > 0 && !existingNames.has(normalizeName(p.name)));
   } catch (e) {
     console.error("[companion/extract-people]", e instanceof Error ? e.message : e);
     return [];
@@ -122,6 +140,7 @@ export async function extractLocationsFromTranscript(
   const userMsg = `다음 대화에서 어르신 인생에 의미 있는 장소(학교·동네·집·가게 등)만 추출하세요.
 지나쳐서 언급된 장소, 일반 지명("서울" 등)은 제외하세요.
 어르신에게 기억·추억·생활이 담긴 구체적 장소만 골라주세요.
+★프라이버시(절대): 화자가 "쓰지 마라/빼줘"라고 거부한 내용에 딸린 장소는 제외하세요.
 반드시 유효한 JSON 배열만 출력하세요:
 [{"name":"장소명","memo":"어떤 곳이었는지 한 줄"}]
 의미 있는 장소가 없으면: []
@@ -163,6 +182,7 @@ export async function extractThingsFromTranscript(
   const userMsg = `다음 대화에서 어르신에게 특별한 의미나 추억이 있는 물건(피아노·가방·일기장 등)만 추출하세요.
 단순히 지나쳐서 언급된 물건, 일상적 물건(식탁·의자 등)은 제외하세요.
 어르신 인생 이야기에서 비중 있게 등장한 물건만 골라주세요.
+★프라이버시(절대): 화자가 "쓰지 마라/빼줘"라고 거부한 내용에 딸린 물건은 제외하세요.
 반드시 유효한 JSON 배열만 출력하세요:
 [{"name":"물건명","memo":"얽힌 이야기 한 줄"}]
 의미 있는 물건이 없으면: []

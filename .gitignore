@@ -46,3 +46,6 @@ next-env.d.ts
 # T1 포스터 데모 렌더 출력 (실사용자 개인정보 포함 — 커밋 금지)
 /design/templates/zelkova/_demo/
 
+# 검증/실험용 임시 스크립트 (인터뷰 전사·추출 결과 등 실사용자 개인정보 포함 — 커밋 금지)
+/scripts/
+

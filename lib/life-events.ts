@@ -296,6 +296,19 @@ export async function getBirthYear(userId: string): Promise<number | null> {
   return row?.eventYear ?? null;
 }
 
+// S5 — 추출(사건 분할)·동반자 프롬프트가 쓰는 "유효 출생연도".
+// 우선순위: User.birthYear 컬럼 → 없으면 BIRTH life_event 연도 파생 → 둘 다
+// 없으면 null(연도 추정 안 함). 컬럼이 비어도(이유옥 계정처럼) BIRTH 사건이
+// 있으면 그 연도로 상대나이 추정이 동작한다.
+export async function resolveBirthYear(userId: string): Promise<number | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { birthYear: true },
+  });
+  if (user?.birthYear != null) return user.birthYear;
+  return getBirthYear(userId);
+}
+
 // L2(+) — 사용자가 "건너뛰기" 처리한 카테고리 셋.
 // nextUnansweredCategory 가 *답함 ∪ 건너뜀* 둘 다 끝난 것으로 취급.
 export async function getSkippedCategories(

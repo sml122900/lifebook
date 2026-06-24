@@ -3,6 +3,7 @@
 // ★ 서버 전용. 클라에서 프로파일을 보내지 않는다 — 개인화는 서버 DB 에서.
 
 import { prisma } from "@/lib/db";
+import { getBirthYear } from "@/lib/life-events";
 
 // 모델 교체는 여기 한 줄만. (Sonnet 교체 시: "claude-sonnet-4-6")
 export const COMPANION_MODEL = "claude-haiku-4-5-20251001";
@@ -156,7 +157,7 @@ async function fetchCoverageContext(userId: string): Promise<string | null> {
 
 // DB 에서 어르신 프로파일 조회. 클라가 보내지 않는다 — 서버 권한 경계 유지.
 export async function fetchCompanionProfile(userId: string): Promise<CompanionProfile> {
-  const [user, people, placeRows, coverageSummary, rawLifeProfile] = await Promise.all([
+  const [user, people, placeRows, coverageSummary, rawLifeProfile, birthEventYear] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { birthYear: true, region: true },
@@ -189,10 +190,12 @@ export async function fetchCompanionProfile(userId: string): Promise<CompanionPr
         hobbies: true,
       },
     }),
+    // S5 — 컬럼이 비어도 BIRTH life_event 연도로 fallback.
+    getBirthYear(userId),
   ]);
 
   return {
-    birthYear: user?.birthYear ?? null,
+    birthYear: user?.birthYear ?? birthEventYear,
     region: user?.region ?? null,
     people: people.map((p) => ({ name: p.name, relation: p.relation })),
     places: placeRows.map((r) => r.placeName!).filter(Boolean),

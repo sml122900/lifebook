@@ -8,6 +8,7 @@ import {
   splitRecordingTranscript,
   type SplitSegment,
 } from "@/lib/free-recording-split";
+import { resolveBirthYear } from "@/lib/life-events";
 import { STT_TOKEN_CHARGING_ENABLED, calcSttTokens } from "@/lib/stt-cost";
 import { getBalance } from "@/lib/tokens/wallet";
 
@@ -85,10 +86,12 @@ export async function splitTranscriptAction(input: {
   if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
 
   try {
+    // S5 — 클라가 birthYear 를 안 보냈으면 컬럼/ BIRTH 이벤트서 파생.
+    const birthYear = input.birthYear ?? (await resolveBirthYear(session.user.id));
     const result = await splitRecordingTranscript(
       input.transcript,
       input.topicTitle,
-      input.birthYear,
+      birthYear,
     );
     return { ok: true, segments: result.segments, nextTopics: result.nextTopics };
   } catch (e) {
