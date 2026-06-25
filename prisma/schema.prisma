@@ -56,11 +56,12 @@ enum TokenOrderStatus {
 enum ProductOrderStatus {
   pending // 결제창 진입(미결제)
   paid // 결제 승인 — 주문 접수
-  preparing // 제작/준비
+  preparing // 제작/준비(발주 착수) — 이후 환불 불가
   shipped // 발송(송장)
   delivered // 배송 완료
   failed
   canceled
+  refunded // 환불 완료(발주 전 환불)
 }
 
 enum RoomMemberRole {
@@ -466,13 +467,24 @@ model ProductOrder {
   deliveryMemo   String?
 
   // 결제
-  status     ProductOrderStatus @default(pending)
-  paymentKey String?            @unique
-  approvedAt DateTime?
-  failedAt   DateTime?
-  failReason String?
+  status      ProductOrderStatus @default(pending)
+  paymentKey  String?            @unique
+  approvedAt  DateTime?
+  failedAt    DateTime?
+  failReason  String?
+  paymentLive Boolean            @default(false) // 라이브 결제 여부(false=테스트모드)
 
-  // 배송 이행 (관리자 수동 — v1 변경 UI 없음)
+  // 포스터 주문 스냅샷 — 주문 시점의 PosterCompose props({ownerName,nodes,memos}).
+  // 관리자 발주 시 이 스냅샷으로 P7-a export(주문 후 편집과 무관하게 고정).
+  // charm/book 은 null.
+  posterSnapshot Json?
+
+  // 환불(발주 전까지) — 사용자가 요청 → 관리자가 처리.
+  refundRequestedAt DateTime?
+  refundedAt        DateTime?
+  refundReason      String?
+
+  // 배송 이행 (관리자 수동 — /admin/orders 에서 입력)
   trackingCarrier String?
   trackingNumber  String?
   shippedAt       DateTime?

@@ -127,8 +127,8 @@ function SuccessScreen({
         테스트 주문이에요 — 실제로 배송되지 않고, 청구도 되지 않아요.
       </p>
       <div className="flex flex-wrap gap-3">
-        <Link href="/shop" className={buttonClasses("tertiary", "lg")}>
-          상점으로
+        <Link href="/account/orders" className={buttonClasses("tertiary", "lg")}>
+          내 주문 보기
         </Link>
         <Link
           href="/life-timeline"

@@ -18,6 +18,10 @@ export default async function OrderPage({
   const product = getProduct(productId);
   if (!product) notFound();
 
+  // 포스터는 재질 선택 + 주문 스냅샷이 필요해 전용 플로우(/poster)로 보낸다.
+  // (먼저 포스터를 만들어야 주문 가능 — /poster → select → view → order)
+  if (productId === "poster") redirect("/poster");
+
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");

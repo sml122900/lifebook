@@ -4,6 +4,7 @@
 // paymentKey @unique 로 idempotent. 토스 confirm 은 lib/tokens/toss 공용 재사용.
 
 import { prisma } from "../db";
+import { orderFulfiller, type FulfillableOrder } from "./fulfillment";
 import { computeOrderAmount, getProduct } from "./products";
 
 export type ShippingInput = {
@@ -105,7 +106,10 @@ export async function settleProductOrder(
   paymentKey: string,
   tossAmount: number,
 ): Promise<SettleProductSuccess | SettleProductFailure> {
-  return await prisma.$transaction(async (tx) => {
+  // 결제 확정(paid 전환) 후 발주 어댑터를 1회 호출하기 위한 캡처.
+  let fulfill: FulfillableOrder | null = null;
+
+  const result = await prisma.$transaction(async (tx) => {
     const order = await tx.productOrder.findUnique({ where: { id: orderId } });
     if (!order) return { ok: false, reason: "order_not_found" } as const;
     if (order.userId !== userId)
@@ -144,6 +148,8 @@ export async function settleProductOrder(
       data: { status: "paid", paymentKey, approvedAt: new Date() },
     });
 
+    fulfill = { id: order.id, productId: order.productId, optionId: order.optionId };
+
     return {
       ok: true,
       alreadySettled: false,
@@ -151,6 +157,13 @@ export async function settleProductOrder(
       totalKrw: order.totalKrw,
     } as const;
   });
+
+  // 트랜잭션 커밋 후 발주(현재 수동 no-op). 멱등 — 첫 paid 전환 때만.
+  if (result.ok && !result.alreadySettled && fulfill) {
+    await orderFulfiller.onOrderPaid(fulfill);
+  }
+
+  return result;
 }
 
 /**

@@ -4,6 +4,7 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 
 import authConfig from "./auth.config";
+import { isAdminEmail } from "./lib/admin";
 
 // Edge 전용 NextAuth — Prisma 어댑터 없이 Node 측 인스턴스가 발급한 JWT 만
 // 읽는다 (Edge 런타임은 Prisma 사용 불가).
@@ -48,6 +49,12 @@ export default auth((req) => {
   // (v1 유저는 앱 정상 접근, 오디오 저장만 /api/recordings 에서 version 체크로 제한)
   if (!session.consentComplete) {
     return NextResponse.redirect(new URL("/consent", req.url));
+  }
+
+  // 관리자 전용 — ADMIN_EMAILS 화이트리스트(Edge 1차). 서버 레이아웃이 권위적
+  // 재검증(이메일 누락 Edge JWT 대비). 비관리자 → 메인으로.
+  if (pathname.startsWith("/admin") && !isAdminEmail(session.user?.email)) {
+    return NextResponse.redirect(new URL("/life-timeline", req.url));
   }
 });
 
