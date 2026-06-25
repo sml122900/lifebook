@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lifebook 포스터 템플릿 — 인생의 나무(원형 노드형) nodes v0.1
+  모티브: 원형 노드 좌우대칭 다이어그램 형식미 차용
+    (원형 노드 좌우대칭 / 중앙 축 / 방사 광배 / 뿌리망 / 진리의 문 원근)
+  ※ 텍스트는 전부 사용자 사건 데이터 슬롯. 종교/외국어 텍스트 없음.
+  엔진 계약: river/zelkova와 동일 (slot-cN-eM / label / chapter-N / root-text / symbol 4종 / color 그룹)
+  노드 가변: 좌우대칭 규칙만 차용, 노드 수 = 사건 수
+  슬롯: 총 14 (좌 기둥 c1·c3·c5 / 우 기둥 c2·c4 / 중앙 분포) — c1=3,c2=3,c3=3,c4=3,c5=2
+  데이터 가짜값 0 — 플레이스홀더 표기
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 594" width="420mm" height="594mm">
+  <title>인생의 나무 — sephirot 템플릿 v0.1</title>
+  <defs>
+    <pattern id="hanji" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+      <line x1="2" y1="3" x2="7" y2="4" stroke="#a89373" stroke-width="0.08"/>
+      <line x1="9" y1="16" x2="15" y2="17" stroke="#a89373" stroke-width="0.08"/>
+      <circle cx="5" cy="10" r="0.25" fill="#a89373"/>
+      <circle cx="13" cy="6" r="0.2" fill="#a89373"/>
+    </pattern>
+
+    <!-- 방사 광배 (신명 광배의 형식만 — 빛 퍼짐) -->
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E8D4A8" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#E8D4A8" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#E8D4A8" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- 노드 광배 방사선 (한 노드 둘레의 빛살) -->
+    <g id="rays">
+      <g stroke="#C8923D" stroke-width="0.25" opacity="0.4">
+        <line x1="0" y1="-13" x2="0" y2="-19"/><line x1="0" y1="13" x2="0" y2="19"/>
+        <line x1="-13" y1="0" x2="-19" y2="0"/><line x1="13" y1="0" x2="19" y2="0"/>
+        <line x1="-9.2" y1="-9.2" x2="-13.4" y2="-13.4"/><line x1="9.2" y1="-9.2" x2="13.4" y2="-13.4"/>
+        <line x1="-9.2" y1="9.2" x2="-13.4" y2="13.4"/><line x1="9.2" y1="9.2" x2="13.4" y2="13.4"/>
+        <line x1="-4.8" y1="-12" x2="-7" y2="-17.5"/><line x1="4.8" y1="-12" x2="7" y2="-17.5"/>
+        <line x1="-12" y1="-4.8" x2="-17.5" y2="-7"/><line x1="12" y1="-4.8" x2="17.5" y2="-7"/>
+        <line x1="-12" y1="4.8" x2="-17.5" y2="7"/><line x1="12" y1="4.8" x2="17.5" y2="7"/>
+        <line x1="-4.8" y1="12" x2="-7" y2="17.5"/><line x1="4.8" y1="12" x2="7" y2="17.5"/>
+      </g>
+    </g>
+
+    <!-- 변형 심볼 4종 — river/zelkova와 동일 계약 -->
+    <symbol id="leaf-s" viewBox="0 0 7 5"><ellipse cx="3.5" cy="2.5" rx="3" ry="1.8" fill="currentColor"/></symbol>
+    <symbol id="flower-s" viewBox="0 0 14 14">
+      <circle cx="7" cy="7" r="2.8" fill="currentColor"/>
+      <ellipse cx="7" cy="2.5" rx="1.6" ry="2.2" fill="currentColor" opacity="0.72"/>
+      <ellipse cx="7" cy="11.5" rx="1.6" ry="2.2" fill="currentColor" opacity="0.72"/>
+      <ellipse cx="2.5" cy="7" rx="2.2" ry="1.6" fill="currentColor" opacity="0.72"/>
+      <ellipse cx="11.5" cy="7" rx="2.2" ry="1.6" fill="currentColor" opacity="0.72"/>
+    </symbol>
+    <symbol id="fruit-s" viewBox="0 0 12 14">
+      <circle cx="6" cy="8" r="5" fill="currentColor"/>
+      <path d="M 6 3 C 6 0.5 8.5 0 8.5 1.8" stroke="currentColor" stroke-width="0.9" fill="none" stroke-linecap="round"/>
+      <ellipse cx="5" cy="3.5" rx="1.8" ry="1" fill="currentColor" opacity="0.6" transform="rotate(-20 5 3.5)"/>
+    </symbol>
+    <symbol id="bird-s" viewBox="0 0 14 9">
+      <path d="M 1 5 C 3.5 2.5 5.5 1.5 7 2.8 C 8.5 1.5 10.5 2.5 13 5" stroke="currentColor" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+      <path d="M 7 2.8 L 7.2 6" stroke="currentColor" stroke-width="0.8" fill="none"/>
+    </symbol>
+
+    <!-- 노드: 이중 원. color는 그룹에서 상속 -->
+    <g id="node">
+      <circle r="13" fill="#FCFAF4" stroke="currentColor" stroke-width="0.6"/>
+      <circle r="10.5" fill="none" stroke="currentColor" stroke-width="0.3" opacity="0.6"/>
+    </g>
+
+    <style>
+      .idx-line{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:3.5px;fill:#857C72}
+      .chapter-lbl{font-family:'Noto Serif KR',serif;font-size:4.5px;font-weight:700;fill:#5C4A6B}
+      .node-year{font-family:'Pretendard','Noto Sans KR',sans-serif;font-size:3px;font-weight:700;fill:#5C4A6B}
+      .node-title{font-family:'Noto Serif KR',serif;font-size:3.2px;fill:#2A2520}
+    </style>
+  </defs>
+
+  <!-- 종이 + 한지 -->
+  <rect x="0" y="0" width="420" height="594" fill="#FAF7F0"/>
+  <rect x="0" y="0" width="420" height="594" fill="url(#hanji)" opacity="0.5"/>
+
+  <!-- 전체 방사 광배 (상단 발산) -->
+  <ellipse cx="210" cy="120" rx="180" ry="150" fill="url(#halo)"/>
+
+  <!-- 제목 -->
+  <g text-anchor="middle">
+    <text x="210" y="20" font-family="'Pretendard',sans-serif" font-size="3.53" font-weight="500" fill="#857C72" letter-spacing="2">L I F E B O O K</text>
+    <text id="title-name" x="210" y="40" font-family="'Noto Serif KR',serif" font-size="16" font-weight="700" fill="#2A2520">{personName} 님의 인생의 나무</text>
+    <text x="210" y="52" font-family="'Noto Serif KR',serif" font-size="7" fill="#5C534A" letter-spacing="1">한 생애의 큰 줄기</text>
+  </g>
+
+  <!-- ════ 연결 경로 (세피라를 잇는 path 형식) ════ -->
+  <!-- 중앙 축 + 좌우 기둥 + 사선 연결 -->
+  <g stroke="#C8B89C" stroke-width="0.7" fill="none" opacity="0.65">
+    <!-- 중앙 축 (왕관 노드 → 뿌리) -->
+    <line x1="210" y1="85" x2="210" y2="430"/>
+    <!-- 상단 노드(발원) → 좌우 1단 -->
+    <line x1="210" y1="85" x2="130" y2="150"/>
+    <line x1="210" y1="85" x2="290" y2="150"/>
+    <!-- 좌우 1단 → 중앙 2단 -->
+    <line x1="130" y1="150" x2="210" y2="200"/>
+    <line x1="290" y1="150" x2="210" y2="200"/>
+    <line x1="130" y1="150" x2="290" y2="150"/>
+    <!-- 2단 → 좌우 2단 -->
+    <line x1="210" y1="200" x2="130" y2="250"/>
+    <line x1="210" y1="200" x2="290" y2="250"/>
+    <line x1="130" y1="150" x2="130" y2="250"/>
+    <line x1="290" y1="150" x2="290" y2="250"/>
+    <!-- 좌우 2단 → 중앙 3단 -->
+    <line x1="130" y1="250" x2="210" y2="300"/>
+    <line x1="290" y1="250" x2="210" y2="300"/>
+    <line x1="130" y1="250" x2="290" y2="250"/>
+    <!-- 3단 → 좌우 3단 -->
+    <line x1="210" y1="300" x2="130" y2="350"/>
+    <line x1="210" y1="300" x2="290" y2="350"/>
+    <!-- 좌우 3단 → 토대 노드 -->
+    <line x1="130" y1="350" x2="210" y2="390"/>
+    <line x1="290" y1="350" x2="210" y2="390"/>
+    <line x1="130" y1="350" x2="290" y2="350"/>
+  </g>
+
+  <!-- 발원 텍스트 = root-text (출생지·부모) -->
+  <g id="root-text" text-anchor="middle">
+    <text x="210" y="83" class="node-year">{birthYear}</text>
+    <text x="210" y="88" class="node-title">{birthPlace}</text>
+    <text x="210" y="74" font-family="'Pretendard',sans-serif" font-size="3" fill="#857C72">{parentNames}</text>
+  </g>
+
+  <!-- 장식 레이어: 노드 원+광배 (슬롯 밖, 절대위치, 비주얼 동일) -->
+  <g id="decor-nodes">
+    <use href="#rays" transform="translate(210,85)" color="#5C4A6B"/>
+    <use href="#node" transform="translate(210,85)" color="#5C4A6B"/>
+    <use href="#node" transform="translate(130,150)" color="#6B8C5A"/>
+    <use href="#rays" transform="translate(130,250)" color="#C8923D"/>
+    <use href="#node" transform="translate(130,250)" color="#C8923D"/>
+    <use href="#node" transform="translate(130,350)" color="#6B8C5A"/>
+    <use href="#node" transform="translate(290,150)" color="#6B8C5A"/>
+    <use href="#rays" transform="translate(290,250)" color="#C8603D"/>
+    <use href="#node" transform="translate(290,250)" color="#C8603D"/>
+    <use href="#node" transform="translate(290,350)" color="#6B8C5A"/>
+    <use href="#rays" transform="translate(210,200)" color="#C8923D"/>
+    <use href="#node" transform="translate(210,200)" color="#C8923D"/>
+    <use href="#node" transform="translate(210,300)" color="#6B8C5A"/>
+    <use href="#rays" transform="translate(210,390)" color="#C8923D"/>
+    <use href="#node" transform="translate(210,390)" color="#C8923D"/>
+    <use href="#node" transform="translate(170,330)" color="#6B8C5A"/>
+    <use href="#rays" transform="translate(250,330)" color="#C8603D"/>
+    <use href="#node" transform="translate(250,330)" color="#C8603D"/>
+    <use href="#rays" transform="translate(210,430)" color="#C8923D"/>
+    <use href="#node" transform="translate(210,430)" color="#C8923D"/>
+    <use href="#node" transform="translate(170,395)" color="#6B8C5A"/>
+    <use href="#node" transform="translate(250,395)" color="#6B8C5A"/>
+  </g>
+
+  <g id="branch-1">
+    <g id="slot-c1-e1" color="#6B8C5A"><use href="#leaf-s" x="126.5" y="147.5" width="7" height="5"/></g>
+    <text id="label-c1-e1" class="node-year" x="130" y="148" text-anchor="middle">{year}</text>
+    <text id="label-c1-e1-t" class="node-title" x="130" y="153" text-anchor="middle">{title}</text>
+    <g id="slot-c1-e2" color="#C8923D"><use href="#flower-s" x="123" y="243" width="14" height="14"/></g>
+    <text id="label-c1-e2" class="node-year" x="130" y="248" text-anchor="middle">{year}</text>
+    <text id="label-c1-e2-t" class="node-title" x="130" y="253" text-anchor="middle">{title}</text>
+    <g id="slot-c1-e3" color="#6B8C5A"><use href="#leaf-s" x="126.5" y="347.5" width="7" height="5"/></g>
+    <text id="label-c1-e3" class="node-year" x="130" y="348" text-anchor="middle">{year}</text>
+    <text id="label-c1-e3-t" class="node-title" x="130" y="353" text-anchor="middle">{title}</text>
+    <text id="chapter-1" class="chapter-lbl" x="100" y="200" text-anchor="end">왼 기둥</text>
+  </g>
+  <g id="branch-2">
+    <g id="slot-c2-e1" color="#6B8C5A"><use href="#leaf-s" x="286.5" y="147.5" width="7" height="5"/></g>
+    <text id="label-c2-e1" class="node-year" x="290" y="148" text-anchor="middle">{year}</text>
+    <text id="label-c2-e1-t" class="node-title" x="290" y="153" text-anchor="middle">{title}</text>
+    <g id="slot-c2-e2" color="#C8603D"><use href="#fruit-s" x="284" y="243" width="12" height="14"/></g>
+    <text id="label-c2-e2" class="node-year" x="290" y="248" text-anchor="middle">{year}</text>
+    <text id="label-c2-e2-t" class="node-title" x="290" y="253" text-anchor="middle">{title}</text>
+    <g id="slot-c2-e3" color="#6B8C5A"><use href="#leaf-s" x="286.5" y="347.5" width="7" height="5"/></g>
+    <text id="label-c2-e3" class="node-year" x="290" y="348" text-anchor="middle">{year}</text>
+    <text id="label-c2-e3-t" class="node-title" x="290" y="353" text-anchor="middle">{title}</text>
+    <text id="chapter-2" class="chapter-lbl" x="320" y="200" text-anchor="start">오른 기둥</text>
+  </g>
+  <g id="branch-3">
+    <g id="slot-c3-e1" color="#C8923D"><use href="#flower-s" x="203" y="193" width="14" height="14"/></g>
+    <text id="label-c3-e1" class="node-year" x="210" y="198" text-anchor="middle">{year}</text>
+    <text id="label-c3-e1-t" class="node-title" x="210" y="203" text-anchor="middle">{title}</text>
+    <g id="slot-c3-e2" color="#6B8C5A"><use href="#leaf-s" x="206.5" y="297.5" width="7" height="5"/></g>
+    <text id="label-c3-e2" class="node-year" x="210" y="298" text-anchor="middle">{year}</text>
+    <text id="label-c3-e2-t" class="node-title" x="210" y="303" text-anchor="middle">{title}</text>
+    <g id="slot-c3-e3" color="#C8923D"><use href="#flower-s" x="203" y="383" width="14" height="14"/></g>
+    <text id="label-c3-e3" class="node-year" x="210" y="388" text-anchor="middle">{year}</text>
+    <text id="label-c3-e3-t" class="node-title" x="210" y="393" text-anchor="middle">{title}</text>
+    <text id="chapter-3" class="chapter-lbl" x="232" y="160" text-anchor="start">가운데 기둥</text>
+  </g>
+  <g id="branch-4">
+    <g id="slot-c4-e1" color="#6B8C5A"><use href="#leaf-s" x="166.5" y="327.5" width="7" height="5"/></g>
+    <text id="label-c4-e1" class="node-year" x="170" y="328" text-anchor="middle">{year}</text>
+    <text id="label-c4-e1-t" class="node-title" x="170" y="333" text-anchor="middle">{title}</text>
+    <g id="slot-c4-e2" color="#C8603D"><use href="#fruit-s" x="244" y="323" width="12" height="14"/></g>
+    <text id="label-c4-e2" class="node-year" x="250" y="328" text-anchor="middle">{year}</text>
+    <text id="label-c4-e2-t" class="node-title" x="250" y="333" text-anchor="middle">{title}</text>
+    <g id="slot-c4-e3" color="#C8923D"><use href="#flower-s" x="203" y="423" width="14" height="14"/></g>
+    <text id="label-c4-e3" class="node-year" x="210" y="428" text-anchor="middle">{year}</text>
+    <text id="label-c4-e3-t" class="node-title" x="210" y="433" text-anchor="middle">{title}</text>
+    <text id="chapter-4" class="chapter-lbl" x="150" y="310" text-anchor="end">아랫 기둥</text>
+  </g>
+  <g id="branch-5">
+    <g id="slot-c5-e1" color="#6B8C5A"><use href="#leaf-s" x="166.5" y="392.5" width="7" height="5"/></g>
+    <text id="label-c5-e1" class="node-year" x="170" y="393" text-anchor="middle">{year}</text>
+    <text id="label-c5-e1-t" class="node-title" x="170" y="398" text-anchor="middle">{title}</text>
+    <g id="slot-c5-e2" color="#6B8C5A"><use href="#leaf-s" x="246.5" y="392.5" width="7" height="5"/></g>
+    <text id="label-c5-e2" class="node-year" x="250" y="393" text-anchor="middle">{year}</text>
+    <text id="label-c5-e2-t" class="node-title" x="250" y="398" text-anchor="middle">{title}</text>
+    <text id="chapter-5" class="chapter-lbl" x="210" y="450" text-anchor="middle">뿌리로</text>
+  </g>
+
+  <!-- ════ 뿌리망 (진리의 문 하단 + 뿌리 도판 형식: 방사형 뻗음) ════ -->
+  <g id="roots" stroke="#8B7355" fill="none" opacity="0.7" stroke-linecap="round">
+    <!-- 중앙 굵은 뿌리 -->
+    <path d="M 210 430 C 210 460 208 490 206 515" stroke-width="2"/>
+    <!-- 방사형 뿌리 (좌) -->
+    <path d="M 210 440 C 180 470 150 490 120 505" stroke-width="1.4"/>
+    <path d="M 210 445 C 170 475 130 500 90 520" stroke-width="1.1"/>
+    <path d="M 200 450 C 160 485 120 515 80 540" stroke-width="0.9"/>
+    <path d="M 195 455 C 150 495 110 530 70 560" stroke-width="0.7"/>
+    <!-- 방사형 뿌리 (우) -->
+    <path d="M 210 440 C 240 470 270 490 300 505" stroke-width="1.4"/>
+    <path d="M 210 445 C 250 475 290 500 330 520" stroke-width="1.1"/>
+    <path d="M 220 450 C 260 485 300 515 340 540" stroke-width="0.9"/>
+    <path d="M 225 455 C 270 495 310 530 350 560" stroke-width="0.7"/>
+    <!-- 세근 -->
+    <path d="M 120 505 C 110 515 100 522 92 530" stroke-width="0.4"/>
+    <path d="M 300 505 C 310 515 320 522 328 530" stroke-width="0.4"/>
+  </g>
+
+  <!-- 범례 -->
+  <g transform="translate(20, 530)">
+    <text font-family="'Pretendard',sans-serif" font-size="3.5" font-weight="500" fill="#5C534A" y="0">범례</text>
+    <g transform="translate(0,5)"><use href="#leaf-s" x="0" y="0" width="7" height="5" color="#6B8C5A"/><text class="node-title" x="9" y="4">일반</text></g>
+    <g transform="translate(28,5)"><use href="#flower-s" x="0" y="-2" width="9" height="9" color="#C8923D"/><text class="node-title" x="11" y="4">기쁨·중요</text></g>
+    <g transform="translate(72,5)"><use href="#fruit-s" x="0" y="-2" width="8" height="9" color="#C8603D"/><text class="node-title" x="10" y="4">결실</text></g>
+    <g transform="translate(102,5)"><use href="#bird-s" x="0" y="-1" width="10" height="7" color="#7A9CB0"/><text class="node-title" x="12" y="4">인연</text></g>
+  </g>
+
+  <!-- 푸터 (샘플 이름 없음) -->
+  <g>
+    <line x1="80" y1="556" x2="340" y2="556" stroke="#5C534A" stroke-width="0.2" opacity="0.4"/>
+    <line x1="195" y1="556" x2="225" y2="556" stroke="#5C4A6B" stroke-width="0.4"/>
+    <text id="footer-credit" x="210" y="566" font-family="'Noto Serif KR',serif" font-size="5" fill="#5C534A" text-anchor="middle">{personName} · {generatedYear}</text>
+    <text x="210" y="582" font-family="'Pretendard',sans-serif" font-size="3.53" font-weight="500" fill="#857C72" text-anchor="middle" letter-spacing="1.5">L I F E B O O K  ·  라이프북</text>
+  </g>
+
+</svg>

@@ -76,12 +76,20 @@ export default async function PosterViewPage() {
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-ink">인생 나무 포스터</h1>
-        <Link
-          href="/poster/select"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-banner"
-        >
-          담을 이야기 고치기
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/poster/select"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-banner"
+          >
+            ← 다시 고르기
+          </Link>
+          <Link
+            href="/poster"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-banner"
+          >
+            ← 템플릿 바꾸기
+          </Link>
+        </div>
       </header>
 
       <PosterCompose

@@ -8,6 +8,8 @@
 // 시니어 친화: 큰 버튼·큰 글씨·또렷한 상태색. 압박 X.
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { Check, Pencil, Eye } from "lucide-react";
 
@@ -84,8 +86,10 @@ export function PosterSelectClient({
     [choices],
   );
 
+  const router = useRouter();
   const [warn, setWarn] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
+  const [isNexting, startNexting] = useTransition();
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
   function setChoice(eventId: string, next: Choice) {
@@ -100,21 +104,34 @@ export function PosterSelectClient({
     setSavedMsg(null);
   }
 
-  function save() {
-    setWarn(null);
-    setSavedMsg(null);
-    // 비제외 항목을 시간순 order 로.
-    const items: PosterSelectionItem[] = sorted
+  // 비제외 항목을 시간순 order 로.
+  function buildItems(): PosterSelectionItem[] {
+    return sorted
       .filter((c) => choices[c.eventId] !== "exclude")
       .map((c, i) => ({
         eventId: c.eventId,
         type: choices[c.eventId] as "node" | "memo",
         order: i,
       }));
+  }
 
+  function save() {
+    setWarn(null);
+    setSavedMsg(null);
     startSaving(async () => {
-      const res = await savePosterSelections(items);
+      const res = await savePosterSelections(buildItems());
       if (res.ok) setSavedMsg(`${res.count}개를 포스터에 담았어요.`);
+      else setWarn(res.error);
+    });
+  }
+
+  // 저장 후 시안(/poster/view)으로. 저장 성공해야 이동(검증·정합 보존).
+  function saveAndNext() {
+    setWarn(null);
+    setSavedMsg(null);
+    startNexting(async () => {
+      const res = await savePosterSelections(buildItems());
+      if (res.ok) router.push("/poster/view");
       else setWarn(res.error);
     });
   }
@@ -166,6 +183,24 @@ export function PosterSelectClient({
           />
         ))}
       </ul>
+
+      {/* 하단 동선 — 템플릿 다시 고르기 / 저장 후 시안 보기 */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+        <Link
+          href="/poster"
+          className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+        >
+          ← 템플릿 다시 고르기
+        </Link>
+        <button
+          type="button"
+          onClick={saveAndNext}
+          disabled={isNexting}
+          className="inline-flex min-h-[52px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:bg-line"
+        >
+          {isNexting ? "저장 중…" : "다음: 시안 보기 →"}
+        </button>
+      </div>
     </div>
   );
 }
