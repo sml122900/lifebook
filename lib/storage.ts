@@ -229,6 +229,39 @@ export async function removePhoto(storagePath: string): Promise<void> {
   }
 }
 
+// ── P5-5c 맞춤배경 Storage ────────────────────────────────────────────
+// 별도 버킷 생성 없이 photos 버킷의 poster-bg/ 프리픽스를 쓴다(private).
+// P4 는 same-origin /api/poster/background 라우트로 download 해 canvas-clean.
+export const POSTER_BG_PREFIX = "poster-bg";
+
+export async function uploadPosterBackground(
+  userId: string,
+  buffer: Buffer,
+): Promise<string> {
+  const path = `${POSTER_BG_PREFIX}/${userId}/${Date.now()}.png`;
+  const { error } = await getServiceClient()
+    .storage.from(PHOTOS_BUCKET)
+    .upload(path, buffer, { contentType: "image/png", upsert: false });
+  if (error) throw new Error(`맞춤배경 업로드 실패: ${error.message}`);
+  return path;
+}
+
+export async function downloadPosterBackground(
+  storagePath: string,
+): Promise<Buffer> {
+  const { data, error } = await getServiceClient()
+    .storage.from(PHOTOS_BUCKET)
+    .download(storagePath);
+  if (error || !data) {
+    throw new Error(`맞춤배경 download 실패: ${error?.message ?? "no data"}`);
+  }
+  return Buffer.from(await data.arrayBuffer());
+}
+
+export async function removePosterBackground(storagePath: string): Promise<void> {
+  await getServiceClient().storage.from(PHOTOS_BUCKET).remove([storagePath]);
+}
+
 // 1단계 검증용 — Storage 폴더 list. 정식(2단계+)은 lib/photos.ts 의
 // listUserPhotos (DB 기반). 1단계 archive 후에도 같은 폴더 list 가
 // 디버깅에 유용해 함수는 보존(이름만 분리: photos.ts 와 충돌 회피).

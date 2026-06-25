@@ -161,6 +161,9 @@ model Poster {
   // P5-4 — 맞춤배경 "세트" 진행 카운트(현재 열린 세트의 생성 장 수, 1~4).
   // 0=세트 없음. 1세트=최초1+다시생성3=최대 4장(30토큰). 4 도달 후 추가는 새 세트.
   bgSetCount Int      @default(0)
+  // P5-5c — 결정한 맞춤배경의 Storage 경로(photos 버킷 poster-bg/ 프리픽스).
+  // template="custom" 일 때 P4 가 /api/poster/background 로 이 파일을 읽어 합성.
+  customBgPath String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }

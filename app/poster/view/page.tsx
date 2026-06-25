@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { prisma } from "@/lib/db";
 import { buildPosterSnapshot } from "@/lib/poster/snapshot";
 
 import { PosterCompose } from "../PosterCompose";
@@ -20,7 +21,19 @@ export default async function PosterViewPage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const snapshot = await buildPosterSnapshot(userId, session.user.name ?? "");
+  const [snapshot, poster] = await Promise.all([
+    buildPosterSnapshot(userId, session.user.name ?? ""),
+    prisma.poster.findUnique({
+      where: { userId },
+      select: { template: true, customBgPath: true },
+    }),
+  ]);
+
+  // P5-5c 배경 분기: custom + 저장된 배경 있으면 same-origin 스트림, 아니면 river.
+  const bgSrc =
+    poster?.template === "custom" && poster.customBgPath
+      ? "/api/poster/background"
+      : undefined; // undefined → PosterCompose 기본(river-bg)
 
   if (!snapshot) {
     return (
@@ -70,6 +83,7 @@ export default async function PosterViewPage() {
         ownerName={snapshot.ownerName}
         nodes={snapshot.nodes}
         memos={snapshot.memos}
+        bgSrc={bgSrc}
         editable
         onSave={savePosterOverrides}
       />

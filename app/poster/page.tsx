@@ -39,7 +39,7 @@ type TemplateChoice = {
   name: string;
   desc: string;
   preview: string | null; // 미리보기 이미지(없으면 placeholder)
-  status: "ready" | "soon";
+  status: "ready" | "soon" | "custom"; // custom = 맞춤배경 생성 플로우(/poster/custom)
 };
 
 const TEMPLATE_CHOICES: TemplateChoice[] = [
@@ -67,9 +67,9 @@ const TEMPLATE_CHOICES: TemplateChoice[] = [
   {
     id: "custom",
     name: "맞춤형 디자인",
-    desc: "좋아하시는 분위기로 디자인을 새로 지어드려요.",
+    desc: "좋아하시는 색·꽃·분위기로 배경 그림을 새로 그려드려요.",
     preview: null,
-    status: "soon",
+    status: "custom",
   },
 ];
 
@@ -135,13 +135,15 @@ function TemplateCard({
   current: string | null;
 }) {
   const ready = t.status === "ready";
+  const isCustom = t.status === "custom";
+  const active = ready || isCustom;
   const selected = current === t.id;
 
   return (
     <li
       className={
         "flex flex-col overflow-hidden rounded-xl border-2 " +
-        (ready ? "border-action bg-surface" : "border-line bg-canvas")
+        (active ? "border-action bg-surface" : "border-line bg-canvas")
       }
     >
       {/* 미리보기 — A2 세로 비율(2:3). 준비 중은 흐리게. */}
@@ -156,12 +158,19 @@ function TemplateCard({
             }
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-banner to-line text-ink-faint">
+          <div
+            className={
+              "flex h-full w-full flex-col items-center justify-center gap-2 " +
+              (isCustom
+                ? "bg-gradient-to-b from-banner to-brand/20 text-action"
+                : "bg-gradient-to-b from-banner to-line text-ink-faint")
+            }
+          >
             <Sparkles aria-hidden strokeWidth={1.5} className="h-10 w-10" />
-            <span className="text-sm">곧 만나요</span>
+            <span className="text-sm">{isCustom ? "내 취향으로" : "곧 만나요"}</span>
           </div>
         )}
-        {!ready && (
+        {!active && (
           <span className="absolute right-2 top-2 rounded-full bg-ink/70 px-3 py-1 text-xs font-semibold text-white">
             준비 중
           </span>
@@ -179,7 +188,14 @@ function TemplateCard({
         <h2 className="text-xl font-bold text-ink">{t.name}</h2>
         <p className="flex-1 text-base text-ink-soft">{t.desc}</p>
 
-        {ready ? (
+        {isCustom ? (
+          <Link
+            href="/poster/custom"
+            className="mt-2 inline-flex min-h-[52px] w-full items-center justify-center rounded-md bg-action px-5 py-3 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          >
+            내 취향으로 만들기 →
+          </Link>
+        ) : ready ? (
           <form action={chooseTemplate.bind(null, t.id)} className="mt-2">
             <button
               type="submit"

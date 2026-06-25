@@ -164,12 +164,16 @@ export function PosterCompose({
   memos,
   editable = false,
   onSave,
+  bgSrc = POSTER_BG_SRC,
 }: {
   ownerName: string;
   nodes: PosterNode[];
   memos: PosterMemo[];
   editable?: boolean;
   onSave?: (items: PosterSelectionFull[]) => Promise<SaveResult>;
+  // P5-5c — 배경 분기(river=고정 PNG / custom=/api/poster/background). canvas-safe
+  // 위해 same-origin 권장. 기본은 river.
+  bgSrc?: string;
 }) {
   const [model, setModel] = useState<RenderModel | null>(null);
   const [failed, setFailed] = useState(false);
@@ -283,7 +287,7 @@ export function PosterCompose({
         // 4) 배경 luminance.
         let ctx: CanvasRenderingContext2D | null = null;
         try {
-          const img = await loadImage(POSTER_BG_SRC);
+          const img = await loadImage(bgSrc);
           const canvas = document.createElement("canvas");
           canvas.width = POSTER_W;
           canvas.height = POSTER_H;
@@ -324,7 +328,7 @@ export function PosterCompose({
     return () => { cancelled = true; };
     // textSig 가 텍스트·삭제·항목 변화를 모두 포괄(드래그 x/y 는 미포함 → 재측정 X).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerName, textSig]);
+  }, [ownerName, textSig, bgSrc]);
 
   // ── 항목 기하(override 반영) — 안전여백·선택 외곽선 공용 ──────────────
   const geom = useMemo(() => {
@@ -629,7 +633,7 @@ export function PosterCompose({
             </filter>
           </defs>
 
-          <image href={POSTER_BG_SRC} x={0} y={0} width={POSTER_W} height={POSTER_H} preserveAspectRatio="xMidYMid slice" />
+          <image href={bgSrc} x={0} y={0} width={POSTER_W} height={POSTER_H} preserveAspectRatio="xMidYMid slice" />
 
           <rect x={0} y={0} width={POSTER_W} height={170} fill="rgba(250,244,228,0.804)" filter="url(#bandBlur)" />
           <text x={POSTER_W / 2} y={70} textAnchor="middle" fontFamily={`"${FONT_SERIF}"`} fontWeight={700} fontSize={52} fill="#28221C">

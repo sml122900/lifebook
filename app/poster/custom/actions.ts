@@ -6,7 +6,10 @@
 // 실패 시 차감 롤백. 잔액 부족/새 세트 확인 필요는 명확한 reason 으로 반환.
 // 이미지는 지금 base64 data URL 로 미리보기 반환 — Storage 영속·Poster 연결은 P5-5.
 
+import { revalidatePath } from "next/cache";
+
 import { auth } from "@/auth";
+import { prisma } from "@/lib/db";
 import { buildBackgroundPrompt } from "@/lib/poster/background-prompt";
 import { generatePosterBackground } from "@/lib/poster/background-generate";
 import { getPreferencesForBackground } from "@/lib/poster/preferences";
@@ -15,6 +18,11 @@ import {
   persistBgSetCount,
   rollbackBgCharge,
 } from "@/lib/poster/background-set";
+import {
+  removePosterBackground,
+  uploadPosterBackground,
+} from "@/lib/storage";
+import { getBalance } from "@/lib/tokens/wallet";
 
 export type GenCustomBgResult =
   | {
@@ -24,6 +32,7 @@ export type GenCustomBgResult =
       regensLeft: number;
       charged: boolean;
       unstable: boolean;
+      balanceAfter: number;
     }
   | {
       ok: false;
@@ -69,5 +78,44 @@ export async function generateCustomBackground(
     regensLeft: charge.regensLeft,
     charged: charge.charged,
     unstable: result.unstable,
+    balanceAfter: await getBalance(userId),
   };
+}
+
+// P5-5c — "이 배경으로 결정": 미리보기(base64)를 Storage 에 영속 저장 +
+// Poster.template="custom" + customBgPath. 기존 배경은 교체 후 정리(orphan 방지).
+export async function saveCustomBackground(
+  imageDataUrl: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
+  const userId = session.user.id;
+
+  const m = /^data:image\/png;base64,(.+)$/.exec(imageDataUrl);
+  if (!m) return { ok: false, error: "이미지 형식이 올바르지 않아요." };
+  const buffer = Buffer.from(m[1]!, "base64");
+  if (buffer.length === 0 || buffer.length > 12 * 1024 * 1024) {
+    return { ok: false, error: "이미지 크기가 올바르지 않아요." };
+  }
+
+  const prev = await prisma.poster.findUnique({
+    where: { userId },
+    select: { customBgPath: true },
+  });
+
+  const path = await uploadPosterBackground(userId, buffer);
+  await prisma.poster.upsert({
+    where: { userId },
+    create: { userId, template: "custom", customBgPath: path },
+    update: { template: "custom", customBgPath: path },
+  });
+
+  // 이전 배경 정리(교체 시). 실패는 무시(orphan 정도, 치명 X).
+  if (prev?.customBgPath && prev.customBgPath !== path) {
+    await removePosterBackground(prev.customBgPath).catch(() => {});
+  }
+
+  revalidatePath("/poster/view");
+  revalidatePath("/poster");
+  return { ok: true };
 }
