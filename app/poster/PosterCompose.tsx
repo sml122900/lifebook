@@ -30,6 +30,13 @@ export const POSTER_BG_SRC = "/poster/river-bg.png";
 
 const FONT_SANS = "Noto Sans KR";
 const FONT_SERIF = "Noto Serif KR";
+
+// 노드 둥근사각 패딩(글자 기준). 시제품처럼 글자에 타이트하게 — 배경 덜 가림.
+// ★ 글자가 테두리에 닿지 않게 최소 여백 유지(padX 8·padY 5 밑으론 X).
+const NODE_PAD_X = 10; // 좌우 여백(과거 15)
+const NODE_PAD_Y = 7; // 상하 여백(과거 11)
+const NODE_LINE_GAP = 4; // 연도-제목 두 줄 간격(과거 5)
+
 const GFONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400&family=Noto+Serif+KR:wght@400;500;700&display=swap";
 
@@ -189,8 +196,8 @@ export function PosterCompose({
           const yearStr = n.year != null ? String(n.year) : "";
           const ym = measure(svg, yearStr || " ", FONT_SANS, 18, 400);
           const tm = measure(svg, n.label || " ", FONT_SERIF, 21, 700);
-          const boxW = Math.max(ym.w, tm.w) + 15 * 2;
-          const boxH = ym.h + tm.h + 5 + 11 * 2;
+          const boxW = Math.max(ym.w, tm.w) + NODE_PAD_X * 2;
+          const boxH = ym.h + tm.h + NODE_LINE_GAP + NODE_PAD_Y * 2;
           return { boxW, boxH };
         });
         const positions: NodePos[] = placeNodes(boxes);
