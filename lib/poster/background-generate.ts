@@ -14,7 +14,8 @@ import type { BackgroundPrompt } from "./background-prompt";
 // gpt-image-1 지원: size 1024x1024 / 1024x1536(portrait) / 1536x1024,
 // quality low|medium|high|auto. 저품질부터 시작, env 로 상향 가능.
 export const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-1";
-export const OPENAI_IMAGE_QUALITY = process.env.OPENAI_IMAGE_QUALITY ?? "low";
+// medium 채택(경영방 승인) — low 휑함 대비 샘→바다 서사·디테일 풍부. env 로 상하향 가능.
+export const OPENAI_IMAGE_QUALITY = process.env.OPENAI_IMAGE_QUALITY ?? "medium";
 export const OPENAI_IMAGE_SIZE = process.env.OPENAI_IMAGE_SIZE ?? "1024x1536";
 
 const OPENAI_URL = "https://api.openai.com/v1/images/generations";
