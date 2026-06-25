@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/poster": ["./design/templates/**/*.svg"],
   },
+  // P5-5c — 맞춤배경 "결정" 시 base64 PNG 를 서버 액션 인자로 넘긴다(최대
+  // 디코딩 12MB → base64 ~16MB). 기본 1MB 한도면 큰 그림에서 503 으로 막힘.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "16mb",
+    },
+  },
 };
 
 export default nextConfig;

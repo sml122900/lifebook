@@ -51,11 +51,17 @@ export function CustomBackgroundClient({
     if (!result) return;
     setSaving(true);
     setDecideError(null);
-    const res = await saveCustomBackground(result.imageDataUrl);
-    if (res.ok) {
-      router.push("/poster/select");
-    } else {
+    try {
+      const res = await saveCustomBackground(result.imageDataUrl);
+      if (res.ok) {
+        router.push("/poster/select");
+        return; // 이동 중에는 "저장 중" 유지(버튼 잠금)
+      }
       setDecideError(res.error);
+      setSaving(false);
+    } catch {
+      // 액션이 프레임워크 레벨에서 실패(타임아웃·용량 등)해도 무한 대기 방지.
+      setDecideError("배경을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
       setSaving(false);
     }
   }

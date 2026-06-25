@@ -138,12 +138,20 @@ export async function selectPosterCandidates(
 ): Promise<PosterCandidate[]> {
   if (events.length === 0) return [];
 
-  const res = await chat([{ role: "user", content: buildUserMsg(events) }], {
-    system: SYSTEM_PROMPT,
-    model: POSTER_CANDIDATE_MODEL,
-    maxTokens: 3072,
-    temperature: 0.3,
-  });
+  // AI 호출 실패(타임아웃·레이트리밋·키 오류)가 /poster/select 페이지 전체를
+  // 500 으로 무너뜨리지 않도록 폴백. river→select 진입이 AI 가용성에 매이면 안 됨.
+  let res;
+  try {
+    res = await chat([{ role: "user", content: buildUserMsg(events) }], {
+      system: SYSTEM_PROMPT,
+      model: POSTER_CANDIDATE_MODEL,
+      maxTokens: 3072,
+      temperature: 0.3,
+    });
+  } catch (e) {
+    console.error("[poster] 후보 분류 AI 실패 — 폴백 사용", e instanceof Error ? e.message : e);
+    return events.map(fallbackCandidate);
+  }
 
   return parseCandidates(res.text, events);
 }

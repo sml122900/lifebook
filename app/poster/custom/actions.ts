@@ -98,24 +98,34 @@ export async function saveCustomBackground(
     return { ok: false, error: "이미지 크기가 올바르지 않아요." };
   }
 
-  const prev = await prisma.poster.findUnique({
-    where: { userId },
-    select: { customBgPath: true },
-  });
+  // 어떤 단계(Storage 업로드·DB·정리)에서 던져도 클라가 503/무한 "저장 중"에
+  // 빠지지 않도록 전부 감싼다. 프로덕션에서 숨겨지는 진짜 원인은 서버 로그로.
+  try {
+    const prev = await prisma.poster.findUnique({
+      where: { userId },
+      select: { customBgPath: true },
+    });
 
-  const path = await uploadPosterBackground(userId, buffer);
-  await prisma.poster.upsert({
-    where: { userId },
-    create: { userId, template: "custom", customBgPath: path },
-    update: { template: "custom", customBgPath: path },
-  });
+    const path = await uploadPosterBackground(userId, buffer);
+    await prisma.poster.upsert({
+      where: { userId },
+      create: { userId, template: "custom", customBgPath: path },
+      update: { template: "custom", customBgPath: path },
+    });
 
-  // 이전 배경 정리(교체 시). 실패는 무시(orphan 정도, 치명 X).
-  if (prev?.customBgPath && prev.customBgPath !== path) {
-    await removePosterBackground(prev.customBgPath).catch(() => {});
+    // 이전 배경 정리(교체 시)는 응답을 막지 않게 후처리(fire-and-forget).
+    // 실패해도 orphan 1개 정도라 치명 X. await 하지 않아 결정 응답이 빨라짐.
+    if (prev?.customBgPath && prev.customBgPath !== path) {
+      void removePosterBackground(prev.customBgPath).catch((e) => {
+        console.error("[poster-bg] 이전 배경 정리 실패", e instanceof Error ? e.message : e);
+      });
+    }
+
+    revalidatePath("/poster/view");
+    revalidatePath("/poster");
+    return { ok: true };
+  } catch (e) {
+    console.error("[poster-bg] saveCustomBackground 실패", e instanceof Error ? e.stack ?? e.message : e);
+    return { ok: false, error: "배경을 저장하지 못했어요. 잠시 후 다시 시도해 주세요." };
   }
-
-  revalidatePath("/poster/view");
-  revalidatePath("/poster");
-  return { ok: true };
 }
