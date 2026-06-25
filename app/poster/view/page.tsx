@@ -58,6 +58,14 @@ export default async function PosterViewPage() {
         </div>
       </header>
 
+      {/* 상단 주문 CTA — 큰 포스터를 스크롤하기 전에 바로 보이게(시니어 친화). */}
+      <Link
+        href="/poster/order"
+        className="mb-5 flex min-h-[60px] w-full items-center justify-center gap-2 rounded-md bg-amber-500 px-6 py-3 text-xl font-bold text-white hover:bg-amber-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+      >
+        <span aria-hidden>🖼️</span> 이 포스터 주문하기
+      </Link>
+
       <PosterCompose
         ownerName={snapshot.ownerName}
         nodes={snapshot.nodes}
