@@ -32,11 +32,13 @@ const FONT_SANS = "Noto Sans KR";
 const FONT_SERIF = "Noto Serif KR";
 
 // 노드 둥근사각 패딩(글자 기준). 시제품처럼 글자에 딱 붙게 — 배경 덜 가림.
-// ★ 텍스트는 cy∓ 고정 오프셋이라 padY 가 박스 아래 모서리↔제목 밑단 여백을
-//   좌우한다. 글자 닿으면 NODE_PAD_Y 1씩 올려 미세조정.
+// ★ 텍스트는 cy∓ 고정 오프셋(연도 cy-8·제목 cy+11)이라 박스가 cy 중심 대칭이면
+//   위쪽 여백이 아래보다 크다. NODE_TOP_TRIM 으로 위 모서리만 깎아 비대칭으로.
 const NODE_PAD_X = 7; // 좌우 여백(15→10→7)
-const NODE_PAD_Y = 3; // 상하 여백(11→7→3, 과감히)
+const NODE_PAD_Y = 3; // 상하 기본 여백(11→7→3, 과감히)
 const NODE_LINE_GAP = 2; // 연도-제목 두 줄 간격(5→4→2)
+// 위 모서리만 추가로 깎기(아래·텍스트 무변). 글자 닿으면 1씩 줄여 미세조정.
+const NODE_TOP_TRIM = 5;
 
 const GFONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400&family=Noto+Serif+KR:wght@400;500;700&display=swap";
@@ -45,6 +47,7 @@ export type PosterNode = { year: number | null; label: string };
 
 type RenderNode = {
   cx: number; cy: number; boxW: number; boxH: number; radius: number;
+  topY: number; // 박스 위 모서리(비대칭 trim 반영). cy 중심 아님.
   year: string; title: string;
 };
 type RenderMemo = {
@@ -202,11 +205,17 @@ export function PosterCompose({
           return { boxW, boxH };
         });
         const positions: NodePos[] = placeNodes(boxes);
-        const renderNodes: RenderNode[] = positions.map((p, i) => ({
-          cx: p.cx, cy: p.cy, boxW: p.boxW, boxH: p.boxH, radius: p.boxH * 0.46,
-          year: nodes[i].year != null ? String(nodes[i].year) : "",
-          title: nodes[i].label,
-        }));
+        const renderNodes: RenderNode[] = positions.map((p, i) => {
+          // 위 모서리만 NODE_TOP_TRIM 만큼 내려 비대칭. 아래 모서리(cy+boxH/2)·
+          // 텍스트(cy∓)는 그대로 → 위쪽 여백만 줄어듦.
+          const h = p.boxH - NODE_TOP_TRIM;
+          return {
+            cx: p.cx, cy: p.cy, boxW: p.boxW, boxH: h, radius: h * 0.46,
+            topY: p.cy - p.boxH / 2 + NODE_TOP_TRIM,
+            year: nodes[i].year != null ? String(nodes[i].year) : "",
+            title: nodes[i].label,
+          };
+        });
 
         // 3) 메모 배치 + 워드랩 + 라인높이.
         const slots: MemoSlot[] = distributeMemos(Math.min(memos.length, MEMO_MAX));
@@ -336,7 +345,7 @@ export function PosterCompose({
             <g key={`node-${i}`} filter="url(#nodeShadow)">
               <rect
                 x={n.cx - n.boxW / 2}
-                y={n.cy - n.boxH / 2}
+                y={n.topY}
                 width={n.boxW}
                 height={n.boxH}
                 rx={n.radius}
