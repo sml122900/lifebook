@@ -85,6 +85,13 @@ model User {
   // 항상 sonnet 고정. lib/ai-model.ts(상수)·lib/user-ai-model.ts(읽기/쓰기).
   aiModel String @default("haiku")
 
+  // P5-5a — 맞춤배경 취향(preferences). 출처별 분리 저장:
+  //   extractedPreferences = AI 추출분(S6 SplitResult.preferences, 대화/통녹음에서)
+  //   userPreferences      = 사용자 직접 입력(★ 병합 시 우세)
+  // getPreferencesForBackground 가 사용자 우선으로 병합해 buildBackgroundPrompt 입력.
+  extractedPreferences String[] @default([])
+  userPreferences      String[] @default([])
+
   // explicit consent timestamps (Phase 3.3)
   termsConsentAt            DateTime?
   privacyConsentAt          DateTime?

@@ -17,6 +17,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { splitRecordingTranscript } from "@/lib/free-recording-split";
+import { addExtractedPreferences } from "@/lib/poster/preferences";
 import { resolveBirthYear } from "@/lib/life-events";
 import { redactTranscript } from "@/lib/transcript-redact";
 import {
@@ -137,6 +138,9 @@ export async function saveCompanionSessionAction(input: {
   let draftMemoryCount = 0;
   try {
     const splitResult = await splitRecordingTranscript(redactedText, "동반자 대화", birthYear, existingForSplit);
+
+    // P5-5a — 추출 취향(맞춤배경용) 누적 저장. 실패는 무시(부가 작업).
+    await addExtractedPreferences(userId, splitResult.preferences).catch(() => {});
 
     for (const seg of splitResult.segments.slice(0, 10)) {
       const eventYear = typeof seg.estimatedYear === "number" ? seg.estimatedYear : null;

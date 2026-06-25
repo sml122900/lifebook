@@ -9,6 +9,7 @@
 import { auth } from "@/auth";
 import { buildBackgroundPrompt } from "@/lib/poster/background-prompt";
 import { generatePosterBackground } from "@/lib/poster/background-generate";
+import { getPreferencesForBackground } from "@/lib/poster/preferences";
 import {
   chargeForBackgroundGeneration,
   persistBgSetCount,
@@ -31,7 +32,6 @@ export type GenCustomBgResult =
     };
 
 export async function generateCustomBackground(
-  preferences: string[],
   confirmNewSet = false,
 ): Promise<GenCustomBgResult> {
   const session = await auth();
@@ -42,7 +42,9 @@ export async function generateCustomBackground(
   const charge = await chargeForBackgroundGeneration(userId, confirmNewSet);
   if (!charge.ok) return { ok: false, reason: charge.reason };
 
-  // 2) 생성 + 검수 루프(P5-3). 검수 자동재생성은 시스템 흡수(추가 차감 X).
+  // 2) 생성 + 검수 루프(P5-3). 취향은 DB 병합(사용자 우선). 검수 자동재생성은
+  //    시스템 흡수(추가 차감 X).
+  const preferences = await getPreferencesForBackground(userId);
   const prompt = buildBackgroundPrompt(preferences);
   let result;
   try {
