@@ -37,6 +37,7 @@ import {
   type ItemOverride,
   type PosterSelectionFull,
 } from "@/lib/poster/overrides";
+import { exportPosterPng } from "./print-export";
 
 export const POSTER_BG_SRC = "/poster/river-bg.png";
 
@@ -186,6 +187,7 @@ export function PosterCompose({
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   // 살아있는 항목(삭제 제외).
   const activeNodes = useMemo(
@@ -509,6 +511,27 @@ export function PosterCompose({
     }
   }
 
+  async function handleExport() {
+    if (!model) return;
+    if (
+      anyOut &&
+      !window.confirm(
+        "안전여백을 벗어난 글상자가 있어요. 인쇄 때 잘릴 수 있어요. 그래도 내려받을까요?",
+      )
+    ) {
+      return;
+    }
+    setExporting(true);
+    setSavedMsg(null);
+    try {
+      await exportPosterPng(model, overrides, ownerName);
+    } catch {
+      setSavedMsg("인쇄 파일을 만들지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   if (failed) return <p className="text-sm text-danger">포스터를 그리지 못했어요.</p>;
   if (!model) return <p className="text-base text-ink-soft">포스터를 그리는 중이에요…</p>;
 
@@ -556,6 +579,19 @@ export function PosterCompose({
           글상자를 눌러 고르고, 끌어서 옮기세요. 아래에서 글자 크기·내용을 고치거나 뺄 수 있어요.
         </p>
       )}
+
+      {/* 인쇄용 파일 내려받기 — 항상 노출(최종 출력물). */}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exporting}
+          className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-action bg-surface px-5 py-2 text-base font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:opacity-60"
+        >
+          {exporting ? "인쇄 파일 만드는 중…" : "🖨️ 인쇄용 파일 내려받기"}
+        </button>
+        <span className="text-sm text-ink-faint">고화질 5008×7063 · 300dpi</span>
+      </div>
 
       {savedMsg && (
         <p className="rounded-md border-2 border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
