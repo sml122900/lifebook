@@ -22,6 +22,7 @@ type Props = {
 
 type ResultState = {
   imageDataUrl: string;
+  bgPath: string;
   regensLeft: number;
   unstable: boolean;
 };
@@ -52,7 +53,7 @@ export function CustomBackgroundClient({
     setSaving(true);
     setDecideError(null);
     try {
-      const res = await saveCustomBackground(result.imageDataUrl);
+      const res = await saveCustomBackground(result.bgPath);
       if (res.ok) {
         router.push("/poster/select");
         return; // 이동 중에는 "저장 중" 유지(버튼 잠금)
@@ -78,14 +79,17 @@ export function CustomBackgroundClient({
     setError(null);
     setShowNewSetConfirm(false);
     setDecideError(null);
+    // 직전 미리보기 경로를 넘겨, 새로 만들면 서버가 옛 그림을 정리(orphan 방지).
+    const prevPath = result?.bgPath ?? null;
     startTransition(async () => {
       if (saveFirst) {
         await saveUserPreferences(parsePrefs());
       }
-      const res = await generateCustomBackground(confirmNewSet);
+      const res = await generateCustomBackground(confirmNewSet, prevPath);
       if (res.ok) {
         setResult({
           imageDataUrl: res.imageDataUrl,
+          bgPath: res.bgPath,
           regensLeft: res.regensLeft,
           unstable: res.unstable,
         });

@@ -28,6 +28,7 @@ export type GenCustomBgResult =
   | {
       ok: true;
       imageDataUrl: string;
+      bgPath: string;
       setCount: number;
       regensLeft: number;
       charged: boolean;
@@ -42,6 +43,7 @@ export type GenCustomBgResult =
 
 export async function generateCustomBackground(
   confirmNewSet = false,
+  prevPath: string | null = null,
 ): Promise<GenCustomBgResult> {
   const session = await auth();
   if (!session?.user?.id) return { ok: false, reason: "unauthorized" };
@@ -68,12 +70,37 @@ export async function generateCustomBackground(
     };
   }
 
-  // 3) 성공 → 세트 카운트 영속.
+  // 3) 생성 이미지를 즉시 Storage 에 영속(미리보기 단계). 이렇게 해야 "결정"
+  //    이 base64(~16MB)가 아니라 경로 문자열만 서버로 보내 Vercel 요청 본문
+  //    한도(503)를 원천 회피한다. 버퍼는 서버에서 생성돼 요청으로 오가지 않는다.
+  let bgPath: string;
+  try {
+    bgPath = await uploadPosterBackground(userId, result.buffer);
+  } catch (e) {
+    // 업로드 실패 → 차감 롤백(생성 실패와 동일 처리).
+    await rollbackBgCharge(userId, charge.charged);
+    return {
+      ok: false,
+      reason: "gen_failed",
+      message: e instanceof Error ? e.message : "이미지를 저장하지 못했어요.",
+    };
+  }
+
+  // 직전 미리보기(다시 만들기로 버려진 그림)는 정리 — 세트 내 orphan 방지.
+  // 아직 DB 에 연결 안 된 임시 그림만 지운다(fire-and-forget).
+  if (prevPath && prevPath !== bgPath) {
+    void removePosterBackground(prevPath).catch((e) => {
+      console.error("[poster-bg] 이전 미리보기 정리 실패", e instanceof Error ? e.message : e);
+    });
+  }
+
+  // 4) 성공 → 세트 카운트 영속.
   await persistBgSetCount(userId, charge.nextCount);
 
   return {
     ok: true,
     imageDataUrl: `data:image/png;base64,${result.buffer.toString("base64")}`,
+    bgPath,
     setCount: charge.nextCount,
     regensLeft: charge.regensLeft,
     charged: charge.charged,
@@ -82,40 +109,37 @@ export async function generateCustomBackground(
   };
 }
 
-// P5-5c — "이 배경으로 결정": 미리보기(base64)를 Storage 에 영속 저장 +
-// Poster.template="custom" + customBgPath. 기존 배경은 교체 후 정리(orphan 방지).
+// P5-5c — "이 배경으로 결정": 생성 단계에서 이미 Storage 에 올라간 경로만 받아
+// Poster.template="custom" + customBgPath 로 확정한다. base64 를 인자로 받지
+// 않으므로 큰 그림에서도 요청 본문이 작아 Vercel 한도 503 이 안 난다.
 export async function saveCustomBackground(
-  imageDataUrl: string,
+  bgPath: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await auth();
   if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
   const userId = session.user.id;
 
-  const m = /^data:image\/png;base64,(.+)$/.exec(imageDataUrl);
-  if (!m) return { ok: false, error: "이미지 형식이 올바르지 않아요." };
-  const buffer = Buffer.from(m[1]!, "base64");
-  if (buffer.length === 0 || buffer.length > 12 * 1024 * 1024) {
-    return { ok: false, error: "이미지 크기가 올바르지 않아요." };
+  // 본인 소유 경로만 허용 — 세션 userId 를 박아 다른 사용자/임의 경로 주입 차단.
+  // (uploadPosterBackground 가 만드는 형식: poster-bg/{userId}/{ts}.png)
+  if (!new RegExp(`^poster-bg/${userId}/\\d+\\.png$`).test(bgPath)) {
+    return { ok: false, error: "이미지 경로가 올바르지 않아요." };
   }
 
-  // 어떤 단계(Storage 업로드·DB·정리)에서 던져도 클라가 503/무한 "저장 중"에
-  // 빠지지 않도록 전부 감싼다. 프로덕션에서 숨겨지는 진짜 원인은 서버 로그로.
+  // DB upsert·정리에서 던져도 클라가 503/무한 "저장 중"에 빠지지 않게 감싼다.
   try {
     const prev = await prisma.poster.findUnique({
       where: { userId },
       select: { customBgPath: true },
     });
 
-    const path = await uploadPosterBackground(userId, buffer);
     await prisma.poster.upsert({
       where: { userId },
-      create: { userId, template: "custom", customBgPath: path },
-      update: { template: "custom", customBgPath: path },
+      create: { userId, template: "custom", customBgPath: bgPath },
+      update: { template: "custom", customBgPath: bgPath },
     });
 
-    // 이전 배경 정리(교체 시)는 응답을 막지 않게 후처리(fire-and-forget).
-    // 실패해도 orphan 1개 정도라 치명 X. await 하지 않아 결정 응답이 빨라짐.
-    if (prev?.customBgPath && prev.customBgPath !== path) {
+    // 이전 확정 배경 정리(교체 시)는 응답을 막지 않게 fire-and-forget.
+    if (prev?.customBgPath && prev.customBgPath !== bgPath) {
       void removePosterBackground(prev.customBgPath).catch((e) => {
         console.error("[poster-bg] 이전 배경 정리 실패", e instanceof Error ? e.message : e);
       });
