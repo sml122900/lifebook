@@ -9,10 +9,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveCompanionSessionAction } from "./actions";
+import { EraArchiveCard, type EraSnapshot } from "./EraArchiveCard";
+import { getEraCatalog } from "@/app/timemachine/[year]/[month]/era-pick-actions";
+import type { EraEvent, EraSong } from "@/lib/era-events";
 
 type Phase = "opening" | "idle" | "recording" | "transcribing" | "thinking" | "error";
 type ChatMessage = { role: "user" | "assistant"; content: string };
-type Msg = { role: "a" | "u"; text: string };
+// C3 — 메시지에 그 시절 아카이브 카드(era)를 옵셔널로 매달 수 있다.
+type Msg = { role: "a" | "u"; text: string; era?: EraSnapshot };
 
 // 세션 안전 상한
 const MAX_TURNS_CLIENT = 50;
@@ -75,6 +79,10 @@ export function CompanionClient() {
   const ttsOnRef = useRef(false);
   ttsOnRef.current = ttsOn;
 
+  // C3 — 시대 아카이브 카탈로그(1회 로드 후 클라 필터) + 이미 처리한 연도(중복 방지).
+  const eraCatalogRef = useRef<{ events: EraEvent[]; songs: EraSong[] } | null>(null);
+  const shownYearsRef = useRef<Set<number>>(new Set());
+
   const sessionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -103,6 +111,71 @@ export function CompanionClient() {
   }
   function addUser(text: string) {
     setMessages((prev) => [...prev, { role: "u", text }]);
+  }
+
+  // ── C3 그 시절 아카이브 ──────────────────────────────────────────────────
+  // 카탈로그는 작아(사건 88·음악 73) 첫 연도 감지 때 1회만 받아 클라가 필터.
+  async function ensureEraCatalog() {
+    if (eraCatalogRef.current) return eraCatalogRef.current;
+    try {
+      const cat = await getEraCatalog();
+      eraCatalogRef.current = { events: cat.events, songs: cat.songs };
+      return eraCatalogRef.current;
+    } catch {
+      return null; // 조회 실패 시 카드 없이 대화 계속(차단 X).
+    }
+  }
+
+  // 텍스트에서 새 연도(1900~2099)를 찾아 그 해 아카이브가 있으면 스냅샷 반환.
+  // 이미 처리한 연도·데이터 없는 연도는 제외(undefined). 대화당 연도별 1회.
+  async function resolveEraSnapshot(text: string): Promise<EraSnapshot | undefined> {
+    const re = /(?<!\d)(19\d{2}|20\d{2})(?!\d)/g;
+    const candidates: number[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      const y = Number(m[1]);
+      if (!shownYearsRef.current.has(y) && !candidates.includes(y)) candidates.push(y);
+    }
+    if (candidates.length === 0) return undefined;
+
+    const cat = await ensureEraCatalog();
+    if (!cat) return undefined;
+
+    let snapshot: EraSnapshot | undefined;
+    for (const y of candidates) {
+      shownYearsRef.current.add(y); // 데이터 유무와 무관하게 처리됨 표시(재검사 X).
+      if (snapshot) continue;
+      const events = cat.events.filter((e) => e.year === y);
+      const songs = cat.songs.filter((s) => s.year === y);
+      if (events.length === 0 && songs.length === 0) continue; // 아카이브 없음 → 카드 X.
+      const ev = events.slice(0, 3).map((e) => ({ title: e.title }));
+      const sg = songs
+        .slice(0, Math.max(0, 5 - ev.length)) // 사건+노래 합쳐 최대 5개.
+        .map((s) => ({ title: s.title, artist: s.artist }));
+      snapshot = { year: y, events: ev, songs: sg };
+    }
+    return snapshot;
+  }
+
+  // 방금 추가된 마지막 동반자 메시지에 아카이브 카드를 매단다(응답은 안 막음).
+  function attachEraToLastBot(era: EraSnapshot) {
+    setMessages((prev) => {
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].role === "a") {
+          const next = prev.slice();
+          next[i] = { ...next[i], era };
+          return next;
+        }
+      }
+      return prev;
+    });
+  }
+
+  // 사용자 발화 + AI 응답에서 연도 감지 → 카드를 마지막 동반자 메시지에 비동기로.
+  function detectEra(text: string) {
+    void resolveEraSnapshot(text).then((era) => {
+      if (era) attachEraToLastBot(era);
+    });
   }
 
   function clearSilenceInterval() {
@@ -233,6 +306,7 @@ export function CompanionClient() {
       ]);
       addBot(openingText);
       void speakText(openingText); // TTS 비블로킹 (토글 따름)
+      detectEra(openingText); // C3 — 오프닝이 연도를 언급하면 아카이브 카드(드묾).
 
       startSessionTimer();
       setPhase("idle");
@@ -264,6 +338,8 @@ export function CompanionClient() {
       void speakText(reply); // TTS 비블로킹
       // 유료 채팅 차감 후 사이드 패널(루트 레이아웃) 잔액 갱신 (#1 배경 생성과 동일).
       router.refresh();
+      // C3 — 사용자 발화 + AI 응답에서 연도 감지 → 그 시절 아카이브 카드(비블로킹).
+      detectEra(`${text} ${reply}`);
 
       const turns = Math.floor(nextHistory.length / 2);
       if (turns >= MAX_TURNS_CLIENT) {
@@ -425,23 +501,26 @@ export function CompanionClient() {
         )}
 
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={[
-              "flex",
-              msg.role === "u" ? "justify-end" : "justify-start",
-            ].join(" ")}
-          >
+          <div key={i} className="flex flex-col gap-1">
             <div
               className={[
-                "max-w-[82%] rounded-2xl px-5 py-4 text-lg leading-relaxed whitespace-pre-wrap",
-                msg.role === "u"
-                  ? "bg-action text-white rounded-br-sm"
-                  : "bg-surface border border-line text-ink rounded-bl-sm",
+                "flex",
+                msg.role === "u" ? "justify-end" : "justify-start",
               ].join(" ")}
             >
-              {msg.text}
+              <div
+                className={[
+                  "max-w-[82%] rounded-2xl px-5 py-4 text-lg leading-relaxed whitespace-pre-wrap",
+                  msg.role === "u"
+                    ? "bg-action text-white rounded-br-sm"
+                    : "bg-surface border border-line text-ink rounded-bl-sm",
+                ].join(" ")}
+              >
+                {msg.text}
+              </div>
             </div>
+            {/* C3 — 연도 감지 시 그 시절 아카이브 카드(접이식)를 메시지 아래에. */}
+            {msg.era && <EraArchiveCard era={msg.era} />}
           </div>
         ))}
 
