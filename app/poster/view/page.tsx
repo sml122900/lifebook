@@ -5,19 +5,20 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { getLifeEvents } from "@/lib/life-events";
 import { refineForPosterBatch } from "@/lib/poster/poster-sentences";
+import { parseSelectionsFull } from "@/lib/poster/overrides";
 
-import { PosterCompose, type PosterNode } from "../PosterCompose";
+import { PosterCompose, type PosterNode, type PosterMemo } from "../PosterCompose";
+import { savePosterOverrides } from "./actions";
 
-// P4 — selections → P3 문장 → SVG 합성 포스터(정적 미리보기).
+// P4/P6 — selections → P3 문장 → SVG 합성 포스터 + 액티브 편집(override).
 //
-// Poster.selections(P2 저장)를 읽어 각 사건을 P3 refineForPoster 로 노드/메모
-// 문장으로 바꾼 뒤 PosterCompose(클라)에 넘긴다. 합성·배치는 클라에서.
+// Poster.selections(P2 저장 + P6 override)를 읽어 각 사건을 P3 refineForPoster 로
+// 노드/메모 문장으로 바꾼 뒤 PosterCompose(클라)에 넘긴다. 편집(드래그·크기·내용·
+// 빼기)은 PosterCompose 가 self-manage 하고 savePosterOverrides 로 영속.
 //
 // refineForPosterBatch 가 매 진입 시 1콜(선택분 일괄) — 후속: 문장 캐싱.
 
 export const metadata = { title: "인생 나무 포스터" };
-
-type Sel = { eventId: string; type: "node" | "memo"; order: number };
 
 export default async function PosterViewPage() {
   const session = await auth();
@@ -32,10 +33,9 @@ export default async function PosterViewPage() {
   const byId = new Map(
     events.filter((e) => e.kind === "life_event").map((e) => [e.id, e]),
   );
-  const raw = Array.isArray(poster?.selections) ? (poster.selections as Sel[]) : [];
-  const ordered = raw
-    .filter((s) => s && typeof s.eventId === "string" && byId.has(s.eventId))
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const ordered = parseSelectionsFull(poster?.selections)
+    .filter((s) => byId.has(s.eventId))
+    .sort((a, b) => a.order - b.order);
 
   if (ordered.length === 0) {
     return (
@@ -61,14 +61,25 @@ export default async function PosterViewPage() {
   const sentences = await refineForPosterBatch(inputs);
 
   const nodes: PosterNode[] = [];
-  const memos: string[] = [];
+  const memos: PosterMemo[] = [];
   ordered.forEach((s, i) => {
     const sent = sentences[i];
     if (!sent) return;
     if (s.type === "node") {
-      nodes.push({ year: byId.get(s.eventId)!.eventYear, label: sent.nodeLabel });
+      nodes.push({
+        eventId: s.eventId,
+        order: s.order,
+        year: byId.get(s.eventId)!.eventYear,
+        label: sent.nodeLabel,
+        override: s.override,
+      });
     } else {
-      memos.push(sent.memoText);
+      memos.push({
+        eventId: s.eventId,
+        order: s.order,
+        text: sent.memoText,
+        override: s.override,
+      });
     }
   });
 
@@ -96,10 +107,12 @@ export default async function PosterViewPage() {
         ownerName={session.user.name ?? ""}
         nodes={nodes}
         memos={memos}
+        editable
+        onSave={savePosterOverrides}
       />
 
       <p className="mt-4 text-center text-sm text-ink-faint">
-        미리보기예요. 위치·크기 직접 편집과 인쇄본 만들기는 다음 단계예요.
+        편집한 위치·크기·내용은 저장해 두면 다음에 와도 그대로예요. 인쇄본 만들기는 다음 단계예요.
       </p>
     </main>
   );
