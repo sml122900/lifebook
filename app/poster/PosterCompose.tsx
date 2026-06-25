@@ -37,8 +37,9 @@ const FONT_SERIF = "Noto Serif KR";
 const NODE_PAD_X = 7; // 좌우 여백(15→10→7)
 const NODE_PAD_Y = 3; // 상하 기본 여백(11→7→3, 과감히)
 const NODE_LINE_GAP = 2; // 연도-제목 두 줄 간격(5→4→2)
-// 위 모서리만 추가로 깎기(아래·텍스트 무변). 글자 닿으면 1씩 줄여 미세조정.
-const NODE_TOP_TRIM = 5;
+// 위 모서리만 추가로 깎기(아래·텍스트 무변). 연도 글자 닿는 한계 ~10 부근,
+// 여유 두고 8. 더 줄이려면 키우되 연도 위 테두리 닿으면 1씩 내려 미세조정.
+const NODE_TOP_TRIM = 8;
 
 const GFONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400&family=Noto+Serif+KR:wght@400;500;700&display=swap";
