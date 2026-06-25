@@ -126,6 +126,27 @@ model User {
   photos                Photo[]
   productOrders         ProductOrder[]
   companionSessions     CompanionSession[]
+  poster                Poster?
+}
+
+// P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
+//
+// selections : 사용자가 고른 사건들 [{eventId, type:"node"|"memo", order}].
+//   포스터에 넣을 것만 들어가고, 제외한 사건은 배열에 없다. order 는 시간순
+//   기본(필요시 조정). type 은 P1 1차 분류를 사용자가 정정한 최종값.
+// template/design : P5 맞춤 디자인 자리(배경 종·색 등). 지금은 비워둠.
+//
+// P1 후보(분류·우선순위)는 임시(매번 AI 계산)라 저장 안 함. 여기엔 사용자가
+// *확정*한 선택만 영속한다. P4 SVG 합성이 이 selections 를 읽어 렌더.
+model Poster {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selections Json     @default("[]")
+  template   String?
+  design     Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Account {
