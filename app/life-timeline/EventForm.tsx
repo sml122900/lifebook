@@ -10,6 +10,7 @@ import { AudioPlayer } from "@/app/components/AudioPlayer";
 import { PlacesEditor } from "@/app/components/PlacesEditor";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { RefineSection } from "./[eventId]/edit/RefineSection";
+import { DeleteButton } from "./manage/DeleteButton";
 import { calcAge, formatAge } from "@/lib/age";
 import { type PlaceInfo } from "@/lib/place-types";
 import type { EventPrecision, LifeCategory } from "@/lib/generated/prisma/enums";
@@ -456,6 +457,22 @@ export function EventForm({
           {isPending ? "저장 중…" : isEdit ? "수정 저장" : "추가하기"}
         </button>
       </div>
+
+      {/* 편집 모드 — 위험 동작(삭제)은 저장 버튼과 분리한 하단 별도 영역에.
+          확인 다이얼로그·소유권 가드는 DeleteButton/deleteLifeEventAction 재사용.
+          삭제 후엔 사라진 이벤트 편집 화면에 머물 수 없으니 연혁으로 이동. */}
+      {isEdit && initial && (
+        <div className="flex flex-col items-start gap-2 border-t-2 border-line pt-5">
+          <p className="text-base text-ink-soft">
+            이 이야기를 더 이상 남기고 싶지 않으시면 삭제할 수 있어요.
+          </p>
+          <DeleteButton
+            eventId={initial.eventId}
+            eventLabel={initial.title}
+            redirectTo="/life-timeline"
+          />
+        </div>
+      )}
     </div>
   );
 }

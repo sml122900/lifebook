@@ -13,9 +13,13 @@ import { deleteLifeEventAction } from "../actions";
 export function DeleteButton({
   eventId,
   eventLabel,
+  redirectTo,
 }: {
   eventId: string;
   eventLabel: string;
+  // 삭제 성공 후 이동할 경로. 없으면 그 자리 새로고침(목록 화면용).
+  // 편집 화면처럼 삭제된 이벤트 페이지에 머물 수 없는 곳은 경로를 넘긴다.
+  redirectTo?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -45,7 +49,11 @@ export function DeleteButton({
         return;
       }
       setOpen(false);
-      router.refresh();
+      if (redirectTo) {
+        router.push(redirectTo);
+      } else {
+        router.refresh();
+      }
     });
   }
 
