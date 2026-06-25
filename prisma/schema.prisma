@@ -151,6 +151,9 @@ model Poster {
   selections Json     @default("[]")
   template   String?
   design     Json?
+  // P5-4 — 맞춤배경 "세트" 진행 카운트(현재 열린 세트의 생성 장 수, 1~4).
+  // 0=세트 없음. 1세트=최초1+다시생성3=최대 4장(30토큰). 4 도달 후 추가는 새 세트.
+  bgSetCount Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
