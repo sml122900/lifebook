@@ -13,12 +13,14 @@ import { Check, Pencil, Eye } from "lucide-react";
 
 import type { PosterCandidate } from "@/lib/poster/poster-candidates";
 import {
-  MAX_MEMO_ITEMS,
   savePosterSelections,
   previewPosterSentence,
   updatePosterEventText,
-  type PosterSelectionItem,
 } from "./actions";
+import {
+  MAX_MEMO_ITEMS,
+  type PosterSelectionItem,
+} from "@/lib/poster/select-constants";
 
 type Choice = "node" | "memo" | "exclude";
 

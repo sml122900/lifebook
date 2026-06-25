@@ -20,16 +20,10 @@ import {
   type PosterCandidateInput,
 } from "@/lib/poster/poster-candidates";
 import { refineForPoster } from "@/lib/poster/poster-sentences";
-
-// 메모는 포스터 좌우 컬럼 슬롯(좌10+우10=20)이라 상한이 있다. 노드는 강을
-// 따라 linspace 배치라 개수 유연(별도 상한 없음).
-export const MAX_MEMO_ITEMS = 20;
-
-export type PosterSelectionItem = {
-  eventId: string;
-  type: "node" | "memo";
-  order: number;
-};
+import {
+  MAX_MEMO_ITEMS,
+  type PosterSelectionItem,
+} from "@/lib/poster/select-constants";
 
 export type PosterEditorData = {
   candidates: PosterCandidate[];
