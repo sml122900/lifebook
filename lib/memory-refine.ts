@@ -23,12 +23,12 @@ import {
 } from "./tokens/policy";
 
 // tier → 모델 ID. 비서의 DEPTH_TO_MODEL 과 같은 매핑이지만 다듬기는 depth
-// 개념이 없어 tier 를 직접 받는다. opus 4.7 은 ai.ts 의 supportsTemperature
+// 개념이 없어 tier 를 직접 받는다. opus 4.x 는 ai.ts 의 supportsTemperature
 // 가드가 temperature 를 자동 제외(거부 회피).
 const TIER_TO_MODEL: Record<ModelTier, string> = {
   haiku: "claude-haiku-4-5-20251001",
   sonnet: "claude-sonnet-4-6",
-  opus: "claude-opus-4-7",
+  opus: "claude-opus-4-8",
 };
 
 const SYSTEM_PROMPT = `다음 글을 다듬어라.

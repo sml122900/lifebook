@@ -61,7 +61,7 @@ export const DEPTH_TO_TIER: Record<AssistantDepth, ModelTier> = {
 const DEPTH_TO_MODEL: Record<AssistantDepth, string> = {
   simple: "claude-haiku-4-5-20251001",
   detailed: "claude-sonnet-4-6",
-  precise: "claude-opus-4-7",
+  precise: "claude-opus-4-8",
 };
 
 function modelFor(depth: AssistantDepth): string {

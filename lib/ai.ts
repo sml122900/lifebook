@@ -13,11 +13,12 @@ import Anthropic from "@anthropic-ai/sdk";
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
-// V4 — Opus 4.7 (reasoning 모델) 은 temperature 파라미터를 거부한다
-// ("temperature is deprecated for this model"). 비서 "가장 정확하게"
-// 깊이가 Opus 를 호출할 때 이 가드가 필요. 모델 이름 prefix 로 판정.
+// Opus 4.x (reasoning 모델) 은 temperature 파라미터를 거부한다
+// ("temperature is deprecated for this model"). 4.7·4.8 모두 해당 — opus-4
+// 패밀리 전체를 가드(버전 올려도 안전). 비서 "가장 정확하게"·다듬기 "가장 정밀"이
+// Opus 를 호출할 때 필요. temperature 생략 시 모델 기본값 사용(영향 미미).
 function supportsTemperature(model: string): boolean {
-  return !model.startsWith("claude-opus-4-7");
+  return !model.startsWith("claude-opus-4");
 }
 
 let client: Anthropic | null = null;
@@ -79,9 +80,11 @@ export async function chat(
     messages,
   });
 
-  console.log(
-    `[ai] model=${res.model} in=${res.usage.input_tokens} out=${res.usage.output_tokens} total=${res.usage.input_tokens + res.usage.output_tokens}`,
-  );
+  if (process.env.NODE_ENV !== "production") {
+    console.log(
+      `[ai] model=${res.model} in=${res.usage.input_tokens} out=${res.usage.output_tokens} total=${res.usage.input_tokens + res.usage.output_tokens}`,
+    );
+  }
 
   // SDK 는 content[] union 을 돌려준다. 우리 프롬프트는 항상 평문만
   // 요청하므로, text 블록들을 방어적으로 이어 붙인다.
@@ -158,9 +161,11 @@ export async function chatWithWebSearch(
     tools,
   });
 
-  console.log(
-    `[ai:web_search] model=${res.model} in=${res.usage.input_tokens} out=${res.usage.output_tokens} blocks=${res.content.length}`,
-  );
+  if (process.env.NODE_ENV !== "production") {
+    console.log(
+      `[ai:web_search] model=${res.model} in=${res.usage.input_tokens} out=${res.usage.output_tokens} blocks=${res.content.length}`,
+    );
+  }
 
   // text 블록만 합쳐 본문. citations 는 text 블록 내부의 citations
   // (혹은 web_search_tool_result 블록의 sources) 에서 수집.

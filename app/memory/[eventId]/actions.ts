@@ -132,10 +132,9 @@ export async function submitMemoryAnswer(formData: FormData) {
     conversationId,
     memory.id,
   );
-  if (charge.charged) {
-    console.log(
-      `[tokens] user=${userId} -${charge.tokensSpent} → ${charge.balanceAfter}`,
-    );
+  if (charge.charged && process.env.NODE_ENV !== "production") {
+    // userId(PII) 미기록 — 토큰 부기만.
+    console.log(`[tokens] -${charge.tokensSpent} → ${charge.balanceAfter}`);
   }
 
   revalidatePath("/timeline");
