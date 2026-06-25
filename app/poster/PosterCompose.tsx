@@ -31,11 +31,12 @@ export const POSTER_BG_SRC = "/poster/river-bg.png";
 const FONT_SANS = "Noto Sans KR";
 const FONT_SERIF = "Noto Serif KR";
 
-// 노드 둥근사각 패딩(글자 기준). 시제품처럼 글자에 타이트하게 — 배경 덜 가림.
-// ★ 글자가 테두리에 닿지 않게 최소 여백 유지(padX 8·padY 5 밑으론 X).
-const NODE_PAD_X = 10; // 좌우 여백(과거 15)
-const NODE_PAD_Y = 7; // 상하 여백(과거 11)
-const NODE_LINE_GAP = 4; // 연도-제목 두 줄 간격(과거 5)
+// 노드 둥근사각 패딩(글자 기준). 시제품처럼 글자에 딱 붙게 — 배경 덜 가림.
+// ★ 텍스트는 cy∓ 고정 오프셋이라 padY 가 박스 아래 모서리↔제목 밑단 여백을
+//   좌우한다. 글자 닿으면 NODE_PAD_Y 1씩 올려 미세조정.
+const NODE_PAD_X = 7; // 좌우 여백(15→10→7)
+const NODE_PAD_Y = 3; // 상하 여백(11→7→3, 과감히)
+const NODE_LINE_GAP = 2; // 연도-제목 두 줄 간격(5→4→2)
 
 const GFONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400&family=Noto+Serif+KR:wght@400;500;700&display=swap";
