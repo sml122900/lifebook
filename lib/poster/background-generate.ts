@@ -10,6 +10,7 @@ import sharp from "sharp";
 
 import { POSTER_W, POSTER_H } from "./compose-layout";
 import type { BackgroundPrompt } from "./background-prompt";
+import { inspectBackground, type InspectionResult } from "./background-inspect";
 
 // gpt-image-1 지원: size 1024x1024 / 1024x1536(portrait) / 1536x1024,
 // quality low|medium|high|auto. 저품질부터 시작, env 로 상향 가능.
@@ -120,10 +121,43 @@ export async function postProcessTo1037x1517(input: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-// 빌더 결과 → 최종 1037×1517 PNG 버퍼(P4 <image> 입력).
+// 검수 자동 재생성 내부 상한(무한루프·비용 방지). 3회 다 실패 → 마지막 거 반환.
+// ★ 이 재생성은 시스템 흡수(사용자 토큰 차감 X) — P5-4 사용자 "다시생성"과 별개.
+export const MAX_INTERNAL_ATTEMPTS = 3;
+
+export type BackgroundResult = {
+  buffer: Buffer; // 1037×1517 PNG
+  inspection: InspectionResult; // 최종 검수 결과
+  attempts: number; // 생성 시도 횟수(1=첫 통과)
+  unstable: boolean; // 상한까지 검수 통과 못 함(마지막 거 반환)
+};
+
+// 빌더 결과 → 생성 → 검수 → (실패 시) 재생성 루프 → 통과분 반환.
+// API 에러(키·rate 등)는 즉시 전파(검수 실패와 별개). 검수 실패만 재생성.
 export async function generatePosterBackground(
   p: BackgroundPrompt,
-): Promise<Buffer> {
-  const raw = await generateBackgroundRaw(p);
-  return postProcessTo1037x1517(raw);
+): Promise<BackgroundResult> {
+  let last: { buffer: Buffer; inspection: InspectionResult } | null = null;
+
+  for (let attempt = 1; attempt <= MAX_INTERNAL_ATTEMPTS; attempt++) {
+    const raw = await generateBackgroundRaw(p);
+    const buffer = await postProcessTo1037x1517(raw);
+    const inspection = await inspectBackground(buffer);
+    last = { buffer, inspection };
+
+    if (inspection.pass) {
+      return { buffer, inspection, attempts: attempt, unstable: false };
+    }
+    console.warn(
+      `[bg-gen] 검수 실패(시도 ${attempt}/${MAX_INTERNAL_ATTEMPTS}): ${inspection.reasons.join(", ")}`,
+    );
+  }
+
+  // 상한까지 통과 못 함 — 마지막 거 + unstable 플래그(P5-5 에서 사용자 안내).
+  return {
+    buffer: last!.buffer,
+    inspection: last!.inspection,
+    attempts: MAX_INTERNAL_ATTEMPTS,
+    unstable: true,
+  };
 }
