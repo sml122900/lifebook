@@ -262,6 +262,8 @@ export function CompanionClient() {
       setHistory(nextHistory);
       addBot(reply);
       void speakText(reply); // TTS 비블로킹
+      // 유료 채팅 차감 후 사이드 패널(루트 레이아웃) 잔액 갱신 (#1 배경 생성과 동일).
+      router.refresh();
 
       const turns = Math.floor(nextHistory.length / 2);
       if (turns >= MAX_TURNS_CLIENT) {

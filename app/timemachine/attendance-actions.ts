@@ -12,7 +12,8 @@ export async function checkInAction(): Promise<CheckInResult> {
     throw new Error("not authenticated");
   }
   const result = await processAttendance(session.user.id);
-  // /timemachine 페이지가 RSC 로 streak 표시 — 갱신 후 새 값 보이게.
-  revalidatePath("/timemachine");
+  // 출석 보너스로 토큰 잔액·streak 이 바뀐다. 잔액은 루트 레이아웃 사이드 패널이
+  // 들고 있으므로 레이아웃까지 무효화해야 패널이 새 값으로 갱신된다.
+  revalidatePath("/", "layout");
   return result;
 }

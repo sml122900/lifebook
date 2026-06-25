@@ -95,6 +95,10 @@ export function CustomBackgroundClient({
         });
         setRegensLeft(res.regensLeft);
         setBalance(res.balanceAfter);
+        // 사이드 패널 잔액은 루트 레이아웃이 요청당 1회 읽어 prop 으로 박은 값이라
+        // 차감해도 갱신 안 됨 → 레이아웃 서버 컴포넌트를 새로고침해 패널도 맞춘다.
+        // (result 등 클라 상태는 보존되어 미리보기는 그대로.)
+        router.refresh();
         return;
       }
       switch (res.reason) {

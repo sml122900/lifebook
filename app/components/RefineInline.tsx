@@ -1,6 +1,7 @@
 "use client";
 
 import { Pencil } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -24,6 +25,7 @@ export function RefineInline({
   content: string;
   onApply: (refined: string) => void;
 }) {
+  const router = useRouter();
   const [refinedText, setRefinedText] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -87,6 +89,8 @@ export function RefineInline({
               ? ` (남은 토큰 ${data.balanceAfter}개)`
               : "";
           showToast(`${data.tokensSpent}토큰을 사용했어요.${left}`);
+          // 다듬기 차감 후 사이드 패널(루트 레이아웃) 잔액 갱신 (#1 배경 생성과 동일).
+          router.refresh();
         }
       }
     } catch {
