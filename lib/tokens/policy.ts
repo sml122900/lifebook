@@ -73,14 +73,14 @@ export const MODEL_PRICING: Record<
   opus: { input: 5, output: 25 },
 };
 
-// Haiku in 단가 기준 multiplier. in/out 비율이 보통 in 압도 (검색 답
-// in≈17k, out≈360) 이므로 in 단가 비율 (1:3:5) 로 단순화. 출력 비중까지
-// 정확히 가중하려면 in*P_in + out*P_out 인데, 단순성/예측가능성 우선.
-// 사용자에게 미리 "약 N토큰" 표시할 때도 깔끔.
+// 라이브 응답 모델 배수(경영방 확정 통일값) — Haiku×1 / Sonnet×3 / Opus×8.
+// 다듬기·비서·companion 모두 이 단일 배수를 쓴다(REFINE_MODEL_MULTIPLIER 와
+// 동일값). Opus 8배 = 원가 초과 방지 + 무료 50토큰 자연 억제. 예측 단순성
+// 위해 in 단가 비율로 단순화("약 N토큰" 표시도 깔끔).
 export const MODEL_MULTIPLIER: Record<ModelTier, number> = {
   haiku: 1,
   sonnet: 3,
-  opus: 5,
+  opus: 8,
 };
 
 // 모델별 토큰 비용. Haiku 는 기존 tokensFromUsage 결과 그대로 (현행 호환).
@@ -93,14 +93,8 @@ export function tokensFromUsageForModel(
   return tokensFromUsage(inputTokens, outputTokens) * MODEL_MULTIPLIER[model];
 }
 
-// 다듬기 전용 모델 배수 — 비서(MODEL_MULTIPLIER 1/3/5)와 분리한다.
-// 경영방 6번: Opus 다듬기는 원가 초과 방지를 위해 8배(비서 Opus 5배와 별개).
-// haiku/sonnet 은 비서와 동일(1/3). 다듬기 차감만 여기서 결정한다.
-export const REFINE_MODEL_MULTIPLIER: Record<ModelTier, number> = {
-  haiku: 1,
-  sonnet: 3,
-  opus: 8,
-};
+// 다듬기 배수 — 이제 MODEL_MULTIPLIER 와 통일(1/3/8). 별칭으로 유지(호출부 호환).
+export const REFINE_MODEL_MULTIPLIER: Record<ModelTier, number> = MODEL_MULTIPLIER;
 
 // 다듬기 차감용 — tokensFromUsageForModel 과 같은 구조지만 REFINE 배수 사용.
 export function tokensFromUsageForRefine(

@@ -80,6 +80,11 @@ model User {
   birthYear Int?
   region    String?
 
+  // 전역 AI 모델 선택(라이브 응답: companion·다듬기·튜토리얼·회상 어시스턴트).
+  // "haiku"|"sonnet"|"opus". 기본 haiku(현행 라이브 기본). 추출은 이 값과 무관히
+  // 항상 sonnet 고정. lib/ai-model.ts(상수)·lib/user-ai-model.ts(읽기/쓰기).
+  aiModel String @default("haiku")
+
   // explicit consent timestamps (Phase 3.3)
   termsConsentAt            DateTime?
   privacyConsentAt          DateTime?

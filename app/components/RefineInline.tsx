@@ -4,7 +4,6 @@ import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import type { ModelTier } from "@/lib/tokens/policy";
 
 // 인라인 텍스트 다듬기 — RefineSection 과 같은 UX이지만 UserMemory 없이
 // 동작한다. 온보딩·CategoryForm 처럼 저장 전 상태에서 content 를 다듬을 때 사용.
@@ -18,12 +17,6 @@ import type { ModelTier } from "@/lib/tokens/policy";
 //   - apply 는 server action 없이 onApply 콜백만
 //   - discard 는 state 리셋(DB 무관)
 
-const TIERS: { tier: ModelTier; label: string; cost: string }[] = [
-  { tier: "haiku", label: "빠르게", cost: "1토큰" },
-  { tier: "sonnet", label: "꼼꼼하게", cost: "3토큰" },
-  { tier: "opus", label: "가장 정밀", cost: "8토큰" },
-];
-
 export function RefineInline({
   content,
   onApply,
@@ -34,7 +27,6 @@ export function RefineInline({
   const [refinedText, setRefinedText] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [tier, setTier] = useState<ModelTier>("haiku");
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -68,7 +60,7 @@ export function RefineInline({
       const res = await fetch("/api/refine-text", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: content, tier }),
+        body: JSON.stringify({ text: content }),
       });
       const data = (await res.json()) as {
         ok: boolean;
@@ -126,36 +118,6 @@ export function RefineInline({
         맞춤법과 문장을 보기 좋게 정리해 드려요. 말투와 표현은 그대로
         둡니다.
       </p>
-
-      <div role="radiogroup" aria-label="다듬기 정밀도" className="flex flex-col gap-2">
-        <p className="text-base font-semibold text-ink">
-          얼마나 꼼꼼히 다듬을까요?
-        </p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {TIERS.map((t) => {
-            const selected = tier === t.tier;
-            return (
-              <button
-                key={t.tier}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                disabled={loading}
-                onClick={() => setTier(t.tier)}
-                className={
-                  "flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-md border-2 px-4 py-3 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-60 " +
-                  (selected
-                    ? "border-brand bg-banner text-action"
-                    : "border-line bg-surface text-ink-soft hover:bg-banner")
-                }
-              >
-                <span className="text-lg font-bold">{t.label}</span>
-                <span className="text-sm">{t.cost}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       <Button
         type="button"

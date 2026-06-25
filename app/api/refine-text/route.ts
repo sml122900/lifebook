@@ -3,13 +3,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { refineRawText } from "@/lib/memory-refine";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
-import type { ModelTier } from "@/lib/tokens/policy";
+import { getUserAiModel } from "@/lib/user-ai-model";
 
 // 순수 텍스트 다듬기 API — UserMemory 없이 텍스트를 직접 받아 교정한다.
 // 온보딩/CategoryForm 같은 "저장 전 미리보기" 흐름용. DB 저장 없이 차감만.
-// 권한: 인증 필수.
+// 모델 = 전역 User.aiModel(클라가 tier 안 고름). 권한: 인증 필수.
 
-const VALID_TIERS: ReadonlySet<string> = new Set(["haiku", "sonnet", "opus"]);
 const TEXT_MAX = 4000;
 
 export async function POST(req: Request) {
@@ -22,10 +21,9 @@ export async function POST(req: Request) {
   }
 
   let text = "";
-  let tier: ModelTier = "haiku";
   try {
     const body = (await req.json().catch(() => null)) as
-      | { text?: unknown; tier?: unknown }
+      | { text?: unknown }
       | null;
     if (!body || typeof body.text !== "string") {
       return NextResponse.json(
@@ -34,21 +32,15 @@ export async function POST(req: Request) {
       );
     }
     text = body.text;
-    if (body.tier !== undefined) {
-      if (typeof body.tier !== "string" || !VALID_TIERS.has(body.tier)) {
-        return NextResponse.json(
-          { ok: false, error: "잘못된 요청이에요." },
-          { status: 400 },
-        );
-      }
-      tier = body.tier as ModelTier;
-    }
   } catch {
     return NextResponse.json(
       { ok: false, error: "잘못된 요청이에요." },
       { status: 400 },
     );
   }
+
+  // 모델 = 전역 선택(클라 tier 무시).
+  const tier = await getUserAiModel(session.user.id);
 
   if (text.trim().length === 0) {
     return NextResponse.json(

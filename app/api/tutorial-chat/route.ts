@@ -2,15 +2,16 @@
 //   body: { question: string, prior?: { role: "user"|"assistant", text: string }[] }
 //   → { text: string }
 //
-// G1 — Lifebook 사용 안내 전용 챗. Haiku, 웹검색 X, DB X, 토큰 차감 X.
-// 어르신·가족의 "어떻게 쓰나요?" 류 질문에만 답함.
+// G1 — Lifebook 사용 안내 전용 챗. 웹검색 X, DB X, 토큰 차감 X(무료).
+// 전역 선택 모델을 따르되, 무료 도움말이라 opus 는 sonnet 으로 클램프
+// (무료-opus 누수 방지). 어르신·가족의 "어떻게 쓰나요?" 류 질문에만 답함.
 
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { chat } from "@/lib/ai";
-
-const TUTORIAL_MODEL = process.env.TUTORIAL_CHAT_MODEL ?? "claude-haiku-4-5-20251001";
+import { modelId } from "@/lib/ai-model";
+import { getUserAiModel } from "@/lib/user-ai-model";
 
 const TUTORIAL_SYSTEM = `너는 Lifebook 서비스 사용을 돕는 친절한 도우미야. 60~80대 어르신과 가족이 쓴다. 따뜻하되 간결하게, 쉬운 말로 안내한다.
 
@@ -58,9 +59,12 @@ export async function POST(req: Request) {
       ...prior.map((p) => ({ role: p.role, content: p.text })),
       { role: "user" as const, content: question },
     ];
+    // 전역 모델 따름. 무료라 opus → sonnet 클램프.
+    const tier = await getUserAiModel(session.user.id);
+    const model = modelId(tier === "opus" ? "sonnet" : tier);
     const result = await chat(messages, {
       system: TUTORIAL_SYSTEM,
-      model: TUTORIAL_MODEL,
+      model,
       maxTokens: 400,
       temperature: 0.3,
     });

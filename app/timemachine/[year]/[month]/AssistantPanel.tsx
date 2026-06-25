@@ -97,29 +97,8 @@ type AssistantSong = {
 // V4 — 답의 깊이. 사용자에게 라벨로만 노출, 모델 이름 절대 X.
 type AssistantDepth = "simple" | "detailed" | "precise";
 
-type DepthInfo = {
-  label: string;
-  hint: string;          // "약 N토큰" — 검색 답 기준 추정
-  estimateTokens: number;
-};
-
-// 추정값. 검색 답(=가장 비싼 경로) 기준. 실측: Haiku 평균 9~10 base.
-// Sonnet 3x, Opus 5x 후 +1 web surcharge.
-const DEPTH_OPTIONS: { key: AssistantDepth; info: DepthInfo }[] = [
-  {
-    key: "simple",
-    info: { label: "간단히", hint: "약 10토큰", estimateTokens: 10 },
-  },
-  {
-    key: "detailed",
-    info: { label: "자세히", hint: "약 30토큰", estimateTokens: 30 },
-  },
-  {
-    key: "precise",
-    info: { label: "가장 정확하게", hint: "약 50토큰", estimateTokens: 50 },
-  },
-];
-
+// 저장된 답 뱃지용 라벨(서버 응답의 depth → 표시). 깊이는 이제 전역 모델을
+// 따르므로 선택 UI 는 없고, 표시만 남는다.
 const DEPTH_LABEL: Record<AssistantDepth, string> = {
   simple: "간단히",
   detailed: "자세히",
@@ -247,9 +226,6 @@ export function AssistantPanel({
   const [error, setError] = useState<string | null>(null);
   const [insufficient, setInsufficient] = useState(false);
   const [isPending, startTransition] = useTransition();
-  // V4 — 현재 선택된 깊이. 후속 질문은 같은 깊이를 이어가되 사용자가
-  // 언제든 바꿀 수 있음. 페이지를 떠나면 잊고 기본값("simple")으로 복귀.
-  const [depth, setDepth] = useState<AssistantDepth>("simple");
 
   // G1 — 튜토리얼 채팅 상태. 모드 "tutorial" 에서만 사용. 토큰 차감 X.
   const [tutMsgs, setTutMsgs] = useState<TutorialTurn[]>([]);
@@ -341,7 +317,7 @@ export function AssistantPanel({
         const res = await fetch("/api/timemachine/assistant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: q, year, month, prior, depth }),
+          body: JSON.stringify({ question: q, year, month, prior }),
         });
         if (res.status === 402) {
           setInsufficient(true);
@@ -718,46 +694,13 @@ export function AssistantPanel({
 
       {view === "chat" ? (
         <>
-          {/* V4 — 답의 깊이 토글. "AI에게 물어보기" 모드에서만 노출.
-              "그 시절 이야기" 모드는 우리 자료 = 무료라 깊이 무관. */}
+          {/* 답의 깊이(모델)는 이제 전역 AI 모델 설정을 따른다 — 설정·라이브 칩에서
+              바꾸면 여기에도 일관 적용. "AI에게 물어보기" 모드에만 안내. */}
           {mode === "ask" && (
-            <fieldset className="flex flex-col gap-2 rounded-md border-2 border-brand bg-surface p-4">
-              <legend className="px-2 text-base font-semibold text-ink">
-                답의 깊이
-              </legend>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {DEPTH_OPTIONS.map((opt) => {
-                  const active = depth === opt.key;
-                  return (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setDepth(opt.key)}
-                      disabled={isPending}
-                      className={
-                        "flex min-h-[60px] flex-col items-start justify-center rounded-md border-2 px-4 py-2 text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
-                        (active
-                          ? "border-brand bg-banner text-action"
-                          : "border-line bg-surface text-ink-soft hover:bg-banner")
-                      }
-                    >
-                      <span className="text-base font-bold sm:text-lg">
-                        {opt.info.label}
-                      </span>
-                      <span
-                        className={
-                          "text-sm " + (active ? "text-action" : "text-ink-soft")
-                        }
-                      >
-                        {opt.info.hint}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
+            <p className="rounded-md border-2 border-line bg-surface px-4 py-2 text-sm text-ink-soft">
+              답은 설정하신 AI 모델로 드려요. 더 똑똑한 모델일수록 토큰을 더 써요.
+              (설정 → AI 모델)
+            </p>
           )}
 
           {/* 대화 thread — 일반 채팅방 패턴: 답이 위, 입력은 아래.

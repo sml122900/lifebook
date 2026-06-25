@@ -86,9 +86,6 @@ export default function OnboardingChatClient() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // F4 — 모델 선택 (슬러그 전달 → 서버가 화이트리스트 맵으로 변환)
-  const [model, setModel] = useState<"haiku" | "sonnet">("sonnet");
-
   // TTS — CompanionClient 동일 패턴 (stale closure 방지용 ref)
   const [ttsOn, setTtsOn] = useState(false);
   const ttsOnRef = useRef(false);
@@ -257,7 +254,7 @@ export default function OnboardingChatClient() {
       const res = await fetch("/api/onboarding-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: q.key, input, model }),
+        body: JSON.stringify({ key: q.key, input }),
       });
       if (!res.ok) return null;
       const data = (await res.json()) as { value?: unknown; region?: string | null };
@@ -308,7 +305,6 @@ export default function OnboardingChatClient() {
       const { count } = await extractAndSaveStoryEvents(
         input,
         answersRef.current.birthYear,
-        model,
       );
       const ack =
         count > 0
@@ -498,28 +494,6 @@ export default function OnboardingChatClient() {
           </span>
         )}
         <div className="ml-auto flex items-center gap-3">
-          {/* 모델 선택 — 빠르게(Haiku) / 꼼꼼하게(Sonnet) */}
-          <div
-            className="flex overflow-hidden rounded-full border border-[var(--color-line)]"
-            role="group"
-            aria-label="AI 정확도 선택"
-          >
-            {(["haiku", "sonnet"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setModel(m)}
-                aria-pressed={model === m}
-                className={[
-                  "px-3 py-1 text-xs font-medium transition-colors",
-                  model === m
-                    ? "bg-[var(--color-brand)] text-white"
-                    : "text-[var(--color-ink-subtle)] hover:text-[var(--color-ink)]",
-                ].join(" ")}
-              >
-                {m === "haiku" ? "빠르게" : "꼼꼼하게"}
-              </button>
-            ))}
-          </div>
           {/* TTS 토글 */}
           <span className="text-xs text-[var(--color-ink-subtle)]">소리로 듣기</span>
           <button

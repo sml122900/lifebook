@@ -2,21 +2,17 @@
 //   body: { key: string, input: string }
 //   → { value: number | string | string[] | null, region?: string | null }
 //
-// 온보딩 자유 텍스트 답변을 Haiku 로 필드별 구조화.
+// 온보딩 자유 텍스트 답변을 구조화(추출). 추출은 전역 모델과 무관히 Sonnet 고정
+// (안정적 구조화 — 사용자 모델 선택 영향 없음).
 // 건너뛰기 판정은 클라에서 먼저 하므로 여기선 skip 없음.
 
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { chat } from "@/lib/ai";
 
-// 기본 파싱 모델. 클라가 슬러그를 보내면 아래 맵으로 오버라이드.
-const PARSE_MODEL_DEFAULT = "claude-haiku-4-5-20251001";
+// 추출 고정 모델(opus 차단). 클라가 보내는 model 슬러그는 무시한다.
+const PARSE_MODEL = "claude-sonnet-4-6";
 
-// F4 — 허용된 모델만 사용 (모델 인젝션 방지)
-const PARSE_MODEL_IDS: Record<string, string> = {
-  haiku: "claude-haiku-4-5-20251001",
-  sonnet: "claude-sonnet-4-6",
-};
 const INTEREST_OPTIONS = ["영화", "드라마/예능", "음악", "게임", "스포츠", "시사/뉴스", "기술/IT"];
 
 function buildPrompt(key: string, input: string): string {
@@ -71,19 +67,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let key: string, input: string, parseModel: string;
+  let key: string, input: string;
   try {
-    const body = (await req.json()) as { key?: unknown; input?: unknown; model?: unknown };
+    const body = (await req.json()) as { key?: unknown; input?: unknown };
     if (typeof body.key !== "string" || typeof body.input !== "string") {
       return NextResponse.json({ value: null });
     }
     key = body.key;
     input = body.input.trim().slice(0, 500);
-    // model 슬러그 화이트리스트 검증 — 미매핑이면 기본값으로 폴백
-    parseModel =
-      typeof body.model === "string" && body.model in PARSE_MODEL_IDS
-        ? PARSE_MODEL_IDS[body.model]!
-        : PARSE_MODEL_DEFAULT;
   } catch {
     return NextResponse.json({ value: null });
   }
@@ -93,7 +84,7 @@ export async function POST(req: Request) {
   try {
     const prompt = buildPrompt(key, input);
     const result = await chat([{ role: "user", content: prompt }], {
-      model: parseModel,
+      model: PARSE_MODEL,
       maxTokens: 200,
       temperature: 0,
     });

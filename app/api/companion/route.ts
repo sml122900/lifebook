@@ -11,7 +11,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { CURRENT_CONSENT_VERSION } from "@/lib/consent-version";
 import { chat, ChatMessage } from "@/lib/ai";
-import { COMPANION_MODEL, fetchCompanionProfile, buildSystemPrompt } from "@/lib/companion";
+import { fetchCompanionProfile, buildSystemPrompt } from "@/lib/companion";
+import { resolveLiveModel } from "@/lib/user-ai-model";
+import { MODEL_MULTIPLIER, tokensFromUsage } from "@/lib/tokens/policy";
+import { chargeOneShot } from "@/lib/tokens/charge";
+import { InsufficientBalanceError } from "@/lib/tokens/errors";
 
 const MAX_MESSAGE_LEN = 3000; // STT 결과 최대 길이 방어
 // 클라와 공유 상수: CompanionClient.tsx 의 MAX_TURNS_CLIENT 와 맞춤 (클라가 먼저 막음)
@@ -58,12 +62,37 @@ export async function POST(req: Request) {
 
     const messages: ChatMessage[] = [...history, { role: "user", content: message }];
 
+    // 전역 선택 모델로 응답. 추출과 무관(추출은 sonnet 고정).
+    const { tier, model } = await resolveLiveModel(session.user.id);
+
     const result = await chat(messages, {
       system: systemPrompt,
-      model: COMPANION_MODEL,
+      model,
       maxTokens: 250,
       temperature: 0.8,
     });
+
+    // 라이브 차감 = 선택모델 배수(haiku×1/sonnet×3/opus×8). surcharge 로 배수 표현.
+    const base = tokensFromUsage(result.inputTokens, result.outputTokens);
+    const surcharge = base * (MODEL_MULTIPLIER[tier] - 1);
+    try {
+      await chargeOneShot(
+        session.user.id,
+        result.inputTokens,
+        result.outputTokens,
+        `companion_${tier}`,
+        undefined,
+        surcharge,
+      );
+    } catch (e) {
+      if (e instanceof InsufficientBalanceError) {
+        return NextResponse.json(
+          { error: "토큰이 부족해요. 충전 후 이용해 주세요." },
+          { status: 402 },
+        );
+      }
+      throw e;
+    }
 
     return NextResponse.json({ reply: result.text });
   } catch (e) {

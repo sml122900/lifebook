@@ -16,17 +16,9 @@ import type { PlaceInfo } from "@/lib/place-types";
 const PEOPLE_EXTRACT_MODEL =
   process.env.COMPANION_EXTRACT_MODEL ?? "claude-sonnet-4-6";
 
-// F3 이야기형 질문 사건 추출 기본 모델 (F4 선택 UI로 오버라이드 가능).
+// F3 이야기형 질문 사건 추출 모델 — 추출은 Sonnet 고정(전역 모델 무관·opus 차단).
 const STORY_EXTRACT_MODEL =
   process.env.ONBOARDING_STORY_MODEL ?? "claude-sonnet-4-6";
-
-// F4 — 클라에서 받은 슬러그를 실제 모델 ID로 변환 (화이트리스트).
-const STORY_MODEL_IDS = {
-  haiku: "claude-haiku-4-5-20251001",
-  sonnet: "claude-sonnet-4-6",
-} as const;
-
-type StoryModelChoice = keyof typeof STORY_MODEL_IDS;
 
 const VALID_CATEGORIES = new Set([
   "BIRTH", "KINDERGARTEN", "ELEMENTARY", "MIDDLE", "HIGH",
@@ -164,7 +156,6 @@ ${text.slice(0, 600)}
 export async function extractAndSaveStoryEvents(
   story: string,
   birthYear?: number,
-  model: StoryModelChoice = "sonnet",
 ): Promise<{ count: number }> {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
@@ -198,7 +189,7 @@ ${story.slice(0, 800)}
   try {
     const res = await chat([{ role: "user", content: userMsg }], {
       system: "유효한 JSON 배열만 출력하세요. 다른 텍스트는 절대 출력하지 마세요.",
-      model: STORY_MODEL_IDS[model] ?? STORY_EXTRACT_MODEL,
+      model: STORY_EXTRACT_MODEL,
       maxTokens: 512,
       temperature: 0.1,
     });

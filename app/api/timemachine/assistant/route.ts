@@ -18,22 +18,19 @@
 import { auth } from "@/auth";
 import {
   askAssistant,
-  DEFAULT_DEPTH,
   type AssistantDepth,
   type AssistantPriorTurn,
 } from "@/lib/timemachine-assistant";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
+import type { AiModel } from "@/lib/ai-model";
+import { getUserAiModel } from "@/lib/user-ai-model";
 
-const VALID_DEPTHS: readonly AssistantDepth[] = ["simple", "detailed", "precise"] as const;
-
-function parseDepth(raw: unknown): AssistantDepth {
-  if (raw === undefined || raw === null) return DEFAULT_DEPTH;
-  if (typeof raw !== "string") throw new Error("depth must be a string");
-  if (!(VALID_DEPTHS as readonly string[]).includes(raw)) {
-    throw new Error("depth must be one of: simple, detailed, precise");
-  }
-  return raw as AssistantDepth;
-}
+// 비서 깊이는 더 이상 화면별 토글이 아니라 전역 모델을 따른다(1:1 매핑).
+const TIER_TO_DEPTH: Record<AiModel, AssistantDepth> = {
+  haiku: "simple",
+  sonnet: "detailed",
+  opus: "precise",
+};
 
 export const runtime = "nodejs";
 
@@ -111,10 +108,8 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   let prior: AssistantPriorTurn[];
-  let depth: AssistantDepth;
   try {
     prior = parsePrior(b.prior);
-    depth = parseDepth(b.depth);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return Response.json(
@@ -122,6 +117,9 @@ export async function POST(req: Request): Promise<Response> {
       { status: 400 },
     );
   }
+
+  // 깊이 = 전역 모델(클라 depth 무시).
+  const depth = TIER_TO_DEPTH[await getUserAiModel(userId)];
 
   try {
     const result = await askAssistant(

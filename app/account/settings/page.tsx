@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { AiModelChips } from "@/app/components/AiModelChips";
 import { buttonClasses } from "@/components/ui/Button";
+import { isAiModel } from "@/lib/ai-model";
 import { prisma } from "@/lib/db";
 
 const DATE_FMT = new Intl.DateTimeFormat("ko-KR", {
@@ -29,6 +31,7 @@ export default async function AccountSettingsPage() {
     select: {
       email: true,
       name: true,
+      aiModel: true,
       termsConsentAt: true,
       privacyConsentAt: true,
       overseasTransferConsentAt: true,
@@ -62,6 +65,19 @@ export default async function AccountSettingsPage() {
           <dt className="text-ink-soft">가입일</dt>
           <dd>{DATE_FMT.format(user.createdAt)}</dd>
         </dl>
+      </section>
+
+      <section className="rounded-md border-2 border-line bg-surface p-5">
+        <h2 className="text-2xl font-bold text-ink">AI 모델 (대화 품질)</h2>
+        <p className="mt-2 text-base text-ink-soft">
+          대화·다듬기에 쓰는 AI를 고르세요. 똑똑할수록 토큰을 더 써요.
+        </p>
+        <div className="mt-4">
+          <AiModelChips
+            current={isAiModel(user.aiModel) ? user.aiModel : "haiku"}
+            variant="full"
+          />
+        </div>
       </section>
 
       <section className="rounded-md border-2 border-amber-300 bg-amber-50 p-5">
