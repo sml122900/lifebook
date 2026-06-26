@@ -72,7 +72,12 @@ export async function deleteAccountAction(formData: FormData) {
     //      shipped·delivered)는 결제 완료분이라 SetNull 익명화로 자동 보존.
     //      TokenOrder 와 달리 paid 외 보존 상태가 여럿이라 삭제 대상을 명시.
     await tx.productOrder.deleteMany({
-      where: { userId, status: { in: ["pending", "failed", "canceled"] } },
+      where: {
+        userId,
+        // 입금 전(awaiting_payment 무통장)·미결제(pending 카드)·실패·취소는
+        // 보존 의무 없음(돈이 오가지 않음) → 삭제. paid 이후만 익명화 보존.
+        status: { in: ["pending", "awaiting_payment", "failed", "canceled"] },
+      },
     });
 
     // 3) 사용자의 UserMemory를 향한 가족 룸 댓글 사전 삭제 (UserMemory 삭제 시

@@ -232,7 +232,8 @@
 | `/poster/view` | ← 템플릿 바꾸기 | → `/poster` |
 | `/poster/view` | 이 포스터 주문하기(상·하) | → `/poster/order` |
 | `/poster/order` | ← 포스터로 돌아가기 | → `/poster/view` |
-| `/poster/order` | 결제하기 | 토스결제 → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
+| `/poster/order` | 무통장입금 선택 → 주문하고 입금 안내 받기 | → `/account/orders/{orderId}` (입금 안내) |
+| `/poster/order` | 카드결제 선택 → 결제하기 | 토스결제(테스트) → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
 
 ---
 
@@ -244,7 +245,8 @@
 | `/shop` | ← 인생 연혁으로 / 상품 카드 | → `/life-timeline` · `/shop/{productId}` |
 | `/shop/[id]` | ← 상점으로 / 주문하기 | → `/shop` · `/shop/{id}/order` |
 | `/shop/[id]/order` | (poster 상품) | → `/poster` 로 리다이렉트 |
-| `/shop/[id]/order` | 결제하기 | 토스결제 → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
+| `/shop/[id]/order` | 무통장입금 선택 → 주문하고 입금 안내 받기 | → `/account/orders/{orderId}` (입금 안내) |
+| `/shop/[id]/order` | 카드결제 선택 → 결제하기 | 토스결제(테스트) → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
 | `/shop/order/success` | 내 주문 보기 / 인생 연혁으로 | → `/account/orders` · `/life-timeline` |
 | `/shop/order/fail` | 상점으로 돌아가기 | → `/shop` |
 
@@ -266,6 +268,7 @@
 | `/account/settings` | 회원 탈퇴 안내 보기 | → `/account/delete` |
 | `/account/tokens` | ← 설정으로 / 충전하러 가기 | → `/account/settings` · `/billing` |
 | `/account/orders` | ← 인생 연혁으로 / 환불 요청 | → `/life-timeline` · ⚙ 환불요청 |
+| `/account/orders/[orderId]` | 주문 상세(무통장 입금 안내) · 내 주문 전체 보기 / 인생 연혁으로 | → `/account/orders` · `/life-timeline` |
 | `/account/delete` | ← 돌아가기 / 회원 탈퇴 | → `/billing` · ⚙ 탈퇴 → `/login` |
 
 ### 관리자 `/admin/orders` (ADMIN_EMAILS 화이트리스트)
@@ -273,7 +276,7 @@
 |---|---|---|
 | `/admin/orders` | 주문 항목 클릭 | → `/admin/orders/{orderId}` |
 | `/admin/orders/[id]` | ← 목록 | → `/admin/orders` |
-| `/admin/orders/[id]` | 발주/배송중/배송완료/취소/송장저장/환불 | ⚙ 상태 변경 (페이지 전환 없음) |
+| `/admin/orders/[id]` | 입금 확인(무통장)/발주/배송중/배송완료/취소/송장저장/환불 | ⚙ 상태 변경 (페이지 전환 없음) |
 
 ---
 

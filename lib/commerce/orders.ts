@@ -7,6 +7,9 @@ import { prisma } from "../db";
 import { orderFulfiller, type FulfillableOrder } from "./fulfillment";
 import { computeOrderAmount, getProduct } from "./products";
 
+// 결제수단 — "card"(토스 카드, 테스트모드) | "bank_transfer"(무통장입금, 실작동).
+export type PaymentMethod = "card" | "bank_transfer";
+
 export type ShippingInput = {
   recipientName: string;
   recipientPhone: string;
@@ -33,6 +36,7 @@ export async function createPendingProductOrder(
   userId: string,
   productId: string,
   shipping: ShippingInput,
+  paymentMethod: PaymentMethod = "card",
 ): Promise<CreateProductOrderResult> {
   const product = getProduct(productId);
   if (!product) return { ok: false, error: "상품을 찾을 수 없어요." };
@@ -66,7 +70,9 @@ export async function createPendingProductOrder(
       address2: shipping.address2?.trim() || null,
       jibunAddress: shipping.jibunAddress?.trim() || null,
       deliveryMemo: shipping.deliveryMemo?.trim() || null,
-      status: "pending",
+      // 무통장은 입금대기로 접수(결제 없이), 카드는 결제창 대기.
+      paymentMethod,
+      status: paymentMethod === "bank_transfer" ? "awaiting_payment" : "pending",
     },
     select: { id: true },
   });
@@ -187,6 +193,7 @@ export async function findSettledProductOrder(
     !order ||
     order.userId !== userId ||
     order.status === "pending" ||
+    order.status === "awaiting_payment" ||
     order.status === "failed" ||
     order.status === "canceled"
   ) {

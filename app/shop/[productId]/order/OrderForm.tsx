@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 
 import { AddressSearch } from "@/app/components/AddressSearch";
+import { PaymentMethodChoice } from "@/app/components/PaymentMethodChoice";
+import type { PaymentMethod } from "@/lib/commerce/orders";
 
 import { startProductOrder } from "../../actions";
 
@@ -23,6 +26,9 @@ const FIELD =
   "w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2";
 
 export function OrderForm({ productId, clientKey, customerKey }: Props) {
+  const router = useRouter();
+  // 카드결제는 PG 심사 전 테스트 모드라, 실작동하는 무통장입금을 기본값으로.
+  const [method, setMethod] = useState<PaymentMethod>("bank_transfer");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [postalCode, setPostalCode] = useState("");
@@ -46,15 +52,25 @@ export function OrderForm({ productId, clientKey, customerKey }: Props) {
     }
     setSubmitting(true);
     try {
-      const order = await startProductOrder(productId, {
-        recipientName,
-        recipientPhone,
-        postalCode: postalCode.trim() || null,
-        address1,
-        address2: address2.trim() || null,
-        jibunAddress: jibunAddress.trim() || null,
-        deliveryMemo: deliveryMemo.trim() || null,
-      });
+      const order = await startProductOrder(
+        productId,
+        {
+          recipientName,
+          recipientPhone,
+          postalCode: postalCode.trim() || null,
+          address1,
+          address2: address2.trim() || null,
+          jibunAddress: jibunAddress.trim() || null,
+          deliveryMemo: deliveryMemo.trim() || null,
+        },
+        method,
+      );
+
+      // 무통장입금 — 결제 없이 입금대기로 접수, 입금 안내 화면으로.
+      if (method === "bank_transfer") {
+        router.push(`/account/orders/${order.orderId}`);
+        return;
+      }
 
       const tossPayments = await loadTossPayments(clientKey);
       const payment = tossPayments.payment({ customerKey });
@@ -143,6 +159,9 @@ export function OrderForm({ productId, clientKey, customerKey }: Props) {
         />
       </Field>
 
+      {/* 결제 방법 */}
+      <PaymentMethodChoice value={method} onChange={setMethod} />
+
       {error && (
         <p
           role="alert"
@@ -158,11 +177,17 @@ export function OrderForm({ productId, clientKey, customerKey }: Props) {
         disabled={submitting}
         className="mt-2 inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-4 text-lg font-bold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
-        {submitting ? "결제 창 여는 중…" : "결제하기"}
+        {submitting
+          ? method === "bank_transfer"
+            ? "접수 중…"
+            : "결제 창 여는 중…"
+          : method === "bank_transfer"
+            ? "주문하고 입금 안내 받기"
+            : "결제하기"}
       </button>
 
       <p className="text-base text-ink-soft">
-        테스트 결제예요 — 실제로 청구되거나 배송되지 않아요.
+        무통장입금(계좌이체)은 실제 주문이에요. 카드결제는 지금 테스트 모드예요.
       </p>
     </div>
   );

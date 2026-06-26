@@ -19,6 +19,7 @@ export default async function AdminOrdersPage() {
       totalKrw: true,
       status: true,
       paymentLive: true,
+      paymentMethod: true,
       recipientName: true,
       refundRequestedAt: true,
       createdAt: true,
@@ -47,6 +48,11 @@ export default async function AdminOrdersPage() {
                     <span className="font-semibold text-ink">
                       {product?.name ?? o.productId}
                       {option ? ` (${option.name})` : ""}
+                      {o.status === "awaiting_payment" && (
+                        <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                          입금대기
+                        </span>
+                      )}
                       {o.refundRequestedAt && (
                         <span className="ml-2 rounded bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800">
                           환불요청
@@ -62,7 +68,9 @@ export default async function AdminOrdersPage() {
                     <span className="font-bold text-ink">{won(o.totalKrw)}원</span>
                     <span className="text-sm text-ink-soft">
                       {ORDER_STATUS_LABEL[o.status]}
-                      {!o.paymentLive && " · 테스트"}
+                      {o.paymentMethod === "bank_transfer"
+                        ? " · 무통장"
+                        : !o.paymentLive && " · 테스트"}
                     </span>
                   </span>
                 </Link>

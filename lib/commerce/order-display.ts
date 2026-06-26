@@ -5,6 +5,7 @@ import type { ProductOrderStatus } from "@/lib/generated/prisma/enums";
 // 상태 한글 라벨(시니어 친화). enum 값 → 표시 문구.
 export const ORDER_STATUS_LABEL: Record<ProductOrderStatus, string> = {
   pending: "결제 대기",
+  awaiting_payment: "입금 대기",
   paid: "주문 접수",
   preparing: "제작 준비 중",
   shipped: "배송 중",

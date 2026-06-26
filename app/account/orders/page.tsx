@@ -10,6 +10,7 @@ import {
 } from "@/lib/commerce/order-display";
 import { getProduct, getProductOption } from "@/lib/commerce/products";
 
+import { BankDepositGuide } from "./BankDepositGuide";
 import { requestRefund } from "./actions";
 
 // /account/orders — 내 주문 조회. 상태·송장·환불요청(발주 전).
@@ -59,6 +60,16 @@ export default async function MyOrdersPage() {
                 <p className="mt-1 text-base text-ink-soft">
                   {won(o.totalKrw)}원 · {o.createdAt.toLocaleDateString("ko-KR")}
                 </p>
+
+                {o.status === "awaiting_payment" && (
+                  <div className="mt-3">
+                    <BankDepositGuide
+                      amount={o.totalKrw}
+                      orderId={o.id}
+                      ordererName={session.user.name}
+                    />
+                  </div>
+                )}
 
                 {o.trackingNumber && (
                   <p className="mt-2 text-base text-ink">

@@ -54,8 +54,9 @@ enum TokenOrderStatus {
 // 단계가 이어진다. v1(6/19 테스트)은 paid 까지만 도달하고 preparing~delivered
 // 는 관리자 수동(변경 UI 없음, enum 만 보유).
 enum ProductOrderStatus {
-  pending // 결제창 진입(미결제)
-  paid // 결제 승인 — 주문 접수
+  pending // 카드: 결제창 진입(미결제)
+  awaiting_payment // 무통장: 주문 접수, 입금 대기(관리자 입금확인 전)
+  paid // 결제 승인/입금 확인 — 주문 접수
   preparing // 제작/준비(발주 착수) — 이후 환불 불가
   shipped // 발송(송장)
   delivered // 배송 완료
@@ -489,6 +490,9 @@ model ProductOrder {
   deliveryMemo   String?
 
   // 결제
+  // paymentMethod: "card"(토스 카드) | "bank_transfer"(무통장입금/계좌이체).
+  // 무통장은 status=awaiting_payment 로 시작 → 관리자가 입금 확인 시 paid.
+  paymentMethod String             @default("card")
   status      ProductOrderStatus @default(pending)
   paymentKey  String?            @unique
   approvedAt  DateTime?

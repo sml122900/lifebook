@@ -42,6 +42,25 @@ export async function updateOrderStatus(
   revalidate(orderId);
 }
 
+// 무통장입금 입금 확인 — awaiting_payment(입금대기) 무통장 주문을 paid 로.
+// 이후 카드 결제 paid 와 동일하게 제작/배송 흐름 진입.
+export async function confirmBankPayment(orderId: string) {
+  await requireAdmin();
+  const order = await prisma.productOrder.findUnique({
+    where: { id: orderId },
+    select: { status: true, paymentMethod: true },
+  });
+  if (!order) throw new Error("주문을 찾을 수 없어요.");
+  if (order.paymentMethod !== "bank_transfer" || order.status !== "awaiting_payment") {
+    throw new Error("입금대기 중인 무통장 주문만 확인할 수 있어요.");
+  }
+  await prisma.productOrder.update({
+    where: { id: orderId },
+    data: { status: "paid", approvedAt: new Date() },
+  });
+  revalidate(orderId);
+}
+
 export async function setTracking(orderId: string, formData: FormData) {
   await requireAdmin();
   const carrier = String(formData.get("carrier") ?? "").trim();

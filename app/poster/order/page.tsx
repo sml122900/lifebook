@@ -46,7 +46,8 @@ export default async function PosterOrderPage() {
           role="note"
           className="mb-5 rounded-md border-2 border-brand bg-banner px-4 py-3 text-base font-semibold text-action"
         >
-          지금은 테스트 결제예요 — 실제로 청구되거나 배송되지 않아요.
+          무통장입금(계좌이체)으로 실제 주문하실 수 있어요. 카드결제는 지금
+          테스트 모드예요(실제 청구·배송 안 됨).
         </p>
       )}
 

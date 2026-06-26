@@ -2,12 +2,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db";
+import { BANK_TRANSFER_INFO } from "@/lib/commerce/bank";
 import { ORDER_STATUS_LABEL } from "@/lib/commerce/order-display";
 import { getProduct, getProductOption } from "@/lib/commerce/products";
 import type { PosterSnapshot } from "@/lib/poster/snapshot";
 
 import { PosterCompose } from "../../../poster/PosterCompose";
-import { processRefund, setTracking, updateOrderStatus } from "../actions";
+import {
+  confirmBankPayment,
+  processRefund,
+  setTracking,
+  updateOrderStatus,
+} from "../actions";
 
 const won = (n: number) => n.toLocaleString("ko-KR");
 const dt = (d: Date | null) => (d ? d.toLocaleString("ko-KR") : "—");
@@ -36,7 +42,9 @@ export default async function AdminOrderDetailPage({
         </Link>
         <span className="rounded-full bg-banner px-3 py-1 text-sm font-bold text-action">
           {ORDER_STATUS_LABEL[order.status]}
-          {!order.paymentLive && " · 테스트"}
+          {order.paymentMethod === "bank_transfer"
+            ? " · 무통장"
+            : !order.paymentLive && " · 테스트"}
         </span>
       </div>
 
@@ -50,6 +58,10 @@ export default async function AdminOrderDetailPage({
           <dt className="text-ink-faint">금액</dt>
           <dd className="text-ink">
             {won(order.totalKrw)}원 (상품 {won(order.unitKrw)} + 배송 {won(order.shippingKrw)})
+          </dd>
+          <dt className="text-ink-faint">결제수단</dt>
+          <dd className="text-ink">
+            {order.paymentMethod === "bank_transfer" ? "무통장입금(계좌이체)" : "카드결제"}
           </dd>
           <dt className="text-ink-faint">주문자</dt>
           <dd className="text-ink">{order.user?.name ?? order.user?.email ?? "탈퇴"}</dd>
@@ -90,6 +102,29 @@ export default async function AdminOrderDetailPage({
           <p className="text-sm text-ink-soft">메모: {order.deliveryMemo}</p>
         )}
       </section>
+
+      {/* 무통장 입금 확인 — awaiting_payment 일 때만 */}
+      {order.paymentMethod === "bank_transfer" &&
+        order.status === "awaiting_payment" && (
+          <section className="rounded-md border-2 border-amber-300 bg-amber-50 px-5 py-4">
+            <h2 className="text-base font-bold text-amber-900">입금 확인</h2>
+            <p className="mt-1 text-sm text-amber-800">
+              입금 계좌: {BANK_TRANSFER_INFO.bankName}{" "}
+              {BANK_TRANSFER_INFO.accountNumber} · 금액 {won(order.totalKrw)}원
+            </p>
+            <p className="text-sm text-amber-800">
+              입금자명(주문자): {order.user?.name ?? order.user?.email ?? "—"}
+            </p>
+            <form action={confirmBankPayment.bind(null, order.id)} className="mt-3">
+              <button
+                type="submit"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-bold text-white hover:bg-action-hover"
+              >
+                입금 확인 (제작 대기로)
+              </button>
+            </form>
+          </section>
+        )}
 
       {/* 인쇄 파일(스냅샷) — 발주용. PosterCompose 의 "인쇄용 파일 내려받기"로 export */}
       {snapshot && (

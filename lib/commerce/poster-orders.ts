@@ -10,13 +10,18 @@ import {
   getProduct,
   getProductOption,
 } from "./products";
-import type { CreateProductOrderResult, ShippingInput } from "./orders";
+import type {
+  CreateProductOrderResult,
+  PaymentMethod,
+  ShippingInput,
+} from "./orders";
 
 export async function createPendingPosterOrder(
   userId: string,
   ownerName: string,
   optionId: string,
   shipping: ShippingInput,
+  paymentMethod: PaymentMethod = "card",
 ): Promise<CreateProductOrderResult> {
   const product = getProduct("poster");
   if (!product) return { ok: false, error: "상품을 찾을 수 없어요." };
@@ -55,7 +60,9 @@ export async function createPendingPosterOrder(
       address2: shipping.address2?.trim() || null,
       jibunAddress: shipping.jibunAddress?.trim() || null,
       deliveryMemo: shipping.deliveryMemo?.trim() || null,
-      status: "pending",
+      // 무통장은 입금대기로 접수(결제 없이), 카드는 결제창 대기.
+      paymentMethod,
+      status: paymentMethod === "bank_transfer" ? "awaiting_payment" : "pending",
       paymentLive: POSTER_PAYMENT_LIVE_ENABLED,
       posterSnapshot: snapshot,
     },
