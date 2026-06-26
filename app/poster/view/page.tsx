@@ -2,8 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { ScreenTour } from "@/app/components/ScreenTour";
+import { markTourCompletedAction } from "@/app/life-timeline/tour-actions";
 import { prisma } from "@/lib/db";
 import { buildPosterSnapshot } from "@/lib/poster/snapshot";
+import { POSTER_VIEW_TOUR_ID, POSTER_VIEW_TOUR_STEPS } from "@/lib/tours";
 
 import { PosterCompose } from "../PosterCompose";
 import { savePosterOverrides } from "./actions";
@@ -21,11 +24,15 @@ export default async function PosterViewPage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const [snapshot, poster] = await Promise.all([
+  const [snapshot, poster, userRow] = await Promise.all([
     buildPosterSnapshot(userId, session.user.name ?? ""),
     prisma.poster.findUnique({
       where: { userId },
       select: { template: true, customBgPath: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { completedTours: true },
     }),
   ]);
 
@@ -74,19 +81,22 @@ export default async function PosterViewPage() {
       {/* 상단 주문 CTA — 큰 포스터를 스크롤하기 전에 바로 보이게(시니어 친화). */}
       <Link
         href="/poster/order"
+        data-tour="poster-order"
         className="mb-5 flex min-h-[60px] w-full items-center justify-center gap-2 rounded-md bg-amber-500 px-6 py-3 text-xl font-bold text-white hover:bg-amber-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         <span aria-hidden>🖼️</span> 이 포스터 주문하기
       </Link>
 
-      <PosterCompose
-        ownerName={snapshot.ownerName}
-        nodes={snapshot.nodes}
-        memos={snapshot.memos}
-        bgSrc={bgSrc}
-        editable
-        onSave={savePosterOverrides}
-      />
+      <div data-tour="poster-preview">
+        <PosterCompose
+          ownerName={snapshot.ownerName}
+          nodes={snapshot.nodes}
+          memos={snapshot.memos}
+          bgSrc={bgSrc}
+          editable
+          onSave={savePosterOverrides}
+        />
+      </div>
 
       <div className="mt-6 flex flex-col items-center gap-3">
         <Link
@@ -99,6 +109,13 @@ export default async function PosterViewPage() {
           편집한 위치·크기·내용은 저장해 두면 다음에 와도 그대로예요.
         </p>
       </div>
+
+      <ScreenTour
+        tourId={POSTER_VIEW_TOUR_ID}
+        steps={POSTER_VIEW_TOUR_STEPS}
+        autoStart={!(userRow?.completedTours?.includes(POSTER_VIEW_TOUR_ID) ?? false)}
+        onComplete={markTourCompletedAction}
+      />
     </main>
   );
 }

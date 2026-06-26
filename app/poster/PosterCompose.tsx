@@ -557,6 +557,7 @@ export function PosterCompose({
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border-2 border-line bg-surface px-4 py-3">
           <button
             type="button"
+            data-tour="poster-edit"
             onClick={() => { setEditMode((v) => !v); setSelected(null); }}
             className={
               "inline-flex min-h-[48px] items-center justify-center rounded-md px-5 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +

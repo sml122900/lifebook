@@ -139,7 +139,10 @@ export function PosterSelectClient({
   return (
     <div className="flex flex-col gap-4">
       {/* 상단 고정 바 — 카운터 + 저장 */}
-      <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between gap-3 border-b border-line bg-canvas px-4 py-3">
+      <div
+        data-tour="poster-counter"
+        className="sticky top-0 z-10 -mx-4 flex items-center justify-between gap-3 border-b border-line bg-canvas px-4 py-3"
+      >
         <span className="text-base font-semibold text-ink sm:text-lg">
           노드 <b className="text-action">{nodeCount}</b>
           <span className="mx-2 text-ink-faint">·</span>
@@ -167,10 +170,11 @@ export function PosterSelectClient({
       )}
 
       <ul className="flex flex-col gap-3">
-        {sorted.map((c) => (
+        {sorted.map((c, i) => (
           <CandidateCard
             key={c.eventId}
             candidate={c}
+            isFirst={i === 0}
             card={cards[c.eventId]}
             choice={choices[c.eventId]}
             onChoice={(next) => setChoice(c.eventId, next)}
@@ -194,6 +198,7 @@ export function PosterSelectClient({
         </Link>
         <button
           type="button"
+          data-tour="poster-next"
           onClick={saveAndNext}
           disabled={isNexting}
           className="inline-flex min-h-[52px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:bg-line"
@@ -207,12 +212,14 @@ export function PosterSelectClient({
 
 function CandidateCard({
   candidate,
+  isFirst,
   card,
   choice,
   onChoice,
   onEdited,
 }: {
   candidate: PosterCandidate;
+  isFirst: boolean;
   card: CardState;
   choice: Choice;
   onChoice: (next: Choice) => void;
@@ -276,8 +283,11 @@ function CandidateCard({
         />
       )}
 
-      {/* 3택 토글 */}
-      <div className="mt-3 flex flex-wrap gap-2">
+      {/* 3택 토글 — 첫 카드에 코치마크 타겟(노드/메모 개념 설명용). */}
+      <div
+        data-tour={isFirst ? "poster-nodememo" : undefined}
+        className="mt-3 flex flex-wrap gap-2"
+      >
         <ChoiceButton label="큰 사건 (노드)" active={choice === "node"} onClick={() => onChoice("node")} tone="action" />
         <ChoiceButton label="작은 이야기 (메모)" active={choice === "memo"} onClick={() => onChoice("memo")} tone="brand" />
         <ChoiceButton label="제외" active={choice === "exclude"} onClick={() => onChoice("exclude")} tone="muted" />

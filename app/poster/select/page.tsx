@@ -1,6 +1,13 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { ScreenTour } from "@/app/components/ScreenTour";
+import { markTourCompletedAction } from "@/app/life-timeline/tour-actions";
+import { prisma } from "@/lib/db";
+import {
+  POSTER_SELECT_TOUR_ID,
+  POSTER_SELECT_TOUR_STEPS,
+} from "@/lib/tours";
 
 import { loadPosterEditor } from "./actions";
 import { PosterSelectClient } from "./PosterSelectClient";
@@ -19,7 +26,15 @@ export default async function PosterSelectPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const { candidates, savedSelections } = await loadPosterEditor();
+  const [{ candidates, savedSelections }, userRow] = await Promise.all([
+    loadPosterEditor(),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { completedTours: true },
+    }),
+  ]);
+  const tourSeen =
+    userRow?.completedTours?.includes(POSTER_SELECT_TOUR_ID) ?? false;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
@@ -37,10 +52,18 @@ export default async function PosterSelectPage() {
           아직 포스터에 담을 이야기가 없어요. 먼저 인생 연혁을 채워주세요.
         </p>
       ) : (
-        <PosterSelectClient
-          candidates={candidates}
-          savedSelections={savedSelections}
-        />
+        <>
+          <PosterSelectClient
+            candidates={candidates}
+            savedSelections={savedSelections}
+          />
+          <ScreenTour
+            tourId={POSTER_SELECT_TOUR_ID}
+            steps={POSTER_SELECT_TOUR_STEPS}
+            autoStart={!tourSeen}
+            onComplete={markTourCompletedAction}
+          />
+        </>
       )}
     </main>
   );

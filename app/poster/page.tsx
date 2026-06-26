@@ -11,6 +11,13 @@ import { prisma } from "@/lib/db";
 import { getProduct, SHIPPING_KRW } from "@/lib/commerce/products";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 
+import { ScreenTour } from "@/app/components/ScreenTour";
+import { markTourCompletedAction } from "@/app/life-timeline/tour-actions";
+import {
+  POSTER_TEMPLATES_TOUR_ID,
+  POSTER_TEMPLATES_TOUR_STEPS,
+} from "@/lib/tours";
+
 import { chooseTemplate } from "./actions";
 import {
   PosterInteractive,
@@ -78,11 +85,15 @@ export default async function PosterTemplatePage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const [events, poster] = await Promise.all([
+  const [events, poster, userRow] = await Promise.all([
     getLifeEvents(userId),
     prisma.poster.findUnique({
       where: { userId },
       select: { template: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { completedTours: true },
     }),
   ]);
 
@@ -102,6 +113,8 @@ export default async function PosterTemplatePage() {
   }
 
   const current = poster?.template ?? null;
+  const tourSeen =
+    userRow?.completedTours?.includes(POSTER_TEMPLATES_TOUR_ID) ?? false;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
@@ -123,6 +136,13 @@ export default async function PosterTemplatePage() {
           ← 인생 연혁으로
         </Link>
       </div>
+
+      <ScreenTour
+        tourId={POSTER_TEMPLATES_TOUR_ID}
+        steps={POSTER_TEMPLATES_TOUR_STEPS}
+        autoStart={!tourSeen}
+        onComplete={markTourCompletedAction}
+      />
     </main>
   );
 }
@@ -138,9 +158,12 @@ function TemplateCard({
   const isCustom = t.status === "custom";
   const active = ready || isCustom;
   const selected = current === t.id;
+  // 코치마크 타겟 — 첫 실제 디자인(river)과 맞춤형 카드만.
+  const dataTour = ready ? "poster-template" : isCustom ? "poster-custom" : undefined;
 
   return (
     <li
+      data-tour={dataTour}
       className={
         "flex flex-col overflow-hidden rounded-xl border-2 " +
         (active ? "border-action bg-surface" : "border-line bg-canvas")

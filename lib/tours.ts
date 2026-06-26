@@ -59,6 +59,68 @@ export const MAIN_TOUR_STEPS: CoachStep[] = [
   },
 ];
 
+// ── 포스터 흐름 둘러보기 ──────────────────────────────────────────────────
+// 포스터는 화면이 3개로 나뉘고(/poster → /poster/select → /poster/view) 각
+// 화면이 어르신에게 어렵다. 화면마다 별도 투어 — 첫 방문 1회 자동 + "도움말"
+// 버튼으로 재실행. completedTours 에 각 id 가 쌓인다. 포스터 단계는 사이드
+// 패널과 무관하므로 panel 필드 없음.
+
+export const POSTER_TEMPLATES_TOUR_ID = "poster-templates";
+export const POSTER_SELECT_TOUR_ID = "poster-select";
+export const POSTER_VIEW_TOUR_ID = "poster-view";
+
+// /poster — 디자인(종) 고르기.
+export const POSTER_TEMPLATES_TOUR_STEPS: CoachStep[] = [
+  {
+    target: "poster-template",
+    title: "디자인 고르기",
+    desc: "마음에 드는 모양을 하나 골라 '이 디자인으로 만들기'를 누르세요.",
+  },
+  {
+    target: "poster-custom",
+    title: "맞춤형 디자인",
+    desc: "맞춤형을 고르면 좋아하시는 색·꽃·분위기로 AI가 배경 그림을 새로 그려드려요.",
+  },
+];
+
+// /poster/select — 노드·메모 고르기(가장 헷갈리는 화면).
+export const POSTER_SELECT_TOUR_STEPS: CoachStep[] = [
+  {
+    target: "poster-nodememo",
+    title: "노드와 메모",
+    desc: "포스터에 담을 이야기를 골라요. 큰 사건은 '노드', 작은 기록은 '메모'로 정하고, 빼려면 '제외'를 누르세요.",
+  },
+  {
+    target: "poster-counter",
+    title: "고른 개수",
+    desc: "지금까지 고른 노드·메모 개수가 여기 보여요. 메모는 최대 20개까지 담을 수 있어요.",
+  },
+  {
+    target: "poster-next",
+    title: "시안 보기",
+    desc: "다 고르셨으면 여기를 눌러 완성된 포스터 시안을 확인하세요.",
+  },
+];
+
+// /poster/view — 시안·편집·주문.
+export const POSTER_VIEW_TOUR_STEPS: CoachStep[] = [
+  {
+    target: "poster-preview",
+    title: "완성된 포스터",
+    desc: "고른 이야기로 만든 포스터 시안이에요. 손가락으로 밀거나 끌어 자세히 볼 수 있어요.",
+  },
+  {
+    target: "poster-edit",
+    title: "편집하기",
+    desc: "'편집하기'를 누르면 글자의 위치·크기·내용을 바꾸거나 뺄 수 있어요.",
+  },
+  {
+    target: "poster-order",
+    title: "주문하기",
+    desc: "마음에 드시면 '주문하기'로 실물 포스터를 액자에 담아 받아 보세요.",
+  },
+];
+
 // CoachMarks 가 사이드 패널을 열고 닫을 때 쓰는 커스텀 이벤트 이름.
 // SidePanelLayout 이 이 이벤트를 듣고 open 상태를 맞춘다(투어 전용, 사용자
 // localStorage 선호는 건드리지 않음).

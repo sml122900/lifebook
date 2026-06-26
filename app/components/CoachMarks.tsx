@@ -235,9 +235,12 @@ export function CoachMarks({
     rect.left + rect.width > 8 &&
     rect.top < vh - 8 &&
     rect.top + rect.height > 8;
+  // 타겟이 화면보다 키가 크면(예: 포스터 시안 A2 세로) 타겟 위/아래에 붙이는
+  // 말풍선이 화면 밖으로 밀린다 → 고정 모드로.
+  const tall = rect.height > vh - 120;
   // 말풍선을 화면 위/아래에 고정하는 모드: 모바일(패널이 본문 가림)이거나
-  // 타겟이 뷰포트 밖일 때. 이때 화살표는 생략하고 spotlight 대신 전체 딤.
-  const pinned = isMobile || !onScreen;
+  // 타겟이 뷰포트 밖/너무 큼. 이때 화살표는 생략. spotlight 는 onScreen 이면 유지.
+  const pinned = isMobile || !onScreen || tall;
   const tipLeft = pinned
     ? Math.max(12, (vw - tipW) / 2)
     : Math.max(12, Math.min(targetCx - tipW / 2, vw - tipW - 12));
