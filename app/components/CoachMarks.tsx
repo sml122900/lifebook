@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 
 import { type CoachStep, SIDE_PANEL_EVENT } from "@/lib/tours";
 
@@ -59,47 +59,70 @@ export function CoachMarks({
     }
   }, [active]);
 
-  // 단계 진입 — 패널 상태 맞추고, 타겟이 나타나면 화면 안으로 스크롤 + 측정.
-  // 타겟이 끝내 없으면(상태별로 숨겨진 버튼) 다음 단계로 건너뜀.
+  // 단계 진입 — 패널 상태를 *즉시* 맞추고(재실행 시 열린 패널 먼저 닫기),
+  // 타겟이 나타나면 화면 안으로 스크롤한 뒤 위치가 안정될 때까지 매 프레임
+  // 재측정한다. 패널 트랜지션(폭 변화·pr-80)·스크롤이 끝나는 동안 spotlight
+  // 가 타겟에 정확히 붙도록 — 고정 지연 후 1회 측정의 오차(타겟보다 위 빈
+  // 공간을 가리키던 버그)를 없앤다. 타겟이 끝내 없으면 다음 단계로 건너뜀.
   useEffect(() => {
     if (!active || !step) return;
     let raf = 0;
     let cancelled = false;
-    let tries = 0;
+    let waited = 0; // 타겟 등장 대기(ms)
+    let elapsed = 0; // 측정 시작 후 경과(ms)
+    let stable = 0; // 연속으로 위치가 안 변한 프레임 수
+    let scrolled = false;
 
+    // 패널 상태는 지연 없이 즉시 — 닫기/열기 트랜지션을 곧바로 시작.
     if (step.panel) {
       window.dispatchEvent(
         new CustomEvent(SIDE_PANEL_EVENT, { detail: { open: step.panel === "open" } }),
       );
     }
 
-    const measure = () => {
+    const tick = (prev: Rect | null) => {
       if (cancelled) return;
       const el = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`);
       if (!el) {
-        // 패널 트랜지션 + 렌더 대기. ~40프레임(≈0.7s) 지나도 없으면 건너뜀.
-        if (++tries > 40) {
+        waited += 16;
+        // 패널 열림 + 렌더 대기. ~0.8s 지나도 없으면 그 단계 건너뜀.
+        if (waited > 800) {
           if (index + 1 >= steps.length) finish();
           else setIndex((i) => i + 1);
           return;
         }
-        raf = requestAnimationFrame(measure);
+        raf = requestAnimationFrame(() => tick(prev));
         return;
       }
-      el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+      // 화면 밖이면 한 번만 즉시 스크롤(smooth 아님 — 측정 타이밍 흔들림 방지).
+      if (!scrolled) {
+        scrolled = true;
+        el.scrollIntoView({ block: "center", inline: "nearest" });
+      }
       const r = el.getBoundingClientRect();
-      setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+      const cur: Rect = { top: r.top, left: r.left, width: r.width, height: r.height };
+      setRect(cur);
+      // 위치가 4프레임 연속 그대로면 안정으로 보고 멈춤. 안 그러면 최대
+      // ~0.7s 까지 추적(패널 트랜지션·스크롤 정착 흡수).
+      if (
+        prev &&
+        Math.abs(prev.top - cur.top) < 0.5 &&
+        Math.abs(prev.left - cur.left) < 0.5 &&
+        Math.abs(prev.height - cur.height) < 0.5
+      ) {
+        stable += 1;
+      } else {
+        stable = 0;
+      }
+      elapsed += 16;
+      if (stable >= 4 || elapsed > 700) return;
+      raf = requestAnimationFrame(() => tick(cur));
     };
 
-    // 패널을 여닫는 단계면 트랜지션(~300ms) 뒤부터 측정 시작.
-    const startDelay = step.panel ? 340 : 0;
-    const t = window.setTimeout(() => {
-      raf = requestAnimationFrame(measure);
-    }, startDelay);
+    raf = requestAnimationFrame(() => tick(null));
 
     return () => {
       cancelled = true;
-      window.clearTimeout(t);
       cancelAnimationFrame(raf);
     };
   }, [active, step, index, steps.length, finish]);
@@ -148,15 +171,31 @@ export function CoachMarks({
     height: rect.height + HOLE_PAD * 2,
   };
 
-  // 말풍선 위치 — 아래 공간이 부족하면 위로. left 는 화면 안으로 클램프.
   const vw = typeof window !== "undefined" ? window.innerWidth : 360;
   const vh = typeof window !== "undefined" ? window.innerHeight : 640;
   const tipW = Math.min(TIP_W, vw - 24);
   const targetCx = rect.left + rect.width / 2;
-  const tipLeft = Math.max(12, Math.min(targetCx - tipW / 2, vw - tipW - 12));
-  const placeBelow = hole.top + hole.height + 220 < vh;
-  // 화살표 가로 위치(말풍선 기준), 양끝에서 20px 안쪽으로 클램프.
+  const targetCy = hole.top + hole.height / 2;
+  // 모바일(좁은 화면)에서는 사이드 패널이 본문을 거의 덮어 타겟 옆 말풍선이
+  // 패널에 가려질 수 있다. 그래서 모바일은 말풍선을 화면 위/아래에 고정해
+  // (패널 위 z-index) 항상 보이게 하고 화살표는 생략 — spotlight 링이 어디를
+  // 볼지 알려준다. 타겟이 위쪽 절반이면 아래에, 아래쪽이면 위에 둬 겹침 회피.
+  const isMobile = vw < 640;
+  const tipLeft = isMobile
+    ? Math.max(12, (vw - tipW) / 2)
+    : Math.max(12, Math.min(targetCx - tipW / 2, vw - tipW - 12));
+  const pinBottom = isMobile && targetCy < vh / 2;
+  const placeBelow = !isMobile && hole.top + hole.height + 220 < vh;
+  // 화살표 가로 위치(말풍선 기준), 양끝에서 20px 안쪽으로 클램프. 데스크톱만.
   const arrowLeft = Math.max(20, Math.min(targetCx - tipLeft, tipW - 20));
+
+  const tipStyle: CSSProperties = isMobile
+    ? pinBottom
+      ? { left: tipLeft, width: tipW, bottom: "calc(16px + env(safe-area-inset-bottom))" }
+      : { left: tipLeft, width: tipW, top: 16 }
+    : placeBelow
+      ? { left: tipLeft, width: tipW, top: hole.top + hole.height + 16 }
+      : { left: tipLeft, width: tipW, bottom: vh - hole.top + 16 };
 
   return (
     // 전체 오버레이 — 클릭을 막아 "다음" 버튼으로만 진행하게 한다.
@@ -181,23 +220,22 @@ export function CoachMarks({
 
       {/* 말풍선 카드 */}
       <div
-        className="absolute w-[340px] max-w-[calc(100vw-24px)] rounded-xl border-2 border-amber-300 bg-surface p-5 shadow-2xl"
-        style={
-          placeBelow
-            ? { top: hole.top + hole.height + 16, left: tipLeft }
-            : { bottom: vh - hole.top + 16, left: tipLeft }
-        }
+        className="absolute max-w-[calc(100vw-24px)] rounded-xl border-2 border-amber-300 bg-surface p-5 shadow-2xl"
+        style={tipStyle}
       >
-        {/* 화살표 — 타겟을 가리키는 삼각형(말풍선 모서리의 회전 사각형). */}
-        <span
-          aria-hidden
-          className="absolute h-4 w-4 rotate-45 border-amber-300 bg-surface"
-          style={
-            placeBelow
-              ? { top: -9, left: arrowLeft - 8, borderTopWidth: 2, borderLeftWidth: 2 }
-              : { bottom: -9, left: arrowLeft - 8, borderBottomWidth: 2, borderRightWidth: 2 }
-          }
-        />
+        {/* 화살표 — 타겟을 가리키는 삼각형(데스크톱만; 모바일은 화면 고정이라
+            타겟과 떨어져 있어 화살표가 의미 없음). */}
+        {!isMobile && (
+          <span
+            aria-hidden
+            className="absolute h-4 w-4 rotate-45 border-amber-300 bg-surface"
+            style={
+              placeBelow
+                ? { top: -9, left: arrowLeft - 8, borderTopWidth: 2, borderLeftWidth: 2 }
+                : { bottom: -9, left: arrowLeft - 8, borderBottomWidth: 2, borderRightWidth: 2 }
+            }
+          />
+        )}
 
         <p className="text-sm font-bold text-action">
           {index + 1} / {steps.length}

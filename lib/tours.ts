@@ -22,6 +22,10 @@ export const MAIN_TOUR_ID = "main";
 
 // 메인(/life-timeline) 둘러보기 — 어르신이 헷갈리는 핵심 5가지.
 // 큰 글씨·쉬운 말·한 번에 하나만(정보 과부하 X).
+//
+// 순서: 본문 버튼(패널 닫힘) 2개로 가볍게 시작 → 핵심인 "이야기 나누기"를
+// ③에 앞당김 → 패널 단계(③④)를 묶어 패널 여닫이를 최소화 → 마지막에
+// 포스터로 마무리("시작하기"). companion 이 핵심이라 가급적 앞쪽.
 export const MAIN_TOUR_STEPS: CoachStep[] = [
   {
     target: "assistant",
@@ -36,12 +40,6 @@ export const MAIN_TOUR_STEPS: CoachStep[] = [
     desc: "기억하고 싶은 순간을 직접 적어 인생 연혁에 더할 수 있어요.",
   },
   {
-    target: "poster",
-    panel: "closed",
-    title: "인생 포스터 만들기",
-    desc: "이야기가 쌓이면 멋진 포스터로 만들어 간직하거나 선물할 수 있어요.",
-  },
-  {
     target: "companion",
     panel: "open",
     title: "이야기 나누기",
@@ -52,6 +50,12 @@ export const MAIN_TOUR_STEPS: CoachStep[] = [
     panel: "open",
     title: "내 토큰",
     desc: "AI 기능을 쓸 때 토큰이 조금씩 들어요. 매일 출석하면 무료로 드리고, 이 패널에서 충전도 할 수 있어요.",
+  },
+  {
+    target: "poster",
+    panel: "closed",
+    title: "인생 포스터 만들기",
+    desc: "이야기가 쌓이면 멋진 포스터로 만들어 간직하거나 선물할 수 있어요.",
   },
 ];
 
