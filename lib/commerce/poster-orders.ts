@@ -27,9 +27,10 @@ export async function createPendingPosterOrder(
 
   const recipientName = shipping.recipientName.trim();
   const recipientPhone = shipping.recipientPhone.trim();
+  const postalCode = shipping.postalCode?.trim() || "";
   const address1 = shipping.address1.trim();
-  if (!recipientName || !recipientPhone || !address1) {
-    return { ok: false, error: "받는 분·연락처·주소를 입력해 주세요." };
+  if (!recipientName || !recipientPhone || !postalCode || !address1) {
+    return { ok: false, error: "받는 분·연락처·우편번호·주소를 입력해 주세요." };
   }
 
   // 주문 시점 스냅샷 — 이후 편집과 무관하게 발주 파일 고정.
@@ -49,9 +50,10 @@ export async function createPendingPosterOrder(
       totalKrw: amount.totalKrw,
       recipientName,
       recipientPhone,
-      postalCode: shipping.postalCode?.trim() || null,
+      postalCode,
       address1,
       address2: shipping.address2?.trim() || null,
+      jibunAddress: shipping.jibunAddress?.trim() || null,
       deliveryMemo: shipping.deliveryMemo?.trim() || null,
       status: "pending",
       paymentLive: POSTER_PAYMENT_LIVE_ENABLED,

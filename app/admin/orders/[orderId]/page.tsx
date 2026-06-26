@@ -83,6 +83,9 @@ export default async function AdminOrderDetailPage({
         <p className="text-sm text-ink">
           ({order.postalCode ?? "—"}) {order.address1} {order.address2 ?? ""}
         </p>
+        {order.jibunAddress && (
+          <p className="text-sm text-ink-soft">지번: {order.jibunAddress}</p>
+        )}
         {order.deliveryMemo && (
           <p className="text-sm text-ink-soft">메모: {order.deliveryMemo}</p>
         )}

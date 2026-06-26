@@ -10,9 +10,10 @@ import { computeOrderAmount, getProduct } from "./products";
 export type ShippingInput = {
   recipientName: string;
   recipientPhone: string;
-  postalCode: string | null;
-  address1: string;
-  address2: string | null;
+  postalCode: string | null; // 입력 필수(아래 검증) — 타입은 호환 위해 nullable
+  address1: string; // 도로명 주소
+  address2: string | null; // 상세 주소(동·호)
+  jibunAddress: string | null; // 지번 주소(카카오 우편번호 제공)
   deliveryMemo: string | null;
 };
 
@@ -38,9 +39,10 @@ export async function createPendingProductOrder(
 
   const recipientName = shipping.recipientName.trim();
   const recipientPhone = shipping.recipientPhone.trim();
+  const postalCode = shipping.postalCode?.trim() || "";
   const address1 = shipping.address1.trim();
-  if (!recipientName || !recipientPhone || !address1) {
-    return { ok: false, error: "받는 분·연락처·주소를 입력해 주세요." };
+  if (!recipientName || !recipientPhone || !postalCode || !address1) {
+    return { ok: false, error: "받는 분·연락처·우편번호·주소를 입력해 주세요." };
   }
 
   const quantity = 1; // v1 고정
@@ -59,9 +61,10 @@ export async function createPendingProductOrder(
       totalKrw,
       recipientName,
       recipientPhone,
-      postalCode: shipping.postalCode?.trim() || null,
+      postalCode,
       address1,
       address2: shipping.address2?.trim() || null,
+      jibunAddress: shipping.jibunAddress?.trim() || null,
       deliveryMemo: shipping.deliveryMemo?.trim() || null,
       status: "pending",
     },

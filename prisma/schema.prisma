@@ -477,11 +477,15 @@ model ProductOrder {
   totalKrw  Int // 서버 계산 = unitKrw*quantity + shippingKrw
 
   // 배송지 스냅샷 (User 에 구조화 주소 없음 — 주문별 보관이 법적 발송 기록)
+  // address1=도로명, jibunAddress=지번(카카오 우편번호가 둘 다 제공 → 인쇄소
+  // 발송용으로 함께 저장). postalCode 는 입력 필수(서버 검증)이나 과거 주문
+  // 호환·익명화 위해 컬럼은 nullable 유지.
   recipientName  String
   recipientPhone String
   postalCode     String?
   address1       String
   address2       String?
+  jibunAddress   String?
   deliveryMemo   String?
 
   // 결제

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 
+import { AddressSearch } from "@/app/components/AddressSearch";
+
 import { startProductOrder } from "../../actions";
 
 // 배송지 입력 + 토스 결제. TopupButton 패턴을 따르되, 결제 전에 서버로
@@ -24,7 +26,8 @@ export function OrderForm({ productId, clientKey, customerKey }: Props) {
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [postalCode, setPostalCode] = useState("");
-  const [address1, setAddress1] = useState("");
+  const [address1, setAddress1] = useState(""); // 도로명(카카오 검색)
+  const [jibunAddress, setJibunAddress] = useState(""); // 지번(카카오 검색)
   const [address2, setAddress2] = useState("");
   const [deliveryMemo, setDeliveryMemo] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -35,9 +38,10 @@ export function OrderForm({ productId, clientKey, customerKey }: Props) {
     if (
       recipientName.trim() === "" ||
       recipientPhone.trim() === "" ||
+      postalCode.trim() === "" ||
       address1.trim() === ""
     ) {
-      setError("받는 분, 연락처, 주소를 입력해 주세요.");
+      setError("받는 분, 연락처, 우편번호·주소를 입력해 주세요.");
       return;
     }
     setSubmitting(true);
@@ -48,6 +52,7 @@ export function OrderForm({ productId, clientKey, customerKey }: Props) {
         postalCode: postalCode.trim() || null,
         address1,
         address2: address2.trim() || null,
+        jibunAddress: jibunAddress.trim() || null,
         deliveryMemo: deliveryMemo.trim() || null,
       });
 
@@ -104,30 +109,16 @@ export function OrderForm({ productId, clientKey, customerKey }: Props) {
         />
       </Field>
 
-      <Field label="우편번호">
-        <input
-          type="text"
-          inputMode="numeric"
-          value={postalCode}
-          onChange={(e) => setPostalCode(e.target.value)}
-          placeholder="예: 04524"
-          maxLength={10}
-          autoComplete="postal-code"
-          className={FIELD}
-        />
-      </Field>
-
-      <Field label="주소" required>
-        <input
-          type="text"
-          value={address1}
-          onChange={(e) => setAddress1(e.target.value)}
-          placeholder="예: 서울시 중구 세종대로 110"
-          maxLength={120}
-          autoComplete="address-line1"
-          className={FIELD}
-        />
-      </Field>
+      <AddressSearch
+        postalCode={postalCode}
+        roadAddress={address1}
+        jibunAddress={jibunAddress}
+        onComplete={(r) => {
+          setPostalCode(r.postalCode);
+          setAddress1(r.roadAddress);
+          setJibunAddress(r.jibunAddress);
+        }}
+      />
 
       <Field label="상세 주소">
         <input
