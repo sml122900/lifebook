@@ -132,12 +132,20 @@ export function CoachMarks({
         raf = requestAnimationFrame(() => tick(prev));
         return;
       }
-      // 화면 밖이면 한 번만 즉시 스크롤(smooth 아님 — 측정 타이밍 흔들림 방지).
-      if (!scrolled) {
+      // 첫 진입엔 무조건, 그 뒤엔 타겟이 화면 밖이면 다시 스크롤해 들인다.
+      // behavior:"instant" 로 강제(전역/조상 scroll-behavior:smooth 영향 차단)
+      // → 측정 타이밍 흔들림 0. 단계 전환 시 다음 타겟이 화면 밖이면 ring 이
+      // 사라지던(배경만 남던) 문제를 매 프레임 재스크롤로 막는다.
+      const vpH = window.innerHeight;
+      const vpW = window.innerWidth;
+      let r = el.getBoundingClientRect();
+      const offscreen =
+        r.bottom < 8 || r.top > vpH - 8 || r.right < 8 || r.left > vpW - 8;
+      if (!scrolled || offscreen) {
         scrolled = true;
-        el.scrollIntoView({ block: "center", inline: "nearest" });
+        el.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+        r = el.getBoundingClientRect();
       }
-      const r = el.getBoundingClientRect();
       const cur: Rect = { top: r.top, left: r.left, width: r.width, height: r.height };
       setRect(cur);
       // 위치가 연속으로 그대로면 안정으로 본다. 단, 패널을 여닫는 단계는
@@ -235,17 +243,23 @@ export function CoachMarks({
     rect.left + rect.width > 8 &&
     rect.top < vh - 8 &&
     rect.top + rect.height > 8;
-  // 타겟이 화면보다 키가 크면(예: 포스터 시안 A2 세로) 타겟 위/아래에 붙이는
-  // 말풍선이 화면 밖으로 밀린다 → 고정 모드로.
-  const tall = rect.height > vh - 120;
+  // 타겟 위/아래에 말풍선을 둘 공간이 있나(대략 높이 EST_TIP_H + 여백).
+  // 둘 다 부족하면(상단 타겟·화면보다 큰 포스터 시안 등) 화면 위/아래 고정.
+  const EST_TIP_H = 220;
+  const spaceAbove = hole.top;
+  const spaceBelow = vh - (hole.top + hole.height);
+  const roomAbove = spaceAbove >= EST_TIP_H + 16;
+  const roomBelow = spaceBelow >= EST_TIP_H + 16;
   // 말풍선을 화면 위/아래에 고정하는 모드: 모바일(패널이 본문 가림)이거나
-  // 타겟이 뷰포트 밖/너무 큼. 이때 화살표는 생략. spotlight 는 onScreen 이면 유지.
-  const pinned = isMobile || !onScreen || tall;
+  // 타겟이 뷰포트 밖이거나 위/아래 둘 다 공간 부족. 화살표 생략, spotlight 는
+  // onScreen 이면 유지. (상단 타겟에서 말풍선이 top:-220 으로 잘리던 P1 픽스.)
+  const pinned = isMobile || !onScreen || (!roomAbove && !roomBelow);
   const tipLeft = pinned
     ? Math.max(12, (vw - tipW) / 2)
     : Math.max(12, Math.min(targetCx - tipW / 2, vw - tipW - 12));
   const pinBottom = pinned && (!onScreen || targetCy < vh / 2);
-  const placeBelow = !pinned && hole.top + hole.height + 220 < vh;
+  // 인접 모드: 아래 공간 있으면 아래, 아니면(위에 공간 있을 때) 위.
+  const placeBelow = !pinned && roomBelow;
   // 화살표 가로 위치(말풍선 기준), 양끝에서 20px 안쪽으로 클램프. 인접 모드만.
   const arrowLeft = Math.max(20, Math.min(targetCx - tipLeft, tipW - 20));
 

@@ -243,6 +243,7 @@ function CandidateCard({
 
   return (
     <li
+      data-tour={isFirst ? "poster-nodememo" : undefined}
       className={
         "rounded-md border-2 px-4 py-3 " +
         (selected ? "border-action bg-banner" : "border-line bg-surface")
@@ -283,11 +284,8 @@ function CandidateCard({
         />
       )}
 
-      {/* 3택 토글 — 첫 카드에 코치마크 타겟(노드/메모 개념 설명용). */}
-      <div
-        data-tour={isFirst ? "poster-nodememo" : undefined}
-        className="mt-3 flex flex-wrap gap-2"
-      >
+      {/* 3택 토글 */}
+      <div className="mt-3 flex flex-wrap gap-2">
         <ChoiceButton label="큰 사건 (노드)" active={choice === "node"} onClick={() => onChoice("node")} tone="action" />
         <ChoiceButton label="작은 이야기 (메모)" active={choice === "memo"} onClick={() => onChoice("memo")} tone="brand" />
         <ChoiceButton label="제외" active={choice === "exclude"} onClick={() => onChoice("exclude")} tone="muted" />
