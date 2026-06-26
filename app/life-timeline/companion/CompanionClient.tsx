@@ -15,8 +15,8 @@ import type { EraEvent, EraSong } from "@/lib/era-events";
 
 type Phase = "opening" | "idle" | "recording" | "transcribing" | "thinking" | "error";
 type ChatMessage = { role: "user" | "assistant"; content: string };
-// C3 — 메시지에 그 시절 아카이브 카드(era)를 옵셔널로 매달 수 있다.
-type Msg = { role: "a" | "u"; text: string; era?: EraSnapshot };
+// C3 — 메시지에 그 시절 아카이브 카드(era)를 여러 개 매달 수 있다(연도별 1개).
+type Msg = { role: "a" | "u"; text: string; eras?: EraSnapshot[] };
 
 // 세션 안전 상한
 const MAX_TURNS_CLIENT = 50;
@@ -126,9 +126,12 @@ export function CompanionClient() {
     }
   }
 
-  // 텍스트에서 새 연도(1900~2099)를 찾아 그 해 아카이브가 있으면 스냅샷 반환.
-  // 이미 처리한 연도·데이터 없는 연도는 제외(undefined). 대화당 연도별 1회.
-  async function resolveEraSnapshot(text: string): Promise<EraSnapshot | undefined> {
+  // 한 메시지에 카드 너무 많으면 답답 → 메시지당 상한.
+  const MAX_ERA_CARDS_PER_MESSAGE = 2;
+
+  // 텍스트에서 새 연도(1900~2099)를 모두 찾아 그 해 아카이브가 있으면 스냅샷 배열 반환.
+  // 이미 처리한 연도·데이터 없는 연도는 제외. 대화당 연도별 1회, 메시지당 최대 2개.
+  async function resolveEraSnapshots(text: string): Promise<EraSnapshot[]> {
     const re = /(?<!\d)(19\d{2}|20\d{2})(?!\d)/g;
     const candidates: number[] = [];
     let m: RegExpExecArray | null;
@@ -136,15 +139,15 @@ export function CompanionClient() {
       const y = Number(m[1]);
       if (!shownYearsRef.current.has(y) && !candidates.includes(y)) candidates.push(y);
     }
-    if (candidates.length === 0) return undefined;
+    if (candidates.length === 0) return [];
 
     const cat = await ensureEraCatalog();
-    if (!cat) return undefined;
+    if (!cat) return [];
 
-    let snapshot: EraSnapshot | undefined;
+    const snapshots: EraSnapshot[] = [];
     for (const y of candidates) {
       shownYearsRef.current.add(y); // 데이터 유무와 무관하게 처리됨 표시(재검사 X).
-      if (snapshot) continue;
+      if (snapshots.length >= MAX_ERA_CARDS_PER_MESSAGE) continue;
       const events = cat.events.filter((e) => e.year === y);
       const songs = cat.songs.filter((s) => s.year === y);
       if (events.length === 0 && songs.length === 0) continue; // 아카이브 없음 → 카드 X.
@@ -152,18 +155,18 @@ export function CompanionClient() {
       const sg = songs
         .slice(0, Math.max(0, 5 - ev.length)) // 사건+노래 합쳐 최대 5개.
         .map((s) => ({ title: s.title, artist: s.artist }));
-      snapshot = { year: y, events: ev, songs: sg };
+      snapshots.push({ year: y, events: ev, songs: sg });
     }
-    return snapshot;
+    return snapshots;
   }
 
-  // 방금 추가된 마지막 동반자 메시지에 아카이브 카드를 매단다(응답은 안 막음).
-  function attachEraToLastBot(era: EraSnapshot) {
+  // 방금 추가된 마지막 동반자 메시지에 아카이브 카드들을 매단다(응답은 안 막음).
+  function attachErasToLastBot(eras: EraSnapshot[]) {
     setMessages((prev) => {
       for (let i = prev.length - 1; i >= 0; i--) {
         if (prev[i].role === "a") {
           const next = prev.slice();
-          next[i] = { ...next[i], era };
+          next[i] = { ...next[i], eras: [...(next[i].eras ?? []), ...eras] };
           return next;
         }
       }
@@ -173,8 +176,8 @@ export function CompanionClient() {
 
   // 사용자 발화 + AI 응답에서 연도 감지 → 카드를 마지막 동반자 메시지에 비동기로.
   function detectEra(text: string) {
-    void resolveEraSnapshot(text).then((era) => {
-      if (era) attachEraToLastBot(era);
+    void resolveEraSnapshots(text).then((eras) => {
+      if (eras.length > 0) attachErasToLastBot(eras);
     });
   }
 
@@ -519,8 +522,8 @@ export function CompanionClient() {
                 {msg.text}
               </div>
             </div>
-            {/* C3 — 연도 감지 시 그 시절 아카이브 카드(접이식)를 메시지 아래에. */}
-            {msg.era && <EraArchiveCard era={msg.era} />}
+            {/* C3 — 연도 감지 시 그 시절 아카이브 카드(접이식)를 메시지 아래에(연도별). */}
+            {msg.eras?.map((era) => <EraArchiveCard key={era.year} era={era} />)}
           </div>
         ))}
 
