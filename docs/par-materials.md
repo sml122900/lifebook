@@ -429,3 +429,15 @@
 - **Problem**: `/poster` 페이지가 엔진·편집기까지 완성됐지만 앱 내 진입 버튼이 없어 URL 직접 입력만 가능했다. 데모 당일 "어떻게 들어가요?" 상황 예상.
 - **Action**: 진입점 추가를 최소 단위로 정의(네비 링크만, 포스터 엔진·에디터·페이지 무수정). `/life-timeline` 의 `hasEvents` 액션 섹션 버튼 행 마지막에 amber-500 채움 Link 컴포넌트 +6줄. hasEvents 조건 안에 배치해 이벤트 0건 신규 사용자에겐 비노출 — 포스터에 넣을 내용이 없는 상태에서 혼란 방지.
 - **Result**: 1파일 +6줄, tsc 클린. *교훈*: "기능 완성 ≠ 사용 가능" — 진입점이 없는 페이지는 완성되지 않은 것과 같다. 데모 전 checklist 항목으로 "모든 핵심 페이지에 앱 내 진입 버튼이 있는가" 추가.
+
+## 코치마크 온보딩 — 재사용 가능한 spotlight 엔진으로 화면 N개 커버
+
+- **Problem**: 어르신·가족 첫 사용자가 메인·포스터 흐름(화면 4개)에서 버튼이 많아 헤맸다. 화면마다 가이드 오버레이를 따로 만들면 유지보수가 깨지고, spotlight가 타겟에 어긋나면 오히려 혼란을 키운다.
+- **Action**: "엔진은 한 번, 화면은 데이터로" — `CoachMarks` 엔진 1개(`{steps, tourId, autoStart, onComplete}`) + 화면엔 `data-tour` 속성만. spotlight는 `box-shadow: 0 0 0 9999px`(거대 그림자 구멍)로 타겟 z-index와 무관하게 사이드 패널 위로도 구멍을 뚫음. 측정은 단발이 아니라 **rAF 폴링 + ResizeObserver + 안정 프레임 감지**로 패널 슬라이드·비동기 렌더·layout shift를 흡수(조기 정지가 모바일 카드를 off-screen `left:1049`에 고정시키던 버그 해소). 저장은 컬럼 1개(`User.completedTours String[]`, 멱등 raw SQL), 재실행은 RSC 재렌더 의존 없이 클라 커스텀 이벤트.
+- **Result**: 메인 5단계 → 포스터 3화면을 **엔진 0줄 수정**으로 확장(`data-tour` + steps 배열만). 신규 = 엔진 1·데이터 1·래퍼 1·액션 1·컬럼 1(마이그 1). tsc·lint 0. *교훈*: 반복되는 UI 패턴은 "컴포넌트"가 아니라 "엔진 + 데이터 계약(`data-tour`)"으로 분리해야 새 화면이 코드가 아닌 데이터 추가가 된다.
+
+## DOM 측정 정확도 — "한 번 측정"이 아니라 "안정될 때까지 재측정"
+
+- **Problem**: 코치마크 spotlight가 타겟보다 위 빈 공간(46.5px)·패널 슬라이드 전 off-screen(`left:1049`)·단계 전환 시 사라짐 등으로 어긋났다. 공통 원인은 트랜지션·스크롤·비동기 렌더가 끝나기 *전에* `getBoundingClientRect`를 단발로 잡은 것.
+- **Action**: 측정을 폴링으로 전환 — 타겟을 `scrollIntoView({behavior:"instant"})`(조상 `scroll-behavior:smooth` 영향 차단)한 뒤 위치가 **4프레임 연속 안정될 때까지** 매 프레임 재측정(패널 단계는 슬라이드를 끝까지 잡으려 최소 520ms 강제). 단계 전환 시 타겟이 화면 밖이면 매 프레임 재스크롤로 ring 재부착. `ResizeObserver(document.body)`로 늦은 layout shift까지 추적, spotlight 위치 transition은 제거해 측정값에 정확히 스냅. 말풍선은 타겟 위/아래 실제 여유 공간을 계산해 둘 다 부족하면 화면 위/아래 고정(`top:-220` 잘림 해소).
+- **Result**: 메인·포스터 전 화면에서 spotlight가 타겟에 정확히 부착. 3차 검증 라운드를 거쳐 측정 로직을 일반화. *교훈*: 트랜지션이 있는 화면에서 DOM 측정은 이벤트(스크롤·리사이즈)에만 기대면 transform 변화를 놓친다 — rAF 폴링 + 안정 감지 + ResizeObserver의 조합이 "정확히 붙는" 오버레이의 전제다.
