@@ -8,8 +8,10 @@ import { prisma } from "@/lib/db";
 import {
   approveDraftMemoryAction,
   rejectDraftMemoryAction,
+  editDraftMemoryAction,
   approveDraftPersonAction,
   rejectDraftPersonAction,
+  editDraftPersonAction,
   approveAllSessionMemoriesAction,
   approveAllSessionPeopleAction,
   approveAllSessionLocationsAction,
@@ -179,6 +181,7 @@ export async function DraftReview({ userId }: { userId: string }) {
                     <div key={m.id} className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-white px-4 py-3">
                       <DraftRow
                         approveAction={approveDraftMemoryAction.bind(null, m.id)}
+                        editAction={editDraftMemoryAction.bind(null, m.id)}
                         rejectAction={rejectDraftMemoryAction.bind(null, m.id)}
                       >
                         {whenText && <p className="text-sm text-ink-soft">{whenText}</p>}
@@ -205,6 +208,7 @@ export async function DraftReview({ userId }: { userId: string }) {
                     key={p.id}
                     withBorder
                     approveAction={approveDraftPersonAction.bind(null, p.id)}
+                    editAction={editDraftPersonAction.bind(null, p.id)}
                     rejectAction={rejectDraftPersonAction.bind(null, p.id)}
                   >
                     <p className="font-semibold text-ink">
@@ -283,11 +287,13 @@ function SubjectSection({
 // 인물/물건 카드는 자체 border 포함 버전으로 사용.
 function DraftRow({
   approveAction,
+  editAction,
   rejectAction,
   children,
   withBorder = false,
 }: {
   approveAction: () => Promise<void>;
+  editAction?: () => Promise<void>;
   rejectAction: () => Promise<void>;
   children: React.ReactNode;
   withBorder?: boolean;
@@ -304,6 +310,17 @@ function DraftRow({
             ✓ 추가
           </button>
         </form>
+        {/* 수정 — 보조 스타일, 추가와 건너뛰기 가운데. 확정 후 편집 화면으로. */}
+        {editAction && (
+          <form action={editAction}>
+            <button
+              type="submit"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-amber-400 bg-white px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50"
+            >
+              수정
+            </button>
+          </form>
+        )}
         <form action={rejectAction}>
           <button
             type="submit"
