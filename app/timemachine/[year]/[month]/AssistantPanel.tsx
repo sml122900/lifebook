@@ -652,6 +652,16 @@ export function AssistantPanel({
             {tutIsPending ? "답하는 중…" : "물어보기"}
           </button>
         </div>
+
+        {/* 고객센터 안내 — 챗으로 안 풀리는 문의는 FAQ·이메일로. */}
+        <div className="border-t-2 border-brand/40 pt-3 text-center">
+          <Link
+            href="/help"
+            className="text-base font-semibold text-action underline-offset-4 hover:underline"
+          >
+            더 궁금한 점은 고객센터에서 도와드려요 →
+          </Link>
+        </div>
       </aside>
     );
   }

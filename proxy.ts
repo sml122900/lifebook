@@ -19,6 +19,7 @@ const PUBLIC_PATHS = new Set<string>([
   "/login",
   "/signup",
   "/privacy",
+  "/help",
   "/opengraph-image",
 ]);
 

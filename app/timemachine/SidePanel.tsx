@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { Mic } from "lucide-react";
+import { LifeBuoy, Mic } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
 import {
@@ -273,6 +273,12 @@ function SidePanel({
             href="/account/settings"
             label="설정"
             hint="다크모드·계정 관리"
+          />
+          <MenuItem
+            href="/help"
+            label="고객센터"
+            hint="자주 묻는 질문·이메일 문의"
+            icon={<LifeBuoy size={16} aria-hidden />}
           />
         </nav>
 
