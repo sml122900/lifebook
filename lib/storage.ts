@@ -262,6 +262,33 @@ export async function removePosterBackground(storagePath: string): Promise<void>
   await getServiceClient().storage.from(PHOTOS_BUCKET).remove([storagePath]);
 }
 
+// P5 orphan 정리 — poster-bg/{userId}/ 안에서 keepPath 만 남기고 모두 삭제한다.
+// 맞춤배경은 "결정" 전에도 생성 즉시 Storage 에 올라가므로(요청 본문 한도 회피),
+// 결정 없이 이탈하면 마지막 미리보기가 orphan 으로 남는다. "결정" 시점에 이걸
+// 호출해 직전 확정 배경 + 이탈 미리보기를 한 번에 청소한다. 사용자당 파일이
+// 적어(한 세트 몇 장) cron 없이 결정 시점 정리로 충분하다.
+export async function cleanupPosterBackgrounds(
+  userId: string,
+  keepPath: string,
+): Promise<void> {
+  const client = getServiceClient();
+  const prefix = `${POSTER_BG_PREFIX}/${userId}`;
+  const { data, error } = await client.storage
+    .from(PHOTOS_BUCKET)
+    .list(prefix, { limit: 100 });
+  if (error) throw new Error(`맞춤배경 list 실패: ${error.message}`);
+  if (!data || data.length === 0) return;
+  const toRemove = data
+    .filter((f) => f.name && !f.name.startsWith("."))
+    .map((f) => `${prefix}/${f.name}`)
+    .filter((p) => p !== keepPath);
+  if (toRemove.length === 0) return;
+  const { error: rmErr } = await client.storage
+    .from(PHOTOS_BUCKET)
+    .remove(toRemove);
+  if (rmErr) throw new Error(`맞춤배경 정리 실패: ${rmErr.message}`);
+}
+
 // 1단계 검증용 — Storage 폴더 list. 정식(2단계+)은 lib/photos.ts 의
 // listUserPhotos (DB 기반). 1단계 archive 후에도 같은 폴더 list 가
 // 디버깅에 유용해 함수는 보존(이름만 분리: photos.ts 와 충돌 회피).

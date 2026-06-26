@@ -19,6 +19,7 @@ import {
   rollbackBgCharge,
 } from "@/lib/poster/background-set";
 import {
+  cleanupPosterBackgrounds,
   removePosterBackground,
   uploadPosterBackground,
 } from "@/lib/storage";
@@ -127,23 +128,18 @@ export async function saveCustomBackground(
 
   // DB upsert·정리에서 던져도 클라가 503/무한 "저장 중"에 빠지지 않게 감싼다.
   try {
-    const prev = await prisma.poster.findUnique({
-      where: { userId },
-      select: { customBgPath: true },
-    });
-
     await prisma.poster.upsert({
       where: { userId },
       create: { userId, template: "custom", customBgPath: bgPath },
       update: { template: "custom", customBgPath: bgPath },
     });
 
-    // 이전 확정 배경 정리(교체 시)는 응답을 막지 않게 fire-and-forget.
-    if (prev?.customBgPath && prev.customBgPath !== bgPath) {
-      void removePosterBackground(prev.customBgPath).catch((e) => {
-        console.error("[poster-bg] 이전 배경 정리 실패", e instanceof Error ? e.message : e);
-      });
-    }
+    // orphan 정리 — 방금 확정한 bgPath 만 남기고 poster-bg/{userId}/ 의 나머지
+    // (이전 확정 배경 + 결정 없이 이탈한 미리보기)를 모두 청소. 응답을 막지
+    // 않게 fire-and-forget.
+    void cleanupPosterBackgrounds(userId, bgPath).catch((e) => {
+      console.error("[poster-bg] orphan 정리 실패", e instanceof Error ? e.message : e);
+    });
 
     revalidatePath("/poster/view");
     revalidatePath("/poster");
