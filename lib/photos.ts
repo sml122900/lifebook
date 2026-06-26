@@ -54,12 +54,6 @@ function buildPhotoMemoryData(input: {
     // getLifeEvents 가 eventYear 기준 where/orderBy — 없으면 타임라인에서 빠짐.
     eventYear: input.year,
     eventMonth: input.month,
-    // 장소 5컬럼 (호환 — H6 에서 제거)
-    placeName: place.placeName,
-    placeAddress: place.placeAddress,
-    lat: place.lat,
-    lng: place.lng,
-    placeSource: place.placeSource,
     // 장소 1:N — 사진은 단일 입력이라 [place] 로 래핑(placeName 있을 때만).
     // 호출부가 validatePlace 로 사전 검증하므로 placeName 가드면 충분.
     ...(place.placeName
@@ -90,8 +84,8 @@ export type CreatePhotoInput = {
   // Phase Photo 6 (1단계) — EXIF 촬영시각(또는 file.lastModified 폴백). 컬럼
   // 이미 존재(마이그 0). 타임라인 배치는 year/month, takenAt 은 원본 보존용.
   takenAt?: Date | null;
-  // Phase Place (C) — 독립 사진의 장소. 미선택이면 EMPTY_PLACE. photo 메모리도
-  // UserMemory 라 place 5컬럼 그대로 저장(마이그 0).
+  // Phase Place (C) — 독립 사진의 장소. 미선택이면 EMPTY_PLACE. placeName 있을
+  // 때만 MemoryPlace 1행으로 저장(H6 에서 5컬럼 제거).
   place?: PlaceInfo;
 };
 
@@ -261,24 +255,12 @@ export async function updatePhotoMemoryPlaces(
   });
   if (!owned) return false;
 
-  // placeName 있는 것만 채택. 5컬럼은 첫 장소(primary)로 호환 write.
+  // placeName 있는 것만 채택.
   const valid = places.filter((p) => p.placeName);
-  const primary = valid[0] ?? EMPTY_PLACE;
 
-  // 장소 update = 기존 MemoryPlace 싹 지우고 새로 생성. 메모리 update +
-  // 장소 삭제 + 장소 생성을 한 트랜잭션으로 → 원자적(부분 실패 시 전체 롤백).
+  // 장소 update = 기존 MemoryPlace 싹 지우고 새로 생성. 삭제 + 생성을 한
+  // 트랜잭션으로 → 원자적(부분 실패 시 전체 롤백).
   await prisma.$transaction([
-    prisma.userMemory.update({
-      where: { id: memoryId },
-      data: {
-        // 장소 5컬럼 (호환 — H6 에서 제거)
-        placeName: primary.placeName,
-        placeAddress: primary.placeAddress,
-        lat: primary.lat,
-        lng: primary.lng,
-        placeSource: primary.placeSource,
-      },
-    }),
     prisma.memoryPlace.deleteMany({ where: { memoryId } }),
     ...(valid.length
       ? [

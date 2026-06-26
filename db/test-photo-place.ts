@@ -83,8 +83,8 @@ async function main() {
     place: CHUNCHEON,
   });
   createdPhotoIds.push(r.photoId);
-  const mem = await prisma.userMemory.findUnique({
-    where: { id: r.memoryId },
+  const mem = await prisma.memoryPlace.findFirst({
+    where: { memoryId: r.memoryId },
     select: { placeName: true, lat: true, lng: true, placeSource: true },
   });
   check("placeName 저장(춘천)", mem?.placeName === "강원도 춘천시", mem);
@@ -93,14 +93,14 @@ async function main() {
 
   const events = await getLifeEvents(me.id);
   const photoRow = events.find((e) => e.id === r.memoryId);
-  check("getLifeEvents place.placeName 반영", photoRow?.place.placeName === "강원도 춘천시", photoRow?.place);
+  check("getLifeEvents places[0].placeName 반영", photoRow?.places[0]?.placeName === "강원도 춘천시", photoRow?.places);
   check("kind=photo 유지", photoRow?.kind === "photo", photoRow?.kind);
 
   console.log("\n[2] updatePhotoMemoryPlaces 수정 (춘천 → 서울)");
   const ok = await updatePhotoMemoryPlaces(me.id, r.memoryId, [SEOUL]);
   check("수정 ok", ok === true, ok);
-  const mem2 = await prisma.userMemory.findUnique({
-    where: { id: r.memoryId },
+  const mem2 = await prisma.memoryPlace.findFirst({
+    where: { memoryId: r.memoryId },
     select: { placeName: true, placeSource: true },
   });
   check("placeName 서울로 변경", mem2?.placeName === "서울특별시청", mem2);
@@ -109,17 +109,17 @@ async function main() {
   console.log("\n[3] 가드 — life_event 메모리엔 updatePhotoMemoryPlaces X");
   const guardLife = await updatePhotoMemoryPlaces(me.id, lifeMem.id, [SEOUL]);
   check("life_event 대상 → false", guardLife === false, guardLife);
-  const lifeRow = await prisma.userMemory.findUnique({
-    where: { id: lifeMem.id },
+  const lifeRow = await prisma.memoryPlace.findFirst({
+    where: { memoryId: lifeMem.id },
     select: { placeName: true },
   });
-  check("life_event 장소 안 바뀜(null 유지)", lifeRow?.placeName === null, lifeRow);
+  check("life_event 장소 안 바뀜(없음 유지)", lifeRow === null, lifeRow);
 
   console.log("\n[4] 남이 수정 시도 → false");
   const denied = await updatePhotoMemoryPlaces(other.id, r.memoryId, [CHUNCHEON]);
   check("남의 시도 → false", denied === false, denied);
-  const mem3 = await prisma.userMemory.findUnique({
-    where: { id: r.memoryId },
+  const mem3 = await prisma.memoryPlace.findFirst({
+    where: { memoryId: r.memoryId },
     select: { placeName: true },
   });
   check("남의 시도 후에도 서울 유지", mem3?.placeName === "서울특별시청", mem3);

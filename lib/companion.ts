@@ -241,8 +241,8 @@ export async function fetchCompanionProfile(userId: string): Promise<CompanionPr
       orderBy: { name: "asc" },
       take: 20,
     }),
-    prisma.userMemory.findMany({
-      where: { userId, placeName: { not: null } },
+    prisma.memoryPlace.findMany({
+      where: { memory: { userId } },
       select: { placeName: true },
       distinct: ["placeName"],
       take: 20,
@@ -271,7 +271,7 @@ export async function fetchCompanionProfile(userId: string): Promise<CompanionPr
     birthYear: user?.birthYear ?? birthEventYear,
     region: user?.region ?? null,
     people: people.map((p) => ({ name: p.name, relation: p.relation })),
-    places: placeRows.map((r) => r.placeName!).filter(Boolean),
+    places: placeRows.map((r) => r.placeName).filter(Boolean),
     coverageSummary,
     lifeProfile: rawLifeProfile ?? null,
   };

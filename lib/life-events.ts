@@ -74,13 +74,7 @@ export type LifeEvent = {
   // 2026-06-07 — 끝 월(선택, endYear 있을 때만 의미). 채워지면 끝 점이
   // EXACT(큰 채움 점) + "YYYY년 MM월" 라벨로, null 이면 APPROXIMATE.
   endMonth: number | null;
-  // Phase Place — 모두 nullable. 8개 카테고리(BIRTH·KINDERGARTEN·학령기·
-  // MILITARY·WORK)만 폼에서 입력받지만, 타입은 전 카테고리 공통.
-  // ⚠️ 단일 place 는 호환·롤백용으로 당분간 유지(읽기/쓰기 코드 전환은
-  // 후속). 새 1:N 표현은 아래 places[]. UI 전환(H4) 후 단일 place 제거 예정.
-  place: PlaceInfo;
-  // 장소 1:N — MemoryPlace 행들(sortOrder 순). 백필로 기존 단일 place 도
-  // 여기 들어와 있다. 장소 없으면 빈 배열.
+  // 장소 1:N — MemoryPlace 행들(sortOrder 순). 장소 없으면 빈 배열.
   places: PlaceInfo[];
   createdAt: Date;
   // Phase E2 — era_event 행만 채워짐. 시대 자료(MonthEvent description)·
@@ -178,12 +172,7 @@ async function _getLifeEvents(userId: string): Promise<LifeEvent[]> {
       displayRefined: true,
       createdAt: true,
       title: true, // eventTitle 이 비어있는 방어 경로용
-      placeName: true,
-      placeAddress: true,
-      lat: true,
-      lng: true,
-      placeSource: true,
-      // 장소 1:N — MemoryPlace(sortOrder 순). 단일 place 와 당분간 공존.
+      // 장소 1:N — MemoryPlace(sortOrder 순).
       places: {
         select: {
           placeName: true,
@@ -245,13 +234,6 @@ async function _getLifeEvents(userId: string): Promise<LifeEvent[]> {
       content: r.displayRefined && r.refinedText ? r.refinedText : r.content,
       endYear: r.endYear,
       endMonth: r.endMonth,
-      place: {
-        placeName: r.placeName,
-        placeAddress: r.placeAddress,
-        lat: r.lat,
-        lng: r.lng,
-        placeSource: r.placeSource,
-      },
       places: r.places.map((p) => ({
         placeName: p.placeName,
         placeAddress: p.placeAddress,
@@ -394,7 +376,6 @@ export async function getLifeEventForCategory(
   endMonth: number | null;
   content: string | null;
   precision: EventPrecision;
-  place: PlaceInfo;
   places: PlaceInfo[];
   audioPath: string | null;
 } | null> {
@@ -414,11 +395,6 @@ export async function getLifeEventForCategory(
       endMonth: true,
       content: true,
       precision: true,
-      placeName: true,
-      placeAddress: true,
-      lat: true,
-      lng: true,
-      placeSource: true,
       places: {
         select: {
           placeName: true,
@@ -443,13 +419,6 @@ export async function getLifeEventForCategory(
     endMonth: row.endMonth,
     content: row.content,
     precision: row.precision ?? "APPROXIMATE",
-    place: {
-      placeName: row.placeName,
-      placeAddress: row.placeAddress,
-      lat: row.lat,
-      lng: row.lng,
-      placeSource: row.placeSource,
-    },
     places: row.places.map((p) => ({
       placeName: p.placeName,
       placeAddress: p.placeAddress,
@@ -479,15 +448,10 @@ export type LifeRecordInput = {
   places?: PlaceInfo[];
 };
 
-// 입력의 장소를 1:N 으로 정규화한다.
-//   - places[] 가 있으면 그것을, 없으면 단일 place 를 [place] 로(호환).
+// 입력의 장소를 1:N 으로 정규화한다(MemoryPlace 로 저장할 배열).
+//   - places[] 가 있으면 그것을, 없으면 단일 place 를 [place] 로(입력 호환).
 //   - 각 항목을 validatePlace 로 거른다(placeName 있고 source 정상인 것만).
-//   - valid : MemoryPlace 로 저장할 배열(sortOrder = 인덱스).
-//   - primary : 5컬럼 호환 write 용 대표 장소(valid[0] 또는 EMPTY).
-function normalizePlaces(input: LifeRecordInput): {
-  valid: PlaceInfo[];
-  primary: PlaceInfo;
-} {
+function normalizePlaces(input: LifeRecordInput): PlaceInfo[] {
   const raw: PlaceInfo[] =
     input.places ?? (input.place ? [input.place] : []);
   const valid: PlaceInfo[] = [];
@@ -497,7 +461,7 @@ function normalizePlaces(input: LifeRecordInput): {
     // 를 ok 로 돌려줌 → placeName 있는 것만 실제 장소로 채택.
     if (res.ok && res.place.placeName) valid.push(res.place);
   }
-  return { valid, primary: valid[0] ?? EMPTY_PLACE };
+  return valid;
 }
 
 // MemoryPlace.create 용 데이터(메모리 id 없이 — 중첩 create 에 쓰는 형태).
@@ -556,8 +520,8 @@ export async function upsertLifeEvent(
     endYear !== null && isPeriodCategory(category)
       ? input.endMonth ?? null
       : null;
-  // 장소 1:N — valid 는 MemoryPlace 로, primary 는 5컬럼 호환 write 로.
-  const { valid, primary } = normalizePlaces(input);
+  // 장소 1:N — valid 는 MemoryPlace 로 저장.
+  const valid = normalizePlaces(input);
 
   if (existing) {
     // 문장 다듬기 — content 변경 시 교정본 초기화 (updateLifeEvent 와 동일 정책).
@@ -586,12 +550,6 @@ export async function upsertLifeEvent(
           month: input.month,
           title: input.title,
           content: input.content,
-          // 장소 5컬럼 (호환 — H6 에서 제거)
-          placeName: primary.placeName,
-          placeAddress: primary.placeAddress,
-          lat: primary.lat,
-          lng: primary.lng,
-          placeSource: primary.placeSource,
         },
         select: { id: true },
       }),
@@ -625,12 +583,6 @@ export async function upsertLifeEvent(
       month: input.month,
       title: input.title,
       content: input.content,
-      // 장소 5컬럼 (호환 — H6 에서 제거)
-      placeName: primary.placeName,
-      placeAddress: primary.placeAddress,
-      lat: primary.lat,
-      lng: primary.lng,
-      placeSource: primary.placeSource,
       // 장소 1:N
       places: { create: placeCreateData(valid) },
     },
@@ -663,8 +615,8 @@ export async function createLifeEvent(
   // 기준이라 endYear 가 곧 기간 표식. endYear 없으면 endMonth 도 무조건 null.
   const endYear = input.endYear;
   const endMonth = endYear !== null ? input.endMonth ?? null : null;
-  // 장소 1:N — valid 는 MemoryPlace 로, primary 는 5컬럼 호환 write 로.
-  const { valid, primary } = normalizePlaces(input);
+  // 장소 1:N — valid 는 MemoryPlace 로 저장.
+  const valid = normalizePlaces(input);
 
   // 중첩 create 로 MemoryPlace 동시 생성(암묵 트랜잭션, 원자적).
   const created = await prisma.userMemory.create({
@@ -682,12 +634,6 @@ export async function createLifeEvent(
       month: input.month,
       title: input.title,
       content: input.content,
-      // 장소 5컬럼 (호환 — H6 에서 제거)
-      placeName: primary.placeName,
-      placeAddress: primary.placeAddress,
-      lat: primary.lat,
-      lng: primary.lng,
-      placeSource: primary.placeSource,
       // 장소 1:N
       places: { create: placeCreateData(valid) },
     },
@@ -715,8 +661,8 @@ export async function updateLifeEvent(
   // 기준이라 endYear 가 곧 기간 표식. endYear 없으면 endMonth 도 무조건 null.
   const endYear = input.endYear;
   const endMonth = endYear !== null ? input.endMonth ?? null : null;
-  // 장소 1:N — valid 는 MemoryPlace 로, primary 는 5컬럼 호환 write 로.
-  const { valid, primary } = normalizePlaces(input);
+  // 장소 1:N — valid 는 MemoryPlace 로 저장.
+  const valid = normalizePlaces(input);
 
   // 문장 다듬기 — content 가 실제로 바뀌면 교정본(refined 3필드)은 옛 원문
   // 기준이라 stale → 초기화. 장소·제목만 바꾼 경우는 보존.
@@ -754,12 +700,6 @@ export async function updateLifeEvent(
         month: input.month,
         title: input.title,
         content: input.content,
-        // 장소 5컬럼 (호환 — H6 에서 제거)
-        placeName: primary.placeName,
-        placeAddress: primary.placeAddress,
-        lat: primary.lat,
-        lng: primary.lng,
-        placeSource: primary.placeSource,
       },
     }),
     prisma.memoryPlace.deleteMany({ where: { memoryId: eventId } }),
@@ -835,7 +775,6 @@ export async function getLifeEventById(
   refinedText: string | null;
   displayRefined: boolean;
   precision: EventPrecision;
-  place: PlaceInfo;
   places: PlaceInfo[];
   audioPath: string | null;
 } | null> {
@@ -858,11 +797,6 @@ export async function getLifeEventById(
       refinedText: true,
       displayRefined: true,
       precision: true,
-      placeName: true,
-      placeAddress: true,
-      lat: true,
-      lng: true,
-      placeSource: true,
       places: {
         select: {
           placeName: true,
@@ -889,13 +823,6 @@ export async function getLifeEventById(
     refinedText: row.refinedText,
     displayRefined: row.displayRefined,
     precision: row.precision ?? "APPROXIMATE",
-    place: {
-      placeName: row.placeName,
-      placeAddress: row.placeAddress,
-      lat: row.lat,
-      lng: row.lng,
-      placeSource: row.placeSource,
-    },
     places: row.places.map((p) => ({
       placeName: p.placeName,
       placeAddress: p.placeAddress,

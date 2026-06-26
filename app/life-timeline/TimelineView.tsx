@@ -181,7 +181,7 @@ function editHref(e: RenderEvent): string {
 //   naver  : 검색 URL — https://map.naver.com/p/search/{placeName}
 //   google : lat/lng 가 있으면 좌표, 없으면 검색 URL
 //   기타   : 구글 검색으로 폴백
-function externalMapHref(place: LifeEvent["place"]): string | null {
+function externalMapHref(place: PlaceInfo): string | null {
   if (!place.placeName) return null;
   const q = encodeURIComponent(place.placeName);
   if (place.placeSource === "naver") {

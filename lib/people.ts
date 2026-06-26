@@ -385,11 +385,6 @@ export async function listEventsByPerson(
           content: true,
           createdAt: true,
           createdVia: true,
-          placeName: true,
-          placeAddress: true,
-          lat: true,
-          lng: true,
-          placeSource: true,
           places: {
             select: {
               placeName: true,
@@ -445,13 +440,6 @@ export async function listEventsByPerson(
     content: m.content,
     endYear: m.endYear,
     endMonth: m.endMonth,
-    place: {
-      placeName: m.placeName,
-      placeAddress: m.placeAddress,
-      lat: m.lat,
-      lng: m.lng,
-      placeSource: m.placeSource,
-    },
     places: m.places.map((p) => ({
       placeName: p.placeName,
       placeAddress: p.placeAddress,

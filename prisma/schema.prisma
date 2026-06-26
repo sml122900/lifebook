@@ -634,20 +634,6 @@ model UserMemory {
   // content(STT 텍스트)와 독립 — 둘 다 채워지거나, 텍스트만 있거나, 둘 다 null 가능.
   audioPath String?
 
-  // Phase Place — 장소 매칭. life_event(특히 BIRTH·KINDERGARTEN·학령기 4종·
-  // MILITARY·WORK) 행에서 사용자가 네이버/구글 지도 검색으로 고른 장소.
-  // 기존 행은 모두 null — 무영향. 향후 다른 createdVia(timemachine_event)
-  // 에서도 같은 컬럼을 재사용할 수 있도록 life_event 전용 prefix 안 붙임.
-  //   placeName    : "강원도 춘천시 근화동" 같은 사람-읽기 라벨 (UI 표시용)
-  //   placeAddress : 더 자세한 주소 (있으면)
-  //   lat / lng    : 지도 핀 위치 (네이버는 KATEC→WGS84 변환 후 저장)
-  //   placeSource  : "naver" | "google" — 지도 새 탭 링크 분기에 사용
-  placeName    String?
-  placeAddress String?
-  lat          Float?
-  lng          Float?
-  placeSource  String?
-
   // Phase 10 Phase 2 — 통녹음 분할. 원본 free_recording 이 부모, 세그먼트
   // (life_event) 가 자식. SetNull: 원본 삭제 시 세그먼트 parentMemoryId 만
   // null 로 남고 세그먼트 자체는 생존 (사용자 이야기 보존 우선).
@@ -663,9 +649,8 @@ model UserMemory {
   // 사진(createdVia="photo")형 둘 다 같은 1:N 구조 재사용. cascade delete
   // 로 메모리 삭제 시 Photo row 도 정리(Storage 파일은 별도 삭제 필요).
   photos       Photo[]
-  // 장소 1:N — 한 사건에 여러 장소(MemoryPlace). 기존 평면 5컬럼
-  // (placeName/placeAddress/lat/lng/placeSource)은 호환·롤백 위해 유지하고,
-  // 새 장소는 이 관계로 쌓는다. cascade delete 로 메모리 삭제 시 정리.
+  // 장소 1:N — 한 사건에 여러 장소(MemoryPlace). cascade delete 로 메모리
+  // 삭제 시 정리. (H6: 옛 평면 5컬럼은 제거, 장소는 이 관계가 단일 출처.)
   places       MemoryPlace[]
   // Phase E2 — 시대 사건 클릭 담기 중복 차단은 DB-only partial unique
   // index 로 강제됨 ("UserMemory_userId_monthEventId_createdVia_key" in
@@ -933,12 +918,9 @@ model Photo {
   @@index([memoryId])
 }
 
-// 장소 1:N — 한 사건(UserMemory)에 여러 장소.
-//
-// 기존 UserMemory 의 평면 장소 5컬럼(placeName/placeAddress/lat/lng/
-// placeSource)은 삭제하지 않고 호환·롤백용으로 유지한다. 새 장소는 이
-// 테이블에 1행씩 쌓고, sortOrder 로 표시 순서를 정한다. cascade delete
-// 로 메모리 삭제 시 함께 정리.
+// 장소 1:N — 한 사건(UserMemory)에 여러 장소. 장소의 단일 출처(H6 에서
+// UserMemory 의 옛 평면 5컬럼을 제거). 1행씩 쌓고 sortOrder 로 표시 순서를
+// 정한다. cascade delete 로 메모리 삭제 시 함께 정리.
 //
 // placeName 은 NOT NULL — 장소가 있을 때만 행을 만든다(validatePlace 정책:
 // placeName 없으면 장소 미선택). placeSource 는 "naver" | "google".

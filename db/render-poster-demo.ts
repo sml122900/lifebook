@@ -202,12 +202,13 @@ async function main() {
         textLength: e.content?.length ?? 0,
       }));
       const birth = life.find((e) => e.category === "BIRTH");
+      const birthPlaceName = birth?.places.find((p) => p.placeName)?.placeName ?? null;
       const placement = mapToPlacement(mapped, zelkovaManifest, {
         birthYear,
         ownerName: user?.name ? `${user.name} 님의 인생 나무` : "나의 인생 나무",
         rootLine:
-          birth?.place.placeName && birthYear
-            ? `${birth.place.placeName} · ${birthYear}`
+          birthPlaceName && birthYear
+            ? `${birthPlaceName} · ${birthYear}`
             : birthYear
               ? `${birthYear}`
               : null,
