@@ -63,3 +63,8 @@ export const MAIN_TOUR_STEPS: CoachStep[] = [
 // SidePanelLayout 이 이 이벤트를 듣고 open 상태를 맞춘다(투어 전용, 사용자
 // localStorage 선호는 건드리지 않음).
 export const SIDE_PANEL_EVENT = "lifebook:sidepanel";
+
+// "둘러보기 다시 보기" 를 *같은 페이지에서* 눌렀을 때 투어를 다시 시작시키는
+// 이벤트. CoachMarks 가 (완료 사용자라도) 항상 마운트돼 이 이벤트를 듣는다.
+// 다른 페이지에서는 /life-timeline?tour=main 로 이동해 마운트 시 자동 시작.
+export const START_TOUR_EVENT = "lifebook:start-tour";

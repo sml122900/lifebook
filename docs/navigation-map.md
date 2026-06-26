@@ -49,7 +49,7 @@
 | 회원정보 | → `/account/profile` | |
 | 설정 | → `/account/settings` | |
 | 고객센터 | → `/help` | |
-| 둘러보기 다시 보기 | → `/life-timeline?tour=main` | 코치마크 재실행 |
+| 둘러보기 다시 보기 | ⚙ 코치마크 재시작 (다른 페이지면 → `/life-timeline?tour=main`) | |
 | 오늘 토큰 받기 | ⚙ 출석 체크 | 오늘 안 받았을 때 |
 | 로그아웃 | ⚙ 로그아웃 → `/` | |
 

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { Compass, LifeBuoy, Mic, ShoppingBag } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
@@ -9,7 +10,7 @@ import {
   BONUS_EVERY_DAYS,
   DAILY_CREDIT,
 } from "@/lib/attendance-policy";
-import { SIDE_PANEL_EVENT } from "@/lib/tours";
+import { SIDE_PANEL_EVENT, START_TOUR_EVENT } from "@/lib/tours";
 
 import { checkInAction } from "./attendance-actions";
 import { logoutAction } from "./logout-action";
@@ -302,12 +303,7 @@ function SidePanel({
             hint="자주 묻는 질문·이메일 문의"
             icon={<LifeBuoy size={16} aria-hidden />}
           />
-          <MenuItem
-            href="/life-timeline?tour=main"
-            label="둘러보기 다시 보기"
-            hint="처음 안내를 다시 봐요"
-            icon={<Compass size={16} aria-hidden />}
-          />
+          <RerunTourItem />
         </nav>
 
         {/* 6. 로그아웃 — 다른 메뉴보다 눈에 덜 띄게 */}
@@ -324,6 +320,38 @@ function SidePanel({
         </form>
       </aside>
     </>
+  );
+}
+
+// "둘러보기 다시 보기" — 같은 페이지면 이벤트로 즉시 재시작(begin 이 패널을
+// 닫고 시작), 다른 페이지면 /life-timeline?tour=main 로 이동해 마운트 시 자동
+// 시작. 패널 닫기는 CoachMarks.begin 의 SIDE_PANEL_EVENT 가 처리(비영속).
+function RerunTourItem() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  function onClick() {
+    if (pathname === "/life-timeline") {
+      window.dispatchEvent(new CustomEvent(START_TOUR_EVENT));
+    } else {
+      router.push("/life-timeline?tour=main");
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col rounded-md border-2 border-line bg-surface px-4 py-3 text-left hover:bg-amber-50 hover:border-amber-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+    >
+      <span className="flex items-center gap-1.5 text-base font-semibold text-ink">
+        <span className="text-ink-soft">
+          <Compass size={16} aria-hidden />
+        </span>
+        둘러보기 다시 보기
+      </span>
+      <span className="mt-0.5 text-xs text-ink-soft">처음 안내를 다시 봐요</span>
+    </button>
   );
 }
 

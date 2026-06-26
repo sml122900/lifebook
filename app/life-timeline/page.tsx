@@ -50,18 +50,12 @@ export const metadata = {
   title: "내 인생 연혁",
 };
 
-export default async function LifeTimelinePage({
-  searchParams,
-}: {
-  // 코치마크 재실행 진입 — 사이드 패널 "둘러보기 다시 보기" 가 ?tour=main 으로 옴.
-  searchParams: Promise<{ tour?: string }>;
-}) {
+export default async function LifeTimelinePage() {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
   const userId = session.user.id;
-  const forceTour = (await searchParams)?.tour === MAIN_TOUR_ID;
 
   // 네 fetch 모두 독립 — 병렬. (출석은 /account/tokens 로 이전했고
   // 사이드 패널 AttendanceMini 가 이미 자기 데이터를 들고 있어 여기선 안 부름.
@@ -136,11 +130,11 @@ export default async function LifeTimelinePage({
   const userName = session.user.name ?? session.user.email ?? "회원";
   const hasEvents = events.length > 0;
 
-  // 코치마크 둘러보기 — 첫 진입 1회 자동, 또는 ?tour=main 재실행. 타겟 버튼들이
-  // hasEvents 일 때만 그려지므로 그때만 시작(이벤트 0건이면 EmptyState 가 곧
-  // 안내라 투어 생략). 완료/건너뛰기 하면 completedTours 에 기록돼 다시 안 뜸.
+  // 코치마크 둘러보기 — 타겟 버튼들이 hasEvents 일 때만 그려지므로 그때만
+  // 마운트(이벤트 0건이면 EmptyState 가 곧 안내라 투어 생략). 완료한 사용자
+  // 에게도 마운트해 "둘러보기 다시 보기" 이벤트를 받게 하고, autoStart 는
+  // 미완료(첫 진입)일 때만 true. 완료/건너뛰기 시 completedTours 에 기록.
   const tourSeen = userRow?.completedTours?.includes(MAIN_TOUR_ID) ?? false;
-  const startTour = hasEvents && (forceTour || !tourSeen);
 
   // 온보딩 첫 사건 카드 — 출생연도는 있으나(BIRTH 이벤트 존재) 그 외 이야기가
   // 아직 0건이면 빈 타임라인 이탈을 줄이려 "그 시절 큰 사건" 1개를 제시한다.
@@ -313,14 +307,12 @@ export default async function LifeTimelinePage({
       )}
 
       {/* 첫 진입 둘러보기 — 어두운 오버레이 + 핵심 버튼 spotlight 안내.
-          key 가 자동/재실행 진입에서 달라 재실행 시 깨끗이 remount(끝낸 직후
-          다시 보기를 눌러도 처음부터). */}
-      {startTour && (
+          항상 마운트(재실행 이벤트 수신용), 자동 시작은 미완료일 때만. */}
+      {hasEvents && (
         <CoachMarks
-          key={forceTour ? "tour-force" : "tour-auto"}
           tourId={MAIN_TOUR_ID}
           steps={MAIN_TOUR_STEPS}
-          autoStart
+          autoStart={!tourSeen}
           onComplete={markTourCompletedAction}
         />
       )}
