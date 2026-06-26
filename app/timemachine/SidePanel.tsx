@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { LifeBuoy, Mic, ShoppingBag } from "lucide-react";
+import { Compass, LifeBuoy, Mic, ShoppingBag } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
 import {
@@ -9,6 +9,7 @@ import {
   BONUS_EVERY_DAYS,
   DAILY_CREDIT,
 } from "@/lib/attendance-policy";
+import { SIDE_PANEL_EVENT } from "@/lib/tours";
 
 import { checkInAction } from "./attendance-actions";
 import { logoutAction } from "./logout-action";
@@ -59,6 +60,17 @@ export function SidePanelLayout({
       : null;
     if (stored === "closed") setOpen(false);
     setMounted(true);
+  }, []);
+
+  // 코치마크 둘러보기가 단계별로 패널을 여닫게 하는 브리지. 투어 전용이라
+  // setOpen 만 호출(사용자 localStorage 선호는 건드리지 않음).
+  useEffect(() => {
+    const onTour = (e: Event) => {
+      const detail = (e as CustomEvent<{ open?: boolean }>).detail;
+      if (typeof detail?.open === "boolean") setOpen(detail.open);
+    };
+    window.addEventListener(SIDE_PANEL_EVENT, onTour);
+    return () => window.removeEventListener(SIDE_PANEL_EVENT, onTour);
   }, []);
 
   function toggle(next: boolean) {
@@ -187,7 +199,10 @@ function SidePanel({
         </div>
 
         {/* 2. 토큰 잔액 */}
-        <div className="mt-6 rounded-md border-2 border-amber-200 bg-amber-50 p-4 text-center">
+        <div
+          data-tour="tokens"
+          className="mt-6 rounded-md border-2 border-amber-200 bg-amber-50 p-4 text-center"
+        >
           <p className="text-sm font-semibold text-ink-soft">내 토큰</p>
           <p className="mt-1 text-3xl font-bold text-amber-900">
             {data.balance.toLocaleString()}
@@ -243,6 +258,7 @@ function SidePanel({
             label="이야기 나누기"
             hint="말로 풀어놓는 내 이야기"
             icon={<Mic size={16} aria-hidden />}
+            dataTour="companion"
           />
           <MenuItem
             href="/era"
@@ -286,6 +302,12 @@ function SidePanel({
             hint="자주 묻는 질문·이메일 문의"
             icon={<LifeBuoy size={16} aria-hidden />}
           />
+          <MenuItem
+            href="/life-timeline?tour=main"
+            label="둘러보기 다시 보기"
+            hint="처음 안내를 다시 봐요"
+            icon={<Compass size={16} aria-hidden />}
+          />
         </nav>
 
         {/* 6. 로그아웃 — 다른 메뉴보다 눈에 덜 띄게 */}
@@ -310,15 +332,18 @@ function MenuItem({
   label,
   hint,
   icon,
+  dataTour,
 }: {
   href: string;
   label: string;
   hint: string;
   icon?: React.ReactNode;
+  dataTour?: string;
 }) {
   return (
     <Link
       href={href}
+      data-tour={dataTour}
       className="flex flex-col rounded-md border-2 border-line bg-surface px-4 py-3 hover:bg-amber-50 hover:border-amber-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
     >
       <span className="flex items-center gap-1.5 text-base font-semibold text-ink">

@@ -111,6 +111,12 @@ model User {
   // 사용자가 같은 카테고리에 답하면 upsertLifeEvent 가 자동으로 셋에서 제거.
   skippedLifeCategories LifeCategory[] @default([])
 
+  // 코치마크 온보딩 둘러보기 — 사용자가 완료/건너뛴 투어 id 목록("main" 등).
+  // 첫 진입 자동 표시는 해당 id 가 이 배열에 없을 때만. 새 화면 투어를 추가해도
+  // 컬럼 추가 없이 id 만 늘리면 됨(reusable). skippedLifeCategories 와 같은
+  // native array 패턴 — 멱등 갱신은 array_append(array_remove(...)) raw SQL.
+  completedTours String[] @default([])
+
   // null = OAuth 전용 계정. Credentials 가입 시에만 채워짐.
   // ★ 절대 평문 저장 금지 — bcrypt hash 만 저장.
   passwordHash String?
