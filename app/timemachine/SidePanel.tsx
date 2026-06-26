@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { LifeBuoy, Mic } from "lucide-react";
+import { LifeBuoy, Mic, ShoppingBag } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
 import {
@@ -263,6 +263,12 @@ function SidePanel({
             href="/rooms"
             label="가족 룸"
             hint="가족·배우자와 함께 보기"
+          />
+          <MenuItem
+            href="/shop"
+            label="상품 구매"
+            hint="포스터·자서전 책·인생 씨앗"
+            icon={<ShoppingBag size={16} aria-hidden />}
           />
           <MenuItem
             href="/account/profile"
