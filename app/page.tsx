@@ -2,27 +2,34 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { Mic, Sparkles, Image as ImageIcon } from "lucide-react";
+
 import { auth } from "@/auth";
 import { ButtonLink, buttonClasses } from "@/components/ui/Button";
-import { FOOTER, PRIVACY_HREF, S1, S2, S3, S4, S5, S6 } from "@/lib/landing-copy";
+import {
+  FOOTER,
+  GALLERY,
+  PRIVACY_HREF,
+  PRODUCT,
+  S1,
+  S2,
+  S5,
+  S6,
+} from "@/lib/landing-copy";
 
 // 랜딩(/) — 비로그인 전용. 로그인 사용자는 /life-timeline 로 보낸다.
-// 회원 탈퇴 후 `/?withdrawn=1` 로 돌아오면 작별 안내를 한 번 보여준다.
+// 헤더(로고 + 로그인)는 app/layout.tsx 가 비로그인에게 이미 렌더 → 여기선 섹션만.
 //
-// 헤더(로고 + 로그인)는 app/layout.tsx 가 비로그인에게 이미 렌더 → 여기선
-// 섹션만. 디자인 토큰 가이드 v1.0: primary 버튼은 S1·S6 두 곳만, 본문 18px
-// 하한(text-lg), cream(canvas) 배경.
+// v2.0 리뉴얼: "말로 이야기하면 AI가 멋진 포스터를 만든다"를 3초 안에.
+// ①히어로(결과물 먼저) ②작동 3단계(녹음 강조) ③결과물 갤러리(다양성)
+// ④제품(포스터 중심·책 축소) ⑤안심 ⑥마무리 CTA. 디자인 토큰 v1.0(cream·따뜻·존엄).
 
 export const metadata = {
-  title: "라이프북 — 부모님의 인생을 한 권으로",
+  title: "라이프북 — 말로 남기는 인생, 한 장의 포스터로",
   description:
-    "기억은 흐려져도 기록은 흐려지지 않습니다. 부모님의 이야기를 AI와 함께 한 권으로 남기는 회고 서비스.",
-  // 카카오톡·문자 공유 미리보기 — 랜딩 전용 카피(S1.sub 재사용). og:image 는
-  // app/opengraph-image.tsx 가 자동 생성. ⚠️ Next 는 openGraph 를 깊은 병합
-  // 하지 않아 페이지 것이 layout 것을 통째로 대체 → siteName/locale/type 을
-  // 여기서 다시 명시해야 보존된다.
+    "말로 이야기하면 AI가 알아서 정리하고, 멋진 인생 포스터로 만들어드려요. 어르신도 가족도 쉽게.",
   openGraph: {
-    title: "라이프북 — 부모님의 인생을 한 권으로",
+    title: "라이프북 — 말로 남기는 인생, 한 장의 포스터로",
     description: S1.sub,
     siteName: "라이프북",
     locale: "ko_KR",
@@ -30,61 +37,40 @@ export const metadata = {
   },
 };
 
-// 이미지 슬롯 — data-slot 으로 식별. src 가 있으면 실제 이미지(next/image
-// fill + object-cover)를 그리고, 없으면 caption placeholder 를 보여준다
-// (실화면 캡처 미확정인 S1·S2 슬롯은 src 없이 그대로 placeholder).
-// bg-ph 는 이미지 로딩 중 폴백 배경으로 남는다.
-function Slot({
-  id,
-  caption,
-  className,
+const STEP_ICONS = { mic: Mic, sparkles: Sparkles, image: ImageIcon } as const;
+
+// 포스터 액자 프레임 — 샘플 포스터 공용(히어로·갤러리·제품). 포스터 비율(2200/3103).
+function PosterFrame({
   src,
   alt,
-  imgClassName,
+  className,
+  sizes,
+  priority,
 }: {
-  id: string;
-  caption: string;
+  src: string;
+  alt: string;
   className?: string;
-  src?: string;
-  alt?: string;
-  imgClassName?: string;
+  sizes: string;
+  priority?: boolean;
 }) {
   return (
     <div
-      data-slot={id}
       className={
-        "relative flex items-center justify-center overflow-hidden rounded-lg border border-line bg-ph text-center " +
+        "relative aspect-[2200/3103] overflow-hidden rounded-xl border border-line bg-surface shadow-md " +
         (className ?? "")
       }
     >
-      {src ? (
-        <Image
-          src={src}
-          alt={alt ?? caption}
-          fill
-          className={"object-cover " + (imgClassName ?? "")}
-          sizes="(max-width: 640px) 100vw, 320px"
-        />
-      ) : (
-        <span className="px-4 text-base text-ink-faint">{caption}</span>
-      )}
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        priority={priority}
+        className="object-cover"
+        sizes={sizes}
+      />
     </div>
   );
 }
-
-// 제품 슬롯 alt — title 과 다른 경우만(keepsake 는 title "인생 씨앗(가)" ≠ alt).
-const PRODUCT_ALT: Record<string, string> = {
-  "product-poster": "인생 연혁 포스터",
-  "product-book": "자서전 책",
-  "product-keepsake": "인생 씨앗",
-};
-
-// S2 단계 슬롯 alt — 실화면 캡처 설명.
-const STEP_ALT: Record<string, string> = {
-  "step-1-era": "그 시절 둘러보기",
-  "step-2-record": "회상 기록 화면",
-  "step-3-room": "가족 룸",
-};
 
 export default async function Home({
   searchParams,
@@ -107,10 +93,12 @@ export default async function Home({
         </div>
       )}
 
-      {/* ── S1 히어로 ───────────────────────────────────────────────── */}
+      {/* ── ① 히어로 (결과물 먼저) ───────────────────────────────────── */}
       <section className="mx-auto grid max-w-5xl items-center gap-10 px-6 py-16 lg:grid-cols-2 lg:py-24">
         <div className="flex flex-col gap-6 text-center lg:text-left">
-          <h1 className="leading-snug text-ink">{S1.headline}</h1>
+          <h1 className="whitespace-pre-line text-[2rem] leading-tight text-ink sm:text-4xl lg:text-5xl">
+            {S1.headline}
+          </h1>
           <p className="text-xl text-ink-soft">{S1.sub}</p>
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
             <ButtonLink href="/login" variant="primary" size="lg">
@@ -122,119 +110,134 @@ export default async function Home({
             </a>
           </div>
         </div>
-        {/* 히어로 캡처 = 세로 모바일 화면 → 9/16, max-w 로 폰 형태 유지 */}
+        {/* 비주얼 = 프리미엄 샘플 포스터(결과물 먼저 보여줌) */}
         <div className="flex justify-center lg:justify-end">
-          <Slot
-            id="hero-timeline"
-            caption={S1.captionSlot}
-            src="/landing/hero-timeline.png"
-            alt="인생 연혁 화면"
-            imgClassName="object-top"
-            className="aspect-[9/16] w-full max-w-[280px]"
+          <PosterFrame
+            src={S1.posterSrc}
+            alt={S1.posterAlt}
+            priority
+            className="w-full max-w-[330px]"
+            sizes="(max-width: 640px) 80vw, 330px"
           />
         </div>
       </section>
 
-      {/* ── S2 작동 3단계 (#how) ───────────────────────────────────── */}
+      {/* ── ② 작동 3단계 (#how) — 녹음 → AI → 포스터 ──────────────────── */}
       <section
         id="how"
-        className="mx-auto max-w-5xl scroll-mt-24 px-6 py-16"
+        className="scroll-mt-24 bg-banner/40 py-16"
         aria-labelledby="how-title"
       >
-        <h2 id="how-title" className="text-center text-ink">
-          {S2.headline}
-        </h2>
-        <ol className="mt-10 grid gap-6 sm:grid-cols-3">
-          {S2.steps.map((step, i) => (
-            <li
-              key={step.slot}
-              className="flex flex-col gap-4 rounded-lg border border-line bg-surface p-5"
-            >
-              <Slot
-                id={step.slot}
-                caption={`${i + 1}단계 화면`}
-                src={`/landing/${step.slot}.png`}
-                alt={STEP_ALT[step.slot] ?? step.title}
-                className="aspect-[4/3] w-full"
-              />
-              <div>
-                <p className="text-xl font-bold text-ink">
-                  <span className="text-action">{i + 1}.</span> {step.title}
-                </p>
-                <p className="mt-1 text-lg text-ink-soft">{step.body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <div className="mx-auto max-w-5xl px-6">
+          <h2 id="how-title" className="text-center text-ink">
+            {S2.headline}
+          </h2>
+          <ol className="mt-10 grid gap-6 sm:grid-cols-3">
+            {S2.steps.map((step, i) => {
+              const Icon = STEP_ICONS[step.icon];
+              return (
+                <li
+                  key={step.icon}
+                  className="flex flex-col items-center gap-4 rounded-xl border border-line bg-surface p-7 text-center"
+                >
+                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-banner text-action">
+                    <Icon aria-hidden strokeWidth={1.75} className="h-8 w-8" />
+                  </span>
+                  <div>
+                    <p className="text-xl font-bold text-ink">
+                      <span className="text-action">{i + 1}.</span> {step.title}
+                    </p>
+                    <p className="mt-2 text-lg text-ink-soft">{step.body}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
       </section>
 
-      {/* ── S3 결과물 (전부 준비 중) ───────────────────────────────── */}
-      <section className="mx-auto max-w-5xl px-6 py-16" aria-labelledby="product-title">
-        <h2 id="product-title" className="text-center text-ink">
-          {S3.headline}
-        </h2>
-        <ul className="mt-10 grid gap-6 sm:grid-cols-3">
-          {S3.products.map((p) => (
-            <li key={p.slot}>
-              <Link
-                href={p.href}
-                className="flex h-full flex-col gap-4 rounded-lg border border-line bg-surface p-5 hover:border-brand hover:bg-canvas focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
-              >
-                <Slot
-                  id={p.slot}
-                  caption={p.title}
-                  src={`/landing/${p.slot}.png`}
-                  alt={PRODUCT_ALT[p.slot] ?? p.title}
-                  className="aspect-[4/3] w-full"
-                />
-                <div>
-                  <p className="text-xl font-bold text-ink">{p.title}</p>
-                  <p className="mt-1 text-lg text-ink-soft">{p.body}</p>
-                  <p className="mt-3 text-lg font-semibold text-action">
-                    보러 가기 →
-                  </p>
-                </div>
-              </Link>
+      {/* ── ③ 결과물 갤러리 — 다양성(맞춤배경) ───────────────────────── */}
+      <section
+        className="mx-auto max-w-5xl px-6 py-16"
+        aria-labelledby="gallery-title"
+      >
+        <div className="text-center">
+          <h2 id="gallery-title" className="text-ink">
+            {GALLERY.headline}
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-xl text-ink-soft">
+            {GALLERY.sub}
+          </p>
+        </div>
+        <ul className="mt-10 grid grid-cols-2 gap-5 lg:grid-cols-4">
+          {GALLERY.posters.map((p) => (
+            <li key={p.src} className="flex flex-col gap-2">
+              <PosterFrame
+                src={p.src}
+                alt={p.alt}
+                sizes="(max-width: 1024px) 45vw, 230px"
+              />
+              <p className="text-center text-base text-ink-faint">{p.tone}</p>
             </li>
           ))}
         </ul>
       </section>
 
-      {/* ── S4 기념일·선물 (#anniversary) — banner 박스 + 책 인접 ───── */}
+      {/* ── ④ 제품 (포스터 중심 · 책·씨앗은 준비 중) ─────────────────── */}
       <section
-        id="anniversary"
-        className="mx-auto max-w-5xl scroll-mt-24 px-6 py-16"
-        aria-labelledby="anniversary-title"
+        className="mx-auto max-w-5xl px-6 py-16"
+        aria-labelledby="product-title"
       >
-        {/* 이미지 칼럼은 220px 고정 — next/image fill 은 intrinsic 너비가 0
-            이라 auto 트랙이면 칼럼이 수축해 이미지가 짜부라진다(2px). 모바일은
-            grid-cols 미지정 → 1열 스택(슬롯 w-full max-w-220 centered). */}
-        <div className="grid items-center gap-8 rounded-xl border-2 border-brand bg-banner p-8 sm:p-10 lg:grid-cols-[1fr_220px]">
+        <h2 id="product-title" className="text-center text-ink">
+          {PRODUCT.headline}
+        </h2>
+
+        {/* 메인 = 포스터(크게) */}
+        <div className="mt-10 grid items-center gap-8 rounded-xl border-2 border-brand bg-banner p-8 sm:p-10 lg:grid-cols-[300px_1fr]">
+          <PosterFrame
+            src={PRODUCT.main.src}
+            alt={PRODUCT.main.alt}
+            className="w-full max-w-[300px] justify-self-center"
+            sizes="(max-width: 1024px) 70vw, 300px"
+          />
           <div className="flex flex-col gap-5 text-center lg:text-left">
-            <h2 id="anniversary-title" className="text-ink">
-              {S4.headline}
-            </h2>
-            <p className="text-xl text-ink-soft">{S4.sub}</p>
+            <p className="text-2xl font-bold text-ink">{PRODUCT.main.title}</p>
+            <p className="text-xl text-ink-soft">{PRODUCT.main.body}</p>
             <div className="flex justify-center lg:justify-start">
-              {/* 기념일=자서전 책 선물 맥락 → 책 상세로(비로그인 둘러보기 허용). */}
-              <Link href={S4.href} className={buttonClasses("secondary", "lg")}>
-                {S4.cta}
+              <Link
+                href={PRODUCT.main.href}
+                className={buttonClasses("secondary", "lg")}
+              >
+                {PRODUCT.main.cta} →
               </Link>
             </div>
           </div>
-          {/* S3 '자서전 책' 과 시각 연결되는 인접 슬롯 (별도 id) */}
-          <Slot
-            id={S4.bookSlot}
-            caption={S4.bookCaption}
-            src="/landing/anniversary-book.png"
-            alt="기념일 자서전"
-            className="aspect-[3/4] w-full max-w-[220px] justify-self-center border-brand/40"
-          />
         </div>
+
+        {/* 보조 = 준비 중(작게) */}
+        <ul className="mt-6 grid gap-5 sm:grid-cols-2">
+          {PRODUCT.soon.map((s) => (
+            <li
+              key={s.title}
+              className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface px-5 py-4"
+            >
+              <div>
+                <p className="text-lg font-bold text-ink">{s.title}</p>
+                <p className="mt-0.5 text-base text-ink-soft">{s.body}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-canvas px-3 py-1 text-sm font-semibold text-ink-faint">
+                준비 중
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      {/* ── S5 신뢰 ────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-5xl px-6 py-16" aria-labelledby="trust-title">
+      {/* ── ⑤ 안심 ───────────────────────────────────────────────────── */}
+      <section
+        className="mx-auto max-w-5xl px-6 py-16"
+        aria-labelledby="trust-title"
+      >
         <h2 id="trust-title" className="text-center text-ink">
           {S5.headline}
         </h2>
@@ -259,7 +262,7 @@ export default async function Home({
         </div>
       </section>
 
-      {/* ── S6 마지막 CTA — banner 박스 + primary 1개 ──────────────── */}
+      {/* ── ⑥ 마지막 CTA — banner 박스 + primary 1개 ─────────────────── */}
       <section className="mx-auto max-w-5xl px-6 py-16">
         <div className="flex flex-col items-center gap-6 rounded-xl border-2 border-brand bg-banner p-10 text-center">
           <h2 className="text-ink">{S6.headline}</h2>
@@ -269,7 +272,7 @@ export default async function Home({
         </div>
       </section>
 
-      {/* ── 푸터 ───────────────────────────────────────────────────── */}
+      {/* ── 푸터 ───────────────────────────────────────────────────────── */}
       <footer className="border-t border-line px-6 py-8">
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-3 text-base text-ink-soft sm:flex-row">
           <span>{FOOTER.copyright}</span>

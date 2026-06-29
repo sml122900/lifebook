@@ -1,86 +1,76 @@
-// 랜딩(/) 카피 — v1.0 확정(2026-06-13). 구조·컴포넌트 무수정, 값만 관리.
+// 랜딩(/) 카피 — v2.0(2026-06). "말로 이야기하면 AI가 멋진 포스터를 만든다"를
+// 3초 안에 보이게 리뉴얼. 구조: ①히어로 ②작동 3단계(녹음 강조) ③결과물 갤러리
+// ④제품(포스터 중심) ⑤안심 ⑥마무리 CTA. 카피 교체는 이 파일만.
 //
-// S1·S2·S4·S5·S6 + S3 헤드라인·라벨·준비중 문구 확정. 카피 교체는 이 파일만.
-// (S3 제품 카드 본문은 미제공 → 기존 문구 유지. 본문 확정 시 여기만 교체.)
-//
-// 이미지 슬롯의 data-slot id 도 여기서 관리(steps/products) — 실화면 캡처를
-// 끼울 때 어느 슬롯인지 식별용.
+// 샘플 포스터(public/): premium(이정순)·sample-poster(김순자)·-2(박성호)·-3(이지은).
 
-// 개인정보 처리방침 — 공개 정적 페이지(비로그인 접근, app/privacy). 현재 v0 초안.
+// 개인정보 처리방침 — 공개 정적 페이지(비로그인 접근, app/privacy).
 export const PRIVACY_HREF = "/privacy";
 
+// ── S1 히어로 ──────────────────────────────────────────────────────────
 export const S1 = {
-  headline: "기억은 흐려져도, 기록은 흐려지지 않습니다",
-  sub: "부모님의 이야기가 가장 선명한 지금, 라이프북이 한 권으로 남깁니다.",
+  headline: "말씀만 하세요.\n인생이 한 편의 작품이 됩니다",
+  sub: "말로 이야기하면 AI가 알아서 정리하고, 멋진 인생 포스터로 만들어드려요.",
   ctaPrimary: "무료로 시작하기",
   ctaSecondary: "3분 만에 둘러보기",
-  // 히어로 캡처 = 세로 모바일 화면(인생 연혁 타임라인) → 9/16 슬롯.
-  captionSlot: "실제 화면 · 인생 연혁 타임라인",
+  posterSrc: "/sample-poster-premium.webp",
+  posterAlt: "이정순 님의 인생 포스터 — AI가 만든 인생 연혁",
 } as const;
 
-// S2 작동 3단계
+// ── S2 작동 3단계 (녹음 → AI → 포스터) ─────────────────────────────────
 export const S2 = {
-  headline: "쓰지 않아도 됩니다. 답하면 됩니다",
+  headline: "말 한마디면, 나머지는 라이프북이 합니다",
   steps: [
     {
-      slot: "step-1-era",
-      title: "그 시절이 말을 겁니다",
-      body: "그 시절 노래와 사건이 기억을 깨워요",
+      icon: "mic",
+      title: "말로 이야기하세요",
+      body: "버튼을 누르고 옛날 이야기를 들려주세요. 쓸 필요 없어요.",
     },
     {
-      slot: "step-2-record",
-      title: "답하면 연혁이 됩니다",
-      body: "음성도 글도 좋아요. 말하면 정리됩니다",
+      icon: "sparkles",
+      title: "AI가 알아서 정리해요",
+      body: "AI가 대화하며 인생 연혁으로 만들어드려요.",
     },
     {
-      slot: "step-3-room",
-      title: "가족이 읽고 반응합니다",
-      body: "자녀의 반응이 다음 이야기를 부릅니다",
+      icon: "image",
+      title: "멋진 포스터가 완성돼요",
+      body: "한 장의 인생 포스터로 남겨요.",
     },
   ],
 } as const;
 
-// S3 결과물 — /shop 상품 상세로 연결(배지 제거). title 은 products.ts name 과
-// 통일됨(인생 연혁 포스터 / 자서전 책 / 인생 씨앗(가)). href 는 상품 id 매핑.
-// ※ 제품 카드 본문(body)은 마케팅 미확정 → 기존 문구 유지.
-export const S3 = {
-  headline: "기록은 화면에서 끝나지 않습니다",
-  products: [
-    {
-      slot: "product-poster",
-      title: "인생 연혁 포스터",
-      body: "한 장에 담은 인생의 큰 줄기.",
-      href: "/shop/poster",
-    },
-    {
-      slot: "product-book",
-      title: "자서전 책",
-      body: "이야기를 묶은, 세상에 하나뿐인 책.",
-      href: "/shop/book",
-    },
-    {
-      slot: "product-keepsake",
-      // ⚠️ 미확정 — "인생 씨앗(가)" 는 키프리스 상표 확인 대기(6/20).
-      //    확정 시 이 title 과 products.ts name 한 줄만 교체.
-      title: "인생 씨앗(가)",
-      body: "곁에 두는 작은 기록물.",
-      href: "/shop/charm",
-    },
+// ── S3 결과물 갤러리 (시제품 — 다양성 강조) ─────────────────────────────
+export const GALLERY = {
+  headline: "한 분 한 분, 다른 이야기",
+  sub: "AI가 취향대로 배경까지 그려드려요 — 사람마다 다른, 단 하나의 포스터.",
+  posters: [
+    { src: "/sample-poster-premium.webp", alt: "이정순 님의 인생 포스터", tone: "강물" },
+    { src: "/sample-poster.webp", alt: "김순자 님의 인생 포스터", tone: "따뜻한 노랑" },
+    { src: "/sample-poster-2.webp", alt: "박성호 님의 인생 포스터", tone: "차분한 블루" },
+    { src: "/sample-poster-3.webp", alt: "이지은 님의 인생 포스터", tone: "파스텔 핑크" },
   ],
 } as const;
 
-// S4 기념일·선물 — CTA 는 자서전 책 상세로(기념일=책 선물 맥락).
-export const S4 = {
-  headline: "이번 생신엔, 부모님의 인생을 선물하세요",
-  sub: "세상에 하나뿐인 자서전. 부모님은 답하기만 하면 됩니다.",
-  cta: "선물 준비 알아보기",
-  href: "/shop/book",
-  // S3 '자서전 책' 과 시각 연결되는 인접 슬롯(별도 id — product-book 과 구분).
-  bookSlot: "anniversary-book",
-  bookCaption: "자서전 책 미리보기",
+// ── S4 제품 (포스터 중심 — 책·씨앗은 준비 중) ──────────────────────────
+export const PRODUCT = {
+  headline: "화면에서 끝나지 않아요",
+  // 메인 = 포스터(실배송 상품). 큰 비주얼 + 주문 동선.
+  main: {
+    title: "인생 연혁 포스터",
+    body: "한 장에 담은 인생의 큰 줄기. 고른 이야기로 AI가 배경까지 그려, 액자에 넣어 배송해 드려요.",
+    cta: "포스터 보러 가기",
+    href: "/shop/poster",
+    src: "/sample-poster.webp",
+    alt: "인생 연혁 포스터 실물 예시",
+  },
+  // 보조 = 준비 중(과한 강조 제거).
+  soon: [
+    { title: "자서전 책", body: "이야기를 묶은, 세상에 하나뿐인 책." },
+    { title: "인생 씨앗", body: "곁에 두는 작은 기록물." },
+  ],
 } as const;
 
-// S5 신뢰
+// ── S5 안심 ────────────────────────────────────────────────────────────
 export const S5 = {
   headline: "안심하고 맡기세요",
   cards: [
@@ -99,7 +89,7 @@ export const S5 = {
   ],
 } as const;
 
-// S6 마지막 CTA
+// ── S6 마지막 CTA ──────────────────────────────────────────────────────
 export const S6 = {
   headline: "오늘의 한 마디가, 평생의 기록이 됩니다",
   cta: "무료로 시작하기",
