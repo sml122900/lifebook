@@ -121,6 +121,36 @@ export const POSTER_VIEW_TOUR_STEPS: CoachStep[] = [
   },
 ];
 
+// ── 말동무(companion) 둘러보기 ────────────────────────────────────────────
+// /life-timeline/companion — AI 말동무 대화 화면. 어르신이 "여기서 뭘 하나"
+// 헷갈리는 핵심 4가지. ★ 오프닝 인사가 뜬 뒤(입력창이 그때 나타남) 시작하므로
+// page 의 autoStart 가 아니라 CompanionClient 가 phase=idle 시 START_TOUR_EVENT
+// 로 띄운다. 패널 단계(panel) 없음 — 글로벌 사이드 패널과 무관.
+export const COMPANION_TOUR_ID = "companion";
+
+export const COMPANION_TOUR_STEPS: CoachStep[] = [
+  {
+    target: "companion-chat",
+    title: "도란도란 대화해요",
+    desc: "AI 말동무가 먼저 인사를 건네요. 옛 이야기를 들려주시면 함께 대화하며 정리해드려요.",
+  },
+  {
+    target: "companion-mic",
+    title: "말로 들려주세요",
+    desc: "여기 🎤 버튼을 누르고 옛날 이야기를 들려주세요. 글로 적지 않고 말로 하셔도 돼요.",
+  },
+  {
+    target: "companion-story",
+    title: "쌓이는 내 이야기",
+    desc: "나눈 이야기가 여기에 차곡차곡 쌓여, 나중에 인생 연혁이 됩니다.",
+  },
+  {
+    target: "companion-end",
+    title: "마치고 저장하기",
+    desc: "이야기를 마치려면 '대화 마치기'를 누르세요. 저장하면 나중에 검토·수정할 수 있어요.",
+  },
+];
+
 // CoachMarks 가 사이드 패널을 열고 닫을 때 쓰는 커스텀 이벤트 이름.
 // SidePanelLayout 이 이 이벤트를 듣고 open 상태를 맞춘다(투어 전용, 사용자
 // localStorage 선호는 건드리지 않음).

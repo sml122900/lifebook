@@ -31,7 +31,10 @@ export function StoryTimelinePanel({ items }: { items: StoryTimelineItem[] }) {
   return (
     <>
       {/* 데스크톱 고정 패널 */}
-      <aside className="hidden lg:sticky lg:top-10 lg:flex lg:max-h-[calc(100vh-5rem)] lg:w-64 lg:shrink-0 lg:flex-col">
+      <aside
+        data-tour="companion-story"
+        className="hidden lg:sticky lg:top-10 lg:flex lg:max-h-[calc(100vh-5rem)] lg:w-64 lg:shrink-0 lg:flex-col"
+      >
         <div className="flex flex-col gap-3 overflow-y-auto rounded-md border-2 border-line bg-surface p-5">
           <PanelHeading count={items.length} />
           <StoryList items={items} />

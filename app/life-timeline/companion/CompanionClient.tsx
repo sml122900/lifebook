@@ -12,6 +12,7 @@ import { saveCompanionSessionAction } from "./actions";
 import { EraArchiveCard, type EraSnapshot } from "./EraArchiveCard";
 import { getEraCatalog } from "@/app/timemachine/[year]/[month]/era-pick-actions";
 import type { EraEvent, EraSong } from "@/lib/era-events";
+import { START_TOUR_EVENT } from "@/lib/tours";
 
 type Phase = "opening" | "idle" | "recording" | "transcribing" | "thinking" | "error";
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -60,8 +61,11 @@ function getKoreanVoice(): Promise<SpeechSynthesisVoice | null> {
   });
 }
 
-export function CompanionClient() {
+// firstVisitTour: 이 화면 코치마크를 아직 안 본 사용자면 true → 오프닝 인사가
+// 뜬 뒤(입력창 등장) 1회 자동으로 둘러보기를 띄운다(START_TOUR_EVENT).
+export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: boolean }) {
   const router = useRouter();
+  const tourFiredRef = useRef(false);
 
   const [phase, setPhase] = useState<Phase>("opening");
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -313,6 +317,13 @@ export function CompanionClient() {
 
       startSessionTimer();
       setPhase("idle");
+
+      // 첫 방문이면 입력창이 나타난 직후 코치마크 1회 자동(엔진은 ScreenTour 가
+      // 마운트). 살짝 지연해 입력창(🎤·대화 마치기) 렌더 후 측정되게.
+      if (firstVisitTour && !tourFiredRef.current) {
+        tourFiredRef.current = true;
+        setTimeout(() => window.dispatchEvent(new CustomEvent(START_TOUR_EVENT)), 200);
+      }
     }
     void runOpening();
     return () => { mounted = false; };
@@ -492,7 +503,7 @@ export function CompanionClient() {
       </div>
 
       {/* 메시지 목록 */}
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 pb-2">
+      <div data-tour="companion-chat" className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 pb-2">
         {/* 오프닝 로딩 */}
         {phase === "opening" && (
           <div className="flex justify-center py-12">
@@ -624,6 +635,7 @@ export function CompanionClient() {
 
             {/* 🎤 버튼 */}
             <button
+              data-tour="companion-mic"
               onClick={isRecording ? stopRecording : handleStartRecording}
               disabled={!isIdle && !isRecording}
               className={[
@@ -658,6 +670,7 @@ export function CompanionClient() {
             <p className="text-base text-ink-soft">저장 중이에요…</p>
           ) : (
             <button
+              data-tour="companion-end"
               onClick={handleEndSession}
               disabled={
                 phase === "recording" ||

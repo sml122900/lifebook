@@ -3,8 +3,12 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { AiModelChips } from "@/app/components/AiModelChips";
+import { ScreenTour } from "@/app/components/ScreenTour";
+import { markTourCompletedAction } from "@/app/life-timeline/tour-actions";
 import { fetchStoryTimeline } from "@/lib/companion";
 import { CURRENT_CONSENT_VERSION } from "@/lib/consent-version";
+import { prisma } from "@/lib/db";
+import { COMPANION_TOUR_ID, COMPANION_TOUR_STEPS } from "@/lib/tours";
 import { getUserAiModel } from "@/lib/user-ai-model";
 import { CompanionClient } from "./CompanionClient";
 import { StoryTimelinePanel } from "./StoryTimelinePanel";
@@ -16,10 +20,15 @@ export default async function CompanionPage() {
   if (!session?.user?.id) redirect("/login");
   if ((session.consentVersion ?? 0) < CURRENT_CONSENT_VERSION) redirect("/consent");
 
-  const [aiModel, storyItems] = await Promise.all([
+  const [aiModel, storyItems, userRow] = await Promise.all([
     getUserAiModel(session.user.id),
     fetchStoryTimeline(session.user.id),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { completedTours: true },
+    }),
   ]);
+  const tourSeen = userRow?.completedTours?.includes(COMPANION_TOUR_ID) ?? false;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-10">
@@ -46,9 +55,18 @@ export default async function CompanionPage() {
             <AiModelChips current={aiModel} variant="compact" />
           </div>
 
-          <CompanionClient />
+          <CompanionClient firstVisitTour={!tourSeen} />
         </div>
       </div>
+
+      {/* 코치마크 — 첫 방문 자동(오프닝 후 CompanionClient 가 START_TOUR_EVENT 로
+          띄움) + "도움말" 재실행. autoStart 는 false(입력창이 늦게 나타나므로). */}
+      <ScreenTour
+        tourId={COMPANION_TOUR_ID}
+        steps={COMPANION_TOUR_STEPS}
+        autoStart={false}
+        onComplete={markTourCompletedAction}
+      />
     </main>
   );
 }
