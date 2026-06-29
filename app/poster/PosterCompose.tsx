@@ -23,6 +23,7 @@ import {
   memoTone,
   seededRotation,
   detectMemoCrowding,
+  placeEraEvents,
   type NodePos,
   type MemoSlot,
 } from "@/lib/poster/compose-layout";
@@ -80,9 +81,16 @@ type RenderMemo = {
   x: number; y: number; anchor: "start" | "end"; rotation: number;
   color: string; halo: string; lines: string[]; lineHeight: number; maxW: number;
 };
+// 시대 대사건 — 검정 텍스트, 강 중앙(메모와 시각 구분). 기능2b.
+type RenderEra = {
+  key: string;
+  x: number; y: number;
+  text: string;
+};
 type RenderModel = {
   nodes: RenderNode[];
   memos: RenderMemo[];
+  era: RenderEra[];
   crowded: boolean;
 };
 
@@ -167,6 +175,7 @@ export function PosterCompose({
   bgSrc = POSTER_BG_SRC,
   showYears: showYearsProp = false,
   onSetShowYears,
+  eraEvents = [],
 }: {
   ownerName: string;
   nodes: PosterNode[];
@@ -179,6 +188,8 @@ export function PosterCompose({
   // 노드 연도 표시(기본 false=숨김 — 제목만). onSetShowYears 주면 전체 토글 노출.
   showYears?: boolean;
   onSetShowYears?: (show: boolean) => Promise<{ ok: boolean; error?: string }>;
+  // 기능2b — 노드 사이에 얹을 시대 대사건(이미 생애범위·티어 필터됨). 검정 렌더.
+  eraEvents?: { id: string; year: number; title: string }[];
 }) {
   const [model, setModel] = useState<RenderModel | null>(null);
   const [failed, setFailed] = useState(false);
@@ -224,6 +235,12 @@ export function PosterCompose({
     return parts.join("|");
   }, [activeNodes, activeMemos, overrides]);
 
+  // 시대 대사건 시그니처(재측정 트리거) — id+연도 변화 감지.
+  const eraSig = useMemo(
+    () => eraEvents.map((e) => `${e.id}:${e.year}`).join("|"),
+    [eraEvents],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -268,6 +285,16 @@ export function PosterCompose({
           return { boxW, boxH };
         });
         const positions: NodePos[] = placeNodes(boxes);
+
+        // 시대 대사건 — 노드(연도→y) 사이 시간순 보간 위치, 강 중앙. (기능2b)
+        const nodePoints = positions.map((p, i) => ({
+          year: activeNodes[i].year ?? NaN,
+          y: p.cy,
+        }));
+        const renderEra: RenderEra[] = placeEraEvents(nodePoints, eraEvents).map(
+          (e) => ({ key: `era:${e.id}`, x: e.x, y: e.y, text: `${e.year} ${e.title}` }),
+        );
+
         const renderNodes: RenderNode[] = positions.map((p, i) => {
           const h = p.boxH - NODE_TOP_TRIM;
           const n = activeNodes[i];
@@ -327,7 +354,7 @@ export function PosterCompose({
           };
         });
 
-        if (!cancelled) setModel({ nodes: renderNodes, memos: renderMemos, crowded });
+        if (!cancelled) setModel({ nodes: renderNodes, memos: renderMemos, era: renderEra, crowded });
       } catch {
         if (!cancelled) setFailed(true);
       }
@@ -336,9 +363,9 @@ export function PosterCompose({
     build();
     return () => { cancelled = true; };
     // textSig 가 텍스트·삭제·항목 변화를 모두 포괄(드래그 x/y 는 미포함 → 재측정 X).
-    // showYears 토글 시 박스 크기·연도 유무가 바뀌므로 재측정.
+    // showYears 토글 시 박스 크기·연도 유무가 바뀌므로 재측정. eraSig=대사건 변화.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerName, textSig, bgSrc, showYears]);
+  }, [ownerName, textSig, bgSrc, showYears, eraSig]);
 
   // ── 항목 기하(override 반영) — 안전여백·선택 외곽선 공용 ──────────────
   const geom = useMemo(() => {
@@ -738,6 +765,19 @@ export function PosterCompose({
               </g>
             );
           })}
+
+          {/* 2.5) 시대 대사건 — 검정, 강 중앙(메모와 시각 구분). 노드 아래 레이어. */}
+          {model.era.map((e) => (
+            <text
+              key={e.key}
+              x={e.x} y={e.y} textAnchor="middle" dominantBaseline="central"
+              fontFamily={`"${FONT_SERIF}"`} fontWeight={500} fontSize={16}
+              fill="#1A1A1A" stroke="rgba(250,245,230,0.85)" strokeWidth={2.5}
+              style={{ paintOrder: "stroke" }} strokeLinejoin="round"
+            >
+              {e.text}
+            </text>
+          ))}
 
           {/* 3) 노드 */}
           {model.nodes.map((n) => {

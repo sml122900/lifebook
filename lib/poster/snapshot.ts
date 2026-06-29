@@ -6,10 +6,14 @@
 // 관리자 페이지는 이 스냅샷으로 P7-a export(브라우저)한다.
 
 import { prisma } from "@/lib/db";
-import { getLifeEvents } from "@/lib/life-events";
+import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import type { ItemOverride } from "@/lib/poster/overrides";
 import { parseSelectionsFull } from "@/lib/poster/overrides";
 import { refineForPosterBatch } from "@/lib/poster/poster-sentences";
+import {
+  getEraEventsForPoster,
+  type EraEvent,
+} from "@/lib/poster/era-events";
 
 export type SnapshotNode = {
   eventId: string;
@@ -30,6 +34,8 @@ export type PosterSnapshot = {
   memos: SnapshotMemo[];
   // 노드에 연도를 박을지(기본 false=숨김). 주문 스냅샷에 박혀 발주 파일까지 고정.
   showNodeYears: boolean;
+  // 기능2b — 노드 사이에 얹을 시대 대사건(생애범위·티어 필터됨). 2b 는 tier=1 고정.
+  eraEvents: EraEvent[];
 };
 
 // 선택이 없으면 null(주문 불가·빈 화면). ownerName 은 호출자가 세션에서 전달.
@@ -37,12 +43,13 @@ export async function buildPosterSnapshot(
   userId: string,
   ownerName: string,
 ): Promise<PosterSnapshot | null> {
-  const [poster, events] = await Promise.all([
+  const [poster, events, userBirthYear] = await Promise.all([
     prisma.poster.findUnique({
       where: { userId },
       select: { selections: true, showNodeYears: true },
     }),
     getLifeEvents(userId),
+    getBirthYear(userId),
   ]);
 
   const byId = new Map(
@@ -83,5 +90,17 @@ export async function buildPosterSnapshot(
     }
   });
 
-  return { ownerName, nodes, memos, showNodeYears: poster?.showNodeYears ?? false };
+  // 시대 대사건 — birthYear(User BIRTH) ?? 가장 이른 노드 연도로 생애범위 필터.
+  // 2b 는 tier=1 고정·removedIds 없음(토글·제거는 2c).
+  const nodeYears = nodes.map((n) => n.year).filter((y): y is number => y != null);
+  const birthYear = userBirthYear ?? (nodeYears.length ? Math.min(...nodeYears) : null);
+  const eraEvents = getEraEventsForPoster({ birthYear, tier: 1 });
+
+  return {
+    ownerName,
+    nodes,
+    memos,
+    showNodeYears: poster?.showNodeYears ?? false,
+    eraEvents,
+  };
 }

@@ -114,6 +114,75 @@ export function seededRotation(memoIndex: number): number {
   return (h / 10000) * 4 - 2; // -2 .. +2
 }
 
+// ── 시대 대사건 배치 (기능2b) ────────────────────────────────────────
+// 대사건은 노드(개인 사건) 사이 시간순 위치에 강 중앙으로 얹는다. 노드 y 는
+// 연도가 아닌 *순서(index)* 로 linspace 배치되므로, 대사건 연도를 노드의
+// (연도→y) 점들로 선형보간해 같은 시간 흐름 위에 놓는다.
+export const ERA_MIN_GAP = 32; // 대사건 간 최소 세로 간격(겹침 방지)
+export const ERA_Y_TOP = 180; // 상단 클램프(타이틀 밴드 170 아래)
+export const ERA_Y_BOTTOM = 1410; // 하단 클램프(푸터 1448 위)
+
+export type EraPos = { id: string; year: number; title: string; x: number; y: number };
+
+export function placeEraEvents(
+  nodePoints: { year: number; y: number }[],
+  events: { id: string; year: number; title: string }[],
+): EraPos[] {
+  if (events.length === 0) return [];
+  const pts = nodePoints
+    .filter((p) => Number.isFinite(p.year))
+    .sort((a, b) => a.year - b.year);
+
+  const yForYear = (year: number): number => {
+    if (pts.length === 0) return NODE_Y_TOP; // 노드 없음 폴백
+    if (pts.length === 1) return pts[0].y;
+    const first = pts[0];
+    const last = pts[pts.length - 1];
+    if (year <= first.year) {
+      const slope = (pts[1].y - first.y) / Math.max(1, pts[1].year - first.year);
+      return Math.max(NODE_Y_TOP - 20, first.y + (year - first.year) * slope);
+    }
+    if (year >= last.year) {
+      const prev = pts[pts.length - 2];
+      const slope = (last.y - prev.y) / Math.max(1, last.year - prev.year);
+      return Math.min(ERA_Y_BOTTOM, last.y + (year - last.year) * slope);
+    }
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      if (year >= a.year && year <= b.year) {
+        const t = b.year === a.year ? 0.5 : (year - a.year) / (b.year - a.year);
+        return a.y + (b.y - a.y) * t;
+      }
+    }
+    return last.y;
+  };
+
+  const placed: EraPos[] = events
+    .map((e) => ({ id: e.id, year: e.year, title: e.title, x: 0, y: yForYear(e.year) }))
+    .sort((a, b) => a.y - b.y);
+
+  // 세로 최소 간격 보장(겹침 방지). ① 아래로 밀고 ② 하단을 넘치면 위로 되밀어
+  // 분산(노드보다 최신 사건이 바닥에 몰릴 때 — 예: 마지막 노드 이후 역사 사건).
+  for (let i = 1; i < placed.length; i++) {
+    if (placed[i].y - placed[i - 1].y < ERA_MIN_GAP) {
+      placed[i].y = placed[i - 1].y + ERA_MIN_GAP;
+    }
+  }
+  if (placed.length && placed[placed.length - 1].y > ERA_Y_BOTTOM) {
+    placed[placed.length - 1].y = ERA_Y_BOTTOM;
+    for (let i = placed.length - 2; i >= 0; i--) {
+      placed[i].y = Math.min(placed[i].y, placed[i + 1].y - ERA_MIN_GAP);
+    }
+  }
+  // 상단 클램프(타이틀 침범 방지) — 위로 밀렸어도 ERA_Y_TOP 아래로.
+  for (const p of placed) {
+    if (p.y < ERA_Y_TOP) p.y = ERA_Y_TOP;
+    p.x = riverX(p.y);
+  }
+  return placed;
+}
+
 // 겹침 가드 — 같은 단 인접 메모의 (y 간격) 이 (그 메모 높이 + lineHeight*0.5)
 // 보다 좁으면 빠듯 신호. heights = 각 슬롯의 실측 텍스트 높이(클라 전달).
 export function detectMemoCrowding(

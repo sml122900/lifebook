@@ -97,6 +97,7 @@ export default async function PosterViewPage() {
           onSave={savePosterOverrides}
           showYears={snapshot.showNodeYears}
           onSetShowYears={setPosterShowYears}
+          eraEvents={snapshot.eraEvents}
         />
       </div>
 

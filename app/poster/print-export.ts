@@ -32,7 +32,9 @@ export type ExportMemo = {
   x: number; y: number; anchor: "start" | "end"; rotation: number;
   color: string; halo: string; lines: string[]; lineHeight: number;
 };
-export type ExportModel = { nodes: ExportNode[]; memos: ExportMemo[] };
+// 시대 대사건 — 검정, 강 중앙(기능2b).
+export type ExportEra = { key: string; x: number; y: number; text: string };
+export type ExportModel = { nodes: ExportNode[]; memos: ExportMemo[]; era: ExportEra[] };
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -157,6 +159,19 @@ export async function exportPosterPng(
       });
       ctx.restore();
     });
+  }
+
+  // 2.5) 시대 대사건 — 검정 텍스트 + 옅은 후광(강 중앙, 노드 아래 레이어).
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `500 16px "${FONT_SERIF}"`;
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 2.5;
+  for (const e of model.era ?? []) {
+    ctx.strokeStyle = "rgba(250,245,230,0.85)";
+    ctx.strokeText(e.text, e.x, e.y);
+    ctx.fillStyle = "#1A1A1A";
+    ctx.fillText(e.text, e.x, e.y);
   }
 
   // 3) 노드(둥근사각 + 그림자 + 연도/제목).
