@@ -285,16 +285,6 @@ export function PosterCompose({
           return { boxW, boxH };
         });
         const positions: NodePos[] = placeNodes(boxes);
-
-        // 시대 대사건 — 노드(연도→y) 사이 시간순 보간 위치, 강 중앙. (기능2b)
-        const nodePoints = positions.map((p, i) => ({
-          year: activeNodes[i].year ?? NaN,
-          y: p.cy,
-        }));
-        const renderEra: RenderEra[] = placeEraEvents(nodePoints, eraEvents).map(
-          (e) => ({ key: `era:${e.id}`, x: e.x, y: e.y, text: `${e.year} ${e.title}` }),
-        );
-
         const renderNodes: RenderNode[] = positions.map((p, i) => {
           const h = p.boxH - NODE_TOP_TRIM;
           const n = activeNodes[i];
@@ -307,6 +297,17 @@ export function PosterCompose({
             title: effNodeLabel(n),
           };
         });
+
+        // 2.5) 시대 대사건 — 노드 실측 bbox(연도 ON 포함)를 회피해 강 중앙 배치.
+        const eraNodes = renderNodes.map((rn, i) => ({
+          year: activeNodes[i].year ?? NaN,
+          cy: rn.cy,
+          top: rn.topY,
+          bottom: rn.topY + rn.boxH,
+        }));
+        const renderEra: RenderEra[] = placeEraEvents(eraNodes, eraEvents).map(
+          (e) => ({ key: `era:${e.id}`, x: e.x, y: e.y, text: `${e.year} ${e.title}` }),
+        );
 
         // 3) 메모 배치 + 워드랩.
         const memoTexts = activeMemos.map(effMemoText);

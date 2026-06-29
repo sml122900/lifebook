@@ -115,72 +115,102 @@ export function seededRotation(memoIndex: number): number {
 }
 
 // ── 시대 대사건 배치 (기능2b) ────────────────────────────────────────
-// 대사건은 노드(개인 사건) 사이 시간순 위치에 강 중앙으로 얹는다. 노드 y 는
+// 대사건은 노드(개인 사건) "사이" 시간순 위치에 강 중앙으로 얹는다. 노드 y 는
 // 연도가 아닌 *순서(index)* 로 linspace 배치되므로, 대사건 연도를 노드의
-// (연도→y) 점들로 선형보간해 같은 시간 흐름 위에 놓는다.
-export const ERA_MIN_GAP = 32; // 대사건 간 최소 세로 간격(겹침 방지)
+// (연도→cy) 점들로 선형보간해 같은 시간 흐름 위에 놓되 —
+// ★ 각 대사건은 어떤 노드 bbox 와도 ERA_NODE_PAD 이내로 겹치지 않게 밀어낸다.
+// (연도 ON 이면 노드 bbox 가 연도줄 포함해 커지므로 그 전체를 회피.)
+export const ERA_MIN_GAP = 32; // 대사건 간 최소 세로 간격
+export const ERA_NODE_PAD = 40; // 노드 bbox 위·아래로 확보할 여백
 export const ERA_Y_TOP = 180; // 상단 클램프(타이틀 밴드 170 아래)
 export const ERA_Y_BOTTOM = 1410; // 하단 클램프(푸터 1448 위)
 
 export type EraPos = { id: string; year: number; title: string; x: number; y: number };
+// 노드 회피 정보 — cy=중심(보간용), top/bottom=실측 bbox(연도 ON 시 연도줄 포함).
+export type EraNode = { year: number; cy: number; top: number; bottom: number };
 
 export function placeEraEvents(
-  nodePoints: { year: number; y: number }[],
+  nodes: EraNode[],
   events: { id: string; year: number; title: string }[],
 ): EraPos[] {
   if (events.length === 0) return [];
-  const pts = nodePoints
-    .filter((p) => Number.isFinite(p.year))
+  const pts = nodes
+    .filter((n) => Number.isFinite(n.year))
     .sort((a, b) => a.year - b.year);
+  // 회피 구간 = 각 노드 bbox 를 PAD 만큼 넓힌 [top-PAD, bottom+PAD].
+  const bands = nodes.map((n) => ({
+    top: n.top - ERA_NODE_PAD,
+    bottom: n.bottom + ERA_NODE_PAD,
+  }));
 
+  // 연도 → 노드 사이 보간 y(노드 cy 기준).
   const yForYear = (year: number): number => {
-    if (pts.length === 0) return NODE_Y_TOP; // 노드 없음 폴백
-    if (pts.length === 1) return pts[0].y;
+    if (pts.length === 0) return NODE_Y_TOP;
+    if (pts.length === 1) return pts[0].cy;
     const first = pts[0];
     const last = pts[pts.length - 1];
     if (year <= first.year) {
-      const slope = (pts[1].y - first.y) / Math.max(1, pts[1].year - first.year);
-      return Math.max(NODE_Y_TOP - 20, first.y + (year - first.year) * slope);
+      const slope = (pts[1].cy - first.cy) / Math.max(1, pts[1].year - first.year);
+      return first.cy + (year - first.year) * slope;
     }
     if (year >= last.year) {
       const prev = pts[pts.length - 2];
-      const slope = (last.y - prev.y) / Math.max(1, last.year - prev.year);
-      return Math.min(ERA_Y_BOTTOM, last.y + (year - last.year) * slope);
+      const slope = (last.cy - prev.cy) / Math.max(1, last.year - prev.year);
+      return last.cy + (year - last.year) * slope;
     }
     for (let i = 0; i < pts.length - 1; i++) {
       const a = pts[i];
       const b = pts[i + 1];
       if (year >= a.year && year <= b.year) {
         const t = b.year === a.year ? 0.5 : (year - a.year) / (b.year - a.year);
-        return a.y + (b.y - a.y) * t;
+        return a.cy + (b.cy - a.cy) * t;
       }
     }
-    return last.y;
+    return last.cy;
   };
 
-  const placed: EraPos[] = events
-    .map((e) => ({ id: e.id, year: e.year, title: e.title, x: 0, y: yForYear(e.year) }))
-    .sort((a, b) => a.y - b.y);
+  // y 가 노드 band 안이면 band 밖으로(아래/위). 연쇄 band 대비 반복(단조 → 종료).
+  const pushDown = (y0: number): number => {
+    let y = y0, moved = true;
+    while (moved) {
+      moved = false;
+      for (const b of bands) if (y > b.top && y < b.bottom) { y = b.bottom; moved = true; }
+    }
+    return y;
+  };
+  const pushUp = (y0: number): number => {
+    let y = y0, moved = true;
+    while (moved) {
+      moved = false;
+      for (const b of bands) if (y > b.top && y < b.bottom) { y = b.top; moved = true; }
+    }
+    return y;
+  };
 
-  // 세로 최소 간격 보장(겹침 방지). ① 아래로 밀고 ② 하단을 넘치면 위로 되밀어
-  // 분산(노드보다 최신 사건이 바닥에 몰릴 때 — 예: 마지막 노드 이후 역사 사건).
-  for (let i = 1; i < placed.length; i++) {
-    if (placed[i].y - placed[i - 1].y < ERA_MIN_GAP) {
-      placed[i].y = placed[i - 1].y + ERA_MIN_GAP;
+  const items: EraPos[] = events
+    .map((e) => ({ id: e.id, year: e.year, title: e.title, x: 0, y: yForYear(e.year) }))
+    .sort((a, b) => a.year - b.year);
+
+  // 정방향(위→아래): 노드 band 회피 + 대사건 최소간격. 단조 증가라 종료 보장.
+  let cursor = ERA_Y_TOP;
+  for (const it of items) {
+    it.y = pushDown(Math.max(it.y, cursor));
+    cursor = it.y + ERA_MIN_GAP;
+  }
+  // 하단 넘침 → 역방향(아래→위) 재배치: band 회피하며 위로 압축.
+  if (items[items.length - 1].y > ERA_Y_BOTTOM) {
+    let c2 = ERA_Y_BOTTOM;
+    for (let i = items.length - 1; i >= 0; i--) {
+      items[i].y = pushUp(Math.min(items[i].y, c2));
+      c2 = items[i].y - ERA_MIN_GAP;
     }
   }
-  if (placed.length && placed[placed.length - 1].y > ERA_Y_BOTTOM) {
-    placed[placed.length - 1].y = ERA_Y_BOTTOM;
-    for (let i = placed.length - 2; i >= 0; i--) {
-      placed[i].y = Math.min(placed[i].y, placed[i + 1].y - ERA_MIN_GAP);
-    }
+  // 상단 클램프 후 x. (극단적 과밀에서 위로 밀려도 타이틀 침범 방지.)
+  for (const it of items) {
+    if (it.y < ERA_Y_TOP) it.y = ERA_Y_TOP;
+    it.x = riverX(it.y);
   }
-  // 상단 클램프(타이틀 침범 방지) — 위로 밀렸어도 ERA_Y_TOP 아래로.
-  for (const p of placed) {
-    if (p.y < ERA_Y_TOP) p.y = ERA_Y_TOP;
-    p.x = riverX(p.y);
-  }
-  return placed;
+  return items;
 }
 
 // 겹침 가드 — 같은 단 인접 메모의 (y 간격) 이 (그 메모 높이 + lineHeight*0.5)
