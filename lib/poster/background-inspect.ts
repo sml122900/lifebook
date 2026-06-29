@@ -2,8 +2,9 @@
 //
 // gpt-image 결과는 품질이 들쭉날쭉(상단 인물 아티팩트·강 치우침·진한색 등).
 // 사람/글자 감지는 어려워 생략하고, P4 합성에 직접 영향 주는 항목만 픽셀로 판정:
-//   1) 채도   — 전체 평균 채도 낮나(저채도 수채). 진하면 실패.
-//   2) 강 중앙 — 차가운(청록) 픽셀 무게중심이 세로중앙 근처인가. 치우치면 실패.
+//   1) 채도   — 전체 평균 채도 낮나(저채도 수채). 과채도면 실패(색상은 무관).
+//   2) 강 중앙 — 중앙 띠에 옅은 물빛(밝고 저채도) 픽셀이 충분한가(★색상 무관).
+//               노랑·핑크 배경에서도 강이 검출되게 청록 전제를 버렸다.
 //   3) 양옆 여백 — 노드 텍스트존(좌우)이 비었나(밝은 배경 비율). 빽빽하면 실패.
 //   4) 상·하 여백 — 타이틀/푸터 영역이 비었나. 아티팩트(어두운 덩어리)면 실패.
 // 임계값은 전부 INSPECT 상수로 분리(튜닝).
@@ -28,11 +29,15 @@ export type InspectionResult = {
 // 튜닝 대상 임계값. 캘리브레이션(river-bg·medium 성공작 통과 / 나쁜 거 탈락)으로 조정.
 export const INSPECT = {
   SAMPLE_STRIDE: 4, // 픽셀 샘플 간격(성능)
-  SAT_MAX: 78, // 평균 채도 상한(넘으면 진한/쨍한 색)
-  // 강물 = 따뜻한 크림(b<r)이 아닌 차가운(b≥r) 픽셀. 부드러운 청록도 잡게 낮게.
-  // 크림 bg 는 b-r 이 음수라 오검출 안 됨.
-  COOL_DELTA: 3, // b - r > 이 값 = 청록(강) 픽셀
-  RIVER_MIN_FRACTION: 0.006, // 강 픽셀 최소 비율(이하면 강 안 보임)
+  // 채도(max-min)는 따뜻한 색(노랑 등)일수록 본래 높게 잡힌다 → 상한을 넉넉히
+  // (120) 둬 "은은한 따뜻색"은 통과, 쨍한/네온(보통 150+)만 차단. 색상 다양성 허용.
+  SAT_MAX: 120,
+  // 강물 검출은 ★색상 무관 ─ 중앙 띠의 옅고(밝고) 비교적 저채도인 "물빛"으로 잡는다.
+  // (청록 전제를 버림: 노랑·핑크 배경에서도 강이 검출되게. 따뜻한 물빛은 채도가
+  //  높게 잡혀 WATER_S 를 85 로 — 그래도 쨍한 배경(노랑 bg ~103)보다는 낮다.)
+  WATER_L: 172, // 이 이상 = 옅은 물빛(강은 주변보다 환함)
+  WATER_S: 85, // 이 미만 = 물빛(주변 배경색보다 옅음, 색상 무관)
+  RIVER_MIN_FRACTION: 0.12, // 중앙 띠에서 물빛 픽셀 최소 비율(이하면 강 안 보임)
   // 노드 offset ±200px 가 강 흔들림 흡수 → 편차 관대(명백히 한쪽 쏠림만 탈락).
   RIVER_OFFSET_MAX: 0.24, // 강 무게중심 허용 편차(±W*0.24 ≈ ±249px)
   LIGHT_L: 188, // 이 이상 = 밝은 배경(빈 공간)
@@ -64,8 +69,9 @@ export async function inspectBackground(buf: Buffer): Promise<InspectionResult> 
   const sideMargin = W * INSPECT.SIDE_MARGIN;
   const nodeYTop = H * INSPECT.NODE_Y_TOP;
   const nodeYBot = H * INSPECT.NODE_Y_BOT;
+  const riverHalf = W * INSPECT.RIVER_HALF; // 중앙 강 띠 반폭
 
-  let nAll = 0, sumS = 0, nCool = 0, sumCoolX = 0;
+  let nAll = 0, sumS = 0, nCentral = 0, nWater = 0, sumWaterX = 0;
   let nTop = 0, lightTop = 0, nBot = 0, lightBot = 0, nSide = 0, lightSide = 0;
 
   for (let y = 0; y < H; y += s) {
@@ -79,9 +85,13 @@ export async function inspectBackground(buf: Buffer): Promise<InspectionResult> 
 
       nAll++;
       sumS += S;
-      if (b - r > INSPECT.COOL_DELTA) {
-        nCool++;
-        sumCoolX += x;
+      // 강물 검출 — 색상 무관: 중앙 띠 안의 옅고(밝고) 저채도인 물빛 픽셀.
+      if (Math.abs(x - cx) <= riverHalf) {
+        nCentral++;
+        if (L > INSPECT.WATER_L && S < INSPECT.WATER_S) {
+          nWater++;
+          sumWaterX += x;
+        }
       }
       if (y < topY) {
         nTop++;
@@ -103,8 +113,11 @@ export async function inspectBackground(buf: Buffer): Promise<InspectionResult> 
 
   const metrics: InspectionMetrics = {
     meanSaturation: sumS / Math.max(1, nAll),
-    coolFraction: nCool / Math.max(1, nAll),
-    riverOffset: nCool > 0 ? Math.abs(sumCoolX / nCool - cx) / W : 1,
+    // coolFraction(필드명 유지) = 중앙 띠에서 물빛 픽셀이 차지하는 비율(강 가시성).
+    coolFraction: nWater / Math.max(1, nCentral),
+    // 물빛 무게중심은 정의상 중앙 띠(±RIVER_HALF) 안 → 사실상 항상 통과.
+    // 강 구도(중앙 곡류)는 프롬프트가 보장하고, 여기선 "중앙이 막히지 않음"만 본다.
+    riverOffset: nWater > 0 ? Math.abs(sumWaterX / nWater - cx) / W : 1,
     topEmpty: lightTop / Math.max(1, nTop),
     bottomEmpty: lightBot / Math.max(1, nBot),
     sideEmpty: lightSide / Math.max(1, nSide),
