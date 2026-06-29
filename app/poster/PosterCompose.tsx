@@ -165,6 +165,8 @@ export function PosterCompose({
   editable = false,
   onSave,
   bgSrc = POSTER_BG_SRC,
+  showYears: showYearsProp = false,
+  onSetShowYears,
 }: {
   ownerName: string;
   nodes: PosterNode[];
@@ -174,6 +176,9 @@ export function PosterCompose({
   // P5-5c — 배경 분기(river=고정 PNG / custom=/api/poster/background). canvas-safe
   // 위해 same-origin 권장. 기본은 river.
   bgSrc?: string;
+  // 노드 연도 표시(기본 false=숨김 — 제목만). onSetShowYears 주면 전체 토글 노출.
+  showYears?: boolean;
+  onSetShowYears?: (show: boolean) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const [model, setModel] = useState<RenderModel | null>(null);
   const [failed, setFailed] = useState(false);
@@ -192,6 +197,8 @@ export function PosterCompose({
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  // 노드 연도 표시 토글(포스터 전체). 기본은 prop(=Poster.showNodeYears, 기본 false).
+  const [showYears, setShowYears] = useState(showYearsProp);
 
   // 살아있는 항목(삭제 제외).
   const activeNodes = useMemo(
@@ -250,13 +257,14 @@ export function PosterCompose({
         const effMemoText = (m: PosterMemo) =>
           overrides[memoKey(m.eventId)]?.textOverride ?? m.text;
 
-        // 2) 노드 박스 실측 → 배치.
+        // 2) 노드 박스 실측 → 배치. 연도 숨김(showYears=false)이면 연도 줄 제외 →
+        //    박스가 제목만큼만, 제목이 중앙에 오게 작아진다.
         const boxes = activeNodes.map((n) => {
-          const yearStr = effNodeYear(n);
-          const ym = measure(svg, yearStr || " ", FONT_SANS, 18, 400);
+          const yearStr = showYears ? effNodeYear(n) : "";
+          const ym = yearStr ? measure(svg, yearStr, FONT_SANS, 18, 400) : { w: 0, h: 0 };
           const tm = measure(svg, effNodeLabel(n) || " ", FONT_SERIF, 21, 700);
           const boxW = Math.max(ym.w, tm.w) + NODE_PAD_X * 2;
-          const boxH = ym.h + tm.h + NODE_LINE_GAP + NODE_PAD_Y * 2;
+          const boxH = (yearStr ? ym.h + NODE_LINE_GAP : 0) + tm.h + NODE_PAD_Y * 2;
           return { boxW, boxH };
         });
         const positions: NodePos[] = placeNodes(boxes);
@@ -267,7 +275,8 @@ export function PosterCompose({
             key: nodeKey(n.eventId),
             cx: p.cx, cy: p.cy, boxW: p.boxW, boxH: h, radius: h * 0.46,
             topY: p.cy - p.boxH / 2 + NODE_TOP_TRIM,
-            year: effNodeYear(n),
+            // 연도 숨김이면 "" → 렌더·export 모두 연도 생략, 제목 중앙 정렬.
+            year: showYears ? effNodeYear(n) : "",
             title: effNodeLabel(n),
           };
         });
@@ -327,8 +336,9 @@ export function PosterCompose({
     build();
     return () => { cancelled = true; };
     // textSig 가 텍스트·삭제·항목 변화를 모두 포괄(드래그 x/y 는 미포함 → 재측정 X).
+    // showYears 토글 시 박스 크기·연도 유무가 바뀌므로 재측정.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerName, textSig, bgSrc]);
+  }, [ownerName, textSig, bgSrc, showYears]);
 
   // ── 항목 기하(override 반영) — 안전여백·선택 외곽선 공용 ──────────────
   const geom = useMemo(() => {
@@ -515,6 +525,19 @@ export function PosterCompose({
     }
   }
 
+  // 연도 표시 전체 토글 — 옵티미스틱(즉시 재측정) + 서버 영속.
+  async function handleToggleYears() {
+    if (!onSetShowYears) return;
+    const next = !showYears;
+    setShowYears(next);
+    setSavedMsg(null);
+    try {
+      await onSetShowYears(next);
+    } catch {
+      // 저장 실패해도 화면 토글은 유지(다음 저장·새로고침에 정합).
+    }
+  }
+
   async function handleExport() {
     if (!model) return;
     if (
@@ -586,6 +609,31 @@ export function PosterCompose({
         <p className="text-sm text-ink-soft">
           글상자를 눌러 고르고, 끌어서 옮기세요. 아래에서 글자 크기·내용을 고치거나 뺄 수 있어요.
         </p>
+      )}
+
+      {/* 연도 표시 전체 토글 — 기본은 숨김(제목만). 연도가 정확할 때만 켜기. */}
+      {editable && onSetShowYears && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border-2 border-line bg-surface px-4 py-3">
+          <span className="text-base font-semibold text-ink">연도 표시</span>
+          <button
+            type="button"
+            onClick={handleToggleYears}
+            aria-pressed={showYears}
+            className={
+              "inline-flex min-h-[44px] items-center justify-center rounded-md px-5 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
+              (showYears
+                ? "bg-action text-white hover:bg-action-hover"
+                : "border-2 border-action bg-surface text-action hover:bg-banner")
+            }
+          >
+            {showYears ? "✓ 연도 보임 — 끄기" : "연도 표시하기"}
+          </button>
+          <span className="text-sm text-ink-soft">
+            {showYears
+              ? "모든 큰 사건에 연도가 보여요."
+              : "기본은 제목만 보여요. 연도가 정확할 때만 켜세요."}
+          </span>
+        </div>
       )}
 
       {/* 인쇄용 파일 내려받기 — 항상 노출(최종 출력물). */}
@@ -712,7 +760,8 @@ export function PosterCompose({
                     {n.year}
                   </text>
                 )}
-                <text x={n.cx} y={n.cy + 11} textAnchor="middle" dominantBaseline="central" fontFamily={`"${FONT_SERIF}"`} fontWeight={700} fontSize={21} fill="#28221C">
+                {/* 연도 없으면 제목을 박스 중앙(cy)에, 있으면 연도 아래(cy+11). */}
+                <text x={n.cx} y={n.year ? n.cy + 11 : n.cy} textAnchor="middle" dominantBaseline="central" fontFamily={`"${FONT_SERIF}"`} fontWeight={700} fontSize={21} fill="#28221C">
                   {n.title}
                 </text>
               </g>

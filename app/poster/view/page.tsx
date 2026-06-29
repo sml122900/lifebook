@@ -9,7 +9,7 @@ import { buildPosterSnapshot } from "@/lib/poster/snapshot";
 import { POSTER_VIEW_TOUR_ID, POSTER_VIEW_TOUR_STEPS } from "@/lib/tours";
 
 import { PosterCompose } from "../PosterCompose";
-import { savePosterOverrides } from "./actions";
+import { savePosterOverrides, setPosterShowYears } from "./actions";
 
 // P4/P6 — 완성 포스터 미리보기 + 액티브 편집(override).
 //
@@ -95,6 +95,8 @@ export default async function PosterViewPage() {
           bgSrc={bgSrc}
           editable
           onSave={savePosterOverrides}
+          showYears={snapshot.showNodeYears}
+          onSetShowYears={setPosterShowYears}
         />
       </div>
 

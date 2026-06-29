@@ -67,3 +67,21 @@ export async function savePosterOverrides(
   revalidatePath("/poster");
   return { ok: true, count: toStore.length };
 }
+
+// 포스터 노드 연도 표시 전체 토글(포스터 단위 설정). 기본 false=숨김.
+export async function setPosterShowYears(
+  show: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
+  const userId = session.user.id;
+
+  await prisma.poster.upsert({
+    where: { userId },
+    create: { userId, showNodeYears: show },
+    update: { showNodeYears: show },
+  });
+
+  revalidatePath("/poster/view");
+  return { ok: true };
+}

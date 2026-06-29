@@ -134,6 +134,7 @@ export default async function AdminOrderDetailPage({
             ownerName={snapshot.ownerName}
             nodes={snapshot.nodes}
             memos={snapshot.memos}
+            showYears={snapshot.showNodeYears}
           />
         </section>
       )}

@@ -182,6 +182,7 @@ export async function exportPosterPng(
 
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
+      // 연도 숨김(model.year="")이면 제목을 박스 중앙(cy)에, 있으면 연도 아래.
       if (n.year) {
         ctx.fillStyle = "#785C34";
         ctx.font = `400 18px "${FONT_SANS}"`;
@@ -189,7 +190,7 @@ export async function exportPosterPng(
       }
       ctx.fillStyle = "#28221C";
       ctx.font = `700 21px "${FONT_SERIF}"`;
-      ctx.fillText(n.title, n.cx, n.cy + 11);
+      ctx.fillText(n.title, n.cx, n.year ? n.cy + 11 : n.cy);
       ctx.restore();
     });
   }

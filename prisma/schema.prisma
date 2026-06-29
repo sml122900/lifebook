@@ -165,6 +165,10 @@ model Poster {
   selections Json     @default("[]")
   template   String?
   design     Json?
+  // 포스터 노드(큰 사건)에 연도를 박을지. 기본 false=숨김 — 어르신이 말한 연도가
+  // 부정확할 수 있어 "결혼"처럼 제목만 보이는 게 기본. 사용자가 켜면 전체 노드에
+  // 연도 표시. 정렬은 항상 연도 기준(표시만 분기).
+  showNodeYears Boolean @default(false)
   // P5-4 — 맞춤배경 "세트" 진행 카운트(현재 열린 세트의 생성 장 수, 1~4).
   // 0=세트 없음. 1세트=최초1+다시생성3=최대 4장(30토큰). 4 도달 후 추가는 새 세트.
   bgSetCount Int      @default(0)

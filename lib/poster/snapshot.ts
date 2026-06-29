@@ -28,6 +28,8 @@ export type PosterSnapshot = {
   ownerName: string;
   nodes: SnapshotNode[];
   memos: SnapshotMemo[];
+  // 노드에 연도를 박을지(기본 false=숨김). 주문 스냅샷에 박혀 발주 파일까지 고정.
+  showNodeYears: boolean;
 };
 
 // 선택이 없으면 null(주문 불가·빈 화면). ownerName 은 호출자가 세션에서 전달.
@@ -36,7 +38,10 @@ export async function buildPosterSnapshot(
   ownerName: string,
 ): Promise<PosterSnapshot | null> {
   const [poster, events] = await Promise.all([
-    prisma.poster.findUnique({ where: { userId }, select: { selections: true } }),
+    prisma.poster.findUnique({
+      where: { userId },
+      select: { selections: true, showNodeYears: true },
+    }),
     getLifeEvents(userId),
   ]);
 
@@ -78,5 +83,5 @@ export async function buildPosterSnapshot(
     }
   });
 
-  return { ownerName, nodes, memos };
+  return { ownerName, nodes, memos, showNodeYears: poster?.showNodeYears ?? false };
 }
