@@ -37,7 +37,12 @@ export const INSPECT = {
   //  높게 잡혀 WATER_S 를 85 로 — 그래도 쨍한 배경(노랑 bg ~103)보다는 낮다.)
   WATER_L: 172, // 이 이상 = 옅은 물빛(강은 주변보다 환함)
   WATER_S: 85, // 이 미만 = 물빛(주변 배경색보다 옅음, 색상 무관)
-  RIVER_MIN_FRACTION: 0.12, // 중앙 띠에서 물빛 픽셀 최소 비율(이하면 강 안 보임)
+  RIVER_MIN_FRACTION: 0.12, // 중앙 띠에서 물빛 픽셀 최소 비율(이하면 강 후보)
+  // 물빛 검출이 약해도(강이 배경보다 어두운 경우 등), 중앙 띠에서 강가 평균밝기와
+  // 충분히 다른(어둡든 밝든) 픽셀이 일정 비율이면 "강 있음"으로 인정 — 색/밝기
+  // 방향 무관하게 가는 강줄기를 잡는다.
+  CONTRAST_MIN: 14, // 강가 평균밝기와 이 이상 차이나면 '강줄기' 픽셀
+  RIVER_DEV_MIN: 0.08, // 중앙 띠에서 그런 픽셀 최소 비율
   // 노드 offset ±200px 가 강 흔들림 흡수 → 편차 관대(명백히 한쪽 쏠림만 탈락).
   RIVER_OFFSET_MAX: 0.24, // 강 무게중심 허용 편차(±W*0.24 ≈ ±249px)
   LIGHT_L: 188, // 이 이상 = 밝은 배경(빈 공간)
@@ -73,6 +78,9 @@ export async function inspectBackground(buf: Buffer): Promise<InspectionResult> 
 
   let nAll = 0, sumS = 0, nCentral = 0, nWater = 0, sumWaterX = 0;
   let nTop = 0, lightTop = 0, nBot = 0, lightBot = 0, nSide = 0, lightSide = 0;
+  // 노드 Y 범위 — 양옆존 평균밝기 + 중앙 띠 픽셀 밝기 모음(강↔강가 대비용).
+  let sumSideL = 0;
+  const centerLs: number[] = [];
 
   for (let y = 0; y < H; y += s) {
     for (let x = 0; x < W; x += s) {
@@ -101,10 +109,14 @@ export async function inspectBackground(buf: Buffer): Promise<InspectionResult> 
         if (light) lightBot++;
       }
       if (y >= nodeYTop && y <= nodeYBot) {
+        if (Math.abs(x - cx) <= riverHalf) {
+          centerLs.push(L);
+        }
         const inLeft = x >= sideMargin && x <= cx - sideInner;
         const inRight = x >= cx + sideInner && x <= W - sideMargin;
         if (inLeft || inRight) {
           nSide++;
+          sumSideL += L;
           if (light) lightSide++;
         }
       }
@@ -123,10 +135,24 @@ export async function inspectBackground(buf: Buffer): Promise<InspectionResult> 
     sideEmpty: lightSide / Math.max(1, nSide),
   };
 
+  // 강↔강가 밝기 대비(색/밝기 방향 무관). 가는 강줄기가 강가 평균밝기와 다른
+  // 픽셀 비율로 본다 — 물빛 비율이 낮아도(강이 어두워도) 강을 잡는다.
+  const sideMeanL = nSide > 0 ? sumSideL / nSide : 0;
+  let nDev = 0;
+  for (const L of centerLs) if (Math.abs(L - sideMeanL) >= INSPECT.CONTRAST_MIN) nDev++;
+  const riverDevFraction = centerLs.length ? nDev / centerLs.length : 0;
+  const riverVisible =
+    metrics.coolFraction >= INSPECT.RIVER_MIN_FRACTION ||
+    riverDevFraction >= INSPECT.RIVER_DEV_MIN;
+
   const reasons: string[] = [];
   if (metrics.meanSaturation > INSPECT.SAT_MAX) reasons.push("채도 높음(진한 색)");
-  if (metrics.coolFraction < INSPECT.RIVER_MIN_FRACTION) reasons.push("강이 안 보임");
-  else if (metrics.riverOffset > INSPECT.RIVER_OFFSET_MAX) reasons.push("강이 한쪽으로 치우침");
+  if (!riverVisible) reasons.push("강이 안 보임");
+  else if (
+    metrics.coolFraction >= INSPECT.RIVER_MIN_FRACTION &&
+    metrics.riverOffset > INSPECT.RIVER_OFFSET_MAX
+  )
+    reasons.push("강이 한쪽으로 치우침");
   if (metrics.topEmpty < INSPECT.MARGIN_EMPTY_MIN) reasons.push("상단 여백 부족(아티팩트 의심)");
   if (metrics.bottomEmpty < INSPECT.MARGIN_EMPTY_MIN) reasons.push("하단 여백 부족");
   if (metrics.sideEmpty < INSPECT.SIDE_EMPTY_MIN) reasons.push("양옆 텍스트존이 빽빽함");
