@@ -38,6 +38,7 @@ import {
   type ItemOverride,
   type PosterSelectionFull,
 } from "@/lib/poster/overrides";
+import { getEraEventsForPoster } from "@/lib/poster/era-events";
 import { exportPosterPng } from "./print-export";
 
 export const POSTER_BG_SRC = "/poster/river-bg.png";
@@ -81,9 +82,10 @@ type RenderMemo = {
   x: number; y: number; anchor: "start" | "end"; rotation: number;
   color: string; halo: string; lines: string[]; lineHeight: number; maxW: number;
 };
-// 시대 대사건 — 검정 텍스트, 강 중앙(메모와 시각 구분). 기능2b.
+// 시대 대사건 — 검정 텍스트, 강 중앙(메모와 시각 구분). 기능2b/2c.
 type RenderEra = {
   key: string;
+  id: string; // 개별 빼기(removedEraEvents)용.
   x: number; y: number;
   text: string;
 };
@@ -175,7 +177,11 @@ export function PosterCompose({
   bgSrc = POSTER_BG_SRC,
   showYears: showYearsProp = false,
   onSetShowYears,
-  eraEvents = [],
+  birthYear = null,
+  eraTier: eraTierProp = 1,
+  removedEraEvents: removedEraProp = [],
+  onSetEraTier,
+  onRemoveEraEvent,
 }: {
   ownerName: string;
   nodes: PosterNode[];
@@ -188,8 +194,13 @@ export function PosterCompose({
   // 노드 연도 표시(기본 false=숨김 — 제목만). onSetShowYears 주면 전체 토글 노출.
   showYears?: boolean;
   onSetShowYears?: (show: boolean) => Promise<{ ok: boolean; error?: string }>;
-  // 기능2b — 노드 사이에 얹을 시대 대사건(이미 생애범위·티어 필터됨). 검정 렌더.
-  eraEvents?: { id: string; year: number; title: string }[];
+  // 기능2c — 시대 대사건 설정. 클라가 getEraEventsForPoster 로 필터·배치(즉시 토글).
+  // onSetEraTier/onRemoveEraEvent 주면 편집 모드에 티어 컨트롤·개별 빼기 노출.
+  birthYear?: number | null;
+  eraTier?: number;
+  removedEraEvents?: string[];
+  onSetEraTier?: (tier: number) => Promise<{ ok: boolean; error?: string }>;
+  onRemoveEraEvent?: (id: string) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const [model, setModel] = useState<RenderModel | null>(null);
   const [failed, setFailed] = useState(false);
@@ -210,6 +221,16 @@ export function PosterCompose({
   const [exporting, setExporting] = useState(false);
   // 노드 연도 표시 토글(포스터 전체). 기본은 prop(=Poster.showNodeYears, 기본 false).
   const [showYears, setShowYears] = useState(showYearsProp);
+  // 기능2c — 시대 대사건 설정(클라 상태, 즉시 반영 + 서버 영속).
+  const [eraTier, setEraTier] = useState(eraTierProp);
+  const [removedEra, setRemovedEra] = useState<string[]>(removedEraProp);
+  const [selectedEra, setSelectedEra] = useState<string | null>(null);
+
+  // 표시할 시대 대사건 — 순수 필터(생애범위·티어·제거). 토글·빼기 시 즉시 재계산.
+  const eraList = useMemo(
+    () => getEraEventsForPoster({ birthYear, tier: eraTier, removedIds: removedEra }),
+    [birthYear, eraTier, removedEra],
+  );
 
   // 살아있는 항목(삭제 제외).
   const activeNodes = useMemo(
@@ -235,10 +256,10 @@ export function PosterCompose({
     return parts.join("|");
   }, [activeNodes, activeMemos, overrides]);
 
-  // 시대 대사건 시그니처(재측정 트리거) — id+연도 변화 감지.
+  // 시대 대사건 시그니처(재측정 트리거) — 필터된 목록 변화 감지.
   const eraSig = useMemo(
-    () => eraEvents.map((e) => `${e.id}:${e.year}`).join("|"),
-    [eraEvents],
+    () => eraList.map((e) => `${e.id}:${e.year}`).join("|"),
+    [eraList],
   );
 
   useEffect(() => {
@@ -305,8 +326,8 @@ export function PosterCompose({
           top: rn.topY,
           bottom: rn.topY + rn.boxH,
         }));
-        const renderEra: RenderEra[] = placeEraEvents(eraNodes, eraEvents).map(
-          (e) => ({ key: `era:${e.id}`, x: e.x, y: e.y, text: `${e.year} ${e.title}` }),
+        const renderEra: RenderEra[] = placeEraEvents(eraNodes, eraList).map(
+          (e) => ({ key: `era:${e.id}`, id: e.id, x: e.x, y: e.y, text: `${e.year} ${e.title}` }),
         );
 
         // 3) 메모 배치 + 워드랩.
@@ -566,6 +587,25 @@ export function PosterCompose({
     }
   }
 
+  // 시대 사건 티어 — 옵티미스틱(즉시 재계산) + 서버 영속.
+  async function handleSetEraTier(t: number) {
+    setEraTier(t);
+    setSelectedEra(null);
+    setSavedMsg(null);
+    if (onSetEraTier) {
+      try { await onSetEraTier(t); } catch { /* 화면 상태 유지 */ }
+    }
+  }
+  // 시대 사건 개별 빼기 — removedEra 에 추가(즉시 사라짐) + 서버 영속.
+  async function handleRemoveEra(id: string) {
+    setRemovedEra((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setSelectedEra(null);
+    setSavedMsg(null);
+    if (onRemoveEraEvent) {
+      try { await onRemoveEraEvent(id); } catch { /* 화면 상태 유지 */ }
+    }
+  }
+
   async function handleExport() {
     if (!model) return;
     if (
@@ -612,7 +652,7 @@ export function PosterCompose({
           <button
             type="button"
             data-tour="poster-edit"
-            onClick={() => { setEditMode((v) => !v); setSelected(null); }}
+            onClick={() => { setEditMode((v) => !v); setSelected(null); setSelectedEra(null); }}
             className={
               "inline-flex min-h-[48px] items-center justify-center rounded-md px-5 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
               (editMode ? "bg-ink text-white hover:bg-ink/90" : "border-2 border-action bg-surface text-action hover:bg-banner")
@@ -664,6 +704,65 @@ export function PosterCompose({
         </div>
       )}
 
+      {/* 시대 사건 티어 컨트롤(4단계) — 기능2c. */}
+      {editable && onSetEraTier && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border-2 border-line bg-surface px-4 py-3">
+          <span className="text-base font-semibold text-ink">시대 사건</span>
+          {[
+            { t: 0, label: "끄기" },
+            { t: 1, label: "기본" },
+            { t: 2, label: "더보기" },
+            { t: 3, label: "모두" },
+          ].map(({ t, label }) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => handleSetEraTier(t)}
+              aria-pressed={eraTier === t}
+              className={
+                "inline-flex min-h-[44px] items-center justify-center rounded-md px-4 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
+                (eraTier === t
+                  ? "bg-action text-white hover:bg-action-hover"
+                  : "border-2 border-line bg-surface text-ink hover:bg-banner")
+              }
+            >
+              {label}
+            </button>
+          ))}
+          <span className="w-full text-sm text-ink-soft">
+            그 시절 큰 사건을 함께 보여줘요. 더 보기로 추가할 수 있어요.
+            {editMode && onRemoveEraEvent ? " 사건을 눌러 뺄 수 있어요." : ""}
+          </span>
+        </div>
+      )}
+
+      {/* 시대 사건 개별 빼기 패널 — 편집 모드에서 사건 선택 시. */}
+      {editable && editMode && onRemoveEraEvent && selectedEra && model && (() => {
+        const e = model.era.find((x) => x.id === selectedEra);
+        if (!e) return null;
+        return (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border-2 border-action bg-banner px-4 py-3">
+            <span className="text-base text-ink">「{e.text}」</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => handleRemoveEra(e.id)}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-danger bg-surface px-4 py-2 text-base font-bold text-danger hover:bg-danger hover:text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-danger"
+              >
+                포스터에서 빼기
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedEra(null)}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-base font-semibold text-ink-soft hover:bg-banner"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 인쇄용 파일 내려받기 — 항상 노출(최종 출력물). */}
       <div className="flex flex-wrap items-center gap-3">
         <button
@@ -702,7 +801,7 @@ export function PosterCompose({
           width="100%"
           className="block h-auto w-full select-none"
           xmlns="http://www.w3.org/2000/svg"
-          onPointerDown={editMode ? () => setSelected(null) : undefined}
+          onPointerDown={editMode ? () => { setSelected(null); setSelectedEra(null); } : undefined}
         >
           <defs>
             <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -767,18 +866,35 @@ export function PosterCompose({
             );
           })}
 
-          {/* 2.5) 시대 대사건 — 검정, 강 중앙(메모와 시각 구분). 노드 아래 레이어. */}
-          {model.era.map((e) => (
-            <text
-              key={e.key}
-              x={e.x} y={e.y} textAnchor="middle" dominantBaseline="central"
-              fontFamily={`"${FONT_SERIF}"`} fontWeight={500} fontSize={16}
-              fill="#1A1A1A" stroke="rgba(250,245,230,0.85)" strokeWidth={2.5}
-              style={{ paintOrder: "stroke" }} strokeLinejoin="round"
-            >
-              {e.text}
-            </text>
-          ))}
+          {/* 2.5) 시대 대사건 — 검정, 강 중앙(메모와 시각 구분). 노드 아래 레이어.
+                 편집 모드에선 눌러서 개별로 뺄 수 있다(파란 강조 + 패널). */}
+          {model.era.map((e) => {
+            const eraEdit = editMode && !!onRemoveEraEvent;
+            const sel = selectedEra === e.id;
+            const w = e.text.length * 10 + 16; // 강조 박스 폭 근사(16px serif).
+            return (
+              <g
+                key={e.key}
+                onPointerDown={eraEdit ? (ev) => { ev.stopPropagation(); setSelectedEra(e.id); } : undefined}
+                style={eraEdit ? { cursor: "pointer" } : undefined}
+              >
+                {sel && (
+                  <rect
+                    x={e.x - w / 2} y={e.y - 16} width={w} height={32} rx={6}
+                    fill="rgba(37,99,235,0.12)" stroke="#2563EB" strokeWidth={1.5}
+                  />
+                )}
+                <text
+                  x={e.x} y={e.y} textAnchor="middle" dominantBaseline="central"
+                  fontFamily={`"${FONT_SERIF}"`} fontWeight={500} fontSize={16}
+                  fill="#1A1A1A" stroke="rgba(250,245,230,0.85)" strokeWidth={2.5}
+                  style={{ paintOrder: "stroke" }} strokeLinejoin="round"
+                >
+                  {e.text}
+                </text>
+              </g>
+            );
+          })}
 
           {/* 3) 노드 */}
           {model.nodes.map((n) => {

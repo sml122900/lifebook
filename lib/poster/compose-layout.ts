@@ -191,13 +191,13 @@ export function placeEraEvents(
     .map((e) => ({ id: e.id, year: e.year, title: e.title, x: 0, y: yForYear(e.year) }))
     .sort((a, b) => a.year - b.year);
 
-  // 정방향(위→아래): 노드 band 회피 + 대사건 최소간격. 단조 증가라 종료 보장.
+  // ① 정방향(위→아래): 노드 band 회피 + 대사건 최소간격. 단조 증가라 종료 보장.
   let cursor = ERA_Y_TOP;
   for (const it of items) {
     it.y = pushDown(Math.max(it.y, cursor));
     cursor = it.y + ERA_MIN_GAP;
   }
-  // 하단 넘침 → 역방향(아래→위) 재배치: band 회피하며 위로 압축.
+  // ② 가벼운 하단 넘침 → 역방향(아래→위) 압축: band 회피 유지하며 위로 당김.
   if (items[items.length - 1].y > ERA_Y_BOTTOM) {
     let c2 = ERA_Y_BOTTOM;
     for (let i = items.length - 1; i >= 0; i--) {
@@ -205,11 +205,22 @@ export function placeEraEvents(
       c2 = items[i].y - ERA_MIN_GAP;
     }
   }
-  // 상단 클램프 후 x. (극단적 과밀에서 위로 밀려도 타이틀 침범 방지.)
-  for (const it of items) {
-    if (it.y < ERA_Y_TOP) it.y = ERA_Y_TOP;
-    it.x = riverX(it.y);
+  // ③ 그래도 안 맞으면(상단 넘침·간격 붕괴 = 과밀, 보통 높은 티어) → 노드 회피·
+  //    정확 위치를 포기하고 [TOP, BOTTOM] 균등 분산. ★우선순위: 대사건끼리 겹침
+  //    방지(읽힘). 대사건은 강 중앙, 노드는 ±200 오프셋이라 같은 y 라도 가로로 안
+  //    겹쳐 노드 회피를 포기해도 실제 겹침은 없고 여백만 줄어든다(티어·빼기로 조절).
+  let minGap = Infinity;
+  for (let i = 1; i < items.length; i++) minGap = Math.min(minGap, items[i].y - items[i - 1].y);
+  if (items[0].y < ERA_Y_TOP - 0.5 || minGap < ERA_MIN_GAP - 0.5) {
+    const n = items.length;
+    for (let i = 0; i < n; i++) {
+      items[i].y =
+        n === 1
+          ? (ERA_Y_TOP + ERA_Y_BOTTOM) / 2
+          : ERA_Y_TOP + ((ERA_Y_BOTTOM - ERA_Y_TOP) * i) / (n - 1);
+    }
   }
+  for (const it of items) it.x = riverX(it.y);
   return items;
 }
 

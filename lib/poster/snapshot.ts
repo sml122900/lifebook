@@ -10,10 +10,6 @@ import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import type { ItemOverride } from "@/lib/poster/overrides";
 import { parseSelectionsFull } from "@/lib/poster/overrides";
 import { refineForPosterBatch } from "@/lib/poster/poster-sentences";
-import {
-  getEraEventsForPoster,
-  type EraEvent,
-} from "@/lib/poster/era-events";
 
 export type SnapshotNode = {
   eventId: string;
@@ -34,8 +30,12 @@ export type PosterSnapshot = {
   memos: SnapshotMemo[];
   // 노드에 연도를 박을지(기본 false=숨김). 주문 스냅샷에 박혀 발주 파일까지 고정.
   showNodeYears: boolean;
-  // 기능2b — 노드 사이에 얹을 시대 대사건(생애범위·티어 필터됨). 2b 는 tier=1 고정.
-  eraEvents: EraEvent[];
+  // 기능2c — 시대 대사건 설정(클라가 getEraEventsForPoster 로 필터·배치).
+  //   birthYear=생애범위 기준, eraTier=0/1/2/3, removedEraEvents=뺀 id.
+  //   주문 스냅샷에 박혀 발주 파일까지 고정.
+  birthYear: number | null;
+  eraTier: number;
+  removedEraEvents: string[];
 };
 
 // 선택이 없으면 null(주문 불가·빈 화면). ownerName 은 호출자가 세션에서 전달.
@@ -46,7 +46,12 @@ export async function buildPosterSnapshot(
   const [poster, events, userBirthYear] = await Promise.all([
     prisma.poster.findUnique({
       where: { userId },
-      select: { selections: true, showNodeYears: true },
+      select: {
+        selections: true,
+        showNodeYears: true,
+        eraTier: true,
+        removedEraEvents: true,
+      },
     }),
     getLifeEvents(userId),
     getBirthYear(userId),
@@ -90,17 +95,18 @@ export async function buildPosterSnapshot(
     }
   });
 
-  // 시대 대사건 — birthYear(User BIRTH) ?? 가장 이른 노드 연도로 생애범위 필터.
-  // 2b 는 tier=1 고정·removedIds 없음(토글·제거는 2c).
+  // 시대 대사건 설정 — birthYear(User BIRTH) ?? 가장 이른 노드 연도. 필터·배치는
+  // 클라(PosterCompose)가 getEraEventsForPoster 로 수행(티어 토글 즉시 반영).
   const nodeYears = nodes.map((n) => n.year).filter((y): y is number => y != null);
   const birthYear = userBirthYear ?? (nodeYears.length ? Math.min(...nodeYears) : null);
-  const eraEvents = getEraEventsForPoster({ birthYear, tier: 1 });
 
   return {
     ownerName,
     nodes,
     memos,
     showNodeYears: poster?.showNodeYears ?? false,
-    eraEvents,
+    birthYear,
+    eraTier: poster?.eraTier ?? 1,
+    removedEraEvents: poster?.removedEraEvents ?? [],
   };
 }

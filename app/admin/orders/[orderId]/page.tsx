@@ -135,7 +135,9 @@ export default async function AdminOrderDetailPage({
             nodes={snapshot.nodes}
             memos={snapshot.memos}
             showYears={snapshot.showNodeYears}
-            eraEvents={snapshot.eraEvents}
+            birthYear={snapshot.birthYear}
+            eraTier={snapshot.eraTier}
+            removedEraEvents={snapshot.removedEraEvents}
           />
         </section>
       )}

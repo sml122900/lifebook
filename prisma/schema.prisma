@@ -169,6 +169,11 @@ model Poster {
   // 부정확할 수 있어 "결혼"처럼 제목만 보이는 게 기본. 사용자가 켜면 전체 노드에
   // 연도 표시. 정렬은 항상 연도 기준(표시만 분기).
   showNodeYears Boolean @default(false)
+  // 기능2c — 노드 사이에 얹는 시대 대사건 설정.
+  //   eraTier: 0=끄기 / 1=기본 / 2=더보기 / 3=모두. 기본 1.
+  //   removedEraEvents: 사용자가 개별로 뺀 사건 id(getEraEventsForPoster 제외).
+  eraTier          Int      @default(1)
+  removedEraEvents String[] @default([])
   // P5-4 — 맞춤배경 "세트" 진행 카운트(현재 열린 세트의 생성 장 수, 1~4).
   // 0=세트 없음. 1세트=최초1+다시생성3=최대 4장(30토큰). 4 도달 후 추가는 새 세트.
   bgSetCount Int      @default(0)

@@ -85,3 +85,49 @@ export async function setPosterShowYears(
   revalidatePath("/poster/view");
   return { ok: true };
 }
+
+// 기능2c — 시대 대사건 티어(0=끄기/1/2/3) 설정.
+export async function setPosterEraTier(
+  tier: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
+  const userId = session.user.id;
+
+  // 0~3 으로 정규화(잘못된 값 방어).
+  const t = Math.max(0, Math.min(3, Math.floor(Number(tier) || 0)));
+  await prisma.poster.upsert({
+    where: { userId },
+    create: { userId, eraTier: t },
+    update: { eraTier: t },
+  });
+
+  revalidatePath("/poster/view");
+  return { ok: true };
+}
+
+// 기능2c — 시대 대사건 개별 제거(removedEraEvents 에 id 추가, 멱등).
+export async function removePosterEraEvent(
+  eraId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
+  const userId = session.user.id;
+  if (typeof eraId !== "string" || !eraId) {
+    return { ok: false, error: "사건을 찾을 수 없어요." };
+  }
+
+  const existing = await prisma.poster.findUnique({
+    where: { userId },
+    select: { removedEraEvents: true },
+  });
+  const next = Array.from(new Set([...(existing?.removedEraEvents ?? []), eraId]));
+  await prisma.poster.upsert({
+    where: { userId },
+    create: { userId, removedEraEvents: next },
+    update: { removedEraEvents: next },
+  });
+
+  revalidatePath("/poster/view");
+  return { ok: true };
+}
