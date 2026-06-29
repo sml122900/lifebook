@@ -90,6 +90,9 @@ export async function exportPosterPng(
   model: ExportModel,
   overrides: Record<string, ItemOverride>,
   ownerName: string,
+  // 화면에 표시 중인 배경(custom = /api/poster/background, river = 기본 PNG).
+  // 미전달 시 기본 river-bg 로 폴백(기존 호출 호환).
+  bgSrc: string = POSTER_BG_SRC,
 ): Promise<void> {
   await document.fonts.ready;
 
@@ -105,7 +108,7 @@ export async function exportPosterPng(
 
   // 1) 배경 cover-fit(논리 1037×1517 박스에 slice). edge-stretch 금지.
   try {
-    const bg = await loadImage(POSTER_BG_SRC);
+    const bg = await loadImage(bgSrc);
     const sw = bg.naturalWidth || POSTER_W;
     const sh = bg.naturalHeight || POSTER_H;
     const cover = Math.max(POSTER_W / sw, POSTER_H / sh);

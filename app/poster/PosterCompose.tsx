@@ -528,7 +528,10 @@ export function PosterCompose({
     setExporting(true);
     setSavedMsg(null);
     try {
-      await exportPosterPng(model, overrides, ownerName);
+      const exportBg = bgSrc.startsWith("/api/")
+        ? `${bgSrc}${bgSrc.includes("?") ? "&" : "?"}t=${Date.now()}`
+        : bgSrc;
+      await exportPosterPng(model, overrides, ownerName, exportBg);
     } catch {
       setSavedMsg("인쇄 파일을 만들지 못했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
