@@ -133,15 +133,20 @@ export function placeEraEvents(
   nodes: EraNode[],
   events: { id: string; year: number; title: string }[],
 ): EraPos[] {
-  if (events.length === 0) return [];
-  const pts = nodes
+  // 입력 정제 — 비유한값(NaN/Infinity) 노드·사건은 배제(어떤 데이터에도 안 터지게).
+  const safeNodes = nodes.filter(
+    (n) => Number.isFinite(n.cy) && Number.isFinite(n.top) && Number.isFinite(n.bottom),
+  );
+  const safeEvents = events.filter((e) => e && Number.isFinite(e.year));
+  if (safeEvents.length === 0) return [];
+
+  const pts = safeNodes
     .filter((n) => Number.isFinite(n.year))
     .sort((a, b) => a.year - b.year);
-  // 회피 구간 = 각 노드 bbox 를 PAD 만큼 넓힌 [top-PAD, bottom+PAD].
-  const bands = nodes.map((n) => ({
-    top: n.top - ERA_NODE_PAD,
-    bottom: n.bottom + ERA_NODE_PAD,
-  }));
+  // 회피 구간 = 각 노드 bbox 를 PAD 만큼 넓힌 [top-PAD, bottom+PAD]. top<bottom 보장.
+  const bands = safeNodes
+    .map((n) => ({ top: n.top - ERA_NODE_PAD, bottom: n.bottom + ERA_NODE_PAD }))
+    .filter((b) => b.bottom > b.top);
 
   // 연도 → 노드 사이 보간 y(노드 cy 기준).
   const yForYear = (year: number): number => {
@@ -169,25 +174,29 @@ export function placeEraEvents(
     return last.cy;
   };
 
-  // y 가 노드 band 안이면 band 밖으로(아래/위). 연쇄 band 대비 반복(단조 → 종료).
+  // y 가 노드 band 안이면 band 밖으로(아래/위). 단조 이동이라 종료하지만,
+  // 만약을 대비해 반복 상한(band 수+2)으로 무한루프를 원천 차단(어떤 데이터든 안전).
+  const CAP = bands.length + 2;
   const pushDown = (y0: number): number => {
-    let y = y0, moved = true;
-    while (moved) {
-      moved = false;
+    let y = y0;
+    for (let k = 0; k < CAP; k++) {
+      let moved = false;
       for (const b of bands) if (y > b.top && y < b.bottom) { y = b.bottom; moved = true; }
+      if (!moved) break;
     }
     return y;
   };
   const pushUp = (y0: number): number => {
-    let y = y0, moved = true;
-    while (moved) {
-      moved = false;
+    let y = y0;
+    for (let k = 0; k < CAP; k++) {
+      let moved = false;
       for (const b of bands) if (y > b.top && y < b.bottom) { y = b.top; moved = true; }
+      if (!moved) break;
     }
     return y;
   };
 
-  const items: EraPos[] = events
+  const items: EraPos[] = safeEvents
     .map((e) => ({ id: e.id, year: e.year, title: e.title, x: 0, y: yForYear(e.year) }))
     .sort((a, b) => a.year - b.year);
 
@@ -220,7 +229,12 @@ export function placeEraEvents(
           : ERA_Y_TOP + ((ERA_Y_BOTTOM - ERA_Y_TOP) * i) / (n - 1);
     }
   }
-  for (const it of items) it.x = riverX(it.y);
+  // 최종 안전 클램프 — y 는 항상 유한·[TOP,BOTTOM] 안. x=riverX(유한).
+  for (const it of items) {
+    if (!Number.isFinite(it.y)) it.y = (ERA_Y_TOP + ERA_Y_BOTTOM) / 2;
+    it.y = Math.max(ERA_Y_TOP, Math.min(ERA_Y_BOTTOM, it.y));
+    it.x = riverX(it.y);
+  }
   return items;
 }
 

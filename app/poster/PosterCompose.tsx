@@ -326,9 +326,9 @@ export function PosterCompose({
           top: rn.topY,
           bottom: rn.topY + rn.boxH,
         }));
-        const renderEra: RenderEra[] = placeEraEvents(eraNodes, eraList).map(
-          (e) => ({ key: `era:${e.id}`, id: e.id, x: e.x, y: e.y, text: `${e.year} ${e.title}` }),
-        );
+        const renderEra: RenderEra[] = placeEraEvents(eraNodes, eraList)
+          .filter((e) => Number.isFinite(e.x) && Number.isFinite(e.y))
+          .map((e) => ({ key: `era:${e.id}`, id: e.id, x: e.x, y: e.y, text: `${e.year} ${e.title}` }));
 
         // 3) 메모 배치 + 워드랩.
         const memoTexts = activeMemos.map(effMemoText);
@@ -738,7 +738,7 @@ export function PosterCompose({
 
       {/* 시대 사건 개별 빼기 패널 — 편집 모드에서 사건 선택 시. */}
       {editable && editMode && onRemoveEraEvent && selectedEra && model && (() => {
-        const e = model.era.find((x) => x.id === selectedEra);
+        const e = (model.era ?? []).find((x) => x.id === selectedEra);
         if (!e) return null;
         return (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border-2 border-action bg-banner px-4 py-3">
@@ -868,7 +868,7 @@ export function PosterCompose({
 
           {/* 2.5) 시대 대사건 — 검정, 강 중앙(메모와 시각 구분). 노드 아래 레이어.
                  편집 모드에선 눌러서 개별로 뺄 수 있다(파란 강조 + 패널). */}
-          {model.era.map((e) => {
+          {(model.era ?? []).map((e) => {
             const eraEdit = editMode && !!onRemoveEraEvent;
             const sel = selectedEra === e.id;
             const w = e.text.length * 10 + 16; // 강조 박스 폭 근사(16px serif).
