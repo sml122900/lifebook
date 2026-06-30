@@ -288,38 +288,3 @@ export async function cleanupPosterBackgrounds(
     .remove(toRemove);
   if (rmErr) throw new Error(`맞춤배경 정리 실패: ${rmErr.message}`);
 }
-
-// 1단계 검증용 — Storage 폴더 list. 정식(2단계+)은 lib/photos.ts 의
-// listUserPhotos (DB 기반). 1단계 archive 후에도 같은 폴더 list 가
-// 디버깅에 유용해 함수는 보존(이름만 분리: photos.ts 와 충돌 회피).
-export async function listStoragePhotos(userId: string): Promise<
-  {
-    path: string;
-    signedUrl: string;
-    bytes: number;
-  }[]
-> {
-  const client = getServiceClient();
-  const { data, error } = await client.storage
-    .from(PHOTOS_BUCKET)
-    .list(userId, {
-      limit: 100,
-      sortBy: { column: "created_at", order: "desc" },
-    });
-  if (error) {
-    throw new Error(`list 실패: ${error.message}`);
-  }
-  if (!data || data.length === 0) return [];
-  const results = await Promise.all(
-    data
-      .filter((f) => f.name && !f.name.startsWith("."))
-      .map(async (f) => {
-        const path = `${userId}/${f.name}`;
-        const url = await getSignedUrl(path);
-        const bytes =
-          typeof f.metadata?.size === "number" ? f.metadata.size : 0;
-        return { path, signedUrl: url, bytes };
-      }),
-  );
-  return results;
-}

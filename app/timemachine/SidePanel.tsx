@@ -295,7 +295,7 @@ function SidePanel({
           <MenuItem
             href="/account/settings"
             label="설정"
-            hint="다크모드·계정 관리"
+            hint="동의 내역·AI 모델·탈퇴"
           />
           <MenuItem
             href="/help"

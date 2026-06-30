@@ -58,20 +58,9 @@ export function tokensFromUsage(
   return Math.max(1, Math.ceil(total / AI_TOKENS_PER_SERVICE_TOKEN));
 }
 
-// V4 — 비서 "답의 깊이" 가 고를 수 있는 모델 단가.
+// V4 — 비서 "답의 깊이"·다듬기·라이브 응답이 쓰는 모델 등급.
 // 사용자에겐 절대 모델 이름 노출 X (라벨은 "간단히/자세히/가장 정확하게").
-// 여기 단가는 Anthropic 공시가(per million tokens, USD). 단가가 바뀌면
-// 이 표만 수정하면 됨.
 export type ModelTier = "haiku" | "sonnet" | "opus";
-
-export const MODEL_PRICING: Record<
-  ModelTier,
-  { input: number; output: number }
-> = {
-  haiku: { input: 1, output: 5 },
-  sonnet: { input: 3, output: 15 },
-  opus: { input: 5, output: 25 },
-};
 
 // 라이브 응답 모델 배수(경영방 확정 통일값) — Haiku×1 / Sonnet×3 / Opus×8.
 // 다듬기·비서·companion 모두 이 단일 배수를 쓴다(REFINE_MODEL_MULTIPLIER 와
@@ -83,20 +72,10 @@ export const MODEL_MULTIPLIER: Record<ModelTier, number> = {
   opus: 8,
 };
 
-// 모델별 토큰 비용. Haiku 는 기존 tokensFromUsage 결과 그대로 (현행 호환).
-// Sonnet/Opus 는 multiplier 배수.
-export function tokensFromUsageForModel(
-  model: ModelTier,
-  inputTokens: number,
-  outputTokens: number,
-): number {
-  return tokensFromUsage(inputTokens, outputTokens) * MODEL_MULTIPLIER[model];
-}
-
 // 다듬기 배수 — 이제 MODEL_MULTIPLIER 와 통일(1/3/8). 별칭으로 유지(호출부 호환).
 export const REFINE_MODEL_MULTIPLIER: Record<ModelTier, number> = MODEL_MULTIPLIER;
 
-// 다듬기 차감용 — tokensFromUsageForModel 과 같은 구조지만 REFINE 배수 사용.
+// 다듬기 차감용 — tokensFromUsage 에 REFINE 배수를 곱한다.
 export function tokensFromUsageForRefine(
   model: ModelTier,
   inputTokens: number,

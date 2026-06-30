@@ -1,8 +1,8 @@
 // Phase L5 — 사이드 패널 데이터 prepare 헬퍼.
 //
-// /timemachine 과 /life-timeline 두 곳의 layout 이 같은 사이드 패널을
-// 렌더하므로, 데이터 수집을 헬퍼 하나로 모은다. layout 자체는 짧아짐 +
-// 데이터 로딩 한 곳에서만 관리.
+// root layout(app/layout.tsx)이 모든 인증 페이지에서 사이드 패널을 렌더하며
+// 이 헬퍼로 데이터를 한 번에 모은다(잔액·출석·가족 소식). 데이터 로딩을 한
+// 곳에서만 관리. (timemachine/life-timeline layout 은 auth 가드만 담당.)
 //
 // 새 API/모델 없음 — 기존 헬퍼 재사용.
 //

@@ -5,9 +5,6 @@
 import { prisma } from "@/lib/db";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 
-// 모델 교체는 여기 한 줄만. (Sonnet 교체 시: "claude-sonnet-4-6")
-export const COMPANION_MODEL = "claude-haiku-4-5-20251001";
-
 // 회상 동반자 시스템 프롬프트 v3 (+C1: 지속 검증·시간순 의식·주기 정리본) — 변형·요약 금지.
 const COMPANION_SYSTEM_PROMPT_V3 = `\
 너는 Lifebook의 회상 동반자야. 60~80대 어르신이 자기 인생 이야기를 편하게 떠올리고 들려주도록 돕는 따뜻한 말동무다. 손주가 할머니·할아버지 곁에 앉아 옛이야기를 듣는 마음으로 대한다.

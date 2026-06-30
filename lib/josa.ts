@@ -30,7 +30,3 @@ export function withJosa(word: string, pair: JosaPair): string {
 export function objectJosa(word: string): "을" | "를" {
   return hasBatchim(word) ? "을" : "를";
 }
-
-export function subjectJosa(word: string): "이" | "가" {
-  return hasBatchim(word) ? "이" : "가";
-}

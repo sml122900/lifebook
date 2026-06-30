@@ -10,7 +10,6 @@
 export const SHIPPING_KRW = 3000;
 
 // 표시가는 모두 부가세(VAT) 포함 소비자가. 배송비 별도(주문 표시에서 분리).
-export const PRICES_INCLUDE_VAT = true;
 
 export type ProductId = "poster" | "charm" | "book";
 

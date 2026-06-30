@@ -15,14 +15,6 @@ export const ORDER_STATUS_LABEL: Record<ProductOrderStatus, string> = {
   refunded: "환불 완료",
 };
 
-// 관리자 상태 흐름(접수→발주→제작→배송중→완료). 표시 순서.
-export const ADMIN_STATUS_FLOW: ProductOrderStatus[] = [
-  "paid",
-  "preparing",
-  "shipped",
-  "delivered",
-];
-
 // 발주(제작) 착수 전이면 환불 가능 — 시간이 아니라 *상태* 기준.
 // paid(접수)이고 아직 환불요청/처리 전일 때만.
 export function isRefundable(status: ProductOrderStatus): boolean {
