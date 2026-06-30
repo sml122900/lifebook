@@ -7,6 +7,7 @@
 import { randomBytes } from "node:crypto";
 
 import { prisma } from "./db";
+import { CREATED_VIA_PHOTO } from "./photos";
 
 export type Membership = Awaited<
   ReturnType<typeof prisma.roomMember.findUnique>
@@ -152,7 +153,7 @@ export async function listRoomMemories(roomId: string, viewerUserId: string) {
       // 없는 텍스트 카드로 새지 않게 제외. 사진의 룸 공유는 6단계에서 이미지와
       // 함께 설계한다. life_event 에 첨부된 사진은 life_event 행으로 정상
       // 노출(본문만, 이미지는 6단계), era_event 는 E2/E3 정책상 노출 유지.
-      createdVia: { not: "photo" },
+      createdVia: { not: CREATED_VIA_PHOTO },
     },
     select: {
       id: true,

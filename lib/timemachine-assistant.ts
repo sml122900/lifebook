@@ -50,9 +50,9 @@ export type AssistantSource = "db" | "web" | "context";
 // 백엔드는 이 enum 으로 받음. 모델 ID 매핑은 DEPTH_TO_MODEL 한 곳.
 export type AssistantDepth = "simple" | "detailed" | "precise";
 
-export const DEFAULT_DEPTH: AssistantDepth = "simple";
+const DEFAULT_DEPTH: AssistantDepth = "simple";
 
-export const DEPTH_TO_TIER: Record<AssistantDepth, ModelTier> = {
+const DEPTH_TO_TIER: Record<AssistantDepth, ModelTier> = {
   simple: "haiku",
   detailed: "sonnet",
   precise: "opus",

@@ -9,6 +9,11 @@ import { getFamilyNews } from "@/lib/family-news";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import { listPeople, listPeopleByEventBatch, type SubjectType } from "@/lib/people";
 import { getRecordingSignedUrl, getSignedUrl } from "@/lib/storage";
+import {
+  APPROX_DEFAULT_MONTH,
+  LATEST_MONTH,
+  LATEST_YEAR,
+} from "@/lib/timeline-constants";
 import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
 
 import { CoachMarks } from "@/app/components/CoachMarks";
@@ -23,17 +28,8 @@ import { markTourCompletedAction } from "./tour-actions";
 import { V3WelcomeBanner } from "./V3WelcomeBanner";
 import { WelcomeCard } from "./WelcomeCard";
 
-// 비서 fallback — life_event 0 개일 때. 시드 마지막 달 = LATEST. 시드에
-// 시대 사건/노래가 풍성해 비서가 빈 답이 안 나옴.
-// (LATEST_YEAR/MONTH 하드코드는 layout / side-panel-data 와 동일 정책 —
-//  CLAUDE.md L8 후속 항목에서 함께 new Date() 기반으로 통합 예정.)
-const LATEST_YEAR = 2026;
-const LATEST_MONTH = 5;
-// life_event 의 eventMonth 가 null(사이 이벤트)일 때 비서 fallback 의 월.
-// "그해 중반" 의미. (2026-06-06 까지는 TimelineView 의 timemachineHref 와도
-// 같은 값을 썼으나, 점 클릭 동선이 /life-timeline/[eventId]/edit 로 바뀌며
-// 이제는 비서 컨텍스트 fallback 한 용도로만 남았다.)
-const APPROX_DEFAULT_MONTH = 6;
+// 비서 fallback 기준 시기(LATEST_YEAR/MONTH·APPROX_DEFAULT_MONTH)는
+// lib/timeline-constants.ts 로 통합 — AssistantWidget·월 화면과 단일 출처 공유.
 
 // Phase L3+L5 — 인생 연혁 화면 (v3 의 얼굴, 새 메인).
 //

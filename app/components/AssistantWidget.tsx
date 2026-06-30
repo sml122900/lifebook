@@ -1,5 +1,10 @@
 import { auth } from "@/auth";
 import { getLifeEvents } from "@/lib/life-events";
+import {
+  APPROX_DEFAULT_MONTH,
+  LATEST_MONTH,
+  LATEST_YEAR,
+} from "@/lib/timeline-constants";
 import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
 
 import { AssistantModal } from "../life-timeline/AssistantModal";
@@ -18,14 +23,8 @@ import type { InitialSavedAnswer } from "../timemachine/[year]/[month]/Assistant
 //
 // 비인증·동의 미완료 사용자에겐 위젯 자체를 렌더 X (null 반환).
 //
-// L8 후속: LATEST_YEAR/MONTH 하드코드 — 다른 사이드 패널 코드와 함께
-// `new Date()` 기반으로 통합 예정.
-
-const LATEST_YEAR = 2026;
-const LATEST_MONTH = 5;
-// life_event 의 eventMonth 가 null(사이 이벤트)일 때 비서의 fallback 월.
-// "그해 중반" 의미로 TimelineView 의 APPROX_DEFAULT_MONTH 와 같은 6.
-const APPROX_DEFAULT_MONTH = 6;
+// 기준 시기 상수(LATEST_YEAR/MONTH·APPROX_DEFAULT_MONTH)는
+// lib/timeline-constants.ts 로 통합 — page.tsx 와 단일 출처 공유.
 
 export async function AssistantWidget() {
   const session = await auth();

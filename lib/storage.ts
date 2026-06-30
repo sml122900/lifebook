@@ -17,7 +17,7 @@ import { randomUUID } from "node:crypto";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-export const PHOTOS_BUCKET = "photos";
+const PHOTOS_BUCKET = "photos";
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10MB
 export const ALLOWED_MIME_TYPES = [
   "image/jpeg",
@@ -29,7 +29,7 @@ export type AllowedMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 // ── 녹음 버킷 ────────────────────────────────────────────────────────
 export const RECORDINGS_BUCKET = "recordings";
 export const MAX_RECORDING_BYTES = 25 * 1024 * 1024; // 25MB (~10분 webm 여유)
-export const ALLOWED_AUDIO_BASE_TYPES = [
+const ALLOWED_AUDIO_BASE_TYPES = [
   "audio/webm",
   "audio/mp4",
   "audio/ogg",
@@ -88,7 +88,7 @@ export async function getRecordingSignedUrl(storagePath: string): Promise<string
 }
 
 // signed URL 만료 (초). 1시간.
-export const SIGNED_URL_TTL_SECONDS = 3600;
+const SIGNED_URL_TTL_SECONDS = 3600;
 
 // service_role 클라이언트 — 모듈 스코프 lazy 싱글턴. 매 요청 마다 새로
 // 만들면 connection 누적 위험.
@@ -232,7 +232,7 @@ export async function removePhoto(storagePath: string): Promise<void> {
 // ── P5-5c 맞춤배경 Storage ────────────────────────────────────────────
 // 별도 버킷 생성 없이 photos 버킷의 poster-bg/ 프리픽스를 쓴다(private).
 // P4 는 same-origin /api/poster/background 라우트로 download 해 canvas-clean.
-export const POSTER_BG_PREFIX = "poster-bg";
+const POSTER_BG_PREFIX = "poster-bg";
 
 export async function uploadPosterBackground(
   userId: string,

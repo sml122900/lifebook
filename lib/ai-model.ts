@@ -11,7 +11,7 @@ export type AiModel = ModelTier; // "haiku" | "sonnet" | "opus"
 export const DEFAULT_AI_MODEL: AiModel = "haiku";
 
 // 라이브 응답에 쓰는 실제 모델 ID.
-export const AI_MODEL_IDS: Record<AiModel, string> = {
+const AI_MODEL_IDS: Record<AiModel, string> = {
   haiku: "claude-haiku-4-5-20251001",
   sonnet: "claude-sonnet-4-6",
   opus: "claude-opus-4-8",
@@ -26,7 +26,7 @@ export function isAiModel(v: unknown): v is AiModel {
 }
 
 // 배수(차감 표시·계산) — 정책의 통일 배수 {1,3,8}.
-export const AI_MODEL_MULTIPLIER = MODEL_MULTIPLIER;
+const AI_MODEL_MULTIPLIER = MODEL_MULTIPLIER;
 
 // UI 라벨(모델명 노출 X — 품질·속도 어휘). 시니어 친화.
 export const AI_MODEL_LABEL: Record<AiModel, { name: string; desc: string }> = {

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { listAssistantAnswers } from "@/lib/timemachine-assistant-saved";
 import { loadTimemachineMonth } from "@/lib/timemachine-memories";
 import { getFilledMonthKeys, monthKey } from "@/lib/timemachine-progress";
+import { LATEST_MONTH, LATEST_YEAR } from "@/lib/timeline-constants";
 
 import type { InitialSavedAnswer } from "./AssistantPanel";
 import { MonthV2, type MonthV2Initial } from "./MonthV2";
@@ -59,10 +60,8 @@ function FilledBadge() {
   );
 }
 
-// 검증 단계 시드 범위 (2025.6 ~ 2026.5). 시드가 확장되면 두 값 모두
-// 함께 갱신.
-const LATEST_YEAR = 2026;
-const LATEST_MONTH = 5;
+// 검증 단계 시드 범위 (2025.6 ~ 2026.5). LATEST_YEAR/MONTH 는
+// lib/timeline-constants.ts 공용 상수로 통합(시드 마지막 달).
 const EARLIEST_YEAR = 2025;
 const EARLIEST_MONTH = 6;
 

@@ -7,7 +7,7 @@
 
 import { chat } from "./ai";
 
-export const SPLIT_MODEL =
+const SPLIT_MODEL =
   process.env.FREE_RECORDING_SPLIT_MODEL ?? "claude-sonnet-4-6";
 
 // S4 — 긴 전사 청크 처리.

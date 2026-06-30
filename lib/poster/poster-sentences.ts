@@ -14,7 +14,7 @@
 
 import { chat } from "../ai";
 
-export const POSTER_SENTENCE_MODEL =
+const POSTER_SENTENCE_MODEL =
   process.env.POSTER_SENTENCE_MODEL ?? "claude-sonnet-4-6";
 
 export type PosterEventInput = {

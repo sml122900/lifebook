@@ -13,20 +13,12 @@ import { RefineSection } from "./[eventId]/edit/RefineSection";
 import { DeleteButton } from "./manage/DeleteButton";
 import { calcAge, formatAge } from "@/lib/age";
 import { type PlaceInfo } from "@/lib/place-types";
+import { PERIOD_CATEGORIES } from "@/lib/life-categories";
 import type { EventPrecision, LifeCategory } from "@/lib/generated/prisma/enums";
 
 // L2(+) — EventForm 의 카테고리 = LifeCategory enum 전체에서 자유 선택이라
-// 폼 안에서 isPeriod 를 즉시 판단해야 함(서버 도움 없이). 백엔드 헬퍼와
-// 동일 집합 유지(lib/life-events.ts 의 PERIOD_CATEGORIES).
-const PERIOD_CATEGORIES: ReadonlySet<LifeCategory> = new Set([
-  "KINDERGARTEN",
-  "ELEMENTARY",
-  "MIDDLE",
-  "HIGH",
-  "UNIVERSITY",
-  "MILITARY",
-  "WORK",
-]);
+// 폼 안에서 isPeriod 를 즉시 판단해야 함(서버 도움 없이). 기간 집합은
+// 백엔드 헬퍼(lib/life-events.ts)와 같은 lib/life-categories.ts 를 공유.
 
 import {
   addLifeEventAction,

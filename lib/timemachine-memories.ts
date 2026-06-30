@@ -30,8 +30,10 @@ export type TimemachineMonthData = {
   monthStory: string;
 };
 
-const CREATED_VIA_EVENT = "timemachine_event";
-const CREATED_VIA_MONTH = "timemachine_month";
+// 타임머신 진척(timemachine-progress)도 같은 디스크리미네이터로 집계하므로
+// 여기서 단일 정의하고 export — 두 곳 중복을 단일 출처로 통합.
+export const CREATED_VIA_EVENT = "timemachine_event";
+export const CREATED_VIA_MONTH = "timemachine_month";
 
 export async function loadTimemachineMonth(
   userId: string,

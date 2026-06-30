@@ -9,7 +9,7 @@
 const TTS_ENDPOINT = "https://naveropenapi.apigw.ntruss.com/tts-premium/v1/tts";
 
 // 음성 설정. 외할머니 청취 테스트 후 speaker/speed 교체.
-export const TTS_CONFIG = {
+const TTS_CONFIG = {
   speaker: "nsujin",  // 40대 여성, 중저음·또렷
   speed: -2,          // -5(최저)~5(최고). -2 = 살짝 느리게
   format: "mp3",

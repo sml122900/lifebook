@@ -18,7 +18,7 @@
 
 import { chat } from "../ai";
 
-export const POSTER_CANDIDATE_MODEL =
+const POSTER_CANDIDATE_MODEL =
   process.env.POSTER_CANDIDATE_MODEL ?? "claude-sonnet-4-6";
 
 export type PosterCandidateInput = {

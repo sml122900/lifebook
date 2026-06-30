@@ -7,9 +7,7 @@
 // Phase 7 의 "ai_chat" / "manual" 행은 제외 (타임머신 진척과 무관).
 
 import { prisma } from "./db";
-
-const CREATED_VIA_EVENT = "timemachine_event";
-const CREATED_VIA_MONTH = "timemachine_month";
+import { CREATED_VIA_EVENT, CREATED_VIA_MONTH } from "./timemachine-memories";
 
 // 검증 단계 시드 범위 (2025.6 ~ 2026.5) — 12개월.
 // LATEST/EARLIEST 하드코드는 page.tsx / layout.tsx / [month]/page.tsx 와

@@ -11,7 +11,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
-export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
 // Opus 4.x (reasoning 모델) 은 temperature 파라미터를 거부한다
 // ("temperature is deprecated for this model"). 4.7·4.8 모두 해당 — opus-4

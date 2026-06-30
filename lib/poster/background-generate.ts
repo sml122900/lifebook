@@ -31,7 +31,7 @@ export type BgGenCode =
   | "network"
   | "empty";
 
-export class BackgroundGenError extends Error {
+class BackgroundGenError extends Error {
   constructor(
     public code: BgGenCode,
     message: string,
@@ -123,7 +123,7 @@ export async function postProcessTo1037x1517(input: Buffer): Promise<Buffer> {
 
 // 검수 자동 재생성 내부 상한(무한루프·비용 방지). 3회 다 실패 → 마지막 거 반환.
 // ★ 이 재생성은 시스템 흡수(사용자 토큰 차감 X) — P5-4 사용자 "다시생성"과 별개.
-export const MAX_INTERNAL_ATTEMPTS = 3;
+const MAX_INTERNAL_ATTEMPTS = 3;
 
 export type BackgroundResult = {
   buffer: Buffer; // 1037×1517 PNG

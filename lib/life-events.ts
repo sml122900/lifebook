@@ -15,6 +15,7 @@
 import { cache } from "react";
 
 import type { EventPrecision, LifeCategory } from "./generated/prisma/enums";
+import { PERIOD_CATEGORIES } from "./life-categories";
 import { EMPTY_PLACE, type PlaceInfo } from "./place-types";
 import { validatePlace } from "./place-validate";
 import { prisma } from "./db";
@@ -38,7 +39,7 @@ export const CREATED_VIA_PHOTO = "photo";
 
 // Phase Photo (4단계+) — 기간 이벤트(시작/끝 두 점)에서 사진이 어느 점에
 // 뜰지. "both"=양쪽(기본·단일 시점·기존 사진) / "start"=시작 / "end"=끝.
-export const PHOTO_PERIOD_ANCHORS = ["both", "start", "end"] as const;
+const PHOTO_PERIOD_ANCHORS = ["both", "start", "end"] as const;
 export type PhotoPeriodAnchor = (typeof PHOTO_PERIOD_ANCHORS)[number];
 export function isPhotoPeriodAnchor(v: unknown): v is PhotoPeriodAnchor {
   return (
@@ -103,19 +104,8 @@ export type LifeEvent = {
   audioPath: string | null;
 };
 
-// 기간이 의미 있는 카테고리. UI(폼) 와 헬퍼(저장 검증) 가 공유.
-// 학령기·군대·첫 직장은 "입학~졸업", "입대~제대", "입사~퇴사" 의 양 끝점이
-// 의미 있음. BIRTH·RELATIONSHIP(결혼)·FAMILY(자녀)는 단일 시점.
-const PERIOD_CATEGORIES: ReadonlySet<LifeCategory> = new Set([
-  "KINDERGARTEN",
-  "ELEMENTARY",
-  "MIDDLE",
-  "HIGH",
-  "UNIVERSITY",
-  "MILITARY",
-  "WORK",
-]);
-
+// 기간이 의미 있는 카테고리(PERIOD_CATEGORIES)는 lib/life-categories.ts 로
+// 통합 — UI(폼)·헬퍼(저장 검증)가 단일 출처를 공유.
 export function isPeriodCategory(category: LifeCategory): boolean {
   return PERIOD_CATEGORIES.has(category);
 }
