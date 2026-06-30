@@ -1,7 +1,7 @@
 # 라이프북 — 버튼·링크 이동 지도 (Navigation Map)
 
 > 서비스의 모든 버튼/링크가 **어디로 이동하는지** 한눈에 보는 문서.
-> 작성: 2026-06-26 · 코드 기준 자동 정리(읽기 전용 탐색).
+> 작성: 2026-06-26 · 최신화: 2026-07-01(리팩토링 1~4B 반영 — 사이드 5그룹·레거시 archive 스텁·토큰/AI 동선 정리) · 코드 기준 정리.
 > 표기: `→ /경로` 내부 이동, `↗ https://…` 외부 새 탭, `⚙ 액션` 서버액션(페이지 전환 없음/새로고침).
 
 ---
@@ -35,30 +35,43 @@
 | 로그인 | → `/login` | 비로그인일 때만 |
 
 ### 사이드 패널 — `app/timemachine/SidePanel.tsx` (로그인 시에만 표시)
-| 메뉴 | 이동 | 조건 |
-|---|---|---|
-| 토큰 화면 열기 | → `/account/tokens` | |
-| 새 가족 소식 | → `/life-timeline` | 새 소식 있을 때만 |
-| 내 인생 연혁 | → `/life-timeline` | |
-| 이야기 나누기 | → `/life-timeline/companion` | |
-| 그 시절 둘러보기 | → `/era` | |
-| 인물록 | → `/people` | |
-| 내 사진 | → `/photos` | |
-| 가족 룸 | → `/rooms` | |
-| 상품 구매 | → `/shop` | |
-| 회원정보 | → `/account/profile` | |
-| 설정 | → `/account/settings` | |
-| 고객센터 | → `/help` | |
-| 둘러보기 다시 보기 | ⚙ 코치마크 재시작 (다른 페이지면 → `/life-timeline?tour=main`) | |
-| 오늘 토큰 받기 | ⚙ 출석 체크 | 오늘 안 받았을 때 |
-| 로그아웃 | ⚙ 로그아웃 → `/` | |
 
-### 플로팅 AI 비서 위젯 — `AssistantWidget` / `AssistantModal` (로그인 시, 우측 하단)
-| 버튼 | 이동 |
+**상단 고정 영역** (프로필·잔액·빠른 접근)
+| 항목 | 이동 | 조건 |
+|---|---|---|
+| 토큰 화면 열기 (잔액 카드 옆) | → `/account/tokens` | |
+| 새 가족 소식 | → `/life-timeline` | 새 소식 있을 때만 |
+| 오늘 토큰 받기 (출석 미니) | ⚙ 출석 체크 | 오늘 안 받았을 때 |
+
+**메뉴 — 성격별 5그룹** (4-A, 2026-07-01). 항목은 `MenuGroup` 헤더로 묶임.
+| 그룹 | 메뉴 | 이동 |
+|---|---|---|
+| 📖 내 이야기 | 내 인생 연혁 | → `/life-timeline` |
+| | 이야기 나누기 | → `/life-timeline/companion` |
+| | 인물록 | → `/people` |
+| | 내 사진 | → `/photos` |
+| | 그 시절 둘러보기 | → `/era` |
+| 👨‍👩‍👧 함께 보기 | 가족 룸 | → `/rooms` |
+| 🎁 만들기·상점 | 포스터 만들기 | → `/poster` |
+| | 상품 구매 | → `/shop` |
+| ⚙️ 내 계정 | 회원정보 | → `/account/profile` |
+| | 설정 | → `/account/settings` |
+| 🆘 도움 | 고객센터 | → `/help` |
+| | 둘러보기 다시 보기 | ⚙ 코치마크 재시작 (다른 페이지면 → `/life-timeline?tour=main`) |
+
+**하단**: 로그아웃 ⚙ → `/`
+
+> 토큰 진입로는 상단 "토큰 화면 열기" 버튼 + 설정 페이지 토큰 카드 2곳으로 통일(4-B-3, 메뉴 중복 항목 제거). 포스터 진입로는 만들기·상점 그룹에 추가(4-B-2).
+
+### 플로팅 AI 비서 위젯 — `AssistantWidget` / `AssistantModal` (로그인 시, 우측 하단, 모든 화면)
+둥근 버튼 → 모달. 모달 첫 화면 = 허브 3버튼(`AssistantPanel` `selecting` 모드). 사이드 "이야기 나누기"와 같은 companion 으로 가나, 위젯은 *어디서든 빠른 접근* 목적이라 둘 다 유지.
+| 버튼/항목 | 이동·동작 |
 |---|---|
 | AI 비서와 대화 (둥근 버튼) | 모달 열기 |
+| └ 💬 이야기 나누기 | → `/life-timeline/companion` (모달 닫고 이동) |
+| └ 🕰️ 그 시절 떠올리기 | 그 시절 갈래: 목록에서 고르기(무료) / AI에게 물어보기(토큰). 사이드 "그 시절 둘러보기"(/era)와 라벨 구분(4-B-4) |
+| └ ❓ 사용법 물어보기 | 사용법 안내 챗 (무료, Haiku) |
 | └ 내 타임라인에 추가 | → `/life-timeline/add` |
-| └ 고객센터 안내 링크 | → `/help` |
 | └ 충전하러 가기 | → `/billing` (토큰 부족 시) |
 | └ 검색 결과 출처 | ↗ 외부 기사 URL (`target=_blank`) |
 
@@ -101,7 +114,7 @@
 | 화면 | 버튼 | 이동 |
 |---|---|---|
 | `/onboarding-chat` | 진행/넘어가기·인물 정리 완료·나중에 | 최종 → `/life-timeline` |
-| `/onboarding` (레거시) | 다음/완료 | → `/timeline`(레거시) |
+| `/onboarding` (레거시, archive 스텁) | — | → `/onboarding-chat` 로 redirect (본문 `_OnboardingPageArchived` 보존) |
 
 ### 법적·고객센터·초대
 | 화면 | 버튼 | 이동 |
@@ -315,5 +328,7 @@
 |---|---|
 | `/timemachine` | → `/life-timeline` |
 | `/timemachine/[year]/[month]` | → `/life-timeline` (월 화면 비활성, 코드 보존) |
+| `/timeline` | → `/life-timeline` (레거시 Phase 5 타임라인 비활성, archive 스텁 — `_TimelinePageArchived` + RAG 체인 보존) |
+| `/onboarding` | → `/onboarding-chat` (레거시 위저드 온보딩 비활성, archive 스텁 — 코드 보존) |
 | 로그인 필요한 모든 화면 | 비로그인 시 → `/login` |
 | 동의 필요 화면 | 미동의 시 → `/consent` |
