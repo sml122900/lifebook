@@ -441,3 +441,15 @@
 - **Problem**: 코치마크 spotlight가 타겟보다 위 빈 공간(46.5px)·패널 슬라이드 전 off-screen(`left:1049`)·단계 전환 시 사라짐 등으로 어긋났다. 공통 원인은 트랜지션·스크롤·비동기 렌더가 끝나기 *전에* `getBoundingClientRect`를 단발로 잡은 것.
 - **Action**: 측정을 폴링으로 전환 — 타겟을 `scrollIntoView({behavior:"instant"})`(조상 `scroll-behavior:smooth` 영향 차단)한 뒤 위치가 **4프레임 연속 안정될 때까지** 매 프레임 재측정(패널 단계는 슬라이드를 끝까지 잡으려 최소 520ms 강제). 단계 전환 시 타겟이 화면 밖이면 매 프레임 재스크롤로 ring 재부착. `ResizeObserver(document.body)`로 늦은 layout shift까지 추적, spotlight 위치 transition은 제거해 측정값에 정확히 스냅. 말풍선은 타겟 위/아래 실제 여유 공간을 계산해 둘 다 부족하면 화면 위/아래 고정(`top:-220` 잘림 해소).
 - **Result**: 메인·포스터 전 화면에서 spotlight가 타겟에 정확히 부착. 3차 검증 라운드를 거쳐 측정 로직을 일반화. *교훈*: 트랜지션이 있는 화면에서 DOM 측정은 이벤트(스크롤·리사이즈)에만 기대면 transform 변화를 놓친다 — rAF 폴링 + 안정 감지 + ResizeObserver의 조합이 "정확히 붙는" 오버레이의 전제다.
+
+## 레거시 라우트 정리 — "삭제"가 아니라 "의존 조사 후 archive 스텁"으로 회귀 사전 차단
+
+- **Problem**: MVP 완성 후 첫 정리 리팩토링에서, 메인 동선에서 UI 진입로가 0인 레거시 라우트(`/timeline` Phase 5 출생연도 타임라인, `/onboarding` 위저드 온보딩, `/memory` 가이드 추억)와 그에 딸린 음악 RAG 체인(`triggers`·`embeddings`·`musicbrainz`·`TriggerCard`)을 발견. "안 쓰는 코드니 지우자"가 자연스러운 충동이었으나, 이들이 서로·그리고 *살아있는 기능*과 물려 있어 단순 삭제 시 회귀 위험이 있었다.
+- **Action**: 삭제 전 **의존 그래프부터 grep 전수 추적**. 세 가지를 사전에 잡음 — ① `/onboarding`은 가입에 안 쓰이지만(`/enter`→`/onboarding-chat`) `lib/onboarding/questions.ts`는 현행 채팅 온보딩·회원정보와 *공유* → 보존, ② `/memory`는 죽은 게 아니라 **가족 룸이 `EventCard`를 렌더→`/memory/[id]`로 링크하는 LIVE 경로** → 보존, ③ 다른 코드의 `redirect("/timeline")`·`revalidatePath`·`OnboardingForm push` 3곳이 라우트 삭제 시 깨짐. 결론: 삭제 대신 **archive redirect 스텁**(기존 타임머신 `[month]`·포스터 보존 패턴) — default export를 `redirect("/life-timeline")`/`redirect("/onboarding-chat")`로 교체하고 원본 본문을 `_XxxArchived` + `__preserve_archived_exports`로 보존. RAG 체인은 archived 함수가 참조해 "dead 아님" 상태로 유지.
+- **Result**: 옛 북마크·외부 링크·내부 redirect 모두 스텁으로 안전 흡수, 되살리기는 default export 한 줄 교체. 가입·인증·가족 룸→/memory 흐름 무손상, `tsc`+`build` 통과. *교훈*: 레거시 정리의 위험은 "지운 코드"가 아니라 "지운 코드를 *가리키던* 살아있는 참조"에 있다 — 삭제 전 인바운드 참조 전수 조사 + reversible한 archive 스텁이 회귀 0의 전제다.
+
+## 클라/서버 공유 상수의 중복을 순수 모듈로 단일출처화 — Server Action 제약 회피
+
+- **Problem**: 같은 상수가 여러 곳에 복붙돼 있었다 — `PERIOD_CATEGORIES`(서버 헬퍼 `life-events.ts` + 클라 폼 `EventForm.tsx`), `LATEST_YEAR/MONTH`·`APPROX_DEFAULT_MONTH`(3개 파일 중복 정의). 단순히 한 파일에서 export해 공유하려 했으나, 클라 컴포넌트가 서버 모듈(prisma 의존)을 import하면 node 전용 패키지가 클라 번들에 끌려와 빌드가 깨지고, 상수를 `"use server"` 파일에 두면 "async 함수만 export 가능" 제약에 걸린다.
+- **Action**: prisma·`"use server"` 의존이 없는 **순수 모듈**을 신설 — `lib/life-categories.ts`(`PERIOD_CATEGORIES`, 타입만 `import type`으로 가져와 런타임 의존 0)·`lib/timeline-constants.ts`(시기 fallback 상수). 클라·서버 양쪽이 같은 순수 모듈을 import. `CREATED_VIA_EVENT/MONTH`는 도메인 모듈(`timemachine-memories`)에서 export→형제 모듈이 import(순환 없음 확인), `rooms.ts`의 `"photo"` 리터럴은 기존 `CREATED_VIA_PHOTO` 상수로 교체. 함께 미사용 파일 1개 + 완전 미사용 export 7건 삭제, 내부 전용 export 11건은 `export` 키워드만 제거해 캡슐화.
+- **Result**: 5건의 중복 상수가 각각 단일 정의로 수렴, 값 변화 0이라 동작 영향 0, `tsc`+`build` 통과. *교훈*: 클라/서버가 공유하는 상수·타입은 prisma·`"use server"` 경계 *바깥*의 순수 모듈에 두는 게 정석(`place-types.ts` 패턴) — "한 곳에서 export"만으로는 번들 오염과 RPC 제약 두 함정에 걸린다.
