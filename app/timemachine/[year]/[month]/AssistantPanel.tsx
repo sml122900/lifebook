@@ -858,7 +858,7 @@ function HubView({
         />
         <HubCard
           emoji="🕰️"
-          title="그 시절 이야기"
+          title="그 시절 떠올리기"
           desc="그 시절 노래·큰 사건을 함께 떠올려요."
           tag="일부 토큰 사용"
           tagClass="border-line bg-canvas text-ink"
@@ -934,7 +934,7 @@ function EraSelectionView({
         >
           ← 뒤로
         </button>
-        <h2 className="text-xl font-bold text-ink sm:text-2xl">🕰️ 그 시절 이야기</h2>
+        <h2 className="text-xl font-bold text-ink sm:text-2xl">🕰️ 그 시절 떠올리기</h2>
       </div>
 
       <div className="flex flex-col gap-3">
