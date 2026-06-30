@@ -19,7 +19,6 @@ import { checkInAction } from "./attendance-actions";
 // 시니어 친화:
 //   - 끊긴 streak 도 비난·압박 표현 X. "오늘도 와주셨네요!" 톤 유지.
 //   - 동그라미 충분히 크게 (최소 48px).
-//   - 다크모드 자동 (globals.css 의 amber/zinc swap).
 
 export type AttendanceInitial = {
   todayChecked: boolean;

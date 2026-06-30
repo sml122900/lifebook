@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Compass, LifeBuoy, Mic, ShoppingBag } from "lucide-react";
+import { Compass, Frame, LifeBuoy, Mic, ShoppingBag } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
 import {
@@ -286,6 +286,12 @@ function SidePanel({
           </MenuGroup>
 
           <MenuGroup title="🎁 만들기·상점">
+            <MenuItem
+              href="/poster"
+              label="포스터 만들기"
+              hint="내 연혁으로 인생 나무 포스터"
+              icon={<Frame size={16} aria-hidden />}
+            />
             <MenuItem
               href="/shop"
               label="상품 구매"
