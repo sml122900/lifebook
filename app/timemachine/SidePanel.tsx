@@ -298,11 +298,9 @@ function SidePanel({
               hint="포스터·자서전 책·인생 씨앗"
               icon={<ShoppingBag size={16} aria-hidden />}
             />
-            <MenuItem
-              href="/account/tokens"
-              label="토큰 충전"
-              hint="토큰 잔액·충전·출석"
-            />
+            {/* 토큰 충전 진입로는 잔액 카드 옆 "토큰 화면 열기" 버튼으로
+                통일(4-B-3) — 같은 /account/tokens 라 그룹 항목 중복 제거.
+                잔액을 보고 바로 누르는 빠른 접근이 더 자연스럽다. */}
           </MenuGroup>
 
           <MenuGroup title="⚙️ 내 계정">
