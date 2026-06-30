@@ -24,10 +24,27 @@ function indexByYear<T extends { year: number }>(rows: T[]): Map<number, T[]> {
   return map;
 }
 
-// 출생연도 기준 타임라인 (Phase 5). 왼쪽=세상 사건(앵커+음악 트리거),
-// 오른쪽=내 추억. 최근 해부터 거슬러 내려간다. (핵심 UX 는 타임머신으로
-// 대체 예정이지만 코드 보존.)
-export default async function TimelinePage() {
+// Lifebook v3 — /timeline 비활성화 (레거시 Phase 5 출생연도 타임라인).
+//
+// 메인 동선에서 UI 진입로 0인 폐루프(/timeline ↔ /onboarding)였다. 신규
+// 가입은 /enter → /onboarding-chat, 회고 동선은 /life-timeline 으로 통일.
+// 이 라우트는 메인으로 redirect — 직접 URL·옛 북마크·다른 코드의
+// redirect("/timeline")·revalidatePath("/timeline") 를 안전하게 흡수한다.
+//
+// 코드 보존: 아래 _TimelinePageArchived 함수와 의존(EventCard·ListenButton·
+// TriggerCard·getMusicTriggersForUser=RAG 체인) 그대로 유지. 부활 시
+// default export 만 archived 함수로 교체. (EventCard·ListenButton 은 가족
+// 룸에서도 쓰여 어차피 살아있음.)
+export default function TimelinePage() {
+  redirect("/life-timeline");
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 이하 보존 — v2 이전 출생연도 타임라인 원본. 사용 0(default export 가 위
+// redirect 로 교체됨). import 들이 unused 가 안 되도록 본문은 그대로 둔다.
+// 향후 부활 시 export default 를 이 함수로 다시 가리키면 됨.
+// ─────────────────────────────────────────────────────────────────────────
+async function _TimelinePageArchived() {
   // 부드러운 온보딩 게이트: 신규 사용자는 먼저 /onboarding 으로, 끝내거나
   // 건너뛰면 그 뒤부턴 바로 여기로 온다.
   const session = await auth();
@@ -256,3 +273,11 @@ export default async function TimelinePage() {
     </main>
   );
 }
+
+// 보존된 함수에 대한 unused-vars 경고 억제. archived 함수 자체가 default
+// export 에서 빠지면서 unused 가 됨(그 안에서 쓰는 import·헬퍼는 참조 유지).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const __preserve_archived_exports = {
+  _TimelinePageArchived,
+  indexByYear,
+};
