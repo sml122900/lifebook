@@ -243,67 +243,84 @@ function SidePanel({
         />
 
         {/* 5. 빠른 이동 메뉴 */}
-        {/* v3 (2026-06-06) — 월별 타임머신 진입 동선 제거. "작년 사건의
-            정확한 월" 은 사용자가 떠올리지 못한다는 통찰에 따라 메인은
-            연혁(연/시기 중심) 하나로 통일. 월 화면 라우트는 redirect 로
-            살아있으나 사이드 진입로는 닫는다. */}
-        <nav className="mt-6 flex flex-col gap-2" aria-label="빠른 이동">
-          <p className="px-2 text-sm font-semibold text-ink-soft">빠른 이동</p>
-          <MenuItem
-            href="/life-timeline"
-            label="내 인생 연혁"
-            hint="한눈에 보는 인생"
-          />
-          <MenuItem
-            href="/life-timeline/companion"
-            label="이야기 나누기"
-            hint="말로 풀어놓는 내 이야기"
-            icon={<Mic size={16} aria-hidden />}
-            dataTour="companion"
-          />
-          <MenuItem
-            href="/era"
-            label="그 시절 둘러보기"
-            hint="1980~2010년대 큰 사건과 노래"
-          />
-          <MenuItem
-            href="/people"
-            label="인물록"
-            hint="인생에 등장한 분들"
-          />
-          <MenuItem
-            href="/photos"
-            label="내 사진"
-            hint="사진 올리고 연혁에 담기"
-          />
-          <MenuItem
-            href="/rooms"
-            label="가족 룸"
-            hint="가족·배우자와 함께 보기"
-          />
-          <MenuItem
-            href="/shop"
-            label="상품 구매"
-            hint="포스터·자서전 책·인생 씨앗"
-            icon={<ShoppingBag size={16} aria-hidden />}
-          />
-          <MenuItem
-            href="/account/profile"
-            label="회원정보"
-            hint="이름·생년·지역 확인"
-          />
-          <MenuItem
-            href="/account/settings"
-            label="설정"
-            hint="동의 내역·AI 모델·탈퇴"
-          />
-          <MenuItem
-            href="/help"
-            label="고객센터"
-            hint="자주 묻는 질문·이메일 문의"
-            icon={<LifeBuoy size={16} aria-hidden />}
-          />
-          <RerunTourItem />
+        {/* 4-A (2026-06-30) — 성격별 5그룹으로 묶음(시각 정리). 항목·링크·
+            동작은 그대로, 그룹 헤더만 추가해 어르신이 한눈에 분류를 본다.
+            콘텐츠(내 이야기)가 메인이라 최상단, 계정·도움은 하단. */}
+        <nav className="mt-6 flex flex-col gap-6" aria-label="메뉴">
+          <MenuGroup title="📖 내 이야기">
+            <MenuItem
+              href="/life-timeline"
+              label="내 인생 연혁"
+              hint="한눈에 보는 인생"
+            />
+            <MenuItem
+              href="/life-timeline/companion"
+              label="이야기 나누기"
+              hint="말로 풀어놓는 내 이야기"
+              icon={<Mic size={16} aria-hidden />}
+              dataTour="companion"
+            />
+            <MenuItem
+              href="/people"
+              label="인물록"
+              hint="인생에 등장한 분들"
+            />
+            <MenuItem
+              href="/photos"
+              label="내 사진"
+              hint="사진 올리고 연혁에 담기"
+            />
+            <MenuItem
+              href="/era"
+              label="그 시절 둘러보기"
+              hint="1980~2010년대 큰 사건과 노래"
+            />
+          </MenuGroup>
+
+          <MenuGroup title="👨‍👩‍👧 함께 보기">
+            <MenuItem
+              href="/rooms"
+              label="가족 룸"
+              hint="가족·배우자와 함께 보기"
+            />
+          </MenuGroup>
+
+          <MenuGroup title="🎁 만들기·상점">
+            <MenuItem
+              href="/shop"
+              label="상품 구매"
+              hint="포스터·자서전 책·인생 씨앗"
+              icon={<ShoppingBag size={16} aria-hidden />}
+            />
+            <MenuItem
+              href="/account/tokens"
+              label="토큰 충전"
+              hint="토큰 잔액·충전·출석"
+            />
+          </MenuGroup>
+
+          <MenuGroup title="⚙️ 내 계정">
+            <MenuItem
+              href="/account/profile"
+              label="회원정보"
+              hint="이름·생년·지역 확인"
+            />
+            <MenuItem
+              href="/account/settings"
+              label="설정"
+              hint="동의 내역·AI 모델·탈퇴"
+            />
+          </MenuGroup>
+
+          <MenuGroup title="🆘 도움">
+            <MenuItem
+              href="/help"
+              label="고객센터"
+              hint="자주 묻는 질문·이메일 문의"
+              icon={<LifeBuoy size={16} aria-hidden />}
+            />
+            <RerunTourItem />
+          </MenuGroup>
         </nav>
 
         {/* 6. 로그아웃 — 다른 메뉴보다 눈에 덜 띄게 */}
@@ -352,6 +369,23 @@ function RerunTourItem() {
       </span>
       <span className="mt-0.5 text-xs text-ink-soft">처음 안내를 다시 봐요</span>
     </button>
+  );
+}
+
+// 성격별 메뉴 그룹 — 헤더(어르신 가독성 위해 또렷한 굵은 글씨) + 묶음.
+// 그룹 사이 여백은 부모 nav 의 gap-6 이 만든다.
+function MenuGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="px-2 text-base font-bold text-ink">{title}</h3>
+      {children}
+    </div>
   );
 }
 
