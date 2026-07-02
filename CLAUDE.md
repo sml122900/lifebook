@@ -211,6 +211,8 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 | **기능2 — 시대 대사건(2a·2b·2c)** | **객관적 역사 대사건을 노드 사이 시간 닻으로. 2a `era-events.ts` 26건 3티어 + `getEraEventsForPoster`(생애범위·티어·제거 필터). 2b `placeEraEvents`(연도→y 보간·강 중앙 검정·노드 bbox `[top-40,bottom+40]` 회피·과밀 균등분산). 2c `eraTier`/`removedEraEvents`(마이그)·편집 4단계 토글·클릭 빼기·스냅샷 freeze·퍼즈 강건화** | (`2026-06-30` 일지) | ✅ 완료 |
 | **말동무 코치마크** | **companion(AI 대화) 화면 둘러보기 — `CoachMarks`·`ScreenTour` 엔진 무수정, `COMPANION_TOUR_STEPS` 4단계 + `data-tour`만. 채팅·🎤(녹음 강조)·스토리 패널·대화 마치기. ★ 입력창이 오프닝 후 렌더 → CompanionClient 가 phase=idle 직후 `START_TOUR_EVENT`로 첫 방문 1회 자동** | (`2026-06-30` 일지) | ✅ 완료 |
 | **리팩토링 1~4B** | **데드코드·중복·레거시·IA 정리(동작 영향 0). ① `UserMenu.tsx` 삭제 + 완전 미사용 export 7건 삭제 + stale 텍스트 ② export 캡슐화 11건 + 중복 상수 단일출처(`lib/life-categories.ts`·`lib/timeline-constants.ts` 신설, CREATED_VIA 통합, rooms `"photo"`→상수) ③ 레거시 `/timeline`·`/onboarding` archive redirect 스텁(→`/life-timeline`·`/onboarding-chat`, 본문·RAG체인 보존) ④ 사이드 패널 성격별 5그룹(`MenuGroup`) + 포스터 진입로 추가 + 토큰 진입로 중복 정리 + AI "그 시절 떠올리기" 라벨 구분** | (`2026-07-01`) | ✅ 완료 |
+| **PWA 셋업** | **홈화면 추가=앱 경험(추후 TWA 전제). 새 의존성 0 — `app/manifest.ts`(네이티브 컨벤션) + 아이콘 4종(기존 favicon 256px 마크에서 sharp 추출) + 수제 `public/sw.js`(라이브러리 대신 — precache manifest 블랙박스가 stale-deploy 리스크라 판단, `/_next/static`·`/icons`만 cache-first·페이지/API는 항상 네트워크) + `offline.html` + `ServiceWorkerRegister`(prod 전용) + layout viewport/appleWebApp 메타** | (`2026-07-02`) | ✅ 완료 |
+| **디자인 시스템 + UI 감사·교정** | **`docs/design-system.md`(실측 기반, 팔레트 대비 계산·타이포/버튼 분포 grep) → 8항목 전체 UI 감사(raw-gray·그라데이션·섀도우·ink-faint 대비·타이포 이탈·아이콘 남용·Button 계약 위반·화면별 우선순위, 병렬 서브에이전트 4개, 코드 변경 0, Artifact 대시보드 게시) → 심각도순 배치 교정: 1순위(삭제·탈퇴 확인 버튼 빨강 필 제거 3건 + 감사 누락분 1건, stale `.next` 캐시 트러블슈팅 동반) · 2순위(ink-faint HIGH 13건→ink-soft)** | (`2026-07-02`~`2026-07-03`) | ✅ 감사 완료 · 교정 1~2순위 완료 (3순위=MEDIUM 42건 이후 후속) |
 | 10       | 출력물 서비스 (PDF/포토북 배송)                            | (예정)                              | ▶ 다음                            |
 | 11       | 앱 출시 · 커뮤니티 기여 · 광고                             | (예정)                              |                                   |
 
@@ -571,6 +573,24 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - ✅ 회원 탈퇴 (PIPA 동의 철회권) — 5/25 완료
 - 미진행: submitMemoryAnswer idempotency key, Comment polymorphic FK orphan cleanup, `[ai]`/`[tokens]` console 로그 NODE_ENV 가드, `UserMemory.visibility` 컬럼 활용/제거, `getMembership` 중복 호출 감소.
 
+디자인 시스템 + UI 감사 신규 후속 (`docs/daily/2026-07-03.md` 참조):
+- ink-faint MEDIUM 42건 → ink-soft/ink 배치 3 (HIGH 13건은 완료). 남은 건 전부
+  form 힌트("(선택)")·상태 배지류 — 감사 artifact 의 item ④ MEDIUM 섹션이 원자료.
+- text-sm/xs 타이포 이탈 ~156건(66개 파일 표본 조사, 전수 아님) — manage/DraftReview·
+  DraftLocationCard 등 "검토 후 승인" CTA 버튼이 text-sm 인 케이스가 최우선 후보.
+- Button.tsx 계약 위반 나머지 ~70건(destructive 2건은 완료) — 특히 "off-brand
+  amber 필" 패턴(~12개 파일)은 기계적 치환 전에 "6번째 variant 공식화 vs primary
+  흡수" 제품 판단 필요.
+- 아이콘 남용 2건(TimelineView Camera 배지·PlacesEditor MapPin) — 저위험, 후속 배치 아무때나.
+- 섀도우 HIGH 1건(CoachMarks shadow-2xl)·MEDIUM 4건(AssistantModal FAB·SidePanel
+  드로어·AddressSearch 모달·랜딩 히어로 프레임) — shadow-lg 이하로 완화 검토.
+- raw-gray 7건(accent-zinc-900·divide-zinc-200 — 전부 텍스트 아님, 안전한 기계적
+  치환) — billing/account-tokens/rooms 3곳이 동일 패턴 복붙이라 공용 컴포넌트
+  추출도 함께 검토 가치.
+- design-system.md 자체 보정 필요 — "그림자는 대부분 shadow-sm" 서술이 감사로
+  드러난 모달/FAB shadow-lg~2xl 13곳을 반영 못 함(부정확은 아니고 표본 한계).
+- text-sm/xs 156건은 66/84 파일 표본 — 나머지 파일 전수 조사 후속.
+
 ---
 
 ## 열린 결정사항
@@ -707,6 +727,9 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [x] 레거시 라우트 정리 = **삭제 X, archive redirect 스텁**(2026-07-01, 리팩토링 3단계) → `/timeline`(레거시 Phase 5 출생연도 타임라인)·`/onboarding`(레거시 위저드)은 UI 진입로 0인 폐루프였다. default export 를 `redirect("/life-timeline")`·`redirect("/onboarding-chat")` 로 교체, 원본 본문은 `_TimelinePageArchived`/`_OnboardingPageArchived` + `__preserve_archived_exports` 로 보존(타임머신 `[month]`·포스터 패턴). 이유: ① 다른 코드의 `redirect("/timeline")`·`revalidatePath("/timeline")`·`OnboardingForm push` 가 스텁으로 안전하게 흐름 ② 되살리기는 default export 한 줄 교체. **RAG 체인(`lib/triggers`·`embeddings`·`musicbrainz`·`TriggerCard`)은 archived 함수가 참조해 dead 아님 — 보존.** `lib/onboarding/questions`(온보딩 채팅·회원정보 공유)·`/memory`·`EventCard`·`ListenButton`(가족 룸 LIVE)은 무수정.
 - [x] 사이드 패널 IA = **성격별 5그룹 + 진입로 정리**(2026-07-01, 리팩토링 4-A·4-B) → 평면 10개 나열 → `MenuGroup` 헤더 5그룹(📖 내 이야기 · 👨‍👩‍👧 함께 보기 · 🎁 만들기·상점 · ⚙️ 내 계정 · 🆘 도움). 라우트·동작 변경 0, 시각 묶음만. **토큰 진입로**=상단 "토큰 화면 열기" 버튼 + 설정 토큰 카드 2곳으로 통일(메뉴 중복 항목 제거). **포스터 진입로**=만들기·상점 그룹에 추가(`Frame` 아이콘). **AI 동선**=companion 진입은 사이드 메뉴 vs 플로팅 위젯 *둘 다 유지*(목적 다름), 위젯 "그 시절 이야기"→"그 시절 떠올리기"로 사이드 "그 시절 둘러보기"(/era)와 라벨 구분. **계정 통합**(회원정보+설정)은 성격 차이·민감 흐름 위험 대비 효과 낮아 *통합 안 함*(인접 그룹화로 충분).
 - [x] 중복 상수 단일출처(2026-07-01, 리팩토링 2단계) → 순수 모듈 신설 `lib/life-categories.ts`(`PERIOD_CATEGORIES`, life-events·EventForm 공유)·`lib/timeline-constants.ts`(`LATEST_YEAR/MONTH`·`APPROX_DEFAULT_MONTH`, page·AssistantWidget·월 화면 공유). `CREATED_VIA_EVENT/MONTH`=timemachine-memories export→progress import. rooms `"photo"` 리터럴→`CREATED_VIA_PHOTO` 상수. 메모리4 트랩 회피(상수는 `"use server"` 아닌 순수 모듈). 미사용 `UserMenu.tsx` + 완전 미사용 export 7건 삭제.
+- [x] PWA 서비스워커 = 라이브러리 대신 수제(2026-07-02) → `next-pwa`/`serwist` 둘 다 빌드타임 precache manifest 를 웹팩 플러그인으로 주입하는 블랙박스 방식이라, "배포해도 안 바뀜" 사고를 이미 여러 번 겪은 이 프로젝트엔 위험. ~50줄 수제 `public/sw.js` — `/_next/static`·`/icons`만 cache-first(콘텐츠 해시라 안전), 페이지·API·서버 액션은 fetch 핸들러가 아예 안 건드려 항상 네트워크. `skipWaiting`+`clients.claim`으로 배포 즉시 활성화. manifest·아이콘은 Next 네이티브 컨벤션만(`app/manifest.ts`·`app/apple-icon.png`) — 신규 의존성 0.
+- [x] UI 감사·교정 파이프라인 = "조사(감사) 와 실행(교정) 분리 + 심각도순 배치"(2026-07-02~03) → `docs/design-system.md` 를 실측(grep·대비 계산) 기반으로 먼저 확정한 뒤, 그 기준으로 8항목 전체 UI 를 코드 변경 0 로 감사(대형 4항목은 병렬 서브에이전트) → Artifact 대시보드로 게시 → 교정은 별도 요청으로, 심각도 HIGH 부터 소규모 배치(3건→13건)로만 실행. 한 번에 다 고치지 않는 이유: 320여 건을 일괄 수정하면 검증이 얕아지고 회귀 원인 특정이 어려움.
+- [x] ink-faint 텍스트 상향 정책(2026-07-03) → `ink-faint`(5.3:1, 가장 낮은 대비)는 형제 요소가 이미 `ink` 인 2차 정보(제목·가격·버튼 옆 보조 텍스트)는 `ink-soft`(7.0:1)까지만, 전부 `ink` 로 올리지 않음(위계 붕괴 방지). 예외: 사이드 패널 "로그아웃"처럼 코드 주석에 의도적 저강조가 명시된 경우 그 의도(크기·위치)는 보존하고 색만 최소 가독선으로.
 - [ ] CLOVA Phase 1 구현 → FreeRecorder 컴포넌트(통 녹음), lib/clova-speech.ts, /api/clova-stt, /life-timeline/free-record 화면, createdVia="free_recording"
 - [ ] 가족 룸 교정본(C, 출시 후) → listRoomMemories는 원문 유지. 룸에도 다듬은 글 표시할지 미정
 - [ ] 가족 반응 다음 단계 → 가벼운 음성 반응, 자녀 실제 푸시(현재 앱 안 표시까지만)

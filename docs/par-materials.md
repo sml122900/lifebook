@@ -453,3 +453,15 @@
 - **Problem**: 같은 상수가 여러 곳에 복붙돼 있었다 — `PERIOD_CATEGORIES`(서버 헬퍼 `life-events.ts` + 클라 폼 `EventForm.tsx`), `LATEST_YEAR/MONTH`·`APPROX_DEFAULT_MONTH`(3개 파일 중복 정의). 단순히 한 파일에서 export해 공유하려 했으나, 클라 컴포넌트가 서버 모듈(prisma 의존)을 import하면 node 전용 패키지가 클라 번들에 끌려와 빌드가 깨지고, 상수를 `"use server"` 파일에 두면 "async 함수만 export 가능" 제약에 걸린다.
 - **Action**: prisma·`"use server"` 의존이 없는 **순수 모듈**을 신설 — `lib/life-categories.ts`(`PERIOD_CATEGORIES`, 타입만 `import type`으로 가져와 런타임 의존 0)·`lib/timeline-constants.ts`(시기 fallback 상수). 클라·서버 양쪽이 같은 순수 모듈을 import. `CREATED_VIA_EVENT/MONTH`는 도메인 모듈(`timemachine-memories`)에서 export→형제 모듈이 import(순환 없음 확인), `rooms.ts`의 `"photo"` 리터럴은 기존 `CREATED_VIA_PHOTO` 상수로 교체. 함께 미사용 파일 1개 + 완전 미사용 export 7건 삭제, 내부 전용 export 11건은 `export` 키워드만 제거해 캡슐화.
 - **Result**: 5건의 중복 상수가 각각 단일 정의로 수렴, 값 변화 0이라 동작 영향 0, `tsc`+`build` 통과. *교훈*: 클라/서버가 공유하는 상수·타입은 prisma·`"use server"` 경계 *바깥*의 순수 모듈에 두는 게 정석(`place-types.ts` 패턴) — "한 곳에서 export"만으로는 번들 오염과 RPC 제약 두 함정에 걸린다.
+
+## 실측 기반 디자인 시스템 + 병렬 에이전트 UI 감사 — 300여 건을 심각도순 배치로 교정
+
+- **Problem**: "디자인 일관성을 잡아달라"는 요청은 보통 이상적인 스타일 가이드를 새로 짜는 방향으로 흘러가기 쉽지만, 그렇게 만든 가이드는 실제 코드와 괴리돼 지켜지지 않는다. 또한 306곳(text-sm/xs)·85곳(ink-faint)·수백 개 버튼처럼 위반 후보가 방대할 때, 한 세션에서 전부 손대면 위험 분산이 안 되고 검증도 얕아진다.
+- **Action**: 먼저 `docs/globals.css`·주요 컴포넌트를 grep 전수 실측(색상·글자크기·버튼 스타일 분포)해 "이미 코드가 하고 있는 것"을 정리한 `design-system.md`를 확정 — 발명이 아니라 관찰. 그 기준으로 8개 항목(ink-faint 대비·타이포 이탈·아이콘 남용·Button.tsx 계약 위반 등)을 감사하되, 대형 항목 4개는 독립 백그라운드 서브에이전트로 병렬 실행해 정확한 file:line 근거를 확보(1개 에이전트가 미완성 응답을 반환하자 `SendMessage`로 재개시켜 완결). 결과를 브랜드 토큰을 그대로 재사용한 심각도 색상 대시보드(Artifact)로 게시. 이후 교정은 감사와 분리된 별도 요청으로, 심각도 HIGH부터 배치 단위(3건→13건)로만 실행.
+- **Result**: ink-faint 5.3:1 대비 텍스트 85곳 중 55곳이 실제 필독 정보(가격·개인정보·전역 액션)였고, Button.tsx 계약 위반 ~74건 중 2건은 삭제/탈퇴 확인 버튼이 "빨강 필 금지" 규칙을 직접 위반. 1차 배치(안전 최우선 3건)와 2차 배치(대비 HIGH 13건)를 각각 독립 커밋으로 실행, 매 배치 `tsc`+클린 리빌드로 검증. *교훈*: "가이드부터 새로 쓰기"보다 "실측 → 감사(조사만) → 배치 교정(실행만)"으로 단계를 분리하면, 대량 위반도 위험을 통제하며 순차 정리할 수 있고 각 단계가 독립적으로 검증 가능하다.
+
+## PWA 구현 시 라이브러리 대신 수제 서비스워커 — precache 블랙박스가 만드는 stale-deploy 리스크 제거
+
+- **Problem**: PWA 셋업 요청의 최우선 조건이 "캐시로 인한 배포 후 stale 절대 방지"였다. `next-pwa`·`serwist` 같은 표준 라이브러리는 모두 빌드타임에 웹팩 플러그인이 precache manifest를 서비스워커에 주입하는 방식인데, 이 프로젝트는 실제로 `.next` 빌드 캐시 stale로 여러 차례 장애를 겪은 이력이 있어(Auth.js dev cache stale, Prisma stale client) 비슷한 종류의 블랙박스 캐싱 메커니즘을 새로 들이는 데 신중해야 했다.
+- **Action**: 라이브러리 대신 ~50줄짜리 수제 서비스워커를 작성 — 캐싱 대상을 `/_next/static/*`·`/icons/*`(콘텐츠 해시라 불변) 로만 명시적으로 한정하고, 페이지·API·서버 액션은 fetch 핸들러가 아예 가로채지 않아 항상 네트워크로 직행하도록 구성. `skipWaiting`+`clients.claim`으로 배포 즉시 새 버전이 통제권을 가져가게 하고, manifest·아이콘은 Next.js 네이티브 파일 컨벤션(`app/manifest.ts`, `app/apple-icon.png`)만으로 해결해 의존성을 하나도 추가하지 않았다.
+- **Result**: 신규 의존성 0개로 Lighthouse PWA 설치 가능 조건 충족, Chrome 브라우저 자동화로 캐시 내용을 직접 조회해 정적 자산만 들어있고 페이지·API가 0개임을 검증. *교훈*: "표준 라이브러리를 쓰지 않는다"는 결정도 프로젝트의 실제 장애 이력에 근거한 리스크 판단이면 정당한 엔지니어링 선택이다 — 안 보이는 캐싱 메커니즘보다 적더라도 전부 감사 가능한 코드가 나은 경우가 있다.
