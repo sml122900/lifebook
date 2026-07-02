@@ -57,7 +57,7 @@ export function WithdrawForm() {
       <button
         type="submit"
         disabled={!ready || isPending}
-        className="min-h-[88px] rounded-md bg-rose-700 px-6 py-4 text-xl font-bold text-white hover:bg-rose-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:text-ink-faint"
+        className="min-h-[88px] rounded-md border border-line bg-transparent px-6 py-4 text-xl font-bold text-danger hover:bg-canvas focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:text-ink-faint"
       >
         {isPending ? "탈퇴 처리 중…" : "회원 탈퇴"}
       </button>

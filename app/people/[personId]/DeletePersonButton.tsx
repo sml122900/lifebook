@@ -111,7 +111,7 @@ export function DeletePersonButton({
                 type="button"
                 onClick={handleConfirm}
                 disabled={isPending}
-                className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-rose-700 px-5 py-3 text-lg font-bold text-white hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                className={buttonClasses("destructive", "md")}
               >
                 {isPending ? "삭제 중…" : "네, 삭제할게요"}
               </button>
