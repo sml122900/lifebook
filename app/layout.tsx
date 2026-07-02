@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import { Noto_Serif_KR } from "next/font/google";
 import Link from "next/link";
 
@@ -8,6 +8,7 @@ import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
 import { AssistantWidget } from "@/app/components/AssistantWidget";
 import { Footer } from "@/app/components/Footer";
+import { ServiceWorkerRegister } from "@/app/components/ServiceWorkerRegister";
 import { SessionProvider } from "@/app/components/SessionProvider";
 import { SidePanelLayout } from "@/app/timemachine/SidePanel";
 import { loadSidePanelData } from "@/lib/side-panel-data";
@@ -33,6 +34,23 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Lifebook",
+  },
+  other: {
+    // Next 16 은 표준 mobile-web-app-capable 만 내려주는데, iOS 17.4 이전 Safari
+    // (시니어 사용자 다수 해당)는 이 구형 태그가 있어야 홈화면 추가 시 standalone
+    // 모드로 열린다.
+    "apple-mobile-web-app-capable": "yes",
+  },
+};
+
+// PWA 홈화면 추가 시 주소창·상태바 색. manifest 의 theme_color/background_color
+// 와 동일 값(--color-canvas)으로 맞춤.
+export const viewport: Viewport = {
+  themeColor: "#faf7f0",
 };
 
 // 제목용 명조. globals.css 의 --font-serif(@theme inline)가 이 변수를 참조.
@@ -88,6 +106,7 @@ export default async function RootLayout({
             bottom-6 right-6. 비인증/세션 X 면 null 반환해 보이지 않는다. */}
         <AssistantWidget />
         <Footer />
+        <ServiceWorkerRegister />
         </SessionProvider>
       </body>
     </html>

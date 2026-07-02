@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lifebook</title>
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #faf7f0;
+    color: #2b2620;
+    font-family: -apple-system, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  }
+  .wrap {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+  }
+  h1 {
+    font-size: 24px;
+    margin: 0 0 12px;
+  }
+  p {
+    font-size: 18px;
+    line-height: 1.6;
+    margin: 0 0 24px;
+    color: #57503f;
+  }
+  button {
+    font-size: 18px;
+    padding: 14px 28px;
+    border-radius: 10px;
+    border: none;
+    background: #8a5f1a;
+    color: #fff;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>인터넷 연결을 확인해 주세요</h1>
+    <p>지금은 인터넷이 연결되어 있지 않아요.<br />연결을 확인하신 뒤 다시 시도해 주세요.</p>
+    <button onclick="location.reload()">다시 시도</button>
+  </div>
+</body>
+</html>
