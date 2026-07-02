@@ -593,7 +593,7 @@ function BetweenSection({
         <label htmlFor="between-year" className="text-base text-ink-soft">
           추정 연도{" "}
           {estimatedYear !== null && (
-            <span className="text-ink-faint">
+            <span className="text-ink-soft">
               (자동으로 {estimatedYear}년으로 잡았어요 — 다르면 고쳐주세요)
             </span>
           )}

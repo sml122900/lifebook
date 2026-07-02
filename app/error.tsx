@@ -50,7 +50,7 @@ export default function Error({
         </Link>
       </div>
       {error.digest && (
-        <p className="mt-2 text-sm text-ink-faint">
+        <p className="mt-2 text-sm text-ink-soft">
           문의 시 알려주세요: {error.digest}
         </p>
       )}

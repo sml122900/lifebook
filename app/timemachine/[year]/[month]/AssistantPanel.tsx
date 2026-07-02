@@ -1159,7 +1159,7 @@ function AssistantTurnView({
           >
             {isSaved ? "저장됨" : "이 답 저장"}
           </button>
-          <p className="text-xs text-ink-faint">{FAMILY_SHARE_NOTE}</p>
+          <p className="text-xs text-ink-soft">{FAMILY_SHARE_NOTE}</p>
         </div>
       </div>
     </div>

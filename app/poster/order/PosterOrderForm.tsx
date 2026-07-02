@@ -143,7 +143,7 @@ export function PosterOrderForm({
             </span>
           </label>
         ))}
-        <p className="text-sm text-ink-faint">
+        <p className="text-sm text-ink-soft">
           액자·족자 옵션은 준비 중이에요. 표시가는 부가세가 포함된 금액이에요.
         </p>
       </fieldset>

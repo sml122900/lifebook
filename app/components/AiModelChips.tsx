@@ -104,7 +104,7 @@ export function AiModelChips({
               }
             >
               {label.name}
-              <span className={selected ? "text-white/80" : "text-ink-faint"}>
+              <span className={selected ? "text-white/80" : "text-ink-soft"}>
                 {multiplierLabel(m)}
               </span>
             </button>

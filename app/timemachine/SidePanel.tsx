@@ -334,7 +334,7 @@ function SidePanel({
         >
           <button
             type="submit"
-            className="text-sm text-ink-faint hover:text-ink-soft hover:underline focus:outline-none focus-visible:underline"
+            className="text-sm text-ink-soft hover:text-ink hover:underline focus:outline-none focus-visible:underline"
           >
             로그아웃
           </button>

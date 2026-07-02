@@ -151,7 +151,7 @@ export default async function PersonDetailPage({ params }: Params) {
                       {e.eventYear}
                       {e.eventMonth ? `.${String(e.eventMonth).padStart(2, "0")}` : "년쯤"}
                       {age && (
-                        <span className="ml-2 text-sm text-ink-faint">
+                        <span className="ml-2 text-sm text-ink-soft">
                           (만 {age.manAge}세)
                         </span>
                       )}

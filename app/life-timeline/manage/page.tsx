@@ -94,7 +94,7 @@ export default async function LifeTimelineManagePage() {
                         "text-base " +
                         (exact
                           ? "font-semibold text-amber-800"
-                          : "text-ink-faint")
+                          : "text-ink-soft")
                       }
                     >
                       {whenText} · {categoryLabel(e.category)}

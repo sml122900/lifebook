@@ -903,12 +903,12 @@ function EventCard({
         <p
           className={
             "text-sm " +
-            (exact ? "font-bold text-action" : "text-ink-faint")
+            (exact ? "font-bold text-action" : "text-ink-soft")
           }
         >
           {formatWhen(e)}
           {ageSuffix && (
-            <span className="ml-1 text-xs text-ink-faint">{ageSuffix}</span>
+            <span className="ml-1 text-xs text-ink-soft">{ageSuffix}</span>
           )}
         </p>
         <p
@@ -1031,7 +1031,7 @@ function EraCard({
         <p className="mt-2 text-sm font-semibold text-ink-soft">
           {formatWhen(e)}
           {ageSuffix && (
-            <span className="ml-1 text-xs text-ink-faint">{ageSuffix}</span>
+            <span className="ml-1 text-xs text-ink-soft">{ageSuffix}</span>
           )}
         </p>
         <p className="mt-1 text-base font-bold leading-tight text-ink">

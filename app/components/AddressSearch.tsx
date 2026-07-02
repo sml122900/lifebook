@@ -129,7 +129,7 @@ export function AddressSearch({
           className={READONLY_FIELD}
         />
         {jibunAddress && (
-          <p className="text-sm text-ink-faint">지번: {jibunAddress}</p>
+          <p className="text-sm text-ink-soft">지번: {jibunAddress}</p>
         )}
       </div>
 
