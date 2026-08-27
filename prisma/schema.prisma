@@ -99,7 +99,7 @@ model User {
   overseasTransferConsentAt DateTime?
   // 동의 버전 (Phase 7b+). 기존 사용자 = 1(레거시), 신규·재동의 = 2+.
   // CURRENT_CONSENT_VERSION(lib/consent-version.ts)과 비교해 게이트 통과.
-  privacyConsentVersion     Int @default(1)
+  privacyConsentVersion     Int       @default(1)
 
   // Phase 4.5: marks the user as done with onboarding (completed or
   // fully skipped). Used to soft-route new users to /onboarding only once.
@@ -147,6 +147,8 @@ model User {
   productOrders         ProductOrder[]
   companionSessions     CompanionSession[]
   poster                Poster?
+  lifeEvents            LifeEvent[]
+  onboardingProfile     OnboardingProfile?
 }
 
 // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
@@ -159,16 +161,16 @@ model User {
 // P1 후보(분류·우선순위)는 임시(매번 AI 계산)라 저장 안 함. 여기엔 사용자가
 // *확정*한 선택만 영속한다. P4 SVG 합성이 이 selections 를 읽어 렌더.
 model Poster {
-  id         String   @id @default(cuid())
-  userId     String   @unique
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  selections Json     @default("[]")
-  template   String?
-  design     Json?
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selections       Json     @default("[]")
+  template         String?
+  design           Json?
   // 포스터 노드(큰 사건)에 연도를 박을지. 기본 false=숨김 — 어르신이 말한 연도가
   // 부정확할 수 있어 "결혼"처럼 제목만 보이는 게 기본. 사용자가 켜면 전체 노드에
   // 연도 표시. 정렬은 항상 연도 기준(표시만 분기).
-  showNodeYears Boolean @default(false)
+  showNodeYears    Boolean  @default(false)
   // 기능2c — 노드 사이에 얹는 시대 대사건 설정.
   //   eraTier: 0=끄기 / 1=기본 / 2=더보기 / 3=모두. 기본 1.
   //   removedEraEvents: 사용자가 개별로 뺀 사건 id(getEraEventsForPoster 제외).
@@ -176,12 +178,12 @@ model Poster {
   removedEraEvents String[] @default([])
   // P5-4 — 맞춤배경 "세트" 진행 카운트(현재 열린 세트의 생성 장 수, 1~4).
   // 0=세트 없음. 1세트=최초1+다시생성3=최대 4장(30토큰). 4 도달 후 추가는 새 세트.
-  bgSetCount Int      @default(0)
+  bgSetCount       Int      @default(0)
   // P5-5c — 결정한 맞춤배경의 Storage 경로(photos 버킷 poster-bg/ 프리픽스).
   // template="custom" 일 때 P4 가 /api/poster/background 로 이 파일을 읽어 합성.
-  customBgPath String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  customBgPath     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Account {
@@ -485,12 +487,12 @@ model ProductOrder {
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   // 카탈로그 스냅샷 (lib/commerce/products 상수 id). v1 수량은 항상 1.
-  productId String // "poster" | "charm" | "book"
-  optionId  String? // 향후 옵션 확장용 (v1 미사용)
-  quantity  Int     @default(1)
-  unitKrw   Int // 주문 시점 단가 스냅샷
-  shippingKrw Int   @default(0) // 배송비 스냅샷 (균일)
-  totalKrw  Int // 서버 계산 = unitKrw*quantity + shippingKrw
+  productId   String // "poster" | "charm" | "book"
+  optionId    String? // 향후 옵션 확장용 (v1 미사용)
+  quantity    Int     @default(1)
+  unitKrw     Int // 주문 시점 단가 스냅샷
+  shippingKrw Int     @default(0) // 배송비 스냅샷 (균일)
+  totalKrw    Int // 서버 계산 = unitKrw*quantity + shippingKrw
 
   // 배송지 스냅샷 (User 에 구조화 주소 없음 — 주문별 보관이 법적 발송 기록)
   // address1=도로명, jibunAddress=지번(카카오 우편번호가 둘 다 제공 → 인쇄소
@@ -508,12 +510,12 @@ model ProductOrder {
   // paymentMethod: "card"(토스 카드) | "bank_transfer"(무통장입금/계좌이체).
   // 무통장은 status=awaiting_payment 로 시작 → 관리자가 입금 확인 시 paid.
   paymentMethod String             @default("card")
-  status      ProductOrderStatus @default(pending)
-  paymentKey  String?            @unique
-  approvedAt  DateTime?
-  failedAt    DateTime?
-  failReason  String?
-  paymentLive Boolean            @default(false) // 라이브 결제 여부(false=테스트모드)
+  status        ProductOrderStatus @default(pending)
+  paymentKey    String?            @unique
+  approvedAt    DateTime?
+  failedAt      DateTime?
+  failReason    String?
+  paymentLive   Boolean            @default(false) // 라이브 결제 여부(false=테스트모드)
 
   // 포스터 주문 스냅샷 — 주문 시점의 PosterCompose props({ownerName,nodes,memos}).
   // 관리자 발주 시 이 스냅샷으로 P7-a export(주문 후 편집과 무관하게 고정).
@@ -845,24 +847,24 @@ model ChartSong {
 //
 // ⚠️ 모든 읽기/쓰기는 userId-scope. 헬퍼(lib/people.ts) 가 단일 진입점.
 model Person {
-  id          String        @id @default(cuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subjectType String        @default("person") // "person"|"location"|"thing"
-  name        String // 필수, 최대 50자 (헬퍼에서 검증)
-  relation    String? // "초등 친구", "직장 동료" 등 자유 텍스트, 최대 30자 (person 전용)
-  birthYear   Int? // 인물 출생년도 (person 전용)
-  category    String? // 관계 분류 — 가족·친척·친구·직장·이웃·기타 (person 전용)
-  metYear     Int? // 처음 만난 연도 (person 전용)
-  memo        String? // 메모
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectType  String        @default("person") // "person"|"location"|"thing"
+  name         String // 필수, 최대 50자 (헬퍼에서 검증)
+  relation     String? // "초등 친구", "직장 동료" 등 자유 텍스트, 최대 30자 (person 전용)
+  birthYear    Int? // 인물 출생년도 (person 전용)
+  category     String? // 관계 분류 — 가족·친척·친구·직장·이웃·기타 (person 전용)
+  metYear      Int? // 처음 만난 연도 (person 전용)
+  memo         String? // 메모
   // location 전용 — 장소 좌표 (PlaceSearchInput 으로 지정). person/thing 은 null.
   lat          Float?
   lng          Float?
   placeAddress String?
   placeSource  String? // "naver"|"google"
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  events      PersonEvent[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  events       PersonEvent[]
 
   // Phase companion — isDraft=true = 동반자 추출 후 가족 검토 대기 중.
   isDraft            Boolean           @default(false)
@@ -915,18 +917,18 @@ model PersonEvent {
 // cleanup cron 또는 transaction 래핑(현재 supabase-js 가 PG transaction
 // 안 들어감 — 업로드 후 DB 생성 실패면 try/catch 로 Storage 롤백).
 model Photo {
-  id          String     @id @default(cuid())
-  userId      String
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  memoryId    String
-  memory      UserMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
-  storagePath String // "{userId}/{photoId}.{ext}" — Storage 키
-  mimeType    String // image/jpeg | image/png | image/webp
-  fileBytes   Int // 용량 (10MB 제한은 라우트에서)
-  width       Int? // 메타 (썸네일·레이아웃 — 후속에 EXIF 추출)
-  height      Int?
-  caption     String? // 사진 1장 캡션 (선택)
-  takenAt     DateTime? // EXIF 또는 사용자 입력 (선택)
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memoryId     String
+  memory       UserMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  storagePath  String // "{userId}/{photoId}.{ext}" — Storage 키
+  mimeType     String // image/jpeg | image/png | image/webp
+  fileBytes    Int // 용량 (10MB 제한은 라우트에서)
+  width        Int? // 메타 (썸네일·레이아웃 — 후속에 EXIF 추출)
+  height       Int?
+  caption      String? // 사진 1장 캡션 (선택)
+  takenAt      DateTime? // EXIF 또는 사용자 입력 (선택)
   // Phase Photo (4단계+) — 기간 이벤트(학교/군대/직장)는 시작·끝 두 점으로
   // 그려지는데(TimelineView expandPeriods), 사진은 memoryId 한곳에 붙어 양쪽에
   // 다 복제돼 보였다. 이 앵커로 어느 점에 띄울지 구분한다:
@@ -934,8 +936,8 @@ model Photo {
   //   "start" : 시작 점에만 (입학/입대/입사 무렵)
   //   "end"   : 끝 점에만   (졸업/제대/퇴사 무렵)
   // 단일 시점 이벤트에선 의미 없음(항상 both 로 저장·전부 표시).
-  periodAnchor String   @default("both")
-  createdAt    DateTime  @default(now())
+  periodAnchor String     @default("both")
+  createdAt    DateTime   @default(now())
 
   @@index([userId, createdAt])
   @@index([memoryId])
@@ -979,15 +981,84 @@ model MemoryPlace {
 //
 // 승인 흐름: isDraft=true → isDraft=false (live). 거절: delete.
 model CompanionSession {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transcriptJson String       @default("[]")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transcriptJson String   @default("[]")
   audioPaths     String[]
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime @default(now())
 
   memories    UserMemory[]
   draftPeople Person[]
 
   @@index([userId, createdAt])
+}
+
+enum LifeEventStatus {
+  UNCONFIRMED
+  CONFIRMED
+  SKIPPED
+  CORRECTED
+}
+
+enum LifeEventType {
+  BIRTH
+  ELEM_SCHOOL
+  MIDDLE_SCHOOL
+  HIGH_SCHOOL
+  UNIVERSITY
+  MILITARY
+  FIRST_JOB
+  MARRIAGE
+  CUSTOM
+}
+
+model LifeEvent {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  type       LifeEventType
+  label      String
+  year       Int?
+  isOptional Boolean         @default(false)
+  status     LifeEventStatus @default(UNCONFIRMED)
+
+  sequenceOrder Int
+  confirmedAt   DateTime?
+  correctedYear Int?
+
+  hasEpisode Boolean   @default(false)
+  episodes   Episode[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, sequenceOrder])
+}
+
+model Episode {
+  id          String    @id @default(cuid())
+  lifeEventId String
+  lifeEvent   LifeEvent @relation(fields: [lifeEventId], references: [id])
+
+  content       String  @db.Text
+  rawTranscript String? @db.Text
+
+  createdAt DateTime @default(now())
+}
+
+model OnboardingProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  birthYear  Int
+  birthMonth Int?
+  gender     String?
+  region     String
+
+  skeletonGeneratedAt DateTime?
+
+  createdAt DateTime @default(now())
 }
