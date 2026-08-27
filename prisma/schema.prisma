@@ -1024,9 +1024,16 @@ model LifeEvent {
   isOptional Boolean         @default(false)
   status     LifeEventStatus @default(UNCONFIRMED)
 
-  sequenceOrder Int
-  confirmedAt   DateTime?
-  correctedYear Int?
+  sequenceOrder  Int
+  confirmedAt    DateTime?
+  correctedYear  Int?
+  correctedLabel String?
+
+  // 확인질문 응답이 UNCLEAR로 판정된 횟수. required(optional=false) 이벤트가
+  // 이 값 만큼 반복되면 무한루프 방지를 위해 needsReview 를 세우고 재질문을
+  // 멈춘다(status 는 UNCONFIRMED 유지 — 사람이 직접 처리).
+  unclearCount Int     @default(0)
+  needsReview  Boolean @default(false)
 
   hasEpisode Boolean   @default(false)
   episodes   Episode[]

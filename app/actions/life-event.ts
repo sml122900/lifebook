@@ -1,0 +1,202 @@
+"use server";
+
+// 인생 이벤트 골격 확인질문 흐름.
+//
+// 한 턴에 이벤트 1개만 확인질문(getNextConfirmQuestion) → 사용자 응답 분류·반영
+// (submitConfirmAnswer). 모든 읽기/쓰기는 세션 userId 로 scope(다른 사용자의
+// LifeEvent 접근 차단).
+//
+// UNCLEAR 무한루프 방지: required(optional=false) 이벤트가 MAX_UNCLEAR_ATTEMPTS
+// 회 연속 UNCLEAR 로 분류되면 status 는 그대로 두고 needsReview 플래그만 세운다
+// (LifeEvent.unclearCount/needsReview). getNextConfirmQuestion 은 needsReview
+// 인 이벤트를 다음 질문 대상에서 제외한다 — 사람 개입 전까지 재질문 안 함.
+
+import { auth } from "@/auth";
+import { prisma } from "@/lib/db";
+import { chat } from "@/lib/ai";
+import {
+  CONFIRM_QUESTION_SYSTEM_PROMPT,
+  CORRECTION_PARSE_SYSTEM_PROMPT,
+} from "@/lib/prompts/life-event-confirm";
+
+// 추출/분류는 항상 Sonnet 고정 — 전역 aiModel(라이브 응답)과 무관.
+const CONFIRM_MODEL =
+  process.env.LIFE_EVENT_CONFIRM_MODEL ?? "claude-sonnet-4-6";
+
+const MAX_UNCLEAR_ATTEMPTS = 2;
+
+async function requireUserId(expected?: string): Promise<string> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("Unauthorized");
+  if (expected !== undefined && expected !== userId) {
+    throw new Error("Unauthorized");
+  }
+  return userId;
+}
+
+function stripJsonFence(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^```json\s*|^```\s*/i, "")
+    .replace(/\s*```$/, "");
+}
+
+export type NextConfirmQuestion =
+  | { done: true }
+  | { done: false; eventId: string; question: string };
+
+// 다음 UNCONFIRMED 이벤트에 대한 확인질문. needsReview 된 이벤트는 건너뛴다.
+// 대상이 없으면 { done: true }.
+export async function getNextConfirmQuestion(
+  userId: string,
+): Promise<NextConfirmQuestion> {
+  await requireUserId(userId);
+
+  const event = await prisma.lifeEvent.findFirst({
+    where: { userId, status: "UNCONFIRMED", needsReview: false },
+    orderBy: { sequenceOrder: "asc" },
+  });
+
+  if (!event) return { done: true };
+
+  const eventDesc = [
+    event.year ? `${event.year}년` : "연도 미상",
+    event.label,
+    event.isOptional ? "(선택 이벤트 — 안 했을 수도 있음)" : "(필수 이벤트)",
+  ].join(" ");
+
+  let question = event.isOptional
+    ? `${event.label}은 하셨나요?`
+    : `${event.year ? `${event.year}년 ` : ""}${event.label} 하셨나요?`;
+
+  try {
+    const res = await chat(
+      [{ role: "user", content: `확인할 이벤트: ${eventDesc}\neventId: ${event.id}` }],
+      { system: CONFIRM_QUESTION_SYSTEM_PROMPT, model: CONFIRM_MODEL, maxTokens: 300 },
+    );
+    const parsed = JSON.parse(stripJsonFence(res.text)) as {
+      question?: unknown;
+    };
+    if (typeof parsed.question === "string" && parsed.question.trim()) {
+      question = parsed.question.trim();
+    }
+  } catch {
+    // 파싱 실패 시 위에서 만든 템플릿 질문으로 폴백 — 흐름이 끊기지 않는다.
+  }
+
+  return { done: false, eventId: event.id, question };
+}
+
+export type SubmitAnswerResult =
+  | { status: "NOT_FOUND" }
+  | { status: "CONFIRMED" }
+  | { status: "SKIPPED" }
+  | { status: "CORRECTED"; correctedYear: number | null; correctedLabel: string | null }
+  | { status: "UNCLEAR"; needsReview: boolean };
+
+// 사용자 응답을 분류해 LifeEvent 에 반영.
+export async function submitConfirmAnswer(
+  eventId: string,
+  userAnswer: string,
+): Promise<SubmitAnswerResult> {
+  const userId = await requireUserId();
+
+  const event = await prisma.lifeEvent.findFirst({
+    where: { id: eventId, userId },
+  });
+  if (!event) return { status: "NOT_FOUND" };
+
+  const eventDesc = [
+    event.year ? `${event.year}년` : "연도 미상",
+    event.label,
+  ].join(" ");
+
+  let parsed: {
+    status: "CONFIRMED" | "SKIPPED" | "CORRECTED" | "UNCLEAR";
+    correctedYear: number | null;
+    correctedLabel: string | null;
+  } = { status: "UNCLEAR", correctedYear: null, correctedLabel: null };
+
+  try {
+    const res = await chat(
+      [
+        {
+          role: "user",
+          content: `이벤트: ${eventDesc}\n사용자 응답: "${userAnswer}"`,
+        },
+      ],
+      { system: CORRECTION_PARSE_SYSTEM_PROMPT, model: CONFIRM_MODEL, maxTokens: 300 },
+    );
+    const raw = JSON.parse(stripJsonFence(res.text)) as Record<string, unknown>;
+    const status = raw.status;
+    if (
+      status === "CONFIRMED" ||
+      status === "SKIPPED" ||
+      status === "CORRECTED" ||
+      status === "UNCLEAR"
+    ) {
+      parsed = {
+        status,
+        correctedYear: typeof raw.correctedYear === "number" ? raw.correctedYear : null,
+        correctedLabel:
+          typeof raw.correctedLabel === "string" && raw.correctedLabel.trim()
+            ? raw.correctedLabel.trim()
+            : null,
+      };
+    }
+  } catch {
+    // 파싱 실패 → UNCLEAR 기본값 유지, 재질문.
+  }
+
+  // required 이벤트에 대한 SKIPPED 는 허용 안 함 — UNCLEAR 로 강제 재질문.
+  let status = parsed.status;
+  if (status === "SKIPPED" && !event.isOptional) {
+    status = "UNCLEAR";
+  }
+
+  if (status === "CONFIRMED") {
+    await prisma.lifeEvent.update({
+      where: { id: eventId },
+      data: { status: "CONFIRMED", confirmedAt: new Date(), unclearCount: 0 },
+    });
+    return { status: "CONFIRMED" };
+  }
+
+  if (status === "SKIPPED") {
+    await prisma.lifeEvent.update({
+      where: { id: eventId },
+      data: { status: "SKIPPED", unclearCount: 0 },
+    });
+    return { status: "SKIPPED" };
+  }
+
+  if (status === "CORRECTED") {
+    await prisma.lifeEvent.update({
+      where: { id: eventId },
+      data: {
+        status: "CORRECTED",
+        // 원본 year 는 보존 — correctedYear/correctedLabel 별도 컬럼에만 반영.
+        correctedYear: parsed.correctedYear,
+        correctedLabel: parsed.correctedLabel,
+        unclearCount: 0,
+      },
+    });
+    return {
+      status: "CORRECTED",
+      correctedYear: parsed.correctedYear,
+      correctedLabel: parsed.correctedLabel,
+    };
+  }
+
+  // UNCLEAR (직접 분류 또는 required-SKIPPED 강제 전환)
+  const unclearCount = event.unclearCount + 1;
+  const needsReview = !event.isOptional && unclearCount >= MAX_UNCLEAR_ATTEMPTS;
+
+  await prisma.lifeEvent.update({
+    where: { id: eventId },
+    data: { unclearCount, needsReview },
+  });
+
+  return { status: "UNCLEAR", needsReview };
+}
