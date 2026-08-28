@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
 
@@ -22,12 +23,10 @@ const REGIONS = [
 const FIELD_CLASS =
   "w-full rounded-md border-2 border-line px-4 py-3 text-xl focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2";
 
-type SubmitState =
-  | { phase: "idle" }
-  | { phase: "error"; message: string }
-  | { phase: "done"; count: number; alreadyDone: boolean };
+type SubmitState = { phase: "idle" } | { phase: "error"; message: string };
 
 export function OnboardingV2Form({ userId }: { userId: string }) {
+  const router = useRouter();
   const [birthYear, setBirthYear] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
   const [gender, setGender] = useState<(typeof GENDERS)[number] | "">("");
@@ -49,17 +48,15 @@ export function OnboardingV2Form({ userId }: { userId: string }) {
     setState({ phase: "idle" });
     startTransition(async () => {
       try {
-        const result = await completeOnboarding(userId, {
+        await completeOnboarding(userId, {
           birthYear: yearNum,
           birthMonth: birthMonth === "" ? null : Number(birthMonth),
           gender,
           region,
         });
-        setState(
-          result.status === "CREATED"
-            ? { phase: "done", count: result.count, alreadyDone: false }
-            : { phase: "done", count: 0, alreadyDone: true },
-        );
+        // STAGE2(확인질문 채팅)로 자동 이동 — CREATED/ALREADY_DONE 둘 다 확인질문
+        // 대상 LifeEvent 가 DB 에 있으므로 같은 경로로 넘어간다.
+        router.push("/onboarding-confirm");
       } catch (err) {
         console.error("[onboarding-v2]", err);
         setState({
@@ -68,18 +65,6 @@ export function OnboardingV2Form({ userId }: { userId: string }) {
         });
       }
     });
-  }
-
-  if (state.phase === "done") {
-    return (
-      <div className="rounded-md border-2 border-line bg-surface p-6">
-        <p className="text-xl font-semibold text-ink">
-          {state.alreadyDone
-            ? "이미 준비가 끝나 있어요."
-            : `정보가 저장됐어요. ${state.count}개의 이야기 칸이 만들어졌어요.`}
-        </p>
-      </div>
-    );
   }
 
   return (
