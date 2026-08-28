@@ -7,9 +7,10 @@
 //   CONFIRMED/SKIPPED/CORRECTED → 짧은 확인 멘트 + 다음 질문
 //   UNCLEAR(needsReview=false) → 같은 이벤트로 부드럽게 재질문
 //   UNCLEAR(needsReview=true)  → 넘어간다는 멘트 + 다음 질문(더 안 물어봄)
-// done:true → 완료 화면(STAGE3 연결은 TODO).
+// done:true → 완료 멘트 표시 후 STAGE3(/onboarding-episode)로 자동 이동.
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
 
@@ -22,6 +23,7 @@ type Msg = { role: "a" | "u"; text: string };
 type Phase = "loading" | "idle" | "submitting" | "done" | "error";
 
 export function ConfirmClient({ userId }: { userId: string }) {
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("loading");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [inputVal, setInputVal] = useState("");
@@ -64,6 +66,13 @@ export function ConfirmClient({ userId }: { userId: string }) {
     void loadNext();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // STAGE3(확인된 이야기 심화 화면)로 자동 이동.
+  useEffect(() => {
+    if (phase === "done") {
+      router.push("/onboarding-episode");
+    }
+  }, [phase, router]);
 
   async function handleSend() {
     const text = inputVal.trim();

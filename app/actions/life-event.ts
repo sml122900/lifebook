@@ -200,3 +200,36 @@ export async function submitConfirmAnswer(
 
   return { status: "UNCLEAR", needsReview };
 }
+
+export type ConfirmedEpisodeItem = {
+  id: string;
+  label: string;
+  year: number | null;
+};
+
+// STAGE3 — 확인질문을 통과한(CONFIRMED) 이벤트만 sequenceOrder 순으로.
+// SKIPPED/UNCONFIRMED(needsReview 포함)는 제외. label/year 는 CORRECTED 반영값
+// (correctedLabel/correctedYear 우선)으로 노출한다.
+export async function listConfirmedLifeEvents(
+  userId: string,
+): Promise<ConfirmedEpisodeItem[]> {
+  await requireUserId(userId);
+
+  const events = await prisma.lifeEvent.findMany({
+    where: { userId, status: "CONFIRMED", needsReview: false },
+    orderBy: { sequenceOrder: "asc" },
+    select: {
+      id: true,
+      label: true,
+      year: true,
+      correctedLabel: true,
+      correctedYear: true,
+    },
+  });
+
+  return events.map((e) => ({
+    id: e.id,
+    label: e.correctedLabel ?? e.label,
+    year: e.correctedYear ?? e.year,
+  }));
+}
