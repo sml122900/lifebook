@@ -14,13 +14,14 @@ import { getStoryReviewData } from "@/lib/story-review";
 const EPISODE_EXCERPT_LENGTH = 120;
 
 function gapHref(gap: Gap): string {
-  if (gap.targetEventId && gap.type === "episode") {
+  if (!gap.targetEventId) return "/chat-v3";
+  if (gap.type === "episode") {
     return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=episode`;
   }
-  if (gap.targetEventId) {
-    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=confirm`;
+  if (gap.type === "time_gap") {
+    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=period`;
   }
-  return "/chat-v3";
+  return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=confirm`;
 }
 
 export default async function StoryReviewPage() {
@@ -101,7 +102,7 @@ export default async function StoryReviewPage() {
                 key={i}
                 className="flex flex-col gap-3 rounded-md border-2 border-line bg-surface p-5 sm:flex-row sm:items-center sm:justify-between"
               >
-                <p className="text-lg text-ink">{gap.label}</p>
+                <p className="text-lg text-ink">{gap.cardLabel}</p>
                 <ButtonLink
                   href={gapHref(gap)}
                   variant="secondary"

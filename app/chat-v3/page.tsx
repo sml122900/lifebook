@@ -9,8 +9,9 @@ import { ChatV3Client, type InitialGap } from "./ChatV3Client";
 // 페이지로 직접 재진입해도 ChatV3Client 가 저장된 로그 + 백엔드 실제 상태로
 // 이어서 할 지점을 판단한다.
 //
-// `?gapEventId=<id>&gapType=confirm|episode` — /story-review 갭 카드의
-// [이야기하기] 가 특정 이벤트를 지정해 돌아올 때(P2). 없으면 자연 분기.
+// `?gapEventId=<id>&gapType=confirm|episode|period` — /story-review 갭
+// 카드의 [이야기하기] 가 특정 이벤트(또는 period 는 구간의 anchor 이벤트)를
+// 지정해 돌아올 때(P2·P3-2). 없으면 자연 분기.
 //
 // ⚠️ 탐색 단계 — /enter 라우팅은 아직 이 경로를 가리키지 않는다. 기존
 // /onboarding-confirm 등 v2 파이프라인은 무수정 보존.
@@ -26,7 +27,7 @@ export default async function ChatV3Page({
 
   const { gapEventId, gapType } = await searchParams;
   const initialGap: InitialGap =
-    gapEventId && (gapType === "episode" || gapType === "confirm")
+    gapEventId && (gapType === "episode" || gapType === "confirm" || gapType === "period")
       ? { eventId: gapEventId, kind: gapType }
       : null;
 

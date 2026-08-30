@@ -129,6 +129,15 @@ export function isPeriodCategory(category: LifeCategory): boolean {
 //
 // life_event 행은 eventYear 가 항상 채워져 있는 게 약속(L1 스키마 주석).
 // 방어적으로 NULL 행은 결과에서 제외한다.
+//
+// TODO(v3 통합 방향 확정 후): v3 통합 채팅(/chat-v3, P1~)의 골격은 이 함수가
+// 읽는 UserMemory 가 아니라 완전히 별개인 신규 `LifeEvent` Prisma 모델(대문자,
+// app/actions/onboarding.ts·life-event.ts)에 저장된다. episode 브릿지만
+// UserMemory(createdVia="episode")를 만들지만 위 kind 화이트리스트 밖이라
+// 여기 안 잡힌다(의도된 제외 — STAGE4 주석 참고). 그래서 /story-review(v3)에는
+// 이벤트가 보여도 /life-timeline(v2, 이 함수 기반)은 비어 보이는 게 현재
+// 구조상 정상 — 버그 아님. v3 가 /enter 에 연결되며 정식 메인이 될지, 이
+// UserMemory 기반 체계로 흡수될지 방향이 정해지면 그때 통합 방식 결정.
 async function _getLifeEvents(userId: string): Promise<LifeEvent[]> {
   // Phase E2/Photo — life_event + era_event + photo 셋 다 가져옴. 비서 컨텍스트
   // 등 일부 호출자는 호출 측에서 kind 로 filter (한 줄). 시간축은 셋 다 보여줌.
