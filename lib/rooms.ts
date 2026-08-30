@@ -7,6 +7,7 @@
 import { randomBytes } from "node:crypto";
 
 import { prisma } from "./db";
+import { CREATED_VIA_EPISODE } from "./episode";
 import { CREATED_VIA_PHOTO } from "./photos";
 
 export type Membership = Awaited<
@@ -153,7 +154,11 @@ export async function listRoomMemories(roomId: string, viewerUserId: string) {
       // 없는 텍스트 카드로 새지 않게 제외. 사진의 룸 공유는 6단계에서 이미지와
       // 함께 설계한다. life_event 에 첨부된 사진은 life_event 행으로 정상
       // 노출(본문만, 이미지는 6단계), era_event 는 E2/E3 정책상 노출 유지.
-      createdVia: { not: CREATED_VIA_PHOTO },
+      // STAGE4 — episode(온보딩 에피소드 브릿지 메모리)도 제외. 온보딩
+      // 파이프라인이 아직 /enter 에 연결 전이라 지금은 영향 없지만, 연결
+      // 시점에 이 필터가 없으면 놓치기 쉬워 미리 막아둔다(가족 룸 노출
+      // 여부는 그때 별도 결정).
+      createdVia: { notIn: [CREATED_VIA_PHOTO, CREATED_VIA_EPISODE] },
     },
     select: {
       id: true,

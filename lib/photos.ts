@@ -15,6 +15,7 @@
 //   - DB cascade 가 권한 검증을 대신하지 않음 (헬퍼에서 명시)
 
 import { prisma } from "./db";
+import { CREATED_VIA_EPISODE } from "./episode";
 import {
   CREATED_VIA_LIFE_EVENT,
   isPhotoPeriodAnchor,
@@ -180,13 +181,19 @@ export async function attachPhotoToMemory(
   memoryId: string,
   input: AttachPhotoInput,
 ): Promise<AttachPhotoResult> {
-  // 1) 대상 메모리 검증 (Storage 업로드 전) — 본인 소유 + life_event
+  // 1) 대상 메모리 검증 (Storage 업로드 전) — 본인 소유 + 첨부 가능한 종류.
+  // STAGE4 — episode(에피소드 브릿지 메모리)도 허용(life_event 와 동일하게
+  // 첨부 가능). reason 문자열은 기존 테스트(db/test-photo-attach.ts) 호환을
+  // 위해 "not_life_event" 그대로 둔다.
   const memory = await prisma.userMemory.findFirst({
     where: { id: memoryId, userId },
     select: { id: true, createdVia: true },
   });
   if (!memory) return { ok: false, reason: "memory_not_found" };
-  if (memory.createdVia !== CREATED_VIA_LIFE_EVENT) {
+  if (
+    memory.createdVia !== CREATED_VIA_LIFE_EVENT &&
+    memory.createdVia !== CREATED_VIA_EPISODE
+  ) {
     return { ok: false, reason: "not_life_event" };
   }
 

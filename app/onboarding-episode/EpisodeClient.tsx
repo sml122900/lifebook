@@ -4,19 +4,20 @@
 // AI 호출 없음 — listConfirmedLifeEvents 로 한 번에 받은 목록을 클라에서 순회.
 //
 // 액션 버튼 4개:
-//   [이야기하기] → STAGE4(에피소드 심화 대화) placeholder. 실제 대화 루프는
-//     다음 핸드오프에서 별도 구현(app/life-timeline/companion 류의 화면이
-//     참고 대상이 될 수 있음).
+//   [이야기하기] → STAGE4(app/onboarding-episode-chat/[eventId])로 이동해
+//     실제 심화 대화 진행. 대화 종료 후 이 화면(`?after=<eventId>`)으로
+//     돌아오면 방금 이야기한 다음 이벤트부터 이어간다(index 재사용).
 //   [사진추가]   → placeholder. 기존 사진 업로드는
 //     app/photos/PhotosUploadForm.tsx(/photos) ·
 //     app/life-timeline/manage/DraftPhotoUpload.tsx 가 있지만 전부
-//     UserMemory.memoryId 기반이라, LifeEvent(신규 모델) 이벤트에 연결하려면
-//     LifeEvent ↔ UserMemory 브릿지가 먼저 필요 — 이번엔 연결 안 함.
+//     UserMemory.memoryId 기반. STAGE4 에서 브릿지가 생긴 뒤에도 이
+//     버튼(에피소드 대화를 거치지 않고 바로 사진만) 자체는 이번 범위 아님.
 //   [장소지정]   → placeholder. 기존 장소 입력은 app/components/PlacesEditor.tsx
-//     (app/life-timeline/EventForm.tsx 등에서 사용)이지만 마찬가지로
-//     UserMemory.memoryId 기반이라 브릿지 필요.
+//     (app/life-timeline/EventForm.tsx 등에서 사용). 마찬가지로 STAGE4
+//     대화 경유 없이 바로 여는 것은 이번 범위 아님.
 //   [다음에 하기] → hasEpisode 그대로 두고(DB 쓰기 없음) 다음 이벤트로.
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -27,10 +28,9 @@ import {
 } from "@/app/actions/life-event";
 
 type Phase = "loading" | "asking" | "placeholder" | "done" | "error";
-type PlaceholderKind = "story" | "photo" | "place";
+type PlaceholderKind = "photo" | "place";
 
 const PLACEHOLDER_COPY: Record<PlaceholderKind, string> = {
-  story: "이야기 나누는 화면은 곧 준비할게요.",
   photo: "사진 추가 기능은 곧 연결할게요.",
   place: "장소 지정 기능은 곧 연결할게요.",
 };
@@ -40,7 +40,14 @@ function formatQuestion(item: ConfirmedEpisodeItem): string {
   return `${yearPart}${item.label}, 이때 기억나는 거 있으세요?`;
 }
 
-export function EpisodeClient({ userId }: { userId: string }) {
+export function EpisodeClient({
+  userId,
+  afterEventId,
+}: {
+  userId: string;
+  afterEventId: string | null;
+}) {
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("loading");
   const [items, setItems] = useState<ConfirmedEpisodeItem[]>([]);
   const [index, setIndex] = useState(0);
@@ -54,7 +61,20 @@ export function EpisodeClient({ userId }: { userId: string }) {
         const list = await listConfirmedLifeEvents(userId);
         if (!mounted) return;
         setItems(list);
-        setPhase(list.length > 0 ? "asking" : "done");
+        if (list.length === 0) {
+          setPhase("done");
+          return;
+        }
+        const afterIdx = afterEventId
+          ? list.findIndex((e) => e.id === afterEventId)
+          : -1;
+        const startIndex = afterIdx === -1 ? 0 : afterIdx + 1;
+        if (startIndex >= list.length) {
+          setPhase("done");
+          return;
+        }
+        setIndex(startIndex);
+        setPhase("asking");
       } catch (e) {
         console.error("[onboarding-episode]", e);
         if (!mounted) return;
@@ -65,7 +85,7 @@ export function EpisodeClient({ userId }: { userId: string }) {
     return () => {
       mounted = false;
     };
-  }, [userId]);
+  }, [userId, afterEventId]);
 
   function handleNext() {
     setPlaceholderKind(null);
@@ -142,7 +162,11 @@ export function EpisodeClient({ userId }: { userId: string }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Button variant="primary" size="lg" onClick={() => openPlaceholder("story")}>
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={() => router.push(`/onboarding-episode-chat/${item.id}`)}
+        >
           이야기하기
         </Button>
         <Button variant="secondary" size="lg" onClick={() => openPlaceholder("photo")}>

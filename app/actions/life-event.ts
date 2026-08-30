@@ -233,3 +233,31 @@ export async function listConfirmedLifeEvents(
     year: e.correctedYear ?? e.year,
   }));
 }
+
+// STAGE4 — 에피소드 대화 화면(app/onboarding-episode-chat/[eventId])이
+// 진입 시 소유·상태(CONFIRMED)를 확인하며 단건 조회. listConfirmedLifeEvents
+// 와 같은 필터·라벨/연도 해석 규칙.
+export async function getConfirmedLifeEvent(
+  userId: string,
+  eventId: string,
+): Promise<ConfirmedEpisodeItem | null> {
+  await requireUserId(userId);
+
+  const event = await prisma.lifeEvent.findFirst({
+    where: { id: eventId, userId, status: "CONFIRMED", needsReview: false },
+    select: {
+      id: true,
+      label: true,
+      year: true,
+      correctedLabel: true,
+      correctedYear: true,
+    },
+  });
+  if (!event) return null;
+
+  return {
+    id: event.id,
+    label: event.correctedLabel ?? event.label,
+    year: event.correctedYear ?? event.year,
+  };
+}

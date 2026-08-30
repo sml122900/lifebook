@@ -689,6 +689,12 @@ model UserMemory {
   companionSessionId String?
   companionSession   CompanionSession? @relation(fields: [companionSessionId], references: [id], onDelete: SetNull)
 
+  // STAGE4 — Episode(신규 LifeEvent 모델의 심화 대화) 브릿지. 1:1 — 이
+  // UserMemory 가 존재하면 정확히 하나의 Episode 가 이 메모리에서 태어난
+  // 것. createdVia="episode" 로 구분(getLifeEvents whitelist 밖이라
+  // /life-timeline 에는 안 보임).
+  episode Episode?
+
   @@index([userId])
   // Phase L1 — 인생 연혁 화면(L3)에서 사용자별 life_event 시간순 정렬용.
   @@index([userId, eventYear, eventMonth])
@@ -1048,6 +1054,14 @@ model Episode {
   id          String    @id @default(cuid())
   lifeEventId String
   lifeEvent   LifeEvent @relation(fields: [lifeEventId], references: [id])
+
+  // STAGE4 — 브릿지 방식 A. 대화가 끝나면 UserMemory 를 하나 새로 만들어
+  // Episode 와 1:1로 연결한다(@unique). 이 UserMemory 를 통해 기존 사진
+  // (PhotosUploadForm/EventPhotos)·장소(PlacesEditor) 컴포넌트를 재사용한다.
+  // UserMemory 삭제 시 Episode 도 함께 정리(Cascade) — 브릿지 행이 원본
+  // 없이 남는 것을 막는다.
+  memoryId String     @unique
+  memory   UserMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
 
   content       String  @db.Text
   rawTranscript String? @db.Text
