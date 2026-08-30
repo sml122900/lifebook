@@ -123,32 +123,33 @@ model User {
 
   createdAt DateTime @default(now())
 
-  accounts              Account[]
-  sessions              Session[]
-  profile               LifeProfile?
-  memories              UserMemory[]
-  triggerResponses      TriggerResponse[]
-  conversations         AIConversation[]
-  wallet                TokenWallet?
-  tokenTxs              TokenTransaction[]
-  tokenOrders           TokenOrder[]
-  ownedRooms            SharedRoom[]       @relation("SharedRoomOwner")
-  roomMemberships       RoomMember[]
-  invitesCreated        RoomInvite[]       @relation("InviteCreator")
-  comments              Comment[]
-  sharedMemoriesCreated SharedMemory[]     @relation("SharedMemoryCreator")
-  sharedMemoriesEdited  SharedMemory[]     @relation("SharedMemoryEditor")
-  timemachineMonths     TimemachineMonth[]
-  attendances           UserAttendance[]
-  reactions             MemoryReaction[]
-  feedSeen              FamilyFeedSeen?
-  people                Person[]
-  photos                Photo[]
-  productOrders         ProductOrder[]
-  companionSessions     CompanionSession[]
-  poster                Poster?
-  lifeEvents            LifeEvent[]
-  onboardingProfile     OnboardingProfile?
+  accounts               Account[]
+  sessions               Session[]
+  profile                LifeProfile?
+  memories               UserMemory[]
+  triggerResponses       TriggerResponse[]
+  conversations          AIConversation[]
+  wallet                 TokenWallet?
+  tokenTxs               TokenTransaction[]
+  tokenOrders            TokenOrder[]
+  ownedRooms             SharedRoom[]            @relation("SharedRoomOwner")
+  roomMemberships        RoomMember[]
+  invitesCreated         RoomInvite[]            @relation("InviteCreator")
+  comments               Comment[]
+  sharedMemoriesCreated  SharedMemory[]          @relation("SharedMemoryCreator")
+  sharedMemoriesEdited   SharedMemory[]          @relation("SharedMemoryEditor")
+  timemachineMonths      TimemachineMonth[]
+  attendances            UserAttendance[]
+  reactions              MemoryReaction[]
+  feedSeen               FamilyFeedSeen?
+  people                 Person[]
+  photos                 Photo[]
+  productOrders          ProductOrder[]
+  companionSessions      CompanionSession[]
+  poster                 Poster?
+  lifeEvents             LifeEvent[]
+  onboardingProfile      OnboardingProfile?
+  onboardingChatMessages OnboardingChatMessage[]
 }
 
 // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
@@ -1082,4 +1083,21 @@ model OnboardingProfile {
   skeletonGeneratedAt DateTime?
 
   createdAt DateTime @default(now())
+}
+
+// v3 통합 채팅(P2) — /chat-v3 전체 대화 로그. 턴당 1행(관계형) — CompanionSession
+// 의 JSON blob 패턴과 다르게 골랐다(재진입 시 그대로 순서대로 렌더하면 되는
+// 단순함 우선). role 은 기존 AIMessageRole enum 재사용(신규 enum 0개).
+// sessionId 는 지금은 순수 메타데이터(브라우저 방문 1회 = uuid 1개, 클라
+// 생성) — 표시 로직은 세션 무관하게 시간순 전체(또는 최근 N개)로 본다.
+model OnboardingChatMessage {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String
+  role      AIMessageRole
+  content   String        @db.Text
+  createdAt DateTime      @default(now())
+
+  @@index([userId, createdAt])
 }

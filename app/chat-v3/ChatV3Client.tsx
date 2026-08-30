@@ -1,17 +1,21 @@
 "use client";
 
-// v3 통합 채팅(P1) — 신상 수집(뼈대모드) + STAGE2 확인질문을 하나의 채팅
-// 흐름으로. 사용자에겐 단계 구분이 안 보이고, 내부 stage 상태로만 존재한다.
+// v3 통합 채팅(P2) — 신상 수집(뼈대모드) + STAGE2 확인질문 + 갭 기반 열린
+// 대화가 하나의 채팅 흐름으로 이어진다. 내부 stage 는 UI 에 안 보인다.
 //
-// 재사용: completeOnboarding(app/actions/onboarding.ts), getNextConfirmQuestion
-// /submitConfirmAnswer(app/actions/life-event.ts) — 엔진 로직 무수정, 이
-// 컴포넌트가 순서대로 이어붙인다. 시각 패턴은 app/onboarding-confirm/
-// ConfirmClient.tsx 를 참고했다(말풍선·로딩 점·에러 배너 동일 톤).
+// P1 대비 핵심 변화: 대화 로그를 DB(OnboardingChatMessage)에 저장/복원한다.
+// 이 덕에 P1 의 sessionStorage 우회 가드(리마운트 시 잘못된 "지난번에
+// 이어서" 분기 방지)는 완전히 걷어냈다 — 리마운트가 나도 저장된 로그를
+// 그대로 다시 그리고, "다음에 뭘 물을지"는 항상 OnboardingProfile/LifeEvent
+// 의 실제 상태에서 다시 계산한다(메시지 텍스트로 상태를 추측하지 않음).
 //
-// TODO(P2): status==="finished" 이후 정리화면(사진/장소/에피소드 등) 연결.
-// 지금은 채팅 안에서 마무리 멘트만 보여주고 끝난다.
+// 재사용 엔진: completeOnboarding(onboarding.ts), getNextConfirmQuestion/
+// submitConfirmAnswer/getConfirmQuestionForEvent(life-event.ts),
+// continueEpisodeChat/finishEpisodeChat(episode.ts, STAGE4 그대로) — 전부
+// 무수정 또는 순수 추가(getConfirmQuestionForEvent 신설).
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
 
@@ -22,22 +26,35 @@ import {
   parseProfileRegion,
 } from "@/app/actions/onboarding-v3";
 import {
+  getConfirmedLifeEvent,
+  getConfirmQuestionForEvent,
   getNextConfirmQuestion,
   submitConfirmAnswer,
 } from "@/app/actions/life-event";
+import { continueEpisodeChat, finishEpisodeChat, type EpisodeTurn } from "@/app/actions/episode";
+import { getTopGaps } from "@/app/actions/gaps";
+import { respondToOpenChat } from "@/app/actions/open-chat";
+import {
+  listRecentChatMessages,
+  saveChatMessage,
+  type ChatLogTurn,
+} from "@/app/actions/chat-v3-log";
+import type { Gap } from "@/lib/gap-detector";
 
 type Msg = { role: "a" | "u"; text: string };
-type Stage = "profile_year" | "profile_region" | "confirm";
+type Stage = "profile_year" | "profile_region" | "confirm" | "episode" | "open";
 type Status = "loading" | "idle" | "submitting" | "finished" | "error";
+type FinishReason = "done" | "capped" | "exited";
 
-// 피로도 제어 — 신상(생년·출생지) + 확인질문 합쳐 한 세션 상한. 재질문(못
-// 알아들어 다시 묻는 경우)은 새 질문이 아니라 카운트하지 않는다.
+export type InitialGap = { eventId: string; kind: "confirm" | "episode" } | null;
+
+// 피로도 제어 — 신상(생년·출생지) + 확인질문 합쳐 한 세션 상한. 갭 카드로
+// 되돌아와 특정 이벤트를 다시 다루는 것(targeted confirm)·에피소드 대화·
+// open 자유 대화는 이 상한에 안 걸린다(온보딩 피로도와는 다른 맥락).
 const MAX_SESSION_QUESTIONS = 12;
 
-// 종료 의사 키워드 사전 체크 — STAGE4(에피소드 대화) 의 "종료 의사는 항상
-// 즉시 존중" 원칙을 여기선 LLM 판단 대신 가벼운 키워드로 재현한다(매 턴
-// AI 호출 없이 즉시 반응). "됐어요" 류는 "확인했다"는 긍정 답변과 겹칠 수
-// 있어 일부러 뺐다 — 오탐(원치 않는 조기 종료)보다 놓치는 편이 안전하다.
+// 종료 의사 키워드 사전 체크 — STAGE4(에피소드 대화)의 "종료 의사는 항상
+// 즉시 존중" 원칙을 여기선 LLM 판단 대신 가벼운 키워드로 재현한다.
 const EXIT_PHRASES = [
   "그만할래요",
   "그만할게요",
@@ -53,32 +70,32 @@ function isExitIntent(text: string): boolean {
   return EXIT_PHRASES.some((p) => normalized.includes(p));
 }
 
-// 버그1 방어 — 신상 수집 마지막 단계(completeOnboarding, AI 호출 2연쇄로
-// 느림)가 진행되는 동안 원인 불명의 컴포넌트 리마운트가 관찰됐다(dev
-// 환경에서 응답이 느릴 때만 간헐적으로 재현 — Next dev 서버의 Fast
-// Refresh/HMR 재연결로 추정되나 코드에서 revalidatePath/redirect/
-// router.refresh 를 전혀 안 써 확정적 트리거를 못 찾음). 리마운트가 나도
-// "지난번에 이어서 할게요" 로 잘못 분기하지 않도록 sessionStorage 에
-// "방금 이 탭에서 골격을 만들었다" 플래그만 남겨 init() 이 확인한다.
-// (대화 로그 자체 복원은 이번 범위 아님 — 아래 TODO 참고)
-function profileJustCompletedKey(userId: string): string {
-  return `chatv3:${userId}:justCompletedProfile`;
-}
+const OPEN_GREETING = "하고 싶은 이야기 있으세요?";
 
-export function ChatV3Client({ userId }: { userId: string }) {
+export function ChatV3Client({
+  userId,
+  initialGap,
+}: {
+  userId: string;
+  initialGap: InitialGap;
+}) {
+  const router = useRouter();
+  const [sessionId] = useState(() => crypto.randomUUID());
+
   const [stage, setStage] = useState<Stage>("profile_year");
   const [status, setStatus] = useState<Status>("loading");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [inputVal, setInputVal] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // 신상→골격 전환처럼 AI 호출이 연쇄로 이어지는 구간에서만 채우는 안내
-  // 문구. 비어있으면 기존 점 3개 애니메이션을 그대로 보여준다.
   const [loadingHint, setLoadingHint] = useState<string | null>(null);
+  const [gapSuggestions, setGapSuggestions] = useState<Gap[]>([]);
 
   const birthYearRef = useRef<number | null>(null);
   const activeEventIdRef = useRef<string | null>(null);
   const questionCountRef = useRef(0);
-  const resumedPrefixShownRef = useRef(false);
+  const isTargetedConfirmRef = useRef(false);
+  const episodeFollowUpCountRef = useRef(0);
+  const episodeTranscriptRef = useRef<EpisodeTurn[]>([]);
   const retryActionRef = useRef<(() => Promise<void>) | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -89,9 +106,15 @@ export function ChatV3Client({ userId }: { userId: string }) {
 
   function addBot(text: string) {
     setMessages((prev) => [...prev, { role: "a", text }]);
+    saveChatMessage(userId, sessionId, "assistant", text).catch((e) =>
+      console.error("[chat-v3-log]", e),
+    );
   }
   function addUser(text: string) {
     setMessages((prev) => [...prev, { role: "u", text }]);
+    saveChatMessage(userId, sessionId, "user", text).catch((e) =>
+      console.error("[chat-v3-log]", e),
+    );
   }
 
   function enterError(message: string, retryAction: () => Promise<void>) {
@@ -100,98 +123,185 @@ export function ChatV3Client({ userId }: { userId: string }) {
     setStatus("error");
   }
 
-  function finishSession(reason: "done" | "already_done" | "capped" | "exited") {
+  // canReview — /story-review 로 넘어갈 만한 상태인지(신상 단계에서 종료한
+  // 경우엔 아직 아무 골격도 없어 보여줄 게 없다). "done"/"capped" 는 항상
+  // confirm 루프(골격 존재) 안에서만 발생하므로 호출부가 true 로 고정.
+  function finishSession(reason: FinishReason, canReview: boolean) {
     const msg =
-      reason === "already_done"
-        ? "지난번에 확인을 다 마치셨어요! 오늘은 더 여쭤볼 게 없어요."
-        : reason === "capped"
-          ? "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요."
-          : reason === "exited"
-            ? "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요."
-            : "뼈대가 다 채워졌어요! 오늘은 여기까지 할게요. 다음에 또 봬요.";
+      reason === "capped"
+        ? "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요."
+        : reason === "exited"
+          ? "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요."
+          : "뼈대가 다 채워졌어요! 지금까지 채운 이야기를 보여드릴게요.";
     addBot(msg);
     setStatus("finished");
+    if (canReview) {
+      setTimeout(() => router.push("/story-review"), 1200);
+    }
   }
 
-  async function loadNextConfirmQuestion(opts: { resuming?: boolean } = {}) {
-    const { resuming = false } = opts;
+  // "open" 단계 진입/재진입 — 갭을 새로 계산해 보여주고, 인사말을 붙인다.
+  // dedupeAgainst 가 주어지면(마운트 시 복원된 로그) 이미 같은 인사말로
+  // 끝나 있는 경우 중복으로 또 안 붙인다.
+  async function enterOpenStage(promptText: string, dedupeAgainst?: ChatLogTurn[]) {
+    setStage("open");
+    setStatus("loading");
+    try {
+      const gaps = await getTopGaps(userId, 3);
+      setGapSuggestions(gaps);
+      const last = dedupeAgainst?.[dedupeAgainst.length - 1];
+      const alreadyShown = last?.role === "assistant" && last.content === promptText;
+      if (!alreadyShown) addBot(promptText);
+      setStatus("idle");
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      enterError("이야기를 불러오지 못했어요.", () => enterOpenStage(promptText, dedupeAgainst));
+    }
+  }
+
+  async function loadNextConfirmQuestion(
+    opts: { fromInit?: boolean; dedupeAgainst?: ChatLogTurn[] } = {},
+  ) {
+    const { fromInit = false, dedupeAgainst } = opts;
     setStage("confirm");
     setStatus("loading");
     try {
       if (questionCountRef.current >= MAX_SESSION_QUESTIONS) {
-        finishSession("capped");
+        finishSession("capped", true);
         return;
       }
       const res = await getNextConfirmQuestion(userId);
       if (res.done) {
-        finishSession(resuming ? "already_done" : "done");
+        if (fromInit) {
+          // 마운트 직후 만난 done:true 는 "지금 막 끝난" 게 아니라 "이미 다
+          // 끝나 있었다" — 축하 멘트+리뷰 이동 대신 open 단계로.
+          await enterOpenStage(OPEN_GREETING, dedupeAgainst);
+        } else {
+          finishSession("done", true);
+        }
         return;
       }
       activeEventIdRef.current = res.eventId;
       questionCountRef.current += 1;
-      const prefix =
-        resuming && !resumedPrefixShownRef.current ? "지난번에 이어서 할게요. " : "";
-      resumedPrefixShownRef.current = true;
-      // TODO(P2): 진짜 재진입(다른 날 다시 옴) 시 이전 대화 로그 자체는
-      // 복원 안 됨 — P1 은 대화 로그를 DB 에 저장하지 않아 이 prefix 한
-      // 줄로만 이어간다. 질문 문구가 지난번과 달라질 수 있는 것(예: 회수
-      // 다른 confirm 질문 문구)도 같은 이벤트를 묻는 한 문제 아님으로 수용.
-      // 로그 저장/복원은 P2 범위.
-      addBot(prefix + res.question);
+      addBot(res.question);
       setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
-      enterError("질문을 불러오지 못했어요.", () => loadNextConfirmQuestion({ resuming }));
+      enterError("질문을 불러오지 못했어요.", () =>
+        loadNextConfirmQuestion({ fromInit, dedupeAgainst }),
+      );
     }
   }
 
-  async function init() {
+  async function afterConfirmResolved() {
+    if (isTargetedConfirmRef.current) {
+      isTargetedConfirmRef.current = false;
+      await enterOpenStage("네, 반영했어요. 다른 이야기도 있으세요?");
+    } else {
+      await loadNextConfirmQuestion();
+    }
+  }
+
+  // 갭 카드에서 특정(needsReview 포함) 이벤트를 골라 다시 묻는 경로.
+  async function startTargetedConfirm(eventId: string) {
+    isTargetedConfirmRef.current = true;
+    setStage("confirm");
     setStatus("loading");
     try {
-      const hasProfile = await hasOnboardingProfile(userId);
-      if (!hasProfile) {
-        setStage("profile_year");
-        addBot("먼저 몇 가지만 여쭤볼게요. 언제 태어나셨어요?");
-        questionCountRef.current += 1;
-        setStatus("idle");
+      const res = await getConfirmQuestionForEvent(userId, eventId);
+      if (res.done) {
+        isTargetedConfirmRef.current = false;
+        await enterOpenStage("그 이야기는 이미 확인했나봐요. 다른 이야기 있으세요?");
         return;
       }
-
-      // 방금 이 탭에서 골격 생성을 마친 직후의 (재)마운트라면 진짜 재진입이
-      // 아니다 — "지난번에 이어서" 대신 원래 나왔어야 할 연결 멘트로 이어간다.
-      let justCompletedProfile = false;
-      try {
-        justCompletedProfile =
-          sessionStorage.getItem(profileJustCompletedKey(userId)) === "1";
-        if (justCompletedProfile) sessionStorage.removeItem(profileJustCompletedKey(userId));
-      } catch {
-        // 프라이빗 브라우징 등 sessionStorage 접근 불가 — 원래 동작(resuming)으로 폴백.
-      }
-      if (justCompletedProfile) {
-        // birthYearRef 도 리마운트로 함께 비워졌을 수 있어(같은 인스턴스가
-        // 아니면 이 값도 신뢰 못 함) 연도를 다시 언급하지 않는 안전한 멘트로.
-        addBot("네, 그럼 몇 가지 확인해볼게요.");
-        await loadNextConfirmQuestion({ resuming: false });
-        return;
-      }
-
-      await loadNextConfirmQuestion({ resuming: true });
+      activeEventIdRef.current = res.eventId;
+      addBot(res.question);
+      setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
-      enterError("시작하지 못했어요.", init);
+      enterError("질문을 불러오지 못했어요.", () => startTargetedConfirm(eventId));
     }
   }
 
-  const didInitRef = useRef(false);
-  useEffect(() => {
-    // dev StrictMode 가 마운트 이펙트를 두 번 실행 — 첫 질문이 중복 표시되는
-    // 것을 막는다(ConfirmClient 에는 없던 가드, 이 컴포넌트가 최초 메시지를
-    // 이펙트 안에서 직접 addBot 하기 때문에 새로 필요해짐).
-    if (didInitRef.current) return;
-    didInitRef.current = true;
-    void init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // 갭 카드에서 confirmed 인데 hasEpisode=false 인 이벤트를 골라 심화 대화
+  // 시작 — STAGE4(app/onboarding-episode-chat)와 같은 엔진, 같은 오프닝 톤.
+  async function startEpisodeStage(eventId: string) {
+    setStage("episode");
+    setStatus("loading");
+    try {
+      const item = await getConfirmedLifeEvent(userId, eventId);
+      if (!item) {
+        await enterOpenStage("그 이야기는 지금 들을 수 없나봐요. 다른 이야기 있으세요?");
+        return;
+      }
+      activeEventIdRef.current = item.id;
+      episodeFollowUpCountRef.current = 0;
+      const yearPart = item.year ? `${item.year}년 ` : "";
+      const opening = `${yearPart}${item.label}, 이때 기억나는 거 있으세요? 편하게 말씀해주세요.`;
+      episodeTranscriptRef.current = [{ role: "assistant", text: opening }];
+      addBot(opening);
+      setStatus("idle");
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      enterError("이야기를 준비하지 못했어요.", () => startEpisodeStage(eventId));
+    }
+  }
+
+  async function submitEpisodeTurn(text: string) {
+    const eventId = activeEventIdRef.current;
+    if (!eventId) {
+      setStatus("idle");
+      return;
+    }
+    setStatus("submitting");
+    const historyBefore = episodeTranscriptRef.current;
+    const apiHistory: EpisodeTurn[] = [...historyBefore.slice(1), { role: "user", text }];
+    try {
+      const result = await continueEpisodeChat(eventId, apiHistory, episodeFollowUpCountRef.current);
+      if (!result.ok) {
+        enterError(result.error, () => {
+          setStatus("idle");
+          return Promise.resolve();
+        });
+        return;
+      }
+      episodeTranscriptRef.current = [
+        ...historyBefore,
+        { role: "user", text },
+        { role: "assistant", text: result.reply },
+      ];
+      addBot(result.reply);
+      episodeFollowUpCountRef.current += 1;
+      if (result.end) {
+        await finishEpisodeStage();
+        return;
+      }
+      setStatus("idle");
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      enterError("답변을 처리하지 못했어요.", () => {
+        setStatus("idle");
+        return Promise.resolve();
+      });
+    }
+  }
+
+  async function finishEpisodeStage() {
+    const eventId = activeEventIdRef.current;
+    setStatus("loading");
+    try {
+      const result = eventId
+        ? await finishEpisodeChat(eventId, episodeTranscriptRef.current)
+        : { ok: false as const, error: "" };
+      if (!result.ok) {
+        addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
+      }
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
+    }
+    await enterOpenStage("소중한 이야기 들려주셔서 고마워요. 다른 이야기도 있으세요?");
+  }
 
   async function submitBirthYear(text: string) {
     setStatus("submitting");
@@ -225,16 +335,13 @@ export function ChatV3Client({ userId }: { userId: string }) {
       const birthYear = birthYearRef.current;
       if (birthYear === null) {
         // 순서상 항상 birthYear 가 먼저 채워지므로 이론상 도달하지 않는다.
-        // 방어적으로 신상 처음부터.
         setStage("profile_year");
         addBot("죄송해요, 처음부터 다시 여쭤볼게요. 언제 태어나셨어요?");
         setStatus("idle");
         return;
       }
 
-      // 골격 생성(completeOnboarding) + 첫 확인질문 생성(loadNextConfirmQuestion)
-      // 이 AI 호출 2연쇄로 이어져 몇 초 걸린다 — 점 3개만으로는 어르신께
-      // 불안할 수 있어 문구를 띄운다.
+      // 골격 생성 + 첫 확인질문 생성이 AI 호출 2연쇄로 이어져 몇 초 걸린다.
       setLoadingHint("잠깐만요, 이야기 칸을 정리하고 있어요…");
       await completeOnboarding(userId, {
         birthYear,
@@ -242,22 +349,10 @@ export function ChatV3Client({ userId }: { userId: string }) {
         gender: null,
         region: res.region,
       });
-      // 버그1 방어 — 이 지점 이후 리마운트가 나도(원인은 위 profileJustCompletedKey
-      // 주석 참고) init() 이 "지난번에 이어서" 로 잘못 분기하지 않게 표시.
-      try {
-        sessionStorage.setItem(profileJustCompletedKey(userId), "1");
-      } catch {
-        // 접근 불가면 그냥 원래 동작(remount 시 resuming 분기)으로 남는다.
-      }
-      addBot(`${birthYear}년에 태어나셨군요. 그럼 몇 가지 확인해볼게요.`);
+      // 직전 턴이 이미 "OO년에 태어나셨군요"였으니 여기서 연도를 또
+      // 반복하지 않는다(중복 문구 픽스).
+      addBot("네, 그럼 몇 가지 확인해볼게요.");
       await loadNextConfirmQuestion();
-      // 리마운트 없이 여기까지 왔다면 플래그의 역할은 끝났다 — 지우지 않으면
-      // 나중에(같은 탭에서 정말로 재진입할 때) 또 잘못 소비될 수 있다.
-      try {
-        sessionStorage.removeItem(profileJustCompletedKey(userId));
-      } catch {
-        // no-op
-      }
     } catch (e) {
       console.error("[chat-v3]", e);
       enterError("저장하지 못했어요.", () => submitRegion(text));
@@ -279,7 +374,7 @@ export function ChatV3Client({ userId }: { userId: string }) {
       if (result.status === "UNCLEAR") {
         if (result.needsReview) {
           addBot("네, 그건 나중에 다시 여쭤볼게요.");
-          await loadNextConfirmQuestion();
+          await afterConfirmResolved();
         } else {
           addBot("죄송해요, 잘 못 알아들었어요. 다시 한번 말씀해주시겠어요?");
           setStatus("idle");
@@ -291,10 +386,79 @@ export function ChatV3Client({ userId }: { userId: string }) {
       else if (result.status === "SKIPPED") addBot("알겠어요, 넘어갈게요.");
       else if (result.status === "CORRECTED") addBot("그렇게 고쳐서 담아둘게요.");
 
-      await loadNextConfirmQuestion();
+      await afterConfirmResolved();
     } catch (e) {
       console.error("[chat-v3]", e);
       enterError("답변을 저장하지 못했어요.", () => submitConfirmTurn(text));
+    }
+  }
+
+  async function submitOpenChat(text: string) {
+    setStatus("submitting");
+    try {
+      const reply = await respondToOpenChat(userId, text);
+      addBot(reply);
+      setStatus("idle");
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      enterError("답변을 처리하지 못했어요.", () => submitOpenChat(text));
+    }
+  }
+
+  async function init() {
+    setStatus("loading");
+    try {
+      const loaded = await listRecentChatMessages(userId);
+      if (loaded.length > 0) {
+        setMessages(loaded.map((m) => ({ role: m.role === "assistant" ? "a" : "u", text: m.content })));
+      }
+
+      // 갭 카드에서 특정 이벤트를 지정해 돌아온 경우 — 자연 분기보다 우선.
+      if (initialGap) {
+        if (initialGap.kind === "episode") {
+          await startEpisodeStage(initialGap.eventId);
+        } else {
+          await startTargetedConfirm(initialGap.eventId);
+        }
+        return;
+      }
+
+      const hasProfile = await hasOnboardingProfile(userId);
+      if (!hasProfile) {
+        setStage("profile_year");
+        addBot("먼저 몇 가지만 여쭤볼게요. 언제 태어나셨어요?");
+        questionCountRef.current += 1;
+        setStatus("idle");
+        return;
+      }
+
+      await loadNextConfirmQuestion({ fromInit: true, dedupeAgainst: loaded });
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      enterError("시작하지 못했어요.", init);
+    }
+  }
+
+  const didInitRef = useRef(false);
+  useEffect(() => {
+    // dev StrictMode 가 마운트 이펙트를 두 번 실행 — 첫 질문이 중복 표시되는
+    // 것을 막는다.
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    void init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleGapClick(gap: Gap) {
+    if (status !== "idle") return;
+    if (gap.type === "episode" && gap.targetEventId) {
+      await startEpisodeStage(gap.targetEventId);
+    } else if ((gap.type === "unconfirmed" || gap.type === "needs_review") && gap.targetEventId) {
+      await startTargetedConfirm(gap.targetEventId);
+    } else {
+      // time_gap — 특정 이벤트가 없는 "사이" 제안. 프롬프트만 던지고
+      // 자유 답변을 기다린다(구조화된 LifeEvent 생성은 이번 범위 아님).
+      addBot(`${gap.label} 편하게 말씀해주세요.`);
     }
   }
 
@@ -305,7 +469,8 @@ export function ChatV3Client({ userId }: { userId: string }) {
     if (isExitIntent(text)) {
       addUser(text);
       setInputVal("");
-      finishSession("exited");
+      const canReview = stage !== "profile_year" && stage !== "profile_region";
+      finishSession("exited", canReview);
       return;
     }
 
@@ -314,7 +479,9 @@ export function ChatV3Client({ userId }: { userId: string }) {
 
     if (stage === "profile_year") await submitBirthYear(text);
     else if (stage === "profile_region") await submitRegion(text);
-    else await submitConfirmTurn(text);
+    else if (stage === "confirm") await submitConfirmTurn(text);
+    else if (stage === "episode") await submitEpisodeTurn(text);
+    else await submitOpenChat(text);
   }
 
   function handleRetry() {
@@ -325,6 +492,7 @@ export function ChatV3Client({ userId }: { userId: string }) {
 
   const isIdle = status === "idle";
   const showInput = status !== "error" && status !== "finished";
+  const showGaps = stage === "open" && isIdle && gapSuggestions.length > 0;
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -369,6 +537,20 @@ export function ChatV3Client({ userId }: { userId: string }) {
 
         <div ref={bottomRef} />
       </div>
+
+      {showGaps && (
+        <div className="flex flex-col gap-2">
+          {gapSuggestions.map((gap, i) => (
+            <button
+              key={i}
+              onClick={() => void handleGapClick(gap)}
+              className="min-h-[56px] rounded-2xl border-2 border-line bg-surface px-5 py-3 text-left text-lg text-ink hover:bg-banner"
+            >
+              {gap.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {status === "error" && (
         <div className="py-2 text-center">

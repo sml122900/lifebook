@@ -46,20 +46,17 @@ export type NextConfirmQuestion =
   | { done: true }
   | { done: false; eventId: string; question: string };
 
-// 다음 UNCONFIRMED 이벤트에 대한 확인질문. needsReview 된 이벤트는 건너뛴다.
-// 대상이 없으면 { done: true }.
-export async function getNextConfirmQuestion(
-  userId: string,
-): Promise<NextConfirmQuestion> {
-  await requireUserId(userId);
+type ConfirmQuestionTarget = {
+  id: string;
+  year: number | null;
+  label: string;
+  isOptional: boolean;
+};
 
-  const event = await prisma.lifeEvent.findFirst({
-    where: { userId, status: "UNCONFIRMED", needsReview: false },
-    orderBy: { sequenceOrder: "asc" },
-  });
-
-  if (!event) return { done: true };
-
+// getNextConfirmQuestion 과 getConfirmQuestionForEvent(P2 — 갭 카드에서 특정
+// 이벤트를 직접 지정) 가 공유하는 질문 문구 생성. 순수 헬퍼(비export) — DB
+// 접근 없음, chat() 호출만.
+async function buildConfirmQuestionText(event: ConfirmQuestionTarget): Promise<string> {
   const eventDesc = [
     event.year ? `${event.year}년` : "연도 미상",
     event.label,
@@ -85,6 +82,43 @@ export async function getNextConfirmQuestion(
     // 파싱 실패 시 위에서 만든 템플릿 질문으로 폴백 — 흐름이 끊기지 않는다.
   }
 
+  return question;
+}
+
+// 다음 UNCONFIRMED 이벤트에 대한 확인질문. needsReview 된 이벤트는 건너뛴다.
+// 대상이 없으면 { done: true }.
+export async function getNextConfirmQuestion(
+  userId: string,
+): Promise<NextConfirmQuestion> {
+  await requireUserId(userId);
+
+  const event = await prisma.lifeEvent.findFirst({
+    where: { userId, status: "UNCONFIRMED", needsReview: false },
+    orderBy: { sequenceOrder: "asc" },
+  });
+
+  if (!event) return { done: true };
+
+  const question = await buildConfirmQuestionText(event);
+  return { done: false, eventId: event.id, question };
+}
+
+// P2 — 갭 카드에서 사용자가 특정 이벤트를 직접 골라 다시 묻는 경로.
+// getNextConfirmQuestion 과 달리 needsReview 도 대상으로 허용한다(사용자가
+// 명시적으로 골랐으니 자동 스킵 가드가 필요 없음). status 가 이미
+// CONFIRMED/CORRECTED/SKIPPED 면 대상 아님 — { done: true }.
+export async function getConfirmQuestionForEvent(
+  userId: string,
+  eventId: string,
+): Promise<NextConfirmQuestion> {
+  await requireUserId(userId);
+
+  const event = await prisma.lifeEvent.findFirst({
+    where: { id: eventId, userId, status: "UNCONFIRMED" },
+  });
+  if (!event) return { done: true };
+
+  const question = await buildConfirmQuestionText(event);
   return { done: false, eventId: event.id, question };
 }
 
