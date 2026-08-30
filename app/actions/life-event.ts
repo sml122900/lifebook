@@ -182,6 +182,29 @@ export async function submitConfirmAnswer(
         unclearCount: 0,
       },
     });
+
+    // 연도 정정이 뒤 이벤트들의 "추정" year 에 반영되게 delta 를 전파한다.
+    // generateSkeleton(app/actions/onboarding.ts) 이 만든 오프셋들은 전부
+    // birthYear 기준 고정값이므로, 한 이벤트의 실제-예상 차이를 뒤쪽
+    // UNCONFIRMED 이벤트 전원에게 그대로 더하면 원래 오프셋 간격이 보존된다.
+    // 이미 CONFIRMED/CORRECTED/SKIPPED 된 이벤트는 건드리지 않는다(where 의
+    // status: "UNCONFIRMED" 가 자연히 걸러줌). year=null(첫 직장·결혼처럼
+    // 추정치 자체가 없는 이벤트)도 건드릴 게 없어 제외.
+    if (parsed.correctedYear !== null && event.year !== null) {
+      const delta = parsed.correctedYear - event.year;
+      if (delta !== 0) {
+        await prisma.lifeEvent.updateMany({
+          where: {
+            userId,
+            sequenceOrder: { gt: event.sequenceOrder },
+            status: "UNCONFIRMED",
+            year: { not: null },
+          },
+          data: { year: { increment: delta } },
+        });
+      }
+    }
+
     return {
       status: "CORRECTED",
       correctedYear: parsed.correctedYear,

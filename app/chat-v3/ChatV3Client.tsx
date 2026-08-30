@@ -53,12 +53,27 @@ function isExitIntent(text: string): boolean {
   return EXIT_PHRASES.some((p) => normalized.includes(p));
 }
 
+// 버그1 방어 — 신상 수집 마지막 단계(completeOnboarding, AI 호출 2연쇄로
+// 느림)가 진행되는 동안 원인 불명의 컴포넌트 리마운트가 관찰됐다(dev
+// 환경에서 응답이 느릴 때만 간헐적으로 재현 — Next dev 서버의 Fast
+// Refresh/HMR 재연결로 추정되나 코드에서 revalidatePath/redirect/
+// router.refresh 를 전혀 안 써 확정적 트리거를 못 찾음). 리마운트가 나도
+// "지난번에 이어서 할게요" 로 잘못 분기하지 않도록 sessionStorage 에
+// "방금 이 탭에서 골격을 만들었다" 플래그만 남겨 init() 이 확인한다.
+// (대화 로그 자체 복원은 이번 범위 아님 — 아래 TODO 참고)
+function profileJustCompletedKey(userId: string): string {
+  return `chatv3:${userId}:justCompletedProfile`;
+}
+
 export function ChatV3Client({ userId }: { userId: string }) {
   const [stage, setStage] = useState<Stage>("profile_year");
   const [status, setStatus] = useState<Status>("loading");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [inputVal, setInputVal] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // 신상→골격 전환처럼 AI 호출이 연쇄로 이어지는 구간에서만 채우는 안내
+  // 문구. 비어있으면 기존 점 3개 애니메이션을 그대로 보여준다.
+  const [loadingHint, setLoadingHint] = useState<string | null>(null);
 
   const birthYearRef = useRef<number | null>(null);
   const activeEventIdRef = useRef<string | null>(null);
@@ -117,6 +132,11 @@ export function ChatV3Client({ userId }: { userId: string }) {
       const prefix =
         resuming && !resumedPrefixShownRef.current ? "지난번에 이어서 할게요. " : "";
       resumedPrefixShownRef.current = true;
+      // TODO(P2): 진짜 재진입(다른 날 다시 옴) 시 이전 대화 로그 자체는
+      // 복원 안 됨 — P1 은 대화 로그를 DB 에 저장하지 않아 이 prefix 한
+      // 줄로만 이어간다. 질문 문구가 지난번과 달라질 수 있는 것(예: 회수
+      // 다른 confirm 질문 문구)도 같은 이벤트를 묻는 한 문제 아님으로 수용.
+      // 로그 저장/복원은 P2 범위.
       addBot(prefix + res.question);
       setStatus("idle");
     } catch (e) {
@@ -136,6 +156,25 @@ export function ChatV3Client({ userId }: { userId: string }) {
         setStatus("idle");
         return;
       }
+
+      // 방금 이 탭에서 골격 생성을 마친 직후의 (재)마운트라면 진짜 재진입이
+      // 아니다 — "지난번에 이어서" 대신 원래 나왔어야 할 연결 멘트로 이어간다.
+      let justCompletedProfile = false;
+      try {
+        justCompletedProfile =
+          sessionStorage.getItem(profileJustCompletedKey(userId)) === "1";
+        if (justCompletedProfile) sessionStorage.removeItem(profileJustCompletedKey(userId));
+      } catch {
+        // 프라이빗 브라우징 등 sessionStorage 접근 불가 — 원래 동작(resuming)으로 폴백.
+      }
+      if (justCompletedProfile) {
+        // birthYearRef 도 리마운트로 함께 비워졌을 수 있어(같은 인스턴스가
+        // 아니면 이 값도 신뢰 못 함) 연도를 다시 언급하지 않는 안전한 멘트로.
+        addBot("네, 그럼 몇 가지 확인해볼게요.");
+        await loadNextConfirmQuestion({ resuming: false });
+        return;
+      }
+
       await loadNextConfirmQuestion({ resuming: true });
     } catch (e) {
       console.error("[chat-v3]", e);
@@ -192,17 +231,38 @@ export function ChatV3Client({ userId }: { userId: string }) {
         setStatus("idle");
         return;
       }
+
+      // 골격 생성(completeOnboarding) + 첫 확인질문 생성(loadNextConfirmQuestion)
+      // 이 AI 호출 2연쇄로 이어져 몇 초 걸린다 — 점 3개만으로는 어르신께
+      // 불안할 수 있어 문구를 띄운다.
+      setLoadingHint("잠깐만요, 이야기 칸을 정리하고 있어요…");
       await completeOnboarding(userId, {
         birthYear,
         birthMonth: null,
         gender: null,
         region: res.region,
       });
+      // 버그1 방어 — 이 지점 이후 리마운트가 나도(원인은 위 profileJustCompletedKey
+      // 주석 참고) init() 이 "지난번에 이어서" 로 잘못 분기하지 않게 표시.
+      try {
+        sessionStorage.setItem(profileJustCompletedKey(userId), "1");
+      } catch {
+        // 접근 불가면 그냥 원래 동작(remount 시 resuming 분기)으로 남는다.
+      }
       addBot(`${birthYear}년에 태어나셨군요. 그럼 몇 가지 확인해볼게요.`);
       await loadNextConfirmQuestion();
+      // 리마운트 없이 여기까지 왔다면 플래그의 역할은 끝났다 — 지우지 않으면
+      // 나중에(같은 탭에서 정말로 재진입할 때) 또 잘못 소비될 수 있다.
+      try {
+        sessionStorage.removeItem(profileJustCompletedKey(userId));
+      } catch {
+        // no-op
+      }
     } catch (e) {
       console.error("[chat-v3]", e);
       enterError("저장하지 못했어요.", () => submitRegion(text));
+    } finally {
+      setLoadingHint(null);
     }
   }
 
@@ -290,15 +350,19 @@ export function ChatV3Client({ userId }: { userId: string }) {
         {(status === "loading" || status === "submitting") && (
           <div className="flex justify-start">
             <div className="rounded-2xl rounded-bl-sm border border-line bg-surface px-5 py-4">
-              <div className="flex h-4 items-center gap-1">
-                {[0, 150, 300].map((delay) => (
-                  <span
-                    key={delay}
-                    className="h-2 w-2 animate-bounce rounded-full bg-ink-soft"
-                    style={{ animationDelay: `${delay}ms` }}
-                  />
-                ))}
-              </div>
+              {loadingHint ? (
+                <p className="text-base text-ink-soft">{loadingHint}</p>
+              ) : (
+                <div className="flex h-4 items-center gap-1">
+                  {[0, 150, 300].map((delay) => (
+                    <span
+                      key={delay}
+                      className="h-2 w-2 animate-bounce rounded-full bg-ink-soft"
+                      style={{ animationDelay: `${delay}ms` }}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
