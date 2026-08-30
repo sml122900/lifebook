@@ -36,7 +36,10 @@ type SkeletonItem = {
 };
 
 // 순수 계산 — birthYear/gender 만으로 골격 이벤트 배열을 만든다. DB 미접근.
-function generateSkeleton(birthYear: number, gender: Gender): SkeletonItem[] {
+// gender=null (v3 채팅 온보딩 — 성별을 안 물어봄) 은 "남" 과 동일하게 MILITARY
+// 를 optional 로 포함한다. 판단은 확인질문(STAGE2) 에서 "안 하셨어요" 로
+// SKIPPED 처리하면 되므로, 성별을 몰라도 안전하게 골격에 넣을 수 있다.
+function generateSkeleton(birthYear: number, gender: Gender | null): SkeletonItem[] {
   const items: SkeletonItem[] = [];
   let order = 0;
 
@@ -52,7 +55,7 @@ function generateSkeleton(birthYear: number, gender: Gender): SkeletonItem[] {
   items.push({ type: "HIGH_SCHOOL", label: "고등학교 입학", year: birthYear + 16, isOptional: false, sequenceOrder: order++ });
   items.push({ type: "UNIVERSITY", label: "대학교 입학", year: birthYear + 19, isOptional: true, sequenceOrder: order++ });
 
-  if (gender === "남") {
+  if (gender === "남" || gender === null) {
     items.push({ type: "MILITARY", label: "군 입대", year: birthYear + 20, isOptional: true, sequenceOrder: order++ });
   }
 
@@ -65,7 +68,9 @@ function generateSkeleton(birthYear: number, gender: Gender): SkeletonItem[] {
 export type CompleteOnboardingInput = {
   birthYear: number;
   birthMonth: number | null;
-  gender: string;
+  // null = 성별을 묻지 않은 경로(v3 채팅 온보딩). generateSkeleton 이 "남" 과
+  // 동일하게 처리한다.
+  gender: string | null;
   region: string;
 };
 
@@ -86,7 +91,10 @@ export async function completeOnboarding(
   ) {
     throw new Error("Invalid birthYear");
   }
-  if (!isGender(input.gender)) throw new Error("Invalid gender");
+  if (input.gender !== null && !isGender(input.gender)) throw new Error("Invalid gender");
+  // 로컬 const 로 고정 — 프로퍼티 접근(input.gender)의 좁혀진 타입은 이후
+  // await 호출을 거치며 풀릴 수 있어, 검증 직후 한 번만 좁혀서 재사용한다.
+  const gender = input.gender;
   if (!input.region.trim()) throw new Error("Invalid region");
   const birthMonth =
     input.birthMonth !== null &&
@@ -102,13 +110,13 @@ export async function completeOnboarding(
       userId,
       birthYear: input.birthYear,
       birthMonth,
-      gender: input.gender,
+      gender,
       region: input.region.trim(),
     },
     update: {
       birthYear: input.birthYear,
       birthMonth,
-      gender: input.gender,
+      gender,
       region: input.region.trim(),
     },
   });
@@ -124,7 +132,7 @@ export async function completeOnboarding(
     return { status: "ALREADY_DONE" };
   }
 
-  const skeleton = generateSkeleton(input.birthYear, input.gender);
+  const skeleton = generateSkeleton(input.birthYear, gender);
   await prisma.lifeEvent.createMany({
     data: skeleton.map((ev) => ({ userId, ...ev })),
   });
