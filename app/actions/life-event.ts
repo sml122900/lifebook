@@ -18,6 +18,7 @@ import {
   CONFIRM_QUESTION_SYSTEM_PROMPT,
   CORRECTION_PARSE_SYSTEM_PROMPT,
 } from "@/lib/prompts/life-event-confirm";
+import type { LifeEventType } from "@/lib/generated/prisma/enums";
 
 // 추출/분류는 항상 Sonnet 고정 — 전역 aiModel(라이브 응답)과 무관.
 const CONFIRM_MODEL =
@@ -262,6 +263,7 @@ export type ConfirmedEpisodeItem = {
   id: string;
   label: string;
   year: number | null;
+  type: LifeEventType;
 };
 
 // STAGE3 — 확인질문을 통과한(CONFIRMED) 이벤트만 sequenceOrder 순으로.
@@ -277,6 +279,7 @@ export async function listConfirmedLifeEvents(
     orderBy: { sequenceOrder: "asc" },
     select: {
       id: true,
+      type: true,
       label: true,
       year: true,
       correctedLabel: true,
@@ -286,6 +289,7 @@ export async function listConfirmedLifeEvents(
 
   return events.map((e) => ({
     id: e.id,
+    type: e.type,
     label: e.correctedLabel ?? e.label,
     year: e.correctedYear ?? e.year,
   }));
@@ -304,6 +308,7 @@ export async function getConfirmedLifeEvent(
     where: { id: eventId, userId, status: "CONFIRMED", needsReview: false },
     select: {
       id: true,
+      type: true,
       label: true,
       year: true,
       correctedLabel: true,
@@ -314,6 +319,7 @@ export async function getConfirmedLifeEvent(
 
   return {
     id: event.id,
+    type: event.type,
     label: event.correctedLabel ?? event.label,
     year: event.correctedYear ?? event.year,
   };

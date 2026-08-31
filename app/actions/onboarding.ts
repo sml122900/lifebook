@@ -33,17 +33,32 @@ type SkeletonItem = {
   year: number | null;
   isOptional: boolean;
   sequenceOrder: number;
+  status?: "CONFIRMED";
+  confirmedAt?: Date;
 };
 
 // 순수 계산 — birthYear/gender 만으로 골격 이벤트 배열을 만든다. DB 미접근.
 // gender=null (v3 채팅 온보딩 — 성별을 안 물어봄) 은 "남" 과 동일하게 MILITARY
 // 를 optional 로 포함한다. 판단은 확인질문(STAGE2) 에서 "안 하셨어요" 로
 // SKIPPED 처리하면 되므로, 성별을 몰라도 안전하게 골격에 넣을 수 있다.
+//
+// P4-3 — gender=null(v3 채팅) 경로는 대화로 생년을 이미 받았으므로 BIRTH 를
+// 확인질문 없이 바로 CONFIRMED 로 생성한다(방금 답한 생년을 되묻는 것 방지).
+// v2 폼(gender 有) 경로는 생년을 폼으로만 받고 확인질문에서 처음 검증하므로
+// 기존대로 UNCONFIRMED 유지.
 function generateSkeleton(birthYear: number, gender: Gender | null): SkeletonItem[] {
   const items: SkeletonItem[] = [];
   let order = 0;
 
-  items.push({ type: "BIRTH", label: "출생", year: birthYear, isOptional: false, sequenceOrder: order++ });
+  const birthPreConfirmed = gender === null;
+  items.push({
+    type: "BIRTH",
+    label: "출생",
+    year: birthYear,
+    isOptional: false,
+    sequenceOrder: order++,
+    ...(birthPreConfirmed ? { status: "CONFIRMED" as const, confirmedAt: new Date() } : {}),
+  });
   items.push({
     type: "ELEM_SCHOOL",
     label: `${getElemSchoolLabel(birthYear + 7)} 입학`,

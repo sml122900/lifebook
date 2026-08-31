@@ -43,6 +43,7 @@ import {
   type ChatLogTurn,
 } from "@/app/actions/chat-v3-log";
 import type { Gap } from "@/lib/gap-detector";
+import type { LifeEventType } from "@/lib/generated/prisma/enums";
 
 type Msg = { role: "a" | "u"; text: string };
 type Stage = "profile_year" | "profile_region" | "confirm" | "episode" | "open";
@@ -74,6 +75,40 @@ function isExitIntent(text: string): boolean {
 }
 
 const OPEN_GREETING = "하고 싶은 이야기 있으세요?";
+
+// P4-1 — 에피소드 대화 오프닝 질문. 예전엔 내부 골격 라벨을 그대로
+// 노출했다(예: "1963년 출생, 이때 기억나는 거 있으세요?"). 이벤트 종류별로
+// 자연스러운 질문을 만든다. 학령기 라벨은 " 입학" 접미사를 떼어(예:
+// "국민학교 입학" → "국민학교") 개칭 이력(getElemSchoolLabel)이 반영된
+// 정확한 학제 명칭을 그대로 살린다.
+function schoolPhaseName(label: string, fallback: string): string {
+  const stripped = label.replace(/\s*입학$/, "").trim();
+  return stripped || fallback;
+}
+
+function buildEpisodeOpeningPrompt(type: LifeEventType, label: string): string {
+  switch (type) {
+    case "BIRTH":
+      return "태어나서 자란 동네는 어떤 곳이었어요?";
+    case "ELEM_SCHOOL":
+      return `${schoolPhaseName(label, "학교")} 다닐 때 기억나는 일 있으세요?`;
+    case "MIDDLE_SCHOOL":
+      return `${schoolPhaseName(label, "중학교")} 다닐 때 기억나는 일 있으세요?`;
+    case "HIGH_SCHOOL":
+      return `${schoolPhaseName(label, "고등학교")} 다닐 때 기억나는 일 있으세요?`;
+    case "UNIVERSITY":
+      return `${schoolPhaseName(label, "대학교")} 다닐 때 기억나는 일 있으세요?`;
+    case "MILITARY":
+      return "군대에서 기억나는 일 있으세요?";
+    case "FIRST_JOB":
+      return "처음 일하셨을 때 기억나는 일 있으세요?";
+    case "MARRIAGE":
+      return "결혼하실 때 기억나는 일 있으세요?";
+    case "CUSTOM":
+    default:
+      return `${label}, 이때 기억나는 거 있으세요?`;
+  }
+}
 
 export function ChatV3Client({
   userId,
@@ -245,8 +280,13 @@ export function ChatV3Client({
   }
 
   // 갭 카드에서 confirmed 인데 hasEpisode=false 인 이벤트를 골라 심화 대화
-  // 시작 — STAGE4(app/onboarding-episode-chat)와 같은 엔진, 같은 오프닝 톤.
-  async function startEpisodeStage(eventId: string) {
+  // 시작. P4-1 — handleGapClick 은 이미 최상단에서 gap.cardLabel 을
+  // addUser 했으므로(skipAnnounce=true) 여기서 또 남기지 않는다. 반면
+  // init() 의 initialGap(/story-review "이야기하기" 딥링크) 경로는 그
+  // addUser 를 거치지 않고 곧장 여기로 오므로(skipAnnounce 기본 false)
+  // 직접 사용자 발화 버블을 남긴다 — 이전엔 이 경로만 버블이 안 남고 내부
+  // 골격 라벨("1963년 출생")이 그대로 오프닝에 노출되던 버그가 있었다.
+  async function startEpisodeStage(eventId: string, opts: { skipAnnounce?: boolean } = {}) {
     setStage("episode");
     setStatus("loading");
     try {
@@ -255,16 +295,18 @@ export function ChatV3Client({
         await enterOpenStage("그 이야기는 지금 들을 수 없나봐요. 다른 이야기 있으세요?");
         return;
       }
+      if (!opts.skipAnnounce) {
+        await addUser(`${item.label} 이야기를 더 들어볼까요?`);
+      }
       activeEventIdRef.current = item.id;
       episodeFollowUpCountRef.current = 0;
-      const yearPart = item.year ? `${item.year}년 ` : "";
-      const opening = `${yearPart}${item.label}, 이때 기억나는 거 있으세요? 편하게 말씀해주세요.`;
+      const opening = buildEpisodeOpeningPrompt(item.type, item.label);
       episodeTranscriptRef.current = [{ role: "assistant", text: opening }];
       await addBot(opening);
       setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
-      enterError("이야기를 준비하지 못했어요.", () => startEpisodeStage(eventId));
+      enterError("이야기를 준비하지 못했어요.", () => startEpisodeStage(eventId, opts));
     }
   }
 
@@ -504,7 +546,7 @@ export function ChatV3Client({
     if (status !== "idle") return;
     await addUser(gap.cardLabel);
     if (gap.type === "episode" && gap.targetEventId) {
-      await startEpisodeStage(gap.targetEventId);
+      await startEpisodeStage(gap.targetEventId, { skipAnnounce: true });
     } else if ((gap.type === "unconfirmed" || gap.type === "needs_review") && gap.targetEventId) {
       await startTargetedConfirm(gap.targetEventId);
     } else if (gap.type === "time_gap") {

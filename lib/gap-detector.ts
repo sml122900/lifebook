@@ -84,10 +84,13 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
     .filter((e): e is TimedEvent => e.year !== null)
     .sort((a, b) => a.year - b.year);
 
-  function timeGapPrompt(anchorType: LifeEventType): string {
-    return anchorType === "BIRTH"
-      ? "국민학교 들어가기 전, 어릴 적엔 어떻게 지내셨어요?"
-      : "그 무렵엔 어떻게 지내셨어요?";
+  // P4-2 — "그 무렵엔"은 사용자가 어느 구간인지 알 수 없어 모호했다. 앵커
+  // 이벤트 기준으로 자연스럽게 구간을 녹인다. 연도 숫자 직접 노출은 피하고
+  // 사건 기준 표현만 쓴다.
+  function timeGapPrompt(anchor: TimedEvent): string {
+    if (anchor.type === "BIRTH") return "국민학교 들어가기 전, 어릴 적엔 어떻게 지내셨어요?";
+    if (anchor.type === "MARRIAGE") return "결혼하시고 나서는 어떻게 지내셨어요?";
+    return `${anchor.label} 이후로는 어떻게 지내셨어요?`;
   }
 
   for (let i = 0; i < timed.length - 1; i++) {
@@ -98,7 +101,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
         type: "time_gap",
         targetEventId: anchor.id,
         cardLabel: `${anchor.label}(${anchor.year}) 이후 이야기를 아직 못 들었어요`,
-        userPrompt: timeGapPrompt(anchor.type),
+        userPrompt: timeGapPrompt(anchor),
         priority: 3,
       });
     }
@@ -111,7 +114,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
         type: "time_gap",
         targetEventId: anchor.id,
         cardLabel: `${anchor.label}(${anchor.year}) 이후 이야기를 아직 못 들었어요`,
-        userPrompt: timeGapPrompt(anchor.type),
+        userPrompt: timeGapPrompt(anchor),
         priority: 3,
       });
     }
