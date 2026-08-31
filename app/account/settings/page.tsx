@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { AiModelChips } from "@/app/components/AiModelChips";
+import { CharacterChips } from "@/app/components/CharacterChips";
 import { buttonClasses } from "@/components/ui/Button";
 import { isAiModel } from "@/lib/ai-model";
+import { DEFAULT_CHARACTER_ID, isCharacterId } from "@/lib/characters";
 import { prisma } from "@/lib/db";
 
 const DATE_FMT = new Intl.DateTimeFormat("ko-KR", {
@@ -32,6 +34,8 @@ export default async function AccountSettingsPage() {
       email: true,
       name: true,
       aiModel: true,
+      characterId: true,
+      characterMotionEnabled: true,
       termsConsentAt: true,
       privacyConsentAt: true,
       overseasTransferConsentAt: true,
@@ -76,6 +80,19 @@ export default async function AccountSettingsPage() {
           <AiModelChips
             current={isAiModel(user.aiModel) ? user.aiModel : "haiku"}
             variant="full"
+          />
+        </div>
+      </section>
+
+      <section className="rounded-md border-2 border-line bg-surface p-5">
+        <h2 className="text-2xl font-bold text-ink">대화 캐릭터</h2>
+        <p className="mt-2 text-base text-ink-soft">
+          이야기 나눌 때 함께하는 캐릭터를 골라주세요.
+        </p>
+        <div className="mt-4">
+          <CharacterChips
+            current={isCharacterId(user.characterId) ? user.characterId : DEFAULT_CHARACTER_ID}
+            motionEnabled={user.characterMotionEnabled}
           />
         </div>
       </section>

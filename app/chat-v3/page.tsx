@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { getUserCharacterPrefs } from "@/lib/user-character";
 
 import { ChatV3Client, type InitialGap } from "./ChatV3Client";
 
@@ -31,13 +32,16 @@ export default async function ChatV3Page({
       ? { eventId: gapEventId, kind: gapType }
       : null;
 
+  const characterPrefs = await getUserCharacterPrefs(session.user.id);
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10">
-      <header>
-        <h1 className="text-3xl font-bold text-ink">이야기 나누기</h1>
-        <p className="mt-2 text-lg text-ink-soft">편하게 대답만 해주세요.</p>
-      </header>
-      <ChatV3Client userId={session.user.id} initialGap={initialGap} />
+      <ChatV3Client
+        userId={session.user.id}
+        initialGap={initialGap}
+        characterId={characterPrefs.characterId}
+        characterMotionEnabled={characterPrefs.motionEnabled}
+      />
     </main>
   );
 }

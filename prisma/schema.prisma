@@ -86,6 +86,12 @@ model User {
   // 항상 sonnet 고정. lib/ai-model.ts(상수)·lib/user-ai-model.ts(읽기/쓰기).
   aiModel String @default("haiku")
 
+  // v3 P5 — /chat-v3 대화 캐릭터. 정의(이름·썸네일·애니메이션 경로)는
+  // lib/characters.ts 상수(DB 아님) — id 만 참조. characterMotionEnabled 는
+  // 캐릭터 애니메이션 재생 여부(끄면 idle 정지 프레임만, 시니어 접근성).
+  characterId            String  @default("duri")
+  characterMotionEnabled Boolean @default(true)
+
   // P5-5a — 맞춤배경 취향(preferences). 출처별 분리 저장:
   //   extractedPreferences = AI 추출분(S6 SplitResult.preferences, 대화/통녹음에서)
   //   userPreferences      = 사용자 직접 입력(★ 병합 시 우세)

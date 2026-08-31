@@ -19,8 +19,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/Button";
+import { CharacterStage } from "@/app/components/CharacterStage";
+import type { CharacterState } from "@/lib/characters";
 
 import { completeOnboarding } from "@/app/actions/onboarding";
 import {
@@ -113,9 +116,13 @@ function buildEpisodeOpeningPrompt(type: LifeEventType, label: string): string {
 export function ChatV3Client({
   userId,
   initialGap,
+  characterId,
+  characterMotionEnabled,
 }: {
   userId: string;
   initialGap: InitialGap;
+  characterId: string;
+  characterMotionEnabled: boolean;
 }) {
   const router = useRouter();
   const [sessionId] = useState(() => crypto.randomUUID());
@@ -124,9 +131,33 @@ export function ChatV3Client({
   const [status, setStatus] = useState<Status>("loading");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [inputVal, setInputVal] = useState("");
+  const [inputFocused, setInputFocused] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loadingHint, setLoadingHint] = useState<string | null>(null);
   const [gapSuggestions, setGapSuggestions] = useState<Gap[]>([]);
+  // 캐릭터 리액션 — 확인질문 통과·에피소드 저장 시 잠깐 happy 로 덮어씀
+  // (그 외엔 status/입력 포커스로 idle·listening·thinking 자동 계산).
+  const [reaction, setReaction] = useState<CharacterState | null>(null);
+  const reactionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function triggerReaction(state: CharacterState, ms = 2200) {
+    setReaction(state);
+    if (reactionTimeoutRef.current) clearTimeout(reactionTimeoutRef.current);
+    reactionTimeoutRef.current = setTimeout(() => setReaction(null), ms);
+  }
+  useEffect(() => {
+    return () => {
+      if (reactionTimeoutRef.current) clearTimeout(reactionTimeoutRef.current);
+    };
+  }, []);
+
+  const characterState: CharacterState =
+    reaction ??
+    (status === "loading" || status === "submitting"
+      ? "thinking"
+      : inputFocused
+        ? "listening"
+        : "idle");
 
   const birthYearRef = useRef<number | null>(null);
   const activeEventIdRef = useRef<string | null>(null);
@@ -177,6 +208,7 @@ export function ChatV3Client({
         : reason === "exited"
           ? "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요."
           : "뼈대가 다 채워졌어요! 지금까지 채운 이야기를 보여드릴게요.";
+    if (reason === "done") triggerReaction("happy", 3500);
     await addBot(msg);
     setStatus("finished");
     if (canReview) {
@@ -382,6 +414,8 @@ export function ChatV3Client({
         : { ok: false as const, error: "" };
       if (!result.ok) {
         await addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
+      } else {
+        triggerReaction("happy");
       }
     } catch (e) {
       console.error("[chat-v3]", e);
@@ -472,6 +506,7 @@ export function ChatV3Client({
       if (result.status === "CONFIRMED") await addBot("네, 확인했어요.");
       else if (result.status === "SKIPPED") await addBot("알겠어요, 넘어갈게요.");
       else if (result.status === "CORRECTED") await addBot("그렇게 고쳐서 담아둘게요.");
+      triggerReaction("happy");
 
       await afterConfirmResolved();
     } catch (e) {
@@ -593,6 +628,23 @@ export function ChatV3Client({
 
   return (
     <div className="flex flex-1 flex-col gap-4">
+      <header className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-ink">이야기 나누기</h1>
+          <p className="mt-2 text-lg text-ink-soft">편하게 대답만 해주세요.</p>
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <CharacterStage
+            characterId={characterId}
+            motionEnabled={characterMotionEnabled}
+            state={characterState}
+          />
+          <Link href="/account/settings" className="text-sm text-ink-faint underline">
+            바꾸기
+          </Link>
+        </div>
+      </header>
+
       <div className="space-y-4 pb-2">
         {messages.map((msg, i) => (
           <div
@@ -664,6 +716,8 @@ export function ChatV3Client({
             <textarea
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                   e.preventDefault();

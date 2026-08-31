@@ -66,7 +66,7 @@ async function buildConfirmQuestionText(event: ConfirmQuestionTarget): Promise<s
 
   let question = event.isOptional
     ? `${event.label}은 하셨나요?`
-    : `${event.year ? `${event.year}년 ` : ""}${event.label} 하셨나요?`;
+    : `${event.year ? `${event.year}년에 ` : ""}${event.label} 하셨나요?`;
 
   try {
     const res = await chat(
