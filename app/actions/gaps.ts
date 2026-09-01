@@ -4,7 +4,7 @@
 // 단계)에 노출하는 얇은 래퍼. 계산 자체는 lib/gap-detector.ts(순수 읽기).
 
 import { auth } from "@/auth";
-import { detectGaps, type Gap } from "@/lib/gap-detector";
+import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
 
 async function requireUserId(expected: string): Promise<string> {
   const session = await auth();
@@ -16,7 +16,7 @@ async function requireUserId(expected: string): Promise<string> {
 export async function getTopGaps(userId: string, limit = 3): Promise<Gap[]> {
   await requireUserId(userId);
   const gaps = await detectGaps(userId);
-  return gaps.slice(0, limit);
+  return pickTopGaps(gaps, limit);
 }
 
 // P3-2 — /story-review 의 time_gap 카드가 anchor eventId 로 돌아올 때, 그

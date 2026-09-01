@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
-import { detectGaps, type Gap } from "@/lib/gap-detector";
+import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
 import { getStoryReviewData } from "@/lib/story-review";
 
 // v3 통합 채팅(P2) — 정리 화면. /chat-v3 에서 뼈대를 다 채우거나 사용자가
@@ -41,7 +41,10 @@ export default async function StoryReviewPage() {
     getStoryReviewData(userId),
     detectGaps(userId),
   ]);
-  const topGaps = gaps.slice(0, 3);
+  // P7-8 — 단순 slice(0,3) 는 한 타입(person/person_episode 등)이 수가
+  // 많으면 다른 타입(특히 time_gap)을 화면에서 영영 안 보이게 가릴 수
+  // 있다. pickTopGaps 가 타입별 다양성을 먼저 보장한다.
+  const topGaps = pickTopGaps(gaps, 3);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-10 px-6 py-10">

@@ -199,3 +199,32 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
   gaps.sort((a, b) => a.priority - b.priority);
   return gaps;
 }
+
+// P7-8 — story-review/getTopGaps 가 detectGaps 결과를 그냥 `.slice(0, N)`
+// 하면, 인물이 많은 계정처럼 어느 한 타입(person/person_episode)이 수가
+// 많을 때 그 타입이 topN 슬롯을 전부 차지해 다른 타입(특히 time_gap)이
+// 화면에 영영 안 보이는 문제가 있었다(우선순위 숫자 하나로만 정렬하는
+// 한, 항상 어떤 타입이든 다른 타입을 가릴 수 있다 — person_episode 를
+// 올리면 person 이 가려지고, person 을 올리면 time_gap 이 가려지는
+// 식). 타입별로 최소 1장은 먼저 채우고, 그러고도 자리가 남으면 우선순위
+// 순으로 마저 채운다 — 어느 타입도 완전히 안 보이는 일은 없게 한다.
+export function pickTopGaps(gaps: Gap[], limit: number): Gap[] {
+  const picked: Gap[] = [];
+  const seenTypes = new Set<GapType>();
+
+  for (const g of gaps) {
+    if (picked.length >= limit) break;
+    if (seenTypes.has(g.type)) continue;
+    seenTypes.add(g.type);
+    picked.push(g);
+  }
+  if (picked.length < limit) {
+    for (const g of gaps) {
+      if (picked.length >= limit) break;
+      if (picked.includes(g)) continue;
+      picked.push(g);
+    }
+  }
+
+  return picked.sort((a, b) => a.priority - b.priority);
+}
