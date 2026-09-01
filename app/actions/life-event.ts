@@ -19,7 +19,12 @@ import {
   CORRECTION_PARSE_SYSTEM_PROMPT,
 } from "@/lib/prompts/life-event-confirm";
 import { withJosa } from "@/lib/josa";
-import type { LifeEventType } from "@/lib/generated/prisma/enums";
+import {
+  listConfirmedLifeEvents as listConfirmedLifeEventsCore,
+  getConfirmedLifeEvent as getConfirmedLifeEventCore,
+  type ConfirmedEpisodeItem,
+} from "@/lib/life-event-query";
+export type { ConfirmedEpisodeItem } from "@/lib/life-event-query";
 
 // 추출/분류는 항상 Sonnet 고정 — 전역 aiModel(라이브 응답)과 무관.
 const CONFIRM_MODEL =
@@ -260,68 +265,24 @@ export async function submitConfirmAnswer(
   return { status: "UNCLEAR", needsReview };
 }
 
-export type ConfirmedEpisodeItem = {
-  id: string;
-  label: string;
-  year: number | null;
-  type: LifeEventType;
-};
-
-// STAGE3 — 확인질문을 통과한(CONFIRMED) 이벤트만 sequenceOrder 순으로.
-// SKIPPED/UNCONFIRMED(needsReview 포함)는 제외. label/year 는 CORRECTED 반영값
-// (correctedLabel/correctedYear 우선)으로 노출한다.
+// STAGE3/STAGE4 — 실제 로직은 lib/life-event-query.ts(순수, auth 없음).
+// 검증 스크립트가 재현본 아닌 이 함수를 그대로 호출할 수 있도록 분리했다
+// (lib/account-deletion.ts·lib/person-chat.ts 와 같은 패턴, 2026-09-01).
+// v2(/onboarding-episode, /onboarding-episode-chat)도 이 액션을 그대로
+// 쓰므로, lib 쪽에서 CONFIRMED 뿐 아니라 CORRECTED 도 포함하게 넓힌 효과가
+// v2 화면에도 그대로 적용된다(의도된 것 — CORRECTED 는 확인은 됐고 값만
+// 정정된 상태라 미확인이 아니다).
 export async function listConfirmedLifeEvents(
   userId: string,
 ): Promise<ConfirmedEpisodeItem[]> {
   await requireUserId(userId);
-
-  const events = await prisma.lifeEvent.findMany({
-    where: { userId, status: "CONFIRMED", needsReview: false },
-    orderBy: { sequenceOrder: "asc" },
-    select: {
-      id: true,
-      type: true,
-      label: true,
-      year: true,
-      correctedLabel: true,
-      correctedYear: true,
-    },
-  });
-
-  return events.map((e) => ({
-    id: e.id,
-    type: e.type,
-    label: e.correctedLabel ?? e.label,
-    year: e.correctedYear ?? e.year,
-  }));
+  return listConfirmedLifeEventsCore(userId);
 }
 
-// STAGE4 — 에피소드 대화 화면(app/onboarding-episode-chat/[eventId])이
-// 진입 시 소유·상태(CONFIRMED)를 확인하며 단건 조회. listConfirmedLifeEvents
-// 와 같은 필터·라벨/연도 해석 규칙.
 export async function getConfirmedLifeEvent(
   userId: string,
   eventId: string,
 ): Promise<ConfirmedEpisodeItem | null> {
   await requireUserId(userId);
-
-  const event = await prisma.lifeEvent.findFirst({
-    where: { id: eventId, userId, status: "CONFIRMED", needsReview: false },
-    select: {
-      id: true,
-      type: true,
-      label: true,
-      year: true,
-      correctedLabel: true,
-      correctedYear: true,
-    },
-  });
-  if (!event) return null;
-
-  return {
-    id: event.id,
-    type: event.type,
-    label: event.correctedLabel ?? event.label,
-    year: event.correctedYear ?? event.year,
-  };
+  return getConfirmedLifeEventCore(userId, eventId);
 }

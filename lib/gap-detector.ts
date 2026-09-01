@@ -11,18 +11,32 @@
 
 import { prisma } from "./db";
 import type { LifeEventType } from "./generated/prisma/enums";
+import { withJosa } from "./josa";
 
-export type GapType = "needs_review" | "unconfirmed" | "time_gap" | "episode";
+// v3 P6 — person: confirmed 이벤트인데 연결된 Person 이 0명(그 시절 주변
+// 사람을 아직 안 물어봄). person_episode: Person 은 있는데 그 사람과의
+// Episode 가 0건(이름은 남겼지만 이야기는 아직 못 들음).
+export type GapType =
+  | "needs_review"
+  | "unconfirmed"
+  | "time_gap"
+  | "episode"
+  | "person"
+  | "person_episode";
 
 export type Gap = {
   type: GapType;
   // time_gap 은 "사이"를 가리키므로 구간의 앞쪽 이벤트를 anchor 로 삼는다
-  // (P3-2 — /story-review 딥링크에 필요).
+  // (P3-2 — /story-review 딥링크에 필요). person 은 대상 이벤트, person_episode
+  // 는 그 인물이 처음 연결된 이벤트(대화 문맥용) — 어느 경우든 LifeEvent id.
   targetEventId?: string;
+  // person_episode 전용 — 대상 인물. targetEventId 와 함께 있어야 유효.
+  targetPersonId?: string;
   // 카드/칩에 보이는 문구. 결핍 프레이밍("~비어있어요") 금지.
   cardLabel: string;
-  // 클릭 시 실제로 묻는 질문(episode/unconfirmed/needs_review 는 각자
-  // 전용 엔진이 자체 생성하므로 미사용 — time_gap 만 이 값을 그대로 addBot).
+  // 클릭 시 실제로 묻는 질문(episode/unconfirmed/needs_review/person/
+  // person_episode 는 각자 전용 엔진이 자체 생성하므로 미사용 — time_gap 만
+  // 이 값을 그대로 addBot).
   userPrompt: string;
   // 낮을수록 우선(정리 화면 상위 노출).
   priority: number;
@@ -35,6 +49,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
   const events = await prisma.lifeEvent.findMany({
     where: { userId },
     orderBy: { sequenceOrder: "asc" },
+    include: { people: { select: { id: true }, take: 1 } },
   });
 
   const gaps: Gap[] = [];
@@ -57,15 +72,59 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
         userPrompt: "",
         priority: 2,
       });
-    } else if ((e.status === "CONFIRMED" || e.status === "CORRECTED") && !e.hasEpisode) {
-      gaps.push({
-        type: "episode",
-        targetEventId: e.id,
-        cardLabel: `${label} 이야기를 더 들어볼까요?`,
-        userPrompt: "",
-        priority: 4,
-      });
+    } else if (e.status === "CONFIRMED" || e.status === "CORRECTED") {
+      // v3 P6 — 뼈대 갭(1·2) 다음, 에피소드 갭(6)보다 앞. 한 이벤트가 인물
+      // 갭과 에피소드 갭을 동시에 가질 수 있다(둘 다 독립 조건).
+      if (e.people.length === 0) {
+        gaps.push({
+          type: "person",
+          targetEventId: e.id,
+          cardLabel: `${label} 시절, 곁에 계셨던 분 이야기도 들어볼까요?`,
+          userPrompt: "",
+          priority: 3,
+        });
+      }
+      if (!e.hasEpisode) {
+        gaps.push({
+          type: "episode",
+          targetEventId: e.id,
+          cardLabel: `${label} 이야기를 더 들어볼까요?`,
+          userPrompt: "",
+          priority: 6,
+        });
+      }
     }
+  }
+
+  // v3 P6 — person_episode: 이 v3 흐름으로 연결된 인물(≥1 PersonLifeEvent)
+  // 중 아직 그 사람과의 Episode 가 없는 경우. /people 에서 직접 추가한
+  // 인물(PersonLifeEvent 링크 없음)은 이 갭 대상이 아니다 — 대화 문맥으로
+  // 쓸 이벤트가 없어 자연스러운 질문을 못 만든다.
+  const personsWithoutEpisode = await prisma.person.findMany({
+    where: { userId, subjectType: "person", isDraft: false, lifeEvents: { some: {} } },
+    select: {
+      id: true,
+      name: true,
+      episodes: { select: { id: true }, take: 1 },
+      lifeEvents: {
+        take: 1,
+        orderBy: { createdAt: "asc" },
+        select: { lifeEventId: true },
+      },
+    },
+  });
+  for (const p of personsWithoutEpisode) {
+    if (p.episodes.length > 0) continue;
+    const link = p.lifeEvents[0];
+    if (!link) continue;
+    gaps.push({
+      type: "person_episode",
+      targetEventId: link.lifeEventId,
+      targetPersonId: p.id,
+      cardLabel: `${p.name}${withJosa(p.name, "과/와")} 있었던 일도 들어볼까요?`,
+      userPrompt: "",
+      priority: 5,
+    });
   }
 
   // 시간 공백 — confirmed/corrected 이면서 연도가 있는 이벤트만 시간순으로.
@@ -102,7 +161,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
         targetEventId: anchor.id,
         cardLabel: `${anchor.label}(${anchor.year}) 이후 이야기를 아직 못 들었어요`,
         userPrompt: timeGapPrompt(anchor),
-        priority: 3,
+        priority: 4,
       });
     }
   }
@@ -115,7 +174,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
         targetEventId: anchor.id,
         cardLabel: `${anchor.label}(${anchor.year}) 이후 이야기를 아직 못 들었어요`,
         userPrompt: timeGapPrompt(anchor),
-        priority: 3,
+        priority: 4,
       });
     }
   }

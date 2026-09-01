@@ -884,6 +884,11 @@ model Person {
   companionSessionId String?
   companionSession   CompanionSession? @relation(fields: [companionSessionId], references: [id], onDelete: SetNull)
 
+  // v3 P6 — 인물 모드. lifeEvents 는 "그 시절에 있었던 사람" 연결,
+  // episodes 는 그 인물과의 실제 이야기(Episode.personId 역참조).
+  lifeEvents PersonLifeEvent[]
+  episodes   Episode[]
+
   @@index([userId])
   @@index([userId, subjectType])
 }
@@ -1051,6 +1056,9 @@ model LifeEvent {
   hasEpisode Boolean   @default(false)
   episodes   Episode[]
 
+  // v3 P6 — 인물 모드. 뼈대 이벤트 하나에 여러 인물이 연결될 수 있다(다대다).
+  people PersonLifeEvent[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1061,6 +1069,12 @@ model Episode {
   id          String    @id @default(cuid())
   lifeEventId String
   lifeEvent   LifeEvent @relation(fields: [lifeEventId], references: [id], onDelete: Cascade)
+
+  // v3 P6 — 인물 모드. 이 에피소드가 특정 인물과의 이야기일 때만 채워짐(일반
+  // 사건 회고는 null). 인물 삭제 시 SetNull — 이야기 본문은 보존하고 태그만
+  // 제거(Person 삭제로 Episode.content 를 함께 지우면 안 됨).
+  personId String?
+  person   Person? @relation(fields: [personId], references: [id], onDelete: SetNull)
 
   // STAGE4 — 브릿지 방식 A. 대화가 끝나면 UserMemory 를 하나 새로 만들어
   // Episode 와 1:1로 연결한다(@unique). 이 UserMemory 를 통해 기존 사진
@@ -1074,6 +1088,28 @@ model Episode {
   rawTranscript String? @db.Text
 
   createdAt DateTime @default(now())
+
+  @@index([personId])
+}
+
+// v3 P6 — Person ↔ LifeEvent 다대다 조인(PersonEvent 와 같은 패턴, 대상만
+// UserMemory 대신 v3 LifeEvent). 뼈대 확인질문 도중/이후 "그 시절 주변 사람"
+// 대화에서 만들어진다. Episode.personId 와 별개 — 이 테이블은 "그 인물이
+// 이 시절에 있었다"는 사실, Episode.personId 는 "그 인물과의 이야기"를
+// 뜻한다(한 인물이 이벤트엔 연결됐지만 아직 에피소드는 없을 수 있음 —
+// person_episode 갭이 그 차이를 감지).
+model PersonLifeEvent {
+  id          String    @id @default(cuid())
+  personId    String
+  person      Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  lifeEventId String
+  lifeEvent   LifeEvent @relation(fields: [lifeEventId], references: [id], onDelete: Cascade)
+  userId      String // 권한 체크용 (반드시 person.userId 와 일치)
+  createdAt   DateTime  @default(now())
+
+  @@unique([personId, lifeEventId])
+  @@index([userId])
+  @@index([lifeEventId])
 }
 
 model OnboardingProfile {

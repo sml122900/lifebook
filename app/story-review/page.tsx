@@ -21,6 +21,12 @@ function gapHref(gap: Gap): string {
   if (gap.type === "time_gap") {
     return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=period`;
   }
+  if (gap.type === "person") {
+    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=person`;
+  }
+  if (gap.type === "person_episode" && gap.targetPersonId) {
+    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=person_episode&gapPersonId=${gap.targetPersonId}`;
+  }
   return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=confirm`;
 }
 
@@ -55,16 +61,23 @@ export default async function StoryReviewPage() {
             {timeline.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center justify-between gap-3 rounded-md border-2 border-line bg-surface px-5 py-4"
+                className="flex flex-col gap-2 rounded-md border-2 border-line bg-surface px-5 py-4"
               >
-                <span className="text-lg text-ink">
-                  {item.year ? `${item.year}년 ` : ""}
-                  {item.label}
-                </span>
-                {item.hasEpisode && (
-                  <span className="shrink-0 rounded-full bg-banner px-3 py-1 text-base text-ink-soft">
-                    이야기 있음
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-lg text-ink">
+                    {item.year ? `${item.year}년 ` : ""}
+                    {item.label}
                   </span>
+                  {item.hasEpisode && (
+                    <span className="shrink-0 rounded-full bg-banner px-3 py-1 text-base text-ink-soft">
+                      이야기 있음
+                    </span>
+                  )}
+                </div>
+                {item.people.length > 0 && (
+                  <p className="text-base text-ink-soft">
+                    👤 {item.people.map((p) => p.name).join(", ")}
+                  </p>
                 )}
               </li>
             ))}

@@ -131,3 +131,35 @@ export const ERA_MEMORY_MAX_LENGTH = 500;
 
 - `"use server"` 가 거부하는 건 클래스뿐 아니라 **모든 비-async 값**(number/string/객체/변수). 에러 메시지가 타입을 알려줌(`found number`).
 - 상수의 단일 진실 원천은 prisma 의존 여부로 가른다: 서버 전용이면 lib 안, 클라 공용이면 prisma 없는 별도 순수 모듈.
+
+---
+
+## 재발 사례 — type 재노출 두 단계 형태 (2026-09-01)
+
+`tsc --noEmit` 은 통과하는데 **`next build`(Turbopack)만 실패**하는 변형. `app/actions/life-event.ts`(핵심 로직을 `lib/life-event-query.ts` 로 추출하며) 에서:
+
+```ts
+// app/actions/life-event.ts  ("use server")
+import { type ConfirmedEpisodeItem } from "@/lib/life-event-query";
+export type { ConfirmedEpisodeItem };   // ← 두 단계: import 후 로컬 재노출
+```
+
+```
+Error: Export ConfirmedEpisodeItem doesn't exist in target module
+```
+
+`type` 키워드가 있어 `tsc` 는 지운다고 보지만, **Turbopack 의 "use server" action-manifest 변환은 다른 화면이 그 이름을 직접 `import`할 때** 이걸 action 참조로 오인해 걸린다(`app/onboarding-episode/EpisodeClient.tsx` 가 `import { type ConfirmedEpisodeItem } from "@/app/actions/life-event"` 하고 있어서 표면화 — number export 사례와 같은 "새 진입점에서 걸린다" 패턴).
+
+### 해결 — 한 문장 재노출(`export type {X} from "모듈"`)로
+
+```ts
+import { type ConfirmedEpisodeItem, /* ... */ } from "@/lib/life-event-query"; // 로컬 사용(타입 주석)용
+export type { ConfirmedEpisodeItem } from "@/lib/life-event-query";            // 재노출은 이 형태만
+```
+
+두 줄이 공존해도 충돌 없음(로컬 바인딩과 재노출 선언은 별개). 핵심은 재노출을 **"import 로 받아서 로컬 이름을 다시 export" 두 단계가 아니라, `from` 을 포함한 한 문장으로** 쓰는 것 — 이 형태만 Turbopack 이 순수 타입으로 확실히 인식해 지운다.
+
+### 핵심 학습 (추가)
+
+- `export type { X };`(로컬 재노출) ≠ `export type { X } from "모듈";`(직접 재노출) — 둘 다 `tsc` 는 통과하지만 Turbopack "use server" 변환에서는 후자만 안전.
+- 이 버그는 **다른 파일이 그 타입을 이름으로 import 해야 표면화**한다 — 재노출 자체는 조용히 존재하다가, 새 소비처가 생기는 순간 빌드가 깨진다. `"use server"` 파일에서 타입을 재노출할 일이 생기면 처음부터 `export type {X} from "모듈"` 한 문장 형태를 기본으로 쓸 것.

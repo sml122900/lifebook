@@ -19,7 +19,7 @@ function hasBatchim(word: string): boolean {
 }
 
 // "을/를" 한 형태로 묶어 받음. 슬래시는 받침/없음 순.
-type JosaPair = "을/를" | "과/와" | "이/가" | "은/는" | "으로/로" | "아/야";
+type JosaPair = "을/를" | "과/와" | "이/가" | "은/는" | "으로/로" | "아/야" | "이랑/랑";
 
 export function withJosa(word: string, pair: JosaPair): string {
   const [batchim, noBatchim] = pair.split("/") as [string, string];

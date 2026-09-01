@@ -23,6 +23,10 @@ function resolveMemoryYear(year: number | null): number {
   return year ?? new Date().getFullYear();
 }
 
+// v3 P6 — personId(optional) 는 이 에피소드가 특정 인물과의 이야기일 때만
+// 넘긴다(일반 사건 회고는 undefined). 소유 검증은 호출자(app/actions/
+// person-chat.ts)가 PersonLifeEvent 로 이미 했으므로 여기서 다시 안 함 —
+// createEpisodeBridge 자체가 lifeEventId 소유만 검증하는 기존 계약 유지.
 export async function createEpisodeBridge(
   userId: string,
   lifeEventId: string,
@@ -30,9 +34,13 @@ export async function createEpisodeBridge(
   year: number | null,
   content: string,
   rawTranscript: string,
+  personId?: string,
 ): Promise<{ episodeId: string; memoryId: string } | null> {
+  // 2026-09-01 — CORRECTED 도 허용(app/actions/episode.ts requireConfirmedEvent
+  // 와 같은 이유). 저 함수가 이미 CORRECTED 이벤트를 통과시키는데 여기서 다시
+  // CONFIRMED 만 보면 finishEpisodeChat 저장이 "이야기를 찾을 수 없어요" 로 깨진다.
   const event = await prisma.lifeEvent.findFirst({
-    where: { id: lifeEventId, userId, status: "CONFIRMED" },
+    where: { id: lifeEventId, userId, status: { in: ["CONFIRMED", "CORRECTED"] } },
     select: { id: true },
   });
   if (!event) return null;
@@ -54,6 +62,7 @@ export async function createEpisodeBridge(
         memoryId: memory.id,
         content,
         rawTranscript,
+        personId: personId ?? null,
       },
       select: { id: true },
     });

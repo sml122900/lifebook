@@ -31,9 +31,12 @@ async function requireUserId(): Promise<string> {
   return userId;
 }
 
+// 2026-09-01 — CORRECTED 도 허용(확인은 됐고 값만 정정된 상태 — 미확인이
+// 아니다). getConfirmedLifeEvent(life-event.ts) 와 같은 이유로 함께 넓힘 —
+// 그쪽에서 CORRECTED 이벤트가 화면에 뜨는데 여기서 막히면 저장이 깨진다.
 async function requireConfirmedEvent(userId: string, lifeEventId: string) {
   return prisma.lifeEvent.findFirst({
-    where: { id: lifeEventId, userId, status: "CONFIRMED" },
+    where: { id: lifeEventId, userId, status: { in: ["CONFIRMED", "CORRECTED"] } },
   });
 }
 
@@ -107,6 +110,7 @@ export type FinishEpisodeResult =
 export async function finishEpisodeChat(
   lifeEventId: string,
   transcriptHistory: EpisodeTurn[],
+  personId?: string,
 ): Promise<FinishEpisodeResult> {
   const userId = await requireUserId();
   const event = await requireConfirmedEvent(userId, lifeEventId);
@@ -146,6 +150,17 @@ export async function finishEpisodeChat(
     return { ok: false, error: "저장할 이야기가 없어요." };
   }
 
+  // v3 P6 — personId 는 클라가 넘긴 값이라 소유 검증 후에만 신뢰(남의 Person
+  // 을 태깅하는 것 방지). 소유가 아니면 조용히 무시(일반 에피소드로 저장).
+  let ownedPersonId: string | undefined;
+  if (personId) {
+    const person = await prisma.person.findFirst({
+      where: { id: personId, userId },
+      select: { id: true },
+    });
+    if (person) ownedPersonId = person.id;
+  }
+
   try {
     const result = await createEpisodeBridge(
       userId,
@@ -154,6 +169,7 @@ export async function finishEpisodeChat(
       year,
       content,
       transcript,
+      ownedPersonId,
     );
     if (!result) return { ok: false, error: "이야기를 찾을 수 없어요." };
     return { ok: true, memoryId: result.memoryId };

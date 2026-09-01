@@ -40,6 +40,7 @@ import {
 import { continueEpisodeChat, finishEpisodeChat, type EpisodeTurn } from "@/app/actions/episode";
 import { getGapByEventId, getTopGaps } from "@/app/actions/gaps";
 import { respondToOpenChat } from "@/app/actions/open-chat";
+import { submitPersonAnswer, getPersonEpisodeTarget } from "@/app/actions/person-chat";
 import {
   listRecentChatMessages,
   saveChatMessage,
@@ -47,13 +48,17 @@ import {
 } from "@/app/actions/chat-v3-log";
 import type { Gap } from "@/lib/gap-detector";
 import type { LifeEventType } from "@/lib/generated/prisma/enums";
+import { withJosa } from "@/lib/josa";
 
 type Msg = { role: "a" | "u"; text: string };
-type Stage = "profile_year" | "profile_region" | "confirm" | "episode" | "open";
+type Stage = "profile_year" | "profile_region" | "confirm" | "episode" | "open" | "person";
 type Status = "loading" | "idle" | "submitting" | "finished" | "error";
 type FinishReason = "done" | "capped" | "exited";
 
-export type InitialGap = { eventId: string; kind: "confirm" | "episode" | "period" } | null;
+export type InitialGap =
+  | { eventId: string; kind: "confirm" | "episode" | "period" | "person" }
+  | { eventId: string; kind: "person_episode"; personId: string }
+  | null;
 
 // 피로도 제어 — 신상(생년·출생지) + 확인질문 합쳐 한 세션 상한. 갭 카드로
 // 되돌아와 특정 이벤트를 다시 다루는 것(targeted confirm)·에피소드 대화·
@@ -113,6 +118,30 @@ function buildEpisodeOpeningPrompt(type: LifeEventType, label: string): string {
   }
 }
 
+// v3 P6 — 인물 모드 진입 질문. 에피소드 오프닝과 짝을 이루되 "무슨 일"이 아닌
+// "누구"에 초점.
+function buildPersonAskPrompt(type: LifeEventType, label: string): string {
+  switch (type) {
+    case "ELEM_SCHOOL":
+      return `${schoolPhaseName(label, "학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
+    case "MIDDLE_SCHOOL":
+      return `${schoolPhaseName(label, "중학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
+    case "HIGH_SCHOOL":
+      return `${schoolPhaseName(label, "고등학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
+    case "UNIVERSITY":
+      return `${schoolPhaseName(label, "대학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
+    case "MILITARY":
+      return "군대에서 가깝게 지낸 전우 있으세요?";
+    case "FIRST_JOB":
+      return "그때 가깝게 지낸 동료 있으세요?";
+    case "BIRTH":
+    case "MARRIAGE":
+    case "CUSTOM":
+    default:
+      return "그 시절 가까이 지내신 분 있으세요?";
+  }
+}
+
 export function ChatV3Client({
   userId,
   initialGap,
@@ -166,6 +195,11 @@ export function ChatV3Client({
   const episodeFollowUpCountRef = useRef(0);
   const episodeTranscriptRef = useRef<EpisodeTurn[]>([]);
   const retryActionRef = useRef<(() => Promise<void>) | null>(null);
+  // v3 P6 — 지금 진행 중인 "episode" 단계가 특정 인물과의 이야기인지(null 이면
+  // 일반 사건 회고). startEpisodeStage(일반 진입)는 항상 이 값을 지운다.
+  const activePersonRef = useRef<{ id: string; name: string } | null>(null);
+  // v3 P6 — "person" 단계에서 방금 던진 질문 문구(추출 시 맥락으로 필요).
+  const personQuestionRef = useRef("");
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -331,6 +365,7 @@ export function ChatV3Client({
         await addUser(`${item.label} 이야기를 더 들어볼까요?`);
       }
       activeEventIdRef.current = item.id;
+      activePersonRef.current = null;
       episodeFollowUpCountRef.current = 0;
       const opening = buildEpisodeOpeningPrompt(item.type, item.label);
       episodeTranscriptRef.current = [{ role: "assistant", text: opening }];
@@ -339,6 +374,102 @@ export function ChatV3Client({
     } catch (e) {
       console.error("[chat-v3]", e);
       enterError("이야기를 준비하지 못했어요.", () => startEpisodeStage(eventId, opts));
+    }
+  }
+
+  // v3 P6 — 갭 카드(person)에서, 또는 인물 수집 직후 자동으로 들어오는
+  // "그 시절 주변 사람" 질문. 인물이 이미 저장돼 있으면(그래서 다시 사람을
+  // 물을 필요가 없으면) enterPersonEpisode 로 바로 넘어가지 않는 이유는,
+  // 이 단계는 "새 인물을 더 들어볼까" 이지 이미 아는 인물과의 에피소드가
+  // 아니기 때문 — person_episode 갭은 별도 진입점(startPersonEpisodeStage).
+  async function startPersonStage(eventId: string, opts: { skipAnnounce?: boolean } = {}) {
+    setStage("person");
+    setStatus("loading");
+    try {
+      const item = await getConfirmedLifeEvent(userId, eventId);
+      if (!item) {
+        await enterOpenStage("그 이야기는 지금 들을 수 없나봐요. 다른 이야기 있으세요?");
+        return;
+      }
+      if (!opts.skipAnnounce) {
+        await addUser(`${item.label} 시절 이야기도 들어볼까요?`);
+      }
+      activeEventIdRef.current = item.id;
+      const question = buildPersonAskPrompt(item.type, item.label);
+      personQuestionRef.current = question;
+      await addBot(question);
+      setStatus("idle");
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      enterError("이야기를 준비하지 못했어요.", () => startPersonStage(eventId, opts));
+    }
+  }
+
+  // 인물 답변 처리. 저장된 인물이 있으면 바로 그 사람과의 에피소드 대화로
+  // 이어간다(존엄 원칙 — "없어요"/"기억 안 나요" 는 캐묻지 않고 open 으로).
+  async function submitPersonTurn(text: string) {
+    const eventId = activeEventIdRef.current;
+    if (!eventId) {
+      setStatus("idle");
+      return;
+    }
+    setStatus("submitting");
+    try {
+      const result = await submitPersonAnswer(userId, eventId, personQuestionRef.current, text);
+      if (result.savedCount === 0 || !result.firstPersonId || !result.firstPersonName) {
+        await enterOpenStage("네, 알겠어요. 다른 이야기도 있으세요?");
+        return;
+      }
+      triggerReaction("happy");
+      await enterPersonEpisode(eventId, result.firstPersonId, result.firstPersonName);
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      enterError("답변을 처리하지 못했어요.", () => submitPersonTurn(text));
+    }
+  }
+
+  // 인물 저장 직후 자동 진입, 또는 person_episode 갭에서 진입 — 둘 다 여기로
+  // 모인다. "episode" 단계 기존 엔진(submitEpisodeTurn/finishEpisodeStage)을
+  // personId 태그만 붙여 그대로 탄다.
+  async function enterPersonEpisode(eventId: string, personId: string, personName: string) {
+    setStage("episode");
+    setStatus("loading");
+    try {
+      activeEventIdRef.current = eventId;
+      activePersonRef.current = { id: personId, name: personName };
+      episodeFollowUpCountRef.current = 0;
+      const opening = `${personName}${withJosa(personName, "이랑/랑")} 기억나는 일 있으세요?`;
+      episodeTranscriptRef.current = [{ role: "assistant", text: opening }];
+      await addBot(opening);
+      setStatus("idle");
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      enterError("이야기를 준비하지 못했어요.", () => enterPersonEpisode(eventId, personId, personName));
+    }
+  }
+
+  // person_episode 갭 카드/딥링크 진입 — "이미 아는 그 인물"과의 이야기를
+  // 새로 시작. getPersonEpisodeTarget 이 두 ID 의 소유·연결을 다시 확인한다.
+  async function startPersonEpisodeStage(
+    eventId: string,
+    personId: string,
+    opts: { skipAnnounce?: boolean } = {},
+  ) {
+    setStage("episode");
+    setStatus("loading");
+    try {
+      const target = await getPersonEpisodeTarget(userId, eventId, personId);
+      if (!target) {
+        await enterOpenStage("그 이야기는 지금 들을 수 없나봐요. 다른 이야기 있으세요?");
+        return;
+      }
+      if (!opts.skipAnnounce) {
+        await addUser(`${target.personName}${withJosa(target.personName, "과/와")} 있었던 일도 들어볼까요?`);
+      }
+      await enterPersonEpisode(eventId, personId, target.personName);
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      enterError("이야기를 준비하지 못했어요.", () => startPersonEpisodeStage(eventId, personId, opts));
     }
   }
 
@@ -407,10 +538,11 @@ export function ChatV3Client({
 
   async function finishEpisodeStage() {
     const eventId = activeEventIdRef.current;
+    const personId = activePersonRef.current?.id;
     setStatus("loading");
     try {
       const result = eventId
-        ? await finishEpisodeChat(eventId, episodeTranscriptRef.current)
+        ? await finishEpisodeChat(eventId, episodeTranscriptRef.current, personId)
         : { ok: false as const, error: "" };
       if (!result.ok) {
         await addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
@@ -421,6 +553,7 @@ export function ChatV3Client({
       console.error("[chat-v3]", e);
       await addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
     }
+    activePersonRef.current = null;
     await enterOpenStage("소중한 이야기 들려주셔서 고마워요. 다른 이야기도 있으세요?");
   }
 
@@ -541,6 +674,10 @@ export function ChatV3Client({
           await startEpisodeStage(initialGap.eventId);
         } else if (initialGap.kind === "period") {
           await startPeriodPrompt(initialGap.eventId);
+        } else if (initialGap.kind === "person") {
+          await startPersonStage(initialGap.eventId);
+        } else if (initialGap.kind === "person_episode") {
+          await startPersonEpisodeStage(initialGap.eventId, initialGap.personId);
         } else {
           await startTargetedConfirm(initialGap.eventId);
         }
@@ -582,6 +719,10 @@ export function ChatV3Client({
     await addUser(gap.cardLabel);
     if (gap.type === "episode" && gap.targetEventId) {
       await startEpisodeStage(gap.targetEventId, { skipAnnounce: true });
+    } else if (gap.type === "person" && gap.targetEventId) {
+      await startPersonStage(gap.targetEventId, { skipAnnounce: true });
+    } else if (gap.type === "person_episode" && gap.targetEventId && gap.targetPersonId) {
+      await startPersonEpisodeStage(gap.targetEventId, gap.targetPersonId, { skipAnnounce: true });
     } else if ((gap.type === "unconfirmed" || gap.type === "needs_review") && gap.targetEventId) {
       await startTargetedConfirm(gap.targetEventId);
     } else if (gap.type === "time_gap") {
@@ -612,6 +753,7 @@ export function ChatV3Client({
     if (stage === "profile_year") await submitBirthYear(text);
     else if (stage === "profile_region") await submitRegion(text);
     else if (stage === "confirm") await submitConfirmTurn(text);
+    else if (stage === "person") await submitPersonTurn(text);
     else if (stage === "episode") await submitEpisodeTurn(text);
     else await submitOpenChat(text);
   }
