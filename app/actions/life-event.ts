@@ -18,6 +18,7 @@ import {
   CONFIRM_QUESTION_SYSTEM_PROMPT,
   CORRECTION_PARSE_SYSTEM_PROMPT,
 } from "@/lib/prompts/life-event-confirm";
+import { withJosa } from "@/lib/josa";
 import type { LifeEventType } from "@/lib/generated/prisma/enums";
 
 // 추출/분류는 항상 Sonnet 고정 — 전역 aiModel(라이브 응답)과 무관.
@@ -65,7 +66,7 @@ async function buildConfirmQuestionText(event: ConfirmQuestionTarget): Promise<s
   ].join(" ");
 
   let question = event.isOptional
-    ? `${event.label}은 하셨나요?`
+    ? `${event.label}${withJosa(event.label, "은/는")} 하셨나요?`
     : `${event.year ? `${event.year}년에 ` : ""}${event.label} 하셨나요?`;
 
   try {

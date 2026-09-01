@@ -11,6 +11,8 @@
 import "dotenv/config";
 
 import { prisma } from "../lib/db";
+import { deleteAccountTx } from "../lib/account-deletion";
+import { createEpisodeBridge } from "../lib/episode";
 
 async function cleanup() {
   await prisma.user.deleteMany({
@@ -28,52 +30,9 @@ async function cleanup() {
   });
 }
 
+// 실제 앱이 쓰는 트랜잭션 그 자체(lib/account-deletion.ts) — 재현본이 아니다.
 async function runDeletion(userId: string) {
-  await prisma.$transaction(async (tx) => {
-    const ownedRooms = await tx.sharedRoom.findMany({
-      where: { ownerId: userId },
-      select: {
-        id: true,
-        members: {
-          where: { userId: { not: userId }, consentAt: { not: null } },
-          orderBy: { joinedAt: "asc" },
-          take: 1,
-          select: { id: true, userId: true },
-        },
-      },
-    });
-    for (const room of ownedRooms) {
-      const successor = room.members[0];
-      if (successor) {
-        await tx.sharedRoom.update({
-          where: { id: room.id },
-          data: { ownerId: successor.userId },
-        });
-        await tx.roomMember.update({
-          where: { id: successor.id },
-          data: { role: "owner" },
-        });
-      } else {
-        await tx.sharedRoom.delete({ where: { id: room.id } });
-      }
-    }
-    await tx.tokenOrder.deleteMany({
-      where: { userId, status: { not: "paid" } },
-    });
-    const memoryIds = await tx.userMemory.findMany({
-      where: { userId },
-      select: { id: true },
-    });
-    if (memoryIds.length > 0) {
-      await tx.comment.deleteMany({
-        where: {
-          targetType: "user_memory",
-          targetId: { in: memoryIds.map((m) => m.id) },
-        },
-      });
-    }
-    await tx.user.delete({ where: { id: userId } });
-  });
+  await deleteAccountTx(userId);
 }
 
 async function scenario1_transfer() {
@@ -276,11 +235,163 @@ async function scenario3_userMemoryComments() {
   );
 }
 
+// 2026-09-01 lifeevent_cascade_fix 검증 — /chat-v3(v3 온보딩 채팅)이 만드는
+// LifeEvent·Episode·OnboardingProfile·OnboardingChatMessage 가 탈퇴 시 고아로
+// 안 남는지. Episode 생성은 실제 lib/episode.ts 의 createEpisodeBridge() 를
+// 그대로 호출한다(재현 아님) — OnboardingProfile/LifeEvent/ChatMessage 는
+// completeOnboarding/saveChatMessage 의 "use server" 액션이 auth() 세션을
+// 요구해 스크립트에서 직접 호출 불가하므로, 그 액션들이 만드는 것과 동일한
+// 모양의 행을 prisma 로 직접 생성한다(둘 다 단순 create 이라 로직 분기 없음 —
+// 재현 위험은 deleteAccountTx 와 달리 낮음).
+async function scenario4_v3Models() {
+  console.log(
+    "\n=== scenario 4: LifeEvent/Episode/OnboardingProfile/OnboardingChatMessage cascade (2026-09-01 fix) ===",
+  );
+  const grace = await prisma.user.create({
+    data: {
+      email: "withdrawal-test-v3-grace@test",
+      name: "grace",
+      birthYear: 1958,
+    },
+  });
+
+  await prisma.onboardingProfile.create({
+    data: {
+      userId: grace.id,
+      birthYear: 1958,
+      birthMonth: 3,
+      gender: null,
+      region: "서울",
+      skeletonGeneratedAt: new Date(),
+    },
+  });
+
+  const birthEvent = await prisma.lifeEvent.create({
+    data: {
+      userId: grace.id,
+      type: "BIRTH",
+      label: "출생",
+      year: 1958,
+      isOptional: false,
+      status: "CONFIRMED",
+      confirmedAt: new Date(),
+      sequenceOrder: 0,
+    },
+  });
+  const elemEvent = await prisma.lifeEvent.create({
+    data: {
+      userId: grace.id,
+      type: "ELEM_SCHOOL",
+      label: "국민학교 입학",
+      year: 1965,
+      isOptional: false,
+      status: "CONFIRMED",
+      confirmedAt: new Date(),
+      sequenceOrder: 1,
+    },
+  });
+  // Unconfirmed event with no episode — orphan-check baseline.
+  await prisma.lifeEvent.create({
+    data: {
+      userId: grace.id,
+      type: "MIDDLE_SCHOOL",
+      label: "중학교 입학",
+      year: 1971,
+      isOptional: false,
+      status: "UNCONFIRMED",
+      sequenceOrder: 2,
+    },
+  });
+
+  await prisma.onboardingChatMessage.create({
+    data: {
+      userId: grace.id,
+      sessionId: "wtest-session-1",
+      role: "assistant",
+      content: "언제 태어나셨어요?",
+    },
+  });
+  await prisma.onboardingChatMessage.create({
+    data: {
+      userId: grace.id,
+      sessionId: "wtest-session-1",
+      role: "user",
+      content: "1958년이요",
+    },
+  });
+
+  // 실제 프로덕션 함수 호출 — Episode + UserMemory 브릿지 생성.
+  const bridge1 = await createEpisodeBridge(
+    grace.id,
+    birthEvent.id,
+    "출생",
+    1958,
+    "부산에서 태어났어요.",
+    "[동반자] 언제 태어나셨어요?\n[본인] 부산에서 태어났어요.",
+  );
+  const bridge2 = await createEpisodeBridge(
+    grace.id,
+    elemEvent.id,
+    "국민학교 입학",
+    1965,
+    "학교까지 한 시간을 걸어다녔어요.",
+    "[동반자] 학교는 어떠셨어요?\n[본인] 학교까지 한 시간을 걸어다녔어요.",
+  );
+  if (!bridge1 || !bridge2) throw new Error("createEpisodeBridge failed in setup");
+
+  const beforeCounts = {
+    lifeEvents: await prisma.lifeEvent.count({ where: { userId: grace.id } }),
+    episodes: await prisma.episode.count({
+      where: { lifeEventId: { in: [birthEvent.id, elemEvent.id] } },
+    }),
+    profile: await prisma.onboardingProfile.count({ where: { userId: grace.id } }),
+    chatMessages: await prisma.onboardingChatMessage.count({ where: { userId: grace.id } }),
+    memories: await prisma.userMemory.count({
+      where: { id: { in: [bridge1.memoryId, bridge2.memoryId] } },
+    }),
+  };
+  console.log("before deletion:", beforeCounts);
+
+  // 실제 탈퇴 액션이 쓰는 함수 그 자체(lib/account-deletion.ts).
+  await deleteAccountTx(grace.id);
+
+  const userAfter = await prisma.user.findUnique({ where: { id: grace.id } });
+  const lifeEventsAfter = await prisma.lifeEvent.count({ where: { userId: grace.id } });
+  const episodesAfter = await prisma.episode.count({
+    where: { lifeEventId: { in: [birthEvent.id, elemEvent.id] } },
+  });
+  const profileAfter = await prisma.onboardingProfile.count({ where: { userId: grace.id } });
+  const chatMessagesAfter = await prisma.onboardingChatMessage.count({
+    where: { userId: grace.id },
+  });
+  const memoriesAfter = await prisma.userMemory.count({
+    where: { id: { in: [bridge1.memoryId, bridge2.memoryId] } },
+  });
+
+  console.log("user deleted:", userAfter === null);
+  console.log("LifeEvent orphans:", lifeEventsAfter, "(expect 0)");
+  console.log("Episode orphans:", episodesAfter, "(expect 0)");
+  console.log("OnboardingProfile orphans:", profileAfter, "(expect 0)");
+  console.log("OnboardingChatMessage orphans:", chatMessagesAfter, "(expect 0)");
+  console.log("UserMemory (episode bridge) orphans:", memoriesAfter, "(expect 0)");
+
+  const allZero =
+    lifeEventsAfter === 0 &&
+    episodesAfter === 0 &&
+    profileAfter === 0 &&
+    chatMessagesAfter === 0 &&
+    memoriesAfter === 0;
+  if (userAfter !== null || !allZero) {
+    throw new Error("scenario4 FAILED — orphan rows or user not deleted");
+  }
+}
+
 async function main() {
   await cleanup();
   await scenario1_transfer();
   await scenario2_cascadeRoom();
   await scenario3_userMemoryComments();
+  await scenario4_v3Models();
   await cleanup();
   console.log("\n✓ done");
 }

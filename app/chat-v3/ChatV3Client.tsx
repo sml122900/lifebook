@@ -628,12 +628,18 @@ export function ChatV3Client({
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <header className="flex items-center justify-between gap-4">
+      {/* P5-4 — 캐릭터가 대화 리액션 용도라 스크롤해도 계속 보여야 의미가
+          있다. 헤더 전체를 sticky top-0 으로 고정(대화 내내 노출).
+          작은 화면(sm 미만)에서는 캐릭터를 제목 "아래 줄"로 내린다 —
+          사이드 패널 "내 정보" 버튼(fixed right-4 top-4)이 차지하는
+          가로 폭을 픽셀 단위로 계산해 여백을 맞추는 대신, 세로로 겹칠
+          공간 자체를 없애는 방식이라 화면 폭이 달라져도 안전하다. */}
+      <header className="sticky top-0 z-20 flex flex-col gap-3 border-b border-line bg-canvas py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-ink">이야기 나누기</h1>
-          <p className="mt-2 text-lg text-ink-soft">편하게 대답만 해주세요.</p>
+          <h1 className="text-2xl font-bold text-ink">이야기 나누기</h1>
+          <p className="mt-1 text-base text-ink-soft">편하게 대답만 해주세요.</p>
         </div>
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex items-center gap-2 self-start sm:flex-col sm:items-center sm:gap-1 sm:self-auto">
           <CharacterStage
             characterId={characterId}
             motionEnabled={characterMotionEnabled}
