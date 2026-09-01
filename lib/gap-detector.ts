@@ -34,6 +34,11 @@ export type Gap = {
   targetPersonId?: string;
   // 카드/칩에 보이는 문구. 결핍 프레이밍("~비어있어요") 금지.
   cardLabel: string;
+  // P7-5 — 카드를 클릭했을 때 사용자 발화 버블에 넣을 문구. cardLabel 은
+  // 시스템이 사용자에게 건네는 초대/질문형("~들어볼까요?")이라 그대로
+  // addUser 하면 "사용자가 자기 자신에게 되묻는" 것처럼 어색했다(실제로는
+  // 하지 않은 말). 1인칭 진술체("~해볼게요")로 분리.
+  announceText: string;
   // 클릭 시 실제로 묻는 질문(episode/unconfirmed/needs_review/person/
   // person_episode 는 각자 전용 엔진이 자체 생성하므로 미사용 — time_gap 만
   // 이 값을 그대로 addBot).
@@ -61,6 +66,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
         type: "needs_review",
         targetEventId: e.id,
         cardLabel: `${label} 이야기, 다시 한번 여쭤봐도 될까요?`,
+        announceText: `${label} 이야기 다시 해볼게요`,
         userPrompt: "",
         priority: 1,
       });
@@ -69,6 +75,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
         type: "unconfirmed",
         targetEventId: e.id,
         cardLabel: `${label} 이야기를 아직 못 들었어요`,
+        announceText: `${label} 이야기 해볼게요`,
         userPrompt: "",
         priority: 2,
       });
@@ -80,8 +87,9 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
           type: "person",
           targetEventId: e.id,
           cardLabel: `${label} 시절, 곁에 계셨던 분 이야기도 들어볼까요?`,
+          announceText: `${label} 시절 이야기도 해볼게요`,
           userPrompt: "",
-          priority: 3,
+          priority: 4,
         });
       }
       if (!e.hasEpisode) {
@@ -89,6 +97,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
           type: "episode",
           targetEventId: e.id,
           cardLabel: `${label} 이야기를 더 들어볼까요?`,
+          announceText: `${label} 이야기 해볼게요`,
           userPrompt: "",
           priority: 6,
         });
@@ -100,6 +109,11 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
   // 중 아직 그 사람과의 Episode 가 없는 경우. /people 에서 직접 추가한
   // 인물(PersonLifeEvent 링크 없음)은 이 갭 대상이 아니다 — 대화 문맥으로
   // 쓸 이벤트가 없어 자연스러운 질문을 못 만든다.
+  //
+  // P7-2 — 새 person(4)/time_gap(5) 보다 앞(priority 3). 이미 이름까지 받아둔
+  // "거의 다 채운" 이야기가, 다른 이벤트의 새 person 질문에 밀려 topGaps(3)
+  // 밖으로 밀려나던 버그 — 이름을 준 사람의 이야기를 마무리하는 게 새로 사람을
+  // 캐묻는 것보다 자연스럽다.
   const personsWithoutEpisode = await prisma.person.findMany({
     where: { userId, subjectType: "person", isDraft: false, lifeEvents: { some: {} } },
     select: {
@@ -122,8 +136,9 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
       targetEventId: link.lifeEventId,
       targetPersonId: p.id,
       cardLabel: `${p.name}${withJosa(p.name, "과/와")} 있었던 일도 들어볼까요?`,
+      announceText: `${p.name}${withJosa(p.name, "이랑/랑")} 있었던 이야기 해볼게요`,
       userPrompt: "",
-      priority: 5,
+      priority: 3,
     });
   }
 
@@ -160,8 +175,9 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
         type: "time_gap",
         targetEventId: anchor.id,
         cardLabel: `${anchor.label}(${anchor.year}) 이후 이야기를 아직 못 들었어요`,
+        announceText: `${anchor.label} 이후 이야기도 해볼게요`,
         userPrompt: timeGapPrompt(anchor),
-        priority: 4,
+        priority: 5,
       });
     }
   }
@@ -173,8 +189,9 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
         type: "time_gap",
         targetEventId: anchor.id,
         cardLabel: `${anchor.label}(${anchor.year}) 이후 이야기를 아직 못 들었어요`,
+        announceText: `${anchor.label} 이후 이야기도 해볼게요`,
         userPrompt: timeGapPrompt(anchor),
-        priority: 4,
+        priority: 5,
       });
     }
   }

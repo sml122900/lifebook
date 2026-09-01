@@ -346,7 +346,7 @@ export function ChatV3Client({
   }
 
   // 갭 카드에서 confirmed 인데 hasEpisode=false 인 이벤트를 골라 심화 대화
-  // 시작. P4-1 — handleGapClick 은 이미 최상단에서 gap.cardLabel 을
+  // 시작. P4-1 — handleGapClick 은 이미 최상단에서 gap.announceText 를
   // addUser 했으므로(skipAnnounce=true) 여기서 또 남기지 않는다. 반면
   // init() 의 initialGap(/story-review "이야기하기" 딥링크) 경로는 그
   // addUser 를 거치지 않고 곧장 여기로 오므로(skipAnnounce 기본 false)
@@ -362,7 +362,7 @@ export function ChatV3Client({
         return;
       }
       if (!opts.skipAnnounce) {
-        await addUser(`${item.label} 이야기를 더 들어볼까요?`);
+        await addUser(`${item.label} 이야기 해볼게요`);
       }
       activeEventIdRef.current = item.id;
       activePersonRef.current = null;
@@ -392,7 +392,7 @@ export function ChatV3Client({
         return;
       }
       if (!opts.skipAnnounce) {
-        await addUser(`${item.label} 시절 이야기도 들어볼까요?`);
+        await addUser(`${item.label} 시절 이야기도 해볼게요`);
       }
       activeEventIdRef.current = item.id;
       const question = buildPersonAskPrompt(item.type, item.label);
@@ -464,7 +464,7 @@ export function ChatV3Client({
         return;
       }
       if (!opts.skipAnnounce) {
-        await addUser(`${target.personName}${withJosa(target.personName, "과/와")} 있었던 일도 들어볼까요?`);
+        await addUser(`${target.personName}${withJosa(target.personName, "이랑/랑")} 있었던 이야기 해볼게요`);
       }
       await enterPersonEpisode(eventId, personId, target.personName);
     } catch (e) {
@@ -485,10 +485,10 @@ export function ChatV3Client({
       ]);
       setGapSuggestions(gaps);
       if (gap) {
-        await addUser(gap.cardLabel);
+        await addUser(gap.announceText);
         await addBot(gap.userPrompt);
       } else {
-        await addBot("그 이야기는 지금 볼 수 없나봐요. 다른 이야기 있으세요?");
+        await addBot("그 이야기는 지금 들을 수 없나봐요. 다른 이야기 있으세요?");
       }
       setStatus("idle");
     } catch (e) {
@@ -712,11 +712,12 @@ export function ChatV3Client({
 
   // P3-3 — 칩 클릭도 "사용자가 이 주제를 골랐다"는 발화 버블을 남긴다(이전엔
   // time_gap 클릭 시 사용자 버블 없이 봇이 내부 진단 문구를 그대로 말하는
-  // 것처럼 보였다). cardLabel 은 결핍 프레이밍 없는 문구라 그대로 사용자
-  // 발화로 노출해도 자연스럽다.
+  // 것처럼 보였다). P7-5 — cardLabel 은 시스템이 사용자에게 건네는 질문형
+  // ("~들어볼까요?")이라 그대로 addUser 하면 사용자가 하지 않은 말이 버블에
+  // 뜬다 — 1인칭 진술체인 gap.announceText 를 대신 쓴다.
   async function handleGapClick(gap: Gap) {
     if (status !== "idle") return;
-    await addUser(gap.cardLabel);
+    await addUser(gap.announceText);
     if (gap.type === "episode" && gap.targetEventId) {
       await startEpisodeStage(gap.targetEventId, { skipAnnounce: true });
     } else if (gap.type === "person" && gap.targetEventId) {
