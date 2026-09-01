@@ -46,6 +46,12 @@ import {
   saveChatMessage,
   type ChatLogTurn,
 } from "@/app/actions/chat-v3-log";
+import {
+  setPendingChatContext,
+  clearPendingChatContext,
+  getPendingChatContext,
+  type PendingChatContext,
+} from "@/app/actions/chat-v3-pending";
 import type { Gap } from "@/lib/gap-detector";
 import type { LifeEventType } from "@/lib/generated/prisma/enums";
 import { withJosa } from "@/lib/josa";
@@ -226,6 +232,31 @@ export function ChatV3Client({
     }
   }
 
+  // P7-7 — episode/person 단계 진입/이탈을 대기 컨텍스트 테이블에 반영.
+  // best-effort(실패해도 대화 자체는 막지 않음) — addBot/addUser 와 같은
+  // 방어 패턴.
+  async function markPendingEpisode(eventId: string, personId: string | null): Promise<void> {
+    try {
+      await setPendingChatContext(userId, "EPISODE", eventId, personId);
+    } catch (e) {
+      console.error("[chat-v3-pending]", e);
+    }
+  }
+  async function markPendingPerson(eventId: string): Promise<void> {
+    try {
+      await setPendingChatContext(userId, "PERSON", eventId, null);
+    } catch (e) {
+      console.error("[chat-v3-pending]", e);
+    }
+  }
+  async function clearPending(): Promise<void> {
+    try {
+      await clearPendingChatContext(userId);
+    } catch (e) {
+      console.error("[chat-v3-pending]", e);
+    }
+  }
+
   function enterError(message: string, retryAction: () => Promise<void>) {
     retryActionRef.current = retryAction;
     setErrorMsg(message);
@@ -261,6 +292,10 @@ export function ChatV3Client({
     setStage("open");
     setStatus("loading");
     try {
+      // P7-7 — episode/person 대기 컨텍스트를 벗어나는 모든 경로가 결국
+      // 여기로 모인다(finishEpisodeStage·submitPersonTurn 의 "없어요" 분기
+      // 등) — 한 곳에서 정리하면 충분하다.
+      await clearPending();
       const gaps = await getTopGaps(userId, 3);
       setGapSuggestions(gaps);
       const last = dedupeAgainst?.[dedupeAgainst.length - 1];
@@ -280,6 +315,9 @@ export function ChatV3Client({
     setStage("confirm");
     setStatus("loading");
     try {
+      // P7-7 — confirm 루프로 들어오면 episode/person 대기 컨텍스트는 더
+      // 이상 유효하지 않다(존재해도 no-op).
+      await clearPending();
       if (questionCountRef.current >= MAX_SESSION_QUESTIONS) {
         await finishSession("capped", true);
         return;
@@ -330,6 +368,7 @@ export function ChatV3Client({
     setStage("confirm");
     setStatus("loading");
     try {
+      await clearPending();
       const res = await getConfirmQuestionForEvent(userId, eventId);
       if (res.done) {
         isTargetedConfirmRef.current = false;
@@ -367,6 +406,7 @@ export function ChatV3Client({
       activeEventIdRef.current = item.id;
       activePersonRef.current = null;
       episodeFollowUpCountRef.current = 0;
+      await markPendingEpisode(item.id, null);
       const opening = buildEpisodeOpeningPrompt(item.type, item.label);
       episodeTranscriptRef.current = [{ role: "assistant", text: opening }];
       await addBot(opening);
@@ -395,6 +435,7 @@ export function ChatV3Client({
         await addUser(`${item.label} 시절 이야기도 해볼게요`);
       }
       activeEventIdRef.current = item.id;
+      await markPendingPerson(item.id);
       const question = buildPersonAskPrompt(item.type, item.label);
       personQuestionRef.current = question;
       await addBot(question);
@@ -438,6 +479,7 @@ export function ChatV3Client({
       activeEventIdRef.current = eventId;
       activePersonRef.current = { id: personId, name: personName };
       episodeFollowUpCountRef.current = 0;
+      await markPendingEpisode(eventId, personId);
       const opening = `${personName}${withJosa(personName, "이랑/랑")} 기억나는 일 있으세요?`;
       episodeTranscriptRef.current = [{ role: "assistant", text: opening }];
       await addBot(opening);
@@ -479,6 +521,7 @@ export function ChatV3Client({
     setStage("open");
     setStatus("loading");
     try {
+      await clearPending();
       const [gaps, gap] = await Promise.all([
         getTopGaps(userId, 3),
         getGapByEventId(userId, eventId),
@@ -660,6 +703,58 @@ export function ChatV3Client({
     }
   }
 
+  // P7-7 — 딥링크 없이 재진입했을 때, episode/person 단계에서 못 끝낸
+  // 대화가 있으면 이어받는다. confirm/profile 은 항상 LifeEvent/
+  // OnboardingProfile 실제 상태에서 재계산하므로(기존 그대로) 대상이 아니다.
+  // 이전 turn 히스토리는 복원하지 않는다 — 로그의 마지막 assistant
+  // 메시지(대기 중이던 질문) 하나만 이어받는다(lib/chat-v3-pending.ts 상단
+  // 주석 참조). 대상이 더 이상 유효하지 않으면(이벤트/링크가 사라짐 등)
+  // 조용히 정리하고 false — 호출부가 기존 정상 분기로 이어간다.
+  async function tryResumePendingContext(loaded: ChatLogTurn[]): Promise<boolean> {
+    let pending: PendingChatContext | null = null;
+    try {
+      pending = await getPendingChatContext(userId);
+    } catch (e) {
+      console.error("[chat-v3-pending]", e);
+      return false;
+    }
+    if (!pending) return false;
+
+    const lastAssistantText =
+      loaded.length > 0 && loaded[loaded.length - 1].role === "assistant"
+        ? loaded[loaded.length - 1].content
+        : null;
+    const item = await getConfirmedLifeEvent(userId, pending.targetEventId);
+    if (!item || !lastAssistantText) {
+      await clearPending();
+      return false;
+    }
+
+    if (pending.stage === "PERSON") {
+      activeEventIdRef.current = item.id;
+      personQuestionRef.current = lastAssistantText;
+      setStage("person");
+      setStatus("idle");
+      return true;
+    }
+
+    // EPISODE — targetPersonId 가 있으면 그 인물과의 이야기(연결이 끊겼으면
+    // getPersonEpisodeTarget 이 null 을 줘 일반 사건 회고로 자연히 강등).
+    let personName: string | null = null;
+    if (pending.targetPersonId) {
+      const target = await getPersonEpisodeTarget(userId, pending.targetEventId, pending.targetPersonId);
+      personName = target?.personName ?? null;
+    }
+    activeEventIdRef.current = item.id;
+    activePersonRef.current =
+      pending.targetPersonId && personName ? { id: pending.targetPersonId, name: personName } : null;
+    episodeFollowUpCountRef.current = 0;
+    episodeTranscriptRef.current = [{ role: "assistant", text: lastAssistantText }];
+    setStage("episode");
+    setStatus("idle");
+    return true;
+  }
+
   async function init() {
     setStatus("loading");
     try {
@@ -683,6 +778,8 @@ export function ChatV3Client({
         }
         return;
       }
+
+      if (await tryResumePendingContext(loaded)) return;
 
       const hasProfile = await hasOnboardingProfile(userId);
       if (!hasProfile) {

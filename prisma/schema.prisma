@@ -156,6 +156,7 @@ model User {
   lifeEvents             LifeEvent[]
   onboardingProfile      OnboardingProfile?
   onboardingChatMessages OnboardingChatMessage[]
+  chatV3PendingContext   ChatV3PendingContext?
 }
 
 // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
@@ -889,6 +890,9 @@ model Person {
   lifeEvents PersonLifeEvent[]
   episodes   Episode[]
 
+  // P7-7 — 이 인물을 대상으로 한 미완료 person_episode 대기 대화(있다면 1개).
+  pendingChatContexts ChatV3PendingContext[]
+
   @@index([userId])
   @@index([userId, subjectType])
 }
@@ -1059,8 +1063,9 @@ model LifeEvent {
   // v3 P6 — 인물 모드. 뼈대 이벤트 하나에 여러 인물이 연결될 수 있다(다대다).
   people PersonLifeEvent[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  chatV3PendingContexts ChatV3PendingContext[]
 
   @@index([userId, sequenceOrder])
 }
@@ -1142,4 +1147,36 @@ model OnboardingChatMessage {
   createdAt DateTime      @default(now())
 
   @@index([userId, createdAt])
+}
+
+// P7-7 — /chat-v3 재진입 시 "지금 episode/person 단계 중 어떤 이벤트·인물을
+// 다루던 중이었는지" 복원용. 사용자당 1행(FamilyFeedSeen 과 같은 싱글턴
+// 패턴) — 행의 존재 자체가 "미완료 대기 대화가 있다"는 신호다. confirm/
+// profile 단계는 항상 LifeEvent/OnboardingProfile 실제 상태에서 재계산하므로
+// (기존 설계 그대로) 이 테이블이 필요 없다 — episode/person 만 DB에 재계산할
+// 근거가 없어 별도로 기억해야 한다.
+//
+// 이전 turn 히스토리는 의도적으로 저장하지 않는다 — 이탈은 대부분 "봇 질문
+// 직후"라 잃을 턴이 없고, 여러 턴 중 끊긴 경우도 직전 질문 하나만 이어받는
+// 게 지금(답이 사라지는 것)보다 낫다는 판단(2026-09-02 합의).
+model ChatV3PendingContext {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  stage           ChatV3PendingStage
+  targetEventId   String
+  targetLifeEvent LifeEvent          @relation(fields: [targetEventId], references: [id], onDelete: Cascade)
+
+  // person_episode(= EPISODE + personId 존재)만 채워짐. 대상 인물이 개별
+  // 삭제되면 SetNull — 재진입 시 "일반 사건 회고"로 안전하게 강등된다.
+  targetPersonId String?
+  targetPerson   Person? @relation(fields: [targetPersonId], references: [id], onDelete: SetNull)
+
+  updatedAt DateTime @updatedAt
+}
+
+enum ChatV3PendingStage {
+  EPISODE
+  PERSON
 }
