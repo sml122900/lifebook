@@ -11,7 +11,7 @@
 
 import { prisma } from "./db";
 import type { LifeEventType } from "./generated/prisma/enums";
-import { withJosa } from "./josa";
+import { buildPersonAddress } from "./person-honorific";
 
 // v3 P6 — person: confirmed 이벤트인데 연결된 Person 이 0명(그 시절 주변
 // 사람을 아직 안 물어봄). person_episode: Person 은 있는데 그 사람과의
@@ -49,6 +49,17 @@ export type Gap = {
 
 // confirmed 이벤트 사이(또는 마지막 이벤트→현재)가 이 년수 이상 비면 시간 공백.
 const TIME_GAP_YEARS = 10;
+
+type TimedEvent = { id: string; type: LifeEventType; label: string; year: number };
+
+// P4-2 — "그 무렵엔"은 사용자가 어느 구간인지 알 수 없어 모호했다. 앵커
+// 이벤트 기준으로 자연스럽게 구간을 녹인다. 연도 숫자 직접 노출은 피하고
+// 사건 기준 표현만 쓴다.
+function timeGapPrompt(anchor: TimedEvent): string {
+  if (anchor.type === "BIRTH") return "국민학교 들어가기 전, 어릴 적엔 어떻게 지내셨어요?";
+  if (anchor.type === "MARRIAGE") return "결혼하시고 나서는 어떻게 지내셨어요?";
+  return `${anchor.label} 이후로는 어떻게 지내셨어요?`;
+}
 
 export async function detectGaps(userId: string): Promise<Gap[]> {
   const events = await prisma.lifeEvent.findMany({
@@ -130,6 +141,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
     select: {
       id: true,
       name: true,
+      relation: true,
       episodes: { select: { id: true }, take: 1 },
       lifeEvents: {
         take: 1,
@@ -142,12 +154,14 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
     if (p.episodes.length > 0) continue;
     const link = p.lifeEvents[0];
     if (!link) continue;
+    // P10-4 — 윗사람(가족·은사)이면 호칭을 살려 격식 조사로 부른다.
+    const address = buildPersonAddress(p.name, p.relation);
     gaps.push({
       type: "person_episode",
       targetEventId: link.lifeEventId,
       targetPersonId: p.id,
-      cardLabel: `${p.name}${withJosa(p.name, "과/와")} 있었던 일도 들어볼까요?`,
-      announceText: `${p.name}${withJosa(p.name, "이랑/랑")} 있었던 이야기 해볼게요`,
+      cardLabel: `${address} 있었던 일도 들어볼까요?`,
+      announceText: `${address} 있었던 이야기 해볼게요`,
       userPrompt: "",
       priority: 3,
     });
@@ -156,8 +170,6 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
   // 시간 공백 — confirmed/corrected 이면서 연도가 있는 이벤트만 시간순으로.
   // anchor(구간 앞쪽 이벤트)가 BIRTH 인지로 어린 시절/그 이후를 구분해
   // userPrompt 톤을 다르게 한다.
-  type TimedEvent = { id: string; type: LifeEventType; label: string; year: number };
-
   const timed: TimedEvent[] = events
     .filter((e) => e.status === "CONFIRMED" || e.status === "CORRECTED")
     .map((e) => ({
@@ -168,15 +180,6 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
     }))
     .filter((e): e is TimedEvent => e.year !== null)
     .sort((a, b) => a.year - b.year);
-
-  // P4-2 — "그 무렵엔"은 사용자가 어느 구간인지 알 수 없어 모호했다. 앵커
-  // 이벤트 기준으로 자연스럽게 구간을 녹인다. 연도 숫자 직접 노출은 피하고
-  // 사건 기준 표현만 쓴다.
-  function timeGapPrompt(anchor: TimedEvent): string {
-    if (anchor.type === "BIRTH") return "국민학교 들어가기 전, 어릴 적엔 어떻게 지내셨어요?";
-    if (anchor.type === "MARRIAGE") return "결혼하시고 나서는 어떻게 지내셨어요?";
-    return `${anchor.label} 이후로는 어떻게 지내셨어요?`;
-  }
 
   for (let i = 0; i < timed.length - 1; i++) {
     const anchor = timed[i];
@@ -209,6 +212,37 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
 
   gaps.sort((a, b) => a.priority - b.priority);
   return gaps;
+}
+
+export type PeriodPrompt = {
+  targetEventId: string;
+  announceText: string;
+  userPrompt: string;
+};
+
+// P10-1 — /chat-v3?gapType=period 로 직접(또는 재)진입할 때 쓴다. 이
+// 구간이 이미 해소됐어도(periodResolvedEventIds — 앵커에 period Episode가
+// 이미 있음) 그 대화를 이어갈 수 있어야 한다. detectGaps/getGapByEventId
+// 는 "아직 안 채워진 갭"만 보여주는 게 맞지만(카드 목록에서 사라지는 것은
+// 의도된 동작), 이 함수는 해소 여부와 무관하게 그 앵커 이후 대화를
+// 시작하는 데만 쓰인다.
+export async function getPeriodPromptForEvent(
+  userId: string,
+  eventId: string,
+): Promise<PeriodPrompt | null> {
+  const e = await prisma.lifeEvent.findFirst({
+    where: { id: eventId, userId, status: { in: ["CONFIRMED", "CORRECTED"] } },
+    select: { type: true, label: true, correctedLabel: true, year: true, correctedYear: true },
+  });
+  if (!e) return null;
+  const year = e.correctedYear ?? e.year;
+  if (year === null) return null;
+  const anchor: TimedEvent = { id: eventId, type: e.type, label: e.correctedLabel ?? e.label, year };
+  return {
+    targetEventId: eventId,
+    announceText: `${anchor.label} 이후 이야기도 해볼게요`,
+    userPrompt: timeGapPrompt(anchor),
+  };
 }
 
 // P7-8 — story-review/getTopGaps 가 detectGaps 결과를 그냥 `.slice(0, N)`

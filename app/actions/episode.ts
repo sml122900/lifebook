@@ -50,7 +50,12 @@ function stripJsonFence(raw: string): string {
 export type EpisodeTurn = { role: "assistant" | "user"; text: string };
 
 export type ContinueEpisodeResult =
-  | { ok: true; reply: string; end: boolean }
+  // P10-2 — capped: MAX_FOLLOWUPS 에 도달해 end 가 모델 판단과 무관하게
+  // 강제로 true 가 된 턴인지. 강제로 끝난 턴은 프롬프트 지시에도 불구하고
+  // 모델이 새 질문을 던지는 경우가 있어(관찰됨), 호출부가 곧장
+  // finishEpisodeChat 으로 넘어가면 그 질문에 대한 답이 유실된다 — 호출부가
+  // capped 일 때 한 턴 더 기다리도록 구분해서 넘긴다.
+  | { ok: true; reply: string; end: boolean; capped: boolean }
   | { ok: false; error: string };
 
 // P8-1 — period(구간) 대화는 특정 LifeEvent "그 자체"가 아니라 그 이벤트
@@ -106,7 +111,7 @@ export async function continueEpisodeChat(
     end = true;
   }
 
-  return { ok: true, reply, end };
+  return { ok: true, reply, end, capped: isLastTurn };
 }
 
 export type FinishEpisodeResult =

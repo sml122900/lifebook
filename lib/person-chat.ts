@@ -57,6 +57,8 @@ export type SubmitPersonAnswerResult = {
   savedCount: number;
   firstPersonId: string | null;
   firstPersonName: string | null;
+  // P10-4 — 호칭 판정(lib/person-honorific.ts)에 필요.
+  firstPersonRelation: string | null;
 };
 
 // question 은 방금 사용자에게 던진 질문 문구(추출 프롬프트에 맥락으로 씀).
@@ -70,7 +72,12 @@ export async function submitPersonAnswer(
     where: { id: lifeEventId, userId, status: { in: ["CONFIRMED", "CORRECTED"] } },
     select: { id: true, year: true, correctedYear: true },
   });
-  const empty: SubmitPersonAnswerResult = { savedCount: 0, firstPersonId: null, firstPersonName: null };
+  const empty: SubmitPersonAnswerResult = {
+    savedCount: 0,
+    firstPersonId: null,
+    firstPersonName: null,
+    firstPersonRelation: null,
+  };
   if (!event) return empty;
 
   // P8-4 — 저장 성공 여부(인물을 저장했든 "없어요"로 거절했든)와 무관하게
@@ -85,7 +92,7 @@ export async function submitPersonAnswer(
   if (candidates.length === 0) return empty;
 
   const metYear = event.correctedYear ?? event.year;
-  let first: { id: string; name: string } | null = null;
+  let first: { id: string; name: string; relation: string } | null = null;
   let savedCount = 0;
 
   for (const c of candidates) {
@@ -104,13 +111,18 @@ export async function submitPersonAnswer(
     });
     await linkPersonToLifeEvent(userId, person.id, lifeEventId);
     savedCount += 1;
-    if (!first) first = { id: person.id, name };
+    if (!first) first = { id: person.id, name, relation: c.relation };
   }
 
-  return { savedCount, firstPersonId: first?.id ?? null, firstPersonName: first?.name ?? null };
+  return {
+    savedCount,
+    firstPersonId: first?.id ?? null,
+    firstPersonName: first?.name ?? null,
+    firstPersonRelation: first?.relation ?? null,
+  };
 }
 
-export type PersonEpisodeTarget = { personName: string } | null;
+export type PersonEpisodeTarget = { personName: string; personRelation: string | null } | null;
 
 // 갭 카드/딥링크로 "이 인물 + 이 이벤트" 조합을 지정해 돌아올 때, 두 ID 가
 // 실제로 이 사용자 소유이고 서로 연결돼 있는지 확인하며 인물 이름을 가져온다.
@@ -126,9 +138,9 @@ export async function getPersonEpisodeTarget(
     }),
     prisma.personLifeEvent.findFirst({
       where: { lifeEventId, personId, userId },
-      select: { person: { select: { name: true } } },
+      select: { person: { select: { name: true, relation: true } } },
     }),
   ]);
   if (!event || !link) return null;
-  return { personName: link.person.name };
+  return { personName: link.person.name, personRelation: link.person.relation };
 }

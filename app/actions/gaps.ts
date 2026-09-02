@@ -4,7 +4,13 @@
 // 단계)에 노출하는 얇은 래퍼. 계산 자체는 lib/gap-detector.ts(순수 읽기).
 
 import { auth } from "@/auth";
-import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
+import {
+  detectGaps,
+  getPeriodPromptForEvent,
+  pickTopGaps,
+  type Gap,
+  type PeriodPrompt,
+} from "@/lib/gap-detector";
 
 async function requireUserId(expected: string): Promise<string> {
   const session = await auth();
@@ -19,11 +25,15 @@ export async function getTopGaps(userId: string, limit = 3): Promise<Gap[]> {
   return pickTopGaps(gaps, limit);
 }
 
-// P3-2 — /story-review 의 time_gap 카드가 anchor eventId 로 돌아올 때, 그
-// 구간의 정확한 문구(userPrompt)를 다시 찾기 위한 조회. top N 에 안 들어있는
-// gap 도 잡아야 해서 detectGaps 전체에서 찾는다.
-export async function getGapByEventId(userId: string, eventId: string): Promise<Gap | null> {
+// P10-1 — /story-review 의 time_gap 카드, 또는 /chat-v3?gapType=period 딥링크
+// (재진입 포함)가 anchor eventId 로 돌아올 때 그 구간의 문구를 다시 찾기
+// 위한 조회. 갭이 이미 해소됐어도(그 앵커에 period Episode 가 이미 있어도)
+// 동작해야 재진입이 폴백으로 빠지지 않는다 — 그래서 detectGaps 의
+// periodResolvedEventIds 필터를 타지 않는다.
+export async function getPeriodPromptByEventId(
+  userId: string,
+  eventId: string,
+): Promise<PeriodPrompt | null> {
   await requireUserId(userId);
-  const gaps = await detectGaps(userId);
-  return gaps.find((g) => g.targetEventId === eventId && g.type === "time_gap") ?? null;
+  return getPeriodPromptForEvent(userId, eventId);
 }
