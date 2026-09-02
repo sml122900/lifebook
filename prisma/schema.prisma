@@ -1098,6 +1098,13 @@ model Episode {
   content       String  @db.Text
   rawTranscript String? @db.Text
 
+  // P9-1 — 이 Episode 가 앵커 이벤트 "자체" 이야기가 아니라 그 이벤트
+  // "이후" 구간 이야기(time_gap 갭에서 시작)였는지. 한 LifeEvent 에
+  // 이벤트-자체 Episode 와 period Episode 가 둘 다(그리고 period 는
+  // 여러 건) 붙을 수 있어 personId 처럼 별도 판별자가 필요했다.
+  // gap-detector 가 이 값으로 time_gap 갭 해소 여부를 판단한다.
+  isPeriod Boolean @default(false)
+
   createdAt DateTime @default(now())
 
   @@index([personId])

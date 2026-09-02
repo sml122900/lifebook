@@ -438,7 +438,9 @@ export function ChatV3Client({
         return;
       }
       if (!opts.skipAnnounce) {
-        await addUser(`${item.label} 이야기 해볼게요`);
+        // P9-5 — person/period 는 "~시절 이야기도 해볼게요"(조사 "도")인데
+        // 여기만 "도" 가 빠져 있었다. 통일.
+        await addUser(`${item.label} 이야기도 해볼게요`);
       }
       activeEventIdRef.current = item.id;
       activePersonRef.current = null;
@@ -776,14 +778,10 @@ export function ChatV3Client({
   // 메시지(대기 중이던 질문) 하나만 이어받는다(lib/chat-v3-pending.ts 상단
   // 주석 참조). 대상이 더 이상 유효하지 않으면(이벤트/링크가 사라짐 등)
   // 조용히 정리하고 false — 호출부가 기존 정상 분기로 이어간다.
-  async function tryResumePendingContext(loaded: ChatLogTurn[]): Promise<boolean> {
-    let pending: PendingChatContext | null = null;
-    try {
-      pending = await getPendingChatContext(userId);
-    } catch (e) {
-      console.error("[chat-v3-pending]", e);
-      return false;
-    }
+  async function tryResumePendingContext(
+    loaded: ChatLogTurn[],
+    pending: PendingChatContext | null,
+  ): Promise<boolean> {
     if (!pending) return false;
 
     const lastAssistantText =
@@ -830,12 +828,47 @@ export function ChatV3Client({
     return true;
   }
 
+  // P9-2 — initialGap(딥링크)이 가리키는 대상이 이미 진행 중인 대기 대화
+  // (ChatV3PendingContext)와 같은 것인지 판정. 가장 흔한 트리거: /story-review
+  // 에서 아직 안 끝난 갭 카드를 다시 클릭 — 이전엔 initialGap 이 항상 우선이라
+  // 진행 중이던 대화를 무시하고 연결 멘트+오프닝 질문을 통째로 재주입했다
+  // (재진입 2회 시 같은 쌍이 3번 쌓이던 원인). tryResumePendingContext 를
+  // 아예 안 타서 P8-3 의 "재진입 후 강제 마무리" 도 함께 못 탔던 것도 이
+  // 우회 경로 때문 — pending 을 우선하면 둘 다 자연히 해결된다. "confirm"
+  // 은 대상 아님(ChatV3PendingContext 는 EPISODE/PERSON 만 다룸).
+  function pendingMatchesInitialGap(
+    pending: PendingChatContext,
+    gap: NonNullable<InitialGap>,
+  ): boolean {
+    if (pending.targetEventId !== gap.eventId) return false;
+    if (gap.kind === "person") return pending.stage === "PERSON";
+    if (gap.kind === "episode" || gap.kind === "period") {
+      return pending.stage === "EPISODE" && !pending.targetPersonId;
+    }
+    if (gap.kind === "person_episode") {
+      return pending.stage === "EPISODE" && pending.targetPersonId === gap.personId;
+    }
+    return false;
+  }
+
   async function init() {
     setStatus("loading");
     try {
       const loaded = await listRecentChatMessages(userId);
       if (loaded.length > 0) {
         setMessages(loaded.map((m) => ({ role: m.role === "assistant" ? "a" : "u", text: m.content })));
+      }
+
+      let pending: PendingChatContext | null = null;
+      try {
+        pending = await getPendingChatContext(userId);
+      } catch (e) {
+        console.error("[chat-v3-pending]", e);
+      }
+
+      // P9-2 — 진행 중이던 대화와 같은 대상이면 새로 시작하지 않고 이어받는다.
+      if (initialGap && pending && pendingMatchesInitialGap(pending, initialGap)) {
+        if (await tryResumePendingContext(loaded, pending)) return;
       }
 
       // 갭 카드에서 특정 이벤트를 지정해 돌아온 경우 — 자연 분기보다 우선.
@@ -854,13 +887,22 @@ export function ChatV3Client({
         return;
       }
 
-      if (await tryResumePendingContext(loaded)) return;
+      if (await tryResumePendingContext(loaded, pending)) return;
 
       const hasProfile = await hasOnboardingProfile(userId);
       if (!hasProfile) {
         setStage("profile_year");
-        await addBot("먼저 몇 가지만 여쭤볼게요. 언제 태어나셨어요?");
-        questionCountRef.current += 1;
+        // P9-3 — 다른 진입점들(loadNextConfirmQuestion 의 alreadyPending,
+        // enterOpenStage 의 alreadyShown)과 같은 dedup: 복원된 로그의
+        // 마지막 메시지가 이미 봇 발화(= 이미 뭔가 물어본 채로 끝나 있음)면
+        // 또 새 질문을 안 붙인다. 이 가드가 없으면 OnboardingProfile 이
+        // 아직 안 생긴 상태(프로필 단계 완료 전)에서 새로고침할 때마다
+        // "먼저 몇 가지만 여쭤볼게요" 가 매번 새 행으로 재적재됐다.
+        const alreadyAsked = loaded.length > 0 && loaded[loaded.length - 1].role === "assistant";
+        if (!alreadyAsked) {
+          await addBot("먼저 몇 가지만 여쭤볼게요. 언제 태어나셨어요?");
+          questionCountRef.current += 1;
+        }
         setStatus("idle");
         return;
       }

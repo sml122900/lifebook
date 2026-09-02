@@ -54,8 +54,16 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
   const events = await prisma.lifeEvent.findMany({
     where: { userId },
     orderBy: { sequenceOrder: "asc" },
-    include: { people: { select: { id: true }, take: 1 } },
+    include: {
+      people: { select: { id: true }, take: 1 },
+      // P9-1 — 이 앵커에 이미 period(구간) 이야기가 하나라도 있으면 그
+      // time_gap 갭은 해소된 것으로 본다.
+      episodes: { where: { isPeriod: true }, select: { id: true }, take: 1 },
+    },
   });
+  const periodResolvedEventIds = new Set(
+    events.filter((e) => e.episodes.length > 0).map((e) => e.id),
+  );
 
   const gaps: Gap[] = [];
 
@@ -99,7 +107,8 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
           type: "episode",
           targetEventId: e.id,
           cardLabel: `${label} 이야기를 더 들어볼까요?`,
-          announceText: `${label} 이야기 해볼게요`,
+          // P9-5 — person/time_gap 의 "~이야기도 해볼게요"(조사 "도")와 통일.
+          announceText: `${label} 이야기도 해볼게요`,
           userPrompt: "",
           priority: 6,
         });
@@ -172,7 +181,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
   for (let i = 0; i < timed.length - 1; i++) {
     const anchor = timed[i];
     const span = timed[i + 1].year - anchor.year;
-    if (span >= TIME_GAP_YEARS) {
+    if (span >= TIME_GAP_YEARS && !periodResolvedEventIds.has(anchor.id)) {
       gaps.push({
         type: "time_gap",
         targetEventId: anchor.id,
@@ -186,7 +195,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
   if (timed.length > 0) {
     const anchor = timed[timed.length - 1];
     const span = new Date().getFullYear() - anchor.year;
-    if (span >= TIME_GAP_YEARS) {
+    if (span >= TIME_GAP_YEARS && !periodResolvedEventIds.has(anchor.id)) {
       gaps.push({
         type: "time_gap",
         targetEventId: anchor.id,

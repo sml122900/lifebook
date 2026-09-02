@@ -170,6 +170,11 @@ export async function finishEpisodeChat(
     if (person) ownedPersonId = person.id;
   }
 
+  // P9-1 — topicOverride 는 period(구간) 대화에서만 넘어온다(ChatV3Client
+  // periodTopicRef). 그 존재 여부로 isPeriod 를 판단 — 별도 플래그를 클라
+  // 에서 다시 스레딩할 필요가 없다.
+  const isPeriod = topicOverride !== undefined;
+
   try {
     const result = await createEpisodeBridge(
       userId,
@@ -179,6 +184,7 @@ export async function finishEpisodeChat(
       content,
       transcript,
       ownedPersonId,
+      isPeriod,
     );
     if (!result) return { ok: false, error: "이야기를 찾을 수 없어요." };
     return { ok: true, memoryId: result.memoryId };

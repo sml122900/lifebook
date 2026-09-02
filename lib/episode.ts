@@ -27,6 +27,12 @@ function resolveMemoryYear(year: number | null): number {
 // 넘긴다(일반 사건 회고는 undefined). 소유 검증은 호출자(app/actions/
 // person-chat.ts)가 PersonLifeEvent 로 이미 했으므로 여기서 다시 안 함 —
 // createEpisodeBridge 자체가 lifeEventId 소유만 검증하는 기존 계약 유지.
+//
+// P9-1 — isPeriod(optional, 기본 false) 는 이 이야기가 앵커 이벤트 "자체"가
+// 아니라 그 이벤트 "이후" 구간(time_gap 갭에서 시작) 이야기였는지. 한
+// LifeEvent 에 이벤트-자체 Episode 와 period Episode 가 여러 건 함께 붙을
+// 수 있다(unique 제약 없음 — 의도된 설계, gap-detector 가 isPeriod 로 해소
+// 여부만 판단).
 export async function createEpisodeBridge(
   userId: string,
   lifeEventId: string,
@@ -35,6 +41,7 @@ export async function createEpisodeBridge(
   content: string,
   rawTranscript: string,
   personId?: string,
+  isPeriod?: boolean,
 ): Promise<{ episodeId: string; memoryId: string } | null> {
   // 2026-09-01 — CORRECTED 도 허용(app/actions/episode.ts requireConfirmedEvent
   // 와 같은 이유). 저 함수가 이미 CORRECTED 이벤트를 통과시키는데 여기서 다시
@@ -63,6 +70,7 @@ export async function createEpisodeBridge(
         content,
         rawTranscript,
         personId: personId ?? null,
+        isPeriod: isPeriod ?? false,
       },
       select: { id: true },
     });
