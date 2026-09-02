@@ -53,19 +53,27 @@ export type ContinueEpisodeResult =
   | { ok: true; reply: string; end: boolean }
   | { ok: false; error: string };
 
+// P8-1 — period(구간) 대화는 특정 LifeEvent "그 자체"가 아니라 그 이벤트
+// "이후"가 주제라, 앵커 이벤트 자신의 label/year 를 그대로 쓰면 topic 이
+// 어긋난다(예: 주제가 "결혼 이후" 인데 시스템 프롬프트엔 "결혼"만 뜸).
+// topicOverride 로 호출자(ChatV3Client)가 정확한 주제 문구를 넘긴다 —
+// 안 넘기면 기존처럼 이벤트 자신의 label/year 그대로.
+export type EpisodeTopic = { label: string; year: number | null };
+
 // history 는 이 이벤트에 대해 실제로 오간 턴만(오프닝 템플릿 질문은 제외 —
 // 클라가 시스템 프롬프트로 이미 주제를 알고 있어 굳이 필요 없음).
 export async function continueEpisodeChat(
   lifeEventId: string,
   history: EpisodeTurn[],
   followUpCount: number,
+  topicOverride?: EpisodeTopic,
 ): Promise<ContinueEpisodeResult> {
   const userId = await requireUserId();
   const event = await requireConfirmedEvent(userId, lifeEventId);
   if (!event) return { ok: false, error: "이야기를 찾을 수 없어요." };
 
-  const label = event.correctedLabel ?? event.label;
-  const year = event.correctedYear ?? event.year;
+  const label = topicOverride?.label ?? event.correctedLabel ?? event.label;
+  const year = topicOverride ? topicOverride.year : (event.correctedYear ?? event.year);
   const isLastTurn = followUpCount + 1 >= MAX_FOLLOWUPS;
 
   const system = buildEpisodeChatSystemPrompt({
@@ -111,13 +119,14 @@ export async function finishEpisodeChat(
   lifeEventId: string,
   transcriptHistory: EpisodeTurn[],
   personId?: string,
+  topicOverride?: EpisodeTopic,
 ): Promise<FinishEpisodeResult> {
   const userId = await requireUserId();
   const event = await requireConfirmedEvent(userId, lifeEventId);
   if (!event) return { ok: false, error: "이야기를 찾을 수 없어요." };
 
-  const label = event.correctedLabel ?? event.label;
-  const year = event.correctedYear ?? event.year;
+  const label = topicOverride?.label ?? event.correctedLabel ?? event.label;
+  const year = topicOverride ? topicOverride.year : (event.correctedYear ?? event.year);
 
   const transcript = transcriptHistory
     .map((t) => `[${t.role === "assistant" ? "동반자" : "본인"}] ${t.text}`)

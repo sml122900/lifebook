@@ -37,7 +37,12 @@ import {
   getNextConfirmQuestion,
   submitConfirmAnswer,
 } from "@/app/actions/life-event";
-import { continueEpisodeChat, finishEpisodeChat, type EpisodeTurn } from "@/app/actions/episode";
+import {
+  continueEpisodeChat,
+  finishEpisodeChat,
+  type EpisodeTopic,
+  type EpisodeTurn,
+} from "@/app/actions/episode";
 import { getGapByEventId, getTopGaps } from "@/app/actions/gaps";
 import { respondToOpenChat } from "@/app/actions/open-chat";
 import { submitPersonAnswer, getPersonEpisodeTarget } from "@/app/actions/person-chat";
@@ -71,6 +76,11 @@ export type InitialGap =
 // open 자유 대화는 이 상한에 안 걸린다(온보딩 피로도와는 다른 맥락).
 const MAX_SESSION_QUESTIONS = 12;
 
+// P8-3 — app/actions/episode.ts 의 MAX_FOLLOWUPS 와 반드시 같은 값이어야
+// 한다("use server" 파일은 async 함수만 export 할 수 있어(프로젝트 규칙)
+// 상수를 직접 공유 못 함). 그쪽 값이 바뀌면 이 값도 함께 바꿀 것.
+const EPISODE_MAX_FOLLOWUPS = 2;
+
 // 종료 의사 키워드 사전 체크 — STAGE4(에피소드 대화)의 "종료 의사는 항상
 // 즉시 존중" 원칙을 여기선 LLM 판단 대신 가벼운 키워드로 재현한다.
 const EXIT_PHRASES = [
@@ -86,6 +96,28 @@ const EXIT_PHRASES = [
 function isExitIntent(text: string): boolean {
   const normalized = text.replace(/\s+/g, "");
   return EXIT_PHRASES.some((p) => normalized.includes(p));
+}
+
+// P8-2 — "그걸로 된 것 같아요"/"충분해요" 류의 완곡한 종료 의사를 LLM 이
+// 종종 "잘 됐다"는 뜻으로 오독해 마무리 대신 되묻는다(예: "무엇이 잘
+// 되었나요?"). 에피소드(period 포함) 대화 중엔 AI 판단 전에 키워드로 먼저
+// 거른다 — 존엄 원칙상 오탐(조기 종료)이 미탐(계속 캐물음)보다 안전.
+const EPISODE_DONE_PHRASES = [
+  "그걸로된것같아요",
+  "그정도면됐어요",
+  "이정도면됐어요",
+  "이정도면",
+  "그정도면",
+  "이만하면",
+  "충분해요",
+  "충분한것같아요",
+  "됐어요",
+  "됐습니다",
+];
+
+function isEpisodeDoneIntent(text: string): boolean {
+  const normalized = text.replace(/\s+/g, "");
+  return EPISODE_DONE_PHRASES.some((p) => normalized.includes(p));
 }
 
 const OPEN_GREETING = "하고 싶은 이야기 있으세요?";
@@ -206,6 +238,11 @@ export function ChatV3Client({
   const activePersonRef = useRef<{ id: string; name: string } | null>(null);
   // v3 P6 — "person" 단계에서 방금 던진 질문 문구(추출 시 맥락으로 필요).
   const personQuestionRef = useRef("");
+  // P8-1 — 지금 진행 중인 "episode" 단계가 period(구간) 대화인지(null 이면
+  // 일반 사건/인물 회고). 앵커 LifeEvent 자신의 label/year 대신 이 topic 을
+  // 시스템 프롬프트·저장 제목에 쓴다. startEpisodeStage/enterPersonEpisode
+  // 는 항상 이 값을 지운다(activePersonRef 와 같은 자리).
+  const periodTopicRef = useRef<EpisodeTopic | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -405,6 +442,7 @@ export function ChatV3Client({
       }
       activeEventIdRef.current = item.id;
       activePersonRef.current = null;
+      periodTopicRef.current = null;
       episodeFollowUpCountRef.current = 0;
       await markPendingEpisode(item.id, null);
       const opening = buildEpisodeOpeningPrompt(item.type, item.label);
@@ -478,6 +516,7 @@ export function ChatV3Client({
     try {
       activeEventIdRef.current = eventId;
       activePersonRef.current = { id: personId, name: personName };
+      periodTopicRef.current = null;
       episodeFollowUpCountRef.current = 0;
       await markPendingEpisode(eventId, personId);
       const opening = `${personName}${withJosa(personName, "이랑/랑")} 기억나는 일 있으세요?`;
@@ -515,28 +554,40 @@ export function ChatV3Client({
     }
   }
 
-  // P3-2 — /story-review 의 time_gap 카드에서 anchor eventId 를 지정해
-  // 돌아온 경우. detectGaps 로 그 구간을 다시 찾아 userPrompt 를 던진다.
-  async function startPeriodPrompt(eventId: string) {
-    setStage("open");
+  // P3-2/P8-1 — /story-review 의 time_gap 카드(또는 갭 칩)에서 anchor
+  // eventId 를 지정해 돌아온 경우. detectGaps 로 그 구간을 다시 찾아
+  // userPrompt 를 던진다. P8-1 이전엔 stage="open"(저장 없는 1회성 잡담)
+  // 으로 빠져 이 구간 이야기가 통째로 저장 안 됐다 — episode 엔진(STAGE4)을
+  // 그대로 타되, 앵커 이벤트 자신이 아니라 "그 이벤트 이후"가 주제이므로
+  // periodTopicRef 로 topic 을 덮어씌운다. Episode 는 lifeEventId 에 여러
+  // 개 붙을 수 있어(스키마 1:N) 앵커에 붙이는 것이 자연스럽다.
+  async function startPeriodPrompt(eventId: string, opts: { skipAnnounce?: boolean } = {}) {
+    setStage("episode");
     setStatus("loading");
     try {
       await clearPending();
-      const [gaps, gap] = await Promise.all([
-        getTopGaps(userId, 3),
+      const [gap, item] = await Promise.all([
         getGapByEventId(userId, eventId),
+        getConfirmedLifeEvent(userId, eventId),
       ]);
-      setGapSuggestions(gaps);
-      if (gap) {
-        await addUser(gap.announceText);
-        await addBot(gap.userPrompt);
-      } else {
-        await addBot("그 이야기는 지금 들을 수 없나봐요. 다른 이야기 있으세요?");
+      if (!gap || !item) {
+        await enterOpenStage("그 이야기는 지금 들을 수 없나봐요. 다른 이야기 있으세요?");
+        return;
       }
+      if (!opts.skipAnnounce) {
+        await addUser(gap.announceText);
+      }
+      activeEventIdRef.current = item.id;
+      activePersonRef.current = null;
+      periodTopicRef.current = { label: `${item.label} 이후`, year: item.year };
+      episodeFollowUpCountRef.current = 0;
+      await markPendingEpisode(item.id, null);
+      episodeTranscriptRef.current = [{ role: "assistant", text: gap.userPrompt }];
+      await addBot(gap.userPrompt);
       setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
-      enterError("이야기를 불러오지 못했어요.", () => startPeriodPrompt(eventId));
+      enterError("이야기를 불러오지 못했어요.", () => startPeriodPrompt(eventId, opts));
     }
   }
 
@@ -548,9 +599,22 @@ export function ChatV3Client({
     }
     setStatus("submitting");
     const historyBefore = episodeTranscriptRef.current;
+
+    // P8-2 — 완곡한 종료 의사는 AI 판단(오독 위험) 없이 먼저 거른다.
+    if (isEpisodeDoneIntent(text)) {
+      episodeTranscriptRef.current = [...historyBefore, { role: "user", text }];
+      await finishEpisodeStage();
+      return;
+    }
+
     const apiHistory: EpisodeTurn[] = [...historyBefore.slice(1), { role: "user", text }];
     try {
-      const result = await continueEpisodeChat(eventId, apiHistory, episodeFollowUpCountRef.current);
+      const result = await continueEpisodeChat(
+        eventId,
+        apiHistory,
+        episodeFollowUpCountRef.current,
+        periodTopicRef.current ?? undefined,
+      );
       if (!result.ok) {
         enterError(result.error, () => {
           setStatus("idle");
@@ -582,10 +646,11 @@ export function ChatV3Client({
   async function finishEpisodeStage() {
     const eventId = activeEventIdRef.current;
     const personId = activePersonRef.current?.id;
+    const topicOverride = periodTopicRef.current ?? undefined;
     setStatus("loading");
     try {
       const result = eventId
-        ? await finishEpisodeChat(eventId, episodeTranscriptRef.current, personId)
+        ? await finishEpisodeChat(eventId, episodeTranscriptRef.current, personId, topicOverride)
         : { ok: false as const, error: "" };
       if (!result.ok) {
         await addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
@@ -597,6 +662,7 @@ export function ChatV3Client({
       await addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
     }
     activePersonRef.current = null;
+    periodTopicRef.current = null;
     await enterOpenStage("소중한 이야기 들려주셔서 고마워요. 다른 이야기도 있으세요?");
   }
 
@@ -748,7 +814,16 @@ export function ChatV3Client({
     activeEventIdRef.current = item.id;
     activePersonRef.current =
       pending.targetPersonId && personName ? { id: pending.targetPersonId, name: personName } : null;
-    episodeFollowUpCountRef.current = 0;
+    // P8-3 — 이전 턴 히스토리를 복원하지 않으므로(위 주석) 실제 진행된
+    // 턴 수를 알 수 없다. 0 으로 리셋하면 최대 MAX_FOLLOWUPS 만큼 더
+    // 늘어질 수 있어 "재진입 후 안 끝난다"는 체감으로 이어진다 — 대신
+    // 재진입 후 다음 한 번의 답변으로 강제 마무리되게 한다(오탐이 미탐보다
+    // 안전하다는 P8-2 와 같은 원칙).
+    episodeFollowUpCountRef.current = EPISODE_MAX_FOLLOWUPS - 1;
+    // period 대화였다면 topic override 도 함께 잃는다(같은 이유) — 이후
+    // 대화는 앵커 이벤트 자신의 label/year 로 진행된다(구조는 정확, topic
+    // 문구만 살짝 어긋남). 스키마 없이 고칠 수 없어 알려진 한계로 남긴다.
+    periodTopicRef.current = null;
     episodeTranscriptRef.current = [{ role: "assistant", text: lastAssistantText }];
     setStage("episode");
     setStatus("idle");
@@ -823,11 +898,9 @@ export function ChatV3Client({
       await startPersonEpisodeStage(gap.targetEventId, gap.targetPersonId, { skipAnnounce: true });
     } else if ((gap.type === "unconfirmed" || gap.type === "needs_review") && gap.targetEventId) {
       await startTargetedConfirm(gap.targetEventId);
-    } else if (gap.type === "time_gap") {
-      // 특정 이벤트로 파고드는 대신 자유 답변을 기다린다(구조화된 LifeEvent
-      // 생성은 이번 범위 아님) — open 단계 유지, userPrompt 그대로 질문.
-      await addBot(gap.userPrompt);
-      setStatus("idle");
+    } else if (gap.type === "time_gap" && gap.targetEventId) {
+      // P8-1 — episode 엔진을 타고 앵커 이벤트에 저장(startPeriodPrompt 참고).
+      await startPeriodPrompt(gap.targetEventId, { skipAnnounce: true });
     } else {
       setStatus("idle");
     }

@@ -73,6 +73,14 @@ export async function submitPersonAnswer(
   const empty: SubmitPersonAnswerResult = { savedCount: 0, firstPersonId: null, firstPersonName: null };
   if (!event) return empty;
 
+  // P8-4 — 저장 성공 여부(인물을 저장했든 "없어요"로 거절했든)와 무관하게
+  // "물어봤다"로 기록. gap-detector 의 person 갭 재노출만 막고, 다른
+  // 경로(자유 발화 등)로 인물을 추가하는 것까지 막지는 않는다.
+  await prisma.lifeEvent.update({
+    where: { id: event.id },
+    data: { personAsked: true },
+  });
+
   const candidates = await extractPersonCandidates(question, answer);
   if (candidates.length === 0) return empty;
 

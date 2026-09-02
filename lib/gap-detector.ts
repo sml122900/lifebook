@@ -82,7 +82,9 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
     } else if (e.status === "CONFIRMED" || e.status === "CORRECTED") {
       // v3 P6 — 뼈대 갭(1·2) 다음, 에피소드 갭(6)보다 앞. 한 이벤트가 인물
       // 갭과 에피소드 갭을 동시에 가질 수 있다(둘 다 독립 조건).
-      if (e.people.length === 0) {
+      // P8-4 — personAsked 는 "이미 물어봤다"(인물을 저장했든 "없어요"로
+      // 거절했든)는 기록. 한 번 물어본 이벤트는 갭 카드로 다시 안 뜬다.
+      if (e.people.length === 0 && !e.personAsked) {
         gaps.push({
           type: "person",
           targetEventId: e.id,

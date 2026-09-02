@@ -1063,6 +1063,12 @@ model LifeEvent {
   // v3 P6 — 인물 모드. 뼈대 이벤트 하나에 여러 인물이 연결될 수 있다(다대다).
   people PersonLifeEvent[]
 
+  // P8-4 — person 갭(gap-detector) 을 "이미 물어봤다"는 사실로 끄기 위한
+  // 플래그. 인물을 저장했든 "없어요"로 거절했든 물어본 시점에 true(저장
+  // 성공 여부와 무관). 이 값은 갭 카드 재노출만 막을 뿐, 사용자가 나중에
+  // 자유 발화 등 다른 경로로 인물을 추가하는 것까지 막지 않는다.
+  personAsked Boolean @default(false)
+
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   chatV3PendingContexts ChatV3PendingContext[]

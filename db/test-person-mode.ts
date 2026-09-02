@@ -133,13 +133,16 @@ async function scenarioPersonMode() {
   const hasPersonEpisodeGap = gapsMid.some(
     (g) => g.type === "person_episode" && g.targetPersonId === personId,
   );
+  // P8-4 — military 는 2)에서 이미 "기억이 잘 안 나요"로 거절 답변을 했다
+  // (savedCount=0 이지만 물어보긴 했다 → personAsked=true). 갭이 다시 뜨면
+  // 안 된다(예전엔 저장 0건이면 갭이 계속 남는 버그가 있었다).
   const hasPersonGapMilitary = gapsMid.some(
     (g) => g.type === "person" && g.targetEventId === military.id,
   );
   console.log("person gap cleared for highSchool (expect false):", hasPersonGapHighSchool);
   console.log("person_episode gap present (expect true):", hasPersonEpisodeGap);
-  console.log("person gap still present for military (expect true):", hasPersonGapMilitary);
-  if (hasPersonGapHighSchool || !hasPersonEpisodeGap || !hasPersonGapMilitary) {
+  console.log("person gap cleared for military after decline (expect false):", hasPersonGapMilitary);
+  if (hasPersonGapHighSchool || !hasPersonEpisodeGap || hasPersonGapMilitary) {
     fail("gap transition mismatch");
   }
 
