@@ -113,9 +113,9 @@ export default async function StoryReviewPage() {
         <section className="flex flex-col gap-4">
           <h2 className="text-2xl font-bold text-ink">더 들어볼까요?</h2>
           <div className="flex flex-col gap-3">
-            {topGaps.map((gap, i) => (
+            {topGaps.map((gap) => (
               <div
-                key={i}
+                key={`${gap.type}:${gap.targetEventId ?? ""}:${gap.targetPersonId ?? ""}`}
                 className="flex flex-col gap-3 rounded-md border-2 border-line bg-surface p-5 sm:flex-row sm:items-center sm:justify-between"
               >
                 <p className="text-lg text-ink">{gap.cardLabel}</p>

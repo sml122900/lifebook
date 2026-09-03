@@ -26,7 +26,12 @@ import "dotenv/config";
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
 import { createEpisodeBridge } from "../lib/episode";
-import { submitPersonAnswer, getPersonEpisodeTarget } from "../lib/person-chat";
+import {
+  submitPersonAnswer,
+  getPersonEpisodeTarget,
+  savePeopleMentionedInEpisode,
+} from "../lib/person-chat";
+import { buildPersonAddress } from "../lib/person-honorific";
 import { detectGaps } from "../lib/gap-detector";
 import { deletePerson } from "../lib/people";
 import { getConfirmedLifeEvent, listConfirmedLifeEvents } from "../lib/life-event-query";
@@ -298,10 +303,86 @@ async function scenarioCorrectedStatus() {
   if (userAfter !== null) fail("CORRECTED scenario user not deleted");
 }
 
+// P12-3/P12-2/P12-4/P12-5 — 인물 dedup + 에피소드 대화 중 인물 저장 + 호칭.
+async function scenarioP12() {
+  console.log("\n=== P12 — 인물 dedup · 에피소드 인물 추출 · 호칭 ===");
+
+  // --- 호칭(순수 함수, API 없음)
+  const addressCases: [string, string | null, string][] = [
+    ["김부장", "부장", "김부장님과"],
+    ["박정호", "담임 선생님", "박정호 선생님과"],
+    ["박정호", "담임", "박정호 선생님과"],
+    ["정미숙", "아내", "정미숙 씨와"],
+    ["아내", "아내", "아내분과"],
+    ["김영수", "남편", "김영수 씨와"],
+    ["정영식", "선임", "정영식 선임과"],
+    ["영수", "친구", "영수랑"],
+    ["김순덕", "외할머니", "김순덕 할머니와"],
+  ];
+  for (const [name, relation, expected] of addressCases) {
+    const got = buildPersonAddress(name, relation);
+    console.log(`buildPersonAddress(${name}, ${relation}) → ${got}`, got === expected ? "OK" : `MISMATCH (expect ${expected})`);
+    if (got !== expected) fail(`buildPersonAddress mismatch for ${name}/${relation}`);
+  }
+
+  const user = await prisma.user.create({
+    data: { email: "person-mode-test-p12@test", name: "p12", birthYear: 1950 },
+  });
+  const elem = await prisma.lifeEvent.create({
+    data: {
+      userId: user.id, type: "ELEM_SCHOOL", label: "국민학교 입학", year: 1957,
+      isOptional: false, status: "CONFIRMED", confirmedAt: new Date(), sequenceOrder: 0,
+    },
+  });
+  const middle = await prisma.lifeEvent.create({
+    data: {
+      userId: user.id, type: "MIDDLE_SCHOOL", label: "중학교 입학", year: 1963,
+      isOptional: false, status: "CONFIRMED", confirmedAt: new Date(), sequenceOrder: 1,
+    },
+  });
+
+  // --- P12-3 dedup: 두 이벤트에서 같은 이름 → Person 1건, 링크 2건, metYear 첫 값
+  const r1 = await submitPersonAnswer(user.id, elem.id, "국민학교 다닐 때 친하게 지낸 사람 있으세요?", "박정호 선생님이 담임이셨어요.");
+  const r2 = await submitPersonAnswer(user.id, middle.id, "중학교 다닐 때 친하게 지낸 사람 있으세요?", "중학교 때도 박정호 선생님이 담임이셨어요.");
+  console.log("dedup results:", r1, r2);
+  if (!r1.firstPersonId || r1.firstPersonId !== r2.firstPersonId) fail("same-name person should dedup to one Person");
+  const parkCount = await prisma.person.count({ where: { userId: user.id, name: "박정호" } });
+  const parkLinks = await prisma.personLifeEvent.count({ where: { personId: r1.firstPersonId } });
+  const park = await prisma.person.findUnique({ where: { id: r1.firstPersonId } });
+  console.log("박정호 rows (expect 1):", parkCount, "/ links (expect 2):", parkLinks, "/ metYear (expect 1957):", park?.metYear);
+  if (parkCount !== 1 || parkLinks !== 2 || park?.metYear !== 1957) fail("dedup shape wrong");
+
+  // --- P12-4 성+직함 결합 호칭 → name 통째, 쪼개지 않음
+  const r3 = await submitPersonAnswer(user.id, middle.id, "그때 가깝게 지낸 동료 있으세요?", "김부장님이 계셨어요.");
+  console.log("김부장님 extraction:", r3);
+  if (r3.firstPersonName !== "김부장") fail(`expected name 김부장, got ${r3.firstPersonName}`);
+  console.log("address:", buildPersonAddress(r3.firstPersonName, r3.firstPersonRelation));
+
+  // --- P12-2 에피소드 대화 중 언급된 인물 저장(주인공 박정호는 dedup, 이순자 신규)
+  const saved = await savePeopleMentionedInEpisode(
+    user.id,
+    middle.id,
+    "박정호 선생님과 기억나는 일 있으세요?",
+    "운동회 때 저희 반을 응원하시느라 목이 쉬셨어요.\n국어 선생님 이순자 씨도 기억나요. 참 다정하셨죠.",
+  );
+  console.log("savePeopleMentionedInEpisode count:", saved);
+  const lee = await prisma.person.findFirst({ where: { userId: user.id, name: "이순자" } });
+  const parkCountAfter = await prisma.person.count({ where: { userId: user.id, name: "박정호" } });
+  console.log("이순자 saved (expect true):", lee !== null, "/ 박정호 still 1 (expect 1):", parkCountAfter);
+  if (!lee || parkCountAfter !== 1) fail("episode person extraction wrong");
+  const leeLink = await prisma.personLifeEvent.findFirst({ where: { personId: lee.id, lifeEventId: middle.id } });
+  if (!leeLink) fail("이순자 should be linked to middle school event");
+
+  await deleteAccountTx(user.id);
+  const userAfter = await prisma.user.findUnique({ where: { id: user.id } });
+  if (userAfter !== null) fail("P12 scenario user not deleted");
+}
+
 async function main() {
   await cleanup();
   await scenarioPersonMode();
   await scenarioCorrectedStatus();
+  await scenarioP12();
   await cleanup();
   console.log("\n✓ done");
 }

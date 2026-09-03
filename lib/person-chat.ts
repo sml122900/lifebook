@@ -20,6 +20,12 @@ const MAX_CANDIDATES = 3;
 
 type PersonCandidate = { name: string | null; relation: string };
 
+// P12-3 — 이름 정규화(공백 무시). lib/companion-extraction.ts 의 v2 dedup 과
+// 같은 기준("배 숙재" == "배숙재").
+function normalizeName(name: string): string {
+  return name.replace(/\s+/g, "");
+}
+
 function stripJsonFence(raw: string): string {
   return raw
     .trim()
@@ -51,6 +57,81 @@ export async function extractPersonCandidates(
     console.error("[person-chat]", e instanceof Error ? e.message : e);
     return [];
   }
+}
+
+type SavedPerson = { id: string; name: string; relation: string | null; created: boolean };
+
+// P12-3 — 같은 사용자의 같은 이름(공백 무시) 인물이 이미 등록돼 있으면 새로
+// 만들지 않고 기존 Person 에 PersonLifeEvent 링크만 추가한다(이전엔 갭마다
+// createPerson 을 무조건 호출해 "박정호/1955년" · "박정호/1962년" 처럼 같은
+// 사람이 둘로 쌓였다). metYear 는 첫 등록값 유지(먼저 물어본 시절이 보통
+// 더 이른 연결이고, 갱신 경쟁을 안 만든다).
+//
+// 이름이 없어 관계를 이름 자리에 쓰는 경우("친구"·"어머니")는 dedup 대상이
+// 아니다 — 이름 없는 "친구" 둘을 한 사람으로 합치면 안 된다. isDraft 인물
+// (말동무 AI 추론 초안)은 /people 정식 등록이 아니라 매칭 대상에서 뺀다.
+export async function saveOrLinkPerson(
+  userId: string,
+  lifeEventId: string,
+  candidate: PersonCandidate,
+  metYear: number | null,
+): Promise<SavedPerson> {
+  if (candidate.name) {
+    const norm = normalizeName(candidate.name);
+    const rows = await prisma.person.findMany({
+      where: { userId, subjectType: "person", isDraft: false },
+      select: { id: true, name: true, relation: true },
+    });
+    const existing = rows.find((r) => normalizeName(r.name) === norm);
+    if (existing) {
+      await linkPersonToLifeEvent(userId, existing.id, lifeEventId);
+      return { id: existing.id, name: existing.name, relation: existing.relation, created: false };
+    }
+  }
+  // 이름 없이 호칭만 나온 경우(name=null) 관계를 이름 자리에 대신 써서
+  // 저장을 막지 않는다 — "이름이 뭐예요?" 되묻는 추가 왕복은 존엄 원칙의
+  // "캐묻지 않기" 취지에 안 맞다고 판단(사용자 지시).
+  const name = (candidate.name ?? candidate.relation).slice(0, NAME_MAX);
+  const person = await createPerson(userId, {
+    subjectType: "person",
+    name,
+    relation: candidate.relation,
+    birthYear: null,
+    category: null,
+    metYear,
+    memo: null,
+  });
+  await linkPersonToLifeEvent(userId, person.id, lifeEventId);
+  return { id: person.id, name, relation: candidate.relation, created: true };
+}
+
+// P12-2 — 에피소드 대화(STAGE4) 본인 발화에서 언급된 인물을 마무리(저장)
+// 시점에 함께 저장한다. 이전엔 인물 모드(submitPersonAnswer) 답변에서만
+// 추출해, 에피소드 대화 중 "국어 선생님 이순자 씨가 기억나요" 처럼 새로
+// 나온 사람은 후속 질문엔 반영되면서 /people·칩에는 영영 안 남았다.
+// 인물 모드와 달리 이름이 있는 후보만 저장한다 — 이야기 도중 스치는
+// "친구들"·"어머니" 류 호칭만으로 Person 을 만들면 과생성이 된다(인물
+// 모드는 "누구랑 지냈어요?" 라고 직접 물은 답이라 호칭만이어도 저장).
+// 이미 등록된 인물(이 이야기의 주인공 포함)은 saveOrLinkPerson 의 dedup
+// 으로 링크만 보강된다.
+export async function savePeopleMentionedInEpisode(
+  userId: string,
+  lifeEventId: string,
+  question: string,
+  userText: string,
+): Promise<number> {
+  if (!userText.trim()) return 0;
+  const event = await prisma.lifeEvent.findFirst({
+    where: { id: lifeEventId, userId, status: { in: ["CONFIRMED", "CORRECTED"] } },
+    select: { year: true, correctedYear: true },
+  });
+  if (!event) return 0;
+  const candidates = (await extractPersonCandidates(question, userText)).filter((c) => c.name);
+  const metYear = event.correctedYear ?? event.year;
+  for (const c of candidates) {
+    await saveOrLinkPerson(userId, lifeEventId, c, metYear);
+  }
+  return candidates.length;
 }
 
 export type SubmitPersonAnswerResult = {
@@ -92,26 +173,13 @@ export async function submitPersonAnswer(
   if (candidates.length === 0) return empty;
 
   const metYear = event.correctedYear ?? event.year;
-  let first: { id: string; name: string; relation: string } | null = null;
+  let first: SavedPerson | null = null;
   let savedCount = 0;
 
   for (const c of candidates) {
-    // 이름 없이 호칭만 나온 경우(name=null) 관계를 이름 자리에 대신 써서
-    // 저장을 막지 않는다 — "이름이 뭐예요?" 되묻는 추가 왕복은 존엄 원칙의
-    // "캐묻지 않기" 취지에 안 맞다고 판단(사용자 지시).
-    const name = (c.name ?? c.relation).slice(0, NAME_MAX);
-    const person = await createPerson(userId, {
-      subjectType: "person",
-      name,
-      relation: c.relation,
-      birthYear: null,
-      category: null,
-      metYear,
-      memo: null,
-    });
-    await linkPersonToLifeEvent(userId, person.id, lifeEventId);
+    const saved = await saveOrLinkPerson(userId, lifeEventId, c, metYear);
     savedCount += 1;
-    if (!first) first = { id: person.id, name, relation: c.relation };
+    if (!first) first = saved;
   }
 
   return {

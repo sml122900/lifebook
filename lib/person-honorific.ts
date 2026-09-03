@@ -63,6 +63,47 @@ const HONORIFIC_TERMS = [
   "누님",
 ];
 
+// P12-4 — 직함·은사 호칭은 부를 때 "님"이 붙어야 자연스럽다(추출 결과가
+// "김부장"(name)+"부장"(relation) 처럼 님 없이 오면 그대로 "김부장과"가
+// 되던 문제). 여기 있는 어휘는 addressed 끝에 "님"을 보강한다. 가족 호칭
+// (할머니·어머니 등)·군대 호칭(선임·고참·사수)은 "님"을 안 붙이는 게 보통이라
+// 제외(선임 회귀 케이스 유지).
+const NIM_TITLES = new Set([
+  "선생",
+  "교수",
+  "담임",
+  "사장",
+  "부장",
+  "과장",
+  "팀장",
+  "선배",
+  "원장",
+  "목사",
+  "신부",
+  "사모",
+  "소대장",
+  "중대장",
+]);
+
+// P12-5 — 배우자는 이름을 반말 조사로 부르지도, 직함처럼 "님"을 붙이지도
+// 않는다. 이름이 있으면 "정미숙 씨와", 없으면 "아내분과/남편분과".
+const SPOUSE_TERMS: { term: string; generic: "아내" | "남편" }[] = [
+  { term: "아내", generic: "아내" },
+  { term: "집사람", generic: "아내" },
+  { term: "마누라", generic: "아내" },
+  { term: "와이프", generic: "아내" },
+  { term: "각시", generic: "아내" },
+  { term: "남편", generic: "남편" },
+  { term: "바깥양반", generic: "남편" },
+  { term: "신랑", generic: "남편" },
+  { term: "서방", generic: "남편" },
+];
+
+function findSpouseTerm(text: string | null): (typeof SPOUSE_TERMS)[number] | null {
+  if (!text) return null;
+  return SPOUSE_TERMS.find((s) => text.includes(s.term)) ?? null;
+}
+
 // 목록에 없어도 "~님"으로 끝나는 토큰은 호칭으로 본다("사장님"·"목사님"
 // 처럼 목록 어휘의 님-형도 이 규칙으로 함께 잡힌다).
 function findHonorificSuffixToken(text: string): string | null {
@@ -75,10 +116,27 @@ function findHonorificTerm(text: string | null): string | null {
 }
 
 // 이름 + 조사까지 완성된 형태로 반환("김순덕 할머니와" / "박정호 선생님과" /
-// "철수랑" 처럼). 호출부는 뒤에 문장만 이어 붙이면 된다.
+// "김부장님과" / "정미숙 씨와" / "철수랑" 처럼). 호출부는 뒤에 문장만 이어
+// 붙이면 된다.
 export function buildPersonAddress(name: string, relation: string | null): string {
+  const spouseInName = findSpouseTerm(name);
+  const spouse = spouseInName ?? findSpouseTerm(relation);
+  if (spouse) {
+    // 이름 자리에 호칭이 들어온 경우("아내"·"집사람")는 실명이 없는 것.
+    if (spouseInName) return `${spouse.generic}분과`;
+    return `${name} 씨와`;
+  }
+
   const term = findHonorificTerm(name) ?? findHonorificTerm(relation);
   if (!term) return `${name}${withJosa(name, "이랑/랑")}`;
-  const addressed = name.includes(term) ? name : `${name} ${term}`;
+  let addressed: string;
+  if (name.includes(term)) {
+    addressed = name;
+  } else if (term === "담임") {
+    addressed = `${name} 선생님`;
+  } else {
+    addressed = `${name} ${term}`;
+  }
+  if (NIM_TITLES.has(term) && !addressed.endsWith("님")) addressed = `${addressed}님`;
   return `${addressed}${withJosa(addressed, "과/와")}`;
 }

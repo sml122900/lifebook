@@ -323,12 +323,16 @@ export function ChatV3Client({
   // canReview — /story-review 로 넘어갈 만한 상태인지(신상 단계에서 종료한
   // 경우엔 아직 아무 골격도 없어 보여줄 게 없다). "done"/"capped" 는 항상
   // confirm 루프(골격 존재) 안에서만 발생하므로 호출부가 true 로 고정.
-  async function finishSession(reason: FinishReason, canReview: boolean) {
+  // P12-1 — savedEpisode: 명시적 종료("그만할래요") 직전에 진행 중이던
+  // 이야기를 저장하고 나왔는지(문구에 반영).
+  async function finishSession(reason: FinishReason, canReview: boolean, savedEpisode = false) {
     const msg =
       reason === "capped"
         ? "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요."
         : reason === "exited"
-          ? "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요."
+          ? savedEpisode
+            ? "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요."
+            : "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요."
           : "뼈대가 다 채워졌어요! 지금까지 채운 이야기를 보여드릴게요.";
     if (reason === "done") triggerReaction("happy", 3500);
     await addBot(msg);
@@ -697,7 +701,7 @@ export function ChatV3Client({
           setStatus("idle");
           return;
         }
-        await finishEpisodeStage();
+        await finishEpisodeStage({ afterModelClosing: true });
         return;
       }
       setStatus("idle");
@@ -710,11 +714,15 @@ export function ChatV3Client({
     }
   }
 
-  async function finishEpisodeStage() {
+  // 지금까지의 에피소드 대화를 저장하고 episode 컨텍스트(인물·period)를
+  // 비운다. P12-1 — 마무리(finishEpisodeStage)와 명시적 종료(handleSend 의
+  // exit 경로) 양쪽이 공유한다. 반환값 = 저장 성공 여부.
+  async function saveEpisode(): Promise<boolean> {
     const eventId = activeEventIdRef.current;
     const personId = activePersonRef.current?.id;
     const topicOverride = periodTopicRef.current ?? undefined;
     setStatus("loading");
+    let ok = false;
     try {
       const result = eventId
         ? await finishEpisodeChat(eventId, episodeTranscriptRef.current, personId, topicOverride)
@@ -722,6 +730,7 @@ export function ChatV3Client({
       if (!result.ok) {
         await addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
       } else {
+        ok = true;
         triggerReaction("happy");
       }
     } catch (e) {
@@ -730,7 +739,21 @@ export function ChatV3Client({
     }
     activePersonRef.current = null;
     periodTopicRef.current = null;
-    await enterOpenStage("소중한 이야기 들려주셔서 고마워요. 다른 이야기도 있으세요?");
+    return ok;
+  }
+
+  // P12-7 — afterModelClosing: 직전 봇 발화가 이미 모델의 마무리 말("잘
+  // 들었어요. 소중한 이야기 들려주셔서 고마워요.")이면 시스템 마무리 문구를
+  // 또 붙이지 않고 다음 이야기 초대만 한다(같은 뜻의 두 문장이 연달아 뜨던
+  // 중복). 사용자가 "그걸로 됐어요" 로 끝낸 경우(모델 마무리 없음)엔 기존
+  // 전체 문구.
+  async function finishEpisodeStage(opts: { afterModelClosing?: boolean } = {}) {
+    await saveEpisode();
+    await enterOpenStage(
+      opts.afterModelClosing
+        ? "다른 이야기도 있으세요?"
+        : "소중한 이야기 들려주셔서 고마워요. 다른 이야기도 있으세요?",
+    );
   }
 
   async function submitBirthYear(text: string) {
@@ -957,6 +980,17 @@ export function ChatV3Client({
         console.error("[chat-v3-pending]", e);
       }
 
+      // P12-6 — 딥링크(?gapEventId=…&gapType=…)는 이 마운트에서 한 번
+      // 소비하면 끝이다. 주소창에 그대로 남겨두면, 그 뒤 채팅 안 갭 칩으로
+      // 다른 이야기(예: "결혼 이후")를 시작해도 주소는 옛 딥링크(예: 중학교
+      // person)를 가리킨 채라, 새로고침·재진입 시 initialGap 이 진행 중이던
+      // 대화(pending)와 어긋나 엉뚱한 갭이 다시 시작됐다. 서버 왕복 없이
+      // 주소만 정리한다(Next 앱 라우터가 history.replaceState 를 가로채
+      // useSearchParams 와 동기화하므로 안전).
+      if (initialGap && typeof window !== "undefined" && window.location.search) {
+        window.history.replaceState(null, "", "/chat-v3");
+      }
+
       // P9-2 — 진행 중이던 대화와 같은 대상이면 새로 시작하지 않고 이어받는다.
       if (initialGap && pending && pendingMatchesInitialGap(pending, initialGap)) {
         if (await tryResumePendingContext(loaded, pending)) return;
@@ -1047,7 +1081,18 @@ export function ChatV3Client({
       await addUser(text);
       setInputVal("");
       const canReview = stage !== "profile_year" && stage !== "profile_region";
-      await finishSession("exited", canReview);
+      // P12-1 — 명시적 종료도 이탈 전에 쌓인 이야기를 저장한다. 이전엔 완곡
+      // 종료("그걸로 된 것 같아요")만 마무리+저장 경로를 타고, 명시적 종료
+      // ("그만할래요")는 곧장 세션을 닫아 1~2턴 이야기가 통째로 버려졌다.
+      // 종료 문구 자체는 이야기 내용이 아니라 transcript 에 안 넣는다(P10-3
+      // 과 같은 원칙). 본인 발화가 한 턴도 없으면 저장할 게 없다.
+      let savedEpisode = false;
+      if (stage === "episode" && episodeTranscriptRef.current.some((t) => t.role === "user")) {
+        awaitingFinalAnswerRef.current = false;
+        savedEpisode = await saveEpisode();
+        await clearPending();
+      }
+      await finishSession("exited", canReview, savedEpisode);
       return;
     }
 

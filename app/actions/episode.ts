@@ -18,6 +18,7 @@ import {
   EPISODE_SUMMARY_SYSTEM_PROMPT,
 } from "@/lib/prompts/episode-chat";
 import { createEpisodeBridge, saveEpisodePlaces as saveEpisodePlacesDb } from "@/lib/episode";
+import { savePeopleMentionedInEpisode } from "@/lib/person-chat";
 import type { PlaceInfo } from "@/lib/place-types";
 
 // 추출/분류와 같은 이유로 Sonnet 고정 — 전역 aiModel(라이브 응답)과 무관.
@@ -201,6 +202,22 @@ export async function finishEpisodeChat(
       isPeriod,
     );
     if (!result) return { ok: false, error: "이야기를 찾을 수 없어요." };
+    // P12-2 — 대화 중 언급된 새 인물(이름 있는 사람만)을 함께 저장·연결.
+    // 저장이 성공한 뒤에만(이야기 없이 인물만 남지 않게), best-effort —
+    // 추출이 실패해도 방금 저장한 이야기 결과는 그대로 돌려준다.
+    try {
+      const question =
+        transcriptHistory[0]?.role === "assistant"
+          ? transcriptHistory[0].text
+          : `${label} 이야기`;
+      const userText = transcriptHistory
+        .filter((t) => t.role === "user")
+        .map((t) => t.text)
+        .join("\n");
+      await savePeopleMentionedInEpisode(userId, lifeEventId, question, userText);
+    } catch (e) {
+      console.error("[episode-finish] people", e);
+    }
     return { ok: true, memoryId: result.memoryId };
   } catch (e) {
     console.error("[episode-finish]", e);
