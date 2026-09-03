@@ -277,15 +277,18 @@ export async function linkPersonToEvent(
 
 // PersonEvent 삭제. 권한 검증은 userId 일치 필수 — 다른 사용자가 같은
 // (personId, memoryId) 를 요청해도 deleteMany 가 count=0.
+// P11-3 — memoryId 자리에 v3 LifeEvent id 가 와도(인물 상세의 v3 행)
+// PersonLifeEvent 쪽을 지운다. 두 id 공간(cuid)은 겹치지 않아 한쪽만 맞는다.
 export async function unlinkPersonFromEvent(
   userId: string,
   personId: string,
   memoryId: string,
 ): Promise<boolean> {
-  const result = await prisma.personEvent.deleteMany({
-    where: { personId, memoryId, userId },
-  });
-  return result.count > 0;
+  const [v2, v3] = await Promise.all([
+    prisma.personEvent.deleteMany({ where: { personId, memoryId, userId } }),
+    prisma.personLifeEvent.deleteMany({ where: { personId, lifeEventId: memoryId, userId } }),
+  ]);
+  return v2.count + v3.count > 0;
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -295,16 +298,18 @@ export async function unlinkPersonFromEvent(
 // /people 목록 — 인물별 연결 이벤트 수. groupBy 1쿼리로 N+1 회피.
 // 카드에 "N개 사건과 함께한 분" 표시용. 0 인 인물은 맵에 없으므로
 // 호출자가 ?? 0 처리.
+// P11-3 — v2 PersonEvent(↔UserMemory) + v3 PersonLifeEvent(↔LifeEvent) 합산.
+// /chat-v3 에서 저장된 인물은 PersonLifeEvent 로만 연결되는데 v2 쪽만 세서
+// /people 에서 전부 "아직 연결된 사건이 없어요"로 보이던 문제.
 export async function countEventsPerPerson(
   userId: string,
 ): Promise<Map<string, number>> {
-  const rows = await prisma.personEvent.groupBy({
-    by: ["personId"],
-    where: { userId },
-    _count: { _all: true },
-  });
+  const [v2, v3] = await Promise.all([
+    prisma.personEvent.groupBy({ by: ["personId"], where: { userId }, _count: { _all: true } }),
+    prisma.personLifeEvent.groupBy({ by: ["personId"], where: { userId }, _count: { _all: true } }),
+  ]);
   const m = new Map<string, number>();
-  for (const r of rows) m.set(r.personId, r._count._all);
+  for (const r of [...v2, ...v3]) m.set(r.personId, (m.get(r.personId) ?? 0) + r._count._all);
   return m;
 }
 
@@ -339,17 +344,24 @@ export async function listPeopleByEventBatch(
 
 // 특정 이벤트에 연결된 인물 목록. P2 의 이벤트 상세 화면이 사용.
 // 정렬: name ASC (listPeople 와 동일).
+// P11-3 — memoryId 가 v3 LifeEvent id 이면 PersonLifeEvent 쪽에서 나온다
+// (id 공간이 겹치지 않아 한쪽만 매치). listPeopleByEventBatch 는 /life-
+// timeline 의 UserMemory 행 전용이라 그대로 둔다.
 export async function listPeopleByEvent(
   userId: string,
   memoryId: string,
 ): Promise<Person[]> {
-  const rows = await prisma.personEvent.findMany({
-    where: { memoryId, userId },
-    select: {
-      person: { select: PERSON_SELECT },
-    },
-  });
-  return rows
+  const [v2, v3] = await Promise.all([
+    prisma.personEvent.findMany({
+      where: { memoryId, userId },
+      select: { person: { select: PERSON_SELECT } },
+    }),
+    prisma.personLifeEvent.findMany({
+      where: { lifeEventId: memoryId, userId },
+      select: { person: { select: PERSON_SELECT } },
+    }),
+  ]);
+  return [...v2, ...v3]
     .map((r) => r.person as Person)
     .sort((a, b) => a.name.localeCompare(b.name, "ko"));
 }
@@ -408,10 +420,37 @@ export async function listEventsByPerson(
       (m) => LINKABLE_CREATED_VIA.has(m.createdVia) && m.eventYear !== null,
     );
 
-  filtered.sort((a, b) => {
-    if (a.eventYear !== b.eventYear) {
-      return (a.eventYear as number) - (b.eventYear as number);
-    }
+  // P11-3 — v3 PersonLifeEvent(↔LifeEvent) 연결도 같은 LifeEvent 카드 형태로
+  // 합친다. 구조 차이는 이렇게 흡수: title=라벨(정정본 우선), eventYear=
+  // 연도(정정본 우선 — 없으면 카드가 연도 없이 못 그려 제외), content=그
+  // 인물과의 Episode 첫 건(없으면 null), 나머지(월·장소·사진·카테고리)는 빈 값.
+  const v3Rows = await prisma.personLifeEvent.findMany({
+    where: { personId, userId },
+    select: {
+      createdAt: true,
+      lifeEvent: {
+        select: {
+          id: true,
+          label: true,
+          correctedLabel: true,
+          year: true,
+          correctedYear: true,
+          episodes: {
+            where: { personId },
+            select: { content: true },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+
+  const compareByDate = (
+    a: { eventYear: number; eventMonth: number | null; createdAt: Date },
+    b: { eventYear: number; eventMonth: number | null; createdAt: Date },
+  ): number => {
+    if (a.eventYear !== b.eventYear) return a.eventYear - b.eventYear;
     // NULLS LAST
     const am = a.eventMonth;
     const bm = b.eventMonth;
@@ -422,9 +461,36 @@ export async function listEventsByPerson(
     if (bm === null) return -1;
     if (am !== bm) return am - bm;
     return a.createdAt.getTime() - b.createdAt.getTime();
-  });
+  };
 
-  return filtered.map((m) => ({
+  const v3Items: LifeEvent[] = [];
+  for (const r of v3Rows) {
+    const e = r.lifeEvent;
+    const year = e.correctedYear ?? e.year;
+    if (year === null) continue;
+    v3Items.push({
+      kind: "life_event" as const,
+      id: e.id,
+      title: e.correctedLabel ?? e.label,
+      eventYear: year,
+      eventMonth: null,
+      precision: "APPROXIMATE" as EventPrecision,
+      category: null,
+      content: e.episodes[0]?.content ?? null,
+      endYear: null,
+      endMonth: null,
+      places: [],
+      createdAt: r.createdAt,
+      eraDescription: null,
+      eraSource: null,
+      eraSection: null,
+      monthEventId: null,
+      photos: [],
+      audioPath: null,
+    });
+  }
+
+  const v2Items: LifeEvent[] = filtered.map((m) => ({
     // B — life_event + photo 둘 다 연결 가능. era 행은 거부 정책이라 도달 X.
     // 실제 createdVia 로 kind 반영 → /people/[id] 가 "철수 나온 사진"도 표시.
     kind:
@@ -456,4 +522,6 @@ export async function listEventsByPerson(
     photos: [],
     audioPath: null,
   }));
+
+  return [...v2Items, ...v3Items].sort(compareByDate);
 }

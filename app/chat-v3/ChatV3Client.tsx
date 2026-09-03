@@ -885,10 +885,29 @@ export function ChatV3Client({
     episodeFollowUpCountRef.current = EPISODE_MAX_FOLLOWUPS - 1;
     // P10-2 — 새로 이어받는 대화이므로 "직전 답을 기다리는 중" 상태는 아니다.
     awaitingFinalAnswerRef.current = false;
-    // period 대화였다면 topic override 도 함께 잃는다(같은 이유) — 이후
-    // 대화는 앵커 이벤트 자신의 label/year 로 진행된다(구조는 정확, topic
-    // 문구만 살짝 어긋남). 스키마 없이 고칠 수 없어 알려진 한계로 남긴다.
+    // P11-5 — period 대화였는지 복원. ChatV3PendingContext 엔 period 표식이
+    // 없어(스키마 무변) 로그로 판정한다: 오프닝 문구는 전부 결정적 템플릿
+    // 이라, 로그에서 마지막으로 등장한 오프닝이 period 질문(getPeriodPrompt-
+    // ByEventId 의 userPrompt — 아직 저장 전이므로 시작 당시와 같은 회차
+    // 문구)이면 period, 이벤트 자체 오프닝이면 일반 회고. 이전엔 무조건
+    // null 로 떨어져 재진입 후 저장분이 "결혼"(이후 누락) 제목 + isPeriod=
+    // false 로 남았다(1회차 "결혼 이후"와 제목 불일치).
     periodTopicRef.current = null;
+    if (!activePersonRef.current) {
+      const periodPrompt = await getPeriodPromptByEventId(userId, item.id);
+      if (periodPrompt) {
+        const lastIndexOf = (text: string) => {
+          for (let i = loaded.length - 1; i >= 0; i--) {
+            if (loaded[i].role === "assistant" && loaded[i].content === text) return i;
+          }
+          return -1;
+        };
+        const episodeOpening = buildEpisodeOpeningPrompt(item.type, item.label);
+        if (lastIndexOf(periodPrompt.userPrompt) > lastIndexOf(episodeOpening)) {
+          periodTopicRef.current = { label: `${item.label} 이후`, year: item.year };
+        }
+      }
+    }
     episodeTranscriptRef.current = [{ role: "assistant", text: lastAssistantText }];
     setStage("episode");
     setStatus("idle");

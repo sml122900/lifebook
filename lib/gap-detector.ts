@@ -61,6 +61,14 @@ function timeGapPrompt(anchor: TimedEvent): string {
   return `${anchor.label} 이후로는 어떻게 지내셨어요?`;
 }
 
+// P11-4 — 같은 앵커의 period 이야기를 이미 한 번 이상 들은 뒤(2회차~)에는
+// 1회차와 같은 문장을 반복하지 않고 "더 들려주실 게 있으세요?" 톤으로.
+function timeGapFollowUpPrompt(anchor: TimedEvent): string {
+  if (anchor.type === "BIRTH") return "어릴 적 이야기, 더 들려주실 게 있으세요?";
+  if (anchor.type === "MARRIAGE") return "결혼하시고 나서 이야기, 더 들려주실 게 있으세요?";
+  return `${anchor.label} 이후 이야기, 더 들려주실 게 있으세요?`;
+}
+
 export async function detectGaps(userId: string): Promise<Gap[]> {
   const events = await prisma.lifeEvent.findMany({
     where: { userId },
@@ -232,16 +240,27 @@ export async function getPeriodPromptForEvent(
 ): Promise<PeriodPrompt | null> {
   const e = await prisma.lifeEvent.findFirst({
     where: { id: eventId, userId, status: { in: ["CONFIRMED", "CORRECTED"] } },
-    select: { type: true, label: true, correctedLabel: true, year: true, correctedYear: true },
+    select: {
+      type: true,
+      label: true,
+      correctedLabel: true,
+      year: true,
+      correctedYear: true,
+      // P11-4 — 이 앵커에 period Episode 가 이미 있으면 2회차 문구.
+      episodes: { where: { isPeriod: true }, select: { id: true }, take: 1 },
+    },
   });
   if (!e) return null;
   const year = e.correctedYear ?? e.year;
   if (year === null) return null;
   const anchor: TimedEvent = { id: eventId, type: e.type, label: e.correctedLabel ?? e.label, year };
+  const isFollowUp = e.episodes.length > 0;
   return {
     targetEventId: eventId,
-    announceText: `${anchor.label} 이후 이야기도 해볼게요`,
-    userPrompt: timeGapPrompt(anchor),
+    announceText: isFollowUp
+      ? `${anchor.label} 이후 이야기 더 해볼게요`
+      : `${anchor.label} 이후 이야기도 해볼게요`,
+    userPrompt: isFollowUp ? timeGapFollowUpPrompt(anchor) : timeGapPrompt(anchor),
   };
 }
 

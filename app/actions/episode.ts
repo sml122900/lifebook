@@ -133,9 +133,29 @@ export async function finishEpisodeChat(
   const label = topicOverride?.label ?? event.correctedLabel ?? event.label;
   const year = topicOverride ? topicOverride.year : (event.correctedYear ?? event.year);
 
-  const transcript = transcriptHistory
-    .map((t) => `[${t.role === "assistant" ? "동반자" : "본인"}] ${t.text}`)
-    .join("\n");
+  // v3 P6 — personId 는 클라가 넘긴 값이라 소유 검증 후에만 신뢰(남의 Person
+  // 을 태깅하는 것 방지). 소유가 아니면 조용히 무시(일반 에피소드로 저장).
+  // P11-2 — 이름·관계도 함께 읽어 요약 입력 머리에 붙인다. 인물 모드
+  // 답변("정영식이라는 선임이…")은 에피소드 대화 밖이라 요약 모델이 관계를
+  // 모른 채 이름만 반말로 쓰던 원인.
+  let ownedPersonId: string | undefined;
+  let personLine = "";
+  if (personId) {
+    const person = await prisma.person.findFirst({
+      where: { id: personId, userId },
+      select: { id: true, name: true, relation: true },
+    });
+    if (person) {
+      ownedPersonId = person.id;
+      personLine = `[이 이야기의 인물] ${person.name}${person.relation ? ` (관계: ${person.relation})` : ""}\n`;
+    }
+  }
+
+  const transcript =
+    personLine +
+    transcriptHistory
+      .map((t) => `[${t.role === "assistant" ? "동반자" : "본인"}] ${t.text}`)
+      .join("\n");
 
   // 요약 실패 폴백 — 본인 발화만 이어붙여서라도 저장은 막지 않는다.
   let content = transcriptHistory
@@ -162,17 +182,6 @@ export async function finishEpisodeChat(
 
   if (!content) {
     return { ok: false, error: "저장할 이야기가 없어요." };
-  }
-
-  // v3 P6 — personId 는 클라가 넘긴 값이라 소유 검증 후에만 신뢰(남의 Person
-  // 을 태깅하는 것 방지). 소유가 아니면 조용히 무시(일반 에피소드로 저장).
-  let ownedPersonId: string | undefined;
-  if (personId) {
-    const person = await prisma.person.findFirst({
-      where: { id: personId, userId },
-      select: { id: true },
-    });
-    if (person) ownedPersonId = person.id;
   }
 
   // P9-1 — topicOverride 는 period(구간) 대화에서만 넘어온다(ChatV3Client

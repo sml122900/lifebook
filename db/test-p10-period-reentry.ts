@@ -84,10 +84,11 @@ async function main() {
   // 해소 후 — P10-1: 그래도 딥링크 재진입은 동작해야 한다.
   const promptAfter = await getPeriodPromptForEvent(user.id, birth.id);
   check("해소 후: getPeriodPromptForEvent(birth) 는 여전히 non-null (P10-1 핵심)", promptAfter !== null);
+  // P11-4 — 2회차부터는 1회차와 다른 문구("더 해볼게요"/"더 들려주실 게").
   check(
-    "해소 후: announceText/userPrompt 동일하게 생성됨",
-    promptAfter?.announceText === "1958년 출생 이후 이야기도 해볼게요" &&
-      promptAfter?.userPrompt === "국민학교 들어가기 전, 어릴 적엔 어떻게 지내셨어요?",
+    "해소 후: announceText/userPrompt 는 2회차 문구 (P11-4)",
+    promptAfter?.announceText === "1958년 출생 이후 이야기 더 해볼게요" &&
+      promptAfter?.userPrompt === "어릴 적 이야기, 더 들려주실 게 있으세요?",
   );
 
   // 남의 이벤트 id 는 여전히 null (권한 경계 유지).
