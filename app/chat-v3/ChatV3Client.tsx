@@ -944,11 +944,33 @@ export function ChatV3Client({
     }
   }
 
+  // P13-4(b) — open 발화가 실질 이야기면 서버가 CUSTOM LifeEvent 를 만들어
+  // "promoted" 로 돌려준다 → 그 이벤트로 에피소드 단계를 열고, 방금 발화를
+  // 첫 본인 턴으로 삼아 곧장 후속 질문을 받는다(오프닝을 다시 묻지 않는다 —
+  // 이미 "하고 싶은 이야기 있으세요?" 에 답한 것이므로). 이후 마무리·저장·
+  // 인물 추출은 기존 STAGE4 경로 그대로. 인사·짧은 반응은 예전처럼 반응만.
   async function submitOpenChat(text: string) {
     setStatus("submitting");
     try {
-      const reply = await withTimeout(respondToOpenChat(userId, text));
-      await addBot(reply.trim() || EMPTY_REPLY_FALLBACK);
+      const result = await withTimeout(respondToOpenChat(userId, text));
+      if (result.kind === "promoted") {
+        setStage("episode");
+        activeEventIdRef.current = result.eventId;
+        activePersonRef.current = null;
+        periodTopicRef.current = null;
+        episodeFollowUpCountRef.current = 0;
+        awaitingFinalAnswerRef.current = false;
+        // 딥링크로 들어온 뒤 여기서 새 대화가 시작된 것 — 새로고침 시 옛
+        // 딥링크가 이 대화를 밀어내지 않게(P13-1, handleGapClick 과 동일).
+        markDeepLinkConsumed(initialGap);
+        await markPendingEpisode(result.eventId, null);
+        const opening =
+          lastMessageRef.current?.role === "a" ? lastMessageRef.current.text : OPEN_GREETING;
+        const historyBefore: EpisodeTurn[] = [{ role: "assistant", text: opening }];
+        await submitEpisodeTurnToModel(result.eventId, text, historyBefore);
+        return;
+      }
+      await addBot(result.reply.trim() || EMPTY_REPLY_FALLBACK);
       setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
