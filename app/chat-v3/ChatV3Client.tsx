@@ -129,6 +129,85 @@ function isAskingQuestion(text: string): boolean {
 
 const OPEN_GREETING = "하고 싶은 이야기 있으세요?";
 
+// finishSession 이 마지막으로 남기는 문구들. P13-1 후속 — 재진입 dedupe
+// (loadNextConfirmQuestion 의 alreadyPending, enterOpenStage 의 alreadyShown,
+// init 의 alreadyAsked)는 "마지막 메시지가 봇 발화 = 이미 뭔가 물어본 채로
+// 끝나 있다"로 판단하는데, 세션 마무리 문구는 질문이 아니다. 종료 직후
+// 다시 들어오면 새 질문/인사가 안 붙어 입력창만 덩그러니 남던 것을 막는다.
+const SESSION_END_MESSAGES = new Set([
+  "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요.",
+  "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요.",
+  "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요.",
+  "뼈대가 다 채워졌어요! 지금까지 채운 이야기를 보여드릴게요.",
+]);
+
+// 복원된 로그가 "봇이 뭔가 물어본 채로" 끝나 있는지(세션 마무리 문구 제외).
+function endsWithPendingBotTurn(loaded: ChatLogTurn[] | undefined): boolean {
+  const last = loaded?.[loaded.length - 1];
+  return last?.role === "assistant" && !SESSION_END_MESSAGES.has(last.content);
+}
+
+// P13-3 — "무한 로딩 절대 금지". 서버 액션이 응답을 영영 안 주면(네트워크
+// 끊김, 배포 중 액션 ID 불일치 등) 로딩 점만 남는다 — 이 시간을 넘기면
+// 거절해 호출부의 catch → enterError(다시 시도 버튼)로 떨어뜨린다.
+const ACTION_TIMEOUT_MS = 45_000;
+const EMPTY_REPLY_FALLBACK = "잠시 문제가 있었어요. 다시 말씀해주세요.";
+
+function withTimeout<T>(p: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("action timeout")), ACTION_TIMEOUT_MS);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
+// P13-1 — 딥링크 소비 표식. 딥링크(?gapEventId=…)로 들어온 뒤 채팅 안 갭
+// 칩으로 *다른* 대화를 시작하면 주소창은 옛 딥링크 그대로다(주소를 고치면
+// Next 라우터가 페이지를 리마운트해 사고가 난다 — init 주석). 그 상태에서
+// 새로고침하면 옛 딥링크가 다시 발화해 진행 중이던 대화를 밀어냈다(P12-6).
+// 칩 클릭 시 "현재 딥링크는 소비됨"을 sessionStorage 에 남기고, init 이
+// 같은 키를 보면 딥링크를 무시한다. 클라이언트 라우팅으로 이 화면을 떠날 때
+// (언마운트) 지운다 — /story-review 에서 같은 카드를 다시 고르는 건 새 의도.
+// 새로고침은 언마운트 정리를 안 타므로 표식이 살아남는다(의도).
+const DEEP_LINK_CONSUMED_KEY = "chat-v3:deep-link-consumed";
+
+function deepLinkKey(gap: NonNullable<InitialGap>): string {
+  return `${gap.eventId}:${gap.kind}:${gap.kind === "person_episode" ? gap.personId : ""}`;
+}
+
+function isStaleDeepLink(gap: NonNullable<InitialGap>): boolean {
+  try {
+    return sessionStorage.getItem(DEEP_LINK_CONSUMED_KEY) === deepLinkKey(gap);
+  } catch {
+    return false;
+  }
+}
+
+function markDeepLinkConsumed(gap: InitialGap): void {
+  if (!gap) return;
+  try {
+    sessionStorage.setItem(DEEP_LINK_CONSUMED_KEY, deepLinkKey(gap));
+  } catch {
+    // storage 불가 환경 — 표식 없이 진행(기존 동작).
+  }
+}
+
+function clearDeepLinkConsumed(): void {
+  try {
+    sessionStorage.removeItem(DEEP_LINK_CONSUMED_KEY);
+  } catch {
+    // no-op
+  }
+}
+
 // P4-1 — 에피소드 대화 오프닝 질문. 예전엔 내부 골격 라벨을 그대로
 // 노출했다(예: "1963년 출생, 이때 기억나는 거 있으세요?"). 이벤트 종류별로
 // 자연스러운 질문을 만든다. 학령기 라벨은 " 입학" 접미사를 떼어(예:
@@ -222,6 +301,8 @@ export function ChatV3Client({
   useEffect(() => {
     return () => {
       if (reactionTimeoutRef.current) clearTimeout(reactionTimeoutRef.current);
+      // P13-1 — 클라이언트 라우팅으로 떠날 때 딥링크 소비 표식 정리.
+      clearDeepLinkConsumed();
     };
   }, []);
 
@@ -335,8 +416,10 @@ export function ChatV3Client({
             : "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요."
           : "뼈대가 다 채워졌어요! 지금까지 채운 이야기를 보여드릴게요.";
     if (reason === "done") triggerReaction("happy", 3500);
-    await addBot(msg);
+    // P13-3 — 입력창은 마무리 멘트 저장(await)이 끝나기 전에 먼저 닫는다.
+    // 전환 중 입력이 새 턴을 만들 틈을 없앤다.
     setStatus("finished");
+    await addBot(msg);
     if (canReview) {
       setTimeout(() => router.push("/story-review"), 1200);
     }
@@ -357,10 +440,9 @@ export function ChatV3Client({
       // 여기로 모인다(finishEpisodeStage·submitPersonTurn 의 "없어요" 분기
       // 등) — 한 곳에서 정리하면 충분하다.
       await clearPending();
-      const gaps = await getTopGaps(userId, 3);
+      const gaps = await withTimeout(getTopGaps(userId, 3));
       setGapSuggestions(gaps);
-      const last = dedupeAgainst?.[dedupeAgainst.length - 1];
-      const alreadyShown = last?.role === "assistant";
+      const alreadyShown = endsWithPendingBotTurn(dedupeAgainst);
       if (!alreadyShown) await addBot(promptText);
       setStatus("idle");
     } catch (e) {
@@ -383,7 +465,7 @@ export function ChatV3Client({
         await finishSession("capped", true);
         return;
       }
-      const res = await getNextConfirmQuestion(userId);
+      const res = await withTimeout(getNextConfirmQuestion(userId));
       if (res.done) {
         if (fromInit) {
           // 마운트 직후 만난 done:true 는 "지금 막 끝난" 게 아니라 "이미 다
@@ -399,8 +481,7 @@ export function ChatV3Client({
       // assistant)으로 끝나 있으면 같은 이벤트를 새로 재생성해 또 물어보지
       // 않는다 — 안 그러면 방금 복원한 마지막 질문 바로 아래 같은(또는
       // 재생성돼 살짝 다른) 질문이 한 번 더 붙는다.
-      const last = dedupeAgainst?.[dedupeAgainst.length - 1];
-      const alreadyPending = fromInit && last?.role === "assistant";
+      const alreadyPending = fromInit && endsWithPendingBotTurn(dedupeAgainst);
       if (!alreadyPending) {
         questionCountRef.current += 1;
         await addBot(res.question);
@@ -521,7 +602,9 @@ export function ChatV3Client({
     }
     setStatus("submitting");
     try {
-      const result = await submitPersonAnswer(userId, eventId, personQuestionRef.current, text);
+      const result = await withTimeout(
+        submitPersonAnswer(userId, eventId, personQuestionRef.current, text),
+      );
       if (result.savedCount === 0 || !result.firstPersonId || !result.firstPersonName) {
         await enterOpenStage("네, 알겠어요. 다른 이야기도 있으세요?");
         return;
@@ -671,17 +754,27 @@ export function ChatV3Client({
   ): Promise<void> {
     const apiHistory: EpisodeTurn[] = [...historyBefore.slice(1), { role: "user", text }];
     try {
-      const result = await continueEpisodeChat(
-        eventId,
-        apiHistory,
-        episodeFollowUpCountRef.current,
-        periodTopicRef.current ?? undefined,
+      const result = await withTimeout(
+        continueEpisodeChat(
+          eventId,
+          apiHistory,
+          episodeFollowUpCountRef.current,
+          periodTopicRef.current ?? undefined,
+        ),
       );
       if (!result.ok) {
         enterError(result.error, () => {
           setStatus("idle");
           return Promise.resolve();
         });
+        return;
+      }
+      // P13-3 — 빈 응답은 화면에 아무것도 안 남기지 말고 폴백 문구로.
+      // 서버가 이미 기본 문구를 채우지만(continueEpisodeChat), 어떤 경로로든
+      // 빈 문자열이 오면 사용자에게 뭔가는 보여야 한다.
+      if (!result.reply.trim()) {
+        await addBot(EMPTY_REPLY_FALLBACK);
+        setStatus("idle");
         return;
       }
       episodeTranscriptRef.current = [
@@ -725,7 +818,9 @@ export function ChatV3Client({
     let ok = false;
     try {
       const result = eventId
-        ? await finishEpisodeChat(eventId, episodeTranscriptRef.current, personId, topicOverride)
+        ? await withTimeout(
+            finishEpisodeChat(eventId, episodeTranscriptRef.current, personId, topicOverride),
+          )
         : { ok: false as const, error: "" };
       if (!result.ok) {
         await addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
@@ -796,12 +891,14 @@ export function ChatV3Client({
 
       // 골격 생성 + 첫 확인질문 생성이 AI 호출 2연쇄로 이어져 몇 초 걸린다.
       setLoadingHint("잠깐만요, 이야기 칸을 정리하고 있어요…");
-      await completeOnboarding(userId, {
-        birthYear,
-        birthMonth: null,
-        gender: null,
-        region: res.region,
-      });
+      await withTimeout(
+        completeOnboarding(userId, {
+          birthYear,
+          birthMonth: null,
+          gender: null,
+          region: res.region,
+        }),
+      );
       // 직전 턴이 이미 "OO년에 태어나셨군요"였으니 여기서 연도를 또
       // 반복하지 않는다.
       await addBot("네, 그럼 몇 가지 확인해볼게요.");
@@ -822,7 +919,7 @@ export function ChatV3Client({
     }
     setStatus("submitting");
     try {
-      const result = await submitConfirmAnswer(eventId, text);
+      const result = await withTimeout(submitConfirmAnswer(eventId, text));
 
       if (result.status === "UNCLEAR") {
         if (result.needsReview) {
@@ -850,8 +947,8 @@ export function ChatV3Client({
   async function submitOpenChat(text: string) {
     setStatus("submitting");
     try {
-      const reply = await respondToOpenChat(userId, text);
-      await addBot(reply);
+      const reply = await withTimeout(respondToOpenChat(userId, text));
+      await addBot(reply.trim() || EMPTY_REPLY_FALLBACK);
       setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
@@ -980,16 +1077,19 @@ export function ChatV3Client({
         console.error("[chat-v3-pending]", e);
       }
 
-      // P12-6 — 딥링크(?gapEventId=…&gapType=…)는 이 마운트에서 한 번
-      // 소비하면 끝이다. 주소창에 그대로 남겨두면, 그 뒤 채팅 안 갭 칩으로
-      // 다른 이야기(예: "결혼 이후")를 시작해도 주소는 옛 딥링크(예: 중학교
-      // person)를 가리킨 채라, 새로고침·재진입 시 initialGap 이 진행 중이던
-      // 대화(pending)와 어긋나 엉뚱한 갭이 다시 시작됐다. 서버 왕복 없이
-      // 주소만 정리한다(Next 앱 라우터가 history.replaceState 를 가로채
-      // useSearchParams 와 동기화하므로 안전).
-      if (initialGap && typeof window !== "undefined" && window.location.search) {
-        window.history.replaceState(null, "", "/chat-v3");
-      }
+      // P13-1 — P12-6 에서 여기서 window.history.replaceState("/chat-v3") 로
+      // 주소를 정리했다가 사고가 났다: Next 16 앱 라우터가 replaceState 를
+      // 가로채 ACTION_RESTORE 를 dispatch 하고, restoreReducer 가 세그먼트
+      // 캐시로 startPPRNavigation + spawnDynamicRequests 를 돌린다. 페이지
+      // 세그먼트 키에 searchParams 가 들어가므로(`__PAGE__?{gapEventId…}` →
+      // `__PAGE__`) 페이지 서브트리가 통째로 리마운트됐고 — 새 인스턴스는
+      // initialGap=null 로 다시 init, 첫 인스턴스의 init 체인은 고아가 돼
+      // 오프닝도 안 남고 stage 가 초기값(profile_year)에 머문 채 입력만 열려
+      // "딥링크 진입 후 빈 응답/엉뚱한 폴백" 으로 나타났다(open 모드는 주소
+      // 변경이 없어 정상이던 이유). 주소는 절대 건드리지 않는다 — 대신
+      // "이 딥링크는 이미 소비됐다" 표식을 sessionStorage 에 남겨(아래
+      // isStaleDeepLink) 새로고침 시 stale 딥링크를 무시한다.
+      const deepLinkStale = initialGap !== null && isStaleDeepLink(initialGap);
 
       // P9-2 — 진행 중이던 대화와 같은 대상이면 새로 시작하지 않고 이어받는다.
       if (initialGap && pending && pendingMatchesInitialGap(pending, initialGap)) {
@@ -997,7 +1097,15 @@ export function ChatV3Client({
       }
 
       // 갭 카드에서 특정 이벤트를 지정해 돌아온 경우 — 자연 분기보다 우선.
-      if (initialGap) {
+      // P13-2 — pending 과 다른 대상이면 딥링크가 이긴다(위 P9-2 는 "같을
+      // 때"만). 이전 pending 은 여기서 명시적으로 버린다 — 재진입은 마지막
+      // 질문 하나만 이어받는 구조라(lib/chat-v3-pending.ts) 저장할 턴이
+      // 클라에 남아 있지 않다. start* 가 각자 덮어쓰기/정리를 하지만, 어느
+      // 경로든 옛 컨텍스트가 살아남지 않도록 한 곳에서 먼저 지운다.
+      // P13-1 — 단, 새로고침으로 다시 들어온 stale 딥링크(이미 이 탭에서
+      // 소비했고 그 뒤 다른 대화로 옮겨간)는 무시하고 pending/자연 분기로.
+      if (initialGap && !deepLinkStale) {
+        if (pending) await clearPending();
         if (initialGap.kind === "episode") {
           await startEpisodeStage(initialGap.eventId);
         } else if (initialGap.kind === "period") {
@@ -1023,7 +1131,7 @@ export function ChatV3Client({
         // 또 새 질문을 안 붙인다. 이 가드가 없으면 OnboardingProfile 이
         // 아직 안 생긴 상태(프로필 단계 완료 전)에서 새로고침할 때마다
         // "먼저 몇 가지만 여쭤볼게요" 가 매번 새 행으로 재적재됐다.
-        const alreadyAsked = loaded.length > 0 && loaded[loaded.length - 1].role === "assistant";
+        const alreadyAsked = endsWithPendingBotTurn(loaded);
         if (!alreadyAsked) {
           await addBot("먼저 몇 가지만 여쭤볼게요. 언제 태어나셨어요?");
           questionCountRef.current += 1;
@@ -1056,6 +1164,8 @@ export function ChatV3Client({
   // 뜬다 — 1인칭 진술체인 gap.announceText 를 대신 쓴다.
   async function handleGapClick(gap: Gap) {
     if (status !== "idle") return;
+    // P13-1 — 이 탭의 딥링크는 이제 소비됐다(새로고침 시 다시 발화 금지).
+    markDeepLinkConsumed(initialGap);
     await addUser(gap.announceText);
     if (gap.type === "episode" && gap.targetEventId) {
       await startEpisodeStage(gap.targetEventId, { skipAnnounce: true });
