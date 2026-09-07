@@ -90,6 +90,8 @@ const NIM_TITLES = new Set([
 const SPOUSE_TERMS: { term: string; generic: "아내" | "남편" }[] = [
   { term: "아내", generic: "아내" },
   { term: "집사람", generic: "아내" },
+  { term: "안사람", generic: "아내" },
+  { term: "안식구", generic: "아내" },
   { term: "마누라", generic: "아내" },
   { term: "와이프", generic: "아내" },
   { term: "각시", generic: "아내" },
@@ -97,6 +99,7 @@ const SPOUSE_TERMS: { term: string; generic: "아내" | "남편" }[] = [
   { term: "바깥양반", generic: "남편" },
   { term: "신랑", generic: "남편" },
   { term: "서방", generic: "남편" },
+  { term: "영감", generic: "남편" },
 ];
 
 function findSpouseTerm(text: string | null): (typeof SPOUSE_TERMS)[number] | null {

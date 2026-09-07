@@ -60,6 +60,11 @@ import {
 import type { Gap } from "@/lib/gap-detector";
 import type { LifeEventType } from "@/lib/generated/prisma/enums";
 import { buildPersonAddress } from "@/lib/person-honorific";
+import {
+  isEpisodeDoneIntent,
+  isExitIntent,
+  stripEpisodeDoneSignal,
+} from "@/lib/episode-text";
 
 type Msg = { role: "a" | "u"; text: string };
 type Stage = "profile_year" | "profile_region" | "confirm" | "episode" | "open" | "person";
@@ -81,44 +86,9 @@ const MAX_SESSION_QUESTIONS = 12;
 // 상수를 직접 공유 못 함). 그쪽 값이 바뀌면 이 값도 함께 바꿀 것.
 const EPISODE_MAX_FOLLOWUPS = 2;
 
-// 종료 의사 키워드 사전 체크 — STAGE4(에피소드 대화)의 "종료 의사는 항상
-// 즉시 존중" 원칙을 여기선 LLM 판단 대신 가벼운 키워드로 재현한다.
-const EXIT_PHRASES = [
-  "그만할래요",
-  "그만할게요",
-  "그만하고싶어요",
-  "그만",
-  "여기까지",
-  "다음에할게요",
-  "쉬고싶어요",
-];
-
-function isExitIntent(text: string): boolean {
-  const normalized = text.replace(/\s+/g, "");
-  return EXIT_PHRASES.some((p) => normalized.includes(p));
-}
-
-// P8-2 — "그걸로 된 것 같아요"/"충분해요" 류의 완곡한 종료 의사를 LLM 이
-// 종종 "잘 됐다"는 뜻으로 오독해 마무리 대신 되묻는다(예: "무엇이 잘
-// 되었나요?"). 에피소드(period 포함) 대화 중엔 AI 판단 전에 키워드로 먼저
-// 거른다 — 존엄 원칙상 오탐(조기 종료)이 미탐(계속 캐물음)보다 안전.
-const EPISODE_DONE_PHRASES = [
-  "그걸로된것같아요",
-  "그정도면됐어요",
-  "이정도면됐어요",
-  "이정도면",
-  "그정도면",
-  "이만하면",
-  "충분해요",
-  "충분한것같아요",
-  "됐어요",
-  "됐습니다",
-];
-
-function isEpisodeDoneIntent(text: string): boolean {
-  const normalized = text.replace(/\s+/g, "");
-  return EPISODE_DONE_PHRASES.some((p) => normalized.includes(p));
-}
+// 종료 의사 키워드(EXIT_PHRASES/EPISODE_DONE_PHRASES)와 판정·분리 함수는
+// P14-1 에서 순수 모듈 lib/episode-text.ts 로 옮겼다(서버 액션·검증
+// 스크립트와 공유).
 
 // P10-2 — capped(강제 마감) 응답이 프롬프트 지시("새 질문 대신 마무리 말을")
 // 를 어기고 질문으로 끝나는지 판단하는 가벼운 휴리스틱. 이 앱의 질문형
@@ -128,6 +98,15 @@ function isAskingQuestion(text: string): boolean {
 }
 
 const OPEN_GREETING = "하고 싶은 이야기 있으세요?";
+
+// P14-4 — 에피소드 저장 뒤 마무리 멘트. 한 세션에 6회 이상 같은 문구가
+// 반복돼 단조롭다는 관찰 — 순서대로 돌려 쓴다(연속 중복 0).
+const EPISODE_CLOSINGS = [
+  "소중한 이야기 들려주셔서 고마워요. 다른 이야기도 있으세요?",
+  "네, 잘 담아뒀어요. 또 떠오르는 이야기 있으세요?",
+  "이야기 잘 들었어요. 더 나누고 싶은 이야기 있으세요?",
+  "고마워요, 잘 기록해 뒀어요. 다른 시절 이야기도 있으세요?",
+];
 
 // finishSession 이 마지막으로 남기는 문구들. P13-1 후속 — 재진입 dedupe
 // (loadNextConfirmQuestion 의 alreadyPending, enterOpenStage 의 alreadyShown,
@@ -729,9 +708,15 @@ export function ChatV3Client({
     // 아니라 신호일 뿐이라 요약 입력에서 뺀다(넣으면 "그것으로 충분했다"
     // 처럼 이야기 내용으로 잘못 흡수된다). 화면·DB 로그(addUser)에는 이미
     // 남았으니 여기선 episodeTranscriptRef 에만 안 넣는다.
+    // P14-1(3) — 같은 메시지에 내용+종료가 섞여 있으면("~해주셨어요. 그걸로
+    // 된 것 같아요") 종료 문장만 빼고 내용은 마지막 본인 턴으로 살린다.
+    // 통째로 빼면 1턴 대화가 "내용 없음"이 돼 안내문이 저장되던 원인.
     if (isEpisodeDoneIntent(text)) {
       awaitingFinalAnswerRef.current = false;
-      episodeTranscriptRef.current = historyBefore;
+      const kept = stripEpisodeDoneSignal(text);
+      episodeTranscriptRef.current = kept
+        ? [...historyBefore, { role: "user", text: kept }]
+        : historyBefore;
       return finishEpisodeStage();
     }
 
@@ -842,13 +827,28 @@ export function ChatV3Client({
   // 또 붙이지 않고 다음 이야기 초대만 한다(같은 뜻의 두 문장이 연달아 뜨던
   // 중복). 사용자가 "그걸로 됐어요" 로 끝낸 경우(모델 마무리 없음)엔 기존
   // 전체 문구.
+  // P14-1 — 본인 발화가 한 턴도 없으면(오프닝만 보고 "됐어요") 저장할 게
+  // 없다 — saveEpisode 를 타면 "저장하지 못했어요" 가 떠서 어르신이 뭔가
+  // 잘못한 것처럼 보인다. 컨텍스트만 비우고 다음 이야기로.
+  // P14-4 — 마무리 멘트를 몇 가지로 돌려 쓴다(같은 문구 연속 반복 완화).
   async function finishEpisodeStage(opts: { afterModelClosing?: boolean } = {}) {
-    await saveEpisode();
+    const hasUserTurn = episodeTranscriptRef.current.some((t) => t.role === "user");
+    if (hasUserTurn) {
+      await saveEpisode();
+    } else {
+      activePersonRef.current = null;
+      periodTopicRef.current = null;
+    }
     await enterOpenStage(
-      opts.afterModelClosing
-        ? "다른 이야기도 있으세요?"
-        : "소중한 이야기 들려주셔서 고마워요. 다른 이야기도 있으세요?",
+      opts.afterModelClosing || !hasUserTurn ? "다른 이야기도 있으세요?" : nextEpisodeClosing(),
     );
+  }
+
+  const closingIdxRef = useRef(0);
+  function nextEpisodeClosing(): string {
+    const msg = EPISODE_CLOSINGS[closingIdxRef.current % EPISODE_CLOSINGS.length];
+    closingIdxRef.current += 1;
+    return msg;
   }
 
   async function submitBirthYear(text: string) {
@@ -1219,10 +1219,17 @@ export function ChatV3Client({
       // 종료 문구 자체는 이야기 내용이 아니라 transcript 에 안 넣는다(P10-3
       // 과 같은 원칙). 본인 발화가 한 턴도 없으면 저장할 게 없다.
       let savedEpisode = false;
-      if (stage === "episode" && episodeTranscriptRef.current.some((t) => t.role === "user")) {
-        awaitingFinalAnswerRef.current = false;
-        savedEpisode = await saveEpisode();
-        await clearPending();
+      if (stage === "episode") {
+        // P14-1(3) — "~했어요. 그만할래요" 처럼 내용이 함께 온 경우 내용은 살린다.
+        const kept = stripEpisodeDoneSignal(text);
+        if (kept) {
+          episodeTranscriptRef.current = [...episodeTranscriptRef.current, { role: "user", text: kept }];
+        }
+        if (episodeTranscriptRef.current.some((t) => t.role === "user")) {
+          awaitingFinalAnswerRef.current = false;
+          savedEpisode = await saveEpisode();
+          await clearPending();
+        }
       }
       await finishSession("exited", canReview, savedEpisode);
       return;

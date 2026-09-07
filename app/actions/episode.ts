@@ -18,6 +18,7 @@ import {
   EPISODE_SUMMARY_SYSTEM_PROMPT,
 } from "@/lib/prompts/episode-chat";
 import { createEpisodeBridge, saveEpisodePlaces as saveEpisodePlacesDb } from "@/lib/episode";
+import { isSummaryGuidance } from "@/lib/episode-text";
 import { savePeopleMentionedInEpisode } from "@/lib/person-chat";
 import type { PlaceInfo } from "@/lib/place-types";
 
@@ -159,30 +160,49 @@ export async function finishEpisodeChat(
       .join("\n");
 
   // 요약 실패 폴백 — 본인 발화만 이어붙여서라도 저장은 막지 않는다.
-  let content = transcriptHistory
+  const rawUserText = transcriptHistory
     .filter((t) => t.role === "user")
     .map((t) => t.text)
     .join(" ")
     .trim();
 
-  try {
-    const res = await chat(
-      [{ role: "user", content: transcript }],
-      {
-        system: EPISODE_SUMMARY_SYSTEM_PROMPT,
-        model: CHAT_MODEL,
-        maxTokens: 500,
-        temperature: 0.35,
-      },
-    );
-    const cleaned = res.text.trim();
-    if (cleaned) content = cleaned;
-  } catch {
-    // 폴백 content 유지.
+  // P14-1 — 본인 발화가 한 턴도 없으면 요약 모델을 부르지 않는다. 부르면
+  // "이 대화에는 실제 이야기 내용이 없어…" 같은 판정문이 그대로 저장된다.
+  if (!rawUserText) {
+    return { ok: false, error: "저장할 이야기가 없어요." };
   }
 
-  if (!content) {
-    return { ok: false, error: "저장할 이야기가 없어요." };
+  // P14-1(2) — 요약 결과가 2인칭 안내문("더 들려주세요", "정리해
+  // 드리겠습니다")이면 저장을 거부한다. 1회 재시도(더 강한 지시) 후에도
+  // 안내문이면 본인 발화 원문 폴백으로 저장 — 어떤 경우에도 안내문이
+  // Episode.content 에 들어가면 안 된다.
+  let content = rawUserText;
+  const attempts = [
+    transcript,
+    `${transcript}\n\n[지시] 위 대화의 본인 발화를 "-다"체 서술문으로만 바꿔 출력하세요. 사용자에게 말을 걸거나 내용이 부족하다고 쓰지 마세요.`,
+  ];
+  for (const input of attempts) {
+    try {
+      const res = await chat(
+        [{ role: "user", content: input }],
+        {
+          system: EPISODE_SUMMARY_SYSTEM_PROMPT,
+          model: CHAT_MODEL,
+          maxTokens: 500,
+          temperature: 0.35,
+        },
+      );
+      const cleaned = res.text.trim();
+      if (!cleaned) continue;
+      if (isSummaryGuidance(cleaned)) {
+        console.warn("[episode-finish] summary guidance rejected:", cleaned.slice(0, 80));
+        continue;
+      }
+      content = cleaned;
+      break;
+    } catch {
+      // 폴백 content 유지.
+    }
   }
 
   // P9-1 — topicOverride 는 period(구간) 대화에서만 넘어온다(ChatV3Client

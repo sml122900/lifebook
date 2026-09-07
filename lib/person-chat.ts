@@ -7,6 +7,7 @@ import { prisma } from "./db";
 import { chat } from "./ai";
 import { createPerson } from "./people";
 import { linkPersonToLifeEvent } from "./person-life-event";
+import { isRelationCompatible } from "./person-relation";
 import {
   PERSON_EXTRACT_SYSTEM_PROMPT,
   buildPersonExtractUserMessage,
@@ -82,7 +83,11 @@ export async function saveOrLinkPerson(
       where: { userId, subjectType: "person", isDraft: false },
       select: { id: true, name: true, relation: true },
     });
-    const existing = rows.find((r) => normalizeName(r.name) === norm);
+    // P14-2 — 같은 이름이라도 관계 부류가 명백히 다르면(선생님 vs 선배)
+    // 다른 사람으로 본다. 애매하면 병합 안 함(lib/person-relation.ts).
+    const existing = rows.find(
+      (r) => normalizeName(r.name) === norm && isRelationCompatible(r.relation, candidate.relation),
+    );
     if (existing) {
       await linkPersonToLifeEvent(userId, existing.id, lifeEventId);
       return { id: existing.id, name: existing.name, relation: existing.relation, created: false };
