@@ -8,7 +8,7 @@ export const BUSINESS_INFO = {
   address: "서울특별시 강남구 일원로9길 70, 402호(일원동)",
   csPhone: "010-5539-1947",
   csEmail: "sml122900@gmail.com",
-  mailOrderRegNo: "신고 예정",      // 통신판매업 신고번호 발급 후 교체 (~6/19)
+  mailOrderRegNo: "2026-서울강남-04436",
   privacyOfficerName: "이성민",
   privacyOfficerTitle: "대표",
   hostingProvider: "Vercel Inc.",
