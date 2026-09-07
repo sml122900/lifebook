@@ -42,7 +42,7 @@ async function main() {
   // "담임 선생님" 은 "~님" 토큰(선생님)만 호칭으로 — "박정호 담임 선생님과" 보다 자연스럽다.
   check("담임 선생님 → 격식 조사", buildPersonAddress("박정호", "담임 선생님") === "박정호 선생님과");
   check("목록 밖 '~님' 토큰(목사님)", buildPersonAddress("이철수", "동네 목사님") === "이철수 목사님과");
-  check("사장 → 격식 조사", buildPersonAddress("김영희", "사장") === "김영희 사장과");
+  check("사장 → 격식 조사", buildPersonAddress("김영희", "사장") === "김영희 사장님과");
   check("친구 → 반말 조사 유지", buildPersonAddress("최영수", "친구") === "최영수랑");
   check("할머니(가족) 회귀", buildPersonAddress("김순임", "할머니") === "김순임 할머니와");
   check("이름 없이 호칭만(name=relation)", buildPersonAddress("선임", "선임") === "선임과");
