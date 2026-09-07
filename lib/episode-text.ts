@@ -88,3 +88,27 @@ export function isSummaryGuidance(text: string): boolean {
   if (!t) return false;
   return GUIDANCE_PATTERNS.some((re) => re.test(t));
 }
+
+// P14-4 — 에피소드 저장 뒤 마무리 멘트. 한 세션에 6회 이상 같은 문구가
+// 반복돼 단조롭다는 관찰 — 순서대로 돌려 쓴다(연속 중복 0).
+export const EPISODE_CLOSINGS = [
+  "소중한 이야기 들려주셔서 고마워요. 다른 이야기도 있으세요?",
+  "네, 잘 담아뒀어요. 또 떠오르는 이야기 있으세요?",
+  "이야기 잘 들었어요. 더 나누고 싶은 이야기 있으세요?",
+  "고마워요, 잘 기록해 뒀어요. 다른 시절 이야기도 있으세요?",
+];
+
+// P15-1 — 복원된 로그에서 마지막으로 쓴 마무리 문구를 찾아 "다음" 인덱스를
+// 돌려준다. 클라의 순환 인덱스(useRef)가 리마운트·재진입마다 0 으로 돌아가
+// 실사용에선 항상 첫 문구만 나오던 원인 — 로그는 DB 에 남으므로 여기서
+// 이어받으면 저장소 추가 없이 순환이 계속된다. 문구가 없으면 0.
+export function nextClosingIndexFromLog(
+  log: readonly { role: string; content: string }[],
+): number {
+  for (let i = log.length - 1; i >= 0; i--) {
+    if (log[i].role !== "assistant") continue;
+    const idx = EPISODE_CLOSINGS.indexOf(log[i].content);
+    if (idx >= 0) return (idx + 1) % EPISODE_CLOSINGS.length;
+  }
+  return 0;
+}

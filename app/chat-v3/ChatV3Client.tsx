@@ -61,8 +61,10 @@ import type { Gap } from "@/lib/gap-detector";
 import type { LifeEventType } from "@/lib/generated/prisma/enums";
 import { buildPersonAddress } from "@/lib/person-honorific";
 import {
+  EPISODE_CLOSINGS,
   isEpisodeDoneIntent,
   isExitIntent,
+  nextClosingIndexFromLog,
   stripEpisodeDoneSignal,
 } from "@/lib/episode-text";
 
@@ -99,14 +101,8 @@ function isAskingQuestion(text: string): boolean {
 
 const OPEN_GREETING = "하고 싶은 이야기 있으세요?";
 
-// P14-4 — 에피소드 저장 뒤 마무리 멘트. 한 세션에 6회 이상 같은 문구가
-// 반복돼 단조롭다는 관찰 — 순서대로 돌려 쓴다(연속 중복 0).
-const EPISODE_CLOSINGS = [
-  "소중한 이야기 들려주셔서 고마워요. 다른 이야기도 있으세요?",
-  "네, 잘 담아뒀어요. 또 떠오르는 이야기 있으세요?",
-  "이야기 잘 들었어요. 더 나누고 싶은 이야기 있으세요?",
-  "고마워요, 잘 기록해 뒀어요. 다른 시절 이야기도 있으세요?",
-];
+// P14-4 마무리 멘트 4종은 lib/episode-text.ts EPISODE_CLOSINGS 로 이동
+// (P15-1 — 순환 인덱스를 로그에서 복원하는 순수 함수와 함께).
 
 // finishSession 이 마지막으로 남기는 문구들. P13-1 후속 — 재진입 dedupe
 // (loadNextConfirmQuestion 의 alreadyPending, enterOpenStage 의 alreadyShown,
@@ -844,6 +840,11 @@ export function ChatV3Client({
     );
   }
 
+  // P15-1 — useRef 는 리마운트마다 0 으로 돌아간다. 실측(test20) 에서 이야기
+  // 하나마다 /chat-v3 를 새로 들어와(메시지 sessionId 가 매번 달랐다) 항상
+  // 첫 문구만 나왔다. init 이 복원한 로그에서 마지막으로 쓴 문구를 찾아
+  // 그 다음부터 잇는다(nextClosingIndexFromLog) — 저장소 추가 없이 리마운트·
+  // 재진입에도 순환이 이어진다.
   const closingIdxRef = useRef(0);
   function nextEpisodeClosing(): string {
     const msg = EPISODE_CLOSINGS[closingIdxRef.current % EPISODE_CLOSINGS.length];
@@ -995,8 +996,11 @@ export function ChatV3Client({
       loaded.length > 0 && loaded[loaded.length - 1].role === "assistant"
         ? loaded[loaded.length - 1].content
         : null;
+    // P15-2 — 마지막 봇 발화가 세션 마무리 문구면 이 pending 은 종료 직전에
+    // 못 지운 잔재다(구버전 exit 경로). 이어받지 않고 버린다 — 이어받으면
+    // 재진입 후 첫 발화가 옛 이벤트·인물 컨텍스트로 흡수된다.
     const item = await getConfirmedLifeEvent(userId, pending.targetEventId);
-    if (!item || !lastAssistantText) {
+    if (!item || !lastAssistantText || SESSION_END_MESSAGES.has(lastAssistantText)) {
       await clearPending();
       return false;
     }
@@ -1083,6 +1087,7 @@ export function ChatV3Client({
     setStatus("loading");
     try {
       const loaded = await listRecentChatMessages(userId);
+      closingIdxRef.current = nextClosingIndexFromLog(loaded);
       if (loaded.length > 0) {
         const mapped: Msg[] = loaded.map((m) => ({
           role: m.role === "assistant" ? "a" : "u",
@@ -1228,8 +1233,17 @@ export function ChatV3Client({
         if (episodeTranscriptRef.current.some((t) => t.role === "user")) {
           awaitingFinalAnswerRef.current = false;
           savedEpisode = await saveEpisode();
-          await clearPending();
         }
+      }
+      // P15-2 — 명시적 종료는 저장 여부와 무관하게 대기 컨텍스트를 비운다.
+      // 이전엔 본인 턴 0 으로 나가면(오프닝만 보고 "그만할래요") pending
+      // (EPISODE, 국민학교, 김영수)이 남아, 다음 진입이 그 컨텍스트를 소리
+      // 없이 이어받았다 — 그 뒤 친 "고등학교 다닐 때 이야기…" 가 국민학교·
+      // 김영수 에피소드로 흡수돼 엉뚱한 앵커에 저장됐다(실측 test20).
+      // "다음에 오시면 이어서 여쭤볼게요" 는 갭 카드로 다시 묻는다는 뜻이지
+      // 이 컨텍스트를 몰래 이어간다는 뜻이 아니다.
+      if (stage === "episode" || stage === "person") {
+        await clearPending();
       }
       await finishSession("exited", canReview, savedEpisode);
       return;
