@@ -89,6 +89,46 @@ export function isSummaryGuidance(text: string): boolean {
   return GUIDANCE_PATTERNS.some((re) => re.test(t));
 }
 
+// P16-1 — 갭 감지기가 LifeEvent.hasEpisode 플래그(배지 표시용, 저장만
+// 되면 무조건 true) 대신 "실질 내용 있는 Episode 가 있는가"로 판단하기
+// 위한 기준. 저장은 됐지만 안내문/빈 문자열뿐인 Episode 는 실질 아님 —
+// P14 이전 데이터(안내문이 그대로 저장된 것)가 갭을 영구히 막던 문제의
+// 재발을 감지기 쪽에서도 막는다(가드가 뚫려도 감지기가 다시 물어봄).
+//
+// 한계: isSummaryGuidance 는 휴리스틱이라 "-습니다"체로 쓰인 정상 회상을
+// 간혹 안내문으로 오탐할 수 있다(운영 데이터에서 실측). 그 경우 이미 답한
+// 이벤트가 갭 카드로 다시 뜨는 정도의 부작용이라 — 예전처럼 빈 내용이
+// 영구히 안 물어봐지는 것보다 안전한 방향(오탐이 미탐보다 안전, P8-2 와
+// 같은 원칙)으로 판단했다.
+export function isSubstantiveEpisodeContent(content: string): boolean {
+  return content.trim().length > 0 && !isSummaryGuidance(content);
+}
+
+// P16-2 — EPISODE/PERSON 대기 컨텍스트를 조용히 이어받을 때 붙이는 안내
+// 한 줄. 형식이 고정돼 있어(항상 "아까 " 로 시작·" 이야기 이어서 들을게요."
+// 로 끝) lastNonResumeAssistantText 가 정규식으로 알아본다.
+export function buildResumeAnnouncement(label: string): string {
+  return `아까 ${label} 이야기 이어서 들을게요.`;
+}
+const RESUME_ANNOUNCEMENT_RE = /^아까 .+ 이야기 이어서 들을게요\.$/;
+
+// ChatV3Client 의 tryResumePendingContext 가 "실제로 답을 기다리던 마지막
+// 질문"을 찾을 때 쓴다. 답 없이 재진입을 반복하면 로그 끝이 매번 이
+// 안내문 자신이 되므로(addBot 자체 연속-중복 방지 덕에 안내문이 여러 줄
+// 쌓이진 않는다 — 클라의 buildResumeAnnouncement 호출부 참고), 그걸 원래
+// 질문으로 착각해 다음 재진입의 컨텍스트 앵커·person/period 판정용 텍스트로
+// 삼지 않도록 건너뛰고 그 위의 진짜 질문을 찾는다.
+export function lastNonResumeAssistantText(
+  loaded: readonly { role: string; content: string }[],
+): string | null {
+  for (let i = loaded.length - 1; i >= 0; i--) {
+    const m = loaded[i];
+    if (m.role === "assistant" && RESUME_ANNOUNCEMENT_RE.test(m.content)) continue;
+    return m.role === "assistant" ? m.content : null;
+  }
+  return null;
+}
+
 // P14-4 — 에피소드 저장 뒤 마무리 멘트. 한 세션에 6회 이상 같은 문구가
 // 반복돼 단조롭다는 관찰 — 순서대로 돌려 쓴다(연속 중복 0).
 export const EPISODE_CLOSINGS = [

@@ -59,11 +59,13 @@ import {
 } from "@/app/actions/chat-v3-pending";
 import type { Gap } from "@/lib/gap-detector";
 import type { LifeEventType } from "@/lib/generated/prisma/enums";
-import { buildPersonAddress } from "@/lib/person-honorific";
+import { buildPersonAddress, buildPersonLabel } from "@/lib/person-honorific";
 import {
+  buildResumeAnnouncement,
   EPISODE_CLOSINGS,
   isEpisodeDoneIntent,
   isExitIntent,
+  lastNonResumeAssistantText,
   nextClosingIndexFromLog,
   stripEpisodeDoneSignal,
 } from "@/lib/episode-text";
@@ -115,6 +117,10 @@ const SESSION_END_MESSAGES = new Set([
   "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요.",
   "뼈대가 다 채워졌어요! 지금까지 채운 이야기를 보여드릴게요.",
 ]);
+
+// P16-2 — buildResumeAnnouncement/lastNonResumeAssistantText 는
+// lib/episode-text.ts 로 옮겼다(P14/P15 와 같은 패턴 — 순수 함수는 검증
+// 스크립트가 직접 import 할 수 있게 클라 밖에 둔다).
 
 // 복원된 로그가 "봇이 뭔가 물어본 채로" 끝나 있는지(세션 마무리 문구 제외).
 function endsWithPendingBotTurn(loaded: ChatLogTurn[] | undefined): boolean {
@@ -992,10 +998,12 @@ export function ChatV3Client({
   ): Promise<boolean> {
     if (!pending) return false;
 
-    const lastAssistantText =
-      loaded.length > 0 && loaded[loaded.length - 1].role === "assistant"
-        ? loaded[loaded.length - 1].content
-        : null;
+    // P16-2 — 재진입 안내 문구("아까 ~ 이야기 이어서 들을게요.")도 addBot
+    // 으로 로그에 저장되므로, 답 없이 다시 새로고침하면 로그 끝이 그
+    // 안내문 자신이 된다. "실제로 대답을 기다리던 마지막 질문"을 찾을 때는
+    // 이 안내문들을 건너뛴다 — 아니면 재이어받기의 앵커 텍스트가 원래
+    // 질문 대신 안내문 자신으로 바뀌어 버린다.
+    const lastAssistantText = lastNonResumeAssistantText(loaded);
     // P15-2 — 마지막 봇 발화가 세션 마무리 문구면 이 pending 은 종료 직전에
     // 못 지운 잔재다(구버전 exit 경로). 이어받지 않고 버린다 — 이어받으면
     // 재진입 후 첫 발화가 옛 이벤트·인물 컨텍스트로 흡수된다.
@@ -1010,15 +1018,23 @@ export function ChatV3Client({
       personQuestionRef.current = lastAssistantText;
       setStage("person");
       setStatus("idle");
+      // P16-2 — "조용한 이어받기"가 P15-2 오염(엉뚱한 갭이 새 자유 발화를
+      // 흡수)을 사용자가 못 알아채게 만든 원인이었다 — 한 줄 안내로 "아니,
+      // 그거 말고" 정정 기회를 준다. addBot 자체가 직전 메시지와 텍스트가
+      // 같으면 저장을 건너뛰므로(연속 중복 방지) 답 없이 재진입을 반복해도
+      // 안내문이 쌓이지 않는다.
+      await addBot(buildResumeAnnouncement(item.label));
       return true;
     }
 
     // EPISODE — targetPersonId 가 있으면 그 인물과의 이야기(연결이 끊겼으면
     // getPersonEpisodeTarget 이 null 을 줘 일반 사건 회고로 자연히 강등).
     let personName: string | null = null;
+    let personRelation: string | null = null;
     if (pending.targetPersonId) {
       const target = await getPersonEpisodeTarget(userId, pending.targetEventId, pending.targetPersonId);
       personName = target?.personName ?? null;
+      personRelation = target?.personRelation ?? null;
     }
     activeEventIdRef.current = item.id;
     activePersonRef.current =
@@ -1057,6 +1073,12 @@ export function ChatV3Client({
     episodeTranscriptRef.current = [{ role: "assistant", text: lastAssistantText }];
     setStage("episode");
     setStatus("idle");
+    // P16-2 — 안내 라벨: 인물이 확정돼 있으면(person_episode 재진입) 그
+    // 인물 호칭, period 대화였으면 "~이후" 문구, 아니면 이벤트 라벨.
+    const resumeLabel = activePersonRef.current
+      ? buildPersonLabel(activePersonRef.current.name, personRelation)
+      : (periodTopicRef.current?.label ?? item.label);
+    await addBot(buildResumeAnnouncement(resumeLabel));
     return true;
   }
 

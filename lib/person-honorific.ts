@@ -118,20 +118,27 @@ function findHonorificTerm(text: string | null): string | null {
   return findHonorificSuffixToken(text) ?? HONORIFIC_TERMS.find((t) => text.includes(t)) ?? null;
 }
 
-// 이름 + 조사까지 완성된 형태로 반환("김순덕 할머니와" / "박정호 선생님과" /
-// "김부장님과" / "정미숙 씨와" / "철수랑" 처럼). 호출부는 뒤에 문장만 이어
-// 붙이면 된다.
-export function buildPersonAddress(name: string, relation: string | null): string {
+// P16-2 — buildPersonLabel(조사 없는 라벨)·buildPersonAddress(조사 붙임)
+// 가 공유하는 내부 판정. hasHonorific 이 필요한 이유: "이름 없이 호칭만"
+// 케이스(P12-3 — 이름 자리에 relation 이 대신 들어와 name==="선임" 같은
+// 값이 됨)에서 addressed 가 우연히 name 과 같아지므로, "라벨이 name 과
+// 같은가"만으로는 "호칭을 못 찾음"과 "호칭 자체가 이름 자리에 옴"을
+// 구분할 수 없다 — 조사 규칙이 서로 다르므로(전자는 "이랑/랑", 후자는
+// "과/와") 판정 자체를 값으로 들고 다닌다.
+function resolvePersonLabel(
+  name: string,
+  relation: string | null,
+): { label: string; hasHonorific: boolean } {
   const spouseInName = findSpouseTerm(name);
   const spouse = spouseInName ?? findSpouseTerm(relation);
   if (spouse) {
     // 이름 자리에 호칭이 들어온 경우("아내"·"집사람")는 실명이 없는 것.
-    if (spouseInName) return `${spouse.generic}분과`;
-    return `${name} 씨와`;
+    if (spouseInName) return { label: `${spouse.generic}분`, hasHonorific: true };
+    return { label: `${name} 씨`, hasHonorific: true };
   }
 
   const term = findHonorificTerm(name) ?? findHonorificTerm(relation);
-  if (!term) return `${name}${withJosa(name, "이랑/랑")}`;
+  if (!term) return { label: name, hasHonorific: false };
   let addressed: string;
   if (name.includes(term)) {
     addressed = name;
@@ -141,5 +148,28 @@ export function buildPersonAddress(name: string, relation: string | null): strin
     addressed = `${name} ${term}`;
   }
   if (NIM_TITLES.has(term) && !addressed.endsWith("님")) addressed = `${addressed}님`;
-  return `${addressed}${withJosa(addressed, "과/와")}`;
+  return { label: addressed, hasHonorific: true };
+}
+
+// P16-2 — 조사 없는 호칭 라벨만("김순덕 할머니" / "박정호 선생님" /
+// "김부장님" / "정미숙 씨" / "철수" 처럼). buildPersonAddress 의 조사 부착
+// 규칙과 EPISODE resume 안내 문구("아까 {라벨} 이야기…")가 이 함수를
+// 공유한다 — 문구는 둘 다 같은 호칭 판정을 거쳐야 하므로 로직을 두 곳에
+// 복제하지 않는다.
+export function buildPersonLabel(name: string, relation: string | null): string {
+  return resolvePersonLabel(name, relation).label;
+}
+
+// 이름 + 조사까지 완성된 형태로 반환("김순덕 할머니와" / "박정호 선생님과" /
+// "김부장님과" / "정미숙 씨와" / "철수랑" 처럼). 호출부는 뒤에 문장만 이어
+// 붙이면 된다. 조사는 resolvePersonLabel 이 만든 라벨의 꼬리 형태로 결정
+// 한다 — "분"(스풀 배우자, 항상 받침 ㄴ)·" 씨"(항상 "와")는 고정, 그 외는
+// hasHonorific 여부로 withJosa 조사 세트를 고른다(호칭 있으면 "과/와",
+// 진짜 이름뿐이면 "이랑/랑").
+export function buildPersonAddress(name: string, relation: string | null): string {
+  const { label, hasHonorific } = resolvePersonLabel(name, relation);
+  if (label.endsWith("분")) return `${label}과`;
+  if (label.endsWith(" 씨")) return `${label}와`;
+  if (!hasHonorific) return `${label}${withJosa(label, "이랑/랑")}`;
+  return `${label}${withJosa(label, "과/와")}`;
 }

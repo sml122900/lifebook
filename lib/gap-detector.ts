@@ -12,6 +12,7 @@
 import { prisma } from "./db";
 import type { LifeEventType } from "./generated/prisma/enums";
 import { buildPersonAddress } from "./person-honorific";
+import { isSubstantiveEpisodeContent } from "./episode-text";
 
 // v3 P6 — person: confirmed 이벤트인데 연결된 Person 이 0명(그 시절 주변
 // 사람을 아직 안 물어봄). person_episode: Person 은 있는데 그 사람과의
@@ -77,11 +78,19 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
       people: { select: { id: true }, take: 1 },
       // P9-1 — 이 앵커에 이미 period(구간) 이야기가 하나라도 있으면 그
       // time_gap 갭은 해소된 것으로 본다.
-      episodes: { where: { isPeriod: true }, select: { id: true }, take: 1 },
+      // P16-1 — hasEpisode 플래그(배지 표시용) 대신 실질 내용을 직접 본다.
+      // isPeriod 필터를 없애고 전부 가져와 아래 두 갈래(episode 갭·time_gap
+      // 갭)에 각자 다른 기준으로 쓴다.
+      episodes: { select: { id: true, content: true, isPeriod: true } },
     },
   });
+  // P16-1 — period(구간) 이야기 중 실질 내용이 있는 게 하나라도 있으면
+  // 해소. 저장은 됐지만 안내문/빈 내용뿐이면(P14 이전 데이터 등) 해소로
+  // 안 치고 time_gap 갭을 다시 띄운다.
   const periodResolvedEventIds = new Set(
-    events.filter((e) => e.episodes.length > 0).map((e) => e.id),
+    events
+      .filter((e) => e.episodes.some((ep) => ep.isPeriod && isSubstantiveEpisodeContent(ep.content)))
+      .map((e) => e.id),
   );
 
   const gaps: Gap[] = [];
@@ -121,7 +130,14 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
           priority: 4,
         });
       }
-      if (!e.hasEpisode) {
+      // P16-1 — hasEpisode 대신 "실질 내용 있는 Episode 존재"로 판단(같은
+      // 이벤트에 붙은 period/비-period 아무 Episode 나 하나라도 실질이면
+      // 충분 — hasEpisode 플래그가 원래 그렇게 구분 없이 켜졌던 것과 동일
+      // 기준). hasEpisode 자체는 story-review 배지 표시용으로 그대로 둔다
+      // (여기서 갱신 안 함 — 배지 "이야기 있음" + 갭 카드가 동시에 뜨는
+      // 경우가 생길 수 있는데, 빈 이야기를 채울 기회로 의도적으로 허용).
+      const hasSubstantiveEpisode = e.episodes.some((ep) => isSubstantiveEpisodeContent(ep.content));
+      if (!hasSubstantiveEpisode) {
         gaps.push({
           type: "episode",
           targetEventId: e.id,
@@ -150,7 +166,10 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
       id: true,
       name: true,
       relation: true,
-      episodes: { select: { id: true }, take: 1 },
+      // P16-1 — take:1 로 아무 Episode 나 하나 있는지만 보던 것을, 실질
+      // 내용 여부까지 확인하도록 전부 가져온다(인물당 Episode 수는 적어
+      // 비용 부담 미미).
+      episodes: { select: { id: true, content: true } },
       lifeEvents: {
         take: 1,
         orderBy: { createdAt: "asc" },
@@ -159,7 +178,7 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
     },
   });
   for (const p of personsWithoutEpisode) {
-    if (p.episodes.length > 0) continue;
+    if (p.episodes.some((ep) => isSubstantiveEpisodeContent(ep.content))) continue;
     const link = p.lifeEvents[0];
     if (!link) continue;
     // P10-4 — 윗사람(가족·은사)이면 호칭을 살려 격식 조사로 부른다.
