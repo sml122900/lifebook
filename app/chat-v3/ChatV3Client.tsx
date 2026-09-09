@@ -1399,6 +1399,10 @@ export function ChatV3Client({
               disabled={!isIdle}
               placeholder="답을 입력해 주세요 (Shift+Enter 줄바꿈)"
               rows={2}
+              autoComplete="off"
+              data-lpignore="true"
+              data-1p-ignore
+              data-form-type="other"
               className="flex-1 resize-none rounded-2xl border-2 border-line bg-canvas px-4 py-3 text-lg text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none disabled:opacity-50"
               style={{ maxHeight: "9rem" }}
             />

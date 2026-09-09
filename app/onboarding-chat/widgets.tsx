@@ -44,6 +44,10 @@ export function YearWidget({
         min={1900}
         max={MAX_YEAR}
         disabled={disabled}
+        autoComplete="off"
+        data-lpignore="true"
+        data-1p-ignore
+        data-form-type="other"
         className="w-0 flex-1 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[22px] font-medium text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
       />
       <button
@@ -357,6 +361,10 @@ export function PlaceableMultiItemWidget({
             : "장소 이름 검색… (예: 강남역, Tokyo Station)"
         }
         disabled={disabled}
+        autoComplete="off"
+        data-lpignore="true"
+        data-1p-ignore
+        data-form-type="other"
         className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
       />
 
@@ -528,6 +536,10 @@ export function MultiItemWidget({
           }}
           placeholder={placeholder}
           disabled={disabled}
+          autoComplete="off"
+          data-lpignore="true"
+          data-1p-ignore
+          data-form-type="other"
           className="w-0 flex-1 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
         />
         <button

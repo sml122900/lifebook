@@ -597,6 +597,10 @@ export default function OnboardingChatClient() {
                 onChange={(e) => setInputVal(e.target.value)}
                 disabled={disabled}
                 placeholder={inPeoplePhase ? "성함을 입력하세요…" : widget ? "직접 입력하셔도 돼요…" : "답변을 입력하세요…"}
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore
+                data-form-type="other"
                 className="flex-1 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
               />
               <button
