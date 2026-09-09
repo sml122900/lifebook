@@ -1,6 +1,7 @@
 "use server";
 
-// STAGE4 — 에피소드 심화 대화 + 저장.
+// STAGE4 — 에피소드 심화 대화 + 저장. v3 P19-1/P19-3 — 삭제/정정도 이 파일에
+// 함께 둔다(Episode 도메인 액션).
 //
 // 대화 자체는 턴마다 DB 에 쓰지 않는다 — 클라가 history 배열을 들고 있다가
 // 끝날 때(finishEpisodeChat) 한 번에 요약 + 저장한다. continueEpisodeChat 은
@@ -10,6 +11,8 @@
 // 여기서는 MAX_FOLLOWUPS 하드캡으로 한 번 더 지킨다 — 모델이 스스로
 // end:true 를 안 줘도 정해진 턴 수를 넘기지 않는다.
 
+import { revalidatePath } from "next/cache";
+
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { chat } from "@/lib/ai";
@@ -17,7 +20,14 @@ import {
   buildEpisodeChatSystemPrompt,
   EPISODE_SUMMARY_SYSTEM_PROMPT,
 } from "@/lib/prompts/episode-chat";
-import { createEpisodeBridge, saveEpisodePlaces as saveEpisodePlacesDb } from "@/lib/episode";
+import {
+  createEpisodeBridge,
+  deleteEpisode as deleteEpisodeCore,
+  saveEpisodePlaces as saveEpisodePlacesDb,
+  updateEpisodeContent as updateEpisodeContentCore,
+  type DeleteEpisodeResult,
+  type UpdateEpisodeContentResult,
+} from "@/lib/episode";
 import { isSummaryGuidance } from "@/lib/episode-text";
 import { savePeopleMentionedInEpisode } from "@/lib/person-chat";
 import type { PlaceInfo } from "@/lib/place-types";
@@ -251,4 +261,23 @@ export async function saveEpisodePlaces(
 ): Promise<boolean> {
   const userId = await requireUserId();
   return saveEpisodePlacesDb(userId, memoryId, places);
+}
+
+// v3 P19-1 — /story-review 카드에서 이야기 지우기.
+export async function deleteEpisodeAction(episodeId: string): Promise<DeleteEpisodeResult> {
+  const userId = await requireUserId();
+  const result = await deleteEpisodeCore(userId, episodeId);
+  if (result.ok) revalidatePath("/story-review");
+  return result;
+}
+
+// v3 P19-3 — /story-review 카드에서 이야기 고치기.
+export async function updateEpisodeContentAction(
+  episodeId: string,
+  content: string,
+): Promise<UpdateEpisodeContentResult> {
+  const userId = await requireUserId();
+  const result = await updateEpisodeContentCore(userId, episodeId, content);
+  if (result.ok) revalidatePath("/story-review");
+  return result;
 }

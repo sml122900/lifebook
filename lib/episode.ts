@@ -11,6 +11,7 @@
 // (연결 시 재검토 필요, 이번 범위 아님).
 
 import { prisma } from "./db";
+import { isSubstantiveEpisodeContent } from "./episode-text";
 import type { PlaceInfo } from "./place-types";
 
 export const CREATED_VIA_EPISODE = "episode";
@@ -80,6 +81,82 @@ export async function createEpisodeBridge(
     });
     return { episodeId: episode.id, memoryId: memory.id };
   });
+}
+
+// v3 P19-1 — Episode 삭제. Episode 는 자기 lifeEventId/memoryId 둘 다 FK를
+// 갖지만 cascade 방향은 "memory→episode"·"lifeEvent→episode" 뿐이라
+// (역방향 없음), Episode 만 지우면 UserMemory 브릿지 행이 고아로 남는다.
+// UserMemory 를 지워서 Episode 를 cascade 시키는 게 유일하게 안전한 순서
+// (db/test-people.ts 의 `userMemory.delete({ id: trip.id })` 와 동일 패턴).
+export type DeleteEpisodeResult = { ok: true } | { ok: false; error: string };
+
+export async function deleteEpisode(
+  userId: string,
+  episodeId: string,
+): Promise<DeleteEpisodeResult> {
+  const episode = await prisma.episode.findFirst({
+    where: { id: episodeId, memory: { userId } },
+    select: { id: true, memoryId: true, lifeEventId: true },
+  });
+  if (!episode) return { ok: false, error: "이야기를 찾을 수 없어요." };
+
+  await prisma.$transaction(async (tx) => {
+    // Comment/MemoryReaction 은 UserMemory 를 폴리모픽(targetType/targetId)
+    // 으로 가리켜 FK cascade 가 안 된다(lib/account-deletion.ts 와 동일
+    // 이유) — 미리 지워야 고아 댓글/반응이 안 남는다.
+    await tx.comment.deleteMany({
+      where: { targetType: "user_memory", targetId: episode.memoryId },
+    });
+    await tx.memoryReaction.deleteMany({
+      where: { targetType: "user_memory", targetId: episode.memoryId },
+    });
+    await tx.userMemory.delete({ where: { id: episode.memoryId } });
+
+    // P16-1 이 hasEpisode 대신 "실질 내용 있는 Episode 존재"로 갭을
+    // 판단하지만, 배지 표시용 hasEpisode 플래그도 정합을 맞춘다(핸드오프
+    // 명시 요구) — 남은 Episode 중 실질 내용이 하나라도 있으면 유지.
+    const remaining = await tx.episode.findMany({
+      where: { lifeEventId: episode.lifeEventId },
+      select: { content: true },
+    });
+    const stillHasEpisode = remaining.some((e) => isSubstantiveEpisodeContent(e.content));
+    await tx.lifeEvent.update({
+      where: { id: episode.lifeEventId },
+      data: { hasEpisode: stillHasEpisode },
+    });
+  });
+
+  return { ok: true };
+}
+
+// v3 P19-3 — Episode 본문 정정. rawTranscript(원본 대화 로그)는 그대로 두고
+// content(요약본)만 갱신 — /people 인물 상세(listEventsByPerson) 도 이
+// content 를 그대로 읽으므로 별도 반영 코드 없이 자동으로 맞는다.
+// UserMemory.content 도 함께 갱신 — createEpisodeBridge 가 애초에 두 값을
+// 같은 텍스트로 채워 저장하므로(브릿지 행이 나중에 가족 룸 등 다른 화면에
+// 노출될 가능성 대비) 어긋나지 않게 유지한다.
+export type UpdateEpisodeContentResult = { ok: true } | { ok: false; error: string };
+
+export async function updateEpisodeContent(
+  userId: string,
+  episodeId: string,
+  content: string,
+): Promise<UpdateEpisodeContentResult> {
+  const trimmed = content.trim();
+  if (!trimmed) return { ok: false, error: "내용을 입력해 주세요." };
+
+  const episode = await prisma.episode.findFirst({
+    where: { id: episodeId, memory: { userId } },
+    select: { id: true, memoryId: true },
+  });
+  if (!episode) return { ok: false, error: "이야기를 찾을 수 없어요." };
+
+  await prisma.$transaction([
+    prisma.episode.update({ where: { id: episode.id }, data: { content: trimmed } }),
+    prisma.userMemory.update({ where: { id: episode.memoryId }, data: { content: trimmed } }),
+  ]);
+
+  return { ok: true };
 }
 
 // PlacesEditor(장소 1:N) 저장 — updatePhotoMemoryPlaces(lib/photos.ts) 와

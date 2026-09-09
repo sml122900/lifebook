@@ -7,14 +7,15 @@ import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
 import { getOnboardingTrack } from "@/lib/onboarding-track";
 import { getStoryReviewData } from "@/lib/story-review";
 
+import { DeleteCustomEventButton } from "./DeleteCustomEventButton";
+import { EpisodeCard } from "./EpisodeCard";
+
 // v3 통합 채팅(P2) — 정리 화면. /chat-v3 에서 뼈대를 다 채우거나 사용자가
 // 대화를 마칠 때 이리로 넘어온다(ChatV3Client.finishSession). 직접 URL로도
 // 언제든 들어올 수 있다 — 게이트 없이 항상 "지금까지" 스냅샷을 보여준다.
 //
 // v3 P17 — /enter 가 이제 이 경로를 가리킨다(V3 트랙, 온보딩 완료 시). V2
 // 사용자 직접 URL 진입은 /enter 로 돌려보낸다(자동 전환 금지).
-
-const EPISODE_EXCERPT_LENGTH = 120;
 
 function gapHref(gap: Gap): string {
   if (!gap.targetEventId) return "/chat-v3";
@@ -88,29 +89,36 @@ export default async function StoryReviewPage() {
           <p className="text-lg text-ink-soft">아직 채워진 이야기가 없어요.</p>
         ) : (
           <ol className="flex flex-col gap-3">
-            {timeline.map((item) => (
-              <li
-                key={item.id}
-                className="flex flex-col gap-2 rounded-md border-2 border-line bg-surface px-5 py-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-lg text-ink">
-                    {item.year ? `${item.year}년 ` : ""}
-                    {item.label}
-                  </span>
-                  {item.hasEpisode && (
-                    <span className="shrink-0 rounded-full bg-banner px-3 py-1 text-base text-ink-soft">
-                      이야기 있음
-                    </span>
+            {timeline.map((item) => {
+              const itemLabel = `${item.year ? `${item.year}년 ` : ""}${item.label}`;
+              return (
+                <li
+                  key={item.id}
+                  className="flex flex-col gap-2 rounded-md border-2 border-line bg-surface px-5 py-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="text-lg text-ink">{itemLabel}</span>
+                    <div className="flex shrink-0 items-center gap-3">
+                      {item.hasEpisode && (
+                        <span className="rounded-full bg-banner px-3 py-1 text-base text-ink-soft">
+                          이야기 있음
+                        </span>
+                      )}
+                      {/* v3 P19-2 — 골격 이벤트(BIRTH~MARRIAGE)는 삭제 불가,
+                          CUSTOM(자유 승격)만 지울 수 있다. */}
+                      {item.type === "CUSTOM" && (
+                        <DeleteCustomEventButton eventId={item.id} eventLabel={itemLabel} />
+                      )}
+                    </div>
+                  </div>
+                  {item.people.length > 0 && (
+                    <p className="text-base text-ink-soft">
+                      👤 {item.people.map((p) => p.name).join(", ")}
+                    </p>
                   )}
-                </div>
-                {item.people.length > 0 && (
-                  <p className="text-base text-ink-soft">
-                    👤 {item.people.map((p) => p.name).join(", ")}
-                  </p>
-                )}
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ol>
         )}
       </section>
@@ -120,17 +128,14 @@ export default async function StoryReviewPage() {
           <h2 className="text-2xl font-bold text-ink">들려주신 이야기</h2>
           <div className="flex flex-col gap-3">
             {episodes.map((ep) => (
-              <div key={ep.id} className="rounded-md border-2 border-line bg-surface p-5">
-                <p className="text-lg font-semibold text-ink">
-                  {ep.year ? `${ep.year}년 ` : ""}
-                  {ep.label}
-                </p>
-                <p className="mt-2 text-lg leading-relaxed text-ink-soft">
-                  {ep.content.length > EPISODE_EXCERPT_LENGTH
-                    ? `${ep.content.slice(0, EPISODE_EXCERPT_LENGTH)}…`
-                    : ep.content}
-                </p>
-              </div>
+              <EpisodeCard
+                key={ep.id}
+                episodeId={ep.id}
+                label={ep.label}
+                year={ep.year}
+                content={ep.content}
+                familyActivityCount={ep.familyActivityCount}
+              />
             ))}
           </div>
         </section>
