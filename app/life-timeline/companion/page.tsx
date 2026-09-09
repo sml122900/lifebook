@@ -8,6 +8,7 @@ import { markTourCompletedAction } from "@/app/life-timeline/tour-actions";
 import { fetchStoryTimeline } from "@/lib/companion";
 import { CURRENT_CONSENT_VERSION } from "@/lib/consent-version";
 import { prisma } from "@/lib/db";
+import { getOnboardingTrack } from "@/lib/onboarding-track";
 import { COMPANION_TOUR_ID, COMPANION_TOUR_STEPS } from "@/lib/tours";
 import { getUserAiModel } from "@/lib/user-ai-model";
 import { CompanionClient } from "./CompanionClient";
@@ -15,10 +16,16 @@ import { StoryTimelinePanel } from "./StoryTimelinePanel";
 
 export const metadata = { title: "말동무 | 라이프북" };
 
+// v3 P20-2b — V3 사용자가 이 v2 전용 화면에 (플로팅 위젯 인터셉트를 우회한
+// 직접 URL 등으로) 들어오면 /story-review 로 돌려보낸다. P17-2 의 /start·
+// /chat-v3 대칭 가드와 같은 패턴 — 페이지 상단 가드만 추가, 아래 v2 로직은
+// 무수정.
 export default async function CompanionPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if ((session.consentVersion ?? 0) < CURRENT_CONSENT_VERSION) redirect("/consent");
+  const track = await getOnboardingTrack(session.user.id);
+  if (track === "V3") redirect("/story-review");
 
   const [aiModel, storyItems, userRow] = await Promise.all([
     getUserAiModel(session.user.id),

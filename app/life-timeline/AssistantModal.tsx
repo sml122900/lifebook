@@ -36,6 +36,7 @@ export function AssistantModal({
   fallbackLabel,
   initialSavedAnswers,
   variant = "inline",
+  onboardingTrack = "V2",
 }: {
   fallbackYear: number;
   fallbackMonth: number;
@@ -47,6 +48,12 @@ export function AssistantModal({
   // 화면 우측 하단 고정 FAB(둥근 위젯). root layout 의 글로벌 비서 위젯이
   // floating 으로 호출한다. 모달 본문 자체는 두 변형 동일.
   variant?: "inline" | "floating";
+  // v3 P20-2a — AssistantPanel(v2, 무수정)이 onNavigate("/life-timeline/
+  // companion") 을 하드코딩해서 부른다. V3 사용자에게 그 v2 경로를 그대로
+  // 열면 안 되므로 이 레이어(모달 wrapper)에서 가로채 /chat-v3 로 바꾼다.
+  // 기본값 V2 — /life-timeline(v2 전용, inline variant)는 track prop 없이도
+  // 기존 그대로 동작.
+  onboardingTrack?: "V2" | "V3";
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -155,7 +162,14 @@ export function AssistantModal({
                 keptEventIds={EMPTY_SET}
                 onAddEvent={handleAddEvent}
                 initialSavedAnswers={initialSavedAnswers}
-                onNavigate={(href) => { setOpen(false); router.push(href); }}
+                onNavigate={(href) => {
+                  setOpen(false);
+                  const target =
+                    onboardingTrack === "V3" && href === "/life-timeline/companion"
+                      ? "/chat-v3"
+                      : href;
+                  router.push(target);
+                }}
               />
             </div>
           </div>

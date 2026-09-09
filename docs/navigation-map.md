@@ -1,7 +1,7 @@
 # 라이프북 — 버튼·링크 이동 지도 (Navigation Map)
 
 > 서비스의 모든 버튼/링크가 **어디로 이동하는지** 한눈에 보는 문서.
-> 작성: 2026-06-26 · 최신화: 2026-09-09(v3 P17 — onboardingTrack V2/V3 분기, `/start`·`/chat-v3`·`/story-review` 진입로 + 전환 배너 반영) · 코드 기준 정리.
+> 작성: 2026-06-26 · 최신화: 2026-09-10(v3 P20 — V3 트랙 V2 레거시 노출 픽스: 플로팅 위젯 이야기 나누기 분기, `/life-timeline`·`/life-timeline/companion` V3 가드) · 코드 기준 정리.
 > 표기: `→ /경로` 내부 이동, `↗ https://…` 외부 새 탭, `⚙ 액션` 서버액션(페이지 전환 없음/새로고침).
 
 ---
@@ -75,7 +75,7 @@
 | 버튼/항목 | 이동·동작 |
 |---|---|
 | AI 비서와 대화 (둥근 버튼) | 모달 열기 |
-| └ 💬 이야기 나누기 | → `/life-timeline/companion` (모달 닫고 이동) |
+| └ 💬 이야기 나누기 | → `/life-timeline/companion` (V2) · → `/chat-v3` (V3, P20-2a — `AssistantModal` 이 v2 `AssistantPanel` 의 하드코딩 경로를 가로챔) (모달 닫고 이동) |
 | └ 🕰️ 그 시절 떠올리기 | 그 시절 갈래: 목록에서 고르기(무료) / AI에게 물어보기(토큰). 사이드 "그 시절 둘러보기"(/era)와 라벨 구분(4-B-4) |
 | └ ❓ 사용법 물어보기 | 사용법 안내 챗 (무료, Haiku) |
 | └ 내 타임라인에 추가 | → `/life-timeline/add` |
@@ -120,6 +120,8 @@
 | `/chat-v3` | V2 트랙으로 직접 진입 시 → `/enter` |
 | `/story-review` | V2 트랙으로 직접 진입 시 → `/enter` |
 | `/onboarding-chat` (v2 파이프라인) | V3 트랙으로 직접 진입 시 → `/enter` |
+| `/life-timeline` (P20-2b) | V3 트랙으로 직접 진입 시 → `/story-review` |
+| `/life-timeline/companion` (P20-2b) | V3 트랙으로 직접 진입 시 → `/story-review` |
 
 ### 온보딩 (v2)
 | 화면 | 버튼 | 이동 |

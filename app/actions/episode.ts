@@ -11,8 +11,6 @@
 // 여기서는 MAX_FOLLOWUPS 하드캡으로 한 번 더 지킨다 — 모델이 스스로
 // end:true 를 안 줘도 정해진 턴 수를 넘기지 않는다.
 
-import { revalidatePath } from "next/cache";
-
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { chat } from "@/lib/ai";
@@ -264,20 +262,28 @@ export async function saveEpisodePlaces(
 }
 
 // v3 P19-1 — /story-review 카드에서 이야기 지우기.
+//
+// P20-1 — revalidatePath("/story-review") 를 여기 두면, 호출자(/story-review
+// 자신)가 Server Action 응답에 최신 RSC 페이로드를 함께 실어 보내려고 그
+// 자리에서 getStoryReviewData+detectGaps(무거운 재계산)를 통째로 다시
+// 돌린다. 호출부(EpisodeCard)가 성공 후 router.refresh() 로 이미 같은
+// 갱신을 별도 요청으로 하고 있어(=v2 컴포넌트 무수정 정책과 무관하게 v3
+// 자체 컴포넌트) 실질적으로 매 클릭마다 같은 무거운 쿼리를 두 번 태우고
+// 있었다 — Vercel 함수 응답이 그 안에서 타임아웃/503 나면 "DB 는 반영됐는데
+// 화면엔 안 보이는" 상태로 남는다(P20 재현). /story-review 는 auth() 로
+// 이미 항상 동적 렌더(정적 캐시 대상 아님)라 revalidatePath 는 여기서
+// 실질적 이점 없이 비용만 더한다 — 제거하고 router.refresh() 단독으로 맡긴다.
 export async function deleteEpisodeAction(episodeId: string): Promise<DeleteEpisodeResult> {
   const userId = await requireUserId();
-  const result = await deleteEpisodeCore(userId, episodeId);
-  if (result.ok) revalidatePath("/story-review");
-  return result;
+  return deleteEpisodeCore(userId, episodeId);
 }
 
-// v3 P19-3 — /story-review 카드에서 이야기 고치기.
+// v3 P19-3 — /story-review 카드에서 이야기 고치기. P20-1 이유로 revalidatePath
+// 없음(위 deleteEpisodeAction 주석 참조).
 export async function updateEpisodeContentAction(
   episodeId: string,
   content: string,
 ): Promise<UpdateEpisodeContentResult> {
   const userId = await requireUserId();
-  const result = await updateEpisodeContentCore(userId, episodeId, content);
-  if (result.ok) revalidatePath("/story-review");
-  return result;
+  return updateEpisodeContentCore(userId, episodeId, content);
 }

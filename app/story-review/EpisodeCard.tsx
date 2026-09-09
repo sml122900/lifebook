@@ -47,29 +47,46 @@ export function EpisodeCard({
     };
   }, [confirmOpen, isPending]);
 
+  // P20-1 — 서버 액션 응답 자체가 503 등으로 실패해도(트랜짓 오류), DB
+  // 쓰기는 이미 끝났을 가능성이 높다(액션이 이제 가벼운 쓰기만 하고 바로
+  // 반환 — app/actions/episode.ts 참조). "실패한 것처럼 보이는데 실제론
+  // 성공" 상태로 방치하지 않도록, throw 케이스도 router.refresh() 로
+  // 화면을 실제 서버 상태와 동기화하고 안내만 중립적으로 보여준다.
   function handleSave() {
     setError(null);
     startTransition(async () => {
-      const result = await updateEpisodeContentAction(episodeId, draft);
-      if (!result.ok) {
-        setError(result.error ?? "고치지 못했어요.");
-        return;
+      try {
+        const result = await updateEpisodeContentAction(episodeId, draft);
+        if (!result.ok) {
+          setError(result.error ?? "고치지 못했어요.");
+          return;
+        }
+        setEditing(false);
+        router.refresh();
+      } catch (e) {
+        console.error("[episode-save]", e);
+        setError("처리 중 문제가 있었어요. 화면을 새로고침할게요.");
+        router.refresh();
       }
-      setEditing(false);
-      router.refresh();
     });
   }
 
   function handleDelete() {
     setError(null);
     startTransition(async () => {
-      const result = await deleteEpisodeAction(episodeId);
-      if (!result.ok) {
-        setError(result.error ?? "지우지 못했어요.");
-        return;
+      try {
+        const result = await deleteEpisodeAction(episodeId);
+        if (!result.ok) {
+          setError(result.error ?? "지우지 못했어요.");
+          return;
+        }
+        setConfirmOpen(false);
+        router.refresh();
+      } catch (e) {
+        console.error("[episode-delete]", e);
+        setError("처리 중 문제가 있었어요. 화면을 새로고침할게요.");
+        router.refresh();
       }
-      setConfirmOpen(false);
-      router.refresh();
     });
   }
 

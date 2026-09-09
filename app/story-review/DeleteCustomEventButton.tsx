@@ -36,16 +36,25 @@ export function DeleteCustomEventButton({
     };
   }, [open, isPending]);
 
+  // P20-1 — 서버 액션 응답 자체가 실패해도(트랜짓 오류) DB 쓰기는 이미
+  // 끝났을 가능성이 높다(app/actions/life-event.ts 참조). throw 케이스도
+  // router.refresh() 로 화면을 실제 서버 상태와 동기화한다.
   function handleConfirm() {
     setError(null);
     startTransition(async () => {
-      const result = await deleteCustomLifeEventAction(eventId);
-      if (!result.ok) {
-        setError(result.error ?? "지우지 못했어요.");
-        return;
+      try {
+        const result = await deleteCustomLifeEventAction(eventId);
+        if (!result.ok) {
+          setError(result.error ?? "지우지 못했어요.");
+          return;
+        }
+        setOpen(false);
+        router.refresh();
+      } catch (e) {
+        console.error("[custom-event-delete]", e);
+        setError("처리 중 문제가 있었어요. 화면을 새로고침할게요.");
+        router.refresh();
       }
-      setOpen(false);
-      router.refresh();
     });
   }
 

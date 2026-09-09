@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { getLifeEvents } from "@/lib/life-events";
+import { getOnboardingTrack } from "@/lib/onboarding-track";
 import {
   APPROX_DEFAULT_MONTH,
   LATEST_MONTH,
@@ -31,7 +32,10 @@ export async function AssistantWidget() {
   if (!session?.user?.id) return null;
   const userId = session.user.id;
 
-  const events = await getLifeEvents(userId);
+  const [events, onboardingTrack] = await Promise.all([
+    getLifeEvents(userId),
+    getOnboardingTrack(userId),
+  ]);
   const lastEvent = events.length > 0 ? events[events.length - 1] : null;
 
   const year = lastEvent ? lastEvent.eventYear : LATEST_YEAR;
@@ -59,6 +63,7 @@ export async function AssistantWidget() {
       fallbackMonth={month}
       fallbackLabel={label}
       initialSavedAnswers={initialSavedAnswers}
+      onboardingTrack={onboardingTrack}
     />
   );
 }

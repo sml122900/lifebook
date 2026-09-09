@@ -11,8 +11,6 @@
 // (LifeEvent.unclearCount/needsReview). getNextConfirmQuestion 은 needsReview
 // 인 이벤트를 다음 질문 대상에서 제외한다 — 사람 개입 전까지 재질문 안 함.
 
-import { revalidatePath } from "next/cache";
-
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { chat } from "@/lib/ai";
@@ -295,12 +293,12 @@ export async function getConfirmedLifeEvent(
 
 // v3 P19-2 — /story-review 타임라인에서 CUSTOM(자유 승격) 이벤트 지우기.
 // 골격 이벤트(BIRTH~MARRIAGE)는 lib/life-event-delete.ts 의 type:"CUSTOM"
-// 가드가 막는다.
+// 가드가 막는다. P20-1 이유로 revalidatePath 없음(app/actions/episode.ts
+// deleteEpisodeAction 주석 참조) — 호출자(DeleteCustomEventButton)가
+// router.refresh() 로 갱신한다.
 export async function deleteCustomLifeEventAction(
   lifeEventId: string,
 ): Promise<DeleteCustomLifeEventResult> {
   const userId = await requireUserId();
-  const result = await deleteCustomLifeEventCore(userId, lifeEventId);
-  if (result.ok) revalidatePath("/story-review");
-  return result;
+  return deleteCustomLifeEventCore(userId, lifeEventId);
 }
