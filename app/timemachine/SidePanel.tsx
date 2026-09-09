@@ -10,6 +10,7 @@ import {
   BONUS_EVERY_DAYS,
   DAILY_CREDIT,
 } from "@/lib/attendance-policy";
+import type { OnboardingTrack } from "@/lib/generated/prisma/enums";
 import { SIDE_PANEL_EVENT, START_TOUR_EVENT } from "@/lib/tours";
 
 import { checkInAction } from "./attendance-actions";
@@ -40,6 +41,7 @@ export type SidePanelData = {
     streak: number;
   };
   familyNewsCount: number;
+  onboardingTrack: OnboardingTrack;
 };
 
 export function SidePanelLayout({
@@ -248,18 +250,37 @@ function SidePanel({
             콘텐츠(내 이야기)가 메인이라 최상단, 계정·도움은 하단. */}
         <nav className="mt-6 flex flex-col gap-6" aria-label="메뉴">
           <MenuGroup title="📖 내 이야기">
-            <MenuItem
-              href="/life-timeline"
-              label="내 인생 연혁"
-              hint="한눈에 보는 인생"
-            />
-            <MenuItem
-              href="/life-timeline/companion"
-              label="이야기 나누기"
-              hint="말로 풀어놓는 내 이야기"
-              icon={<Mic size={16} aria-hidden />}
-              dataTour="companion"
-            />
+            {data.onboardingTrack === "V3" ? (
+              <>
+                <MenuItem
+                  href="/chat-v3"
+                  label="이야기 나누기"
+                  hint="말로 풀어놓는 내 이야기"
+                  icon={<Mic size={16} aria-hidden />}
+                  dataTour="companion"
+                />
+                <MenuItem
+                  href="/story-review"
+                  label="내 이야기"
+                  hint="지금까지 채운 이야기 모아보기"
+                />
+              </>
+            ) : (
+              <>
+                <MenuItem
+                  href="/life-timeline"
+                  label="내 인생 연혁"
+                  hint="한눈에 보는 인생"
+                />
+                <MenuItem
+                  href="/life-timeline/companion"
+                  label="이야기 나누기"
+                  hint="말로 풀어놓는 내 이야기"
+                  icon={<Mic size={16} aria-hidden />}
+                  dataTour="companion"
+                />
+              </>
+            )}
             <MenuItem
               href="/people"
               label="인물록"

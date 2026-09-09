@@ -3,13 +3,15 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
 import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
+import { getOnboardingTrack } from "@/lib/onboarding-track";
 import { getStoryReviewData } from "@/lib/story-review";
 
 // v3 통합 채팅(P2) — 정리 화면. /chat-v3 에서 뼈대를 다 채우거나 사용자가
 // 대화를 마칠 때 이리로 넘어온다(ChatV3Client.finishSession). 직접 URL로도
 // 언제든 들어올 수 있다 — 게이트 없이 항상 "지금까지" 스냅샷을 보여준다.
 //
-// ⚠️ 탐색 단계 — /enter 라우팅은 아직 이 경로를 가리키지 않는다.
+// v3 P17 — /enter 가 이제 이 경로를 가리킨다(V3 트랙, 온보딩 완료 시). V2
+// 사용자 직접 URL 진입은 /enter 로 돌려보낸다(자동 전환 금지).
 
 const EPISODE_EXCERPT_LENGTH = 120;
 
@@ -36,6 +38,10 @@ export default async function StoryReviewPage() {
     redirect("/login");
   }
   const userId = session.user.id;
+  const track = await getOnboardingTrack(userId);
+  if (track !== "V3") {
+    redirect("/enter");
+  }
 
   const [{ timeline, episodes }, gaps] = await Promise.all([
     getStoryReviewData(userId),

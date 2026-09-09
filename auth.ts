@@ -55,6 +55,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async createUser({ user }) {
       if (user.id) {
         await ensureWalletWithSignupGrant(user.id);
+        // v3 P17 — 소셜(카카오/네이버/구글) 신규 가입은 V3 파이프라인.
+        // 이 업데이트가 실패해도 스키마 기본값(V2)으로 안전하게 떨어지므로
+        // (fail-safe) throw 하지 않지만, 조용히 묻히면 원인 추적이 안 되므로
+        // 실패 로그는 남긴다.
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { onboardingTrack: "V3" },
+          });
+        } catch (e) {
+          console.error("[auth] onboardingTrack V3 지정 실패, V2로 유지됨", user.id, e);
+        }
       }
     },
   },

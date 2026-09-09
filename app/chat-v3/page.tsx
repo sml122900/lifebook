@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { getOnboardingTrack } from "@/lib/onboarding-track";
 import { getUserCharacterPrefs } from "@/lib/user-character";
 
 import { ChatV3Client, type InitialGap } from "./ChatV3Client";
@@ -15,8 +16,9 @@ import { ChatV3Client, type InitialGap } from "./ChatV3Client";
 // 이벤트(또는 period 는 구간의 anchor 이벤트, person_episode 는 이벤트+인물
 // 조합)를 지정해 돌아올 때(P2·P3-2, P6). 없으면 자연 분기.
 //
-// ⚠️ 탐색 단계 — /enter 라우팅은 아직 이 경로를 가리키지 않는다. 기존
-// /onboarding-confirm 등 v2 파이프라인은 무수정 보존.
+// v3 P17 — /enter 가 이제 이 경로를 가리킨다(V3 트랙). V2 사용자 직접 URL
+// 진입은 /enter 로 돌려보낸다(자동 전환 금지). 기존 /onboarding-confirm 등
+// v2 파이프라인은 무수정 보존.
 export default async function ChatV3Page({
   searchParams,
 }: {
@@ -25,6 +27,10 @@ export default async function ChatV3Page({
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
+  }
+  const track = await getOnboardingTrack(session.user.id);
+  if (track !== "V3") {
+    redirect("/enter");
   }
 
   const { gapEventId, gapType, gapPersonId } = await searchParams;

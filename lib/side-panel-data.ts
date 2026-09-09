@@ -9,8 +9,10 @@
 // 2026-06-06: 월별 타임머신 진입로 제거(v3). currentMonthHref 필드 삭제 —
 // "이번 달 타임머신" 메뉴가 사라지면서 사용처 0.
 
+import type { OnboardingTrack } from "./generated/prisma/enums";
 import { getAttendanceStatus } from "./attendance";
 import { getFamilyNewsCount } from "./family-news";
+import { getOnboardingTrack } from "./onboarding-track";
 import { getBalance } from "./tokens/wallet";
 
 export type SidePanelDataInput = {
@@ -28,15 +30,17 @@ export type SidePanelDataPrepared = {
   balance: number;
   attendance: { todayChecked: boolean; streak: number };
   familyNewsCount: number;
+  onboardingTrack: OnboardingTrack;
 };
 
 export async function loadSidePanelData(
   input: SidePanelDataInput,
 ): Promise<SidePanelDataPrepared> {
-  const [balance, attendance, familyNews] = await Promise.all([
+  const [balance, attendance, familyNews, onboardingTrack] = await Promise.all([
     getBalance(input.userId),
     getAttendanceStatus(input.userId),
     getFamilyNewsCount(input.userId),
+    getOnboardingTrack(input.userId),
   ]);
 
   return {
@@ -48,5 +52,6 @@ export async function loadSidePanelData(
       streak: attendance.streak,
     },
     familyNewsCount: familyNews.total,
+    onboardingTrack,
   };
 }

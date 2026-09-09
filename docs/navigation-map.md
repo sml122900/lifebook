@@ -1,7 +1,7 @@
 # 라이프북 — 버튼·링크 이동 지도 (Navigation Map)
 
 > 서비스의 모든 버튼/링크가 **어디로 이동하는지** 한눈에 보는 문서.
-> 작성: 2026-06-26 · 최신화: 2026-07-01(리팩토링 1~4B 반영 — 사이드 5그룹·레거시 archive 스텁·토큰/AI 동선 정리) · 코드 기준 정리.
+> 작성: 2026-06-26 · 최신화: 2026-09-09(v3 P17 — onboardingTrack V2/V3 분기, `/start`·`/chat-v3`·`/story-review` 진입로 + 전환 배너 반영) · 코드 기준 정리.
 > 표기: `→ /경로` 내부 이동, `↗ https://…` 외부 새 탭, `⚙ 액션` 서버액션(페이지 전환 없음/새로고침).
 
 ---
@@ -11,17 +11,21 @@
 ```
 (비로그인) /  ──[무료로 시작하기]──▶ /login ──[소셜/이메일 로그인]──▶ /enter (분기)
                                                   │
-                              ┌───────────────────┼───────────────────────┐
-                       신규(온보딩 X)        기존 이벤트 有              동의 미완료
-                              ▼                    ▼                       ▼
-                      /onboarding-chat      /life-timeline (메인)        /consent
-                              └──────────────▶ /life-timeline ◀──────────┘
+                    ┌─────────────────────────────┼─────────────────────────────┐
+              동의 미완료                  V3 트랙(신규 가입)              V2 트랙(기존 사용자)
+                    ▼                             ▼                             ▼
+                /consent          skeleton 완성+확인대기 0건?          신규(온보딩 X) / 기존 이벤트 有
+                                    ├─ Yes → /story-review               ├─ /onboarding-chat
+                                    └─ No  → /start ▶ /chat-v3            └─ /life-timeline (메인)
 
-/life-timeline (메인) ─ 사이드패널/카드 버튼으로 모든 기능 진입
+/life-timeline (v2 메인) ─ 사이드패널/카드 버튼으로 모든 기능 진입
    ├─ 기록: /life-record · /life-timeline/add · /life-timeline/free-record · /life-timeline/companion
    ├─ 둘러보기: /era · /people · /photos · /rooms
    ├─ 포스터: /poster ▶ /poster/select ▶ /poster/view ▶ /poster/order ▶ (토스결제)
-   └─ 계정/결제: /account/* · /billing · /shop
+   ├─ 계정/결제: /account/* · /billing · /shop
+   └─ [새 방식으로 이야기해보기] 배너 → 확인 모달 → ⚙ onboardingTrack=V3 → /start
+
+/story-review (v3 메인) ── [이야기하기] 갭 카드 ──▶ /chat-v3(?gapEventId=…) ──▶ (완료) /story-review
 ```
 
 ---
@@ -44,20 +48,23 @@
 | 오늘 토큰 받기 (출석 미니) | ⚙ 출석 체크 | 오늘 안 받았을 때 |
 
 **메뉴 — 성격별 5그룹** (4-A, 2026-07-01). 항목은 `MenuGroup` 헤더로 묶임.
-| 그룹 | 메뉴 | 이동 |
-|---|---|---|
-| 📖 내 이야기 | 내 인생 연혁 | → `/life-timeline` |
-| | 이야기 나누기 | → `/life-timeline/companion` |
-| | 인물록 | → `/people` |
-| | 내 사진 | → `/photos` |
-| | 그 시절 둘러보기 | → `/era` |
-| 👨‍👩‍👧 함께 보기 | 가족 룸 | → `/rooms` |
-| 🎁 만들기·상점 | 포스터 만들기 | → `/poster` |
-| | 상품 구매 | → `/shop` |
-| ⚙️ 내 계정 | 회원정보 | → `/account/profile` |
-| | 설정 | → `/account/settings` |
-| 🆘 도움 | 고객센터 | → `/help` |
-| | 둘러보기 다시 보기 | ⚙ 코치마크 재시작 (다른 페이지면 → `/life-timeline?tour=main`) |
+"📖 내 이야기" 첫 두 항목은 `onboardingTrack` 에 따라 갈린다(v3 P17) — 나머지 그룹은 트랙 무관 공용.
+| 그룹 | 메뉴 | 이동 | 조건 |
+|---|---|---|---|
+| 📖 내 이야기 | 이야기 나누기 | → `/chat-v3` | V3 트랙 |
+| | 내 이야기 | → `/story-review` | V3 트랙 |
+| 📖 내 이야기 | 내 인생 연혁 | → `/life-timeline` | V2 트랙 |
+| | 이야기 나누기 | → `/life-timeline/companion` | V2 트랙 |
+| | 인물록 | → `/people` | 공용 |
+| | 내 사진 | → `/photos` | 공용 |
+| | 그 시절 둘러보기 | → `/era` | 공용 |
+| 👨‍👩‍👧 함께 보기 | 가족 룸 | → `/rooms` | 공용 |
+| 🎁 만들기·상점 | 포스터 만들기 | → `/poster` | 공용 |
+| | 상품 구매 | → `/shop` | 공용 |
+| ⚙️ 내 계정 | 회원정보 | → `/account/profile` | 공용 |
+| | 설정 | → `/account/settings` | 공용 |
+| 🆘 도움 | 고객센터 | → `/help` | 공용 |
+| | 둘러보기 다시 보기 | ⚙ 코치마크 재시작 (다른 페이지면 → `/life-timeline?tour=main`) | 공용 |
 
 **하단**: 로그아웃 ⚙ → `/`
 
@@ -107,14 +114,25 @@
 ### 분기·동의 (UI 거의 없는 게이트)
 | 화면 | 동작 |
 |---|---|
-| `/enter` | 비로그인 → `/login` · 이벤트≥1 또는 기존기록 → `/life-timeline` · 신규 → `/onboarding-chat` |
+| `/enter` | 비로그인 → `/login` · **V3 트랙**: skeleton 완성+확인대기(UNCONFIRMED) 0건 → `/story-review`, 아니면 → `/start` · **V2 트랙**: 이벤트≥1 또는 기존기록 → `/life-timeline` · 신규(V2) → `/onboarding-chat` |
 | `/consent` | 비로그인 → `/login` · 동의완료 → `/enter` · "자세히 보기" → `/privacy`(새 창) · 시작하기 → `/enter` |
+| `/start` | V2 트랙으로 직접 진입 시 → `/enter` (자동 전환 없음) |
+| `/chat-v3` | V2 트랙으로 직접 진입 시 → `/enter` |
+| `/story-review` | V2 트랙으로 직접 진입 시 → `/enter` |
+| `/onboarding-chat` (v2 파이프라인) | V3 트랙으로 직접 진입 시 → `/enter` |
 
-### 온보딩
+### 온보딩 (v2)
 | 화면 | 버튼 | 이동 |
 |---|---|---|
 | `/onboarding-chat` | 진행/넘어가기·인물 정리 완료·나중에 | 최종 → `/life-timeline` |
 | `/onboarding` (레거시, archive 스텁) | — | → `/onboarding-chat` 로 redirect (본문 `_OnboardingPageArchived` 보존) |
+
+### v3 통합 채팅 — `/start` · `/chat-v3` · `/story-review` (v3 P17)
+| 화면 | 버튼 | 이동 |
+|---|---|---|
+| `/start` | 시작하기 | → `/chat-v3` |
+| `/story-review` | 갭 카드 [이야기하기] | → `/chat-v3?gapEventId=…&gapType=…` |
+| `/life-timeline` (V2) | [새 방식으로 이야기해보기] 배너 → 확인 모달 [예, 새 방식으로] | ⚙ `onboardingTrack=V3` → `/start` |
 
 ### 법적·고객센터·초대
 | 화면 | 버튼 | 이동 |

@@ -24,6 +24,7 @@ import { FamilyNewsCard } from "../timemachine/FamilyNewsCard";
 import { AssistantModal } from "./AssistantModal";
 import { FirstEraEventCard } from "./FirstEraEventCard";
 import { TimelineView } from "./TimelineView";
+import { SwitchToV3Banner } from "./SwitchToV3Banner";
 import { markTourCompletedAction } from "./tour-actions";
 import { V3WelcomeBanner } from "./V3WelcomeBanner";
 import { WelcomeCard } from "./WelcomeCard";
@@ -67,7 +68,7 @@ export default async function LifeTimelinePage() {
       // 첫 방문 환영 카드 표시 조건용 — onboardingCompletedAt 재사용.
       prisma.user.findUnique({
         where: { id: userId },
-        select: { onboardingCompletedAt: true, completedTours: true },
+        select: { onboardingCompletedAt: true, completedTours: true, onboardingTrack: true },
       }),
     ]);
 
@@ -202,6 +203,11 @@ export default async function LifeTimelinePage() {
       ) : (
         <V3WelcomeBanner />
       )}
+
+      {/* P17-3 — v2 사용자에게만 v3(대화형) 전환 제안. 압박 없는 상시 배너 —
+          위 셋(첫 사건/환영/구 V3배너)과 달리 닫아도 다시 보인다(전환은
+          아직 안 한 상태를 계속 보여주는 것뿐, 부담 문구 아님). */}
+      {userRow?.onboardingTrack === "V2" && <SwitchToV3Banner />}
 
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">

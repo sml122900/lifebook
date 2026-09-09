@@ -33,6 +33,7 @@ export async function signupAction(
       email,
       name: name ?? email.split("@")[0],
       passwordHash,
+      onboardingTrack: "V3", // v3 P17 — 신규 가입은 V3 파이프라인
     },
   });
 
