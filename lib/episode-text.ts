@@ -66,8 +66,15 @@ export function stripEpisodeDoneSignal(text: string): string {
 // P14-1(2) — 요약 결과가 "이야기 정리"가 아니라 사용자에게 말을 거는
 // 안내문("더 들려주세요", "정리해 드리겠습니다", "~있으신가요?")인지.
 // 요약 프롬프트가 내용 부족을 이유로 이런 문구를 만들면 Episode.content 에
-// 그대로 들어가 데이터가 유실된다 — 저장 전에 거른다. 정상 요약은 "-다"체
-// 서술이라 2인칭 청유·의문·"-습니다" 어미가 나올 일이 없다.
+// 그대로 들어가 데이터가 유실된다 — 저장 전에 거른다.
+//
+// v3 P21-1 — 예전엔 `/습니다/`(어디든 등장)와 `/[?？]\s*$/`(끝이 물음표)도
+// 있었는데, 이 함수가 finishEpisodeChat 저장 실패 폴백(rawUserText, 본인이
+// 실제로 한 말 그대로)에도 그대로 재사용된다(isSubstantiveEpisodeContent).
+// 어르신 원문은 "-습니다"체나 되묻는 말("고생 많았죠?")이 흔해 진짜 이야기가
+// 안내문으로 오판되고, gap-detector 가 영원히 "아직 못 들었어요"로 되띄우는
+// 버그로 이어졌다(실측 test30). 나머지 패턴만으로도 알려진 안내문 예시는
+// 전부 걸러진다(db/test-p14.ts 참조) — 더 넓은 두 패턴만 제거.
 const GUIDANCE_PATTERNS: RegExp[] = [
   /주세요/,
   /주시면/,
@@ -75,12 +82,10 @@ const GUIDANCE_PATTERNS: RegExp[] = [
   /드리겠/,
   /드릴\s*수/,
   /드릴게요/,
-  /습니다/,
   /정리할\s*(내용|이야기)/,
   /내용이\s*없/,
   /이야기가\s*없/,
   /(있|하|계)(으)?(신가요|세요|셨나요|시나요)/,
-  /[?？]\s*$/,
 ];
 
 export function isSummaryGuidance(text: string): boolean {
@@ -95,11 +100,12 @@ export function isSummaryGuidance(text: string): boolean {
 // P14 이전 데이터(안내문이 그대로 저장된 것)가 갭을 영구히 막던 문제의
 // 재발을 감지기 쪽에서도 막는다(가드가 뚫려도 감지기가 다시 물어봄).
 //
-// 한계: isSummaryGuidance 는 휴리스틱이라 "-습니다"체로 쓰인 정상 회상을
-// 간혹 안내문으로 오탐할 수 있다(운영 데이터에서 실측). 그 경우 이미 답한
-// 이벤트가 갭 카드로 다시 뜨는 정도의 부작용이라 — 예전처럼 빈 내용이
-// 영구히 안 물어봐지는 것보다 안전한 방향(오탐이 미탐보다 안전, P8-2 와
-// 같은 원칙)으로 판단했다.
+// P21-1 — "-습니다"체 정상 회상이 안내문으로 오탐되던 문제(운영 실측,
+// test30)는 GUIDANCE_PATTERNS 에서 그 두 넓은 패턴을 제거해 고쳤다(위 주석
+// 참조). 남은 패턴들도 휴리스틱이라 여전히 드문 오탐 여지는 있을 수 있다 —
+// 그 경우도 이미 답한 이벤트가 갭 카드로 다시 뜨는 정도라(빈 내용이 영구히
+// 안 물어봐지는 쪽보다 안전, P8-2 와 같은 원칙) 완전 제거 대신 최소한으로만
+// 남겼다.
 export function isSubstantiveEpisodeContent(content: string): boolean {
   return content.trim().length > 0 && !isSummaryGuidance(content);
 }

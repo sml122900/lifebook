@@ -8,14 +8,20 @@ import { deleteCustomLifeEventAction } from "@/app/actions/life-event";
 
 // v3 P19-2 — 타임라인의 CUSTOM(자유 승격) 이벤트만 지울 수 있다(골격 이벤트는
 // 삭제 버튼 자체를 안 그림 — 호출부에서 type==="CUSTOM" 일 때만 렌더).
-// app/life-timeline/manage/DeleteButton.tsx 와 같은 모달 패턴, 목록 화면에
-// 머무르므로 router.refresh() 로 갱신.
+// app/life-timeline/manage/DeleteButton.tsx 와 같은 모달 패턴.
+//
+// v3 P21-2 — 성공 시 router.refresh() 대신 onDeleted(부모 TimelineRow 가
+// 자기 자신을 숨김) 로 낙관적 반영한다(EpisodeCard 와 같은 이유 — 배경 RSC
+// 재계산이 503 나던 문제). 실패(catch, 실제 서버 상태 불명)만 기존처럼
+// router.refresh() 로 동기화.
 export function DeleteCustomEventButton({
   eventId,
   eventLabel,
+  onDeleted,
 }: {
   eventId: string;
   eventLabel: string;
+  onDeleted: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -37,8 +43,8 @@ export function DeleteCustomEventButton({
   }, [open, isPending]);
 
   // P20-1 — 서버 액션 응답 자체가 실패해도(트랜짓 오류) DB 쓰기는 이미
-  // 끝났을 가능성이 높다(app/actions/life-event.ts 참조). throw 케이스도
-  // router.refresh() 로 화면을 실제 서버 상태와 동기화한다.
+  // 끝났을 가능성이 높다(app/actions/life-event.ts 참조). throw 케이스는
+  // 실제 서버 상태를 모르므로 router.refresh() 로 동기화한다.
   function handleConfirm() {
     setError(null);
     startTransition(async () => {
@@ -49,7 +55,7 @@ export function DeleteCustomEventButton({
           return;
         }
         setOpen(false);
-        router.refresh();
+        onDeleted();
       } catch (e) {
         console.error("[custom-event-delete]", e);
         setError("처리 중 문제가 있었어요. 화면을 새로고침할게요.");

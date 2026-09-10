@@ -423,7 +423,15 @@ export async function listEventsByPerson(
   // P11-3 — v3 PersonLifeEvent(↔LifeEvent) 연결도 같은 LifeEvent 카드 형태로
   // 합친다. 구조 차이는 이렇게 흡수: title=라벨(정정본 우선), eventYear=
   // 연도(정정본 우선 — 없으면 카드가 연도 없이 못 그려 제외), content=그
-  // 인물과의 Episode 첫 건(없으면 null), 나머지(월·장소·사진·카테고리)는 빈 값.
+  // 인물과의 Episode(있으면 우선) 또는 그 이벤트의 Episode 아무거나 첫 건
+  // (없으면 null), 나머지(월·장소·사진·카테고리)는 빈 값.
+  //
+  // v3 P21-3 — where:{personId} 로만 걸러 personId 가 붙은(person_episode
+  // 전용 대화) Episode 만 찾았는데, 대부분의 인물은 일반 에피소드 대화 중
+  // 언급→savePeopleMentionedInEpisode 로 추출·연결된다(Episode.personId 는
+  // null). 그 흔한 경로에서 본문이 항상 비어 보이던 버그 — personId 필터를
+  // 없애고 그 LifeEvent 의 Episode 를 전부 가져와 JS 에서 인물 전용 대화를
+  // 우선, 없으면 아무 Episode 나 첫 건을 쓴다.
   const v3Rows = await prisma.personLifeEvent.findMany({
     where: { personId, userId },
     select: {
@@ -436,10 +444,8 @@ export async function listEventsByPerson(
           year: true,
           correctedYear: true,
           episodes: {
-            where: { personId },
-            select: { content: true },
+            select: { content: true, personId: true },
             orderBy: { createdAt: "asc" },
-            take: 1,
           },
         },
       },
@@ -468,6 +474,16 @@ export async function listEventsByPerson(
     const e = r.lifeEvent;
     const year = e.correctedYear ?? e.year;
     if (year === null) continue;
+    // P21-3 — 그 인물과의 대화(personId 일치)를 우선하고, 없으면(가장 흔한
+    // 경로 — 일반 에피소드 대화 중 언급돼 추출된 인물) personId 가 아예
+    // 없는(=특정 인물 전용이 아닌) Episode 로 폴백한다. 다른 인물 전용
+    // Episode(personId 가 다른 값)는 절대 끌어오지 않는다 — 같은 이벤트에
+    // 여러 인물이 각자 person_episode 대화를 갖고 있을 때, 한 인물 상세에
+    // 남의 전용 이야기가 잘못 노출되는 것을 막는다(db/test-p11.ts friend
+    // 시나리오가 이 경계를 검증).
+    const personEpisode = e.episodes.find((ep) => ep.personId === personId);
+    const generalEpisode = e.episodes.find((ep) => ep.personId === null);
+    const content = personEpisode?.content ?? generalEpisode?.content ?? null;
     v3Items.push({
       kind: "life_event" as const,
       id: e.id,
@@ -476,7 +492,7 @@ export async function listEventsByPerson(
       eventMonth: null,
       precision: "APPROXIMATE" as EventPrecision,
       category: null,
-      content: e.episodes[0]?.content ?? null,
+      content,
       endYear: null,
       endMonth: null,
       places: [],

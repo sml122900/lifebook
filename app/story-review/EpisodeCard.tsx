@@ -29,6 +29,15 @@ export function EpisodeCard({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(content);
+  // v3 P21-2 — 저장/삭제 성공 후 router.refresh() 를 호출하면 /story-review
+  // 서버 컴포넌트(getStoryReviewData+detectGaps, 갭 타입마다 여러 쿼리)를
+  // 통째로 다시 돌리는 무거운 RSC 요청이 매번 따라붙어 배경에서 503 나는
+  // 경우가 관찰됐다(POST 는 200인데 그 직후 GET ?_rsc= 가 실패해 화면 반영이
+  // 늦어짐). 성공 시엔 이미 아는 결과를 로컬 상태로 바로 반영하고, 서버
+  // 재계산은 다음 자연스러운 네비게이션에 맡긴다 — 실패(catch) 시엔 실제
+  // 서버 상태를 모르므로 기존처럼 router.refresh() 로 동기화한다.
+  const [displayContent, setDisplayContent] = useState(content);
+  const [deleted, setDeleted] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -61,8 +70,8 @@ export function EpisodeCard({
           setError(result.error ?? "고치지 못했어요.");
           return;
         }
+        setDisplayContent(draft);
         setEditing(false);
-        router.refresh();
       } catch (e) {
         console.error("[episode-save]", e);
         setError("처리 중 문제가 있었어요. 화면을 새로고침할게요.");
@@ -81,7 +90,7 @@ export function EpisodeCard({
           return;
         }
         setConfirmOpen(false);
-        router.refresh();
+        setDeleted(true);
       } catch (e) {
         console.error("[episode-delete]", e);
         setError("처리 중 문제가 있었어요. 화면을 새로고침할게요.");
@@ -90,11 +99,13 @@ export function EpisodeCard({
     });
   }
 
+  if (deleted) return null;
+
   const titleLine = `${year ? `${year}년 ` : ""}${label}`;
   const excerpt =
-    content.length > EPISODE_EXCERPT_LENGTH
-      ? `${content.slice(0, EPISODE_EXCERPT_LENGTH)}…`
-      : content;
+    displayContent.length > EPISODE_EXCERPT_LENGTH
+      ? `${displayContent.slice(0, EPISODE_EXCERPT_LENGTH)}…`
+      : displayContent;
 
   return (
     <div className="rounded-md border-2 border-line bg-surface p-5">
@@ -122,7 +133,7 @@ export function EpisodeCard({
             <button
               type="button"
               onClick={() => {
-                setDraft(content);
+                setDraft(displayContent);
                 setEditing(false);
                 setError(null);
               }}
