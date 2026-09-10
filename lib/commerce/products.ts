@@ -33,6 +33,11 @@ export type Product = {
   image: string; // /public 기준 경로 — 상품별 고유 이미지(반복 금지)
   imageAlt: string;
   options?: readonly ProductOption[]; // 있으면 주문 시 optionId 필수
+  // PG 심사 대응(2026-09-11) — /shop 목록에 노출할지. 기본 true(생략 시
+  // 노출). false 는 실제 제작·배송 파이프라인이 아직 없는 상품(현재
+  // charm·book)을 목록에서만 숨긴다 — 상세 URL(/shop/<id>)과 주문 로직은
+  // 무수정, getProduct 로는 그대로 조회된다.
+  orderable?: boolean;
 };
 
 export const PRODUCTS: readonly Product[] = [
@@ -61,6 +66,9 @@ export const PRODUCTS: readonly Product[] = [
     unitKrw: 19000,
     image: "/landing/product-keepsake.png",
     imageAlt: "손에 쥐는 인생 씨앗 기념물",
+    // 2026-09-11 — PG 심사 대응. 실제 제작·배송 파이프라인 아직 없음(이름도
+    // "(가)"=가칭) — 목록에서만 숨김, 상세/주문 로직은 무수정.
+    orderable: false,
   },
   {
     id: "book",
@@ -70,6 +78,8 @@ export const PRODUCTS: readonly Product[] = [
     unitKrw: 99000,
     image: "/landing/product-book.png",
     imageAlt: "소프트커버 자서전 책",
+    // 2026-09-11 — PG 심사 대응. charm 과 같은 이유(제작·배송 파이프라인 없음).
+    orderable: false,
   },
 ] as const;
 

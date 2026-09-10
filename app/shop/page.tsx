@@ -24,7 +24,9 @@ export default function ShopPage() {
       </header>
 
       <ul className="mt-8 flex flex-col gap-5">
-        {PRODUCTS.map((p) => (
+        {/* PG 심사 대응(2026-09-11) — orderable:false(제작·배송 파이프라인
+            없는 상품)는 목록에서만 제외. 상세 URL·주문 로직은 무수정. */}
+        {PRODUCTS.filter((p) => p.orderable !== false).map((p) => (
           <li key={p.id}>
             <Link
               href={`/shop/${p.id}`}

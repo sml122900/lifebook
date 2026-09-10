@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { POSTER_PAYMENT_LIVE_ENABLED } from "@/lib/commerce/poster-payment";
+import { HIDE_TEST_MODE_BANNER } from "@/lib/commerce/pg-review";
 import { SHIPPING_KRW, getProduct } from "@/lib/commerce/products";
 import { REFUND_POLICY_LINES, SHIPPING_LEAD_TIME_LINE } from "@/lib/commerce/order-display";
 import { parseSelectionsFull } from "@/lib/poster/overrides";
@@ -41,7 +42,7 @@ export default async function PosterOrderPage() {
         </p>
       </header>
 
-      {!POSTER_PAYMENT_LIVE_ENABLED && (
+      {!POSTER_PAYMENT_LIVE_ENABLED && !HIDE_TEST_MODE_BANNER && (
         <p
           role="note"
           className="mb-5 rounded-md border-2 border-brand bg-banner px-4 py-3 text-base font-semibold text-action"

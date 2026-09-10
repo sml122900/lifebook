@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
 import { getProduct, SHIPPING_KRW } from "@/lib/commerce/products";
+import { HIDE_TEST_MODE_BANNER } from "@/lib/commerce/pg-review";
 
 import { OrderForm } from "./OrderForm";
 
@@ -77,6 +78,7 @@ export default async function OrderPage({
         productId={product.id}
         clientKey={clientKey}
         customerKey={session.user.id}
+        hideTestModeBanner={HIDE_TEST_MODE_BANNER}
       />
     </main>
   );
