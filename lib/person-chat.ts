@@ -175,25 +175,36 @@ export async function submitPersonAnswer(
   };
   if (!event) return empty;
 
-  // P8-4 — 저장 성공 여부(인물을 저장했든 "없어요"로 거절했든)와 무관하게
-  // "물어봤다"로 기록. gap-detector 의 person 갭 재노출만 막고, 다른
-  // 경로(자유 발화 등)로 인물을 추가하는 것까지 막지는 않는다.
-  await prisma.lifeEvent.update({
-    where: { id: event.id },
-    data: { personAsked: true },
-  });
-
   const candidates = await extractPersonCandidates(question, answer);
   if (candidates.length === 0) {
     const promotion = await promoteOpenTurn(userId, answer);
     if (promotion.kind === "promoted") {
+      // v3 P23(재검토) — 승격은 "이 질문에 답했다"가 아니라 "다른 이야기로
+      // 넘어갔다"다. personAsked 를 세우면 이 person 갭이 영구히 다시 안
+      // 뜨는데, 정작 원래 질문("~시절 가까이 지내신 분 있으세요?")엔 아직
+      // 아무도 답한 적이 없다 — 세우지 않고 그대로 둬 다음 detectGaps 에서
+      // 다시 제안될 수 있게 한다(핵심 원칙: 하고 싶은 이야기도, 원래 묻던
+      // 질문도 유실되면 안 됨).
       return {
         ...empty,
         promoted: { eventId: promotion.eventId, label: promotion.label, year: promotion.year },
       };
     }
+    // P8-4 — 진짜 거절/무응답("기억이 잘 안 나요")만 "물어봤다"로 기록.
+    // gap-detector 의 person 갭 재노출만 막고, 다른 경로(자유 발화 등)로
+    // 인물을 추가하는 것까지 막지는 않는다.
+    await prisma.lifeEvent.update({
+      where: { id: event.id },
+      data: { personAsked: true },
+    });
     return empty;
   }
+
+  // 이름 후보가 있어 실제로 답한 경우도 물어봤다로 기록(위와 같은 이유).
+  await prisma.lifeEvent.update({
+    where: { id: event.id },
+    data: { personAsked: true },
+  });
 
   const metYear = event.correctedYear ?? event.year;
   let first: SavedPerson | null = null;
