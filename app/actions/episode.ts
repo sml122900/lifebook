@@ -229,7 +229,21 @@ export async function finishEpisodeChat(
       ownedPersonId,
       isPeriod,
     );
-    if (!result) return { ok: false, error: "이야기를 찾을 수 없어요." };
+    if (!result) {
+      // v3 P22-1 — "화면엔 성공 멘트가 떴는데 DB 엔 없다"는 실측(test30)의
+      // 원인을 Vercel 함수 로그로 사후 추적할 수 있도록 최소 로그. 이 분기는
+      // requireConfirmedEvent 를 이미 통과한 뒤라 거의 도달 안 하지만(방어적
+      // 재확인), 도달하면 반드시 흔적을 남긴다.
+      console.error("[episode-finish] createEpisodeBridge returned null", { userId, lifeEventId });
+      return { ok: false, error: "이야기를 찾을 수 없어요." };
+    }
+    console.log("[episode-finish] saved", {
+      userId,
+      lifeEventId,
+      episodeId: result.episodeId,
+      memoryId: result.memoryId,
+      isPeriod,
+    });
     // P12-2 — 대화 중 언급된 새 인물(이름 있는 사람만)을 함께 저장·연결.
     // 저장이 성공한 뒤에만(이야기 없이 인물만 남지 않게), best-effort —
     // 추출이 실패해도 방금 저장한 이야기 결과는 그대로 돌려준다.
@@ -248,7 +262,7 @@ export async function finishEpisodeChat(
     }
     return { ok: true, memoryId: result.memoryId };
   } catch (e) {
-    console.error("[episode-finish]", e);
+    console.error("[episode-finish] failed", { userId, lifeEventId }, e);
     return { ok: false, error: "저장에 실패했어요. 잠시 후 다시 시도해 주세요." };
   }
 }
@@ -275,7 +289,12 @@ export async function saveEpisodePlaces(
 // 실질적 이점 없이 비용만 더한다 — 제거하고 router.refresh() 단독으로 맡긴다.
 export async function deleteEpisodeAction(episodeId: string): Promise<DeleteEpisodeResult> {
   const userId = await requireUserId();
-  return deleteEpisodeCore(userId, episodeId);
+  const result = await deleteEpisodeCore(userId, episodeId);
+  // v3 P22-1 — "이야기가 사라졌는데 원인이 유실인지 삭제인지" 를 다음엔
+  // Vercel 함수 로그로 구분할 수 있도록(이번엔 삭제 이력을 남길 방법이
+  // 없어 대조 불가했다).
+  console.log("[episode-delete]", { userId, episodeId, ok: result.ok });
+  return result;
 }
 
 // v3 P19-3 — /story-review 카드에서 이야기 고치기. P20-1 이유로 revalidatePath

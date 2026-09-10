@@ -258,11 +258,13 @@ function SidePanel({
                   hint="말로 풀어놓는 내 이야기"
                   icon={<Mic size={16} aria-hidden />}
                   dataTour="companion"
+                  prefetch={false}
                 />
                 <MenuItem
                   href="/story-review"
                   label="내 이야기"
                   hint="지금까지 채운 이야기 모아보기"
+                  prefetch={false}
                 />
               </>
             ) : (
@@ -420,17 +422,27 @@ function MenuItem({
   hint,
   icon,
   dataTour,
+  prefetch,
 }: {
   href: string;
   label: string;
   hint: string;
   icon?: React.ReactNode;
   dataTour?: string;
+  // v3 P22-2 — 이 사이드 패널은 로그인 후 거의 모든 화면에 떠 있어, 여기
+  // 담긴 링크는 뷰포트에 들어올 때마다 Next 기본(auto) prefetch 대상이
+  // 된다. /chat-v3·/story-review 는 완전 동적 렌더(auth() 의존)라 그
+  // prefetch 가 무거운 서버 쿼리(getStoryReviewData+detectGaps 등)를 그대로
+  // 백그라운드에서 태워 간헐 503 으로 이어졌다(실사용 클릭은 항상 200 —
+  // 배경 prefetch 만 문제). 호출부가 명시할 때만 꺼서(기본은 기존 그대로
+  // auto) 다른 MenuItem 은 영향 없음.
+  prefetch?: boolean;
 }) {
   return (
     <Link
       href={href}
       data-tour={dataTour}
+      prefetch={prefetch}
       className="flex flex-col rounded-md border-2 border-line bg-surface px-4 py-3 hover:bg-amber-50 hover:border-amber-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
     >
       <span className="flex items-center gap-1.5 text-base font-semibold text-ink">
