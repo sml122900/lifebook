@@ -6,6 +6,7 @@ import { Mic, Sparkles, Image as ImageIcon } from "lucide-react";
 
 import { auth } from "@/auth";
 import { ButtonLink, buttonClasses } from "@/components/ui/Button";
+import { getProduct } from "@/lib/commerce/products";
 import {
   FOOTER,
   GALLERY,
@@ -84,6 +85,13 @@ export default async function Home({
 
   const params = await searchParams;
   const withdrawn = params.withdrawn === "1"; // 탈퇴 직후 안내 표시 플래그
+
+  // PG 심사 대응(2026-09-11) — /shop 목록과 같은 기준(orderable:false 제외)
+  // 으로 "준비 중" 카드도 걸러낸다. 지금은 book·charm 둘 다 false 라
+  // visibleSoon 이 빈 배열 — 아래 JSX 가 그 경우 섹션 자체를 숨긴다.
+  const visibleSoon = PRODUCT.soon.filter(
+    (s) => getProduct(s.id)?.orderable !== false,
+  );
 
   return (
     <main className="flex-1">
@@ -214,23 +222,26 @@ export default async function Home({
           </div>
         </div>
 
-        {/* 보조 = 준비 중(작게) */}
-        <ul className="mt-6 grid gap-5 sm:grid-cols-2">
-          {PRODUCT.soon.map((s) => (
-            <li
-              key={s.title}
-              className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface px-5 py-4"
-            >
-              <div>
-                <p className="text-lg font-bold text-ink">{s.title}</p>
-                <p className="mt-0.5 text-base text-ink-soft">{s.body}</p>
-              </div>
-              <span className="shrink-0 rounded-full bg-canvas px-3 py-1 text-sm font-semibold text-ink-faint">
-                준비 중
-              </span>
-            </li>
-          ))}
-        </ul>
+        {/* 보조 = 준비 중(작게). 전부 숨겨지면(visibleSoon 빈 배열) 섹션
+            자체를 안 그려 빈 <ul> 여백만 남는 것을 막는다. */}
+        {visibleSoon.length > 0 && (
+          <ul className="mt-6 grid gap-5 sm:grid-cols-2">
+            {visibleSoon.map((s) => (
+              <li
+                key={s.title}
+                className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface px-5 py-4"
+              >
+                <div>
+                  <p className="text-lg font-bold text-ink">{s.title}</p>
+                  <p className="mt-0.5 text-base text-ink-soft">{s.body}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-canvas px-3 py-1 text-sm font-semibold text-ink-faint">
+                  준비 중
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* ── ⑤ 안심 ───────────────────────────────────────────────────── */}

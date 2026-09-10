@@ -63,10 +63,13 @@ export const PRODUCT = {
     src: "/sample-poster.webp",
     alt: "인생 연혁 포스터 실물 예시",
   },
-  // 보조 = 준비 중(과한 강조 제거).
+  // 보조 = 준비 중(과한 강조 제거). id 는 lib/commerce/products.ts 의
+  // ProductId — 호출부(app/page.tsx)가 orderable:false 인 상품을 여기서도
+  // 걸러낼 때 매칭용(PG 심사 대응, 2026-09-11). 이 파일 자체는 카탈로그를
+  // import 하지 않는다(PRODUCT.main.href 처럼 순수 카피 모듈 유지).
   soon: [
-    { title: "자서전 책", body: "이야기를 묶은, 세상에 하나뿐인 책." },
-    { title: "인생 씨앗", body: "곁에 두는 작은 기록물." },
+    { id: "book", title: "자서전 책", body: "이야기를 묶은, 세상에 하나뿐인 책." },
+    { id: "charm", title: "인생 씨앗", body: "곁에 두는 작은 기록물." },
   ],
 } as const;
 
