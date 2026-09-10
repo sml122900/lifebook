@@ -41,12 +41,15 @@ export const PRODUCTS: readonly Product[] = [
     name: "인생 연혁 포스터",
     spec: "A2 (420 × 594mm) · 재질 선택",
     blurb: "한 분의 인생을 한 장에 담은 A2 포스터 — 벽에 거는 큰 연혁.",
-    unitKrw: 39000, // 기본 = 일반(최저가)
+    // 2026-09-10 — PG 심사 대응(토스페이먼츠). 배송비(SHIPPING_KRW=3000) 포함
+    // 총액이 12,000원이 되도록 상품가만 9,000원으로. "일반" 옵션도 동일하게
+    // 맞춤(기본값 = 일반 최저가 원칙 유지) — "프리미엄"은 무수정.
+    unitKrw: 9000, // 기본 = 일반(최저가). 배송비 3,000원 포함 총 12,000원.
     image: "/landing/product-poster.png",
     imageAlt: "액자에 든 인생 연혁 포스터 실물",
     // 재질 2종(경영방 확정). 액자·족자는 단가 확정 후 추가.
     options: [
-      { id: "standard", name: "일반", spec: "스노우지 무광 300g", unitKrw: 39000 },
+      { id: "standard", name: "일반", spec: "스노우지 무광 300g", unitKrw: 9000 },
       { id: "premium", name: "프리미엄", spec: "지클레 매트 아카이벌", unitKrw: 99000 },
     ],
   },

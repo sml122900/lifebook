@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { BUSINESS_INFO } from "@/lib/commerce/business";
 
 export function Footer() {
@@ -10,6 +12,11 @@ export function Footer() {
         <p>주소: {b.address}</p>
         <p>고객센터: {b.csPhone} &nbsp;·&nbsp; {b.csEmail}</p>
         <p>통신판매업 신고번호: {b.mailOrderRegNo}</p>
+        <p>
+          <Link href="/refund" className="underline hover:text-ink">
+            환불정책
+          </Link>
+        </p>
       </div>
     </footer>
   );

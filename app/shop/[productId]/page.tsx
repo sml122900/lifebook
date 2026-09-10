@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ButtonLink } from "@/components/ui/Button";
 import { getProduct, SHIPPING_KRW } from "@/lib/commerce/products";
+import { SHIPPING_LEAD_TIME_LINE } from "@/lib/commerce/order-display";
 
 // /shop/[productId] — 상품 상세. 이미지 슬롯(실사진 전 placeholder) + 규격 +
 // 금액 분리 표기(상품 + 배송) + [주문하기] → /shop/[productId]/order.
@@ -61,6 +62,8 @@ export default async function ProductDetailPage({
           </dd>
         </div>
       </dl>
+
+      <p className="mt-3 text-base text-ink-soft">{SHIPPING_LEAD_TIME_LINE}</p>
 
       <div className="mt-8">
         <ButtonLink href={`/shop/${product.id}/order`} variant="primary" size="lg">

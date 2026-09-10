@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { POSTER_PAYMENT_LIVE_ENABLED } from "@/lib/commerce/poster-payment";
 import { SHIPPING_KRW, getProduct } from "@/lib/commerce/products";
-import { REFUND_POLICY_LINES } from "@/lib/commerce/order-display";
+import { REFUND_POLICY_LINES, SHIPPING_LEAD_TIME_LINE } from "@/lib/commerce/order-display";
 import { parseSelectionsFull } from "@/lib/poster/overrides";
 
 import { PosterOrderForm } from "./PosterOrderForm";
@@ -71,6 +71,7 @@ export default async function PosterOrderPage() {
             <li key={line}>{line}</li>
           ))}
         </ul>
+        <p className="mt-3 text-sm text-ink-soft">{SHIPPING_LEAD_TIME_LINE}</p>
       </section>
 
       <div className="mt-6">

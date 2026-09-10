@@ -3,9 +3,8 @@ import Link from "next/link";
 import { BUSINESS_INFO } from "@/lib/commerce/business";
 
 // 개인정보 처리방침 v1.0 (경영방 확정). 공개 정적 페이지(비로그인 접근,
-// proxy.ts PUBLIC_PATHS 등록). 사업자 등록(6/17 예정) 전까지 [ ] placeholder
-// 노출 — 등록 후 정식 사업자 정보·시행일·수탁자 사명·국외이전 보유기간으로 교체.
-// 상단 "초안 — [시행일] 시행 예정" 유지.
+// proxy.ts PUBLIC_PATHS 등록). 2026-09-10 — 토스페이먼츠 PG 심사 대응으로
+// placeholder([시행일] 배너·10항 시행일) 제거, 정식 시행일로 확정.
 
 export const metadata = {
   title: "개인정보 처리방침 — 라이프북",
@@ -56,16 +55,6 @@ export default function PrivacyPage() {
       </p>
 
       <h1 className="mt-4 text-ink">개인정보 처리방침</h1>
-
-      {/* 초안 안내 — 시행 전 임시본 + placeholder 교체 예정 명시 */}
-      <p
-        role="note"
-        className="mt-4 rounded-md border-2 border-brand bg-banner px-5 py-4 text-lg text-ink"
-      >
-        <strong className="text-action">초안 — [시행일] 시행 예정.</strong> 아래
-        <span className="font-semibold"> [ ] </span>표시 항목은 사업자 등록 후
-        정식 정보로 교체됩니다.
-      </p>
 
       {/* 0항 — 회사의 약속 (강조 카드) */}
       <section className="mt-10" aria-labelledby="promises-title">
@@ -233,7 +222,7 @@ export default function PrivacyPage() {
             이 개인정보 처리방침의 내용에 추가·삭제·수정이 있을 경우 시행 전
             서비스 내 공지를 통해 안내합니다.
           </p>
-          <p className={"mt-1 " + P}>· 시행일: [시행일]</p>
+          <p className={"mt-1 " + P}>· 시행일: 2026년 9월 10일</p>
         </Article>
       </div>
 
