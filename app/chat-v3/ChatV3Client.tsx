@@ -575,6 +575,13 @@ export function ChatV3Client({
 
   // 인물 답변 처리. 저장된 인물이 있으면 바로 그 사람과의 에피소드 대화로
   // 이어간다(존엄 원칙 — "없어요"/"기억 안 나요" 는 캐묻지 않고 open 으로).
+  //
+  // v3 P23-1 — pending person 질문이 재개된 자리에 전혀 무관한 실질 이야기가
+  // 오면(예: "스물다섯 살 때 부산에서 배를 탔어요") 이름 후보가 0개라
+  // 예전엔 "네, 알겠어요"로 그대로 버려졌다(/story-review 에 아무것도 안
+  // 남음). submitPersonAnswer 가 그 경우 open 모드 분류기로 다시 판단해
+  // promoted 를 함께 돌려준다 — 있으면 person 흐름을 접고 그 이야기로
+  // 곧장 전환한다(submitOpenChat 의 promoted 분기와 같은 패턴).
   async function submitPersonTurn(text: string) {
     const eventId = activeEventIdRef.current;
     if (!eventId) {
@@ -586,6 +593,21 @@ export function ChatV3Client({
       const result = await withTimeout(
         submitPersonAnswer(userId, eventId, personQuestionRef.current, text),
       );
+      if (result.promoted) {
+        const { eventId: promotedEventId } = result.promoted;
+        setStage("episode");
+        activeEventIdRef.current = promotedEventId;
+        activePersonRef.current = null;
+        periodTopicRef.current = null;
+        episodeFollowUpCountRef.current = 0;
+        awaitingFinalAnswerRef.current = false;
+        await markPendingEpisode(promotedEventId, null);
+        const opening = "그 이야기 먼저 들을게요.";
+        await addBot(opening);
+        const historyBefore: EpisodeTurn[] = [{ role: "assistant", text: opening }];
+        await submitEpisodeTurnToModel(promotedEventId, text, historyBefore);
+        return;
+      }
       if (result.savedCount === 0 || !result.firstPersonId || !result.firstPersonName) {
         await enterOpenStage("네, 알겠어요. 다른 이야기도 있으세요?");
         return;

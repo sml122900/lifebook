@@ -8,6 +8,7 @@ import { chat } from "./ai";
 import { createPerson } from "./people";
 import { linkPersonToLifeEvent } from "./person-life-event";
 import { isRelationCompatible } from "./person-relation";
+import { promoteOpenTurn } from "./open-chat-promote";
 import {
   PERSON_EXTRACT_SYSTEM_PROMPT,
   buildPersonExtractUserMessage,
@@ -145,6 +146,13 @@ export type SubmitPersonAnswerResult = {
   firstPersonName: string | null;
   // P10-4 — 호칭 판정(lib/person-honorific.ts)에 필요.
   firstPersonRelation: string | null;
+  // v3 P23-1 — 이름 후보가 0개라 인물 답변으로 안 걸렸지만, open 모드
+  // 분류기(promoteOpenTurn)로 보니 실은 그 시절과 무관한 실질 이야기였던
+  // 경우(예: "스물다섯 살 때 부산에서 배를 탔어요") 새로 만든 CUSTOM
+  // LifeEvent. 있으면 호출부가 person 흐름을 접고 이 이벤트로 에피소드
+  // 대화를 이어간다 — "이름이 없으니 거절"로 오분류해 실제 이야기를 버리던
+  // 것을 막는다(핵심 원칙: 하고 싶은 이야기가 유실되면 안 됨).
+  promoted: { eventId: string; label: string; year: number | null } | null;
 };
 
 // question 은 방금 사용자에게 던진 질문 문구(추출 프롬프트에 맥락으로 씀).
@@ -163,6 +171,7 @@ export async function submitPersonAnswer(
     firstPersonId: null,
     firstPersonName: null,
     firstPersonRelation: null,
+    promoted: null,
   };
   if (!event) return empty;
 
@@ -175,7 +184,16 @@ export async function submitPersonAnswer(
   });
 
   const candidates = await extractPersonCandidates(question, answer);
-  if (candidates.length === 0) return empty;
+  if (candidates.length === 0) {
+    const promotion = await promoteOpenTurn(userId, answer);
+    if (promotion.kind === "promoted") {
+      return {
+        ...empty,
+        promoted: { eventId: promotion.eventId, label: promotion.label, year: promotion.year },
+      };
+    }
+    return empty;
+  }
 
   const metYear = event.correctedYear ?? event.year;
   let first: SavedPerson | null = null;
@@ -192,6 +210,7 @@ export async function submitPersonAnswer(
     firstPersonId: first?.id ?? null,
     firstPersonName: first?.name ?? null,
     firstPersonRelation: first?.relation ?? null,
+    promoted: null,
   };
 }
 

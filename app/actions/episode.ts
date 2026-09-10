@@ -11,6 +11,8 @@
 // 여기서는 MAX_FOLLOWUPS 하드캡으로 한 번 더 지킨다 — 모델이 스스로
 // end:true 를 안 줘도 정해진 턴 수를 넘기지 않는다.
 
+import { revalidatePath } from "next/cache";
+
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { chat } from "@/lib/ai";
@@ -39,6 +41,20 @@ async function requireUserId(): Promise<string> {
   const userId = session?.user?.id;
   if (!userId) throw new Error("Unauthorized");
   return userId;
+}
+
+// v3 P23-2 — Episode 생성/삭제/정정은 /people/[personId] 상세("함께한 인생의
+// 순간들")가 읽는 content 를 바꾸지만, 그 페이지 쪽은 아무 revalidation 도
+// 없었다. /people 목록이 상세 페이지를 평범한 <Link>(기본 prefetch)로
+// 가리키므로, 먼저 /people 을 방문해 프리페치가 캐시된 뒤 여기서 내용이
+// 바뀌면 라우터 캐시가 옛 내용을 계속 보여줄 수 있다(실측 — 이번엔 진단용
+// 스크립트로 직접 지운 뒤 확인해 DB 는 비어 있었는데 화면엔 남아 있었다).
+// 경로 패턴(동적 세그먼트 전체)으로 한 번에 무효화 — 이 Episode 가 어느
+// personId 에 노출되는지(personId 태그 유무 + 폴백) 역산할 필요 없음.
+// /story-review 의 P20-1(자기 자신 재계산 비용)과는 다른 페이지·다른
+// 문제라 그 결정과 배치되지 않는다.
+function revalidatePeopleDetail() {
+  revalidatePath("/people/[personId]", "page");
 }
 
 // 2026-09-01 — CORRECTED 도 허용(확인은 됐고 값만 정정된 상태 — 미확인이
@@ -260,6 +276,7 @@ export async function finishEpisodeChat(
     } catch (e) {
       console.error("[episode-finish] people", e);
     }
+    revalidatePeopleDetail();
     return { ok: true, memoryId: result.memoryId };
   } catch (e) {
     console.error("[episode-finish] failed", { userId, lifeEventId }, e);
@@ -285,8 +302,11 @@ export async function saveEpisodePlaces(
 // 자체 컴포넌트) 실질적으로 매 클릭마다 같은 무거운 쿼리를 두 번 태우고
 // 있었다 — Vercel 함수 응답이 그 안에서 타임아웃/503 나면 "DB 는 반영됐는데
 // 화면엔 안 보이는" 상태로 남는다(P20 재현). /story-review 는 auth() 로
-// 이미 항상 동적 렌더(정적 캐시 대상 아님)라 revalidatePath 는 여기서
-// 실질적 이점 없이 비용만 더한다 — 제거하고 router.refresh() 단독으로 맡긴다.
+// 이미 항상 동적 렌더(정적 캐시 대상 아님)라 revalidatePath("/story-review")
+// 는 여기서 실질적 이점 없이 비용만 더한다 — 그건 제거하고 router.refresh()
+// 단독으로 맡긴다. 아래 revalidatePeopleDetail() 은 그것과 별개(P23-2) —
+// /people/[personId] 는 다른 페이지고, 렌더 비용도 가벼워 같은 우려가
+// 적용 안 된다.
 export async function deleteEpisodeAction(episodeId: string): Promise<DeleteEpisodeResult> {
   const userId = await requireUserId();
   const result = await deleteEpisodeCore(userId, episodeId);
@@ -294,15 +314,19 @@ export async function deleteEpisodeAction(episodeId: string): Promise<DeleteEpis
   // Vercel 함수 로그로 구분할 수 있도록(이번엔 삭제 이력을 남길 방법이
   // 없어 대조 불가했다).
   console.log("[episode-delete]", { userId, episodeId, ok: result.ok });
+  if (result.ok) revalidatePeopleDetail();
   return result;
 }
 
-// v3 P19-3 — /story-review 카드에서 이야기 고치기. P20-1 이유로 revalidatePath
-// 없음(위 deleteEpisodeAction 주석 참조).
+// v3 P19-3 — /story-review 카드에서 이야기 고치기. P20-1 이유로
+// revalidatePath("/story-review") 는 없음(위 deleteEpisodeAction 주석
+// 참조) — 그러나 /people/[personId] 쪽은 P23-2 로 무효화한다.
 export async function updateEpisodeContentAction(
   episodeId: string,
   content: string,
 ): Promise<UpdateEpisodeContentResult> {
   const userId = await requireUserId();
-  return updateEpisodeContentCore(userId, episodeId, content);
+  const result = await updateEpisodeContentCore(userId, episodeId, content);
+  if (result.ok) revalidatePeopleDetail();
+  return result;
 }
