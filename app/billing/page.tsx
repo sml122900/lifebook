@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { buttonClasses } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
+import { HIDE_TEST_MODE_BANNER } from "@/lib/commerce/pg-review";
 import { TOPUP_PACKAGES } from "@/lib/tokens/policy";
 import { getBalance } from "@/lib/tokens/wallet";
 
@@ -96,10 +97,15 @@ export default async function BillingPage() {
         ))}
       </section>
 
-      <p className="text-base text-ink-soft">
-        테스트 모드입니다. 실제 청구는 일어나지 않아요. 토스 테스트 카드로
-        결제해 보실 수 있습니다.
-      </p>
+      {/* PG 심사 대응 — HIDE_TEST_MODE_BANNER 면 렌더링만 건너뜀. 토스 SDK
+          자체 결제창의 "실제 결제가 아닌 테스트입니다" 배지는 별개(우리
+          코드로 제어 불가, 무수정). */}
+      {!HIDE_TEST_MODE_BANNER && (
+        <p className="text-base text-ink-soft">
+          테스트 모드입니다. 실제 청구는 일어나지 않아요. 토스 테스트 카드로
+          결제해 보실 수 있습니다.
+        </p>
+      )}
 
       <section className="flex flex-col gap-4">
         <h2 className="text-2xl font-bold text-ink">거래 내역</h2>

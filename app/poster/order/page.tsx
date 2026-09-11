@@ -62,6 +62,7 @@ export default async function PosterOrderPage() {
         shippingKrw={SHIPPING_KRW}
         clientKey={clientKey}
         customerKey={userId}
+        hideTestModeBanner={HIDE_TEST_MODE_BANNER}
       />
 
       {/* 환불 정책 — PG 심사·법적 표시 */}

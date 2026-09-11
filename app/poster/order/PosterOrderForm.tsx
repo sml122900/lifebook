@@ -20,6 +20,9 @@ type Props = {
   shippingKrw: number;
   clientKey: string;
   customerKey: string; // User.id
+  // PG 심사 대응 — page.tsx 가 HIDE_TEST_MODE_BANNER(lib/commerce/
+  // pg-review.ts)를 읽어 내려준다. PaymentMethodChoice 로 그대로 전달.
+  hideTestModeBanner?: boolean;
 };
 
 const FIELD =
@@ -32,6 +35,7 @@ export function PosterOrderForm({
   shippingKrw,
   clientKey,
   customerKey,
+  hideTestModeBanner,
 }: Props) {
   const router = useRouter();
   const [optionId, setOptionId] = useState(options[0]?.id ?? "");
@@ -177,7 +181,11 @@ export function PosterOrderForm({
       </div>
 
       {/* 결제 방법 */}
-      <PaymentMethodChoice value={method} onChange={setMethod} />
+      <PaymentMethodChoice
+        value={method}
+        onChange={setMethod}
+        hideTestModeBanner={hideTestModeBanner}
+      />
 
       {/* 금액 요약 */}
       <div className="rounded-md border-2 border-line bg-surface px-5 py-4 text-lg">

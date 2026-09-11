@@ -7,6 +7,7 @@ import {
   findSettledProductOrder,
   settleProductOrder,
 } from "@/lib/commerce/orders";
+import { HIDE_TEST_MODE_BANNER } from "@/lib/commerce/pg-review";
 import { TossConfirmError, confirmTossPayment } from "@/lib/tokens/toss";
 
 // /shop/order/success — 토스가 결제 확인 후 리다이렉트. 적립이 아니라
@@ -120,12 +121,14 @@ function SuccessScreen({
         <span className="font-bold">{productName}</span> ·{" "}
         {totalKrw.toLocaleString()}원
       </p>
-      <p
-        role="note"
-        className="rounded-md border-2 border-brand bg-banner px-5 py-4 text-lg font-semibold text-action"
-      >
-        테스트 주문이에요 — 실제로 배송되지 않고, 청구도 되지 않아요.
-      </p>
+      {!HIDE_TEST_MODE_BANNER && (
+        <p
+          role="note"
+          className="rounded-md border-2 border-brand bg-banner px-5 py-4 text-lg font-semibold text-action"
+        >
+          테스트 주문이에요 — 실제로 배송되지 않고, 청구도 되지 않아요.
+        </p>
+      )}
       <div className="flex flex-wrap gap-3">
         <Link href="/account/orders" className={buttonClasses("tertiary", "lg")}>
           내 주문 보기

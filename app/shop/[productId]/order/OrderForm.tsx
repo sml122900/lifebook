@@ -163,7 +163,11 @@ export function OrderForm({ productId, clientKey, customerKey, hideTestModeBanne
       </Field>
 
       {/* 결제 방법 */}
-      <PaymentMethodChoice value={method} onChange={setMethod} />
+      <PaymentMethodChoice
+        value={method}
+        onChange={setMethod}
+        hideTestModeBanner={hideTestModeBanner}
+      />
 
       {error && (
         <p
