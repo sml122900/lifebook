@@ -318,7 +318,7 @@ function SidePanel({
             <MenuItem
               href="/shop"
               label="상품 구매"
-              hint="포스터·자서전 책·인생 씨앗"
+              hint="포스터 (자서전 책·인생 씨앗은 준비 중)"
               icon={<ShoppingBag size={16} aria-hidden />}
             />
             {/* 토큰 충전 진입로는 잔액 카드 옆 "토큰 화면 열기" 버튼으로
