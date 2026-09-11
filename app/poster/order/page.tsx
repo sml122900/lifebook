@@ -6,7 +6,6 @@ import { prisma } from "@/lib/db";
 import { POSTER_PAYMENT_LIVE_ENABLED } from "@/lib/commerce/poster-payment";
 import { HIDE_TEST_MODE_BANNER } from "@/lib/commerce/pg-review";
 import { SHIPPING_KRW, getProduct } from "@/lib/commerce/products";
-import { REFUND_POLICY_LINES, SHIPPING_LEAD_TIME_LINE } from "@/lib/commerce/order-display";
 import { parseSelectionsFull } from "@/lib/poster/overrides";
 
 import { PosterOrderForm } from "./PosterOrderForm";
@@ -30,7 +29,8 @@ export default async function PosterOrderPage() {
   if (!hasSelections) redirect("/poster/select");
 
   const product = getProduct("poster")!;
-  const options = product.options ?? [];
+  // PG 심사 대응 — hidden 옵션(프리미엄)은 주문 화면 선택 UI에서 제외.
+  const options = (product.options ?? []).filter((o) => !o.hidden);
   const clientKey = process.env.TOSS_CLIENT_KEY ?? "";
 
   return (
@@ -64,17 +64,6 @@ export default async function PosterOrderPage() {
         customerKey={userId}
         hideTestModeBanner={HIDE_TEST_MODE_BANNER}
       />
-
-      {/* 환불 정책 — PG 심사·법적 표시 */}
-      <section className="mt-10 rounded-md border-2 border-line bg-surface px-5 py-4">
-        <h2 className="text-base font-bold text-ink">환불·교환 안내</h2>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink-soft">
-          {REFUND_POLICY_LINES.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-        <p className="mt-3 text-sm text-ink-soft">{SHIPPING_LEAD_TIME_LINE}</p>
-      </section>
 
       <div className="mt-6">
         <Link

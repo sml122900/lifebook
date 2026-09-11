@@ -7,6 +7,10 @@ import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import { AddressSearch } from "@/app/components/AddressSearch";
 import { PaymentMethodChoice } from "@/app/components/PaymentMethodChoice";
 import type { PaymentMethod } from "@/lib/commerce/orders";
+import {
+  REFUND_POLICY_LINES,
+  SHIPPING_LEAD_TIME_LINE,
+} from "@/lib/commerce/order-display";
 
 import { startPosterOrder } from "./actions";
 
@@ -48,6 +52,7 @@ export function PosterOrderForm({
   const [jibunAddress, setJibunAddress] = useState(""); // 지번(카카오 검색)
   const [address2, setAddress2] = useState("");
   const [deliveryMemo, setDeliveryMemo] = useState("");
+  const [withdrawalConsent, setWithdrawalConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +72,10 @@ export function PosterOrderForm({
       address1.trim() === ""
     ) {
       setError("받는 분, 연락처, 우편번호·주소를 입력해 주세요.");
+      return;
+    }
+    if (!withdrawalConsent) {
+      setError("청약철회 제한 동의에 체크해 주세요.");
       return;
     }
     setSubmitting(true);
@@ -117,40 +126,60 @@ export function PosterOrderForm({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 재질 선택 */}
-      <fieldset className="flex flex-col gap-3">
-        <legend className="text-xl font-bold text-ink">재질 고르기</legend>
-        {options.map((o) => (
-          <label
-            key={o.id}
-            className={
-              "flex cursor-pointer items-start gap-3 rounded-md border-2 px-4 py-3 " +
-              (o.id === optionId
-                ? "border-action bg-banner"
-                : "border-line bg-surface hover:bg-banner")
-            }
-          >
-            <input
-              type="radio"
-              name="material"
-              value={o.id}
-              checked={o.id === optionId}
-              onChange={() => setOptionId(o.id)}
-              className="mt-1.5 h-5 w-5 accent-amber-500"
-            />
-            <span className="flex-1">
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="text-lg font-bold text-ink">{o.name}</span>
-                <span className="text-lg font-bold text-ink">{won(o.unitKrw)}원</span>
+      {/* 재질 선택 — 옵션이 1개뿐이면 고를 필요가 없어 고정 정보 줄로 표시. */}
+      {options.length > 1 ? (
+        <fieldset className="flex flex-col gap-3">
+          <legend className="text-xl font-bold text-ink">재질 고르기</legend>
+          {options.map((o) => (
+            <label
+              key={o.id}
+              className={
+                "flex cursor-pointer items-start gap-3 rounded-md border-2 px-4 py-3 " +
+                (o.id === optionId
+                  ? "border-action bg-banner"
+                  : "border-line bg-surface hover:bg-banner")
+              }
+            >
+              <input
+                type="radio"
+                name="material"
+                value={o.id}
+                checked={o.id === optionId}
+                onChange={() => setOptionId(o.id)}
+                className="mt-1.5 h-5 w-5 accent-amber-500"
+              />
+              <span className="flex-1">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="text-lg font-bold text-ink">{o.name}</span>
+                  <span className="text-lg font-bold text-ink">{won(o.unitKrw)}원</span>
+                </span>
+                <span className="mt-0.5 block text-sm text-ink-soft">{o.spec}</span>
               </span>
-              <span className="mt-0.5 block text-sm text-ink-soft">{o.spec}</span>
-            </span>
-          </label>
-        ))}
-        <p className="text-sm text-ink-soft">
-          액자·족자 옵션은 준비 중이에요. 표시가는 부가세가 포함된 금액이에요.
-        </p>
-      </fieldset>
+            </label>
+          ))}
+          <p className="text-sm text-ink-soft">
+            액자·족자 옵션은 준비 중이에요. 표시가는 부가세가 포함된 금액이에요.
+          </p>
+        </fieldset>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p className="text-xl font-bold text-ink">재질</p>
+          {selected && (
+            <div className="rounded-md border-2 border-line bg-surface px-4 py-3">
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="text-lg font-bold text-ink">{selected.name}</span>
+                <span className="text-lg font-bold text-ink">
+                  {won(selected.unitKrw)}원
+                </span>
+              </span>
+              <span className="mt-0.5 block text-sm text-ink-soft">{selected.spec}</span>
+            </div>
+          )}
+          <p className="text-sm text-ink-soft">
+            액자·족자 옵션은 준비 중이에요. 표시가는 부가세가 포함된 금액이에요.
+          </p>
+        </div>
+      )}
 
       {/* 배송지 */}
       <div className="flex flex-col gap-5 border-t-2 border-line pt-6">
@@ -203,6 +232,32 @@ export function PosterOrderForm({
         </div>
       </div>
 
+      {/* 주문제작 청약철회 제한 동의 */}
+      <label className="flex cursor-pointer items-start gap-3 rounded-md border-2 border-line bg-surface px-4 py-3">
+        <input
+          type="checkbox"
+          checked={withdrawalConsent}
+          onChange={(e) => setWithdrawalConsent(e.target.checked)}
+          className="mt-1 h-5 w-5 accent-amber-500"
+        />
+        <span className="text-base text-ink">
+          본 상품은 고객님의 주문에 따라 개별 제작되는 상품으로, 전자상거래
+          등에서의 소비자보호에 관한 법률 제17조제2항에 따라 제작 착수
+          이후에는 청약철회가 제한될 수 있음을 확인했으며 이에 동의합니다.
+        </span>
+      </label>
+
+      {/* 환불 정책 — PG 심사·법적 표시 */}
+      <section className="rounded-md border-2 border-line bg-surface px-5 py-4">
+        <h2 className="text-base font-bold text-ink">환불·교환 안내</h2>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink-soft">
+          {REFUND_POLICY_LINES.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        <p className="mt-3 text-sm text-ink-soft">{SHIPPING_LEAD_TIME_LINE}</p>
+      </section>
+
       {error && (
         <p role="alert" className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900">
           {error}
@@ -212,7 +267,7 @@ export function PosterOrderForm({
       <button
         type="button"
         onClick={handlePay}
-        disabled={submitting}
+        disabled={submitting || !withdrawalConsent}
         className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-4 text-lg font-bold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         {submitting

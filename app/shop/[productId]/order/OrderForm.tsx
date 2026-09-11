@@ -39,6 +39,7 @@ export function OrderForm({ productId, clientKey, customerKey, hideTestModeBanne
   const [jibunAddress, setJibunAddress] = useState(""); // 지번(카카오 검색)
   const [address2, setAddress2] = useState("");
   const [deliveryMemo, setDeliveryMemo] = useState("");
+  const [withdrawalConsent, setWithdrawalConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +52,10 @@ export function OrderForm({ productId, clientKey, customerKey, hideTestModeBanne
       address1.trim() === ""
     ) {
       setError("받는 분, 연락처, 우편번호·주소를 입력해 주세요.");
+      return;
+    }
+    if (!withdrawalConsent) {
+      setError("청약철회 제한 동의에 체크해 주세요.");
       return;
     }
     setSubmitting(true);
@@ -169,6 +174,21 @@ export function OrderForm({ productId, clientKey, customerKey, hideTestModeBanne
         hideTestModeBanner={hideTestModeBanner}
       />
 
+      {/* 주문제작 청약철회 제한 동의 */}
+      <label className="flex cursor-pointer items-start gap-3 rounded-md border-2 border-line bg-surface px-4 py-3">
+        <input
+          type="checkbox"
+          checked={withdrawalConsent}
+          onChange={(e) => setWithdrawalConsent(e.target.checked)}
+          className="mt-1 h-5 w-5 accent-amber-500"
+        />
+        <span className="text-base text-ink">
+          본 상품은 고객님의 주문에 따라 개별 제작되는 상품으로, 전자상거래
+          등에서의 소비자보호에 관한 법률 제17조제2항에 따라 제작 착수
+          이후에는 청약철회가 제한될 수 있음을 확인했으며 이에 동의합니다.
+        </span>
+      </label>
+
       {error && (
         <p
           role="alert"
@@ -181,7 +201,7 @@ export function OrderForm({ productId, clientKey, customerKey, hideTestModeBanne
       <button
         type="button"
         onClick={handlePay}
-        disabled={submitting}
+        disabled={submitting || !withdrawalConsent}
         className="mt-2 inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-4 text-lg font-bold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         {submitting

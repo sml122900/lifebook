@@ -21,6 +21,9 @@ export type ProductOption = {
   name: string; // 표시명("일반"/"프리미엄")
   spec: string; // 재질 한 줄
   unitKrw: number;
+  // PG 심사 대응(2026-09-12) — true 면 주문 화면 선택 UI에서 숨김(orderable
+  // 패턴과 동일). 정의는 유지 — 데이터/주문 로직 무수정, 표시만 제외.
+  hidden?: boolean;
 };
 
 export type Product = {
@@ -44,7 +47,7 @@ export const PRODUCTS: readonly Product[] = [
   {
     id: "poster",
     name: "인생 연혁 포스터",
-    spec: "A2 (420 × 594mm) · 재질 선택",
+    spec: "A2 (420 × 594mm)",
     blurb: "한 분의 인생을 한 장에 담은 A2 포스터 — 벽에 거는 큰 연혁.",
     // 2026-09-10 — PG 심사 대응(토스페이먼츠). 배송비(SHIPPING_KRW=3000) 포함
     // 총액이 12,000원이 되도록 상품가만 9,000원으로. "일반" 옵션도 동일하게
@@ -58,7 +61,8 @@ export const PRODUCTS: readonly Product[] = [
     // 재질 2종(경영방 확정). 액자·족자는 단가 확정 후 추가.
     options: [
       { id: "standard", name: "일반", spec: "스노우지 무광 300g", unitKrw: 9000 },
-      { id: "premium", name: "프리미엄", spec: "지클레 매트 아카이벌", unitKrw: 99000 },
+      // PG 심사 대응(2026-09-12) — 심사 기간 한정 숨김. 정의는 보존.
+      { id: "premium", name: "프리미엄", spec: "지클레 매트 아카이벌", unitKrw: 99000, hidden: true },
     ],
   },
   {
