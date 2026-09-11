@@ -22,7 +22,17 @@ import {
 // 공유). 편집(드래그·크기·내용·빼기)은 PosterCompose self-manage +
 // savePosterOverrides 영속. "주문하기" → /poster/order(재질·배송·결제).
 
-export const metadata = { title: "인생 나무 포스터" };
+export const metadata = { title: "포스터 미리보기" };
+
+// /poster 의 TEMPLATE_CHOICES 이름과 동일(강물/느티나무/인생의 나무/맞춤형
+// 디자인). template 미저장(null)은 river 배경으로 렌더되므로(위 bgSrc 분기)
+// "강물"로 기본 표시.
+const TEMPLATE_NAMES: Record<string, string> = {
+  river: "강물",
+  zelkova: "느티나무",
+  sephirot: "인생의 나무",
+  custom: "맞춤형 디자인",
+};
 
 export default async function PosterViewPage() {
   const session = await auth();
@@ -63,10 +73,12 @@ export default async function PosterViewPage() {
     );
   }
 
+  const templateName = TEMPLATE_NAMES[poster?.template ?? "river"] ?? "강물";
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-ink">인생 나무 포스터</h1>
+        <h1 className="text-2xl font-bold text-ink">{templateName} 포스터</h1>
         <div className="flex flex-wrap gap-2">
           <Link
             href="/poster/select"

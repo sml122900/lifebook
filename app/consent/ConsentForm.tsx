@@ -12,8 +12,8 @@ import { saveConsent } from "./actions";
 //
 // 문구는 개인정보 처리방침 v1.0(/privacy)과 정합 — 수집·이용은 처리방침
 // 1·2항, 국외이전은 3항(Anthropic, PBC / 미국) 기준. "자세히 보기" 가
-// /privacy 로 연결된다. 이용약관(terms) 본문 페이지는 아직 없어 그 항목엔
-// 링크를 달지 않는다. 정식 출시 전 변호사 검토 필요(특히 이용약관).
+// /privacy 로 연결된다. 이용약관은 /terms(표준약관 전문 게시, 2026-09)로
+// 연결.
 const REQUIRED_ITEMS = [
   {
     key: "privacy" as const,
@@ -27,6 +27,7 @@ const REQUIRED_ITEMS = [
       "AI 동반자와 실시간으로 음성 대화를 나누실 때도 동일하게 적용됩니다. " +
       "자세한 수집 항목과 보유 기간은 개인정보 처리방침에서 확인하실 수 있습니다.",
     detailHref: "/privacy" as const,
+    detailLabel: "개인정보 처리방침 자세히 보기 (새 창)",
   },
   {
     key: "overseas" as const,
@@ -36,12 +37,14 @@ const REQUIRED_ITEMS = [
       "Anthropic, PBC 로 이전합니다. 이 동의는 거부하실 수 있으며, 거부하시는 경우 일부 AI 기능 " +
       "이용이 제한될 수 있습니다.",
     detailHref: "/privacy" as const,
+    detailLabel: "개인정보 처리방침 자세히 보기 (새 창)",
   },
   {
     key: "terms" as const,
     title: "(필수) 서비스 이용약관 동의",
     body: "라이프북 서비스 이용약관에 동의합니다.",
-    detailHref: null,
+    detailHref: "/terms" as const,
+    detailLabel: "이용약관 자세히 보기 (새 창)",
   },
 ];
 
@@ -122,7 +125,7 @@ export function ConsentForm() {
                 rel="noreferrer noopener"
                 className="ml-10 mt-3 inline-flex min-h-[48px] items-center text-base font-semibold text-action underline hover:text-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
               >
-                개인정보 처리방침 자세히 보기 (새 창)
+                {item.detailLabel}
               </Link>
             )}
           </li>

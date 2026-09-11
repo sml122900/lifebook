@@ -16,6 +16,10 @@ export function Footer() {
           <Link href="/refund" className="underline hover:text-ink">
             환불정책
           </Link>
+          &nbsp;·&nbsp;
+          <Link href="/terms" className="underline hover:text-ink">
+            이용약관
+          </Link>
         </p>
       </div>
     </footer>

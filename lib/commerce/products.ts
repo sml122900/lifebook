@@ -50,8 +50,11 @@ export const PRODUCTS: readonly Product[] = [
     // 총액이 12,000원이 되도록 상품가만 9,000원으로. "일반" 옵션도 동일하게
     // 맞춤(기본값 = 일반 최저가 원칙 유지) — "프리미엄"은 무수정.
     unitKrw: 9000, // 기본 = 일반(최저가). 배송비 3,000원 포함 총 12,000원.
-    image: "/landing/product-poster.png",
-    imageAlt: "액자에 든 인생 연혁 포스터 실물",
+    // 2026-09-12 — PG 심사 대응. 기존 이미지(product-poster.png)는 느티나무
+    // 템플릿(준비 중, 미주문 가능)이라 실제로 주문 가능한 유일한 템플릿인
+    // 강물 샘플(sample-poster.webp)로 교체.
+    image: "/sample-poster.webp",
+    imageAlt: "인생 강물 템플릿으로 만든 인생 연혁 포스터 실물",
     // 재질 2종(경영방 확정). 액자·족자는 단가 확정 후 추가.
     options: [
       { id: "standard", name: "일반", spec: "스노우지 무광 300g", unitKrw: 9000 },
