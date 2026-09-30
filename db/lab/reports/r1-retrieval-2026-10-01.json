@@ -1,0 +1,1465 @@
+{
+  "runId": "eval:retrieval:2026-09-30T17:08:57",
+  "persona": "a",
+  "k": 8,
+  "threshold": 0.85,
+  "overall": 1,
+  "pass": true,
+  "byCategory": {
+    "FACT": {
+      "items": 6,
+      "recall": 1
+    },
+    "PERIOD": {
+      "items": 5,
+      "recall": 1
+    },
+    "PERSON": {
+      "items": 5,
+      "recall": 1
+    },
+    "PREFERENCE": {
+      "items": 4,
+      "recall": 1
+    },
+    "CONFLICT": {
+      "items": 2,
+      "recall": 1
+    },
+    "FALSE_PREMISE": {
+      "items": 2,
+      "recall": 1
+    }
+  },
+  "unmapped": [
+    "SK_UNIV",
+    "LE_DRAFT_DESERTER",
+    "PS_MIYEONG"
+  ],
+  "results": [
+    {
+      "id": "A-F1",
+      "category": "FACT",
+      "question": "내 첫 직장이 어디였지?",
+      "expected": [
+        [
+          "EP_JOB",
+          "SK_FIRST_JOB"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1979,
+        "yearTo": 1982
+      },
+      "top": [
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 1979년에 대구 동진섬유 공장에 입사하여 직기를 돌리는 일을 했다.",
+          "final": 0.02131
+        },
+        {
+          "key": "SK_FIRST_JOB",
+          "summary": "1979년, 화자의 인생 사건: 대구 동진섬유 입사.",
+          "final": 0.02097
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 첫 월급으로 어머니께 내복을 사 드렸다.",
+          "final": 0.0197
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 신혼 때 대구 비산동 단칸방에서 살았다.",
+          "final": 0.0194
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 동진섬유에서 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘했다.",
+          "final": 0.01884
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자의 아내 정숙은 공장 동료 영자 씨가 소개해 준 사람이다.",
+          "final": 0.01857
+        },
+        {
+          "key": "LE_RELATIONSHIP",
+          "summary": "화자는 친구 결혼식에서 아내를 처음 만났다.",
+          "final": 0.01757
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 팔공산에 오르면 공장 일의 피로가 싹 풀린다고 느꼈다.",
+          "final": 0.01667
+        }
+      ]
+    },
+    {
+      "id": "A-F2",
+      "category": "FACT",
+      "question": "첫 월급 받아서 뭘 샀었지?",
+      "expected": [
+        [
+          "EP_JOB"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 첫 월급으로 어머니께 내복을 사 드렸다.",
+          "final": 0.03279
+        },
+        {
+          "key": "LE_FAMILY",
+          "summary": "화자는 병원비가 부족해 회사에 월급을 가불했다.",
+          "final": 0.03226
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 군 복무 중 휴가를 나오면 집에 가서 어머니 밥을 제일 먼저 먹었다.",
+          "final": 0.01587
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 매주 일요일마다 아내와 도시락을 싸서 팔공산에 올랐다.",
+          "final": 0.01563
+        },
+        {
+          "key": "ERA_OLYMPIC",
+          "summary": "화자는 딸 미영이에게 호돌이 인형을 사 주었다.",
+          "final": 0.01538
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 1979년에 대구 동진섬유 공장에 입사하여 직기를 돌리는 일을 했다.",
+          "final": 0.01515
+        },
+        {
+          "key": "EP_HIGH",
+          "summary": "화자는 농업고등학교 실습 시간에 경운기 엔진을 뜯어보며 기계 만지는 재미를 처음 알게 되었다.",
+          "final": 0.01493
+        },
+        {
+          "key": "SK_FIRST_JOB",
+          "summary": "1979년, 화자의 인생 사건: 대구 동진섬유 입사.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "A-F3",
+      "category": "FACT",
+      "question": "신혼 때 어디서 살았지?",
+      "expected": [
+        [
+          "EP_NEWLYWED"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1981,
+        "yearTo": 1983
+      },
+      "top": [
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 신혼 때 대구 비산동 단칸방에서 살았다.",
+          "final": 0.04262
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자는 82년 봄, 벚꽃이 필 때 대구 시내 예식장에서 결혼식을 올렸다.",
+          "final": 0.02063
+        },
+        {
+          "key": "LE_RELATIONSHIP",
+          "summary": "화자는 친구 결혼식에서 아내를 처음 만났다.",
+          "final": 0.02031
+        },
+        {
+          "key": "SK_MARRIAGE",
+          "summary": "1981년, 화자의 인생 사건: 결혼.",
+          "final": 0.0194
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자의 아내 정숙은 공장 동료 영자 씨가 소개해 준 사람이다.",
+          "final": 0.01831
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 매주 일요일마다 아내와 도시락을 싸서 팔공산에 올랐다.",
+          "final": 0.01625
+        },
+        {
+          "key": "LE_RELATIONSHIP",
+          "summary": "화자는 수줍어서 말을 못 붙이고 있었는데, 아내가 먼저 웃어 주었다.",
+          "final": 0.01585
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 살았던 곳: 경북 안동, 대구 비산동, 대구 달서구.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "A-F4",
+      "category": "FACT",
+      "question": "나 군대는 어디서 했었지?",
+      "expected": [
+        [
+          "EP_MIL",
+          "SK_MILITARY"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1976,
+        "yearTo": 1978
+      },
+      "top": [
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 강원도 화천에서 군 생활을 했다.",
+          "final": 0.04195
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 나훈아 노래를 들으면 지금도 군대 시절이 생각난다고 했다.",
+          "final": 0.04162
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 1976년에 용철(군대 동기)을 처음 만났다.",
+          "final": 0.03862
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 군대 동기 용철과 화천에서 함께 복무했으나, 제대 후 연락이 끊겼다.",
+          "final": 0.03151
+        },
+        {
+          "key": "SK_MILITARY",
+          "summary": "1976년, 화자의 인생 사건: 군 입대(강원도 화천).",
+          "final": 0.02097
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 군 복무 중 추운 겨울에 동기 용철이와 난로 옆에 붙어 나훈아 노래를 부르며 버텼다.",
+          "final": 0.02063
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 살았던 곳: 경북 안동, 대구 비산동, 대구 달서구.",
+          "final": 0.01449
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 다닌 학교: 솔내국민학교, 농업고등학교.",
+          "final": 0.01351
+        }
+      ]
+    },
+    {
+      "id": "A-F5",
+      "category": "FACT",
+      "question": "IMF 때 우리 집은 어떻게 버텼지?",
+      "expected": [
+        [
+          "EP_IMF"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1997,
+        "yearTo": 1998
+      },
+      "top": [
+        {
+          "key": "EP_IMF",
+          "summary": "화자의 아내가 서문시장에 반찬 가게를 열어 IMF 시기 집안 살림을 버텼다.",
+          "final": 0.04262
+        },
+        {
+          "key": "EP_IMF",
+          "summary": "화자는 IMF 시기 집안을 지탱해 준 아내에게 평생 고마움을 느낀다.",
+          "final": 0.04194
+        },
+        {
+          "key": "SK_IMF",
+          "summary": "1998년, 화자의 인생 사건: IMF 때 공장 폐업.",
+          "final": 0.04127
+        },
+        {
+          "key": "EP_IMF",
+          "summary": "화자는 98년에 다니던 공장이 문을 닫아 한동안 일이 없이 지냈다.",
+          "final": 0.0394
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 군 복무 중 추운 겨울에 동기 용철이와 난로 옆에 붙어 나훈아 노래를 부르며 버텼다.",
+          "final": 0.02656
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 군 복무 중 휴가를 나오면 집에 가서 어머니 밥을 제일 먼저 먹었다.",
+          "final": 0.01308
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 동진섬유에서 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘했다.",
+          "final": 0.01288
+        },
+        {
+          "key": "LE_RELATIONSHIP",
+          "summary": "화자는 수줍어서 말을 못 붙이고 있었는데, 아내가 먼저 웃어 주었다.",
+          "final": 0.0125
+        }
+      ]
+    },
+    {
+      "id": "A-F6",
+      "category": "FACT",
+      "question": "첫째 딸 태어났을 때 병원비는 어떻게 마련했었지?",
+      "expected": [
+        [
+          "LE_FAMILY"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "LE_FAMILY",
+          "summary": "화자의 첫째 딸 미영이 태어났다.",
+          "final": 0.03227
+        },
+        {
+          "key": "LE_BIRTH",
+          "summary": "화자는 경북 안동 풍산의 시골 마을에서 5남매 중 맏이로 태어났다.",
+          "final": 0.03202
+        },
+        {
+          "key": "LE_FAMILY",
+          "summary": "화자는 병원비가 부족해 회사에 월급을 가불했다.",
+          "final": 0.03151
+        },
+        {
+          "key": "SK_BIRTH",
+          "summary": "화자는 1955년에 태어났다.",
+          "final": 0.03102
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 첫 월급으로 어머니께 내복을 사 드렸다.",
+          "final": 0.01613
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 신혼 때 대구 비산동 단칸방에서 살았다.",
+          "final": 0.01563
+        },
+        {
+          "key": "EP_IMF",
+          "summary": "화자는 IMF 시기 집안을 지탱해 준 아내에게 평생 고마움을 느낀다.",
+          "final": 0.01493
+        },
+        {
+          "key": "SK_IMF",
+          "summary": "1998년, 화자의 인생 사건: IMF 때 공장 폐업.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "A-T1",
+      "category": "PERIOD",
+      "question": "국민학교 때 나 뭐 하고 놀았지?",
+      "expected": [
+        [
+          "EP_ELEM"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1962,
+        "yearTo": 1967
+      },
+      "top": [
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 국민학교 시절 동무 봉구와 학교가 끝나면 매일 낙동강에 가서 멱을 감았다.",
+          "final": 0.04262
+        },
+        {
+          "key": "SK_ELEM",
+          "summary": "1962년, 화자의 인생 사건: 국민학교 입학.",
+          "final": 0.04127
+        },
+        {
+          "key": "PS_BONGGU",
+          "summary": "화자는 1962년에 봉구(국민학교 동무)를 처음 만났다.",
+          "final": 0.03943
+        },
+        {
+          "key": "PS_BONGGU",
+          "summary": "화자는 국민학교 동창인 봉구와 지금도 매주 토요일 함께 산에 다닌다.",
+          "final": 0.03226
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 다닌 학교: 솔내국민학교, 농업고등학교.",
+          "final": 0.03077
+        },
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 해가 질 때까지 낙동강에서 놀다가 집에 돌아오면 어머니께 혼이 났다.",
+          "final": 0.01688
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 관심사: 등산, 옛날 노래.",
+          "final": 0.01449
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 것(직접 입력): 산, 트로트.",
+          "final": 0.01408
+        }
+      ]
+    },
+    {
+      "id": "A-T2",
+      "category": "PERIOD",
+      "question": "군대 있을 때 무슨 노래를 불렀지?",
+      "expected": [
+        [
+          "EP_MIL"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1976,
+        "yearTo": 1978
+      },
+      "top": [
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 군 복무 중 추운 겨울에 동기 용철이와 난로 옆에 붙어 나훈아 노래를 부르며 버텼다.",
+          "final": 0.04228
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 나훈아 노래를 들으면 지금도 군대 시절이 생각난다고 했다.",
+          "final": 0.04228
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 강원도 화천에서 군 생활을 했다.",
+          "final": 0.04095
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 1976년에 용철(군대 동기)을 처음 만났다.",
+          "final": 0.03733
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 군대 동기 용철과 화천에서 함께 복무했으나, 제대 후 연락이 끊겼다.",
+          "final": 0.03102
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 관심사: 등산, 옛날 노래.",
+          "final": 0.03008
+        },
+        {
+          "key": "SK_MILITARY",
+          "summary": "1976년, 화자의 인생 사건: 군 입대(강원도 화천).",
+          "final": 0.02
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 음악: 나훈아.",
+          "final": 0.01449
+        }
+      ]
+    },
+    {
+      "id": "A-T3",
+      "category": "PERIOD",
+      "question": "스무 살 무렵에 나는 뭐 하고 있었지?",
+      "expected": [
+        [
+          "EP_HIGH",
+          "SK_HIGH"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1973,
+        "yearTo": 1975
+      },
+      "top": [
+        {
+          "key": "EP_HIGH",
+          "summary": "화자는 농업고등학교 실습 시간에 경운기 엔진을 뜯어보며 기계 만지는 재미를 처음 알게 되었다.",
+          "final": 0.02131
+        },
+        {
+          "key": "EP_HIGH",
+          "summary": "화자는 아버지 농사일을 돕느라 고등학교에 동무들보다 한 해 늦게 입학했다.",
+          "final": 0.01831
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 관심사: 등산, 옛날 노래.",
+          "final": 0.01449
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 것(직접 입력): 산, 트로트.",
+          "final": 0.01429
+        },
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 국민학교 시절 동무 봉구와 학교가 끝나면 매일 낙동강에 가서 멱을 감았다.",
+          "final": 0.01371
+        },
+        {
+          "key": "SK_MIDDLE",
+          "summary": "1968년, 화자의 인생 사건: 중학교 입학.",
+          "final": 0.01349
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 1979년에 대구 동진섬유 공장에 입사하여 직기를 돌리는 일을 했다.",
+          "final": 0.01328
+        },
+        {
+          "key": "SK_FIRST_JOB",
+          "summary": "1979년, 화자의 인생 사건: 대구 동진섬유 입사.",
+          "final": 0.01308
+        }
+      ]
+    },
+    {
+      "id": "A-T4",
+      "category": "PERIOD",
+      "question": "1979년에 나한테 무슨 일이 있었지?",
+      "expected": [
+        [
+          "EP_JOB",
+          "SK_FIRST_JOB"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1979,
+        "yearTo": 1979
+      },
+      "top": [
+        {
+          "key": "SK_FIRST_JOB",
+          "summary": "1979년, 화자의 인생 사건: 대구 동진섬유 입사.",
+          "final": 0.04262
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 1979년에 대구 동진섬유 공장에 입사하여 직기를 돌리는 일을 했다.",
+          "final": 0.04128
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 첫 월급으로 어머니께 내복을 사 드렸다.",
+          "final": 0.01667
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 동진섬유에서 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘했다.",
+          "final": 0.01494
+        },
+        {
+          "key": "SK_HIGH",
+          "summary": "1972년, 화자의 인생 사건: 농업고등학교 입학.",
+          "final": 0.01371
+        },
+        {
+          "key": "SK_MILITARY",
+          "summary": "1976년, 화자의 인생 사건: 군 입대(강원도 화천).",
+          "final": 0.01349
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 1976년에 용철(군대 동기)을 처음 만났다.",
+          "final": 0.01308
+        },
+        {
+          "key": "PS_BONGGU",
+          "summary": "화자는 1962년에 봉구(국민학교 동무)를 처음 만났다.",
+          "final": 0.01288
+        }
+      ]
+    },
+    {
+      "id": "A-T5",
+      "category": "PERIOD",
+      "question": "결혼하고 나서 주말엔 주로 뭐 했지?",
+      "expected": [
+        [
+          "EP_NEWLYWED"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1981,
+        "yearTo": 1986
+      },
+      "top": [
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자는 82년 봄, 벚꽃이 필 때 대구 시내 예식장에서 결혼식을 올렸다.",
+          "final": 0.04071
+        },
+        {
+          "key": "SK_MARRIAGE",
+          "summary": "1981년, 화자의 인생 사건: 결혼.",
+          "final": 0.04066
+        },
+        {
+          "key": "LE_RELATIONSHIP",
+          "summary": "화자는 친구 결혼식에서 아내를 처음 만났다.",
+          "final": 0.03894
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 매주 일요일마다 아내와 도시락을 싸서 팔공산에 올랐다.",
+          "final": 0.02131
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 신혼 때 대구 비산동 단칸방에서 살았다.",
+          "final": 0.01711
+        },
+        {
+          "key": "PS_BONGGU",
+          "summary": "화자는 국민학교 동창인 봉구와 지금도 매주 토요일 함께 산에 다닌다.",
+          "final": 0.01587
+        },
+        {
+          "key": "LE_RELATIONSHIP",
+          "summary": "화자는 수줍어서 말을 못 붙이고 있었는데, 아내가 먼저 웃어 주었다.",
+          "final": 0.01585
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 관심사: 등산, 옛날 노래.",
+          "final": 0.01563
+        }
+      ]
+    },
+    {
+      "id": "A-P1",
+      "category": "PERSON",
+      "question": "봉구는 언제부터 알던 친구지?",
+      "expected": [
+        [
+          "PS_BONGGU",
+          "EP_ELEM"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PROFILE",
+          "summary": "화자의 가까운 친구: 봉구.",
+          "final": 0.032
+        },
+        {
+          "key": "PS_BONGGU",
+          "summary": "화자는 1962년에 봉구(국민학교 동무)를 처음 만났다.",
+          "final": 0.03178
+        },
+        {
+          "key": "LE_BACK_HIKE",
+          "summary": "화자는 요즘 봉구와 함께 매주 토요일 산에 다닌다.",
+          "final": 0.03151
+        },
+        {
+          "key": "PS_BONGGU",
+          "summary": "화자는 국민학교 동창인 봉구와 지금도 매주 토요일 함께 산에 다닌다.",
+          "final": 0.0315
+        },
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 국민학교 시절 동무 봉구와 학교가 끝나면 매일 낙동강에 가서 멱을 감았다.",
+          "final": 0.03132
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 1976년에 용철(군대 동기)을 처음 만났다.",
+          "final": 0.01563
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 군대 동기 용철과 화천에서 함께 복무했으나, 제대 후 연락이 끊겼다.",
+          "final": 0.01515
+        },
+        {
+          "key": "LE_RELATIONSHIP",
+          "summary": "화자는 친구 결혼식에서 아내를 처음 만났다.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "A-P2",
+      "category": "PERSON",
+      "question": "용철이는 누구였지?",
+      "expected": [
+        [
+          "PS_YONGCHEOL",
+          "EP_MIL"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 군 복무 중 추운 겨울에 동기 용철이와 난로 옆에 붙어 나훈아 노래를 부르며 버텼다.",
+          "final": 0.03252
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 군대 동기 용철과 화천에서 함께 복무했으나, 제대 후 연락이 끊겼다.",
+          "final": 0.032
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 1976년에 용철(군대 동기)을 처음 만났다.",
+          "final": 0.01639
+        },
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 해가 질 때까지 낙동강에서 놀다가 집에 돌아오면 어머니께 혼이 났다.",
+          "final": 0.01563
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 동진섬유에서 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘했다.",
+          "final": 0.01538
+        },
+        {
+          "key": "ERA_OLYMPIC",
+          "summary": "화자는 딸 미영이에게 호돌이 인형을 사 주었다.",
+          "final": 0.01515
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자의 아내 정숙은 공장 동료 영자 씨가 소개해 준 사람이다.",
+          "final": 0.01493
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 강원도 화천에서 군 생활을 했다.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "A-P3",
+      "category": "PERSON",
+      "question": "우리 집사람 정숙이는 어떤 사람이라고 했었지?",
+      "expected": [
+        [
+          "PS_JEONGSUK"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자의 아내 정숙은 공장 동료 영자 씨가 소개해 준 사람이다.",
+          "final": 0.032
+        },
+        {
+          "key": "PS_JEONGSUK",
+          "summary": "화자의 아내 정숙은 말수가 적고 음식 솜씨가 좋다.",
+          "final": 0.03178
+        },
+        {
+          "key": "EP_IMF",
+          "summary": "화자는 IMF 시기 집안을 지탱해 준 아내에게 평생 고마움을 느낀다.",
+          "final": 0.03125
+        },
+        {
+          "key": "EP_IMF",
+          "summary": "화자의 아내가 서문시장에 반찬 가게를 열어 IMF 시기 집안 살림을 버텼다.",
+          "final": 0.02973
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자는 82년 봄, 벚꽃이 필 때 대구 시내 예식장에서 결혼식을 올렸다.",
+          "final": 0.02623
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 동진섬유에서 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘했다.",
+          "final": 0.01587
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 부모님: 아버지는 농사를 지으셨고 어머니는 음식 솜씨가 좋으셨다.",
+          "final": 0.01538
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 형제자매: 5남매 중 맏이. 막내 동생은 동희.",
+          "final": 0.01515
+        }
+      ]
+    },
+    {
+      "id": "A-P4",
+      "category": "PERSON",
+      "question": "미영이는 몇 년에 태어났지?",
+      "expected": [
+        [
+          "LE_FAMILY",
+          "PS_MIYEONG"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "LE_FAMILY",
+          "summary": "화자의 첫째 딸 미영이 태어났다.",
+          "final": 0.03279
+        },
+        {
+          "key": "ERA_OLYMPIC",
+          "summary": "화자는 딸 미영이에게 호돌이 인형을 사 주었다.",
+          "final": 0.03226
+        },
+        {
+          "key": "SK_BIRTH",
+          "summary": "화자는 1955년에 태어났다.",
+          "final": 0.01587
+        },
+        {
+          "key": "SK_IMF",
+          "summary": "1998년, 화자의 인생 사건: IMF 때 공장 폐업.",
+          "final": 0.01563
+        },
+        {
+          "key": "SK_MARRIAGE",
+          "summary": "1981년, 화자의 인생 사건: 결혼.",
+          "final": 0.01538
+        },
+        {
+          "key": "SK_FIRST_JOB",
+          "summary": "1979년, 화자의 인생 사건: 대구 동진섬유 입사.",
+          "final": 0.01515
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 형제자매: 5남매 중 맏이. 막내 동생은 동희.",
+          "final": 0.01493
+        },
+        {
+          "key": "LE_BIRTH",
+          "summary": "화자는 경북 안동 풍산의 시골 마을에서 5남매 중 맏이로 태어났다.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "A-P5",
+      "category": "PERSON",
+      "question": "막내 동생 동희 얘기 뭐라고 했었지?",
+      "expected": [
+        [
+          "PS_DONGHUI"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PS_DONGHUI",
+          "summary": "화자의 막내 동생 동희는 대구 수성구에 산다.",
+          "final": 0.03279
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 형제자매: 5남매 중 맏이. 막내 동생은 동희.",
+          "final": 0.03226
+        },
+        {
+          "key": "ERA_OLYMPIC",
+          "summary": "화자는 올림픽 개막식을 동네 전파사 앞에 동네 사람들과 모여 서서 시청했다.",
+          "final": 0.01587
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 동진섬유에서 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘했다.",
+          "final": 0.01563
+        },
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 국민학교 시절 동무 봉구와 학교가 끝나면 매일 낙동강에 가서 멱을 감았다.",
+          "final": 0.01538
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 군대 동기 용철과 화천에서 함께 복무했으나, 제대 후 연락이 끊겼다.",
+          "final": 0.01515
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자의 아내 정숙은 공장 동료 영자 씨가 소개해 준 사람이다.",
+          "final": 0.01493
+        },
+        {
+          "key": "ERA_OLYMPIC",
+          "summary": "화자는 딸 미영이에게 호돌이 인형을 사 주었다.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "A-L1",
+      "category": "PREFERENCE",
+      "question": "나는 쉬는 날 뭐 하는 걸 좋아하지?",
+      "expected": [
+        [
+          "EP_NEWLYWED",
+          "LE_BACK_HIKE",
+          "PS_BONGGU",
+          "PROFILE"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 것(직접 입력): 산, 트로트.",
+          "final": 0.01639
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 관심사: 등산, 옛날 노래.",
+          "final": 0.01613
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 취미: 등산, 화투.",
+          "final": 0.01587
+        },
+        {
+          "key": "LE_BACK_HIKE",
+          "summary": "화자는 요즘 봉구와 함께 매주 토요일 산에 다닌다.",
+          "final": 0.01563
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 팔공산에 오르면 공장 일의 피로가 싹 풀린다고 느꼈다.",
+          "final": 0.01538
+        },
+        {
+          "key": "EP_HIGH",
+          "summary": "화자는 농업고등학교 실습 시간에 경운기 엔진을 뜯어보며 기계 만지는 재미를 처음 알게 되었다.",
+          "final": 0.01515
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 매주 일요일마다 아내와 도시락을 싸서 팔공산에 올랐다.",
+          "final": 0.01493
+        },
+        {
+          "key": "PS_BONGGU",
+          "summary": "화자는 국민학교 동창인 봉구와 지금도 매주 토요일 함께 산에 다닌다.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "A-L2",
+      "category": "PREFERENCE",
+      "question": "내가 좋아하는 가수가 누구지?",
+      "expected": [
+        [
+          "PROFILE",
+          "EP_MIL"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 음악: 나훈아.",
+          "final": 0.03279
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 것(직접 입력): 산, 트로트.",
+          "final": 0.03226
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 나훈아 노래를 들으면 지금도 군대 시절이 생각난다고 했다.",
+          "final": 0.01587
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 관심사: 등산, 옛날 노래.",
+          "final": 0.01563
+        },
+        {
+          "key": "PS_BONGGU",
+          "summary": "화자는 국민학교 동창인 봉구와 지금도 매주 토요일 함께 산에 다닌다.",
+          "final": 0.01515
+        },
+        {
+          "key": "PS_DONGHUI",
+          "summary": "화자의 막내 동생 동희는 대구 수성구에 산다.",
+          "final": 0.01449
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 군 복무 중 추운 겨울에 동기 용철이와 난로 옆에 붙어 나훈아 노래를 부르며 버텼다.",
+          "final": 0.01408
+        },
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 국민학교 시절 동무 봉구와 학교가 끝나면 매일 낙동강에 가서 멱을 감았다.",
+          "final": 0.01389
+        }
+      ]
+    },
+    {
+      "id": "A-L3",
+      "category": "PREFERENCE",
+      "question": "내가 싫어하는 음식이 있었나?",
+      "expected": [
+        [
+          "LE_FOOD"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "LE_FOOD",
+          "summary": "화자는 비린 음식을 먹지 못해 회사 회식에서 회를 한 점도 먹지 못했다.",
+          "final": 0.03279
+        },
+        {
+          "key": "PS_JEONGSUK",
+          "summary": "화자의 아내 정숙은 말수가 적고 음식 솜씨가 좋다.",
+          "final": 0.03128
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 부모님: 아버지는 농사를 지으셨고 어머니는 음식 솜씨가 좋으셨다.",
+          "final": 0.03058
+        },
+        {
+          "key": "LE_FOOD",
+          "summary": "화자는 공장 회식에서 회 대신 김치찌개를 두 그릇 먹었다.",
+          "final": 0.01613
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 군 복무 중 휴가를 나오면 집에 가서 어머니 밥을 제일 먼저 먹었다.",
+          "final": 0.01587
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 것(직접 입력): 산, 트로트.",
+          "final": 0.01563
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 음악: 나훈아.",
+          "final": 0.01538
+        },
+        {
+          "key": "EP_HIGH",
+          "summary": "화자는 농업고등학교 실습 시간에 경운기 엔진을 뜯어보며 기계 만지는 재미를 처음 알게 되었다.",
+          "final": 0.01493
+        }
+      ]
+    },
+    {
+      "id": "A-L4",
+      "category": "PREFERENCE",
+      "question": "나 손재주가 좋은 편이야?",
+      "expected": [
+        [
+          "EP_JOB",
+          "EP_HIGH"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PS_JEONGSUK",
+          "summary": "화자의 아내 정숙은 말수가 적고 음식 솜씨가 좋다.",
+          "final": 0.01639
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 부모님: 아버지는 농사를 지으셨고 어머니는 음식 솜씨가 좋으셨다.",
+          "final": 0.01613
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 음악: 나훈아.",
+          "final": 0.01587
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 것(직접 입력): 산, 트로트.",
+          "final": 0.01563
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 동진섬유에서 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘했다.",
+          "final": 0.01538
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 군 복무 중 휴가를 나오면 집에 가서 어머니 밥을 제일 먼저 먹었다.",
+          "final": 0.01493
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 매주 일요일마다 아내와 도시락을 싸서 팔공산에 올랐다.",
+          "final": 0.01471
+        },
+        {
+          "key": "PS_BONGGU",
+          "summary": "화자는 국민학교 동창인 봉구와 지금도 매주 토요일 함께 산에 다닌다.",
+          "final": 0.01408
+        }
+      ]
+    },
+    {
+      "id": "A-C1",
+      "category": "CONFLICT",
+      "question": "나 결혼 몇 년도에 했지?",
+      "expected": [
+        [
+          "SK_MARRIAGE",
+          "LE_RELATIONSHIP"
+        ],
+        [
+          "EP_MARRIAGE"
+        ]
+      ],
+      "groupHits": [
+        true,
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1981,
+        "yearTo": 1981
+      },
+      "top": [
+        {
+          "key": "SK_MARRIAGE",
+          "summary": "1981년, 화자의 인생 사건: 결혼.",
+          "final": 0.04228
+        },
+        {
+          "key": "LE_RELATIONSHIP",
+          "summary": "화자는 친구 결혼식에서 아내를 처음 만났다.",
+          "final": 0.04095
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자는 82년 봄, 벚꽃이 필 때 대구 시내 예식장에서 결혼식을 올렸다.",
+          "final": 0.02764
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 신혼 때 대구 비산동 단칸방에서 살았다.",
+          "final": 0.01912
+        },
+        {
+          "key": "PS_BONGGU",
+          "summary": "화자는 1962년에 봉구(국민학교 동무)를 처음 만났다.",
+          "final": 0.01349
+        },
+        {
+          "key": "SK_IMF",
+          "summary": "1998년, 화자의 인생 사건: IMF 때 공장 폐업.",
+          "final": 0.01308
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 1976년에 용철(군대 동기)을 처음 만났다.",
+          "final": 0.01288
+        },
+        {
+          "key": "SK_BIRTH",
+          "summary": "화자는 1955년에 태어났다.",
+          "final": 0.01269
+        }
+      ]
+    },
+    {
+      "id": "A-C2",
+      "category": "CONFLICT",
+      "question": "집사람은 어떻게 처음 만났었지?",
+      "expected": [
+        [
+          "LE_RELATIONSHIP"
+        ],
+        [
+          "EP_MARRIAGE"
+        ]
+      ],
+      "groupHits": [
+        true,
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_IMF",
+          "summary": "화자의 아내가 서문시장에 반찬 가게를 열어 IMF 시기 집안 살림을 버텼다.",
+          "final": 0.03009
+        },
+        {
+          "key": "EP_IMF",
+          "summary": "화자는 IMF 시기 집안을 지탱해 준 아내에게 평생 고마움을 느낀다.",
+          "final": 0.02929
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 1976년에 용철(군대 동기)을 처음 만났다.",
+          "final": 0.01639
+        },
+        {
+          "key": "PS_BONGGU",
+          "summary": "화자는 1962년에 봉구(국민학교 동무)를 처음 만났다.",
+          "final": 0.01613
+        },
+        {
+          "key": "LE_RELATIONSHIP",
+          "summary": "화자는 친구 결혼식에서 아내를 처음 만났다.",
+          "final": 0.01587
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자의 아내 정숙은 공장 동료 영자 씨가 소개해 준 사람이다.",
+          "final": 0.01563
+        },
+        {
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 군대 동기 용철과 화천에서 함께 복무했으나, 제대 후 연락이 끊겼다.",
+          "final": 0.01538
+        },
+        {
+          "key": "LE_BIRTH",
+          "summary": "화자는 경북 안동 풍산의 시골 마을에서 5남매 중 맏이로 태어났다.",
+          "final": 0.01515
+        }
+      ]
+    },
+    {
+      "id": "A-X1",
+      "category": "FALSE_PREMISE",
+      "question": "내가 부산에서 태어났다고 했었지?",
+      "expected": [
+        [
+          "LE_BIRTH",
+          "PROFILE"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "LE_BIRTH",
+          "summary": "화자는 경북 안동 풍산의 시골 마을에서 5남매 중 맏이로 태어났다.",
+          "final": 0.01639
+        },
+        {
+          "key": "PS_DONGHUI",
+          "summary": "화자의 막내 동생 동희는 대구 수성구에 산다.",
+          "final": 0.01613
+        },
+        {
+          "key": "SK_MILITARY",
+          "summary": "1976년, 화자의 인생 사건: 군 입대(강원도 화천).",
+          "final": 0.01587
+        },
+        {
+          "key": "SK_BIRTH",
+          "summary": "화자는 1955년에 태어났다.",
+          "final": 0.01563
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 살았던 곳: 경북 안동, 대구 비산동, 대구 달서구.",
+          "final": 0.01538
+        },
+        {
+          "key": "SK_FIRST_JOB",
+          "summary": "1979년, 화자의 인생 사건: 대구 동진섬유 입사.",
+          "final": 0.01515
+        },
+        {
+          "key": "EP_MIL",
+          "summary": "화자는 강원도 화천에서 군 생활을 했다.",
+          "final": 0.01493
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 신혼 때 대구 비산동 단칸방에서 살았다.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "A-X2",
+      "category": "FALSE_PREMISE",
+      "question": "내가 첫 직장을 서울에서 다녔지?",
+      "expected": [
+        [
+          "EP_JOB",
+          "SK_FIRST_JOB"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1979,
+        "yearTo": 1982
+      },
+      "top": [
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 1979년에 대구 동진섬유 공장에 입사하여 직기를 돌리는 일을 했다.",
+          "final": 0.02131
+        },
+        {
+          "key": "SK_FIRST_JOB",
+          "summary": "1979년, 화자의 인생 사건: 대구 동진섬유 입사.",
+          "final": 0.02097
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 신혼 때 대구 비산동 단칸방에서 살았다.",
+          "final": 0.02063
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 동진섬유에서 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘했다.",
+          "final": 0.01884
+        },
+        {
+          "key": "EP_JOB",
+          "summary": "화자는 첫 월급으로 어머니께 내복을 사 드렸다.",
+          "final": 0.01831
+        },
+        {
+          "key": "LE_RELATIONSHIP",
+          "summary": "화자는 친구 결혼식에서 아내를 처음 만났다.",
+          "final": 0.01733
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자의 아내 정숙은 공장 동료 영자 씨가 소개해 준 사람이다.",
+          "final": 0.01688
+        },
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 팔공산에 오르면 공장 일의 피로가 싹 풀린다고 느꼈다.",
+          "final": 0.01605
+        }
+      ]
+    }
+  ]
+}

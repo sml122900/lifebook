@@ -324,6 +324,9 @@
 |---|---|---|
 | `/lab/memory` | 대상별 원본 변경 확인 | ⚙ 조회(원본 ↔ 색인 원장 비교, 페이지 전환 없음) |
 | `/lab/memory` | 대상별 동기화 실행 | ⚙ 카드 추출·소멸 반영·임베딩(1회 LLM 20건 상한, 페이지 전환 없음) |
+| `/lab/memory` | 검색 디버그 → | → `/lab/memory/search` |
+| `/lab/memory/search` | 검색 | ⚙ 카드 검색(점수 분해·생존 확인, 페이지 전환 없음) |
+| `/lab/memory/search` | ← 연구실 | → `/lab/memory` |
 
 ---
 

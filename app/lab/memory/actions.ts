@@ -6,6 +6,7 @@ import {
   summarizeDiff,
   type SourceDiffSummary,
 } from "@/lib/lab/diff";
+import { searchWithQuestion, type SearchResult } from "@/lib/lab/search";
 import { syncSubject, type SyncReport } from "@/lib/lab/sync";
 
 // 기억 연구실 서버 액션. 모든 액션의 첫 문장은 requireLabUser()/requireLabSubject()
@@ -30,4 +31,26 @@ export async function syncSubjectAction(
 ): Promise<SyncReport> {
   await requireLabSubject(subjectId);
   return syncSubject(subjectId, { maxLlmUnits: SYNC_MAX_LLM_UNITS });
+}
+
+// 검색 디버그 — 평가기(db/lab-eval.ts)와 같은 searchWithQuestion 경로.
+export async function searchCardsAction(
+  subjectId: string,
+  input: {
+    query: string;
+    yearFrom?: number;
+    yearTo?: number;
+    useQuestionTimeHint: boolean;
+    limit?: number;
+  },
+): Promise<SearchResult> {
+  await requireLabSubject(subjectId);
+  return searchWithQuestion(subjectId, {
+    query: input.query.slice(0, 300),
+    yearFrom: input.yearFrom,
+    yearTo: input.yearTo,
+    useQuestionTimeHint: input.useQuestionTimeHint,
+    limit: input.limit,
+    refId: "search:debug",
+  });
 }
