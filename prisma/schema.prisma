@@ -177,6 +177,7 @@ model User {
   memorySourceUnits MemorySourceUnit[]
   memoryCards       MemoryCard[]
   labUsages         LabUsage[]
+  labAgentRuns      LabAgentRun[]
 }
 
 // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
@@ -1308,4 +1309,30 @@ model LabUsage {
   createdAt        DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// R2 — 질의응답 에이전트 1회 실행 기록(연구 분석·평가 재현용). 답의 근거는 카드 id 로만
+// 남기고 원문 사본은 두지 않는다 — 원본 삭제로 카드가 사라지면 인용은 끊긴 id 로 남는다.
+// toolTrace 도 도구 이름·입력·결과 카드 id/개수만(카드 본문 사본 없음). 대상 탈퇴 시 Cascade.
+model LabAgentRun {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source        String // UI | EVAL
+  refId         String? // LabUsage.refId 와 같은 값(원가 묶음·평가 실행 id)
+  question      String
+  answer        Json // 검증을 거친 답(주장·인용·모순·기록 없음) + 화면 문장
+  citedCardIds  String[] @default([])
+  droppedClaims Int      @default(0) // 검증기가 버린 주장 수(근거 카드 불일치)
+  toolTrace     Json     @default("[]")
+  model         String
+  rounds        Int      @default(0)
+  inputTokens   Int      @default(0)
+  outputTokens  Int      @default(0)
+  costMicroUsd  Int      @default(0)
+  error         String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([refId])
 }
