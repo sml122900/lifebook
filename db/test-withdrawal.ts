@@ -7,12 +7,17 @@
 // 3) 탈퇴자가 쓴 SharedMemory 는 익명화 (createdById=null).
 // 4) paid TokenOrder 익명화 (userId=null), pending/failed 는 삭제.
 // 5) UserMemory cascade. 그에 달린 고아 룸 댓글은 사전 정리.
+// (scenario 4) v3 모델 cascade. (scenario 5) 탈퇴 시 Storage 파일 삭제 — 실제 Storage 에
+// 작은 테스트 파일을 올렸다가 지운다(이웃 폴더는 테스트 끝에 직접 정리).
 
 import "dotenv/config";
 
+import { createClient } from "@supabase/supabase-js";
+
 import { prisma } from "../lib/db";
-import { deleteAccountTx } from "../lib/account-deletion";
+import { deleteAccountTx, withdrawAccount } from "../lib/account-deletion";
 import { createEpisodeBridge } from "../lib/episode";
+import { listUserStorageObjects } from "../lib/storage-purge";
 
 async function cleanup() {
   await prisma.user.deleteMany({
@@ -386,12 +391,88 @@ async function scenario4_v3Models() {
   }
 }
 
+// 2026-10-01 — 탈퇴 시 Storage 파일 삭제(A안). 실제 탈퇴 흐름 withdrawAccount() 그대로.
+// 본인 폴더 3곳(photos/{id}/, photos/poster-bg/{id}/, recordings/{id}/)은 0개가 되고,
+// 이름이 비슷한 이웃 폴더(더 긴 id·더 짧은 id·"_"를 다른 글자로 바꾼 id)는 그대로여야 한다.
+async function scenario5_storagePurge() {
+  console.log("\n=== scenario 5: withdrawal removes user's Storage files only (exact prefix) ===");
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("scenario5 needs SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
+  const supa = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+
+  const ts = Date.now();
+  const id = `wtest_store_${ts}`;
+  // 이웃: 더 긴 id(prefix 부분 일치), 더 짧은 id, "_"→"x"(LIKE 와일드카드 오인).
+  const neighbors = [`${id}x`, id.slice(0, -1), id.replace(/_/g, "x")];
+  const filesFor = (owner: string) => [
+    { bucket: "photos", path: `${owner}/t.png`, type: "image/png" },
+    { bucket: "photos", path: `poster-bg/${owner}/t.png`, type: "image/png" },
+    { bucket: "recordings", path: `${owner}/t.webm`, type: "audio/webm" },
+  ];
+  const mine = filesFor(id);
+  const theirs = neighbors.flatMap(filesFor);
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const webm = Buffer.from([0x1a, 0x45, 0xdf, 0xa3]);
+
+  const existing = async (files: { bucket: string; path: string }[]) => {
+    let n = 0;
+    for (const f of files) {
+      const rows = await prisma.$queryRaw<{ c: number }[]>`
+        SELECT COUNT(*)::int AS c FROM storage.objects WHERE bucket_id = ${f.bucket} AND name = ${f.path}`;
+      n += rows[0]?.c ?? 0;
+    }
+    return n;
+  };
+
+  await prisma.user.create({ data: { id, email: `withdrawal-test-storage-${ts}@test`, name: "storage" } });
+  try {
+    for (const f of [...mine, ...theirs]) {
+      const { error } = await supa.storage
+        .from(f.bucket)
+        .upload(f.path, f.type === "image/png" ? png : webm, { contentType: f.type, upsert: true });
+      if (error) throw new Error(`scenario5 upload failed (${f.bucket}): ${error.message}`);
+    }
+    const listedBefore = await listUserStorageObjects(id);
+    console.log("user files before:", listedBefore.length, "(expect 3)");
+    console.log("neighbor files before:", await existing(theirs), `(expect ${theirs.length})`);
+
+    const result = await withdrawAccount(id);
+
+    const userAfter = await prisma.user.findUnique({ where: { id } });
+    const mineAfter = await existing(mine);
+    const theirsAfter = await existing(theirs);
+    console.log("user deleted:", userAfter === null);
+    console.log("storageRemoved:", result.storageRemoved, "(expect 3)");
+    console.log("user files after (3 folders):", mineAfter, "(expect 0)");
+    console.log("neighbor files after:", theirsAfter, `(expect ${theirs.length}, untouched)`);
+
+    if (
+      listedBefore.length !== 3 ||
+      userAfter !== null ||
+      result.storageRemoved !== 3 ||
+      mineAfter !== 0 ||
+      theirsAfter !== theirs.length
+    ) {
+      throw new Error("scenario5 FAILED — Storage purge wrong scope or incomplete");
+    }
+  } finally {
+    // 이웃 폴더 + (실패 시) 남은 본인 파일 정리.
+    for (const bucket of ["photos", "recordings"]) {
+      const paths = [...mine, ...theirs].filter((f) => f.bucket === bucket).map((f) => f.path);
+      await supa.storage.from(bucket).remove(paths);
+    }
+    await prisma.user.deleteMany({ where: { id } });
+  }
+}
+
 async function main() {
   await cleanup();
   await scenario1_transfer();
   await scenario2_cascadeRoom();
   await scenario3_userMemoryComments();
   await scenario4_v3Models();
+  await scenario5_storagePurge();
   await cleanup();
   console.log("\n✓ done");
 }

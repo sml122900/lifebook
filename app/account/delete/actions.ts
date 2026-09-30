@@ -3,11 +3,11 @@
 import { redirect } from "next/navigation";
 
 import { auth, signOut } from "@/auth";
-import { deleteAccountTx } from "@/lib/account-deletion";
+import { withdrawAccount } from "@/lib/account-deletion";
 
-// PIPA 동의 철회권 — 회원 탈퇴. 트랜잭션 본체는 lib/account-deletion.ts 로
-// 추출해 검증 스크립트(db/test-withdrawal*.ts)와 공유한다 — 정책 주석도
-// 그쪽에 있다.
+// PIPA 동의 철회권 — 회원 탈퇴. 탈퇴 흐름(DB 트랜잭션 → 커밋 후 Storage 파일
+// 삭제)은 lib/account-deletion.ts 로 추출해 검증 스크립트(db/test-withdrawal*.ts)와
+// 공유한다 — 정책 주석도 그쪽에 있다.
 export async function deleteAccountAction(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -20,7 +20,7 @@ export async function deleteAccountAction(formData: FormData) {
     throw new Error("confirmation mismatch");
   }
 
-  await deleteAccountTx(userId);
+  await withdrawAccount(userId);
 
   await signOut({ redirect: false });
   redirect("/?withdrawn=1");

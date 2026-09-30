@@ -17,6 +17,26 @@
 //   LifeEvent/Episode/OnboardingProfile/OnboardingChatMessage: 기존
 //   cascade로 자동 정리.
 import { prisma } from "@/lib/db";
+import { purgeUserStorage } from "@/lib/storage-purge";
+
+// 탈퇴 전체 흐름(2026-10-01 A안) — DB 트랜잭션 커밋 "후" Storage 파일 삭제.
+// 순서가 반대면 트랜잭션 실패 시 계정은 남고 사진·목소리만 영구 소실된다. 파일
+// 삭제가 실패해도 탈퇴는 성공으로 두고 로그만 남긴다 — 남은 파일은 경로의 userId 가
+// User 에 없으므로 db/reconcile-storage.ts 가 찾아 지운다. 로그엔 파일명·id 없음.
+export async function withdrawAccount(
+  userId: string,
+): Promise<{ storageRemoved: number | null }> {
+  await deleteAccountTx(userId);
+  try {
+    return { storageRemoved: await purgeUserStorage(userId) };
+  } catch (e) {
+    console.error(
+      "[account/delete] Storage 파일 삭제 실패(탈퇴는 완료):",
+      e instanceof Error ? e.message : e,
+    );
+    return { storageRemoved: null };
+  }
+}
 
 export async function deleteAccountTx(userId: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
