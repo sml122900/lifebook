@@ -171,6 +171,12 @@ model User {
   onboardingProfile      OnboardingProfile?
   onboardingChatMessages OnboardingChatMessage[]
   chatV3PendingContext   ChatV3PendingContext?
+
+  // 기억 에이전트 연구 트랙(R1~) — 관계 필드만(User 테이블 DDL 0). 탈퇴 시
+  // lab 파생 색인이 Cascade 로 함께 지워지게 하려는 역참조.
+  memorySourceUnits MemorySourceUnit[]
+  memoryCards       MemoryCard[]
+  labUsages         LabUsage[]
 }
 
 // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
@@ -1206,4 +1212,100 @@ model ChatV3PendingContext {
 enum ChatV3PendingStage {
   EPISODE
   PERSON
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 기억 에이전트 연구 트랙(R1~R4) — /lab/memory 전용. phase/기억에이전트_R1-R4_기획.md
+//
+// 원본(UserMemory·Episode·LifeEvent·Person 등)은 읽기 전용이고, 아래 테이블은
+// 그 파생 색인이다. 허용 목록 계정(본인 + lab_persona_*)만 대상. 원본과 FK 를
+// 맺지 않는다(원본이 여러 테이블에 걸친 다형이라) — 원본 소멸은 해시 비교
+// 동기화 + 조회 시점 생존 확인으로 처리.
+// ─────────────────────────────────────────────────────────────────────────
+
+// R1 — 원본 1건의 색인 원장. 카드가 0장(EMPTY)인 원본도 행을 남겨 매번
+// 재추출하지 않게 한다. sourceHash 가 달라지면 재추출, 원본이 사라지면 GONE.
+model MemorySourceUnit {
+  id               String       @id @default(cuid())
+  userId           String
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // EPISODE|SKELETON_EVENT|LIFE_EVENT_MEMORY|ERA_MEMORY|PHOTO_MEMORY|PERSON_MEMO|PROFILE
+  // (R4: +COMPANION_SESSION|FREE_RECORDING|CHAT_V3_DAY). 연구 중 늘 수 있어 String.
+  sourceType       String
+  // 원본 행 id. PROFILE 은 userId, CHAT_V3_DAY 는 "YYYY-MM-DD".
+  sourceId         String
+  // sha256(정규화 본문 + 메타[연도·인물 id·장소·isDraft] + extractorVersion)
+  sourceHash       String
+  // 출생연도 + 골격 연도. 바뀌면 파생 연도 카드만 재계산(LLM 0).
+  contextHash      String?
+  status           String // ACTIVE | GONE | EMPTY
+  extractorVersion String
+  lastSyncedAt     DateTime
+  lastError        String?
+  createdAt        DateTime     @default(now())
+  cards            MemoryCard[]
+
+  @@unique([userId, sourceType, sourceId])
+}
+
+// R1 — 기억 카드. 원본 1건 → 카드 N장. summary 는 3인칭(주어 "화자"),
+// quote 는 원문의 연속 부분문자열(코드로 검증, 실패 시 저장 안 함).
+// embedding 은 voyage-3.5 1024차원 — Prisma 가 vector 를 못 다뤄 raw SQL 로 읽고 쓴다.
+model MemoryCard {
+  id               String                       @id @default(cuid())
+  userId           String
+  user             User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unitId           String
+  unit             MemorySourceUnit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  // 비정규화 — 인용 표시·조회 시점 생존 확인에 조인 없이 쓴다.
+  sourceType       String
+  sourceId         String
+  ordinal          Int // 원본 안 순번
+  kind             String // EVENT|FACT|PREFERENCE|FEELING|ROUTINE|RELATION
+  summary          String
+  quote            String?
+  quoteField       String? // content|rawTranscript|memo …
+  quoteStart       Int?
+  quoteEnd         Int?
+  yearFrom         Int?
+  yearTo           Int?
+  month            Int?
+  timePrecision    String // MONTH|YEAR|RANGE|UNKNOWN
+  timeBasis        String // SOURCE_FIELD|SKELETON|AGE_EXPR|ERA|NONE
+  timeExpression   String? // 원문 시기 표현("군대 있을 때")
+  lifeStage        String?
+  personIds        String[]                     @default([]) // Person.id — 코드 매칭만
+  personMentions   String[]                     @default([]) // 원문 호칭("어머니", "철수")
+  placeNames       String[]                     @default([])
+  keywords         String[]                     @default([])
+  // L2 세션 판정 키 = 원본 createdAt 의 KST 날짜.
+  sessionKey       String
+  embedding        Unsupported("vector(1024)")?
+  embeddingModel   String?
+  extractorModel   String // "deterministic" | 모델 ID
+  extractorVersion String
+  createdAt        DateTime                     @default(now())
+
+  @@unique([unitId, ordinal])
+  @@index([userId, yearFrom])
+}
+
+// R1 — lab 의 LLM·임베딩 원가 원장. 월 예산 가드(LAB_MONTHLY_BUDGET_USD)의
+// 근거. 사용자 토큰 지갑은 건드리지 않는다. 사용자 삭제 후에도 월 합계가
+// 줄지 않도록 SetNull.
+model LabUsage {
+  id               String   @id @default(cuid())
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  purpose          String // EXTRACT|EMBED|CONSOLIDATE|AGENT|JUDGE
+  model            String
+  inputTokens      Int      @default(0)
+  outputTokens     Int      @default(0)
+  cacheReadTokens  Int      @default(0)
+  cacheWriteTokens Int      @default(0)
+  costMicroUsd     Int // 추정 원가(백만분의 1 달러)
+  refId            String?
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
 }
