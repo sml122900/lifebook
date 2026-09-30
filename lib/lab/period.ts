@@ -30,6 +30,19 @@ export const LIFE_EVENT_TYPE_STAGE: Record<string, LifeStage> = {
   MARRIAGE: "MARRIAGE",
 };
 
+// v2 UserMemory.category(LifeCategory) → 인생 단계. BIRTH·FAMILY(자녀 — 자유 추가
+// 기본값이라 단계 신호로 못 씀)는 단계 아님.
+export const LIFE_CATEGORY_STAGE: Record<string, LifeStage> = {
+  KINDERGARTEN: "KINDERGARTEN",
+  ELEMENTARY: "ELEMENTARY",
+  MIDDLE: "MIDDLE",
+  HIGH: "HIGH",
+  UNIVERSITY: "UNIVERSITY",
+  MILITARY: "MILITARY",
+  WORK: "FIRST_JOB",
+  RELATIONSHIP: "MARRIAGE",
+};
+
 export type PeriodContext = {
   birthYear: number | null;
   // 본인 기록 앵커(골격 CONFIRMED·CORRECTED 의 correctedYear ?? year, v2 기간
@@ -63,7 +76,7 @@ export type PeriodResult =
   | { ok: false; reason: string };
 
 // 단계별 기본 기간(시작 연도 포함 N+1 해)과 기본 시작 나이(lib/age.ts 학령 범위와 같은 값).
-const DURATION: Record<LifeStage, number> = {
+export const STAGE_DURATION: Record<LifeStage, number> = {
   KINDERGARTEN: 2,
   ELEMENTARY: 5,
   MIDDLE: 2,
@@ -252,7 +265,7 @@ function stageRange(
   if (anchor) {
     return {
       from: anchor.start,
-      to: anchor.end ?? anchor.start + DURATION[stage],
+      to: anchor.end ?? anchor.start + STAGE_DURATION[stage],
       basis: "SKELETON",
     };
   }
@@ -261,7 +274,7 @@ function stageRange(
     const from = ctx.birthYear + startAge;
     return {
       from,
-      to: from + DURATION[stage],
+      to: from + STAGE_DURATION[stage],
       basis: "DEFAULT_AGE",
       note: `${STAGE_LABEL[stage]} 기록 없음 — 출생연도로 추정`,
     };
