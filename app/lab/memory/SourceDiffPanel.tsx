@@ -4,8 +4,9 @@ import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/Button";
 import type { SourceDiffSummary } from "@/lib/lab/diff";
+import type { SyncReport } from "@/lib/lab/sync";
 
-import { getSourceDiffAction } from "./actions";
+import { getSourceDiffAction, syncSubjectAction } from "./actions";
 
 const TYPE_LABEL: Record<string, string> = {
   SKELETON_EVENT: "골격 사건(v3)",
@@ -17,7 +18,7 @@ const TYPE_LABEL: Record<string, string> = {
   PROFILE: "프로필·취향",
 };
 
-// 대상 1명의 "원본 변경 확인" — 원본과 색인 원장을 비교한 개수만 보여준다.
+// 대상 1명의 "원본 변경 확인"(원본 ↔ 색인 원장 개수 비교)과 "동기화 실행"(추출·반영).
 export function SourceDiffPanel({
   subjectId,
   label,
@@ -26,6 +27,7 @@ export function SourceDiffPanel({
   label: string;
 }) {
   const [summary, setSummary] = useState<SourceDiffSummary | null>(null);
+  const [report, setReport] = useState<SyncReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -39,16 +41,45 @@ export function SourceDiffPanel({
       }
     });
 
+  const sync = () =>
+    startTransition(async () => {
+      setError(null);
+      try {
+        setReport(await syncSubjectAction(subjectId));
+        setSummary(await getSourceDiffAction(subjectId));
+      } catch {
+        setError("동기화하지 못했어요.");
+      }
+    });
+
   return (
     <section className="rounded-md border border-line bg-surface p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-mono text-ink">{label}</h3>
-        <Button onClick={check} disabled={pending}>
-          {pending ? "확인 중…" : "원본 변경 확인"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="tertiary" onClick={check} disabled={pending}>
+            {pending ? "처리 중…" : "원본 변경 확인"}
+          </Button>
+          <Button onClick={sync} disabled={pending}>
+            동기화 실행
+          </Button>
+        </div>
       </div>
 
       {error && <p className="mt-3 text-danger">{error}</p>}
+
+      {report && (
+        <p className="mt-3 text-ink-soft">
+          동기화: LLM 추출 {report.llmUnits}건 · 규칙{" "}
+          {report.deterministicUnits}건 · 카드 +{report.cardsCreated}/−
+          {report.cardsDeleted} · 인용 불일치로 버림 {report.droppedQuote} ·
+          민감정보로 버림 {report.droppedSensitive} · 임베딩 {report.embedded}
+          {report.remaining > 0
+            ? ` · 남은 원본 ${report.remaining}건(다시 실행)`
+            : ""}
+          {report.errors.length > 0 ? ` · 오류 ${report.errors.length}건` : ""}
+        </p>
+      )}
 
       {summary && (
         <div className="mt-4">

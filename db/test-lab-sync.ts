@@ -1,16 +1,20 @@
-// 기억 에이전트 R1-6 — 원본 어댑터 7종 + 해시 비교 + 시기 컨텍스트 검증 (LLM 0).
+// 기억 에이전트 R1-6·R1-7 — 원본 어댑터 7종 + 해시 비교 + 시기 컨텍스트 + 추출·동기화 검증.
 //
-// 원본은 읽기만 한다(검사 전후 원본 행 수·해시 불변 확인). 색인 원장(MemorySourceUnit,
-// lab 테이블)에만 비교 시나리오용 행을 잠깐 쓰고 끝에 지운다.
+// LLM 0 — 추출은 가짜 추출기를 끼워 동기화 흐름만 검사한다(실제 추출은 db/lab-sync.ts).
+// 페르소나 A 원본은 읽기만 한다(검사 전후 원본 불변 확인). 색인 원장(MemorySourceUnit,
+// lab 테이블)에는 비교 시나리오용 행을 잠깐 쓰고 지운다. R1-7 흐름(재추출·삭제·실패
+// 재시도·탈퇴 캐스케이드)은 이 스크립트가 만들고 지우는 임시 사용자(wtest_labsync_*)로만.
 // 전제: 페르소나 A 가 적재돼 있어야 한다 — 없으면 `npx tsx db/lab-seed-persona.ts`.
-// (R1-7 추출이 붙으면 삭제 즉시 카드 제외·재추출·탈퇴 캐스케이드 검사를 이 파일에 더한다.)
 //
 // 실행: npx tsx db/test-lab-sync.ts
 
 import "dotenv/config";
 
+import { deleteAccountTx } from "../lib/account-deletion";
 import { prisma } from "../lib/db";
 import { loadPeriodContext } from "../lib/lab/context";
+import { locateQuote, type Extractor } from "../lib/lab/extract";
+import { syncSubject, verifyStoredQuotes } from "../lib/lab/sync";
 import {
   diffSources,
   diffUnits,
@@ -339,7 +343,7 @@ async function main() {
   );
 
   // ── DB: 시기 컨텍스트 ─────────────────────────────────────────
-  const { ctx, contextHash } = await loadPeriodContext(USER);
+  const { ctx } = await loadPeriodContext(USER);
   check(
     "컨텍스트: 출생연도 1955(OnboardingProfile)",
     ctx.birthYear === 1955,
@@ -385,93 +389,14 @@ async function main() {
     imf,
   );
 
-  // ── DB: 원장 비교(원장 행은 잠깐 쓰고 지움) ────────────────────
-  await prisma.memorySourceUnit.deleteMany({ where: { userId: USER } });
-  try {
-    const d0 = await diffSources(USER);
-    check(
-      "원장 비어 있음 → 26건 전부 신규, 컨텍스트 변화 없음",
-      d0.new.length === 26 &&
-        d0.changed.length + d0.unchanged.length + d0.gone.length === 0 &&
-        !d0.contextChanged,
-    );
-
-    const now = new Date();
-    await prisma.memorySourceUnit.createMany({
-      data: units.map((x) => ({
-        userId: USER,
-        sourceType: x.sourceType,
-        sourceId: x.sourceId,
-        sourceHash: x.hash,
-        contextHash,
-        status: "ACTIVE",
-        extractorVersion: "test",
-        lastSyncedAt: now,
-      })),
-    });
-    const d1 = await diffSources(USER);
-    check(
-      "원장 = 현재 해시 → 26건 그대로",
-      d1.unchanged.length === 26 &&
-        d1.new.length + d1.changed.length + d1.gone.length === 0,
-    );
-
-    const target = units.find((x) => x.sourceType === "EPISODE")!;
-    await prisma.memorySourceUnit.updateMany({
-      where: { userId: USER, sourceId: target.sourceId },
-      data: { sourceHash: "stale" },
-    });
-    await prisma.memorySourceUnit.create({
-      data: {
-        userId: USER,
-        sourceType: "LIFE_EVENT_MEMORY",
-        sourceId: "lab-test-gone",
-        sourceHash: "x",
-        status: "ACTIVE",
-        extractorVersion: "test",
-        lastSyncedAt: now,
-      },
-    });
-    const d2 = await diffSources(USER);
-    check(
-      "해시 다른 원장 1건 → 변경 1",
-      d2.changed.length === 1 && d2.changed[0].sourceId === target.sourceId,
-    );
-    check(
-      "원본 없는 원장 1건 → 소멸 1",
-      d2.gone.length === 1 && d2.gone[0].sourceId === "lab-test-gone",
-    );
-    const sum = summarizeDiff(d2);
-    const epRow = sum.byType.find((r) => r.sourceType === "EPISODE");
-    check(
-      "요약: 유형별 집계(에피소드 변경 1·그대로 6)",
-      sum.total === 26 && epRow?.changed === 1 && epRow.unchanged === 6,
-      epRow,
-    );
-
-    await prisma.memorySourceUnit.updateMany({
-      where: { userId: USER, sourceId: "lab-test-gone" },
-      data: { status: "GONE" },
-    });
-    check(
-      "이미 GONE 표시된 원장은 다시 소멸로 안 셈",
-      (await diffSources(USER)).gone.length === 0,
-    );
-
-    await prisma.memorySourceUnit.updateMany({
-      where: { userId: USER, sourceId: units[0].sourceId },
-      data: { contextHash: "old-context" },
-    });
-    check(
-      "원장 contextHash 가 현재와 다르면 컨텍스트 변화 감지",
-      (await diffSources(USER)).contextChanged,
-    );
-  } finally {
-    await prisma.memorySourceUnit.deleteMany({ where: { userId: USER } });
-  }
+  // ── DB: 페르소나 원장 비교 — 읽기만(실제 색인을 건드리지 않는다) ──
+  // 원장 조작 시나리오(변경·소멸·GONE·컨텍스트 변화)는 임시 사용자 흐름(r17SyncFlow)에서.
+  const dp = await diffSources(USER);
   check(
-    "원장 테스트 행 정리",
-    (await prisma.memorySourceUnit.count({ where: { userId: USER } })) === 0,
+    "페르소나 비교: 원본 26건 = 신규 + 변경 + 그대로(동기화 상태와 무관)",
+    dp.new.length + dp.changed.length + dp.unchanged.length === 26 &&
+      summarizeDiff(dp).total === 26,
+    summarizeDiff(dp),
   );
 
   // ── 원본 읽기 전용 ─────────────────────────────────────────────
@@ -479,6 +404,289 @@ async function main() {
     "원본 불변: 검사 전후 원본 행·본문 동일",
     (await sourceSnapshot()) === before,
   );
+
+  await r17QuoteLocation();
+  await r17SyncFlow();
+}
+
+// ── R1-7: 인용 위치 검증(순수) ──────────────────────────────────
+async function r17QuoteLocation() {
+  const unit = finalizeUnit({
+    ...baseDraft(),
+    sourceType: "EPISODE",
+    fields: {
+      content: "봉구와 멱을 감았다.",
+      rawTranscript:
+        "[이 이야기의 인물] 봉구\n[동반자] 어디서 노셨어요?\n[본인] 낙동강 가서 멱 감았지.\n[동반자] 재밌으셨겠어요.",
+    },
+  });
+  const ok = locateQuote(unit, "rawTranscript", "낙동강 가서 멱 감았지");
+  check(
+    "인용: [본인] 발화 안 → 위치 반환, 구간 = 인용",
+    !!ok && unit.fields.rawTranscript.slice(ok.start, ok.end) === ok.quote,
+    ok,
+  );
+  check(
+    "인용: [동반자] 발화 → 거부",
+    locateQuote(unit, "rawTranscript", "어디서 노셨어요?") === null,
+  );
+  check(
+    "인용: 인물 머리줄 → 거부",
+    locateQuote(unit, "rawTranscript", "봉구") === null,
+  );
+  check(
+    "인용: 화자 표시를 넘나드는 구간 → 거부",
+    locateQuote(unit, "rawTranscript", "감았지. [동반자] 재밌") === null,
+  );
+  check(
+    "인용: 원문에 없는 글 → 거부",
+    locateQuote(unit, "content", "봉구와 수영했다") === null,
+  );
+  check("인용: 없는 필드 → 거부", locateQuote(unit, "memo", "봉구") === null);
+  check(
+    "인용: 공백 차이는 정규화로 허용",
+    locateQuote(unit, "content", "봉구와  멱을\n감았다") !== null,
+  );
+}
+
+// ── R1-7: 동기화 흐름(가짜 추출기, 임시 사용자) ────────────────────
+async function r17SyncFlow() {
+  const ts = Date.now();
+  const tmp = `wtest_labsync_${ts}`;
+  let calls = 0;
+  let failNext = false;
+  // 원문 앞 5글자를 인용하는 카드 1장 — 동기화 흐름만 보려는 가짜 추출기.
+  const fake: Extractor = async (unit) => {
+    calls += 1;
+    if (failNext) throw new Error("가짜 추출 실패");
+    const field = unit.fields.content ? "content" : "memo";
+    const text = unit.fields[field];
+    return {
+      cards: [
+        {
+          kind: "FACT",
+          summary: "화자 테스트 카드.",
+          quote: text.slice(0, 5),
+          quoteField: field,
+          quoteStart: 0,
+          quoteEnd: 5,
+          yearFrom: unit.yearFrom,
+          yearTo: unit.yearTo,
+          month: null,
+          timePrecision: "YEAR",
+          timeBasis: "SOURCE_FIELD",
+          timeExpression: null,
+          lifeStage: null,
+          personIds: [],
+          personMentions: [],
+          placeNames: [],
+          keywords: [],
+          extractorModel: "fake",
+        },
+      ],
+      llm: true,
+      droppedQuote: 0,
+      droppedSensitive: 0,
+    };
+  };
+  const run = () => syncSubject(tmp, { extractor: fake, embed: false });
+  const cardsOf = (sourceId: string) =>
+    prisma.memoryCard.findMany({ where: { userId: tmp, sourceId } });
+
+  await prisma.user.create({
+    data: {
+      id: tmp,
+      email: `withdrawal-test-labsync-${ts}@test`,
+      name: "labsync",
+    },
+  });
+  try {
+    await prisma.onboardingProfile.create({
+      data: { userId: tmp, birthYear: 1950, region: "서울" },
+    });
+    await prisma.lifeEvent.create({
+      data: {
+        userId: tmp,
+        type: "ELEM_SCHOOL",
+        label: "국민학교 입학",
+        year: 1957,
+        status: "CONFIRMED",
+        confirmedAt: new Date(),
+        sequenceOrder: 1,
+      },
+    });
+    const mem = await prisma.userMemory.create({
+      data: {
+        userId: tmp,
+        createdVia: "life_event",
+        year: 1970,
+        title: "첫 월급",
+        eventTitle: "첫 월급",
+        eventYear: 1970,
+        content: "첫 월급으로 라디오를 샀다.",
+        precision: "APPROXIMATE",
+        category: "WORK",
+      },
+    });
+    await prisma.person.create({
+      data: {
+        userId: tmp,
+        name: "철수",
+        relation: "친구",
+        metYear: 1957,
+        memo: "같은 동네 살던 친구.",
+      },
+    });
+
+    const r1 = await run();
+    check(
+      "1회차: 원본 3건 신규 — LLM 2(사건·인물 메모)·규칙 1(골격), 카드 4(인물 만난 해 규칙 카드 포함)",
+      calls === 2 &&
+        r1.units.new === 3 &&
+        r1.llmUnits === 2 &&
+        r1.deterministicUnits === 1 &&
+        r1.cardsCreated === 4,
+      { calls, r1 },
+    );
+
+    calls = 0;
+    const r2 = await run();
+    check(
+      "2회차(원본 그대로): 추출 호출 0, 카드 변화 0",
+      calls === 0 &&
+        r2.units.unchanged === 3 &&
+        r2.cardsCreated === 0 &&
+        r2.cardsDeleted === 0,
+      { calls, r2 },
+    );
+
+    await prisma.userMemory.update({
+      where: { id: mem.id },
+      data: { content: "어머니 신발을 첫 월급으로 샀다." },
+    });
+    calls = 0;
+    const r3 = await run();
+    const replaced = await cardsOf(mem.id);
+    check(
+      "본문 수정 → 그 원본만 재추출(호출 1), 옛 카드 교체",
+      calls === 1 &&
+        r3.units.changed === 1 &&
+        r3.cardsDeleted === 1 &&
+        r3.cardsCreated === 1,
+      { calls, r3 },
+    );
+    check(
+      "교체된 카드의 인용 = 새 본문",
+      replaced.length === 1 && replaced[0].quote === "어머니 신",
+      replaced[0]?.quote,
+    );
+
+    const q = await verifyStoredQuotes(tmp);
+    check(
+      "인용 검증: 저장된 카드 전부 원문 구간과 글자 그대로 일치",
+      q.llmCards === 2 &&
+        q.llmVerbatim === 2 &&
+        q.deterministicVerbatim === q.deterministicCards,
+      q,
+    );
+
+    await prisma.userMemory.delete({ where: { id: mem.id } });
+    const r4 = await run();
+    const goneUnit = await prisma.memorySourceUnit.findFirst({
+      where: { userId: tmp, sourceId: mem.id },
+    });
+    check(
+      "원본 삭제 → 원장 GONE + 그 원본 카드 삭제",
+      r4.units.gone === 1 &&
+        r4.cardsDeleted === 1 &&
+        goneUnit?.status === "GONE" &&
+        (await cardsOf(mem.id)).length === 0,
+      { r4, status: goneUnit?.status },
+    );
+
+    const mem2 = await prisma.userMemory.create({
+      data: {
+        userId: tmp,
+        createdVia: "life_event",
+        year: 1975,
+        title: "이사",
+        eventTitle: "이사",
+        eventYear: 1975,
+        content: "서울로 이사를 왔다.",
+        precision: "APPROXIMATE",
+        category: "FAMILY",
+      },
+    });
+    failNext = true;
+    const r5 = await run();
+    const errUnit = await prisma.memorySourceUnit.findFirst({
+      where: { userId: tmp, sourceId: mem2.id },
+    });
+    check(
+      "추출 실패 → 오류 기록, 원장 ERROR·해시 비움(다음에 재시도), 카드 0",
+      r5.errors.length === 1 &&
+        errUnit?.status === "ERROR" &&
+        errUnit.sourceHash === "" &&
+        (await cardsOf(mem2.id)).length === 0,
+      { errors: r5.errors, status: errUnit?.status },
+    );
+    check(
+      "이미 GONE 표시된 원장은 다시 소멸로 안 셈",
+      r5.units.gone === 0,
+      r5.units,
+    );
+    const sum = summarizeDiff(await diffSources(tmp));
+    const lifeRow = sum.byType.find(
+      (r) => r.sourceType === "LIFE_EVENT_MEMORY",
+    );
+    check(
+      "요약: 유형별 집계(사건 변경 1 = ERROR 원장 재시도 대기)",
+      sum.total === 3 && lifeRow?.changed === 1 && lifeRow.gone === 0,
+      lifeRow,
+    );
+    failNext = false;
+    const r6 = await run();
+    const recovered = await prisma.memorySourceUnit.findFirst({
+      where: { userId: tmp, sourceId: mem2.id },
+    });
+    check(
+      "다음 동기화에서 재시도 → 정상(ACTIVE, 카드 1)",
+      r6.units.changed === 1 &&
+        recovered?.status === "ACTIVE" &&
+        (await cardsOf(mem2.id)).length === 1,
+      { r6: r6.units, status: recovered?.status },
+    );
+
+    // 출생연도 정정 → 시기 컨텍스트 변화 감지 → 동기화가 원장 contextHash 갱신(LLM 0).
+    await prisma.onboardingProfile.update({
+      where: { userId: tmp },
+      data: { birthYear: 1951 },
+    });
+    check(
+      "시기 컨텍스트 변화 감지(출생연도 정정)",
+      (await diffSources(tmp)).contextChanged,
+    );
+    calls = 0;
+    await run();
+    check(
+      "동기화 후 컨텍스트 변화 해소, 추출 호출 0",
+      calls === 0 && !(await diffSources(tmp)).contextChanged,
+      { calls },
+    );
+
+    await deleteAccountTx(tmp);
+    const [unitsLeft, cardsLeft] = await Promise.all([
+      prisma.memorySourceUnit.count({ where: { userId: tmp } }),
+      prisma.memoryCard.count({ where: { userId: tmp } }),
+    ]);
+    check(
+      "탈퇴(deleteAccountTx) → lab 원장·카드 0(FK Cascade)",
+      unitsLeft === 0 && cardsLeft === 0,
+      { unitsLeft, cardsLeft },
+    );
+  } finally {
+    await prisma.user.deleteMany({ where: { id: tmp } });
+  }
 }
 
 main()

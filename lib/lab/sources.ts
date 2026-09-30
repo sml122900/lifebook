@@ -25,7 +25,9 @@ import {
   type LifeStage,
 } from "./period";
 
-export const EXTRACTOR_VERSION = "r1-v1";
+// r1-v1: R1-7 첫 추출. r1-v2: 시대 사건 회상은 담은 사건 연도 고정, 인물 메모 카드는
+// 원본 연도(만난 해) 미상속, "요즘" 현재 해석, 규칙 카드 마침표 중복 제거.
+export const EXTRACTOR_VERSION = "r1-v2";
 
 export const SOURCE_TYPES = [
   "SKELETON_EVENT",

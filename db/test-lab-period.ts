@@ -161,6 +161,11 @@ function main() {
   // ── 어릴 때 ──
   expectRange("어릴 때", 1955, 1967, "DEFAULT_AGE");
 
+  // ── 현재(요즘·지금도) — 올해(2026) 기준 최근 3년 ──
+  expectRange("요즘", 2024, 2026, "PRESENT");
+  expectRange("지금도 매주", 2024, 2026, "PRESENT");
+  expectRange("1985년 요즘 노래", 1985, 1985, "NUMERIC");
+
   // ── 시대 사건 — A-F5 "IMF 때" ──
   expectRange("IMF 때", 1997, 1998, "ERA");
   expectRange("imf 터졌을 때", 1997, 1998, "ERA");

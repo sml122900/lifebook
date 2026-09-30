@@ -4,8 +4,9 @@
 // 원문 시기 표현("군대 있을 때")만 뽑고, 에이전트는 resolve_period 도구로 이 함수를
 // 부른다. 같은 함수를 양쪽에서 쓴다.
 //
-// 우선순위: ① 명시 연도·연대·범위 ② 나이 표현 ③ 인생 단계(본인 기록 1순위 →
-// 없으면 출생연도 기본값, "추정" 표기) ④ 어릴 때 ⑤ 시대 사건(MonthEvent 제목).
+// 우선순위: ① 명시 연도·연대·범위 (현재: "요즘·지금도" → 올해 기준 최근 3년)
+// ② 나이 표현 ③ 인생 단계(본인 기록 1순위 → 없으면 출생연도 기본값, "추정" 표기)
+// ④ 어릴 때 ⑤ 시대 사건(MonthEvent 제목).
 // 어느 것도 안 맞거나 모호하면 { ok: false } — 에이전트는 시기 필터 없이 검색한다.
 // 컨텍스트(출생연도·본인 기록 앵커·시대 사건)는 호출자가 채운다(R1-6 원본 어댑터).
 
@@ -58,10 +59,18 @@ export type PeriodContext = {
 
 export type PeriodBasis =
   | "NUMERIC"
+  | "PRESENT"
   | "AGE_EXPR"
   | "SKELETON"
   | "DEFAULT_AGE"
   | "ERA";
+
+// 출생연도·골격 앵커에 따라 값이 바뀌는 해석 — 컨텍스트가 바뀌면 이것만 다시 계산한다.
+export const CONTEXT_DEPENDENT_BASES: readonly PeriodBasis[] = [
+  "AGE_EXPR",
+  "SKELETON",
+  "DEFAULT_AGE",
+];
 
 export type PeriodResult =
   | {
@@ -386,6 +395,11 @@ export function resolvePeriod(
 
   const numeric = resolveNumeric(c, currentYear);
   if (numeric) return numeric;
+
+  // 현재("요즘 봉구랑 산에 다닌다") — 올해 기준 최근 몇 해.
+  if (/요즘|요새|최근|지금도|현재/.test(c)) {
+    return ok(currentYear - 2, currentYear, "PRESENT");
+  }
 
   const age = resolveAge(c, ctx.birthYear);
   if (age) return age;
