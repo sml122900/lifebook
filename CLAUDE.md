@@ -746,6 +746,7 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [ ] `lib/commerce/products.ts` 포스터 "프리미엄" 옵션의 `hidden: true`도 PG 심사 기간 한정. 심사 통과 후 되돌릴 것(정의는 보존, 표시만 숨김).
 - [ ] `/lab` proxy 1차 게이트 — PG 심사 기간이라 `proxy.ts` 무수정으로 시작(현재 게이트 = `app/lab/memory/layout.tsx` `notFound()` + 서버 액션별 `requireLabUser()` 2중). 심사 통과 후 별도 작업으로 추가.
 - [ ] 에피소드 다듬은 글 잔존(운영 결함, 2026-09-30 기억 에이전트 조사 중 발견·미수정) — `updateEpisodeContent`(`lib/episode.ts`)가 브릿지 UserMemory 의 `content` 만 갱신하고 다듬기 3필드(`refinedText`·`refinedAt`·`displayRefined`)를 초기화하지 않음 + refine 라우트(`app/api/memory/[memoryId]/refine` → `refineMemorySpelling`)에 createdVia 가드 없음 → 에피소드를 고친 뒤에도 옛 다듬은 글이 보일 수 있음. 수정 여부는 성민 판단.
+- [ ] `db/test-p18-1.ts` 가 test30 계정(`test30@test.com`)의 대기 중 대화 상태를 전제함. test30 을 도그푸딩 계정(기억 에이전트 연구실 허용 목록, 2026-09-30 확정)으로 쓰기 시작하면 FAIL 발생 → 도그푸딩 시작 전 자체 픽스처 계정으로 이전 필요. (읽기 전용 스크립트라 데이터를 덮어쓰지는 않음)
 - [ ] 문서 정리 — 위 "다듬기 모델 선택+차등 차감(2026-06-13)" 항목의 `tokensFromUsageForModel` 은 2026-07-01 데드코드 정리 때 삭제된 함수(현행: `tokensFromUsage` + `MODEL_MULTIPLIER`·`tokensFromUsageForRefine`, `lib/tokens/policy.ts`).
 
 ---
