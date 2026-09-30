@@ -229,6 +229,22 @@ export async function removePhoto(storagePath: string): Promise<void> {
   }
 }
 
+// 경로 목록 정확 일치로 여러 객체 삭제(prefix 개념 없음). 탈퇴 정리·정합성 점검용
+// (lib/storage-purge.ts). 없는 경로는 Supabase 가 에러 없이 무시 — idempotent.
+const REMOVE_BATCH = 100;
+export async function removeStorageObjects(
+  bucket: "photos" | "recordings",
+  paths: string[],
+): Promise<void> {
+  const client = getServiceClient();
+  for (let i = 0; i < paths.length; i += REMOVE_BATCH) {
+    const { error } = await client.storage
+      .from(bucket)
+      .remove(paths.slice(i, i + REMOVE_BATCH));
+    if (error) throw new Error(`Storage remove 실패: ${error.message}`);
+  }
+}
+
 // ── P5-5c 맞춤배경 Storage ────────────────────────────────────────────
 // 별도 버킷 생성 없이 photos 버킷의 poster-bg/ 프리픽스를 쓴다(private).
 // P4 는 same-origin /api/poster/background 라우트로 download 해 canvas-clean.
