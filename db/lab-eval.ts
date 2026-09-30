@@ -165,7 +165,8 @@ async function retrieval() {
     `recall@${K} 전체: ${overall.toFixed(3)} (기준 ≥ ${threshold}) → ${pass ? "PASS" : "FAIL"}`,
   );
   console.log("유형별:", JSON.stringify(byCategory));
-  // 참고(기준 아님): 카드 수가 적으면 top-8 이 쉽게 가득 차므로 순위 품질을 따로 본다.
+  // 리포트 규칙(2026-10-01): recall@1·@3·@8 · 첫 등장 평균 순위 · 코퍼스 규모를 늘 함께 남긴다
+  // (카드 수가 적으면 top-8 이 쉽게 가득 차므로). 기준 판정은 동결 항목(recall@8)으로만.
   const recallAt = (r: (typeof results)[number], k: number) =>
     r.expected.filter((grp) =>
       grp.some((key) => r.top.slice(0, k).some((t) => t.key === key)),
@@ -176,8 +177,19 @@ async function retrieval() {
     );
     return i < 0 ? K + 1 : i + 1;
   });
+  const corpusCards = await prisma.memoryCard.count({
+    where: { userId, unit: { status: "ACTIVE" } },
+  });
+  const ranking = {
+    recallAt1: Number(mean(results.map((r) => recallAt(r, 1))).toFixed(3)),
+    recallAt3: Number(mean(results.map((r) => recallAt(r, 3))).toFixed(3)),
+    recallAt8: Number(overall.toFixed(3)),
+    meanFirstRank: Number(mean(firstRanks).toFixed(2)),
+    corpusCards,
+    corpusSources: units.length,
+  };
   console.log(
-    `참고(기준 아님): recall@1 ${mean(results.map((r) => recallAt(r, 1))).toFixed(3)} · recall@3 ${mean(results.map((r) => recallAt(r, 3))).toFixed(3)} · 기대 원본 첫 등장 평균 순위 ${mean(firstRanks).toFixed(2)} · 후보 카드 전체 ${units.length}원본`,
+    `순위 지표(기준 아님 — 판정은 recall@8): recall@1 ${ranking.recallAt1} · recall@3 ${ranking.recallAt3} · recall@8 ${ranking.recallAt8} · 기대 원본 첫 등장 평균 순위 ${ranking.meanFirstRank}(못 찾으면 ${K + 1}) · 코퍼스 카드 ${corpusCards}장(원본 ${units.length}건)`,
   );
   console.log(
     `매핑 안 된 페르소나 원본(카드 대상 아님): ${unmapped.join(", ") || "-"}`,
@@ -204,7 +216,7 @@ async function retrieval() {
   const file = path.join(dir, `r1-retrieval-${kstDate(new Date())}.json`);
   fs.writeFileSync(
     file,
-    `${JSON.stringify({ runId, persona: "a", k: K, threshold, overall, pass, byCategory, unmapped, results }, null, 2)}\n`,
+    `${JSON.stringify({ runId, persona: "a", k: K, threshold, overall, pass, ranking, byCategory, unmapped, results }, null, 2)}\n`,
   );
   console.log(
     `\n리포트: ${path.relative(path.join(__dirname, ".."), file).replace(/\\/g, "/")}`,

@@ -1,10 +1,18 @@
 {
-  "runId": "eval:retrieval:2026-09-30T17:08:57",
+  "runId": "eval:retrieval:2026-09-30T17:18:10",
   "persona": "a",
   "k": 8,
   "threshold": 0.85,
   "overall": 1,
   "pass": true,
+  "ranking": {
+    "recallAt1": 0.771,
+    "recallAt3": 0.875,
+    "recallAt8": 1,
+    "meanFirstRank": 1.54,
+    "corpusCards": 54,
+    "corpusSources": 26
+  },
   "byCategory": {
     "FACT": {
       "items": 6,
@@ -201,7 +209,7 @@
         {
           "key": "EP_NEWLYWED",
           "summary": "화자는 매주 일요일마다 아내와 도시락을 싸서 팔공산에 올랐다.",
-          "final": 0.01625
+          "final": 0.01646
         },
         {
           "key": "LE_RELATIONSHIP",
@@ -952,13 +960,13 @@
           "final": 0.03226
         },
         {
-          "key": "ERA_OLYMPIC",
-          "summary": "화자는 올림픽 개막식을 동네 전파사 앞에 동네 사람들과 모여 서서 시청했다.",
+          "key": "EP_JOB",
+          "summary": "화자는 동진섬유에서 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘했다.",
           "final": 0.01587
         },
         {
-          "key": "EP_JOB",
-          "summary": "화자는 동진섬유에서 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘했다.",
+          "key": "ERA_OLYMPIC",
+          "summary": "화자는 올림픽 개막식을 동네 전파사 앞에 동네 사람들과 모여 서서 시청했다.",
           "final": 0.01563
         },
         {
@@ -967,13 +975,13 @@
           "final": 0.01538
         },
         {
-          "key": "PS_YONGCHEOL",
-          "summary": "화자는 군대 동기 용철과 화천에서 함께 복무했으나, 제대 후 연락이 끊겼다.",
+          "key": "EP_MARRIAGE",
+          "summary": "화자의 아내 정숙은 공장 동료 영자 씨가 소개해 준 사람이다.",
           "final": 0.01515
         },
         {
-          "key": "EP_MARRIAGE",
-          "summary": "화자의 아내 정숙은 공장 동료 영자 씨가 소개해 준 사람이다.",
+          "key": "PS_YONGCHEOL",
+          "summary": "화자는 군대 동기 용철과 화천에서 함께 복무했으나, 제대 후 연락이 끊겼다.",
           "final": 0.01493
         },
         {
@@ -1437,7 +1445,7 @@
         {
           "key": "EP_JOB",
           "summary": "화자는 동진섬유에서 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘했다.",
-          "final": 0.01884
+          "final": 0.01912
         },
         {
           "key": "EP_JOB",
