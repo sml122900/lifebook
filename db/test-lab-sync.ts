@@ -58,6 +58,23 @@ function baseDraft(): Parameters<typeof finalizeUnit>[0] {
   };
 }
 
+// 테스트 격리(2026-10-01): 페르소나 원장·카드는 읽기만 — 실행 전후 동일해야 한다.
+async function personaLabSnapshot() {
+  const [units, cards] = await Promise.all([
+    prisma.memorySourceUnit.findMany({
+      where: { userId: USER },
+      select: { id: true, sourceHash: true, status: true, lastSyncedAt: true },
+      orderBy: { id: "asc" },
+    }),
+    prisma.memoryCard.findMany({
+      where: { userId: USER },
+      select: { id: true, summary: true, yearFrom: true, yearTo: true },
+      orderBy: { id: "asc" },
+    }),
+  ]);
+  return JSON.stringify([units, cards]);
+}
+
 async function sourceSnapshot() {
   const [um, ep, le, ps, lp] = await Promise.all([
     prisma.userMemory.findMany({
@@ -197,6 +214,7 @@ async function main() {
     return;
   }
   const before = await sourceSnapshot();
+  const labBefore = await personaLabSnapshot();
   const units = await loadSourceUnits(USER);
   const byType = (t: string) => units.filter((x) => x.sourceType === t);
   const counts = Object.fromEntries(
@@ -407,6 +425,11 @@ async function main() {
 
   await r17QuoteLocation();
   await r17SyncFlow();
+
+  check(
+    "테스트 격리: 실행 전후 페르소나 원장·카드 불변(임시 사용자 흐름 포함)",
+    (await personaLabSnapshot()) === labBefore,
+  );
 }
 
 // ── R1-7: 인용 위치 검증(순수) ──────────────────────────────────
