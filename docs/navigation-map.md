@@ -318,6 +318,12 @@
 | `/admin/orders/[id]` | ← 목록 | → `/admin/orders` |
 | `/admin/orders/[id]` | 입금 확인(무통장)/발주/배송중/배송완료/취소/송장저장/환불 | ⚙ 상태 변경 (페이지 전환 없음) |
 
+### 기억 연구실 `/lab/memory` (LAB_ALLOWED_USER_IDS, 연구 트랙 — `phase/기억에이전트_R1-R4_기획.md`)
+진입 링크 없음(메뉴·헤더·사이드 패널 미노출, 주소 직접 입력만). 비허용 로그인 사용자는 일반 404.
+| 화면 | 버튼 | 이동 |
+|---|---|---|
+| `/lab/memory` | (R1-2 골격 — 버튼·링크 없음) | — |
+
 ---
 
 ## 8. 외부 링크 모음 (새 탭으로 나가는 곳)
@@ -356,5 +362,6 @@
 | `/timemachine/[year]/[month]` | → `/life-timeline` (월 화면 비활성, 코드 보존) |
 | `/timeline` | → `/life-timeline` (레거시 Phase 5 타임라인 비활성, archive 스텁 — `_TimelinePageArchived` + RAG 체인 보존) |
 | `/onboarding` | → `/onboarding-chat` (레거시 위저드 온보딩 비활성, archive 스텁 — 코드 보존) |
+| `/lab/memory` 이하 | 허용 목록 밖 로그인 사용자 → 404 (`notFound()`, 리다이렉트 아님 — 존재를 드러내지 않음) |
 | 로그인 필요한 모든 화면 | 비로그인 시 → `/login` |
 | 동의 필요 화면 | 미동의 시 → `/consent` |
