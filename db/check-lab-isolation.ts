@@ -31,8 +31,18 @@ const FORBIDDEN_PREFIXES = [
   "app/poster",
   "app/shop",
 ];
-const LAB_MODELS = new Set(["memorySourceUnit", "memoryCard", "labUsage"]);
-const LAB_TABLES = new Set(["MemorySourceUnit", "MemoryCard", "LabUsage"]);
+const LAB_MODELS = new Set([
+  "memorySourceUnit",
+  "memoryCard",
+  "labUsage",
+  "labAgentRun",
+]);
+const LAB_TABLES = new Set([
+  "MemorySourceUnit",
+  "MemoryCard",
+  "LabUsage",
+  "LabAgentRun",
+]);
 const WRITE_METHODS = new Set([
   "create",
   "createMany",

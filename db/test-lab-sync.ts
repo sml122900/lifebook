@@ -613,8 +613,57 @@ async function r17SyncFlow() {
       q,
     );
 
+    // 삭제 전파(2026-10-01): mem 카드를 인용한 run A 는 비워지고, 다른 원본만 인용한 run B 는 그대로.
+    const memCard = (await cardsOf(mem.id))[0];
+    const otherCard = await prisma.memoryCard.findFirst({
+      where: { userId: tmp, sourceType: "PERSON_MEMO" },
+    });
+    const runA = await prisma.labAgentRun.create({
+      data: {
+        userId: tmp,
+        source: "EVAL",
+        question: "첫 월급으로 뭘 샀지?",
+        answer: { text: "어머니 신발을 사셨어요 [1]" },
+        citedCardIds: [memCard.id, otherCard!.id],
+        model: "fake",
+        costMicroUsd: 123,
+      },
+    });
+    const runB = await prisma.labAgentRun.create({
+      data: {
+        userId: tmp,
+        source: "EVAL",
+        question: "철수는 누구지?",
+        answer: { text: "같은 동네 친구예요 [1]" },
+        citedCardIds: [otherCard!.id],
+        model: "fake",
+        costMicroUsd: 45,
+      },
+    });
+
     await prisma.userMemory.delete({ where: { id: mem.id } });
     const r4 = await run();
+    const [ra, rb] = await Promise.all([
+      prisma.labAgentRun.findUnique({ where: { id: runA.id } }),
+      prisma.labAgentRun.findUnique({ where: { id: runB.id } }),
+    ]);
+    check(
+      "삭제 전파: 지운 원본 카드를 인용한 run → 답변 비움·인용 id 제거, 질문·원가 유지",
+      r4.runsRedacted === 1 &&
+        (ra?.answer as { redacted?: boolean } | null)?.redacted === true &&
+        !ra!.citedCardIds.includes(memCard.id) &&
+        ra!.citedCardIds.includes(otherCard!.id) &&
+        ra!.question === "첫 월급으로 뭘 샀지?" &&
+        ra!.costMicroUsd === 123,
+      { runsRedacted: r4.runsRedacted, ra },
+    );
+    check(
+      "삭제 전파: 다른 원본만 인용한 run 은 그대로",
+      JSON.stringify(rb?.answer) ===
+        JSON.stringify({ text: "같은 동네 친구예요 [1]" }) &&
+        rb!.citedCardIds.length === 1,
+      rb,
+    );
     const goneUnit = await prisma.memorySourceUnit.findFirst({
       where: { userId: tmp, sourceId: mem.id },
     });

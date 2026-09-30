@@ -8,11 +8,16 @@
 // 4) 시기 컨텍스트가 바뀌었으면 시기 표현이 있는 카드의 연도만 다시 계산(LLM 0)
 // 5) 임베딩이 없는 카드 임베딩(voyage-3.5 document)
 // maxLlmUnits 로 한 번에 LLM 을 부를 원본 수를 제한한다(서버 액션 20 — Vercel 시간 초과 대비).
+//
+// 삭제 전파(2026-10-01): 카드를 지울 때(원본 소멸·재추출 전 교체·추출 실패) 그 카드를
+// 인용한 에이전트 답 기록(LabAgentRun)의 답변을 "[원본 삭제됨]"으로 비우고 인용 id 목록에서
+// 뺀다. 질문·원가 기록은 유지. 지우거나 고친 기억이 옛 답으로 남지 않게.
 
 import { randomUUID } from "node:crypto";
 
 import { prisma } from "../db";
 import { EMBEDDING_MODEL } from "../embeddings";
+import type { Prisma } from "../generated/prisma/client";
 import { loadPeriodContext } from "./context";
 import { diffSources } from "./diff";
 import { labEmbed } from "./embed";
@@ -32,11 +37,48 @@ export type SyncReport = {
   droppedSensitive: number;
   contextRecomputed: number;
   embedded: number;
+  runsRedacted: number;
   errors: { sourceType: string; message: string }[];
 };
 
 function errMsg(e: unknown): string {
   return (e instanceof Error ? e.message : String(e)).slice(0, 300);
+}
+
+export const REDACTED_ANSWER = {
+  redacted: true,
+  text: null,
+  note: "[원본 삭제됨]",
+};
+
+// 이 원장(unit)들의 카드를 지우고, 그 카드를 인용한 답 기록을 비운다(삭제 전파).
+async function deleteCardsWithRedaction(
+  db: Prisma.TransactionClient,
+  userId: string,
+  unitIds: string[],
+): Promise<{ cards: number; runs: number }> {
+  const cards = await db.memoryCard.findMany({
+    where: { userId, unitId: { in: unitIds } },
+    select: { id: true },
+  });
+  if (cards.length === 0) return { cards: 0, runs: 0 };
+  const ids = cards.map((c) => c.id);
+  await db.memoryCard.deleteMany({ where: { id: { in: ids } } });
+  const removed = new Set(ids);
+  const runs = await db.labAgentRun.findMany({
+    where: { userId, citedCardIds: { hasSome: ids } },
+    select: { id: true, citedCardIds: true },
+  });
+  for (const r of runs) {
+    await db.labAgentRun.update({
+      where: { id: r.id },
+      data: {
+        answer: REDACTED_ANSWER,
+        citedCardIds: r.citedCardIds.filter((id) => !removed.has(id)),
+      },
+    });
+  }
+  return { cards: ids.length, runs: runs.length };
 }
 
 export async function syncSubject(
@@ -70,6 +112,7 @@ export async function syncSubject(
     droppedSensitive: 0,
     contextRecomputed: 0,
     embedded: 0,
+    runsRedacted: 0,
     errors: [],
   };
   const now = new Date();
@@ -87,14 +130,15 @@ export async function syncSubject(
       select: { id: true },
     });
     const ids = goneRows.map((r) => r.id);
-    const del = await prisma.memoryCard.deleteMany({
-      where: { unitId: { in: ids } },
-    });
+    const del = await prisma.$transaction((tx) =>
+      deleteCardsWithRedaction(tx, userId, ids),
+    );
     await prisma.memorySourceUnit.updateMany({
       where: { id: { in: ids } },
       data: { status: "GONE", lastSyncedAt: now },
     });
-    report.cardsDeleted += del.count;
+    report.cardsDeleted += del.cards;
+    report.runsRedacted += del.runs;
   }
 
   // 3) 신규·변경.
@@ -143,10 +187,9 @@ export async function syncSubject(
           update: unitData,
           select: { id: true },
         });
-        const del = await tx.memoryCard.deleteMany({
-          where: { unitId: row.id },
-        });
-        report.cardsDeleted += del.count;
+        const del = await deleteCardsWithRedaction(tx, userId, [row.id]);
+        report.cardsDeleted += del.cards;
+        report.runsRedacted += del.runs;
         if (r.cards.length > 0) {
           await tx.memoryCard.createMany({
             data: r.cards.map((c, i) => ({
@@ -184,10 +227,11 @@ export async function syncSubject(
         update: failed,
         select: { id: true },
       });
-      const del = await prisma.memoryCard.deleteMany({
-        where: { unitId: row.id },
-      });
-      report.cardsDeleted += del.count;
+      const del = await prisma.$transaction((tx) =>
+        deleteCardsWithRedaction(tx, userId, [row.id]),
+      );
+      report.cardsDeleted += del.cards;
+      report.runsRedacted += del.runs;
     }
   }
 
