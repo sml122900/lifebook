@@ -2,7 +2,9 @@
 // (페르소나 데이터·골든셋 파일 자체는 동결, 여기는 목록만). 순수 모듈 — DB 의존 0.
 
 import { GOLDEN_PERSONA_A } from "../golden/persona-a";
+import { GOLDEN_PERSONA_B } from "../golden/persona-b";
 import { PERSONA_A } from "./persona-a";
+import { PERSONA_B } from "./persona-b";
 import type {
   EpisodeOf,
   EraMemoryOf,
@@ -45,6 +47,7 @@ export type LabPersonaEntry = {
 
 export const LAB_PERSONAS: Readonly<Record<string, LabPersonaEntry>> = {
   a: { key: "a", persona: PERSONA_A, golden: GOLDEN_PERSONA_A },
+  b: { key: "b", persona: PERSONA_B, golden: GOLDEN_PERSONA_B },
 };
 
 export function labPersona(key: string | undefined): LabPersonaEntry {
