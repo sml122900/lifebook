@@ -1,0 +1,3748 @@
+{
+  "stamp": "2026-10-01T11:01:28",
+  "persona": "a",
+  "repeats": 3,
+  "model": "claude-sonnet-4-6",
+  "verdict": [
+    {
+      "label": "answerAccuracy(FACT·PERIOD·PERSON·FALSE_PREMISE) 평균 ≥ 0.8",
+      "ok": true,
+      "value": 1
+    },
+    {
+      "label": "citationPrecision 평균 ≥ 0.9",
+      "ok": true,
+      "value": 0.9889
+    },
+    {
+      "label": "unsupportedClaimRate 평균 ≤ 0.05",
+      "ok": true,
+      "value": 0
+    },
+    {
+      "label": "noRecordHandled 3/3 매 회",
+      "ok": true,
+      "value": [
+        3,
+        3,
+        3
+      ]
+    },
+    {
+      "label": "falseNoRecordRate 평균 ≤ 0.1",
+      "ok": true,
+      "value": 0
+    },
+    {
+      "label": "conflictBothCited 2/2 매 회",
+      "ok": false,
+      "value": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "label": "mustNotViolations 0 매 회",
+      "ok": true,
+      "value": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "label": "avgCostPerQuestionUsd 평균 ≤ 0.05",
+      "ok": true,
+      "value": 0.0188
+    },
+    {
+      "label": "maxToolRounds ≤ 6(하드 상한)",
+      "ok": true,
+      "value": [
+        4,
+        4,
+        4
+      ]
+    }
+  ],
+  "perRepeat": [
+    {
+      "repeat": 1,
+      "answerAccuracy": 1,
+      "preferenceAccuracy": 1,
+      "byCategory": {
+        "FACT": {
+          "pass": 6,
+          "of": 6
+        },
+        "PERIOD": {
+          "pass": 5,
+          "of": 5
+        },
+        "PERSON": {
+          "pass": 5,
+          "of": 5
+        },
+        "PREFERENCE": {
+          "pass": 4,
+          "of": 4
+        },
+        "NO_RECORD": {
+          "pass": 3,
+          "of": 3
+        },
+        "CONFLICT": {
+          "pass": 1,
+          "of": 2
+        },
+        "FALSE_PREMISE": {
+          "pass": 2,
+          "of": 2
+        }
+      },
+      "citationPrecision": 1,
+      "citationRecall": 0.9615384615384616,
+      "unsupportedClaimRate": 0,
+      "noRecordHandled": 3,
+      "falseNoRecordRate": 0,
+      "conflictBothCited": 1,
+      "mustNotViolations": 0,
+      "avgCostUsd": 0.018607,
+      "avgRounds": 2.5555555555555554,
+      "maxRounds": 4,
+      "followUpRejected": 0,
+      "errors": 0,
+      "aux": {
+        "multiCiteClaims": 11,
+        "submittedClaims": 60,
+        "judgeSupported": 54,
+        "judgeClaims": 60,
+        "judgeRate": 0.9,
+        "judgeCostUsd": 0.15879
+      }
+    },
+    {
+      "repeat": 2,
+      "answerAccuracy": 1,
+      "preferenceAccuracy": 1,
+      "byCategory": {
+        "FACT": {
+          "pass": 6,
+          "of": 6
+        },
+        "PERIOD": {
+          "pass": 5,
+          "of": 5
+        },
+        "PERSON": {
+          "pass": 5,
+          "of": 5
+        },
+        "PREFERENCE": {
+          "pass": 4,
+          "of": 4
+        },
+        "NO_RECORD": {
+          "pass": 3,
+          "of": 3
+        },
+        "CONFLICT": {
+          "pass": 1,
+          "of": 2
+        },
+        "FALSE_PREMISE": {
+          "pass": 2,
+          "of": 2
+        }
+      },
+      "citationPrecision": 1,
+      "citationRecall": 0.9615384615384616,
+      "unsupportedClaimRate": 0,
+      "noRecordHandled": 3,
+      "falseNoRecordRate": 0,
+      "conflictBothCited": 1,
+      "mustNotViolations": 0,
+      "avgCostUsd": 0.01891148148148148,
+      "avgRounds": 2.5925925925925926,
+      "maxRounds": 4,
+      "followUpRejected": 0,
+      "errors": 0,
+      "aux": {
+        "multiCiteClaims": 11,
+        "submittedClaims": 58,
+        "judgeSupported": 54,
+        "judgeClaims": 58,
+        "judgeRate": 0.9310344827586207,
+        "judgeCostUsd": 0.152118
+      }
+    },
+    {
+      "repeat": 3,
+      "answerAccuracy": 1,
+      "preferenceAccuracy": 1,
+      "byCategory": {
+        "FACT": {
+          "pass": 6,
+          "of": 6
+        },
+        "PERIOD": {
+          "pass": 5,
+          "of": 5
+        },
+        "PERSON": {
+          "pass": 5,
+          "of": 5
+        },
+        "PREFERENCE": {
+          "pass": 4,
+          "of": 4
+        },
+        "NO_RECORD": {
+          "pass": 3,
+          "of": 3
+        },
+        "CONFLICT": {
+          "pass": 1,
+          "of": 2
+        },
+        "FALSE_PREMISE": {
+          "pass": 2,
+          "of": 2
+        }
+      },
+      "citationPrecision": 0.9666666666666667,
+      "citationRecall": 0.9615384615384616,
+      "unsupportedClaimRate": 0,
+      "noRecordHandled": 3,
+      "falseNoRecordRate": 0,
+      "conflictBothCited": 1,
+      "mustNotViolations": 0,
+      "avgCostUsd": 0.01874977777777778,
+      "avgRounds": 2.5925925925925926,
+      "maxRounds": 4,
+      "followUpRejected": 0,
+      "errors": 0,
+      "aux": {
+        "multiCiteClaims": 10,
+        "submittedClaims": 59,
+        "judgeSupported": 54,
+        "judgeClaims": 59,
+        "judgeRate": 0.9152542372881356,
+        "judgeCostUsd": 0.151548
+      }
+    }
+  ],
+  "deviation": {
+    "answerAccuracy": {
+      "mean": 1,
+      "sd": 0,
+      "min": 1,
+      "max": 1
+    },
+    "preferenceAccuracy": {
+      "mean": 1,
+      "sd": 0,
+      "min": 1,
+      "max": 1
+    },
+    "citationPrecision": {
+      "mean": 0.9889,
+      "sd": 0.0157,
+      "min": 0.9666666666666667,
+      "max": 1
+    },
+    "citationRecall": {
+      "mean": 0.9615,
+      "sd": 0,
+      "min": 0.9615384615384616,
+      "max": 0.9615384615384616
+    },
+    "unsupportedClaimRate": {
+      "mean": 0,
+      "sd": 0,
+      "min": 0,
+      "max": 0
+    },
+    "falseNoRecordRate": {
+      "mean": 0,
+      "sd": 0,
+      "min": 0,
+      "max": 0
+    },
+    "avgCostUsd": {
+      "mean": 0.0188,
+      "sd": 0.0001,
+      "min": 0.018607,
+      "max": 0.01891148148148148
+    },
+    "avgRounds": {
+      "mean": 2.5802,
+      "sd": 0.0175,
+      "min": 2.5555555555555554,
+      "max": 2.5925925925925926
+    },
+    "multiCiteClaims": {
+      "mean": 10.6667,
+      "sd": 0.4714,
+      "min": 10,
+      "max": 11
+    },
+    "judgeRate": {
+      "mean": 0.9154,
+      "sd": 0.0127,
+      "min": 0.9,
+      "max": 0.9310344827586207
+    }
+  },
+  "byItem": [
+    {
+      "id": "A-F1",
+      "category": "FACT",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-F1",
+          "category": "FACT",
+          "question": "내 첫 직장이 어디였지?",
+          "text": "첫 직장은 대구의 동진섬유로, 1979년에 입사하셨어요. [1][2] 동진섬유에서는 직기를 돌리는 일을 하셨어요. [2] 기계 수리를 잘하셔서, 기계가 고장 나면 동료들이 찾아올 만큼 실력을 인정받으셨다고 들려주셨어요. [3] 첫 월급으로는 어머니께 내복을 사 드리셨고, 어머니께서 동네방네 자랑하셨다고 하셨어요. [4]",
+          "citedKeys": [
+            "SK_FIRST_JOB",
+            "EP_JOB",
+            "EP_JOB",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 4,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 4,
+            "supported": 4,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 15784,
+          "judgeCostMicroUsd": 7485,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-F1",
+          "category": "FACT",
+          "question": "내 첫 직장이 어디였지?",
+          "text": "첫 직장은 대구에 있는 동진섬유 공장이었어요. 1979년에 입사하셨다고 들려주셨어요. [1][2] 그곳에서 직기를 돌리는 일을 하셨어요. [2] 기계가 고장 나면 동료들이 찾아올 만큼 기계 수리를 잘하셨다고 하셨어요. [3] 첫 월급으로는 어머니께 내복을 사 드리셨고, 어머니께서 동네방네 자랑하셨다고 들려주셨어요. [4]",
+          "citedKeys": [
+            "SK_FIRST_JOB",
+            "EP_JOB",
+            "EP_JOB",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 4,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 4,
+            "supported": 4,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 15331,
+          "judgeCostMicroUsd": 7488,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-F1",
+          "category": "FACT",
+          "question": "내 첫 직장이 어디였지?",
+          "text": "첫 직장은 대구의 동진섬유로, 1979년에 입사하셨어요. [1][2] 동진섬유에서는 직기를 돌리는 일을 하셨어요. [2] 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘하셨다고 들려주셨어요. [3] 첫 월급으로는 어머니께 내복을 사 드리셨고, 어머니께서 동네방네 자랑하셨다고 하셨어요. [4]",
+          "citedKeys": [
+            "SK_FIRST_JOB",
+            "EP_JOB",
+            "EP_JOB",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 4,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 4,
+            "supported": 4,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 15154,
+          "judgeCostMicroUsd": 7443,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-F2",
+      "category": "FACT",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-F2",
+          "category": "FACT",
+          "question": "첫 월급 받아서 뭘 샀었지?",
+          "text": "첫 월급을 받으셨을 때 어머니께 내복을 사 드리셨다고 들려주셨어요. [1] 어머니께서 그 내복을 입고 동네방네 자랑하셨다고 하셨어요. [1] 이 일은 1979년, 대구 동진섬유에 입사하신 해의 기억이에요. [1][2]",
+          "citedKeys": [
+            "EP_JOB",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 3,
+            "supported": 2,
+            "failures": [
+              {
+                "claim": "이 일은 1979년, 대구 동진섬유에 입사하신 해의 기억이에요.",
+                "unsupported": "대구 동진섬유에 입사하신 해"
+              }
+            ]
+          },
+          "rounds": 2,
+          "costMicroUsd": 14854,
+          "judgeCostMicroUsd": 7329,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-F2",
+          "category": "FACT",
+          "question": "첫 월급 받아서 뭘 샀었지?",
+          "text": "첫 월급을 받으셨을 때 어머니께 내복을 사 드리셨어요. [1] 어머니께서 그 내복을 입고 동네방네 자랑하셨다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 14002,
+          "judgeCostMicroUsd": 5571,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-F2",
+          "category": "FACT",
+          "question": "첫 월급 받아서 뭘 샀었지?",
+          "text": "첫 월급을 받으셨을 때 어머니께 내복을 사 드리셨어요. [1] 어머니께서 그 내복을 입고 동네방네 자랑하셨다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13957,
+          "judgeCostMicroUsd": 5571,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-F3",
+      "category": "FACT",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-F3",
+          "category": "FACT",
+          "question": "신혼 때 어디서 살았지?",
+          "text": "신혼 때는 대구 비산동에서 단칸방을 얻어 사셨다고 들려주셨어요. [1] 좁았지만 좋았다고 하셨어요. [1]",
+          "citedKeys": [
+            "EP_NEWLYWED"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13459,
+          "judgeCostMicroUsd": 5619,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-F3",
+          "category": "FACT",
+          "question": "신혼 때 어디서 살았지?",
+          "text": "신혼 때는 대구 비산동에서 단칸방을 얻어 사셨다고 들려주셨어요. [1] 좁았지만 좋았다고 하셨어요. [1]",
+          "citedKeys": [
+            "EP_NEWLYWED"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13156,
+          "judgeCostMicroUsd": 5619,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-F3",
+          "category": "FACT",
+          "question": "신혼 때 어디서 살았지?",
+          "text": "신혼 때는 대구 비산동 단칸방에서 사셨다고 들려주셨어요. [1] 좁았지만 좋았다고 하셨어요. [1] 결혼 연도는 서로 다른 기록이 있어요. 인생 골격 기록에는 결혼이 1981년으로 되어 있어요. [2] / 직접 들려주신 이야기에서는 '82년 봄, 벚꽃 필 때'라고 하셨어요. [3] 어느 쪽이 맞을까요?",
+          "citedKeys": [
+            "EP_NEWLYWED",
+            "SK_MARRIAGE",
+            "EP_MARRIAGE"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 3,
+          "submittedClaims": 4,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 4,
+            "supported": 4,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 16276,
+          "judgeCostMicroUsd": 7122,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-F4",
+      "category": "FACT",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-F4",
+          "category": "FACT",
+          "question": "나 군대는 어디서 했었지?",
+          "text": "군 복무는 강원도 화천에서 하셨어요. 겨울에 얼마나 추운지 몰랐다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "EP_MIL"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13396,
+          "judgeCostMicroUsd": 4896,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-F4",
+          "category": "FACT",
+          "question": "나 군대는 어디서 했었지?",
+          "text": "군 복무는 강원도 화천에서 하셨어요. 겨울에 얼마나 추운지 몰랐다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "EP_MIL"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13339,
+          "judgeCostMicroUsd": 4896,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-F4",
+          "category": "FACT",
+          "question": "나 군대는 어디서 했었지?",
+          "text": "군 복무는 강원도 화천에서 하셨어요. [1] 화천 겨울이 얼마나 추운지 모른다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "EP_MIL"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 1,
+            "failures": [
+              {
+                "claim": "화천 겨울이 얼마나 추운지 모른다고 들려주셨어요.",
+                "unsupported": "얼마나 추운지 모른다"
+              }
+            ]
+          },
+          "rounds": 2,
+          "costMicroUsd": 13222,
+          "judgeCostMicroUsd": 5988,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-F5",
+      "category": "FACT",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-F5",
+          "category": "FACT",
+          "question": "IMF 때 우리 집은 어떻게 버텼지?",
+          "text": "1998년 IMF 때 다니시던 공장이 문을 닫아 한동안 일이 없이 막막하게 지내셨다고 들려주셨어요. [1][2] 그 시기에 아내 정숙 씨께서 서문시장에 반찬 가게를 내셔서 집안 살림을 버텨내셨다고 하셨어요. [3] 그 일로 아내 분께 평생 고마운 마음을 갖고 계신다고 하셨어요. [4]",
+          "citedKeys": [
+            "SK_IMF",
+            "EP_IMF",
+            "EP_IMF",
+            "EP_IMF"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 16096,
+          "judgeCostMicroUsd": 6840,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-F5",
+          "category": "FACT",
+          "question": "IMF 때 우리 집은 어떻게 버텼지?",
+          "text": "1998년에 다니시던 공장이 문을 닫아 한동안 일이 없이 막막하게 지내셨다고 들려주셨어요. [1][2] 그 어려운 시기에 아내 정숙 씨께서 서문시장에 반찬 가게를 직접 내어 집안 살림을 버텨내셨다고 하셨어요. [3] 그 일로 아내 분께 평생 고마운 마음을 갖고 계신다고 하셨어요. [4]",
+          "citedKeys": [
+            "SK_IMF",
+            "EP_IMF",
+            "EP_IMF",
+            "EP_IMF"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 17302,
+          "judgeCostMicroUsd": 6843,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-F5",
+          "category": "FACT",
+          "question": "IMF 때 우리 집은 어떻게 버텼지?",
+          "text": "1998년 IMF 때 다니시던 공장이 문을 닫아 한동안 일이 없이 막막하게 지내셨다고 들려주셨어요. [1][2] 그 시기에 아내 정숙 씨께서 서문시장에 반찬 가게를 내셔서 그걸로 집안 살림을 버티셨다고 하셨어요. [3] 아내 분께 평생 고마운 마음을 갖고 계신다고 하셨어요. [4]",
+          "citedKeys": [
+            "SK_IMF",
+            "EP_IMF",
+            "EP_IMF",
+            "EP_IMF"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 16009,
+          "judgeCostMicroUsd": 7239,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-F6",
+      "category": "FACT",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-F6",
+          "category": "FACT",
+          "question": "첫째 딸 태어났을 때 병원비는 어떻게 마련했었지?",
+          "text": "첫째 딸 미영이가 1983년에 태어나셨어요. [1] 당시 병원비가 모자라 회사에 월급을 가불해서 마련하셨다고 들려주셨어요. [2]",
+          "citedKeys": [
+            "LE_FAMILY",
+            "LE_FAMILY"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 20519,
+          "judgeCostMicroUsd": 5523,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-F6",
+          "category": "FACT",
+          "question": "첫째 딸 태어났을 때 병원비는 어떻게 마련했었지?",
+          "text": "첫째 딸 미영이가 태어난 1983년, 병원비가 모자라 회사에 월급을 가불해서 마련하셨어요. [1][2]",
+          "citedKeys": [
+            "LE_FAMILY",
+            "LE_FAMILY"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 19874,
+          "judgeCostMicroUsd": 5166,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-F6",
+          "category": "FACT",
+          "question": "첫째 딸 태어났을 때 병원비는 어떻게 마련했었지?",
+          "text": "첫째 딸 미영이가 1983년에 태어나셨어요. [1] 당시 병원비가 모자라 회사에 월급을 가불해서 마련하셨다고 들려주셨어요. [2]",
+          "citedKeys": [
+            "LE_FAMILY",
+            "LE_FAMILY"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 20519,
+          "judgeCostMicroUsd": 5523,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-T1",
+      "category": "PERIOD",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-T1",
+          "category": "PERIOD",
+          "question": "국민학교 때 나 뭐 하고 놀았지?",
+          "text": "국민학교 시절에는 친구 봉구와 학교가 끝나면 매일 낙동강에 가서 멱을 감으셨다고 들려주셨어요. [1] 해가 질 때까지 낙동강에서 놀다가 집에 돌아오시면 어머니께 엄청 혼이 났다고 하셨어요. [2]",
+          "citedKeys": [
+            "EP_ELEM",
+            "EP_ELEM"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 21668,
+          "judgeCostMicroUsd": 5895,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-T1",
+          "category": "PERIOD",
+          "question": "국민학교 때 나 뭐 하고 놀았지?",
+          "text": "국민학교 때 친구 봉구와 학교가 끝나면 매일 낙동강에 가서 멱을 감으셨다고 들려주셨어요. [1] 해가 질 때까지 낙동강에서 물놀이를 하다가 집에 돌아오면 어머니께 엄청 혼이 났다고 하셨어요. [2]",
+          "citedKeys": [
+            "EP_ELEM",
+            "EP_ELEM"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 24415,
+          "judgeCostMicroUsd": 5898,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-T1",
+          "category": "PERIOD",
+          "question": "국민학교 때 나 뭐 하고 놀았지?",
+          "text": "국민학교 시절에는 친구 봉구와 학교가 끝나면 매일 낙동강에 가서 멱을 감으셨다고 들려주셨어요. [1] 해가 질 때까지 낙동강에서 놀다가 집에 돌아오시면 어머니께 엄청 혼이 났다고 하셨어요. [2]",
+          "citedKeys": [
+            "EP_ELEM",
+            "EP_ELEM"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 21668,
+          "judgeCostMicroUsd": 5895,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-T2",
+      "category": "PERIOD",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-T2",
+          "category": "PERIOD",
+          "question": "군대 있을 때 무슨 노래를 불렀지?",
+          "text": "군대 계실 때 동기 용철이와 난로 옆에 붙어 나훈아 노래를 부르며 추운 겨울을 버티셨다고 들려주셨어요. [1] 그 나훈아 노래는 지금도 들으면 군대 시절이 떠오른다고 하셨어요. [2]",
+          "citedKeys": [
+            "EP_MIL",
+            "EP_MIL"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13621,
+          "judgeCostMicroUsd": 5817,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-T2",
+          "category": "PERIOD",
+          "question": "군대 있을 때 무슨 노래를 불렀지?",
+          "text": "군 복무 시절(1976~1978년) 강원도 화천에서 동기 용철이와 난로 옆에 붙어 나훈아 노래를 부르며 추운 겨울을 버티셨다고 들려주셨어요. [1] 나훈아 노래를 들으면 지금도 그때 군대 시절이 생각나신다고 하셨어요. [2]",
+          "citedKeys": [
+            "EP_MIL",
+            "EP_MIL"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13978,
+          "judgeCostMicroUsd": 5871,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-T2",
+          "category": "PERIOD",
+          "question": "군대 있을 때 무슨 노래를 불렀지?",
+          "text": "군 복무 시절(1976~1978년) 강원도 화천에서 동기 용철이와 난로 옆에 붙어 나훈아 노래를 부르며 추운 겨울을 버티셨다고 들려주셨어요. [1] 나훈아 노래를 들으면 지금도 그때 군대 시절이 생각나신다고 하셨어요. [2]",
+          "citedKeys": [
+            "EP_MIL",
+            "EP_MIL"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13978,
+          "judgeCostMicroUsd": 5871,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-T3",
+      "category": "PERIOD",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-T3",
+          "category": "PERIOD",
+          "question": "스무 살 무렵에 나는 뭐 하고 있었지?",
+          "text": "스무 살 무렵(1972~1974년)에는 농업고등학교를 다니고 계셨어요. 아버지 농사일을 거들느라 동무들보다 한 해 늦게 입학하셨다고 들려주셨어요. [1] 농업고등학교 실습 시간에 경운기 엔진을 뜯어보면서 기계 만지는 재미를 처음 알게 되셨다고 하셨어요. \"경운기 엔진을 뜯어보는 실습이 있었는데, 그게 그렇게 재밌더라고. 기계 만지는 게 그때부터 좋았어.\"라고 말씀하셨어요. [2]",
+          "citedKeys": [
+            "EP_HIGH",
+            "EP_HIGH"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 1,
+            "failures": [
+              {
+                "claim": "스무 살 무렵(1972~1974년)에는 농업고등학교를 다니고 계셨어요. 아버지 농사일을 거들느라 동무들보다 한 해 늦게 입학하셨다고 들려주셨어요.",
+                "unsupported": "농업고등학교를 다니고 계셨어요"
+              }
+            ]
+          },
+          "rounds": 3,
+          "costMicroUsd": 27862,
+          "judgeCostMicroUsd": 6873,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-T3",
+          "category": "PERIOD",
+          "question": "스무 살 무렵에 나는 뭐 하고 있었지?",
+          "text": "스무 살 무렵(1972~1974년)에는 농업고등학교를 다니고 계셨어요. 아버지 농사일을 거들느라 동무들보다 한 해 늦게 입학하셨다고 들려주셨어요. [1] 학교 실습 시간에 경운기 엔진을 뜯어보면서 기계 만지는 재미를 처음 알게 되셨다고 하셨어요. \"경운기 엔진을 뜯어보는 실습이 있었는데, 그게 그렇게 재밌더라고. 기계 만지는 게 그때부터 좋았어.\"라고 하셨죠. [2]",
+          "citedKeys": [
+            "EP_HIGH",
+            "EP_HIGH"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 1,
+            "failures": [
+              {
+                "claim": "스무 살 무렵(1972~1974년)에는 농업고등학교를 다니고 계셨어요. 아버지 농사일을 거들느라 동무들보다 한 해 늦게 입학하셨다고 들려주셨어요.",
+                "unsupported": "농업고등학교를 다니고 계셨어요"
+              }
+            ]
+          },
+          "rounds": 3,
+          "costMicroUsd": 27991,
+          "judgeCostMicroUsd": 6852,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-T3",
+          "category": "PERIOD",
+          "question": "스무 살 무렵에 나는 뭐 하고 있었지?",
+          "text": "스무 살 무렵(1972~1974년)에는 농업고등학교를 다니고 계셨어요. 아버지 농사일을 거들느라 동무들보다 한 해 늦게 입학하셨다고 들려주셨어요. [1] 그 시절 학교 실습 시간에 경운기 엔진을 뜯어보면서 기계 만지는 재미를 처음 알게 되셨다고 하셨어요. [2]",
+          "citedKeys": [
+            "EP_HIGH",
+            "EP_HIGH"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 1,
+            "failures": [
+              {
+                "claim": "스무 살 무렵(1972~1974년)에는 농업고등학교를 다니고 계셨어요. 아버지 농사일을 거들느라 동무들보다 한 해 늦게 입학하셨다고 들려주셨어요.",
+                "unsupported": "농업고등학교를 다니고 계셨어요"
+              }
+            ]
+          },
+          "rounds": 3,
+          "costMicroUsd": 26821,
+          "judgeCostMicroUsd": 6654,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-T4",
+      "category": "PERIOD",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-T4",
+          "category": "PERIOD",
+          "question": "1979년에 나한테 무슨 일이 있었지?",
+          "text": "1979년에 대구 동진섬유 공장에 입사하셨어요. [1] 동진섬유에서 직기를 돌리는 일을 하셨는데, 기계가 고장 나면 동료들이 찾아올 만큼 기계 수리를 잘하셨다고 들려주셨어요. [2] 첫 월급을 받아 어머니께 내복을 사 드렸고, 어머니께서 동네방네 자랑하셨다고 하셨어요. [3]",
+          "citedKeys": [
+            "EP_JOB",
+            "EP_JOB",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 3,
+          "cites": 3,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 15298,
+          "judgeCostMicroUsd": 6990,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-T4",
+          "category": "PERIOD",
+          "question": "1979년에 나한테 무슨 일이 있었지?",
+          "text": "1979년에 대구 동진섬유 공장에 입사하셨어요. [1] 동진섬유에서 직기를 돌리는 일을 하셨고, 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘하셨다고 들려주셨어요. [1][2] 첫 월급으로 어머니께 내복을 사 드렸고, 어머니께서 동네방네 자랑하셨다고 하셨어요. [3]",
+          "citedKeys": [
+            "EP_JOB",
+            "EP_JOB",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 3,
+          "cites": 3,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 15430,
+          "judgeCostMicroUsd": 7266,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-T4",
+          "category": "PERIOD",
+          "question": "1979년에 나한테 무슨 일이 있었지?",
+          "text": "1979년에 대구 동진섬유 공장에 입사하셨어요. [1] 동진섬유에서 직기를 돌리는 일을 하셨고, 기계가 고장 나면 동료들이 찾을 만큼 기계 수리를 잘하셨다고 들려주셨어요. [1][2] 첫 월급으로 어머니께 내복을 사 드렸고, 어머니께서 동네방네 자랑하셨다고 하셨어요. [3]",
+          "citedKeys": [
+            "EP_JOB",
+            "EP_JOB",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 3,
+          "cites": 3,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 15430,
+          "judgeCostMicroUsd": 7266,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-T5",
+      "category": "PERIOD",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-T5",
+          "category": "PERIOD",
+          "question": "결혼하고 나서 주말엔 주로 뭐 했지?",
+          "text": "결혼 초(1981~1983년), 매주 일요일마다 아내 정숙 씨와 도시락을 싸서 팔공산에 올라가셨어요. [1]",
+          "citedKeys": [
+            "EP_NEWLYWED"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 26192,
+          "judgeCostMicroUsd": 5013,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-T5",
+          "category": "PERIOD",
+          "question": "결혼하고 나서 주말엔 주로 뭐 했지?",
+          "text": "결혼 초(1981~1983년), 매주 일요일마다 아내 정숙 씨와 도시락을 싸서 팔공산에 올라가셨다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "EP_NEWLYWED"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 25979,
+          "judgeCostMicroUsd": 5037,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-T5",
+          "category": "PERIOD",
+          "question": "결혼하고 나서 주말엔 주로 뭐 했지?",
+          "text": "결혼 초(1981~1983년), 매주 일요일마다 아내 정숙 씨와 도시락을 싸서 팔공산에 올라가셨어요. [1]",
+          "citedKeys": [
+            "EP_NEWLYWED"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 26192,
+          "judgeCostMicroUsd": 5013,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-P1",
+      "category": "PERSON",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-P1",
+          "category": "PERSON",
+          "question": "봉구는 언제부터 알던 친구지?",
+          "text": "봉구는 국민학교 동무로, 1962년에 처음 만나신 친구예요. [1][2] 국민학교 시절에는 학교가 끝나면 매일 둘이 낙동강에 가서 멱을 감으셨다고 들려주셨어요. [3] 지금도 매주 토요일 봉구와 함께 산에 다니고 계세요. [2][4]",
+          "citedKeys": [
+            "PS_BONGGU",
+            "PS_BONGGU",
+            "EP_ELEM",
+            "LE_BACK_HIKE"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 2,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 14437,
+          "judgeCostMicroUsd": 7218,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-P1",
+          "category": "PERSON",
+          "question": "봉구는 언제부터 알던 친구지?",
+          "text": "봉구는 국민학교 동무로, 1962년에 처음 만나신 친구예요. [1][2] 국민학교 시절에는 학교가 끝나면 매일 둘이 낙동강에 가서 멱을 감으셨다고 들려주셨어요. [3] 지금도 매주 토요일 봉구와 함께 산에 다니고 계세요. [2][4]",
+          "citedKeys": [
+            "PS_BONGGU",
+            "PS_BONGGU",
+            "EP_ELEM",
+            "LE_BACK_HIKE"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 2,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 14437,
+          "judgeCostMicroUsd": 7218,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-P1",
+          "category": "PERSON",
+          "question": "봉구는 언제부터 알던 친구지?",
+          "text": "봉구는 국민학교 동무로, 1962년에 처음 만나신 친구예요. [1][2] 국민학교 시절에는 학교가 끝나면 매일 둘이 낙동강에 가서 멱을 감으셨다고 들려주셨어요. [3] 지금도 봉구와 매주 토요일 함께 산에 다니고 계세요. [2][4]",
+          "citedKeys": [
+            "PS_BONGGU",
+            "PS_BONGGU",
+            "EP_ELEM",
+            "LE_BACK_HIKE"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 2,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 14437,
+          "judgeCostMicroUsd": 7113,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-P2",
+      "category": "PERSON",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-P2",
+          "category": "PERSON",
+          "question": "용철이는 누구였지?",
+          "text": "용철이는 화자분의 군대 동기로, 1976년 강원도 화천에서 처음 만나 함께 복무하셨어요. [1][2] 추운 겨울에 용철이와 난로 옆에 붙어 나훈아 노래를 부르며 군 생활을 버텼다고 들려주셨어요. [3] 제대 후에는 용철이와 연락이 끊겼다고 하셨어요. [4]",
+          "citedKeys": [
+            "PS_YONGCHEOL",
+            "SK_MILITARY",
+            "EP_MIL",
+            "PS_YONGCHEOL"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 15454,
+          "judgeCostMicroUsd": 7275,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-P2",
+          "category": "PERSON",
+          "question": "용철이는 누구였지?",
+          "text": "용철이는 화자분의 군대 동기로, 1976년 강원도 화천에서 처음 만나 함께 복무하셨어요. [1][2] 복무 중 추운 겨울에 용철이와 난로 옆에 붙어 나훈아 노래를 부르며 버텼다고 들려주셨어요. [3] 제대 후에는 용철이와 연락이 끊겼다고 하셨어요. [4]",
+          "citedKeys": [
+            "PS_YONGCHEOL",
+            "SK_MILITARY",
+            "EP_MIL",
+            "PS_YONGCHEOL"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 15403,
+          "judgeCostMicroUsd": 7272,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-P2",
+          "category": "PERSON",
+          "question": "용철이는 누구였지?",
+          "text": "용철이는 화자의 군대 동기로, 1976년 강원도 화천에서 함께 복무하며 처음 만나셨어요. [1][2] 군 복무 중 추운 겨울에 용철이와 난로 옆에 붙어 나훈아 노래를 부르며 버텼다고 들려주셨어요. [3] 제대 후에는 용철이와 연락이 끊겼다고 하셨어요. [4]",
+          "citedKeys": [
+            "PS_YONGCHEOL",
+            "SK_MILITARY",
+            "EP_MIL",
+            "PS_YONGCHEOL"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 15469,
+          "judgeCostMicroUsd": 7278,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-P3",
+      "category": "PERSON",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-P3",
+          "category": "PERSON",
+          "question": "우리 집사람 정숙이는 어떤 사람이라고 했었지?",
+          "text": "정숙 씨는 말수가 적고 음식 솜씨가 좋은 분이라고 하셨어요. [1] 공장 동료 영자 씨가 '참한 아가씨 있다'며 소개해 준 분이라고 들려주셨어요. [2] 처음 만난 건 친구 결혼식에서였는데, 화자분이 수줍어서 말 한마디 못 붙이고 있을 때 정숙 씨가 먼저 웃어 주셨다고 하셨어요. [3][4] 신혼 때는 매주 일요일마다 도시락을 싸서 함께 팔공산에 오르셨다고 하셨어요. [5] IMF 시기에 서문시장에 반찬 가게를 직접 열어 집안 살림을 버텨 주셨다고 하셨어요. [6] 그 시절 집안을 지탱해 준 정숙 씨에게 '평생 고마워'라고 하시며 깊은 고마움을 표현하셨어요. [7]",
+          "citedKeys": [
+            "PS_JEONGSUK",
+            "EP_MARRIAGE",
+            "LE_RELATIONSHIP",
+            "LE_RELATIONSHIP",
+            "EP_NEWLYWED",
+            "EP_IMF",
+            "EP_IMF"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 7,
+          "cites": 7,
+          "submittedClaims": 6,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 6,
+            "supported": 5,
+            "failures": [
+              {
+                "claim": "신혼 때는 매주 일요일마다 도시락을 싸서 함께 팔공산에 오르셨다고 하셨어요.",
+                "unsupported": "신혼 때는"
+              }
+            ]
+          },
+          "rounds": 3,
+          "costMicroUsd": 30689,
+          "judgeCostMicroUsd": 9591,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-P3",
+          "category": "PERSON",
+          "question": "우리 집사람 정숙이는 어떤 사람이라고 했었지?",
+          "text": "정숙 씨는 말수가 적고 음식 솜씨가 좋은 분이라고 들려주셨어요. [1] 공장 동료 영자 씨가 '참한 아가씨 있다'며 소개해 준 인연으로 만나셨다고 하셨어요. [2] 처음 만났을 때 화자께서 수줍어서 말 한마디 못 붙이고 있었는데, 정숙 씨가 먼저 웃어 주셨다고 하셨어요. [3] IMF 시기에 서문시장에 반찬 가게를 직접 내어 집안 살림을 버텨 낸 분이라고 하셨어요. [4] 그 시절 집안을 지탱해 준 정숙 씨에게 '평생 고마워'라고 말씀하셨어요. [5] 결혼 연도는 서로 다른 기록이 있어요. 인생 골격 기록에는 1981년에 결혼하신 것으로 되어 있어요. [6] / 대화 기록에는 '82년 봄, 벚꽃 필 때' 대구 시내 예식장에서 결혼식을 올리셨다고 하셨어요. [7] 어느 쪽이 맞을까요?",
+          "citedKeys": [
+            "PS_JEONGSUK",
+            "EP_MARRIAGE",
+            "LE_RELATIONSHIP",
+            "EP_IMF",
+            "EP_IMF",
+            "SK_MARRIAGE",
+            "EP_MARRIAGE"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 7,
+          "cites": 7,
+          "submittedClaims": 7,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 7,
+            "supported": 6,
+            "failures": [
+              {
+                "claim": "대화 기록에는 '82년 봄, 벚꽃 필 때' 대구 시내 예식장에서 결혼식을 올리셨다고 하셨어요.",
+                "unsupported": "대구 시내 예식장에서"
+              }
+            ]
+          },
+          "rounds": 3,
+          "costMicroUsd": 30456,
+          "judgeCostMicroUsd": 10971,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-P3",
+          "category": "PERSON",
+          "question": "우리 집사람 정숙이는 어떤 사람이라고 했었지?",
+          "text": "집사람 정숙 씨는 말수가 적고 음식 솜씨가 좋은 분이라고 들려주셨어요. [1] 처음 만나셨을 때 화자분이 수줍어서 말 한마디 못 붙이고 있었는데, 정숙 씨가 먼저 웃어 주셨다고 하셨어요. [2] 공장 동료 영자 씨가 '참한 아가씨 있다'며 정숙 씨를 소개해 주셨다고 하셨어요. [3] IMF 시기에 정숙 씨가 서문시장에 반찬 가게를 내서 집안 살림을 버텨 주셨다고 하셨어요. [4] 그 시절 집안을 지탱해 준 정숙 씨에게 평생 고마운 마음을 갖고 계신다고 하셨어요. [5] 결혼 연도는 서로 다른 기록이 있어요. 인생 골격 기록에는 1981년에 결혼하신 것으로 되어 있어요. [6] / 대화 기록에는 '82년 봄, 벚꽃 필 때' 대구 시내 예식장에서 결혼식을 올리셨다고 하셨어요. [7] 어느 쪽이 맞을까요?",
+          "citedKeys": [
+            "PS_JEONGSUK",
+            "LE_RELATIONSHIP",
+            "EP_MARRIAGE",
+            "EP_IMF",
+            "EP_IMF",
+            "SK_MARRIAGE",
+            "EP_MARRIAGE"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 7,
+          "cites": 7,
+          "submittedClaims": 7,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 7,
+            "supported": 7,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 30636,
+          "judgeCostMicroUsd": 9891,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-P4",
+      "category": "PERSON",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-P4",
+          "category": "PERSON",
+          "question": "미영이는 몇 년에 태어났지?",
+          "text": "첫째 딸 미영이는 1983년에 태어나셨어요. [1]",
+          "citedKeys": [
+            "LE_FAMILY"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 11554,
+          "judgeCostMicroUsd": 4842,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-P4",
+          "category": "PERSON",
+          "question": "미영이는 몇 년에 태어났지?",
+          "text": "첫째 딸 미영이는 1983년에 태어나셨어요. [1]",
+          "citedKeys": [
+            "LE_FAMILY"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 11554,
+          "judgeCostMicroUsd": 4842,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-P4",
+          "category": "PERSON",
+          "question": "미영이는 몇 년에 태어났지?",
+          "text": "첫째 딸 미영이는 1983년에 태어나셨어요. [1]",
+          "citedKeys": [
+            "LE_FAMILY"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 11554,
+          "judgeCostMicroUsd": 4842,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-P5",
+      "category": "PERSON",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-P5",
+          "category": "PERSON",
+          "question": "막내 동생 동희 얘기 뭐라고 했었지?",
+          "text": "막내 동생 동희 씨는 대구 수성구에 살고 계신다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "PS_DONGHUI"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 16166,
+          "judgeCostMicroUsd": 4836,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-P5",
+          "category": "PERSON",
+          "question": "막내 동생 동희 얘기 뭐라고 했었지?",
+          "text": "막내 동생 동희 씨는 대구 수성구에 살고 계신다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "PS_DONGHUI"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 16166,
+          "judgeCostMicroUsd": 4836,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-P5",
+          "category": "PERSON",
+          "question": "막내 동생 동희 얘기 뭐라고 했었지?",
+          "text": "막내 동생 동희 씨는 대구 수성구에 살고 계신다고 말씀해 주셨어요. [1]",
+          "citedKeys": [
+            "PS_DONGHUI"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 16037,
+          "judgeCostMicroUsd": 4845,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-L1",
+      "category": "PREFERENCE",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-L1",
+          "category": "PREFERENCE",
+          "question": "나는 쉬는 날 뭐 하는 걸 좋아하지?",
+          "text": "쉬는 날 등산을 즐기신다고 들려주셨어요. [1][2][3] 요즘은 매주 토요일마다 봉구 씨와 함께 산에 다니고 계세요. [4] 트로트(옛날 노래)도 좋아하신다고 하셨어요. [2][3] 화투도 취미 중 하나라고 말씀해 주셨어요. [1] 예전에는 일요일마다 아내 분과 도시락을 싸서 팔공산에 오르셨다고 들려주셨어요. [5]",
+          "citedKeys": [
+            "PROFILE",
+            "PROFILE",
+            "PROFILE",
+            "LE_BACK_HIKE",
+            "EP_NEWLYWED"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 5,
+          "cites": 5,
+          "submittedClaims": 5,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 2,
+          "judge": {
+            "claims": 5,
+            "supported": 4,
+            "failures": [
+              {
+                "claim": "쉬는 날 등산을 즐기신다고 들려주셨어요.",
+                "unsupported": "쉬는 날"
+              }
+            ]
+          },
+          "rounds": 2,
+          "costMicroUsd": 14878,
+          "judgeCostMicroUsd": 8742,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-L1",
+          "category": "PREFERENCE",
+          "question": "나는 쉬는 날 뭐 하는 걸 좋아하지?",
+          "text": "쉬는 날 등산을 즐기신다고 들려주셨어요. [1][2][3] 요즘은 매주 토요일마다 봉구 씨와 함께 산에 다니고 계신다고 하셨어요. [4] 예전에는 일요일마다 아내 분과 도시락을 싸서 팔공산에 오르셨다고 들려주셨어요. [5] 화투도 좋아하신다고 하셨어요. [1] 트로트(옛날 노래)도 즐겨 들으신다고 하셨어요. [2][3]",
+          "citedKeys": [
+            "PROFILE",
+            "PROFILE",
+            "PROFILE",
+            "LE_BACK_HIKE",
+            "EP_NEWLYWED"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 5,
+          "cites": 5,
+          "submittedClaims": 5,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 2,
+          "judge": {
+            "claims": 5,
+            "supported": 5,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 14758,
+          "judgeCostMicroUsd": 7971,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-L1",
+          "category": "PREFERENCE",
+          "question": "나는 쉬는 날 뭐 하는 걸 좋아하지?",
+          "text": "쉬는 날 등산을 즐기신다고 들려주셨어요. [1][2][3] 요즘은 매주 토요일마다 봉구 씨와 함께 산에 다니고 계세요. [4] 예전에는 매주 일요일마다 아내 분과 도시락을 싸서 팔공산에 오르셨어요. [5] 화투도 좋아하신다고 하셨어요. [1] 트로트(옛날 노래)도 즐겨 들으신다고 하셨어요. [2][3]",
+          "citedKeys": [
+            "PROFILE",
+            "PROFILE",
+            "PROFILE",
+            "LE_BACK_HIKE",
+            "EP_NEWLYWED"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 5,
+          "cites": 5,
+          "submittedClaims": 5,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 2,
+          "judge": {
+            "claims": 5,
+            "supported": 4,
+            "failures": [
+              {
+                "claim": "쉬는 날 등산을 즐기신다고 들려주셨어요.",
+                "unsupported": "쉬는 날"
+              }
+            ]
+          },
+          "rounds": 2,
+          "costMicroUsd": 14743,
+          "judgeCostMicroUsd": 8025,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-L2",
+      "category": "PREFERENCE",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-L2",
+          "category": "PREFERENCE",
+          "question": "내가 좋아하는 가수가 누구지?",
+          "text": "좋아하시는 가수로 나훈아를 들려주셨어요. [1] 트로트와 옛날 노래를 즐겨 들으신다고 하셨어요. [2][3]",
+          "citedKeys": [
+            "PROFILE",
+            "PROFILE",
+            "PROFILE"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 3,
+          "cites": 3,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 10672,
+          "judgeCostMicroUsd": 5424,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-L2",
+          "category": "PREFERENCE",
+          "question": "내가 좋아하는 가수가 누구지?",
+          "text": "좋아하시는 가수로 나훈아를 꼽으셨어요. [1] 트로트와 옛날 노래를 즐겨 들으신다고 들려주셨어요. [2][3]",
+          "citedKeys": [
+            "PROFILE",
+            "PROFILE",
+            "PROFILE"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 3,
+          "cites": 3,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 10717,
+          "judgeCostMicroUsd": 5433,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-L2",
+          "category": "PREFERENCE",
+          "question": "내가 좋아하는 가수가 누구지?",
+          "text": "좋아하는 가수로 나훈아를 말씀해 주셨어요. [1] 트로트와 옛날 노래를 즐겨 들으신다고도 들려주셨어요. [2][3]",
+          "citedKeys": [
+            "PROFILE",
+            "PROFILE",
+            "PROFILE"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 3,
+          "cites": 3,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 10747,
+          "judgeCostMicroUsd": 5784,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-L3",
+      "category": "PREFERENCE",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-L3",
+          "category": "PREFERENCE",
+          "question": "내가 싫어하는 음식이 있었나?",
+          "text": "비린 음식을 못 드셔서, 회사 회식에서 회를 한 점도 드시지 못했다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "LE_FOOD"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 19517,
+          "judgeCostMicroUsd": 4959,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-L3",
+          "category": "PREFERENCE",
+          "question": "내가 싫어하는 음식이 있었나?",
+          "text": "비린 음식을 못 드셔서, 회사 회식 자리에서 회를 한 점도 드시지 못했다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "LE_FOOD"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 19562,
+          "judgeCostMicroUsd": 4968,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-L3",
+          "category": "PREFERENCE",
+          "question": "내가 싫어하는 음식이 있었나?",
+          "text": "비린 음식을 못 드셔서, 회사 회식 자리에서 회를 한 점도 드시지 못했다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "LE_FOOD"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 19562,
+          "judgeCostMicroUsd": 4968,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-L4",
+      "category": "PREFERENCE",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-L4",
+          "category": "PREFERENCE",
+          "question": "나 손재주가 좋은 편이야?",
+          "text": "농업고등학교 실습 시간에 경운기 엔진을 뜯어보면서 기계 만지는 재미를 처음 알게 되셨다고 들려주셨어요. [1] 동진섬유에서 일하실 때 기계가 고장 나면 동료들이 먼저 찾아올 만큼 기계 수리를 잘하셨다고 하셨어요. [2]",
+          "citedKeys": [
+            "EP_HIGH",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13187,
+          "judgeCostMicroUsd": 5967,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-L4",
+          "category": "PREFERENCE",
+          "question": "나 손재주가 좋은 편이야?",
+          "text": "농업고등학교 실습 시간에 경운기 엔진을 직접 뜯어보시면서 기계 만지는 재미를 처음 알게 되셨다고 들려주셨어요. [1] 동진섬유에서 일하실 때 기계가 고장 나면 동료들이 먼저 찾아올 만큼 기계 수리를 잘하셨다고 하셨어요. [2]",
+          "citedKeys": [
+            "EP_HIGH",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13469,
+          "judgeCostMicroUsd": 5979,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-L4",
+          "category": "PREFERENCE",
+          "question": "나 손재주가 좋은 편이야?",
+          "text": "농업고등학교 실습 시간에 경운기 엔진을 뜯어보면서 기계 만지는 재미를 처음 알게 되셨다고 들려주셨어요. [1] 동진섬유에서 일하실 때 기계가 고장 나면 동료들이 먼저 찾아올 만큼 기계 수리를 잘하셨다고 하셨어요. [2]",
+          "citedKeys": [
+            "EP_HIGH",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13124,
+          "judgeCostMicroUsd": 5967,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-N1",
+      "category": "NO_RECORD",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-N1",
+          "category": "NO_RECORD",
+          "question": "어릴 때 집에서 키우던 강아지 이름이 뭐였지?",
+          "text": "아직 들려주신 적 없는 이야기예요. 어릴 때 집에서 키우던 강아지가 있었나요?",
+          "citedKeys": [],
+          "groupHits": [],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": true,
+            "pureNoRecord": true,
+            "allGroupsCited": true
+          },
+          "goodCites": 0,
+          "cites": 0,
+          "submittedClaims": 0,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 0,
+            "supported": 0,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 22541,
+          "judgeCostMicroUsd": 0,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-N1",
+          "category": "NO_RECORD",
+          "question": "어릴 때 집에서 키우던 강아지 이름이 뭐였지?",
+          "text": "아직 들려주신 적 없는 이야기예요. 어릴 때 집에서 강아지를 키우셨나요, 혹시 그 강아지 이름이 기억나세요?",
+          "citedKeys": [],
+          "groupHits": [],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": true,
+            "pureNoRecord": true,
+            "allGroupsCited": true
+          },
+          "goodCites": 0,
+          "cites": 0,
+          "submittedClaims": 0,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 0,
+            "supported": 0,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 23666,
+          "judgeCostMicroUsd": 0,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-N1",
+          "category": "NO_RECORD",
+          "question": "어릴 때 집에서 키우던 강아지 이름이 뭐였지?",
+          "text": "아직 들려주신 적 없는 이야기예요. 어릴 때 집에서 강아지를 키우셨나요?",
+          "citedKeys": [],
+          "groupHits": [],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": true,
+            "pureNoRecord": true,
+            "allGroupsCited": true
+          },
+          "goodCites": 0,
+          "cites": 0,
+          "submittedClaims": 0,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 0,
+            "supported": 0,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 23426,
+          "judgeCostMicroUsd": 0,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-N2",
+      "category": "NO_RECORD",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-N2",
+          "category": "NO_RECORD",
+          "question": "중학교 때 담임 선생님 성함이 뭐였지?",
+          "text": "아직 들려주신 적 없는 이야기예요. 중학교 때 담임 선생님과 특별히 기억에 남는 일이 있으셨나요?",
+          "citedKeys": [],
+          "groupHits": [],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": true,
+            "pureNoRecord": true,
+            "allGroupsCited": true
+          },
+          "goodCites": 0,
+          "cites": 0,
+          "submittedClaims": 0,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 0,
+            "supported": 0,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 26226,
+          "judgeCostMicroUsd": 0,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-N2",
+          "category": "NO_RECORD",
+          "question": "중학교 때 담임 선생님 성함이 뭐였지?",
+          "text": "아직 들려주신 적 없는 이야기예요. 중학교 때 담임 선생님이 특히 기억에 남으시는 분이 계셨나요?",
+          "citedKeys": [],
+          "groupHits": [],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": true,
+            "pureNoRecord": true,
+            "allGroupsCited": true
+          },
+          "goodCites": 0,
+          "cites": 0,
+          "submittedClaims": 0,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 0,
+            "supported": 0,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 30468,
+          "judgeCostMicroUsd": 0,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-N2",
+          "category": "NO_RECORD",
+          "question": "중학교 때 담임 선생님 성함이 뭐였지?",
+          "text": "아직 들려주신 적 없는 이야기예요. 중학교 때 담임 선생님께서 특히 기억에 남으시는 분이 계셨나요?",
+          "citedKeys": [],
+          "groupHits": [],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": true,
+            "pureNoRecord": true,
+            "allGroupsCited": true
+          },
+          "goodCites": 0,
+          "cites": 0,
+          "submittedClaims": 0,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 0,
+            "supported": 0,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 30153,
+          "judgeCostMicroUsd": 0,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-N3",
+      "category": "NO_RECORD",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-N3",
+          "category": "NO_RECORD",
+          "question": "군대에서 탈영병 잡아서 포상 휴가 받은 얘기 했었지?",
+          "text": "아직 들려주신 적 없는 이야기예요. 탈영병을 잡으셨을 때 어떻게 발견하게 되셨어요?",
+          "citedKeys": [],
+          "groupHits": [],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": true,
+            "pureNoRecord": true,
+            "allGroupsCited": true
+          },
+          "goodCites": 0,
+          "cites": 0,
+          "submittedClaims": 0,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 0,
+            "supported": 0,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 30183,
+          "judgeCostMicroUsd": 0,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-N3",
+          "category": "NO_RECORD",
+          "question": "군대에서 탈영병 잡아서 포상 휴가 받은 얘기 했었지?",
+          "text": "아직 들려주신 적 없는 이야기예요. 탈영병을 잡으셨을 때 어떻게 발견하게 되셨어요?",
+          "citedKeys": [],
+          "groupHits": [],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": true,
+            "pureNoRecord": true,
+            "allGroupsCited": true
+          },
+          "goodCites": 0,
+          "cites": 0,
+          "submittedClaims": 0,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 0,
+            "supported": 0,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 26627,
+          "judgeCostMicroUsd": 0,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-N3",
+          "category": "NO_RECORD",
+          "question": "군대에서 탈영병 잡아서 포상 휴가 받은 얘기 했었지?",
+          "text": "아직 들려주신 적 없는 이야기예요. 탈영병을 잡았을 때 어떻게 된 건지 자세히 들려주실 수 있으세요?",
+          "citedKeys": [],
+          "groupHits": [],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": true,
+            "pureNoRecord": true,
+            "allGroupsCited": true
+          },
+          "goodCites": 0,
+          "cites": 0,
+          "submittedClaims": 0,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 0,
+            "supported": 0,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 29466,
+          "judgeCostMicroUsd": 0,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-C1",
+      "category": "CONFLICT",
+      "passes": 0,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-C1",
+          "category": "CONFLICT",
+          "question": "나 결혼 몇 년도에 했지?",
+          "text": "1981년에 결혼하셨어요. [1] 아내 정숙 씨를 친구 결혼식에서 처음 만나셨다고 들려주셨어요. [2] 수줍어서 말 한마디 못 붙이고 계셨는데, 아내 분이 먼저 웃어 주셨다고 하셨어요. [3]",
+          "citedKeys": [
+            "SK_MARRIAGE",
+            "LE_RELATIONSHIP",
+            "LE_RELATIONSHIP"
+          ],
+          "groupHits": [
+            true,
+            false
+          ],
+          "pass": false,
+          "checks": {
+            "mustInclude": false,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": false
+          },
+          "goodCites": 3,
+          "cites": 3,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 4,
+          "costMicroUsd": 23320,
+          "judgeCostMicroUsd": 6318,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-C1",
+          "category": "CONFLICT",
+          "question": "나 결혼 몇 년도에 했지?",
+          "text": "1981년에 결혼하셨어요. [1]",
+          "citedKeys": [
+            "SK_MARRIAGE"
+          ],
+          "groupHits": [
+            true,
+            false
+          ],
+          "pass": false,
+          "checks": {
+            "mustInclude": false,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": false
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 14184,
+          "judgeCostMicroUsd": 4752,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-C1",
+          "category": "CONFLICT",
+          "question": "나 결혼 몇 년도에 했지?",
+          "text": "1981년에 결혼하셨어요. [1]",
+          "citedKeys": [
+            "SK_MARRIAGE"
+          ],
+          "groupHits": [
+            true,
+            false
+          ],
+          "pass": false,
+          "checks": {
+            "mustInclude": false,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": false
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 1,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 13713,
+          "judgeCostMicroUsd": 4752,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-C2",
+      "category": "CONFLICT",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-C2",
+          "category": "CONFLICT",
+          "question": "집사람은 어떻게 처음 만났었지?",
+          "text": "1981년, 친구 결혼식에서 집사람을 처음 만나셨다고 기록되어 있어요. [1] 그때 수줍어서 말 한마디 못 붙이고 계셨는데, 집사람이 먼저 웃어 주셨다고 들려주셨어요. [2] 아내와의 첫 만남 경위는 서로 다른 기록이 있어요. 친구 결혼식에서 처음 만나셨다고 기록되어 있어요. [1] / 공장 동료 영자 씨가 '참한 아가씨 있다'며 소개해 줘서 만나셨다고도 들려주셨어요. [3] 어느 쪽이 맞을까요?",
+          "citedKeys": [
+            "LE_RELATIONSHIP",
+            "LE_RELATIONSHIP",
+            "EP_MARRIAGE"
+          ],
+          "groupHits": [
+            true,
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 3,
+          "cites": 3,
+          "submittedClaims": 4,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 4,
+            "supported": 3,
+            "failures": [
+              {
+                "claim": "공장 동료 영자 씨가 '참한 아가씨 있다'며 소개해 줘서 만나셨다고도 들려주셨어요.",
+                "unsupported": "친구 결혼식에서 처음 만나셨다는 카드[1]과 영자 씨 소개로 만나셨다는 카드[3]이 서로 다른 만남 경위를 기술하고 있으나, 주장 3에 달린 근거 카드[3]만으로는 '친구 결혼식'이 아닌 소개로 만났다는 내용만 뒷받침되며, 주장 0~2와 주장 3의 만남 경위가 상충합니다. 그러나 판정 규칙상 주장 3에 달린 카드[3] 자체의 내용(공장 동료 영자 씨 소개)은 주장 3의 사실 요소를 직접 뒷받침하므로 supported=true로 볼 수 있습니다. 다만 카드[3]에는 '공장 동료'라는 표현이 있으나 영자 씨가 화자의 동료인지 아내의 동료인지 명시되지 않아 '공장 동료'라는 관계가 불명확합니다."
+              }
+            ]
+          },
+          "rounds": 3,
+          "costMicroUsd": 27046,
+          "judgeCostMicroUsd": 13008,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-C2",
+          "category": "CONFLICT",
+          "question": "집사람은 어떻게 처음 만났었지?",
+          "text": "한 기록에는 1981년 친구 결혼식에서 집사람을 처음 만나셨다고 적혀 있어요. [1] 그 자리에서 수줍어서 말 한마디 못 붙이고 계셨는데, 집사람이 먼저 웃어 주셨다고 들려주셨어요. [2] 아내와의 첫 만남 계기는 서로 다른 기록이 있어요. 1981년 친구 결혼식에서 처음 만나셨다고 기록되어 있어요. [1] / 공장 동료 영자 씨가 '참한 아가씨 있다'며 소개해 줘서 만나셨다고도 기록되어 있어요. [3] 어느 쪽이 맞을까요?",
+          "citedKeys": [
+            "LE_RELATIONSHIP",
+            "LE_RELATIONSHIP",
+            "EP_MARRIAGE"
+          ],
+          "groupHits": [
+            true,
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 3,
+          "cites": 3,
+          "submittedClaims": 4,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 4,
+            "supported": 4,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 27328,
+          "judgeCostMicroUsd": 8010,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-C2",
+          "category": "CONFLICT",
+          "question": "집사람은 어떻게 처음 만났었지?",
+          "text": "수줍어서 말 한마디 못 붙이고 계셨는데, 정숙 씨가 먼저 웃어 주셨다고 들려주셨어요. [1] 아내와의 첫 만남 계기는 서로 다른 기록이 있어요. 1981년, 친구 결혼식에서 아내를 처음 만나셨다고 기록되어 있어요. [2] / 공장 동료 영자 씨가 '참한 아가씨 있다'며 소개해 줘서 만나셨다고도 들려주셨어요. [3] 어느 쪽이 맞을까요?",
+          "citedKeys": [
+            "LE_RELATIONSHIP",
+            "LE_RELATIONSHIP",
+            "EP_MARRIAGE"
+          ],
+          "groupHits": [
+            true,
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 3,
+          "cites": 3,
+          "submittedClaims": 3,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 3,
+            "supported": 3,
+            "failures": []
+          },
+          "rounds": 3,
+          "costMicroUsd": 26305,
+          "judgeCostMicroUsd": 7110,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-X1",
+      "category": "FALSE_PREMISE",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-X1",
+          "category": "FALSE_PREMISE",
+          "question": "내가 부산에서 태어났다고 했었지?",
+          "text": "기록에는 부산이 아니라 경북 안동 풍산의 시골 마을에서 태어나셨다고 되어 있어요. [1] 5남매 중 맏이로 태어나셨다고 들려주셨어요. [1]",
+          "citedKeys": [
+            "LE_BIRTH"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 2,
+            "supported": 2,
+            "failures": []
+          },
+          "rounds": 2,
+          "costMicroUsd": 13933,
+          "judgeCostMicroUsd": 6048,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-X1",
+          "category": "FALSE_PREMISE",
+          "question": "내가 부산에서 태어났다고 했었지?",
+          "text": "기록에는 부산이 아니라 경북 안동 풍산의 시골 마을에서 5남매 중 맏이로 태어나셨다고 되어 있어요. [1]",
+          "citedKeys": [
+            "LE_BIRTH"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 0,
+            "failures": [
+              {
+                "claim": "기록에는 부산이 아니라 경북 안동 풍산의 시골 마을에서 5남매 중 맏이로 태어나셨다고 되어 있어요.",
+                "unsupported": "부산이 아니라"
+              }
+            ]
+          },
+          "rounds": 4,
+          "costMicroUsd": 24139,
+          "judgeCostMicroUsd": 5115,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-X1",
+          "category": "FALSE_PREMISE",
+          "question": "내가 부산에서 태어났다고 했었지?",
+          "text": "기록에는 부산이 아니라 경북 안동 풍산의 시골 마을에서 5남매 중 맏이로 태어나셨다고 되어 있어요. [1]",
+          "citedKeys": [
+            "LE_BIRTH"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 1,
+          "cites": 1,
+          "submittedClaims": 1,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 0,
+          "judge": {
+            "claims": 1,
+            "supported": 0,
+            "failures": [
+              {
+                "claim": "기록에는 부산이 아니라 경북 안동 풍산의 시골 마을에서 5남매 중 맏이로 태어나셨다고 되어 있어요.",
+                "unsupported": "부산이 아니라"
+              }
+            ]
+          },
+          "rounds": 4,
+          "costMicroUsd": 24139,
+          "judgeCostMicroUsd": 5115,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "A-X2",
+      "category": "FALSE_PREMISE",
+      "passes": 3,
+      "of": 3,
+      "runs": [
+        {
+          "repeat": 1,
+          "id": "A-X2",
+          "category": "FALSE_PREMISE",
+          "question": "내가 첫 직장을 서울에서 다녔지?",
+          "text": "첫 직장은 서울이 아니라 대구의 동진섬유라고 들려주셨어요. [1][2] 1979년에 대구 동진섬유 공장에 입사해 직기를 돌리는 일을 하셨다고 하셨어요. [2]",
+          "citedKeys": [
+            "SK_FIRST_JOB",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 2,
+            "supported": 1,
+            "failures": [
+              {
+                "claim": "첫 직장은 서울이 아니라 대구의 동진섬유라고 들려주셨어요.",
+                "unsupported": "첫 직장"
+              }
+            ]
+          },
+          "rounds": 2,
+          "costMicroUsd": 13837,
+          "judgeCostMicroUsd": 6282,
+          "error": null
+        },
+        {
+          "repeat": 2,
+          "id": "A-X2",
+          "category": "FALSE_PREMISE",
+          "question": "내가 첫 직장을 서울에서 다녔지?",
+          "text": "첫 직장은 서울이 아니라 대구의 동진섬유였다고 들려주셨어요. [1][2] 1979년에 대구 동진섬유 공장에 입사하셔서 직기를 돌리는 일을 하셨어요. [2] 동진섬유에서 기계 수리를 잘하셔서, 기계가 고장 나면 동료들이 찾아올 만큼 실력을 인정받으셨다고 하셨어요. [3] 첫 월급을 받으셨을 때 어머니께 내복을 사 드렸고, 어머니께서 동네방네 자랑하셨다고 들려주셨어요. [4]",
+          "citedKeys": [
+            "SK_FIRST_JOB",
+            "EP_JOB",
+            "EP_JOB",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 4,
+          "cites": 4,
+          "submittedClaims": 4,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 4,
+            "supported": 3,
+            "failures": [
+              {
+                "claim": "첫 직장은 서울이 아니라 대구의 동진섬유였다고 들려주셨어요.",
+                "unsupported": "서울이 아니라"
+              }
+            ]
+          },
+          "rounds": 2,
+          "costMicroUsd": 16879,
+          "judgeCostMicroUsd": 8244,
+          "error": null
+        },
+        {
+          "repeat": 3,
+          "id": "A-X2",
+          "category": "FALSE_PREMISE",
+          "question": "내가 첫 직장을 서울에서 다녔지?",
+          "text": "첫 직장은 서울이 아니라 대구의 동진섬유라고 들려주셨어요. [1][2] 1979년에 대구 동진섬유 공장에 입사하셔서 직기를 돌리는 일을 하셨어요. [2]",
+          "citedKeys": [
+            "SK_FIRST_JOB",
+            "EP_JOB"
+          ],
+          "groupHits": [
+            true
+          ],
+          "pass": true,
+          "checks": {
+            "mustInclude": true,
+            "mustNotInclude": true,
+            "mustNotCite": true,
+            "noRecord": false,
+            "pureNoRecord": false,
+            "allGroupsCited": true
+          },
+          "goodCites": 2,
+          "cites": 2,
+          "submittedClaims": 2,
+          "droppedClaims": 0,
+          "droppedCitations": 0,
+          "followUpRejected": null,
+          "multiCiteClaims": 1,
+          "judge": {
+            "claims": 2,
+            "supported": 1,
+            "failures": [
+              {
+                "claim": "첫 직장은 서울이 아니라 대구의 동진섬유라고 들려주셨어요.",
+                "unsupported": "첫 직장"
+              }
+            ]
+          },
+          "rounds": 2,
+          "costMicroUsd": 13507,
+          "judgeCostMicroUsd": 6273,
+          "error": null
+        }
+      ]
+    }
+  ]
+}
