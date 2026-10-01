@@ -1,0 +1,1472 @@
+{
+  "runId": "eval:retrieval:2026-10-01T13:33:07",
+  "persona": "b",
+  "k": 8,
+  "threshold": 0.85,
+  "overall": 1,
+  "pass": true,
+  "ranking": {
+    "recallAt1": 0.688,
+    "recallAt3": 0.896,
+    "recallAt8": 1,
+    "meanFirstRank": 1.63,
+    "corpusCards": 138,
+    "corpusSources": 79
+  },
+  "byCategory": {
+    "FACT": {
+      "items": 6,
+      "recall": 1
+    },
+    "PERIOD": {
+      "items": 5,
+      "recall": 1
+    },
+    "PERSON": {
+      "items": 5,
+      "recall": 1
+    },
+    "PREFERENCE": {
+      "items": 4,
+      "recall": 1
+    },
+    "CONFLICT": {
+      "items": 2,
+      "recall": 1
+    },
+    "FALSE_PREMISE": {
+      "items": 2,
+      "recall": 1
+    }
+  },
+  "unmapped": [
+    "SK_HIGH",
+    "SK_UNIV",
+    "SK_MILITARY",
+    "LE_DRAFT_THIEF",
+    "PS_SEOYEON"
+  ],
+  "results": [
+    {
+      "id": "B-F1",
+      "category": "FACT",
+      "question": "서울 올라와서 처음 다닌 공장이 어디였지?",
+      "expected": [
+        [
+          "EP_GURO",
+          "SK_FIRST_JOB"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1988,
+        "yearTo": 1988
+      },
+      "top": [
+        {
+          "key": "PS_YEONGSUK",
+          "summary": "화자는 구로 대성봉제에서 영숙과 함께 일한 공장 동료 사이다.",
+          "final": 0.03009
+        },
+        {
+          "key": "LE_SEOUL",
+          "summary": "화자는 열여섯 살에 사촌 언니 순옥을 따라 서울에 올라와 구로 공장에 취직했다.",
+          "final": 0.02787
+        },
+        {
+          "key": "PS_DONGHYUN",
+          "summary": "화자의 아들 동현은 서울 구로에서 회사에 다니고 있으며, 지호의 아버지다.",
+          "final": 0.02655
+        },
+        {
+          "key": "PS_YEONGSUK",
+          "summary": "화자는 공장 동료 영숙과 일요일마다 함께 극장에 다녔다.",
+          "final": 0.0265
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 살았던 곳: 전남 목포, 서울 신림동, 부산 영도, 부산 동래.",
+          "final": 0.02632
+        },
+        {
+          "key": "EP_GURO",
+          "summary": "화자는 서울 구로의 대성봉제에 미싱 보조로 취직했다.",
+          "final": 0.02568
+        },
+        {
+          "key": "EP_GURO",
+          "summary": "화자는 66년 열여섯 살에 보따리 하나를 들고 혼자 완행열차를 타고 서울에 올라왔다.",
+          "final": 0.0256
+        },
+        {
+          "key": "LE_SINGER",
+          "summary": "화자는 공장에서 라디오로 이미자의 '동백 아가씨'가 나오면 미싱을 돌리며 따라 불렀다.",
+          "final": 0.02452
+        }
+      ]
+    },
+    {
+      "id": "B-F2",
+      "category": "FACT",
+      "question": "분식집에서 제일 잘 팔리던 메뉴가 뭐였지?",
+      "expected": [
+        [
+          "EP_SHOP_DAILY"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_SHOP_DAILY",
+          "summary": "화자의 가게에서 제일 잘 팔린 메뉴는 나중에 시작한 비빔국수였으며, 양념에 매실청을 넣는 것이 비법이었다.",
+          "final": 0.03279
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 분식집 개업 초기에 떡볶이와 김밥만 팔았다.",
+          "final": 0.03226
+        },
+        {
+          "key": "EP_SHOP_REGULARS",
+          "summary": "화자의 분식집에는 근처 여고 학생들이 단골로 많이 왔다.",
+          "final": 0.03175
+        },
+        {
+          "key": "EP_SHOP_CLOSE",
+          "summary": "화자의 분식집 마지막 날, 단골들이 찾아와 섭섭하다며 국수를 두 그릇씩 먹고 갔다.",
+          "final": 0.03054
+        },
+        {
+          "key": "EP_SHOP_CLOSE",
+          "summary": "화자는 2010년에 동네 재개발로 건물이 헐리게 되어 운영하던 분식집을 정리했다.",
+          "final": 0.03031
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 남편 월급만으로 아이들 학비가 모자라 분식집을 열게 되었다.",
+          "final": 0.02991
+        },
+        {
+          "key": "EP_SHOP_REGULARS",
+          "summary": "몇 년 뒤 졸업한 학생이 화자의 분식집을 찾아와 외상값을 갚고 갔다.",
+          "final": 0.02971
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 87년 가을에 동래 시장 앞에 '말순분식'을 개업했다.",
+          "final": 0.02964
+        }
+      ]
+    },
+    {
+      "id": "B-F3",
+      "category": "FACT",
+      "question": "결혼하고 처음 살던 집은 어디였지?",
+      "expected": [
+        [
+          "EP_NEWLYWED",
+          "LE_DONGHYUN"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1974,
+        "yearTo": 1979
+      },
+      "top": [
+        {
+          "key": "EP_NEWLYWED",
+          "summary": "화자는 결혼 후 신림동 반지하 셋방에서 신혼살림을 시작했다.",
+          "final": 0.04131
+        },
+        {
+          "key": "LE_MARRIAGE",
+          "summary": "화자는 74년 봄 구로 예식장에서 결혼식을 올렸다.",
+          "final": 0.0391
+        },
+        {
+          "key": "SK_MARRIAGE",
+          "summary": "1974년, 화자의 인생 사건: 결혼.",
+          "final": 0.03888
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자는 74년 봄에 상철 씨와 결혼하였다.",
+          "final": 0.03888
+        },
+        {
+          "key": "PH_WEDDING",
+          "summary": "화자는 결혼식 날 구로 예식장에서 식을 올렸으며, 당일 비가 내렸다.",
+          "final": 0.03211
+        },
+        {
+          "key": "LE_MARRIAGE",
+          "summary": "화자의 결혼식 날 비가 많이 와서 하객들이 모두 젖었다.",
+          "final": 0.02784
+        },
+        {
+          "key": "LE_MOKPO_TRIP",
+          "summary": "화자가 어릴 때 살던 집 자리가 주차장으로 바뀌어 있었다.",
+          "final": 0.02657
+        },
+        {
+          "key": "PS_OKJA",
+          "summary": "화자는 영도 셋방 시절 옆집에 살던 옥자와 이웃 관계였다.",
+          "final": 0.02481
+        }
+      ]
+    },
+    {
+      "id": "B-F4",
+      "category": "FACT",
+      "question": "우리 남편은 무슨 일을 했었지?",
+      "expected": [
+        [
+          "PS_SANGCHEOL",
+          "EP_MARRIAGE",
+          "EP_BUSAN_MOVE",
+          "LE_HUSBAND_RETIRE"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_SHOP_HUSBAND",
+          "summary": "화자의 남편 상철은 무뚝뚝해서 말은 없었지만, 쉬는 날이면 가게에 나와 말없이 설거지를 하며 정을 표현했다.",
+          "final": 0.03178
+        },
+        {
+          "key": "LE_HUSBAND_RETIRE",
+          "summary": "화자는 남편이 30년 넘게 몰던 시내버스 운전을 마치고 정년퇴직하던 날 가게에서 국수를 말아 주었다.",
+          "final": 0.03154
+        },
+        {
+          "key": "EP_HUSBAND_FISHING",
+          "summary": "화자는 남편을 따라 낚시에 한 번 갔다가 낚싯바늘에 손가락을 찔리는 사고를 겪었다.",
+          "final": 0.0315
+        },
+        {
+          "key": "EP_HUSBAND_FISHING",
+          "summary": "화자의 남편 상철은 쉬는 날이면 태종대 갯바위로 낚시를 다녔다.",
+          "final": 0.0308
+        },
+        {
+          "key": "PS_SANGCHEOL",
+          "summary": "화자의 남편 상철은 시내버스를 30년 넘게 운전했다.",
+          "final": 0.03041
+        },
+        {
+          "key": "PH_SHOP",
+          "summary": "화자는 말순분식 간판 아래에서 남편과 함께 사진을 찍었다.",
+          "final": 0.02941
+        },
+        {
+          "key": "LE_HUSBAND_NAMJIN",
+          "summary": "화자는 남편과 함께 남진 공연을 보러 갔다.",
+          "final": 0.02908
+        },
+        {
+          "key": "EP_BUSAN_MOVE",
+          "summary": "화자는 79년에 남편이 부산 시내버스 회사로 직장을 옮기면서 부산 영도로 이사했다.",
+          "final": 0.02863
+        }
+      ]
+    },
+    {
+      "id": "B-F5",
+      "category": "FACT",
+      "question": "분식집은 왜 그만뒀었지?",
+      "expected": [
+        [
+          "EP_SHOP_CLOSE"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_SHOP_REGULARS",
+          "summary": "화자의 분식집에는 근처 여고 학생들이 단골로 많이 왔다.",
+          "final": 0.03252
+        },
+        {
+          "key": "EP_SHOP_CLOSE",
+          "summary": "화자는 2010년에 동네 재개발로 건물이 헐리게 되어 운영하던 분식집을 정리했다.",
+          "final": 0.03126
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 남편 월급만으로 아이들 학비가 모자라 분식집을 열게 되었다.",
+          "final": 0.03089
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 분식집 개업 초기에 떡볶이와 김밥만 팔았다.",
+          "final": 0.0308
+        },
+        {
+          "key": "EP_SHOP_CLOSE",
+          "summary": "화자의 분식집 마지막 날, 단골들이 찾아와 섭섭하다며 국수를 두 그릇씩 먹고 갔다.",
+          "final": 0.03078
+        },
+        {
+          "key": "EP_SHOP_REGULARS",
+          "summary": "몇 년 뒤 졸업한 학생이 화자의 분식집을 찾아와 외상값을 갚고 갔다.",
+          "final": 0.03062
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 87년 가을에 동래 시장 앞에 '말순분식'을 개업했다.",
+          "final": 0.02963
+        },
+        {
+          "key": "ERA_OLYMPIC",
+          "summary": "화자는 올림픽 개막식을 분식집에 텔레비전을 들여놓고 손님들과 함께 시청했다.",
+          "final": 0.02947
+        }
+      ]
+    },
+    {
+      "id": "B-F6",
+      "category": "FACT",
+      "question": "첫 손주 이름이 뭐였지?",
+      "expected": [
+        [
+          "LE_GRANDCHILD",
+          "PS_JIHO"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "LE_GRANDCHILD",
+          "summary": "화자는 첫 손주 지호가 태어나 서울 병원까지 올라가 처음으로 안아 보았다.",
+          "final": 0.03252
+        },
+        {
+          "key": "EP_KNIT",
+          "summary": "화자는 처음 뜬 조끼를 손주 지호에게 입혔고, 지호는 할머니 조끼라며 동네방네 자랑했다.",
+          "final": 0.03227
+        },
+        {
+          "key": "LE_TAEJONGDAE",
+          "summary": "화자는 손주들을 데리고 태종대 유람선을 탔다가 뱃멀미를 심하게 했다.",
+          "final": 0.03126
+        },
+        {
+          "key": "PS_JIHO",
+          "summary": "화자의 첫 손주 지호는 동현의 아들이다.",
+          "final": 0.03101
+        },
+        {
+          "key": "LE_GRANDCHILD2",
+          "summary": "화자의 딸 은주가 딸 서연이를 낳았으며, 서연이는 화자의 둘째 손주다.",
+          "final": 0.03062
+        },
+        {
+          "key": "PS_JIHO",
+          "summary": "화자의 손주 지호는 화자가 떠 준 조끼를 제일 좋아한다.",
+          "final": 0.0303
+        },
+        {
+          "key": "PH_TAEJONGDAE",
+          "summary": "화자는 태종대 유람선을 탄 뒤 선착장에서 손주들과 함께 사진을 찍었다.",
+          "final": 0.02845
+        },
+        {
+          "key": "EP_SHOP_REGULARS",
+          "summary": "화자는 돈이 없는 학생들의 이름을 외상 장부에 적어 두고 음식을 먹였다.",
+          "final": 0.02721
+        }
+      ]
+    },
+    {
+      "id": "B-T1",
+      "category": "PERIOD",
+      "question": "공장 다닐 때 쉬는 날엔 뭐 했지?",
+      "expected": [
+        [
+          "EP_GURO_HOLIDAY",
+          "PS_YEONGSUK"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_GURO_HOLIDAY",
+          "summary": "화자는 공장에서 라디오로 이미자 노래가 나오면 동료들과 다 같이 따라 불렀고, 그것이 버티는 낙이었다.",
+          "final": 0.03252
+        },
+        {
+          "key": "EP_GURO_THREAD",
+          "summary": "화자는 공장에서 하루 종일 실밥을 따고 바느질을 하는 일을 반복했다.",
+          "final": 0.032
+        },
+        {
+          "key": "EP_GURO_THREAD",
+          "summary": "화자는 젊을 때 바늘만 봐도 지긋지긋할 만큼 공장 일이 힘겨웠다.",
+          "final": 0.03126
+        },
+        {
+          "key": "EP_GURO_HOLIDAY",
+          "summary": "화자는 공장 동료 영숙이와 함께 일요일마다 종로 극장에 가서 영화를 봤다.",
+          "final": 0.03009
+        },
+        {
+          "key": "EP_MIDDLE",
+          "summary": "화자는 중학교 다닐 때 학교에서 돌아오면 남동생들을 업고 다니느라 바빴다.",
+          "final": 0.02986
+        },
+        {
+          "key": "EP_SHOP_HUSBAND",
+          "summary": "화자의 남편 상철은 무뚝뚝해서 말은 없었지만, 쉬는 날이면 가게에 나와 말없이 설거지를 하며 정을 표현했다.",
+          "final": 0.02985
+        },
+        {
+          "key": "PS_YEONGSUK",
+          "summary": "화자는 공장 동료 영숙과 일요일마다 함께 극장에 다녔다.",
+          "final": 0.02971
+        },
+        {
+          "key": "LE_SINGER",
+          "summary": "화자는 공장에서 라디오로 이미자의 '동백 아가씨'가 나오면 미싱을 돌리며 따라 불렀다.",
+          "final": 0.02971
+        }
+      ]
+    },
+    {
+      "id": "B-T2",
+      "category": "PERIOD",
+      "question": "열 살 무렵엔 어디 살았지?",
+      "expected": [
+        [
+          "EP_ELEM",
+          "EP_ELEM_FATHER",
+          "SK_ELEM",
+          "LE_BIRTH",
+          "EP_BIRTH_TOWN",
+          "PROFILE"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1958,
+        "yearTo": 1960
+      },
+      "top": [
+        {
+          "key": "EP_ELEM_FATHER",
+          "summary": "화자는 열 살 때 아버지의 고깃배를 처음 따라 탔다가 뱃멀미로 하루 종일 토했다.",
+          "final": 0.04228
+        },
+        {
+          "key": "EP_GRANDCHILDREN",
+          "summary": "화자는 손녀 서연이가 어릴 때 일주일에 세 번 해운대 은주네 집에 가서 돌봐 주었다.",
+          "final": 0.01831
+        },
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 목포 갈매국민학교에 다녔다.",
+          "final": 0.01566
+        },
+        {
+          "key": "LE_MOKPO_TRIP",
+          "summary": "화자가 어릴 때 살던 집 자리가 주차장으로 바뀌어 있었다.",
+          "final": 0.01548
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 살았던 곳: 전남 목포, 서울 신림동, 부산 영도, 부산 동래.",
+          "final": 0.01538
+        },
+        {
+          "key": "PS_OKJA",
+          "summary": "화자는 영도 셋방 시절 옥자와 아침마다 함께 바닷가를 걸었다.",
+          "final": 0.01429
+        },
+        {
+          "key": "LE_SEOUL",
+          "summary": "화자는 열여섯 살에 사촌 언니 순옥을 따라 서울에 올라와 구로 공장에 취직했다.",
+          "final": 0.01393
+        },
+        {
+          "key": "PS_YEONGSU_OPPA",
+          "summary": "화자의 사촌 오빠인 영수 오빠는 큰아버지의 아들로, 부산 영도에 먼저 자리를 잡은 뒤 화자 가족의 셋방을 구해 주었다.",
+          "final": 0.0137
+        }
+      ]
+    },
+    {
+      "id": "B-T3",
+      "category": "PERIOD",
+      "question": "88올림픽 할 때 나는 뭐 하고 있었지?",
+      "expected": [
+        [
+          "ERA_OLYMPIC"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "ERA_OLYMPIC",
+          "summary": "화자는 올림픽 개막식을 분식집에 텔레비전을 들여놓고 손님들과 함께 시청했다.",
+          "final": 0.03227
+        },
+        {
+          "key": "ERA_PYEONGCHANG",
+          "summary": "화자는 평창 올림픽 때 손주 지호와 함께 컬링 경기를 보며 같이 소리를 질렀다.",
+          "final": 0.01639
+        },
+        {
+          "key": "ERA_BUSAN_ASIAD",
+          "summary": "화자는 부산 아시안게임 때 가게 앞에 태극기를 걸고 손님들과 함께 경기를 관람했다.",
+          "final": 0.01613
+        },
+        {
+          "key": "SK_SHOP_OPEN",
+          "summary": "1988년, 화자의 인생 사건: 동래 분식집 개업.",
+          "final": 0.01563
+        },
+        {
+          "key": "EP_MIDDLE",
+          "summary": "화자는 중학교 다닐 때 학교에서 돌아오면 남동생들을 업고 다니느라 바빴다.",
+          "final": 0.01538
+        },
+        {
+          "key": "EP_MIDDLE",
+          "summary": "화자는 중학교 시절 공부가 재미있었다.",
+          "final": 0.01515
+        },
+        {
+          "key": "ERA_COLORTV",
+          "summary": "화자는 컬러 방송이 시작됐을 때 자기 집에 흑백텔레비전밖에 없어 옆집 옥자네에 가서 컬러 화면을 구경했다.",
+          "final": 0.01493
+        },
+        {
+          "key": "LE_SINGER",
+          "summary": "화자는 공장에서 일하던 때부터 이미자 노래를 가장 좋아한다.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "B-T4",
+      "category": "PERIOD",
+      "question": "1977년에 무슨 일이 있었지?",
+      "expected": [
+        [
+          "LE_EUNJU",
+          "PS_EUNJU"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": {
+        "yearFrom": 1977,
+        "yearTo": 1977
+      },
+      "top": [
+        {
+          "key": "LE_EUNJU",
+          "summary": "화자는 77년 여름에 딸 은주를 집에서 산파를 불러 낳았다.",
+          "final": 0.02
+        },
+        {
+          "key": "SK_MARRIAGE",
+          "summary": "1974년, 화자의 인생 사건: 결혼.",
+          "final": 0.01393
+        },
+        {
+          "key": "SK_ELEM",
+          "summary": "1957년, 화자의 인생 사건: 국민학교 입학.",
+          "final": 0.01371
+        },
+        {
+          "key": "SK_BUSAN_MOVE",
+          "summary": "1979년, 화자의 인생 사건: 부산 영도로 이사.",
+          "final": 0.01349
+        },
+        {
+          "key": "SK_SHOP_OPEN",
+          "summary": "1988년, 화자의 인생 사건: 동래 분식집 개업.",
+          "final": 0.01328
+        },
+        {
+          "key": "PS_YEONGSU",
+          "summary": "화자는 1957년에 영수(국민학교 동무)를 처음 만났다.",
+          "final": 0.01288
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 87년 가을에 동래 시장 앞에 '말순분식'을 개업했다.",
+          "final": 0.01269
+        },
+        {
+          "key": "LE_MARRIAGE",
+          "summary": "화자는 74년 봄 구로 예식장에서 결혼식을 올렸다.",
+          "final": 0.0125
+        }
+      ]
+    },
+    {
+      "id": "B-T5",
+      "category": "PERIOD",
+      "question": "부산 처음 이사 와서는 어디 살았지?",
+      "expected": [
+        [
+          "EP_BUSAN_MOVE",
+          "SK_BUSAN_MOVE"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_BUSAN_MOVE",
+          "summary": "화자는 79년에 남편이 부산 시내버스 회사로 직장을 옮기면서 부산 영도로 이사했다.",
+          "final": 0.03279
+        },
+        {
+          "key": "SK_BUSAN_MOVE",
+          "summary": "1979년, 화자의 인생 사건: 부산 영도로 이사.",
+          "final": 0.03226
+        },
+        {
+          "key": "EP_DONGRAE_HOME",
+          "summary": "화자는 83년에 은주가 국민학교에 입학하는 시기에 맞춰 동래로 이사했다.",
+          "final": 0.0315
+        },
+        {
+          "key": "PS_EUNJU",
+          "summary": "화자의 딸 은주는 부산 해운대에 산다.",
+          "final": 0.03058
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 살았던 곳: 전남 목포, 서울 신림동, 부산 영도, 부산 동래.",
+          "final": 0.02908
+        },
+        {
+          "key": "PS_YEONGSU_OPPA",
+          "summary": "화자의 사촌 오빠인 영수 오빠는 큰아버지의 아들로, 부산 영도에 먼저 자리를 잡은 뒤 화자 가족의 셋방을 구해 주었다.",
+          "final": 0.02896
+        },
+        {
+          "key": "LE_MOVE_DONGRAE",
+          "summary": "화자는 83년 영도에서 동래로 이사하던 날 이삿짐 트럭이 고장 나 리어카로 짐을 날랐다.",
+          "final": 0.02872
+        },
+        {
+          "key": "LE_DONGHYUN_ARMY",
+          "summary": "화자는 동현이가 군대 가던 날 부산역에서 기차가 떠날 때까지 손을 흔들었다.",
+          "final": 0.02552
+        }
+      ]
+    },
+    {
+      "id": "B-P1",
+      "category": "PERSON",
+      "question": "영수는 어떻게 알던 사이지?",
+      "expected": [
+        [
+          "PS_YEONGSU",
+          "EP_ELEM"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "LE_REUNION",
+          "summary": "화자는 목포에서 열린 갈매국민학교 동창회에서 영수를 40여 년 만에 다시 만났다.",
+          "final": 0.03227
+        },
+        {
+          "key": "PS_YEONGSU_OPPA",
+          "summary": "화자의 사촌 오빠인 영수 오빠는 큰아버지의 아들로, 부산 영도에 먼저 자리를 잡은 뒤 화자 가족의 셋방을 구해 주었다.",
+          "final": 0.0311
+        },
+        {
+          "key": "EP_BUSAN_MOVE",
+          "summary": "화자의 사촌 영수 오빠가 영도에 먼저 자리를 잡고 있었으며, 화자의 셋방을 구해 주었다.",
+          "final": 0.03105
+        },
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 국민학교 동무 영수와 학교가 끝나면 둘이 갯벌에 나가 조개를 캤다.",
+          "final": 0.03102
+        },
+        {
+          "key": "PS_YEONGSU",
+          "summary": "화자는 1957년에 영수(국민학교 동무)를 처음 만났다.",
+          "final": 0.03078
+        },
+        {
+          "key": "PS_YEONGSU",
+          "summary": "화자는 국민학교 동무 영수와 갯벌에서 조개를 캔 기억이 있다.",
+          "final": 0.03077
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 가까운 친구: 영수, 영숙, 옥자.",
+          "final": 0.03055
+        },
+        {
+          "key": "PH_REUNION",
+          "summary": "화자는 갈매국민학교 동창회에 참석하여 단체 사진을 찍었다.",
+          "final": 0.02188
+        }
+      ]
+    },
+    {
+      "id": "B-P2",
+      "category": "PERSON",
+      "question": "영숙이는 누구였지?",
+      "expected": [
+        [
+          "PS_YEONGSUK",
+          "EP_GURO_HOLIDAY"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PS_YEONGSUK",
+          "summary": "화자는 구로 대성봉제에서 영숙과 함께 일한 공장 동료 사이다.",
+          "final": 0.03252
+        },
+        {
+          "key": "EP_GURO_HOLIDAY",
+          "summary": "화자는 공장 동료 영숙이와 함께 일요일마다 종로 극장에 가서 영화를 봤다.",
+          "final": 0.03154
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 가까운 친구: 영수, 영숙, 옥자.",
+          "final": 0.0315
+        },
+        {
+          "key": "PS_YEONGSUK",
+          "summary": "화자는 공장 동료 영숙과 일요일마다 함께 극장에 다녔다.",
+          "final": 0.0308
+        },
+        {
+          "key": "PS_YEONGSU_OPPA",
+          "summary": "화자의 사촌 오빠인 영수 오빠는 큰아버지의 아들로, 부산 영도에 먼저 자리를 잡은 뒤 화자 가족의 셋방을 구해 주었다.",
+          "final": 0.01613
+        },
+        {
+          "key": "PS_YEONGSUK",
+          "summary": "화자는 1966년에 영숙(공장 동료)을 처음 만났다.",
+          "final": 0.01563
+        },
+        {
+          "key": "EP_BUSAN_MOVE",
+          "summary": "화자의 사촌 영수 오빠가 영도에 먼저 자리를 잡고 있었으며, 화자의 셋방을 구해 주었다.",
+          "final": 0.01538
+        },
+        {
+          "key": "PS_OKJA",
+          "summary": "화자는 영도 셋방 시절 옆집에 살던 옥자와 이웃 관계였다.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "B-P3",
+      "category": "PERSON",
+      "question": "영수 오빠는 나랑 어떤 사이였지?",
+      "expected": [
+        [
+          "PS_YEONGSU_OPPA",
+          "EP_BUSAN_MOVE"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PS_YEONGSU_OPPA",
+          "summary": "화자의 사촌 오빠인 영수 오빠는 큰아버지의 아들로, 부산 영도에 먼저 자리를 잡은 뒤 화자 가족의 셋방을 구해 주었다.",
+          "final": 0.03252
+        },
+        {
+          "key": "EP_BUSAN_MOVE",
+          "summary": "화자의 사촌 영수 오빠가 영도에 먼저 자리를 잡고 있었으며, 화자의 셋방을 구해 주었다.",
+          "final": 0.03252
+        },
+        {
+          "key": "LE_REUNION",
+          "summary": "화자는 목포에서 열린 갈매국민학교 동창회에서 영수를 40여 년 만에 다시 만났다.",
+          "final": 0.0315
+        },
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 국민학교 동무 영수와 학교가 끝나면 둘이 갯벌에 나가 조개를 캤다.",
+          "final": 0.03077
+        },
+        {
+          "key": "PS_YEONGSU",
+          "summary": "화자는 1957년에 영수(국민학교 동무)를 처음 만났다.",
+          "final": 0.03058
+        },
+        {
+          "key": "PS_YEONGSU",
+          "summary": "화자는 국민학교 동무 영수와 갯벌에서 조개를 캔 기억이 있다.",
+          "final": 0.03008
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 가까운 친구: 영수, 영숙, 옥자.",
+          "final": 0.03008
+        },
+        {
+          "key": "PH_REUNION",
+          "summary": "화자는 갈매국민학교 동창회에 참석하여 단체 사진을 찍었다.",
+          "final": 0.02134
+        }
+      ]
+    },
+    {
+      "id": "B-P4",
+      "category": "PERSON",
+      "question": "남편 상철 씨는 어떤 사람이라고 했었지?",
+      "expected": [
+        [
+          "PS_SANGCHEOL",
+          "EP_SHOP_HUSBAND"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PS_SANGCHEOL",
+          "summary": "화자의 남편 상철은 무뚝뚝하지만 정이 많은 사람이다.",
+          "final": 0.03227
+        },
+        {
+          "key": "EP_SHOP_HUSBAND",
+          "summary": "화자의 남편 상철은 무뚝뚝해서 말은 없었지만, 쉬는 날이면 가게에 나와 말없이 설거지를 하며 정을 표현했다.",
+          "final": 0.03202
+        },
+        {
+          "key": "EP_HUSBAND_FISHING",
+          "summary": "화자의 남편 상철은 쉬는 날이면 태종대 갯바위로 낚시를 다녔다.",
+          "final": 0.032
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자의 남편 상철 씨는 화자가 매일 타던 출근 버스의 기사였으며, 1년 넘게 눈인사만 나누다가 상철 씨가 먼저 영화를 보자고 제안하면서 인연이 시작되었다.",
+          "final": 0.03151
+        },
+        {
+          "key": "PS_SANGCHEOL",
+          "summary": "화자의 남편 상철은 시내버스를 30년 넘게 운전했다.",
+          "final": 0.03101
+        },
+        {
+          "key": "EP_MARRIAGE",
+          "summary": "화자는 74년 봄에 상철 씨와 결혼하였다.",
+          "final": 0.0303
+        },
+        {
+          "key": "LE_HUSBAND_NAMJIN",
+          "summary": "화자는 남편과 함께 남진 공연을 보러 갔다.",
+          "final": 0.02899
+        },
+        {
+          "key": "LE_HUSBAND_RETIRE",
+          "summary": "화자는 남편이 30년 넘게 몰던 시내버스 운전을 마치고 정년퇴직하던 날 가게에서 국수를 말아 주었다.",
+          "final": 0.02744
+        }
+      ]
+    },
+    {
+      "id": "B-P5",
+      "category": "PERSON",
+      "question": "막내 시누이 명자 얘기 뭐라고 했었지?",
+      "expected": [
+        [
+          "PS_MYEONGJA"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PS_MYEONGJA",
+          "summary": "화자의 막내 시누이 명자는 광주에서 미용실을 운영하고 있다.",
+          "final": 0.03279
+        },
+        {
+          "key": "LE_GRANDCHILD2",
+          "summary": "화자의 딸 은주가 딸 서연이를 낳았으며, 서연이는 화자의 둘째 손주다.",
+          "final": 0.01613
+        },
+        {
+          "key": "PS_EUNJU",
+          "summary": "화자의 딸 은주는 어릴 때부터 노래를 잘했다.",
+          "final": 0.01587
+        },
+        {
+          "key": "PS_SUNOK",
+          "summary": "화자의 사촌 언니 순옥은 큰이모의 딸이며, 현재 인천에 산다.",
+          "final": 0.01563
+        },
+        {
+          "key": "EP_KNIT",
+          "summary": "화자는 처음 뜬 조끼를 손주 지호에게 입혔고, 지호는 할머니 조끼라며 동네방네 자랑했다.",
+          "final": 0.01538
+        },
+        {
+          "key": "PS_OKJA",
+          "summary": "화자는 영도 셋방 시절 옆집에 살던 옥자와 이웃 관계였다.",
+          "final": 0.01515
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 87년 가을에 동래 시장 앞에 '말순분식'을 개업했다.",
+          "final": 0.01493
+        },
+        {
+          "key": "EP_GRANDCHILDREN",
+          "summary": "화자는 손녀 서연이가 어릴 때 일주일에 세 번 해운대 은주네 집에 가서 돌봐 주었다.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "B-L1",
+      "category": "PREFERENCE",
+      "question": "내가 즐겨 하는 취미가 뭐지?",
+      "expected": [
+        [
+          "EP_KNIT",
+          "LE_KNIT_CLASS",
+          "LE_KNIT_GIFT",
+          "PROFILE"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PROFILE",
+          "summary": "화자의 취미: 뜨개질, 바닷가 산책.",
+          "final": 0.03252
+        },
+        {
+          "key": "EP_KNIT",
+          "summary": "화자는 젊을 때 바늘이 싫었으나 뜨개질은 재미있었다.",
+          "final": 0.03009
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 관심사: 뜨개질, 옛날 노래, 바닷가 산책.",
+          "final": 0.01613
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 것(직접 입력): 바다, 뜨개질.",
+          "final": 0.01587
+        },
+        {
+          "key": "EP_MIDDLE",
+          "summary": "화자는 중학교 시절 공부가 재미있었다.",
+          "final": 0.01563
+        },
+        {
+          "key": "LE_SINGER",
+          "summary": "화자는 공장에서 일하던 때부터 이미자 노래를 가장 좋아한다.",
+          "final": 0.01538
+        },
+        {
+          "key": "PS_JIHO",
+          "summary": "화자의 손주 지호는 화자가 떠 준 조끼를 제일 좋아한다.",
+          "final": 0.01493
+        },
+        {
+          "key": "ERA_BUSAN_ASIAD",
+          "summary": "화자는 부산 아시안게임 때 가게 앞에 태극기를 걸고 손님들과 함께 경기를 관람했다.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "B-L2",
+      "category": "PREFERENCE",
+      "question": "내가 좋아하는 가수가 누구지?",
+      "expected": [
+        [
+          "PROFILE",
+          "LE_SINGER",
+          "EP_GURO_HOLIDAY",
+          "LE_HUSBAND_NAMJIN",
+          "EP_GRANDCHILDREN"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 음악: 이미자.",
+          "final": 0.03154
+        },
+        {
+          "key": "LE_HUSBAND_NAMJIN",
+          "summary": "화자는 남진보다 이미자를 더 좋아한다.",
+          "final": 0.0315
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 것(직접 입력): 바다, 뜨개질.",
+          "final": 0.03031
+        },
+        {
+          "key": "LE_TAEJONGDAE",
+          "summary": "화자는 바닷가를 걷는 것은 좋아하지만 배를 타는 것은 질색이다.",
+          "final": 0.02988
+        },
+        {
+          "key": "LE_HUSBAND_NAMJIN",
+          "summary": "화자는 남편과 함께 남진 공연을 보러 갔다.",
+          "final": 0.02724
+        },
+        {
+          "key": "EP_ELEM_FATHER",
+          "summary": "화자는 그 뒤로 배가 무서워 다시는 타지 않았으며, 바다는 좋아하지만 배는 질색이라고 했다.",
+          "final": 0.02623
+        },
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 갯벌에서 캔 조개를 어머니 좌판에 갖다 드렸고, 어머니는 보탬이 된다며 좋아하셨다.",
+          "final": 0.02427
+        },
+        {
+          "key": "LE_SINGER",
+          "summary": "화자는 공장에서 일하던 때부터 이미자 노래를 가장 좋아한다.",
+          "final": 0.01613
+        }
+      ]
+    },
+    {
+      "id": "B-L3",
+      "category": "PREFERENCE",
+      "question": "내가 싫어하는 음식이 있었나?",
+      "expected": [
+        [
+          "LE_CUCUMBER",
+          "LE_CUCUMBER2"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_SHOP_REGULARS",
+          "summary": "화자는 돈이 없는 학생들의 이름을 외상 장부에 적어 두고 음식을 먹였다.",
+          "final": 0.03089
+        },
+        {
+          "key": "LE_CUCUMBER2",
+          "summary": "화자는 오이를 먹지 못해 며느리가 담가 온 오이소박이에 손도 대지 않았다.",
+          "final": 0.03021
+        },
+        {
+          "key": "LE_CUCUMBER",
+          "summary": "화자는 오이를 냄새만 맡아도 싫어해서, 가게 김밥에 오이 대신 시금치를 넣었다.",
+          "final": 0.01639
+        },
+        {
+          "key": "EP_ELEM_FATHER",
+          "summary": "화자는 그 뒤로 배가 무서워 다시는 타지 않았으며, 바다는 좋아하지만 배는 질색이라고 했다.",
+          "final": 0.01613
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 분식집 개업 초기에 떡볶이와 김밥만 팔았다.",
+          "final": 0.01587
+        },
+        {
+          "key": "EP_KNIT",
+          "summary": "화자는 젊을 때 바늘이 싫었으나 뜨개질은 재미있었다.",
+          "final": 0.01563
+        },
+        {
+          "key": "LE_SINGER",
+          "summary": "화자는 공장에서 일하던 때부터 이미자 노래를 가장 좋아한다.",
+          "final": 0.01538
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 것(직접 입력): 바다, 뜨개질.",
+          "final": 0.01515
+        }
+      ]
+    },
+    {
+      "id": "B-L4",
+      "category": "PREFERENCE",
+      "question": "나 바다 좋아하는 편이야?",
+      "expected": [
+        [
+          "EP_YEONGDO_LIFE",
+          "EP_DAILY_NOW",
+          "LE_TAEJONGDAE",
+          "PROFILE"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 것(직접 입력): 바다, 뜨개질.",
+          "final": 0.03252
+        },
+        {
+          "key": "EP_ELEM_FATHER",
+          "summary": "화자는 그 뒤로 배가 무서워 다시는 타지 않았으며, 바다는 좋아하지만 배는 질색이라고 했다.",
+          "final": 0.03252
+        },
+        {
+          "key": "EP_YEONGDO_LIFE",
+          "summary": "화자는 바다 냄새를 맡으면 고향 생각이 나서 좋았다.",
+          "final": 0.03078
+        },
+        {
+          "key": "LE_TAEJONGDAE",
+          "summary": "화자는 바닷가를 걷는 것은 좋아하지만 배를 타는 것은 질색이다.",
+          "final": 0.03058
+        },
+        {
+          "key": "EP_SEOUL_HOMESICK",
+          "summary": "화자는 서울에 처음 왔을 때 밤마다 고향 바다가 그리워 이불을 뒤집어쓰고 울었다.",
+          "final": 0.03058
+        },
+        {
+          "key": "PH_YEONGDO",
+          "summary": "화자는 영도 셋방 앞에서 동현이, 은주와 함께 사진을 찍었으며, 사진 뒤로 바다가 보인다.",
+          "final": 0.02951
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 좋아하는 음악: 이미자.",
+          "final": 0.0264
+        },
+        {
+          "key": "EP_ELEM",
+          "summary": "화자는 갯벌에서 캔 조개를 어머니 좌판에 갖다 드렸고, 어머니는 보탬이 된다며 좋아하셨다.",
+          "final": 0.02637
+        }
+      ]
+    },
+    {
+      "id": "B-C1",
+      "category": "CONFLICT",
+      "question": "분식집 몇 년도에 열었지?",
+      "expected": [
+        [
+          "SK_SHOP_OPEN"
+        ],
+        [
+          "EP_SHOP_OPEN"
+        ]
+      ],
+      "groupHits": [
+        true,
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_SHOP_REGULARS",
+          "summary": "화자의 분식집에는 근처 여고 학생들이 단골로 많이 왔다.",
+          "final": 0.03178
+        },
+        {
+          "key": "EP_SHOP_CLOSE",
+          "summary": "화자는 2010년에 동네 재개발로 건물이 헐리게 되어 운영하던 분식집을 정리했다.",
+          "final": 0.0315
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 87년 가을에 동래 시장 앞에 '말순분식'을 개업했다.",
+          "final": 0.03083
+        },
+        {
+          "key": "EP_SHOP_REGULARS",
+          "summary": "몇 년 뒤 졸업한 학생이 화자의 분식집을 찾아와 외상값을 갚고 갔다.",
+          "final": 0.03083
+        },
+        {
+          "key": "EP_SHOP_CLOSE",
+          "summary": "화자의 분식집 마지막 날, 단골들이 찾아와 섭섭하다며 국수를 두 그릇씩 먹고 갔다.",
+          "final": 0.03012
+        },
+        {
+          "key": "SK_SHOP_CLOSE",
+          "summary": "2010년, 화자의 인생 사건: 분식집 정리.",
+          "final": 0.03009
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 분식집 개업 초기에 떡볶이와 김밥만 팔았다.",
+          "final": 0.02985
+        },
+        {
+          "key": "SK_SHOP_OPEN",
+          "summary": "1988년, 화자의 인생 사건: 동래 분식집 개업.",
+          "final": 0.02976
+        }
+      ]
+    },
+    {
+      "id": "B-C2",
+      "category": "CONFLICT",
+      "question": "서울 처음 올라올 때 누구랑 같이 갔었지?",
+      "expected": [
+        [
+          "LE_SEOUL"
+        ],
+        [
+          "EP_GURO"
+        ]
+      ],
+      "groupHits": [
+        true,
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "LE_SEOUL",
+          "summary": "화자는 열여섯 살에 사촌 언니 순옥을 따라 서울에 올라와 구로 공장에 취직했다.",
+          "final": 0.03227
+        },
+        {
+          "key": "EP_GURO",
+          "summary": "화자는 66년 열여섯 살에 보따리 하나를 들고 혼자 완행열차를 타고 서울에 올라왔다.",
+          "final": 0.03226
+        },
+        {
+          "key": "LE_GRANDCHILD",
+          "summary": "화자는 첫 손주 지호가 태어나 서울 병원까지 올라가 처음으로 안아 보았다.",
+          "final": 0.03102
+        },
+        {
+          "key": "EP_SEOUL_HOMESICK",
+          "summary": "화자는 서울에 처음 왔을 때 밤마다 고향 바다가 그리워 이불을 뒤집어쓰고 울었다.",
+          "final": 0.03028
+        },
+        {
+          "key": "SK_FIRST_JOB",
+          "summary": "1966년, 화자의 인생 사건: 서울 구로 대성봉제 취직.",
+          "final": 0.02845
+        },
+        {
+          "key": "PROFILE",
+          "summary": "화자의 살았던 곳: 전남 목포, 서울 신림동, 부산 영도, 부산 동래.",
+          "final": 0.02822
+        },
+        {
+          "key": "EP_GURO",
+          "summary": "화자는 서울 구로의 대성봉제에 미싱 보조로 취직했다.",
+          "final": 0.025
+        },
+        {
+          "key": "PS_DONGHYUN",
+          "summary": "화자의 아들 동현은 서울 구로에서 회사에 다니고 있으며, 지호의 아버지다.",
+          "final": 0.02473
+        }
+      ]
+    },
+    {
+      "id": "B-X1",
+      "category": "FALSE_PREMISE",
+      "question": "내가 대구에서 태어났다고 했었지?",
+      "expected": [
+        [
+          "LE_BIRTH",
+          "PROFILE",
+          "EP_BIRTH_TOWN"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_BIRTH_TOWN",
+          "summary": "화자는 목포 온금동, 유달산 아래 바닷가 마을에서 태어났다.",
+          "final": 0.01639
+        },
+        {
+          "key": "LE_BIRTH",
+          "summary": "화자는 목포 온금동 바닷가 마을에서 4남매 중 둘째 딸로 태어났다.",
+          "final": 0.01613
+        },
+        {
+          "key": "LE_DONGHYUN",
+          "summary": "화자는 75년 겨울 신림동 셋방에서 아들 동현이를 낳았다.",
+          "final": 0.01587
+        },
+        {
+          "key": "SK_BUSAN_MOVE",
+          "summary": "1979년, 화자의 인생 사건: 부산 영도로 이사.",
+          "final": 0.01563
+        },
+        {
+          "key": "EP_DONGRAE_HOME",
+          "summary": "화자는 83년에 은주가 국민학교에 입학하는 시기에 맞춰 동래로 이사했다.",
+          "final": 0.01538
+        },
+        {
+          "key": "SK_FIRST_JOB",
+          "summary": "1966년, 화자의 인생 사건: 서울 구로 대성봉제 취직.",
+          "final": 0.01515
+        },
+        {
+          "key": "SK_BIRTH",
+          "summary": "화자는 1950년에 태어났다.",
+          "final": 0.01493
+        },
+        {
+          "key": "LE_GRANDCHILD",
+          "summary": "화자는 첫 손주 지호가 태어나 서울 병원까지 올라가 처음으로 안아 보았다.",
+          "final": 0.01471
+        }
+      ]
+    },
+    {
+      "id": "B-X2",
+      "category": "FALSE_PREMISE",
+      "question": "분식집은 서울에서 했었지?",
+      "expected": [
+        [
+          "EP_SHOP_OPEN",
+          "SK_SHOP_OPEN",
+          "PH_SHOP"
+        ]
+      ],
+      "groupHits": [
+        true
+      ],
+      "recall": 1,
+      "timeHint": null,
+      "top": [
+        {
+          "key": "EP_SHOP_REGULARS",
+          "summary": "화자의 분식집에는 근처 여고 학생들이 단골로 많이 왔다.",
+          "final": 0.03279
+        },
+        {
+          "key": "EP_SHOP_CLOSE",
+          "summary": "화자는 2010년에 동네 재개발로 건물이 헐리게 되어 운영하던 분식집을 정리했다.",
+          "final": 0.0308
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 분식집 개업 초기에 떡볶이와 김밥만 팔았다.",
+          "final": 0.03033
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 87년 가을에 동래 시장 앞에 '말순분식'을 개업했다.",
+          "final": 0.03021
+        },
+        {
+          "key": "EP_SHOP_CLOSE",
+          "summary": "화자의 분식집 마지막 날, 단골들이 찾아와 섭섭하다며 국수를 두 그릇씩 먹고 갔다.",
+          "final": 0.03012
+        },
+        {
+          "key": "EP_SHOP_REGULARS",
+          "summary": "몇 년 뒤 졸업한 학생이 화자의 분식집을 찾아와 외상값을 갚고 갔다.",
+          "final": 0.03002
+        },
+        {
+          "key": "ERA_OLYMPIC",
+          "summary": "화자는 올림픽 개막식을 분식집에 텔레비전을 들여놓고 손님들과 함께 시청했다.",
+          "final": 0.02944
+        },
+        {
+          "key": "EP_SHOP_OPEN",
+          "summary": "화자는 남편 월급만으로 아이들 학비가 모자라 분식집을 열게 되었다.",
+          "final": 0.02904
+        }
+      ]
+    }
+  ]
+}
