@@ -1,6 +1,9 @@
 "use server";
 
+import { prisma } from "@/lib/db";
 import { requireLabSubject } from "@/lib/lab/access";
+import { runAgent } from "@/lib/lab/agent";
+import type { VerifiedAnswer } from "@/lib/lab/answer";
 import {
   diffSources,
   summarizeDiff,
@@ -52,5 +55,102 @@ export async function searchCardsAction(
     useQuestionTimeHint: input.useQuestionTimeHint,
     limit: input.limit,
     refId: "search:debug",
+  });
+}
+
+// ── 질의응답 에이전트(R2-3) ─────────────────────────────────────────
+
+export type AskView = {
+  runId: string;
+  text: string;
+  citations: {
+    n: number;
+    source: string;
+    summary: string;
+    quote: string | null;
+  }[];
+  stats: VerifiedAnswer["stats"];
+  rounds: number;
+  costMicroUsd: number;
+  tools: string[];
+  error: string | null;
+};
+
+export type RunListItem = {
+  id: string;
+  question: string;
+  text: string | null; // null = 근거 원본이 지워져 답을 비움(삭제 전파)
+  rounds: number;
+  costMicroUsd: number;
+  createdAt: string;
+};
+
+// 질문 1개 → 에이전트 실행(LabAgentRun 저장) → 인용 카드 내용을 붙여 돌려준다.
+export async function askAgentAction(
+  subjectId: string,
+  question: string,
+): Promise<AskView> {
+  await requireLabSubject(subjectId);
+  const r = await runAgent(subjectId, question, { source: "UI" });
+  const cards = await prisma.memoryCard.findMany({
+    where: {
+      id: { in: r.answer.citations.map((c) => c.cardId) },
+      userId: subjectId,
+    },
+    select: { id: true, sourceType: true, summary: true, quote: true },
+  });
+  return {
+    runId: r.runId,
+    text: r.answer.text,
+    citations: r.answer.citations.map((c) => {
+      const card = cards.find((x) => x.id === c.cardId);
+      return {
+        n: c.n,
+        source: card?.sourceType ?? "(지워진 카드)",
+        summary: card?.summary ?? "",
+        quote: card?.quote ?? null,
+      };
+    }),
+    stats: r.answer.stats,
+    rounds: r.rounds,
+    costMicroUsd: r.costMicroUsd,
+    tools: r.toolTrace.map((t) => t.tool),
+    error: r.error,
+  };
+}
+
+// 최근 답 10개(읽기만).
+export async function listAgentRunsAction(
+  subjectId: string,
+): Promise<RunListItem[]> {
+  await requireLabSubject(subjectId);
+  const rows = await prisma.labAgentRun.findMany({
+    where: { userId: subjectId },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    select: {
+      id: true,
+      question: true,
+      answer: true,
+      rounds: true,
+      costMicroUsd: true,
+      createdAt: true,
+    },
+  });
+  return rows.map((r) => {
+    const a = r.answer as { text?: unknown; redacted?: unknown } | null;
+    return {
+      id: r.id,
+      question: r.question,
+      text:
+        a?.redacted === true
+          ? null
+          : typeof a?.text === "string"
+            ? a.text
+            : null,
+      rounds: r.rounds,
+      costMicroUsd: r.costMicroUsd,
+      createdAt: r.createdAt.toISOString(),
+    };
   });
 }
