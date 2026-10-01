@@ -146,7 +146,7 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
   {
     name: "get_timeline",
     description:
-      "화자의 인생 골격(출생·학교·군대·첫 직장·결혼 등) 사건과 연도. status 가 '추정값(확인 안 됨)'이면 사실로 쓰지 않는다. storyCardCount 는 그 사건에 대해 화자가 직접 이야기한 기억 카드 수(대화 이야기·인생 사건 기록, 내용은 search_memories 로 확인).",
+      "화자의 인생 골격(출생·학교·군대·첫 직장·결혼 등) 사건과 연도. status 가 '추정값(확인 안 됨)'이면 사실로 쓰지 않는다. storyCardCount·storyCardIds 는 그 사건에 대해 화자가 직접 이야기한 기억 카드(대화 이야기·인생 사건 기록)의 수와 id — 내용은 없으니 get_card 로 연다.",
     input_schema: {
       type: "object",
       properties: { yearFrom: int, yearTo: int },
@@ -301,21 +301,22 @@ async function aliveCardIds(
   );
 }
 
-// get_timeline 의 storyCardCount — 골격 사건마다 화자가 직접 이야기한 살아 있는 카드 수.
+// get_timeline 의 이야기 카드 — 골격 사건마다 화자가 직접 이야기한 살아 있는 카드(실제 id).
 // 연결 기준: 에피소드 = 그 사건 자체 이야기(Episode.lifeEventId, "이후" 구간 isPeriod 제외),
 // 인생 사건 기록 = 같은 인생 단계(UserMemory.category ↔ LifeEvent.type, period.ts 매핑).
-// 본문은 넣지 않고 개수만 — 내용은 search_memories 로 확인하게 한다.
-async function storyCardCounts(
+// 도구 결과에는 개수와 별칭만 — 본문·인용은 넣지 않는다(내용은 get_card·search_memories 로).
+async function storyCardsByEvent(
   userId: string,
   events: { id: string; type: string }[],
-): Promise<Map<string, number>> {
+): Promise<Map<string, string[]>> {
   const cards = await prisma.memoryCard.findMany({
     where: {
       userId,
       sourceType: { in: ["EPISODE", "LIFE_EVENT_MEMORY"] },
       unit: { status: "ACTIVE" },
     },
-    select: { sourceType: true, sourceId: true },
+    select: { id: true, sourceType: true, sourceId: true },
+    orderBy: [{ sourceType: "asc" }, { sourceId: "asc" }, { ordinal: "asc" }],
   });
   const alive = await aliveSourceKeys(userId, cards);
   const live = cards.filter((c) =>
@@ -346,15 +347,15 @@ async function storyCardCounts(
     const ev = stage ? eventOfStage.get(stage) : undefined;
     if (ev) eventOfMemory.set(m.id, ev);
   }
-  const counts = new Map<string, number>();
+  const byEvent = new Map<string, string[]>();
   for (const c of live) {
     const ev =
       c.sourceType === "EPISODE"
         ? eventOfEpisode.get(c.sourceId)
         : eventOfMemory.get(c.sourceId);
-    if (ev) counts.set(ev, (counts.get(ev) ?? 0) + 1);
+    if (ev) byEvent.set(ev, [...(byEvent.get(ev) ?? []), c.id]);
   }
-  return counts;
+  return byEvent;
 }
 
 type ToolOut = { data: unknown; cardIds: string[]; error?: string };
@@ -626,7 +627,7 @@ async function runTool(
         select: { id: true, sourceId: true },
       });
       const cardOf = new Map(skCards.map((c) => [c.sourceId, c.id]));
-      const storyCount = await storyCardCounts(userId, events);
+      const stories = await storyCardsByEvent(userId, events);
       const STATUS: Record<string, string> = {
         CONFIRMED: "확인됨",
         CORRECTED: "확인됨(정정)",
@@ -642,6 +643,8 @@ async function runTool(
               (from === undefined || year >= from) &&
               (to === undefined || year <= to)),
         );
+      // 내용을 보여 준 카드는 골격 카드뿐 — 이야기 카드 별칭(storyCardIds)은 get_card 로 열기 전까지
+      // 인용 근거가 아니다(runAgent 검증의 "내용을 돌려준 카드" 집합에 안 들어감).
       const cardIds = shown
         .map(({ e }) => cardOf.get(e.id))
         .filter((x): x is string => !!x);
@@ -655,7 +658,10 @@ async function runTool(
             ...(cardOf.get(e.id)
               ? { cardId: ctx.cards.alias(cardOf.get(e.id) as string) }
               : {}),
-            storyCardCount: storyCount.get(e.id) ?? 0,
+            storyCardCount: stories.get(e.id)?.length ?? 0,
+            storyCardIds: (stories.get(e.id) ?? []).map((id) =>
+              ctx.cards.alias(id),
+            ),
           })),
         },
         cardIds,
@@ -817,26 +823,11 @@ export async function runAgent(
     error = (e instanceof Error ? e.message : String(e)).slice(0, 300);
   }
 
-  // 검증 — 인용 근거는 "이번 실행에서 도구가 돌려준(별칭이 있는)" + "지금 살아 있는" 카드만.
-  const referenced = new Set<string>();
-  const collect = (claims: unknown) => {
-    if (!Array.isArray(claims)) return;
-    for (const c of claims) {
-      const ids = (c as { cardIds?: unknown })?.cardIds;
-      if (Array.isArray(ids))
-        for (const a of ids) {
-          const id = ctx.cards.id(a);
-          if (id) referenced.add(id);
-        }
-    }
-  };
-  const r = (raw ?? {}) as { claims?: unknown; conflicts?: unknown };
-  collect(r.claims);
-  if (Array.isArray(r.conflicts))
-    for (const c of r.conflicts) collect((c as { sides?: unknown })?.sides);
-  const alive = await aliveCardIds(userId, [...referenced]);
-  // 후속 질문 대조 재료: 이번 실행에서 받은 기록(도구 결과·카드 연도 구간) + 화자 기록의 인물 이름.
+  // 검증 — 인용 근거는 "이번 실행에서 도구가 내용을 돌려준(resultCardIds)" + "지금 살아 있는" 카드만.
+  // 별칭만 받은 카드(get_timeline 의 storyCardIds)는 get_card 로 열어야 근거가 된다.
   const retrievedIds = [...new Set(toolTrace.flatMap((t) => t.resultCardIds))];
+  const alive = await aliveCardIds(userId, retrievedIds);
+  // 후속 질문 대조 재료: 이번 실행에서 받은 기록(도구 결과·카드 연도 구간) + 화자 기록의 인물 이름.
   const [rangeRows, namedPeople] = await Promise.all([
     prisma.memoryCard.findMany({
       where: { id: { in: retrievedIds }, userId },

@@ -31,6 +31,8 @@
 //   - 남은 주장·모순·기록 없음이 하나도 없으면 "기록 없음"으로 떨어진다(fallbackNoRecord).
 //   - 모델이 낸 문장(주장·주제명·후속 질문)은 마크다운 기호를 지운 평문으로 쓴다(stripMarkdown,
 //     2026-10-01 R2-4 1회차 관찰 — 답 문장에 "**…**" 가 그대로 보임).
+//   - claims·conflicts 가 배열 대신 JSON 문자열로 오면 파싱해 쓴다(stats.formatRepaired). 파싱에
+//     실패하거나 배열이 아니면 빈 목록 + stats.formatErrors (2026-10-01 R2-4 2회차 관찰).
 
 import { withJosa } from "../josa";
 
@@ -107,6 +109,8 @@ export type VerifiedAnswer = {
     conflictsDemoted: number;
     fallbackNoRecord: boolean;
     followUpRejected: string | null; // 버린 후속 질문의 이유(checkFollowUp)
+    formatRepaired: string[]; // JSON 문자열을 파싱해 살린 필드("claims" | "conflicts")
+    formatErrors: string[]; // 살리지 못한 필드와 이유
   };
 };
 
@@ -142,6 +146,25 @@ export function verifyAnswer(
     conflictsDemoted: 0,
     fallbackNoRecord: false,
     followUpRejected: null,
+    formatRepaired: [],
+    formatErrors: [],
+  };
+
+  // claims·conflicts — 배열이면 그대로, JSON 문자열이면 파싱, 그 밖은 빈 목록.
+  const listField = (name: "claims" | "conflicts"): unknown[] => {
+    const v = r[name];
+    if (typeof v !== "string") return asArray(v);
+    try {
+      const parsed: unknown = JSON.parse(v);
+      if (Array.isArray(parsed)) {
+        stats.formatRepaired.push(name);
+        return parsed;
+      }
+      stats.formatErrors.push(`${name}: JSON 문자열이 배열이 아님`);
+    } catch {
+      stats.formatErrors.push(`${name}: JSON 문자열 파싱 실패`);
+    }
+    return [];
   };
 
   // 주장 1개 검증 — 인정 근거가 0개면 null.
@@ -162,13 +185,13 @@ export function verifyAnswer(
     return { text: /[.!?]$/.test(text) ? text : `${text}.`, cardIds: ids };
   };
 
-  const claims = asArray(r.claims)
+  const claims = listField("claims")
     .map(verifyClaim)
     .filter((c): c is Omit<VerifiedClaim, "cites"> => c !== null);
 
   const conflicts: { topic: string; sides: Omit<VerifiedClaim, "cites">[] }[] =
     [];
-  for (const c of asArray(r.conflicts)) {
+  for (const c of listField("conflicts")) {
     const o = (c && typeof c === "object" ? c : {}) as Record<string, unknown>;
     const sides = asArray(o.sides)
       .map(verifyClaim)

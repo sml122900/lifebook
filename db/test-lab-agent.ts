@@ -208,6 +208,51 @@ function verifierTests() {
     vMd.text,
   );
 
+  // claims·conflicts 가 JSON 문자열로 온 경우(2026-10-01 R2-4 2회차 관찰).
+  const vStr = verifyAnswer(
+    {
+      claims: JSON.stringify([
+        { text: "비산동 단칸방에서 사셨어요.", cardIds: ["c1"] },
+      ]),
+      conflicts: JSON.stringify([
+        {
+          topic: "결혼한 해",
+          sides: [
+            { text: "1981년이라는 기록이 있어요.", cardIds: ["c2"] },
+            { text: "1982년 봄이라는 기록도 있어요.", cardIds: ["c3"] },
+          ],
+        },
+      ]),
+    },
+    cardFor,
+  );
+  check(
+    "claims·conflicts 문자열 JSON → 파싱해 주장·모순 유지(formatRepaired)",
+    vStr.claims.length === 1 &&
+      vStr.conflicts.length === 1 &&
+      vStr.conflicts[0].sides.length === 2 &&
+      JSON.stringify(vStr.stats.formatRepaired) ===
+        JSON.stringify(["claims", "conflicts"]) &&
+      vStr.stats.formatErrors.length === 0,
+    vStr,
+  );
+  const vBad = verifyAnswer(
+    {
+      claims: '[{"text": "깨진 문자열", "cardIds": ["c1"]',
+      conflicts: '{"topic": "배열 아님"}',
+    },
+    cardFor,
+  );
+  check(
+    "깨진 문자열 → 빈 주장(기록 없음으로) + formatErrors 기록",
+    vBad.claims.length === 0 &&
+      vBad.conflicts.length === 0 &&
+      vBad.stats.fallbackNoRecord &&
+      vBad.stats.formatErrors.length === 2 &&
+      vBad.stats.formatRepaired.length === 0,
+    vBad.stats,
+  );
+
   check(
     "라운드 상한 = 동결 기준 maxToolRounds",
     AGENT_MAX_ROUNDS === LAB_CRITERIA.R2.maxToolRounds,
@@ -770,21 +815,81 @@ async function storyCountTests(id: string) {
     useVector: false,
     source: "EVAL",
   });
-  const events = (
-    JSON.parse(seen) as {
-      data: { events: { label: string; storyCardCount: number }[] };
-    }
-  ).data.events;
-  const count = (label: string) =>
-    events.find((e) => e.label === label)?.storyCardCount;
+  type TimelineEvent = {
+    label: string;
+    storyCardCount: number;
+    storyCardIds: string[];
+  };
+  const eventsOf = (text: string) =>
+    (JSON.parse(text) as { data: { events: TimelineEvent[] } }).data.events;
+  const events = eventsOf(seen);
+  const ev = (label: string) => events.find((e) => e.label === label);
   check(
     "get_timeline storyCardCount: 결혼 = 사건 자체 에피소드 1 + 같은 단계 인생 사건 기록 1 = 2 (이후 구간 에피소드·단계 없는 기록 제외), 군 입대 = 0",
-    count("결혼") === 2 && count("군 입대") === 0,
+    ev("결혼")?.storyCardCount === 2 && ev("군 입대")?.storyCardCount === 0,
     events,
   );
   check(
-    "get_timeline 은 이야기 카드 본문을 넣지 않음(개수만)",
+    "get_timeline storyCardIds: 사건마다 이야기 카드 별칭(c…) 목록, 개수와 일치",
+    ev("결혼")?.storyCardIds.length === 2 &&
+      ev("결혼")!.storyCardIds.every((a) => /^c\d+$/.test(a)) &&
+      ev("군 입대")?.storyCardIds.length === 0,
+    events,
+  );
+  check(
+    "get_timeline 은 이야기 카드 본문·인용을 넣지 않음(개수·별칭만)",
     !seen.includes(STORY) && !seen.includes("아내를 처음 봤다"),
+  );
+
+  // 별칭만 받은 이야기 카드는 열기 전엔 근거가 아니다 → 인용 버림.
+  const storyOf = (p: Anthropic.MessageCreateParamsNonStreaming) =>
+    eventsOf(lastToolResults(p)).find((e) => e.label === "결혼")!
+      .storyCardIds[0];
+  const blind = scripted([
+    () => [tu("get_timeline", {})],
+    (p) => [
+      tu("submit_answer", {
+        claims: [{ text: "비가 오는 날 결혼하셨어요.", cardIds: [storyOf(p)] }],
+      }),
+    ],
+  ]);
+  const rBlind = await runAgent(id, "결혼식 날 날씨 어땠지?", {
+    callModel: blind.caller,
+    useVector: false,
+    source: "EVAL",
+  });
+  check(
+    "storyCardIds 별칭을 열지 않고 인용 → 근거 불인정(주장 버림)",
+    rBlind.answer.claims.length === 0 &&
+      rBlind.answer.stats.droppedCitations === 1 &&
+      rBlind.answer.stats.droppedClaims === 1,
+    rBlind.answer.stats,
+  );
+  // get_card 로 열면 근거가 된다.
+  let opened = "";
+  const open = scripted([
+    () => [tu("get_timeline", {})],
+    (p) => {
+      opened = storyOf(p);
+      return [tu("get_card", { cardId: opened })];
+    },
+    () => [
+      tu("submit_answer", {
+        claims: [{ text: "비가 오는 날 결혼하셨어요.", cardIds: [opened] }],
+      }),
+    ],
+  ]);
+  const rOpen = await runAgent(id, "결혼식 날 날씨 어땠지?", {
+    callModel: open.caller,
+    useVector: false,
+    source: "EVAL",
+  });
+  check(
+    "storyCardIds 별칭으로 get_card 를 바로 호출 → 연 카드는 인용 인정",
+    rOpen.answer.claims.length === 1 &&
+      rOpen.answer.citations.length === 1 &&
+      rOpen.toolTrace.some((t) => t.tool === "get_card" && t.resultCount > 0),
+    { stats: rOpen.answer.stats, trace: rOpen.toolTrace },
   );
 }
 
