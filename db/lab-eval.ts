@@ -1,13 +1,16 @@
 // 기억 에이전트 — 골든셋 평가기. R1: --mode retrieval (검색만, 생성 없음). R2: --mode answer (에이전트 답).
 //
-// retrieval: 골든셋(db/lab/golden/persona-a.ts, 동결)의 NO_RECORD 를 뺀 24문항을 질문 그대로
+// 페르소나는 --persona 로 고른다(db/lab/personas/registry.ts — A: 개발 데이터, B: R2-5 최종 검증).
+// retrieval: 골든셋(db/lab/golden/persona-*.ts, 동결)의 NO_RECORD 를 뺀 24문항을 질문 그대로
 // searchWithQuestion(연구실 검색 디버그와 같은 경로, LLM 0 — 질문 임베딩만)에 넣고 상위 8장의
 // 원본으로 expected 그룹 적중을 센다. recall = 적중 그룹 / 전체 그룹, 문항 평균.
 // 기준 = db/lab/criteria.ts LAB_CRITERIA.R1.retrievalRecallAt8(동결). 리포트는 합성 데이터만이라
 // db/lab/reports/ 에 JSON 으로 남긴다. 페르소나 원장·카드는 읽기만(테스트 격리 규칙).
 //
-// 실행: npx tsx db/lab-eval.ts --persona a --mode retrieval
-//       npx tsx db/lab-eval.ts --persona a --mode answer --repeat 3 [--concurrency 3]
+// 실행: npx tsx db/lab-eval.ts --persona a|b --mode retrieval
+//       npx tsx db/lab-eval.ts --persona a|b --mode answer --repeat 3 [--concurrency 3]
+// 리포트: A = r1-retrieval-날짜 · r2-answer-날짜, 그 밖 = <페르소나>-retrieval-날짜 · <페르소나>-answer-날짜
+// (같은 날 재실행은 -2, -3 …).
 
 import "dotenv/config";
 
@@ -18,15 +21,15 @@ import { prisma } from "../lib/db";
 import { AGENT_MODEL, runAgent } from "../lib/lab/agent";
 import { judgeClaims } from "../lib/lab/judge";
 import { searchWithQuestion } from "../lib/lab/search";
-import {
-  kstDate,
-  loadSourceUnits,
-  normText,
-  type SourceUnit,
-} from "../lib/lab/sources";
+import { kstDate, loadSourceUnits } from "../lib/lab/sources";
 import { LAB_CRITERIA } from "./lab/criteria";
-import { GOLDEN_PERSONA_A, type GoldenCategory } from "./lab/golden/persona-a";
-import { PERSONA_A, type PersonaSourceKey } from "./lab/personas/persona-a";
+import type { GoldenCategory } from "./lab/golden/persona-a";
+import { mapPersonaKeys, unitKey } from "./lab/persona-keys";
+import {
+  labPersona,
+  personaSourceKeys,
+  type LabPersonaEntry,
+} from "./lab/personas/registry";
 
 const K = 8;
 
@@ -35,73 +38,33 @@ function arg(name: string): string | undefined {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
-const unitKey = (u: { sourceType: string; sourceId: string }) =>
-  `${u.sourceType}\u0000${u.sourceId}`;
-
-// 페르소나 key → 색인 원본(유형+id). 시드가 같으면 같은 원본을 가리킨다.
-function mapPersonaKeys(units: SourceUnit[]): Map<PersonaSourceKey, string> {
-  const map = new Map<PersonaSourceKey, string>();
-  const find = (pred: (u: SourceUnit) => boolean) => units.find(pred);
-  for (const ev of PERSONA_A.skeleton) {
-    const u = find(
-      (x) => x.sourceType === "SKELETON_EVENT" && x.extra.type === ev.type,
-    );
-    if (u) map.set(ev.key, unitKey(u));
+// 같은 날 재실행은 덮어쓰지 않고 -2, -3 … 을 붙인다(회차 비교용).
+function reportFile(base: string): string {
+  const dir = path.join(__dirname, "lab", "reports");
+  fs.mkdirSync(dir, { recursive: true });
+  let file = path.join(dir, `${base}.json`);
+  for (let i = 2; fs.existsSync(file); i++) {
+    file = path.join(dir, `${base}-${i}.json`);
   }
-  for (const ep of PERSONA_A.episodes) {
-    const u = find(
-      (x) =>
-        x.sourceType === "EPISODE" && x.fields.content === normText(ep.content),
-    );
-    if (u) map.set(ep.key, unitKey(u));
-  }
-  for (const m of PERSONA_A.lifeMemories) {
-    const u = find(
-      (x) =>
-        x.sourceType === "LIFE_EVENT_MEMORY" &&
-        x.fields.content === normText(m.content),
-    );
-    if (u) map.set(m.key, unitKey(u));
-  }
-  for (const e of PERSONA_A.eraMemories) {
-    const u = find(
-      (x) =>
-        x.sourceType === "ERA_MEMORY" &&
-        x.fields.content === normText(e.content),
-    );
-    if (u) map.set(e.key, unitKey(u));
-  }
-  for (const p of PERSONA_A.people) {
-    const u = find((x) => x.sourceType === "PERSON_MEMO" && x.title === p.name);
-    if (u) map.set(p.key, unitKey(u));
-  }
-  const profile = find((x) => x.sourceType === "PROFILE");
-  if (profile) map.set("PROFILE", unitKey(profile));
-  return map;
+  return file;
 }
 
-async function retrieval() {
-  const userId = PERSONA_A.userId;
+async function retrieval(entry: LabPersonaEntry) {
+  const userId = entry.persona.userId;
   const runId = `eval:retrieval:${new Date().toISOString().slice(0, 19)}`;
   const units = await loadSourceUnits(userId);
-  const keyToUnit = mapPersonaKeys(units);
+  const keyToUnit = mapPersonaKeys(units, entry.persona);
   const unitToKey = new Map([...keyToUnit].map(([k, u]) => [u, k]));
-  const allKeys = [
-    ...PERSONA_A.skeleton.map((x) => x.key),
-    ...PERSONA_A.episodes.map((x) => x.key),
-    ...PERSONA_A.lifeMemories.map((x) => x.key),
-    ...PERSONA_A.eraMemories.map((x) => x.key),
-    ...PERSONA_A.people.map((x) => x.key),
-    "PROFILE" as const,
-  ];
-  const unmapped = allKeys.filter((k) => !keyToUnit.has(k));
+  const unmapped = personaSourceKeys(entry.persona).filter(
+    (k) => !keyToUnit.has(k),
+  );
 
-  const items = GOLDEN_PERSONA_A.filter((g) => g.expected.length > 0);
+  const items = entry.golden.filter((g) => g.expected.length > 0);
   const results: {
     id: string;
     category: GoldenCategory;
     question: string;
-    expected: readonly (readonly PersonaSourceKey[])[];
+    expected: readonly (readonly string[])[];
     groupHits: boolean[];
     recall: number;
     timeHint: { yearFrom: number; yearTo: number } | null;
@@ -162,7 +125,7 @@ async function retrieval() {
   const pass = overall >= threshold;
 
   console.log(
-    `retrieval 평가 · 페르소나 A · 문항 ${results.length}(NO_RECORD 제외) · top-${K}`,
+    `retrieval 평가 · 페르소나 ${entry.key.toUpperCase()} · 문항 ${results.length}(NO_RECORD 제외) · top-${K}`,
   );
   console.log(
     `recall@${K} 전체: ${overall.toFixed(3)} (기준 ≥ ${threshold}) → ${pass ? "PASS" : "FAIL"}`,
@@ -175,9 +138,7 @@ async function retrieval() {
       grp.some((key) => r.top.slice(0, k).some((t) => t.key === key)),
     ).length / r.expected.length;
   const firstRanks = results.map((r) => {
-    const i = r.top.findIndex((t) =>
-      r.expected.flat().includes(t.key as PersonaSourceKey),
-    );
+    const i = r.top.findIndex((t) => r.expected.flat().includes(t.key));
     return i < 0 ? K + 1 : i + 1;
   });
   const corpusCards = await prisma.memoryCard.count({
@@ -214,12 +175,12 @@ async function retrieval() {
     );
   }
 
-  const dir = path.join(__dirname, "lab", "reports");
-  fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, `r1-retrieval-${kstDate(new Date())}.json`);
+  const file = reportFile(
+    `${entry.key === "a" ? "r1" : entry.key}-retrieval-${kstDate(new Date())}`,
+  );
   fs.writeFileSync(
     file,
-    `${JSON.stringify({ runId, persona: "a", k: K, threshold, overall, pass, ranking, byCategory, unmapped, results }, null, 2)}\n`,
+    `${JSON.stringify({ runId, persona: entry.key, k: K, threshold, overall, pass, ranking, byCategory, unmapped, results }, null, 2)}\n`,
   );
   console.log(
     `\n리포트: ${path.relative(path.join(__dirname, ".."), file).replace(/\\/g, "/")}`,
@@ -284,11 +245,17 @@ async function pool<T>(items: T[], size: number, fn: (t: T) => Promise<void>) {
   );
 }
 
-async function answerMode(repeats: number, concurrency: number) {
-  const userId = PERSONA_A.userId;
+async function answerMode(
+  entry: LabPersonaEntry,
+  repeats: number,
+  concurrency: number,
+) {
+  const userId = entry.persona.userId;
   const stamp = new Date().toISOString().slice(0, 19);
   const units = await loadSourceUnits(userId);
-  const unitToKey = new Map([...mapPersonaKeys(units)].map(([k, u]) => [u, k]));
+  const unitToKey = new Map(
+    [...mapPersonaKeys(units, entry.persona)].map(([k, u]) => [u, k]),
+  );
   const cardRows = await prisma.memoryCard.findMany({
     where: { userId },
     select: { id: true, sourceType: true, sourceId: true },
@@ -301,7 +268,7 @@ async function answerMode(repeats: number, concurrency: number) {
   );
 
   const tasks = Array.from({ length: repeats }, (_, r) =>
-    GOLDEN_PERSONA_A.map((g) => ({ repeat: r + 1, g })),
+    entry.golden.map((g) => ({ repeat: r + 1, g })),
   ).flat();
   const recs: RunRec[] = [];
   let done = 0;
@@ -441,7 +408,7 @@ async function answerMode(repeats: number, concurrency: number) {
     const rate = (xs: RunRec[]) =>
       xs.length ? xs.filter((x) => x.pass).length / xs.length : 0;
     const byCategory = Object.fromEntries(
-      [...new Set(GOLDEN_PERSONA_A.map((g) => g.category))].map((c) => {
+      [...new Set(entry.golden.map((g) => g.category))].map((c) => {
         const xs = rs.filter((x) => x.category === c);
         return [c, { pass: xs.filter((x) => x.pass).length, of: xs.length }];
       }),
@@ -564,7 +531,7 @@ async function answerMode(repeats: number, concurrency: number) {
   ];
 
   console.log(
-    `\nanswer 평가 · 페르소나 A · 27문항 × ${repeats}회 · 모델 ${AGENT_MODEL}`,
+    `\nanswer 평가 · 페르소나 ${entry.key.toUpperCase()} · 27문항 × ${repeats}회 · 모델 ${AGENT_MODEL}`,
   );
   for (const [label, ok, val] of verdict) {
     console.log(`${ok ? "PASS" : "FAIL"} — ${label} :: ${JSON.stringify(val)}`);
@@ -583,7 +550,7 @@ async function answerMode(repeats: number, concurrency: number) {
   for (const [k, v] of Object.entries(deviation))
     console.log(`  ${k}: ${JSON.stringify(v)}`);
 
-  const byItem = GOLDEN_PERSONA_A.map((g) => {
+  const byItem = entry.golden.map((g) => {
     const xs = recs
       .filter((x) => x.id === g.id)
       .sort((a, b) => a.repeat - b.repeat);
@@ -631,20 +598,15 @@ async function answerMode(repeats: number, concurrency: number) {
     );
   }
 
-  const dir = path.join(__dirname, "lab", "reports");
-  fs.mkdirSync(dir, { recursive: true });
-  // 같은 날 재평가는 덮어쓰지 않고 -2, -3 … 을 붙인다(회차 비교용).
-  const base = `r2-answer-${kstDate(new Date())}`;
-  let file = path.join(dir, `${base}.json`);
-  for (let i = 2; fs.existsSync(file); i++) {
-    file = path.join(dir, `${base}-${i}.json`);
-  }
+  const file = reportFile(
+    `${entry.key === "a" ? "r2" : entry.key}-answer-${kstDate(new Date())}`,
+  );
   fs.writeFileSync(
     file,
     `${JSON.stringify(
       {
         stamp,
-        persona: "a",
+        persona: entry.key,
         repeats,
         model: AGENT_MODEL,
         verdict: verdict.map(([label, ok, value]) => ({ label, ok, value })),
@@ -663,16 +625,15 @@ async function answerMode(repeats: number, concurrency: number) {
 }
 
 async function main() {
-  const persona = arg("--persona");
+  const entry = labPersona(arg("--persona"));
   const mode = arg("--mode");
-  if (persona !== "a")
-    throw new Error("--persona a 만 지원(페르소나 B 는 R2 완료 직전)");
   if (mode !== "retrieval" && mode !== "answer")
     throw new Error("--mode retrieval | answer");
   const pass =
     mode === "retrieval"
-      ? await retrieval()
+      ? await retrieval(entry)
       : await answerMode(
+          entry,
           Number(arg("--repeat") ?? 1),
           Number(arg("--concurrency") ?? 3),
         );

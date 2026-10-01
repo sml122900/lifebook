@@ -1,6 +1,6 @@
-// 기억 에이전트 R1-5 — 가상 페르소나 A 시드 (운영 DB, 멱등).
+// 기억 에이전트 R1-5 — 가상 페르소나 시드 (운영 DB, 멱등). R2-5 에서 페르소나 B 추가.
 //
-// db/lab/personas/persona-a.ts(동결)를 적재한다. 앱에 lib 함수가 있는 원본은 그
+// db/lab/personas/persona-*.ts(동결)를 --persona 로 골라 적재한다(목록 = registry.ts). 앱에 lib 함수가 있는 원본은 그
 // 함수로(createEpisodeBridge·saveEpisodePlaces·createLifeEvent·createPerson·
 // linkPersonToEvent·linkPersonToLifeEvent·stashEraEvent·saveEraMemory), 앱이
 // 직접 prisma 로 만드는 행(골격 LifeEvent·OnboardingProfile·LifeProfile·카테고리
@@ -15,8 +15,12 @@
 //     (DB 트랜잭션 하나 — Storage·알림·외부 호출 0).
 //   - 로그인 수단 없음: passwordHash null, Account 0행(끝에서 재확인).
 //
-// 실행: npx tsx db/lab-seed-persona.ts            (정리 후 재생성)
-//       npx tsx db/lab-seed-persona.ts --cleanup  (정리만)
+// 사진 캡션(photoMemories, B 부터): 이미지 파일·Storage 업로드 없이 UserMemory(createdVia="photo")
+// 만 lib/photos.ts buildPhotoMemoryData 와 같은 필드로 만든다(연구 원본은 캡션뿐).
+//
+// 실행: npx tsx db/lab-seed-persona.ts --persona a|b            (정리 후 재생성)
+//       npx tsx db/lab-seed-persona.ts --persona a|b --cleanup  (정리만)
+// --persona 는 필수 — 이미 색인된 페르소나를 실수로 다시 만들면 원본 id 가 바뀌어 카드·답 기록이 비워진다.
 
 import "dotenv/config";
 
@@ -30,23 +34,19 @@ import { createLifeEvent } from "../lib/life-events";
 import { createPerson, linkPersonToEvent } from "../lib/people";
 import { linkPersonToLifeEvent } from "../lib/person-life-event";
 import type { PlaceInfo } from "../lib/place-types";
-import {
-  PERSONA_A,
-  type LifeMemoryKey,
-  type PersonaEpisode,
-  type PersonaLifeMemory,
-  type PersonaPerson,
-  type PersonaSkeletonEvent,
-  type PersonKey,
-  type SkeletonKey,
-} from "./lab/personas/persona-a";
+import { labPersona } from "./lab/personas/registry";
 
-const P = PERSONA_A;
+function arg(name: string): string | undefined {
+  const i = process.argv.indexOf(name);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+}
+
+const P = labPersona(arg("--persona")).persona;
 const DAY_MS = 86_400_000;
-const SKELETON = P.skeleton as readonly PersonaSkeletonEvent[];
-const EPISODES = P.episodes as readonly PersonaEpisode[];
-const MEMORIES = P.lifeMemories as readonly PersonaLifeMemory[];
-const PEOPLE = P.people as readonly PersonaPerson[];
+const SKELETON = P.skeleton;
+const EPISODES = P.episodes;
+const MEMORIES = P.lifeMemories;
+const PEOPLE = P.people;
 
 function dayAt(day: number): Date {
   return new Date(
@@ -99,9 +99,9 @@ async function cleanup(): Promise<void> {
 
 async function seed(): Promise<void> {
   const userId = P.userId;
-  const lifeEventIds = new Map<SkeletonKey, string>();
-  const personIds = new Map<PersonKey, string>();
-  const memoryIds = new Map<LifeMemoryKey, string>();
+  const lifeEventIds = new Map<string, string>();
+  const personIds = new Map<string, string>();
+  const memoryIds = new Map<string, string>();
 
   // ── User (v3 트랙, 동의 완료, 로그인 수단 없음) ─────────────────
   await prisma.user.create({
@@ -312,6 +312,43 @@ async function seed(): Promise<void> {
       where: { userId, monthEventId: me.id, createdVia: "era_event" },
       data: { createdAt: dayAt(e.day) },
     });
+  }
+
+  // ── 사진 캡션 (photo, buildPhotoMemoryData 와 같은 필드 · 이미지 파일 없음) ──
+  for (const ph of P.photoMemories ?? []) {
+    const caption = ph.caption.trim();
+    const row = await prisma.userMemory.create({
+      data: {
+        userId,
+        createdVia: "photo",
+        year: ph.year,
+        month: ph.month,
+        title: caption,
+        content: caption,
+        eventYear: ph.year,
+        eventMonth: ph.month,
+        ...(ph.place
+          ? {
+              places: {
+                create: [
+                  { placeName: ph.place, placeSource: "naver", sortOrder: 0 },
+                ],
+              },
+            }
+          : {}),
+        createdAt: dayAt(ph.day),
+      },
+      select: { id: true },
+    });
+    for (const pk of ph.personKeys) {
+      const r = await linkPersonToEvent(
+        userId,
+        must(personIds.get(pk), pk),
+        row.id,
+      );
+      if (r !== "linked")
+        throw new Error(`시드 중단: ${ph.key}→${pk} 연결 ${r}`);
+    }
   }
 
   // ── LifeProfile (updatedAt 이 유일한 시각 필드 — 1일차로) ─────────
