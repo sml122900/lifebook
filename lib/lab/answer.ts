@@ -29,6 +29,8 @@
 //   - 모순(conflicts)에서 살아남은 근거 있는 쪽이 2개 미만이면 모순이 아니다 → 1개면 일반
 //     주장으로 옮기고(conflictsDemoted), 0개면 버린다.
 //   - 남은 주장·모순·기록 없음이 하나도 없으면 "기록 없음"으로 떨어진다(fallbackNoRecord).
+//   - 모델이 낸 문장(주장·주제명·후속 질문)은 마크다운 기호를 지운 평문으로 쓴다(stripMarkdown,
+//     2026-10-01 R2-4 1회차 관찰 — 답 문장에 "**…**" 가 그대로 보임).
 
 import { withJosa } from "../josa";
 
@@ -108,8 +110,17 @@ export type VerifiedAnswer = {
   };
 };
 
+// 굵게·기울임·취소선·코드(** __ ~~ * `)와 줄 앞 제목·인용·목록 표시(# > - + *)를 지운다.
+export function stripMarkdown(s: string): string {
+  return s
+    .replace(/^[ \t]*(?:#{1,6}|>|[-*+])[ \t]+/gm, "")
+    .replace(/\*\*|__|~~|[*`]/g, "");
+}
+
 const clean = (v: unknown, max: number): string =>
-  typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "";
+  typeof v === "string"
+    ? stripMarkdown(v).replace(/\s+/g, " ").trim().slice(0, max)
+    : "";
 
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
@@ -176,7 +187,7 @@ export function verifyAnswer(
     // 길이 판정 전에 자르지 않는다(61자 질문이 60자로 잘려 통과하지 않게).
     const q =
       typeof o.followUpQuestion === "string"
-        ? o.followUpQuestion.replace(/\s+/g, " ").trim()
+        ? stripMarkdown(o.followUpQuestion).replace(/\s+/g, " ").trim()
         : "";
     const reason = q ? checkFollowUp(q, followUpCtx) : null;
     if (reason) stats.followUpRejected = reason;

@@ -342,8 +342,31 @@ async function answerMode(repeats: number, concurrency: number) {
     // 보조 지표 b — 주장 단위 근거 판정.
     const cards = await prisma.memoryCard.findMany({
       where: { id: { in: a.citations.map((c) => c.cardId) } },
-      select: { id: true, sourceType: true, summary: true, quote: true },
+      select: {
+        id: true,
+        sourceType: true,
+        summary: true,
+        quote: true,
+        yearFrom: true,
+        yearTo: true,
+        month: true,
+        personIds: true,
+      },
     });
+    const people = await prisma.person.findMany({
+      where: { id: { in: cards.flatMap((k) => k.personIds) } },
+      select: { id: true, name: true, relation: true },
+    });
+    const personText = (pid: string) => {
+      const p = people.find((x) => x.id === pid);
+      return p ? (p.relation ? `${p.name}(${p.relation})` : p.name) : null;
+    };
+    const whenOf = (k: (typeof cards)[number]) =>
+      k.yearFrom === null
+        ? null
+        : k.yearTo !== null && k.yearTo !== k.yearFrom
+          ? `${k.yearFrom}~${k.yearTo}년`
+          : `${k.yearFrom}년${k.month ? ` ${k.month}월` : ""}`;
     const numOf = new Map(a.citations.map((c) => [c.cardId, c.n]));
     const verdicts = await judgeClaims(
       allClaims.map((c) => ({
@@ -355,6 +378,10 @@ async function answerMode(repeats: number, concurrency: number) {
             source: k?.sourceType ?? "?",
             summary: k?.summary ?? "",
             quote: k?.quote ?? null,
+            when: k ? whenOf(k) : null,
+            people: (k?.personIds ?? [])
+              .map(personText)
+              .filter((x): x is string => x !== null),
           };
         }),
       })),
@@ -606,7 +633,12 @@ async function answerMode(repeats: number, concurrency: number) {
 
   const dir = path.join(__dirname, "lab", "reports");
   fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, `r2-answer-${kstDate(new Date())}.json`);
+  // 같은 날 재평가는 덮어쓰지 않고 -2, -3 … 을 붙인다(회차 비교용).
+  const base = `r2-answer-${kstDate(new Date())}`;
+  let file = path.join(dir, `${base}.json`);
+  for (let i = 2; fs.existsSync(file); i++) {
+    file = path.join(dir, `${base}-${i}.json`);
+  }
   fs.writeFileSync(
     file,
     `${JSON.stringify(

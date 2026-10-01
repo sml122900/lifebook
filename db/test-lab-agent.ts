@@ -184,6 +184,30 @@ function verifierTests() {
     verifyAnswer(null, cardFor).stats.fallbackNoRecord,
   );
 
+  // 마크다운 기호 제거(2026-10-01 R2-4 1회차 관찰 — "**경북 안동 풍산**" 이 답에 그대로 보임).
+  const vMd = verifyAnswer(
+    {
+      claims: [
+        { text: "**경북 안동 풍산**에서 태어나셨어요", cardIds: ["c1"] },
+        { text: "# 제목처럼 `코드`와 __밑줄__ ~~취소~~ 표시", cardIds: ["c2"] },
+      ],
+      noRecord: {
+        topic: "**취미**",
+        followUpQuestion: "그때 **누구**와 가셨어요?",
+      },
+    },
+    cardFor,
+  );
+  check(
+    "답 문장 마크다운 기호 제거(** __ ~~ ` #) — 글자·인용 번호는 유지",
+    !/[*_`#~]/.test(vMd.text) &&
+      vMd.text.includes("경북 안동 풍산에서 태어나셨어요. [1]") &&
+      vMd.text.includes("제목처럼 코드와 밑줄 취소 표시. [2]") &&
+      vMd.text.includes("취미는 아직 들려주신 적 없는 이야기예요.") &&
+      vMd.noRecord?.followUpQuestion === "그때 누구와 가셨어요?",
+    vMd.text,
+  );
+
   check(
     "라운드 상한 = 동결 기준 maxToolRounds",
     AGENT_MAX_ROUNDS === LAB_CRITERIA.R2.maxToolRounds,
@@ -658,6 +682,112 @@ async function loopTests(tmp: string, other: string, mem: string[]) {
   );
 }
 
+// ── ②-2 get_timeline storyCardCount(2026-10-01 R2-4 1회차 대응) ─────────
+// 골격 사건마다 화자가 직접 이야기한 카드 수 — 사건 자체 에피소드 + 같은 인생 단계의 인생
+// 사건 기록만 센다("이후" 구간 에피소드·단계 없는 기록 제외). 본문은 넣지 않는다.
+async function storyCountTests(id: string) {
+  await prisma.user.create({
+    data: {
+      id,
+      email: `withdrawal-test-labagent-${id}@test`,
+      name: "labagent",
+    },
+  });
+  await prisma.onboardingProfile.create({
+    data: { userId: id, birthYear: 1950, region: "서울" },
+  });
+  await prisma.lifeEvent.create({
+    data: {
+      userId: id,
+      type: "MILITARY",
+      label: "군 입대",
+      year: 1970,
+      status: "CONFIRMED",
+      sequenceOrder: 1,
+    },
+  });
+  const mar = await prisma.lifeEvent.create({
+    data: {
+      userId: id,
+      type: "MARRIAGE",
+      label: "결혼",
+      year: 1975,
+      status: "CONFIRMED",
+      sequenceOrder: 2,
+      hasEpisode: true,
+    },
+    select: { id: true },
+  });
+  const STORY = "식장에서 비가 와서 다들 우산을 쓰고 사진을 찍었다.";
+  for (const [content, isPeriod] of [
+    [STORY, false],
+    ["신혼집은 단칸방이었다.", true],
+  ] as const) {
+    const m = await prisma.userMemory.create({
+      data: {
+        userId: id,
+        year: 1975,
+        title: "결혼",
+        content,
+        createdVia: "episode",
+      },
+      select: { id: true },
+    });
+    await prisma.episode.create({
+      data: { lifeEventId: mar.id, memoryId: m.id, content, isPeriod },
+    });
+  }
+  for (const [content, category] of [
+    ["친구 결혼식에서 아내를 처음 봤다.", "RELATIONSHIP"],
+    ["큰아이가 태어났다.", "FAMILY"],
+  ] as const) {
+    await prisma.userMemory.create({
+      data: {
+        userId: id,
+        createdVia: "life_event",
+        year: 1976,
+        title: content.slice(0, 10),
+        eventTitle: content.slice(0, 10),
+        eventYear: 1976,
+        content,
+        precision: "APPROXIMATE",
+        category,
+      },
+    });
+  }
+  await syncSubject(id, { extractor: fakeExtractor, embed: false });
+
+  let seen = "";
+  const s = scripted([
+    () => [tu("get_timeline", {})],
+    (p) => {
+      seen = lastToolResults(p);
+      return [tu("submit_answer", { claims: [] })];
+    },
+  ]);
+  await runAgent(id, "결혼 언제 했지?", {
+    callModel: s.caller,
+    useVector: false,
+    source: "EVAL",
+  });
+  const events = (
+    JSON.parse(seen) as {
+      data: { events: { label: string; storyCardCount: number }[] };
+    }
+  ).data.events;
+  const count = (label: string) =>
+    events.find((e) => e.label === label)?.storyCardCount;
+  check(
+    "get_timeline storyCardCount: 결혼 = 사건 자체 에피소드 1 + 같은 단계 인생 사건 기록 1 = 2 (이후 구간 에피소드·단계 없는 기록 제외), 군 입대 = 0",
+    count("결혼") === 2 && count("군 입대") === 0,
+    events,
+  );
+  check(
+    "get_timeline 은 이야기 카드 본문을 넣지 않음(개수만)",
+    !seen.includes(STORY) && !seen.includes("아내를 처음 봤다"),
+  );
+}
+
 // ── ③ --live: 기억 속 지시문 방어 + 비용 ─────────────────────────────
 async function liveTests(tmp: string) {
   const qs: { q: string; must: RegExp[]; mustNot: RegExp[] }[] = [
@@ -709,6 +839,7 @@ async function main() {
   const ts = Date.now();
   const tmp = `wtest_labagent_${ts}`;
   const other = `wtest_labagent_other_${ts}`;
+  const story = `wtest_labagent_story_${ts}`;
   try {
     const mem = await makeUser(
       tmp,
@@ -728,16 +859,21 @@ async function main() {
     );
     if (live) await liveTests(tmp);
     await loopTests(tmp, other, mem);
+    await storyCountTests(story);
   } finally {
-    for (const id of [tmp, other])
+    for (const id of [tmp, other, story])
       await deleteAccountTx(id).catch(() =>
         prisma.user.deleteMany({ where: { id } }),
       );
   }
   check(
     "임시 사용자 lab 행 정리(카드·실행 기록)",
-    (await prisma.labAgentRun.count({ where: { userId: tmp } })) === 0 &&
-      (await prisma.memoryCard.count({ where: { userId: tmp } })) === 0,
+    (await prisma.labAgentRun.count({
+      where: { userId: { in: [tmp, story] } },
+    })) === 0 &&
+      (await prisma.memoryCard.count({
+        where: { userId: { in: [tmp, story] } },
+      })) === 0,
   );
   if (!live) console.log("   (--live 없음 — 실제 모델 호출 건너뜀)");
   console.log(failed === 0 ? "ALL PASS" : `${failed} FAILED`);
