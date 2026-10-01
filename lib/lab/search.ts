@@ -175,9 +175,10 @@ function overlaps(
 }
 
 // 원본이 지금도 있는가(유형별 묶음 조회). 반환: 살아 있는 "유형\0id" 집합.
-async function aliveSourceKeys(
+// 에이전트(lib/lab/agent.ts)의 get_card·답변 검증도 같은 판정을 쓴다.
+export async function aliveSourceKeys(
   userId: string,
-  cards: Candidate[],
+  cards: { sourceType: string; sourceId: string }[],
 ): Promise<Set<string>> {
   const ids = (t: string) => [
     ...new Set(cards.filter((c) => c.sourceType === t).map((c) => c.sourceId)),
