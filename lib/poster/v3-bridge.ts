@@ -13,6 +13,7 @@
 
 import { prisma } from "../db";
 import { isSubstantiveEpisodeContent } from "../episode-text";
+import type { LifeCategory, LifeEventType } from "../generated/prisma/enums";
 import { CREATED_VIA_LIFE_EVENT } from "../life-events";
 import { removeStorageObjects } from "../storage";
 import type { PosterCandidate } from "./poster-candidates";
@@ -38,9 +39,24 @@ export type V3BridgeRow = {
   content: string | null; // 실질 Episode 가 없으면 null → node 고정
   year: number; // 구간 행은 앵커 사건 연도(정렬용, 포스터엔 연도 미표시)
   isPeriod: boolean;
+  category: LifeCategory | null; // 앵커 행만 사건 유형에서 매핑(구간 행·CUSTOM 은 null)
 };
 
 const CONFIRMED_STATUSES = ["CONFIRMED", "CORRECTED"] as const;
+
+// v3 사건 유형 → 기존 UserMemory.category(LifeCategory) 값. 기존 값 목록에서만 고르고
+// 맞는 값이 없으면(CUSTOM) null. 구간 이야기 행("군 입대 이후" 등)은 그 사건 자체가
+// 아니라 null 유지. P1 후보 입력(category)·캐시 해시에 들어간다.
+const CATEGORY_BY_TYPE: Partial<Record<LifeEventType, LifeCategory>> = {
+  BIRTH: "BIRTH",
+  ELEM_SCHOOL: "ELEMENTARY",
+  MIDDLE_SCHOOL: "MIDDLE",
+  HIGH_SCHOOL: "HIGH",
+  UNIVERSITY: "UNIVERSITY",
+  MILITARY: "MILITARY",
+  FIRST_JOB: "WORK",
+  MARRIAGE: "RELATIONSHIP",
+};
 
 // 확정 v3 사건 → 브릿지 행 동기화 후 현재 행(연도순)을 돌려준다. 바뀐 행만 쓴다.
 export async function syncV3Bridge(userId: string): Promise<V3BridgeRow[]> {
@@ -50,6 +66,7 @@ export async function syncV3Bridge(userId: string): Promise<V3BridgeRow[]> {
       orderBy: { sequenceOrder: "asc" },
       select: {
         id: true,
+        type: true,
         label: true,
         year: true,
         correctedLabel: true,
@@ -62,7 +79,7 @@ export async function syncV3Bridge(userId: string): Promise<V3BridgeRow[]> {
     }),
     prisma.userMemory.findMany({
       where: { userId, createdVia: CREATED_VIA_V3_BRIDGE },
-      select: { id: true, title: true, content: true, eventYear: true },
+      select: { id: true, title: true, content: true, eventYear: true, category: true },
     }),
   ]);
 
@@ -78,6 +95,7 @@ export async function syncV3Bridge(userId: string): Promise<V3BridgeRow[]> {
       content: bodies.length > 0 ? bodies.join("\n\n") : null,
       year,
       isPeriod: false,
+      category: CATEGORY_BY_TYPE[e.type] ?? null,
     });
     // 구간 이야기 — 제목은 Episode 제목(브릿지 메모리 title, 예: "군 입대 이후").
     for (const ep of substantive.filter((x) => x.isPeriod)) {
@@ -87,6 +105,7 @@ export async function syncV3Bridge(userId: string): Promise<V3BridgeRow[]> {
         content: ep.content.trim(),
         year,
         isPeriod: true,
+        category: null,
       });
     }
   }
@@ -95,7 +114,7 @@ export async function syncV3Bridge(userId: string): Promise<V3BridgeRow[]> {
   const existingById = new Map(existing.map((m) => [m.id, m]));
   const changed = rows.filter((r) => {
     const m = existingById.get(r.id);
-    return !m || m.title !== r.title || m.content !== r.content || m.eventYear !== r.year;
+    return !m || m.title !== r.title || m.content !== r.content || m.eventYear !== r.year || m.category !== r.category;
   });
   const liveIds = new Set(rows.map((r) => r.id));
   const staleIds = existing.filter((m) => !liveIds.has(m.id)).map((m) => m.id);
@@ -104,7 +123,7 @@ export async function syncV3Bridge(userId: string): Promise<V3BridgeRow[]> {
   if (changed.length > 0) {
     await prisma.$transaction(
       changed.map((r) => {
-        const data = { year: r.year, title: r.title, eventTitle: r.title, eventYear: r.year, content: r.content };
+        const data = { year: r.year, title: r.title, eventTitle: r.title, eventYear: r.year, content: r.content, category: r.category };
         return prisma.userMemory.upsert({
           where: { id: r.id },
           create: { id: r.id, userId, createdVia: CREATED_VIA_V3_BRIDGE, ...data },

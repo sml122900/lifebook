@@ -63,7 +63,7 @@ function toCandidateInputs(
     year: b.year,
     title: b.title,
     content: b.content,
-    category: null,
+    category: b.category,
   }));
   return [...life, ...v3].sort((a, b) => (a.year ?? 0) - (b.year ?? 0));
 }

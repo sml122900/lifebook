@@ -237,6 +237,35 @@ async function scenario(userId: string) {
     byId1.get(ids.elem)?.content === `${STORY_A}\n\n${STORY_B}`,
     byId1.get(ids.elem)?.content,
   );
+  // category — 사건 유형 → 기존 LifeCategory 값(CUSTOM·구간 행은 null), DB 행에도 저장.
+  const catDb1 = new Map(
+    (
+      await prisma.userMemory.findMany({
+        where: { userId, createdVia: CREATED_VIA_V3_BRIDGE },
+        select: { id: true, category: true },
+      })
+    ).map((m) => [m.id, m.category]),
+  );
+  const expectCat: [string, string | null][] = [
+    [ids.birth, "BIRTH"],
+    [ids.elem, "ELEMENTARY"],
+    [ids.military, "MILITARY"],
+    [ids.custom, null],
+    [ids.elemP, null],
+    [ids.milP, null],
+  ];
+  check(
+    "category 매핑 — 출생 BIRTH·국민학교 ELEMENTARY·군 MILITARY / CUSTOM·구간 행 null(행·DB 동일)",
+    expectCat.every(([id, c]) => byId1.get(id)?.category === c && catDb1.get(id) === c),
+    expectCat.map(([id]) => [id, byId1.get(id)?.category, catDb1.get(id)]),
+  );
+  // 이 변경 전에 만들어진 행(category null)도 다음 동기화 때 채워진다.
+  await prisma.userMemory.update({ where: { id: ids.birth }, data: { category: null } });
+  await syncV3Bridge(userId);
+  check(
+    "category 없던 기존 행 → 재동기화로 BIRTH 채움",
+    (await prisma.userMemory.findUnique({ where: { id: ids.birth }, select: { category: true } }))?.category === "BIRTH",
+  );
 
   const cand = (eventId: string, suggestedType: "node" | "memo"): PosterCandidate => ({
     eventId, year: null, title: "", suggestedType, gist: "", priority: 3, recommended: true,
@@ -462,7 +491,7 @@ async function scenario(userId: string) {
     ...(await getLifeEvents(userId))
       .filter((e) => e.kind === "life_event")
       .map((e) => ({ eventId: e.id, year: e.eventYear, title: e.title, content: e.content, category: e.category })),
-    ...bridgeNow.map((b) => ({ eventId: b.id, year: b.year, title: b.title, content: b.content, category: null })),
+    ...bridgeNow.map((b) => ({ eventId: b.id, year: b.year, title: b.title, content: b.content, category: b.category })),
   ].sort((a, b) => (a.year ?? 0) - (b.year ?? 0));
   const [cand1, p1First] = await calls(() => getPosterCandidates(userId, candInputs));
   const [cand2, p1Second] = await calls(() => getPosterCandidates(userId, candInputs));
@@ -931,8 +960,8 @@ async function main() {
       failed += 1;
     }
   }
-  console.log(failed === 0 && count === 36 ? "\nALL PASS (36)" : `\n${failed} FAILED / ${count} 항목`);
-  process.exitCode = failed === 0 && count === 36 ? 0 : 1;
+  console.log(failed === 0 && count === 38 ? "\nALL PASS (38)" : `\n${failed} FAILED / ${count} 항목`);
+  process.exitCode = failed === 0 && count === 38 ? 0 : 1;
 }
 
 main()

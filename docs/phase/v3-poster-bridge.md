@@ -18,6 +18,7 @@ v3 트랙 가입자의 인생 사건은 `LifeEvent`·`Episode` 에 있고 life_e
 | 대상 | CONFIRMED/CORRECTED 만, year null 제외(placeholder 연도 금지), BIRTH 행 생성 |
 | 행 구성 | LifeEvent 당 1행, Episode 본문 병합(구간 이야기 `isPeriod=true` 는 제외). 인물 마커 미사용 |
 | 구간 이야기 (2026-10-24 변경) | 구간 Episode 마다 별도 행 — 제목 = Episode 제목, 본문 = Episode 본문(실질 내용 있는 것만). 정렬 연도 = 앵커 사건 연도, 포스터 "연도 표시"를 켜도 연도 미표시. 기본 memo 후보(node 선택 허용). 앵커가 대상에서 빠지면 같이 제외. 편집 차단·가드·가족 룸 제외·탈퇴 집계 제외는 v3_bridge 규칙 그대로 |
+| category (2026-10-25) | 앵커 행 = 사건 유형 → 기존 `LifeCategory` 값(BIRTH→BIRTH·ELEM_SCHOOL→ELEMENTARY·MIDDLE_SCHOOL→MIDDLE·HIGH_SCHOOL→HIGH·UNIVERSITY→UNIVERSITY·MILITARY→MILITARY·FIRST_JOB→WORK·MARRIAGE→RELATIONSHIP). CUSTOM·구간 행은 null. DB 행과 P1 후보 입력에 같이 들어간다 |
 | 본문 없는 사건(Episode 기준) | node 고정. P1 후보 단계 강제 + `savePosterSelections` 서버 거부 |
 | 편집 | v3_bridge 행은 `updatePosterEventText` 차단, "원본 채팅에서 고쳐주세요" 안내. 본문 없는 행은 "채팅에서 확인하신 사건이라 여기서는 고칠 수 없어요."(2026-10-24 분기, 문구는 `select-constants.ts` 에서 서버·화면 공용) |
 | 소유권 가드 | 4곳 화이트리스트에 v3_bridge 추가 |
@@ -108,6 +109,7 @@ v3 트랙 가입자의 인생 사건은 `LifeEvent`·`Episode` 에 있고 life_e
 | 2026-10-24 | P3 메모 길이 안정화 — 프롬프트 목표 50자(서버 검증 60자 유지) + 60자 초과로 거부된 메모 필드만 같은 로드에서 1회 재요청(그 항목만, 또 넘으면 기본값·미저장) + 빠진 주어는 원문 주어 표현을 원래 말 그대로 붙여도 됨(그 밖 덧붙임 금지) / `P3_PROMPT_VERSION` 3→4 | Claude Code(선택지 가+나), 리뷰 채팅(주어 보존) | 성민 |
 | 2026-10-24 | P3 메모 지칭 치환 — 대명사·지칭이 원문에서 밝힌 사람·장소·시기를 가리키면 원문 표현으로 반드시 바꿈(원문에 없는 표현·설명 금지), 주어 허용 규칙과 한 줄로 정리 / `P3_PROMPT_VERSION` 4→5 | Claude Code(보고), 리뷰 채팅(의무화) | 성민 |
 | 2026-10-24 | 위 세부 — 재요청에 "앞서 받은 메모가 60자를 넘었다, 50자 이내로 한 문장(구절)만" 한 줄 추가(실측: 같은 프롬프트 재요청은 61·62자 그대로 4/4 실패 → 한 줄 추가 후 4/4 저장) | Claude Code | 성민 |
+| 2026-10-25 | 브릿지 행 category 매핑 — 사건 유형 → 기존 `LifeCategory` 값만(위 표), 맞는 값이 없으면 null(CUSTOM). 구간 행("~ 이후")은 그 사건 자체가 아니라 null. P1 후보 입력에 category 가 들어가 입력 해시가 바뀌므로 배포 후 기존 후보 캐시가 1회 재생성되는 것은 정상(사건이 그대로면 그다음부터 캐시). 기존 행(category null)은 다음 동기화 때 채워짐 | 성민 | 성민 |
 
 ## 작업
 
@@ -122,3 +124,4 @@ v3 트랙 가입자의 인생 사건은 `LifeEvent`·`Episode` 에 있고 life_e
 - [x] P3 메모 60자 상한(프롬프트 v3·60자 이내 원문은 코드가 그대로·초과 응답 미저장·필드별 판정) + 회귀 2항목 추가(총 34항목)
 - [x] P3 메모 길이 안정화(프롬프트 v4·목표 50자·거부 메모 1회 재요청·주어 보존 허용) + 회귀 2항목 추가·1항목 갱신(총 36항목)
 - [x] P3 메모 지칭 치환(프롬프트 v5·재요청 "넘었다" 한 줄) + 회귀 30·36번 갱신(총 36항목)
+- [x] 브릿지 행 category 매핑(사건 유형 → 기존 LifeCategory, CUSTOM·구간 행 null) + 회귀 2항목 추가(총 38항목)
