@@ -60,9 +60,11 @@ import {
 import type { Gap } from "@/lib/gap-detector";
 import type { LifeEventType } from "@/lib/generated/prisma/enums";
 import { buildPersonAddress, buildPersonLabel } from "@/lib/person-honorific";
+import { buildEpisodeOpeningPrompt, schoolPhaseName } from "@/lib/episode-opening";
 import {
   buildResumeAnnouncement,
   EPISODE_CLOSINGS,
+  isAskingQuestion,
   isEpisodeDoneIntent,
   isExitIntent,
   lastNonResumeAssistantText,
@@ -93,13 +95,6 @@ const EPISODE_MAX_FOLLOWUPS = 2;
 // 종료 의사 키워드(EXIT_PHRASES/EPISODE_DONE_PHRASES)와 판정·분리 함수는
 // P14-1 에서 순수 모듈 lib/episode-text.ts 로 옮겼다(서버 액션·검증
 // 스크립트와 공유).
-
-// P10-2 — capped(강제 마감) 응답이 프롬프트 지시("새 질문 대신 마무리 말을")
-// 를 어기고 질문으로 끝나는지 판단하는 가벼운 휴리스틱. 이 앱의 질문형
-// 문구는 전부 "?"로 끝난다(전각 물음표 포함).
-function isAskingQuestion(text: string): boolean {
-  return /[?？]\s*$/.test(text.trim());
-}
 
 const OPEN_GREETING = "하고 싶은 이야기 있으세요?";
 
@@ -186,40 +181,6 @@ function clearDeepLinkConsumed(): void {
     sessionStorage.removeItem(DEEP_LINK_CONSUMED_KEY);
   } catch {
     // no-op
-  }
-}
-
-// P4-1 — 에피소드 대화 오프닝 질문. 예전엔 내부 골격 라벨을 그대로
-// 노출했다(예: "1963년 출생, 이때 기억나는 거 있으세요?"). 이벤트 종류별로
-// 자연스러운 질문을 만든다. 학령기 라벨은 " 입학" 접미사를 떼어(예:
-// "국민학교 입학" → "국민학교") 개칭 이력(getElemSchoolLabel)이 반영된
-// 정확한 학제 명칭을 그대로 살린다.
-function schoolPhaseName(label: string, fallback: string): string {
-  const stripped = label.replace(/\s*입학$/, "").trim();
-  return stripped || fallback;
-}
-
-function buildEpisodeOpeningPrompt(type: LifeEventType, label: string): string {
-  switch (type) {
-    case "BIRTH":
-      return "태어나서 자란 동네는 어떤 곳이었어요?";
-    case "ELEM_SCHOOL":
-      return `${schoolPhaseName(label, "학교")} 다닐 때 기억나는 일 있으세요?`;
-    case "MIDDLE_SCHOOL":
-      return `${schoolPhaseName(label, "중학교")} 다닐 때 기억나는 일 있으세요?`;
-    case "HIGH_SCHOOL":
-      return `${schoolPhaseName(label, "고등학교")} 다닐 때 기억나는 일 있으세요?`;
-    case "UNIVERSITY":
-      return `${schoolPhaseName(label, "대학교")} 다닐 때 기억나는 일 있으세요?`;
-    case "MILITARY":
-      return "군대에서 기억나는 일 있으세요?";
-    case "FIRST_JOB":
-      return "처음 일하셨을 때 기억나는 일 있으세요?";
-    case "MARRIAGE":
-      return "결혼하실 때 기억나는 일 있으세요?";
-    case "CUSTOM":
-    default:
-      return `${label}, 이때 기억나는 거 있으세요?`;
   }
 }
 

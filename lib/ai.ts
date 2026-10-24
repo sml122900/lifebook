@@ -9,9 +9,31 @@
 // 기본 모델: claude-haiku-4-5 — 사건별 대화 루프에 충분히 빠르고 저렴하며,
 // 한국어 가이드 질문 품질도 무난. 호출자가 호출마다 덮어쓸 수 있다.
 
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import Anthropic from "@anthropic-ai/sdk";
 
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+
+// 오늘의 인터뷰 — 문항별 AI 사용량 기록. trackAiUsage(usage, fn) 안에서 일어난
+// chat() 호출이 usage 에 합산된다(호출부·기존 서버 액션 시그니처 무변). 바깥에선
+// 아무 일도 안 한다.
+export type AiUsage = {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  model: string | null;
+};
+
+const usageStore = new AsyncLocalStorage<AiUsage>();
+
+export function newAiUsage(): AiUsage {
+  return { calls: 0, inputTokens: 0, outputTokens: 0, model: null };
+}
+
+export function trackAiUsage<T>(usage: AiUsage, fn: () => Promise<T>): Promise<T> {
+  return usageStore.run(usage, fn);
+}
 
 // Opus 4.x (reasoning 모델) 은 temperature 파라미터를 거부한다
 // ("temperature is deprecated for this model"). 4.7·4.8 모두 해당 — opus-4
@@ -84,6 +106,14 @@ export async function chat(
     console.log(
       `[ai] model=${res.model} in=${res.usage.input_tokens} out=${res.usage.output_tokens} total=${res.usage.input_tokens + res.usage.output_tokens}`,
     );
+  }
+
+  const tracked = usageStore.getStore();
+  if (tracked) {
+    tracked.calls += 1;
+    tracked.inputTokens += res.usage.input_tokens;
+    tracked.outputTokens += res.usage.output_tokens;
+    tracked.model = res.model;
   }
 
   // SDK 는 content[] union 을 돌려준다. 우리 프롬프트는 항상 평문만

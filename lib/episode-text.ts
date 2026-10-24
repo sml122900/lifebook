@@ -36,6 +36,14 @@ function hasAny(text: string, phrases: string[]): boolean {
   return phrases.some((p) => normalized.includes(p));
 }
 
+// P10-2 — capped(강제 마감) 응답이 프롬프트 지시("새 질문 대신 마무리 말을")
+// 를 어기고 질문으로 끝나는지 판단하는 가벼운 휴리스틱. 이 앱의 질문형
+// 문구는 전부 "?"로 끝난다(전각 물음표 포함). (2026-10-25 ChatV3Client 에서
+// 옮김 — 오늘의 인터뷰와 공유.)
+export function isAskingQuestion(text: string): boolean {
+  return /[?？]\s*$/.test(text.trim());
+}
+
 export function isExitIntent(text: string): boolean {
   return hasAny(text, EXIT_PHRASES);
 }
