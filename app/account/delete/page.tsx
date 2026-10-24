@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { CREATED_VIA_V3_BRIDGE } from "@/lib/poster/v3-bridge";
 
 import { WithdrawForm } from "./WithdrawForm";
 
@@ -18,7 +19,8 @@ export default async function AccountDeletePage() {
   // 탈퇴 시 영향을 받는 데이터 카운트 — 사용자가 무엇이 사라지는지 직접 확인.
   const [memoryCount, ownedRooms, sharedMemoryCount, paidOrderCount] =
     await Promise.all([
-      prisma.userMemory.count({ where: { userId } }),
+      // v3_bridge 는 포스터용 사본(원본은 v3 대화)이라 "기록" 수에서 뺀다.
+      prisma.userMemory.count({ where: { userId, createdVia: { not: CREATED_VIA_V3_BRIDGE } } }),
       prisma.sharedRoom.findMany({
         where: { ownerId: userId },
         select: {

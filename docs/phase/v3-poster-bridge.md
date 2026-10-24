@@ -35,7 +35,7 @@ v3 트랙 가입자의 인생 사건은 `LifeEvent`·`Episode` 에 있고 life_e
 
 - `getBirthYear` 무수정이라 v3 전용 사용자의 시대 대사건 기준 연도는 "선택한 노드 중 가장 이른 연도"로 잡힌다(출생 노드를 고르면 출생 연도).
 - 저장 후 Episode 가 지워져 본문이 없어진 사건이 이미 memo 로 저장돼 있으면, 다음에 `/poster/select` 를 열 때 node 로 바꿔 보여 주지만 그전 `/poster/view` 에서는 memo 로 그려질 수 있다.
-- 탈퇴 안내 화면의 "기록 N개" 숫자(`app/account/delete/page.tsx`)에 브릿지 행도 포함된다.
+- ~~탈퇴 안내 화면의 "기록 N개" 숫자(`app/account/delete/page.tsx`)에 브릿지 행도 포함된다.~~ → 2026-10-24 후속에서 v3_bridge 제외.
 
 ## 결정 로그
 
