@@ -23,7 +23,7 @@ export function TimelineRow({ item }: { item: TimelineItem }) {
         <span className="text-lg text-ink">{itemLabel}</span>
         <div className="flex shrink-0 items-center gap-3">
           {item.hasEpisode && (
-            <span className="rounded-full bg-banner px-3 py-1 text-base text-ink-soft">
+            <span className="rounded-full bg-banner px-3 py-1 text-lg text-ink-soft">
               이야기 있음
             </span>
           )}
@@ -39,7 +39,7 @@ export function TimelineRow({ item }: { item: TimelineItem }) {
         </div>
       </div>
       {item.people.length > 0 && (
-        <p className="text-base text-ink-soft">
+        <p className="text-lg text-ink-soft">
           👤 {item.people.map((p) => p.name).join(", ")}
         </p>
       )}

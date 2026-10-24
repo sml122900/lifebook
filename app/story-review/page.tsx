@@ -134,7 +134,7 @@ export default async function StoryReviewPage() {
                   <div className="flex items-center gap-2">
                     <p className="text-lg text-ink">{gap.cardLabel}</p>
                     {inProgress && (
-                      <span className="shrink-0 rounded-full bg-banner px-3 py-1 text-base text-action">
+                      <span className="shrink-0 rounded-full bg-banner px-3 py-1 text-lg text-action">
                         진행 중
                       </span>
                     )}
@@ -142,7 +142,7 @@ export default async function StoryReviewPage() {
                   <ButtonLink
                     href={gapHref(gap)}
                     variant="secondary"
-                    size="md"
+                    size="lg"
                     className="shrink-0"
                   >
                     {inProgress ? "이어서 이야기하기" : "이야기하기"}

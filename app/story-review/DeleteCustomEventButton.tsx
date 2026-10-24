@@ -70,7 +70,7 @@ export function DeleteCustomEventButton({
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`${eventLabel} 지우기`}
-        className={buttonClasses("destructive", "md", "shrink-0")}
+        className={buttonClasses("destructive", "lg", "shrink-0")}
       >
         지우기
       </button>
@@ -93,12 +93,12 @@ export function DeleteCustomEventButton({
             <p className="mt-3 text-lg text-ink">
               <b>{eventLabel}</b>
             </p>
-            <p className="mt-2 text-base text-ink-soft">지우면 되돌릴 수 없어요.</p>
+            <p className="mt-2 text-lg text-ink-soft">지우면 되돌릴 수 없어요.</p>
 
             {error && (
               <p
                 role="alert"
-                className="mt-3 rounded-md border-2 border-line bg-canvas px-3 py-2 text-base text-danger"
+                className="mt-3 rounded-md border-2 border-line bg-canvas px-3 py-2 text-lg text-danger"
               >
                 {error}
               </p>
@@ -110,7 +110,7 @@ export function DeleteCustomEventButton({
                 onClick={() => setOpen(false)}
                 disabled={isPending}
                 autoFocus
-                className={buttonClasses("tertiary", "md")}
+                className={buttonClasses("tertiary", "lg")}
               >
                 취소
               </button>
@@ -118,7 +118,7 @@ export function DeleteCustomEventButton({
                 type="button"
                 onClick={handleConfirm}
                 disabled={isPending}
-                className={buttonClasses("destructive", "md")}
+                className={buttonClasses("destructive", "lg")}
               >
                 {isPending ? "지우는 중…" : "지우기"}
               </button>

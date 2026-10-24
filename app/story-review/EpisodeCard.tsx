@@ -125,7 +125,7 @@ export function EpisodeCard({
             disabled={isPending}
           />
           {error && (
-            <p role="alert" className="text-base text-danger">
+            <p role="alert" className="text-lg text-danger">
               {error}
             </p>
           )}
@@ -138,7 +138,7 @@ export function EpisodeCard({
                 setError(null);
               }}
               disabled={isPending}
-              className={buttonClasses("tertiary", "md")}
+              className={buttonClasses("tertiary", "lg")}
             >
               취소
             </button>
@@ -146,7 +146,7 @@ export function EpisodeCard({
               type="button"
               onClick={handleSave}
               disabled={isPending || !draft.trim()}
-              className={buttonClasses("primary", "md")}
+              className={buttonClasses("primary", "lg")}
             >
               {isPending ? "저장 중…" : "저장"}
             </button>
@@ -159,14 +159,14 @@ export function EpisodeCard({
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className={buttonClasses("secondary", "md")}
+              className={buttonClasses("secondary", "lg")}
             >
               고치기
             </button>
             <button
               type="button"
               onClick={() => setConfirmOpen(true)}
-              className={buttonClasses("destructive", "md")}
+              className={buttonClasses("destructive", "lg")}
             >
               지우기
             </button>
@@ -192,9 +192,9 @@ export function EpisodeCard({
             <p className="mt-3 text-lg text-ink">
               <b>{titleLine}</b>
             </p>
-            <p className="mt-2 text-base text-ink-soft">지우면 되돌릴 수 없어요.</p>
+            <p className="mt-2 text-lg text-ink-soft">지우면 되돌릴 수 없어요.</p>
             {familyActivityCount > 0 && (
-              <p className="mt-2 text-base text-ink-soft">
+              <p className="mt-2 text-lg text-ink-soft">
                 가족이 남긴 댓글·반응 {familyActivityCount}개도 함께 지워져요.
               </p>
             )}
@@ -202,7 +202,7 @@ export function EpisodeCard({
             {error && (
               <p
                 role="alert"
-                className="mt-3 rounded-md border-2 border-line bg-canvas px-3 py-2 text-base text-danger"
+                className="mt-3 rounded-md border-2 border-line bg-canvas px-3 py-2 text-lg text-danger"
               >
                 {error}
               </p>
@@ -214,7 +214,7 @@ export function EpisodeCard({
                 onClick={() => setConfirmOpen(false)}
                 disabled={isPending}
                 autoFocus
-                className={buttonClasses("tertiary", "md")}
+                className={buttonClasses("tertiary", "lg")}
               >
                 취소
               </button>
@@ -222,7 +222,7 @@ export function EpisodeCard({
                 type="button"
                 onClick={handleDelete}
                 disabled={isPending}
-                className={buttonClasses("destructive", "md")}
+                className={buttonClasses("destructive", "lg")}
               >
                 {isPending ? "지우는 중…" : "지우기"}
               </button>
