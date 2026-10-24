@@ -4,6 +4,9 @@ import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
 import { getPendingChatContext, type PendingChatContext } from "@/lib/chat-v3-pending";
 import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
+import { INTERVIEW_COPY } from "@/lib/interview/copy";
+import { isInterviewUser } from "@/lib/interview/gate";
+import { getInterviewCardState, type InterviewCardState } from "@/lib/interview/session";
 import { getOnboardingTrack } from "@/lib/onboarding-track";
 import { getStoryReviewData } from "@/lib/story-review";
 
@@ -64,10 +67,12 @@ export default async function StoryReviewPage() {
     redirect("/enter");
   }
 
-  const [{ timeline, episodes }, gaps, pending] = await Promise.all([
+  // 오늘의 인터뷰 — 허용 목록(INTERVIEW_ALLOWED_USER_IDS) 밖이면 조회도 카드도 없음.
+  const [{ timeline, episodes }, gaps, pending, interviewCard] = await Promise.all([
     getStoryReviewData(userId),
     detectGaps(userId),
     getPendingChatContext(userId),
+    isInterviewUser(userId) ? getInterviewCardState(userId) : Promise.resolve(null),
   ]);
   // P7-8 — 단순 slice(0,3) 는 한 타입(person/person_episode 등)이 수가
   // 많으면 다른 타입(특히 time_gap)을 화면에서 영영 안 보이게 가릴 수
@@ -82,6 +87,8 @@ export default async function StoryReviewPage() {
           채워진 인생 이야기를 한눈에 보여드릴게요.
         </p>
       </header>
+
+      {interviewCard && <InterviewCard state={interviewCard} />}
 
       <section className="flex flex-col gap-4">
         <h2 className="text-2xl font-bold text-ink">타임라인</h2>
@@ -152,5 +159,24 @@ export default async function StoryReviewPage() {
         계속 이야기하기
       </ButtonLink>
     </main>
+  );
+}
+
+function InterviewCard({ state }: { state: InterviewCardState }) {
+  const C = INTERVIEW_COPY;
+  const [desc, button] =
+    state.kind === "before"
+      ? [C.cardBefore, C.cardButtonStart]
+      : state.kind === "progress"
+        ? [C.cardInProgress(state.done, state.total), C.cardButtonContinue]
+        : [C.cardDone, C.cardButtonDone];
+  return (
+    <section className="flex flex-col gap-4 rounded-md border-2 border-brand bg-banner p-5">
+      <h2 className="text-2xl font-bold text-ink">{C.cardTitle}</h2>
+      <p className="text-lg text-ink">{desc}</p>
+      <ButtonLink href="/interview" variant="secondary" size="lg">
+        {button}
+      </ButtonLink>
+    </section>
   );
 }
