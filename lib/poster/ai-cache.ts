@@ -9,8 +9,8 @@
 //   쓰려고 네임스페이스 키로 재사용(2026-10-24 결정).
 // - 미리보기 보관함: Poster.design.previewSentences. 선택 화면 "문장 미리보기"가 아직
 //   선택에 없는 항목의 문장을 여기 두고, 선택 저장 때 selections 로 옮겨 붙인다.
-// 해시는 AI 에 들어가는 입력 전부를 묶는다(P3 = 제목·본문·연도 + 유형·템플릿,
-// P1 = id·제목·본문·연도·카테고리). 하나라도 바뀌면 다시 생성.
+// 해시는 AI 에 들어가는 입력 전부를 묶는다(P3 = 제목·본문·연도 + 유형·템플릿 + 프롬프트
+// 버전, P1 = id·제목·본문·연도·카테고리). 하나라도 바뀌면 다시 생성.
 
 import { createHash } from "node:crypto";
 
@@ -22,7 +22,7 @@ import {
   type PosterCandidate,
   type PosterCandidateInput,
 } from "./poster-candidates";
-import type { PosterEventInput } from "./poster-sentences";
+import { P3_PROMPT_VERSION, type PosterEventInput } from "./poster-sentences";
 
 function sha256(parts: unknown): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
@@ -33,7 +33,7 @@ export function sentenceSourceHash(
   type: "node" | "memo",
   template: string | null,
 ): string {
-  return sha256([input.title, input.content, input.year, type, template]);
+  return sha256([input.title, input.content, input.year, type, template, P3_PROMPT_VERSION]);
 }
 
 function candidateInputHash(inputs: PosterCandidateInput[]): string {

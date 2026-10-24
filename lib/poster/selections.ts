@@ -13,6 +13,7 @@ import {
 } from "./overrides";
 import {
   BODILESS_MEMO_MESSAGE,
+  BRIDGE_BODILESS_EDIT_BLOCKED_MESSAGE,
   BRIDGE_EDIT_BLOCKED_MESSAGE,
   MAX_MEMO_ITEMS,
   type PosterSelectionItem,
@@ -186,7 +187,10 @@ export async function editPosterEventText(
   });
   if (!current) return { ok: false, error: "사건을 찾을 수 없어요." };
   if (current.createdVia === CREATED_VIA_V3_BRIDGE) {
-    return { ok: false, error: BRIDGE_EDIT_BLOCKED_MESSAGE };
+    return {
+      ok: false,
+      error: current.content?.trim() ? BRIDGE_EDIT_BLOCKED_MESSAGE : BRIDGE_BODILESS_EDIT_BLOCKED_MESSAGE,
+    };
   }
   const contentChanged = (current.content ?? null) !== trimmedContent;
 

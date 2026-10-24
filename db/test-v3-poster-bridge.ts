@@ -1,10 +1,10 @@
-// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(29항목). 설계: docs/phase/v3-poster-bridge.md
+// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(32항목). 설계: docs/phase/v3-poster-bridge.md
 // 실행: npx tsx db/test-v3-poster-bridge.ts
 //
 // 자체 픽스처 계정(fixture-bridge@lifebook.invalid)을 시작 시 만들고 끝에
 // (성공·실패 모두) 하위 데이터째 삭제한다. test30 등 다른 계정 접촉 0.
 // 외부 AI 호출(Sonnet)은 4회 — "연도 표시" 항목의 P3 1회, AI 문장 고정 항목의 P1 1회·P3 2회.
-// 후속 항목(P3 응답 항목 누락·선택 화면 미리보기)은 fetch 스텁이 응답한다(실제 호출 0).
+// 후속 항목(P3 응답 항목 누락·선택 화면 미리보기·프롬프트 버전)은 fetch 스텁이 응답한다(실제 호출 0).
 // 나머지는 loadPosterEditor(auth 필요) 대신 그 안의 동기화·규칙·가드·캐시 함수를 직접
 // 호출. AI 호출 수는 lib/ai.ts chat() 이 개발 모드에서 남기는 "[ai] model=" 로그로 센다.
 // 사진 정리 경로는 Storage 에 없는 경로로 remove 를 부른다(없는 경로는 Supabase 가
@@ -12,6 +12,8 @@
 // 지운다(끝에서 행 0 확인).
 
 import "dotenv/config";
+
+import { createHash } from "node:crypto";
 
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
@@ -21,9 +23,10 @@ import { createEpisodeBridge } from "../lib/episode";
 import { getLifeEvents } from "../lib/life-events";
 import { deleteCustomLifeEvent } from "../lib/life-event-delete";
 import { createRoom, listRoomMemories } from "../lib/rooms";
-import { getPosterCandidates } from "../lib/poster/ai-cache";
+import { getPosterCandidates, sentenceSourceHash } from "../lib/poster/ai-cache";
 import type { PosterSelectionFull } from "../lib/poster/overrides";
 import type { PosterCandidate } from "../lib/poster/poster-candidates";
+import { BRIDGE_BODILESS_EDIT_BLOCKED_MESSAGE, BRIDGE_EDIT_BLOCKED_MESSAGE } from "../lib/poster/select-constants";
 import { editPosterEventText, persistPosterOverrides, persistPosterSelections } from "../lib/poster/selections";
 import {
   buildPosterSnapshot,
@@ -673,6 +676,94 @@ async function scenario(userId: string) {
       newPrev1Calls === 1 && newPrev2Calls === 0 && textOf(newPrev2) === textOf(newPrev1),
     { stalePrev1, stalePrev2, stalePrev2Calls, newPrev1, newPrev2, newPrev2Calls },
   );
+
+  // ══ P3 프롬프트 버전(2 = 원문 보존) — 버전 상수가 없던 변경 전 공식으로 저장된 문장은 해시가
+  //    안 맞아 다시 만든다(시안·미리보기 보관함 둘 다). AI 응답은 스텁.
+  //    지금 selections = birth(node)·elem(node)·elemP(memo)·life(node, 직접 고친 문구)·life2(memo).
+  type Src = { title: string; content: string | null; year: number };
+  const v1Hash = (i: Src, type: "node" | "memo", tpl: string | null) =>
+    createHash("sha256").update(JSON.stringify([i.title, i.content, i.year, type, tpl])).digest("hex");
+  const sources = new Map<string, Src>([
+    ...(await getLifeEvents(userId))
+      .filter((e) => e.kind === "life_event")
+      .map((e) => [e.id, { title: e.title, content: e.content, year: e.eventYear }] as const),
+    ...(await syncV3Bridge(userId)).map((b) => [b.id, { title: b.title, content: b.content, year: b.year }] as const),
+  ]);
+  const posterRow = await prisma.poster.findUnique({ where: { userId }, select: { template: true, design: true } });
+  const tpl = posterRow?.template ?? null;
+  const [, view7Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge")); // 지금은 전부 최신 → AI 0
+  const freshSels = await sels();
+  const lifeSrc = sources.get(life.id)!;
+  await prisma.poster.update({
+    where: { userId },
+    data: {
+      selections: JSON.parse(
+        JSON.stringify(freshSels.map((x) => ({ ...x, sourceHash: v1Hash(sources.get(x.eventId)!, x.type, tpl) }))),
+      ),
+      design: {
+        ...((posterRow?.design ?? {}) as Record<string, unknown>),
+        previewSentences: {
+          [`${life.id}:memo`]: {
+            generatedText: "변경 전 보관 문장",
+            sourceHash: v1Hash(lifeSrc, "memo", tpl),
+            generatedAt: new Date().toISOString(),
+          },
+        },
+      },
+    },
+  });
+  stubReply = `[${freshSels.map((_, i) => stubItem(`버전2 ${i}`)).join(",")}]`;
+  const [view8, view8Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  const view8Events = lastPromptEvents();
+  const afterVer = await sels();
+  stubReply = `[${stubItem("버전2 보관")}]`;
+  const [verPrev, verPrevCalls] = await calls(() => buildPreviewSentence(userId, life.id, "memo"));
+  stubReply = null;
+  const heldVer = ((await prisma.poster.findUnique({ where: { userId }, select: { design: true } }))?.design as {
+    previewSentences?: Record<string, { generatedText?: string; sourceHash?: string }>;
+  } | null)?.previewSentences?.[`${life.id}:memo`];
+  check(
+    "★ P3 프롬프트 버전 변경 → 변경 전 해시로 저장된 문장 전부 재생성(시안 AI 1회·전 항목 요청), 미리보기 보관함 문장도 무효 → 다시 생성",
+    view7Calls === 0 && view8Calls === 1 && view8Events === freshSels.length &&
+      afterVer.length === freshSels.length &&
+      afterVer.every((x, i) => {
+        const src = sources.get(x.eventId)!;
+        return x.sourceHash === sentenceSourceHash(src, x.type, tpl) &&
+          x.sourceHash !== v1Hash(src, x.type, tpl) &&
+          x.generatedText === (x.type === "node" ? `버전2 ${i}` : `버전2 ${i} 메모`);
+      }) &&
+      verPrevCalls === 1 && textOf(verPrev) === "버전2 보관 메모" &&
+      heldVer?.sourceHash === sentenceSourceHash(lifeSrc, "memo", tpl),
+    { view7Calls, view8Calls, view8Events, afterVer, verPrev, verPrevCalls, heldVer },
+  );
+
+  // ── override 유지 — 재생성 뒤에도 직접 고친 문구 그대로(렌더러가 이 문구를 그림), 주문 통과·스냅샷에도 그 문구
+  const [order3, order3Calls] = await calls(() =>
+    createPendingPosterOrder(userId, "[fixture] bridge", "standard", SHIP, "card"),
+  );
+  if (order3.ok) createdOrderIds.push(order3.order.orderId);
+  const order3Life = order3.ok
+    ? (await orderSnapshot(order3.order.orderId))?.nodes.find((n) => n.eventId === life.id)
+    : undefined;
+  check(
+    "★ override 유지 — 버전 재생성 뒤에도 직접 고친 문구 그대로(selections·시안·주문 스냅샷), 주문 통과(AI 0)",
+    selOf(afterVer, life.id)?.override?.textOverride === "내가 고친 제목" &&
+      view8?.nodes.find((n) => n.eventId === life.id)?.override?.textOverride === "내가 고친 제목" &&
+      order3.ok && order3Calls === 0 && order3Life?.override?.textOverride === "내가 고친 제목",
+    { life: selOf(afterVer, life.id), order3, order3Calls, order3Life },
+  );
+
+  // ── 편집 차단 문구 분기 — 본문 없는 브릿지 행 / 본문 있는 브릿지 행(앵커·구간)
+  const bodilessEdit = await editPosterEventText(userId, ids.birth, "바꾼 제목", null);
+  const bodiedEdit = await editPosterEventText(userId, ids.elem, "바꾼 제목", "바꾼 내용");
+  const periodEdit = await editPosterEventText(userId, ids.elemP, "바꾼 제목", "바꾼 내용");
+  check(
+    "편집 차단 문구 분기 — 본문 없는 브릿지 행은 \"채팅에서 확인하신 사건이라…\", 본문 있는 행(앵커·구간)은 기존 \"…원본 채팅에서 고쳐주세요.\"",
+    !bodilessEdit.ok && bodilessEdit.error === BRIDGE_BODILESS_EDIT_BLOCKED_MESSAGE &&
+      !bodiedEdit.ok && bodiedEdit.error === BRIDGE_EDIT_BLOCKED_MESSAGE &&
+      !periodEdit.ok && periodEdit.error === BRIDGE_EDIT_BLOCKED_MESSAGE,
+    { bodilessEdit, bodiedEdit, periodEdit },
+  );
 }
 
 async function main() {
@@ -719,8 +810,8 @@ async function main() {
       failed += 1;
     }
   }
-  console.log(failed === 0 && count === 29 ? "\nALL PASS (29)" : `\n${failed} FAILED / ${count} 항목`);
-  process.exitCode = failed === 0 && count === 29 ? 0 : 1;
+  console.log(failed === 0 && count === 32 ? "\nALL PASS (32)" : `\n${failed} FAILED / ${count} 항목`);
+  process.exitCode = failed === 0 && count === 32 ? 0 : 1;
 }
 
 main()

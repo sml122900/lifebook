@@ -21,6 +21,7 @@ import {
 } from "./actions";
 import {
   BODILESS_MEMO_MESSAGE,
+  BRIDGE_BODILESS_EDIT_BLOCKED_MESSAGE,
   BRIDGE_EDIT_BLOCKED_MESSAGE,
   MAX_MEMO_ITEMS,
   type PosterSelectionItem,
@@ -290,7 +291,7 @@ function CandidateCard({
       {/* v3 브릿지 행 — 편집 폼 대신 차단 안내(서버 가드와 같은 문구) */}
       {editBlocked && (
         <p role="status" className="mt-3 rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink-soft">
-          {BRIDGE_EDIT_BLOCKED_MESSAGE}
+          {bodiless ? BRIDGE_BODILESS_EDIT_BLOCKED_MESSAGE : BRIDGE_EDIT_BLOCKED_MESSAGE}
         </p>
       )}
 
