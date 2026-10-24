@@ -1,6 +1,7 @@
 // 오늘의 인터뷰 1차 회귀(docs/phase/today-interview.md). 실행: npx tsx db/test-interview.ts
 //
-//   ① 게이트 — 판정 로직(env 를 바꿔 가며) + 배선 정적 검사(layout·page·액션 첫 줄·진입 카드)
+//   ① 접근 — 로그인 V3 전원(허용 목록 게이트 없음). 정적 검사: 액션 첫 줄 비로그인 throw·page 분기·
+//      진입 카드 항상 표시·게이트 잔재 0·proxy 무접촉
 //   ② 세션 생성 — 계획 고정·출처 혼합·하루 1세션(두 번 시작해도 한 벌)
 //   ③ 이어하기 — 다시 들어와도 같은 문항, 이미 본 문항이 있으면 resumed
 //   ④ 연도(실제 Sonnet 1회) — year 만 채움, status·correctedYear·unclearCount 무변, AI 사용량 기록
@@ -22,12 +23,6 @@ import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEpisodeBridge } from "../lib/episode";
-import {
-  assertInterviewUser,
-  enforceInterviewPage,
-  InterviewAccessError,
-  isInterviewUser,
-} from "../lib/interview/gate";
 import { kstDay } from "../lib/interview/keys";
 import { computeTodayPlan, isEligible, poolCandidates, type PlanHistoryRow } from "../lib/interview/plan";
 import type { InterviewPoolQuestion } from "../lib/interview/question-pool";
@@ -55,21 +50,16 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (!ok) failed += 1;
 }
 
-function throws(fn: () => unknown, match: (e: unknown) => boolean): boolean {
-  try {
-    fn();
-    return false;
-  } catch (e) {
-    return match(e);
-  }
-}
-const isNotFound = (e: unknown) => {
-  const digest = (e as { digest?: unknown } | null)?.digest;
-  return typeof digest === "string" && digest.includes("404");
-};
-
 function read(rel: string): string {
   return fs.readFileSync(path.join(ROOT, rel), "utf8");
+}
+
+function walk(dir: string): string[] {
+  if (path.basename(dir) === "generated") return [];
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+    const p = path.join(dir, d.name);
+    return d.isDirectory() ? walk(p) : /\.(ts|tsx)$/.test(d.name) ? [p] : [];
+  });
 }
 
 // "use server" 파일의 export 함수 → 첫 문장 텍스트(test-lab-gate.ts 와 같은 방식).
@@ -144,18 +134,39 @@ async function seedFixture(): Promise<{ userId: string; ev: Record<string, strin
 }
 
 function staticChecks() {
-  // ① 배선 — 화면 층·액션 층·진입 카드.
-  check("① layout.tsx 가 requireInterviewPage() 호출", /await\s+requireInterviewPage\(\)/.test(read("app/interview/layout.tsx")));
-  check("① page.tsx 가 enforceInterviewPage() 호출", /enforceInterviewPage\(/.test(read("app/interview/page.tsx")));
+  // ① 액션 비로그인 거부 — 모든 export 액션 첫 줄이 requireUserId(), 그 함수는 auth() 후 userId 없으면 throw.
+  const actionsSrc = read("app/interview/actions.ts");
   const actions = exportedFirstStatements("app/interview/actions.ts");
   check("① 서버 액션 5개 존재", actions.length === 5, actions.map((a) => a.name));
   for (const a of actions) {
-    check(`① 액션 ${a.name} 첫 줄 = requireInterviewUser()`, /^const userId = await requireInterviewUser\(\);$/.test(a.first), a.first);
+    check(`① 액션 ${a.name} 첫 줄 = requireUserId()`, /^const userId = await requireUserId\(\);$/.test(a.first), a.first);
   }
   check(
-    "① /story-review 진입 카드는 isInterviewUser 일 때만 조회·표시",
-    /isInterviewUser\(userId\)\s*\?\s*getInterviewCardState\(userId\)\s*:\s*Promise\.resolve\(null\)/.test(read("app/story-review/page.tsx")) &&
-      /\{interviewCard && <InterviewCard/.test(read("app/story-review/page.tsx")),
+    "① requireUserId = auth() 후 비로그인 throw",
+    /async function requireUserId\(\): Promise<string> \{\s*const session = await auth\(\);\s*const userId = session\?\.user\?\.id;\s*if \(!userId\) throw new Error\("Unauthorized"\);\s*return userId;\s*\}/.test(
+      actionsSrc,
+    ),
+  );
+  // ① 화면 분기는 그대로 — 비로그인 /login · V2 /enter · 재동의 /consent · 골격 미완성 /chat-v3.
+  const pageSrc = read("app/interview/page.tsx");
+  check(
+    "① page.tsx 분기(/login·/enter·/consent·/chat-v3)",
+    ["/login", "/enter", "/consent", "/chat-v3"].every((p) => pageSrc.includes(`redirect("${p}")`)),
+  );
+  const reviewSrc = read("app/story-review/page.tsx");
+  check(
+    "① /story-review 진입 카드 항상 조회·표시(조건 없음)",
+    /getPendingChatContext\(userId\),\s*getInterviewCardState\(userId\),\s*\]\)/.test(reviewSrc) &&
+      reviewSrc.includes("<InterviewCard state={interviewCard} />"),
+  );
+  const gateLeft = ["app", "lib"]
+    .flatMap((dir) => walk(path.join(ROOT, dir)))
+    .filter((file) => /INTERVIEW_ALLOWED_USER_IDS|interview\/gate|interview\/access/.test(fs.readFileSync(file, "utf8")))
+    .map((file) => path.relative(ROOT, file));
+  check(
+    "① 허용 목록 게이트 잔재 0(app·lib, layout 없음)",
+    gateLeft.length === 0 && !fs.existsSync(path.join(ROOT, "app/interview/layout.tsx")),
+    gateLeft,
   );
   check("① proxy.ts 에 /interview 언급 없음(무접촉)", !read("proxy.ts").includes("interview"));
 
@@ -168,24 +179,6 @@ function staticChecks() {
 }
 
 function pureChecks() {
-  // ① 판정 로직.
-  const saved = process.env.INTERVIEW_ALLOWED_USER_IDS;
-  try {
-    delete process.env.INTERVIEW_ALLOWED_USER_IDS;
-    check("① 미설정: 아무도 통과 못 함", !isInterviewUser("u1"));
-    check("① 미설정: 화면 층 404", throws(() => enforceInterviewPage("u1"), isNotFound));
-    process.env.INTERVIEW_ALLOWED_USER_IDS = " u1 , ,u2 ";
-    check("① 목록 안: 통과(공백·빈 항목 파싱)", isInterviewUser("u1") && isInterviewUser("u2"));
-    check("① 목록 밖: 화면 층 404", throws(() => enforceInterviewPage("stranger"), isNotFound));
-    check("① 대소문자 다르면 404(정확 일치)", throws(() => enforceInterviewPage("U1"), isNotFound));
-    check("① 비로그인(undefined) 404", throws(() => enforceInterviewPage(undefined), isNotFound));
-    check("① 목록 밖: 액션 층 InterviewAccessError", throws(() => assertInterviewUser("stranger"), (e) => e instanceof InterviewAccessError));
-    check("① 목록 안: 액션 층 통과", assertInterviewUser("u2") === "u2");
-  } finally {
-    if (saved === undefined) delete process.env.INTERVIEW_ALLOWED_USER_IDS;
-    else process.env.INTERVIEW_ALLOWED_USER_IDS = saved;
-  }
-
   // ④ 연도 해석(정규식 — AI 0회).
   const now = new Date("2026-10-25T00:00:00Z");
   check("④ '85년도요' → 1985", parseYearDeterministic("85년도요", 1960, now) === 1985);

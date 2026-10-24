@@ -1,7 +1,7 @@
 # 라이프북 — 버튼·링크 이동 지도 (Navigation Map)
 
 > 서비스의 모든 버튼/링크가 **어디로 이동하는지** 한눈에 보는 문서.
-> 작성: 2026-06-26 · 최신화: 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드) · 코드 기준 정리.
+> 작성: 2026-06-26 · 최신화: 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드, 같은 날 허용 목록 게이트 제거 — V3 전원) · 코드 기준 정리.
 > 표기: `→ /경로` 내부 이동, `↗ https://…` 외부 새 탭, `⚙ 액션` 서버액션(페이지 전환 없음/새로고침).
 
 ---
@@ -124,7 +124,7 @@
 | `/start` | V2 트랙으로 직접 진입 시 → `/enter` (자동 전환 없음) |
 | `/chat-v3` | V2 트랙으로 직접 진입 시 → `/enter` |
 | `/story-review` | V2 트랙으로 직접 진입 시 → `/enter` |
-| `/interview` | 허용 목록 밖 → 404 · V2 트랙 → `/enter` · 동의 버전 < 현재 → `/consent` · 골격 미완성·확인대기 있음 → `/chat-v3` |
+| `/interview` | 비로그인 → `/login` · V2 트랙 → `/enter` · 동의 버전 < 현재 → `/consent` · 골격 미완성·확인대기 있음 → `/chat-v3` |
 | `/onboarding-chat` (v2 파이프라인) | V3 트랙으로 직접 진입 시 → `/enter` |
 | `/life-timeline` (P20-2b) | V3 트랙으로 직접 진입 시 → `/story-review` |
 | `/life-timeline/companion` (P20-2b) | V3 트랙으로 직접 진입 시 → `/story-review` |
@@ -140,11 +140,11 @@
 |---|---|---|
 | `/start` | 시작하기 | → `/chat-v3` |
 | `/story-review` | 갭 카드 [이야기하기] | → `/chat-v3?gapEventId=…&gapType=…` |
-| `/story-review` | 오늘의 인터뷰 카드 [시작하기 / 이어서 하기 / 오늘 답 보기] (INTERVIEW_ALLOWED_USER_IDS 안일 때만 표시) | → `/interview` |
+| `/story-review` | 오늘의 인터뷰 카드 [시작하기 / 이어서 하기 / 오늘 답 보기] (항상 표시) | → `/interview` |
 | `/life-timeline` (V2) | [새 방식으로 이야기해보기] 배너 → 확인 모달 [예, 새 방식으로] | ⚙ `onboardingTrack=V3` → `/start` |
 
-### 오늘의 인터뷰 `/interview` (INTERVIEW_ALLOWED_USER_IDS, 도그푸딩 — `docs/phase/today-interview.md`)
-진입은 `/story-review` 카드뿐(사이드 패널 미노출 — 2차). 비허용 로그인 사용자는 일반 404. 한 화면 한 질문, 버튼 문구는 `lib/interview/copy.ts`(임시).
+### 오늘의 인터뷰 `/interview` (로그인한 V3 사용자 전원 — `docs/phase/today-interview.md`)
+진입은 `/story-review` 카드뿐(사이드 패널 미노출 — 2차). 한 화면 한 질문, 버튼 문구는 `lib/interview/copy.ts`(임시).
 | 화면 | 버튼 | 이동 |
 |---|---|---|
 | 시작 화면 | 시작할게요 | ⚙ 오늘 세션 생성 → 첫 문항(페이지 전환 없음) |
@@ -383,6 +383,6 @@
 | `/timeline` | → `/life-timeline` (레거시 Phase 5 타임라인 비활성, archive 스텁 — `_TimelinePageArchived` + RAG 체인 보존) |
 | `/onboarding` | → `/onboarding-chat` (레거시 위저드 온보딩 비활성, archive 스텁 — 코드 보존) |
 | `/lab/memory` 이하 | 허용 목록 밖 로그인 사용자 → 404 (`notFound()`, 리다이렉트 아님 — 존재를 드러내지 않음) |
-| `/interview` | 허용 목록(INTERVIEW_ALLOWED_USER_IDS) 밖 → 404 · V2 → `/enter` · 재동의 필요 → `/consent` · 골격 미완성 → `/chat-v3` |
+| `/interview` | 비로그인 → `/login` · V2 → `/enter` · 재동의 필요 → `/consent` · 골격 미완성 → `/chat-v3` |
 | 로그인 필요한 모든 화면 | 비로그인 시 → `/login` |
 | 동의 필요 화면 | 미동의 시 → `/consent` |

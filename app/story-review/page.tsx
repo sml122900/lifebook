@@ -5,7 +5,6 @@ import { ButtonLink } from "@/components/ui/Button";
 import { getPendingChatContext, type PendingChatContext } from "@/lib/chat-v3-pending";
 import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
 import { INTERVIEW_COPY } from "@/lib/interview/copy";
-import { isInterviewUser } from "@/lib/interview/gate";
 import { getInterviewCardState, type InterviewCardState } from "@/lib/interview/session";
 import { getOnboardingTrack } from "@/lib/onboarding-track";
 import { getStoryReviewData } from "@/lib/story-review";
@@ -67,12 +66,12 @@ export default async function StoryReviewPage() {
     redirect("/enter");
   }
 
-  // 오늘의 인터뷰 — 허용 목록(INTERVIEW_ALLOWED_USER_IDS) 밖이면 조회도 카드도 없음.
+  // 오늘의 인터뷰 진입 카드 — 오늘 기록만 1회 조회(계획 계산 없음). V3 화면이라 항상 표시.
   const [{ timeline, episodes }, gaps, pending, interviewCard] = await Promise.all([
     getStoryReviewData(userId),
     detectGaps(userId),
     getPendingChatContext(userId),
-    isInterviewUser(userId) ? getInterviewCardState(userId) : Promise.resolve(null),
+    getInterviewCardState(userId),
   ]);
   // P7-8 — 단순 slice(0,3) 는 한 타입(person/person_episode 등)이 수가
   // 많으면 다른 타입(특히 time_gap)을 화면에서 영영 안 보이게 가릴 수
@@ -88,7 +87,7 @@ export default async function StoryReviewPage() {
         </p>
       </header>
 
-      {interviewCard && <InterviewCard state={interviewCard} />}
+      <InterviewCard state={interviewCard} />
 
       <section className="flex flex-col gap-4">
         <h2 className="text-2xl font-bold text-ink">타임라인</h2>
