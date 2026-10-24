@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { POSTER_PAYMENT_LIVE_ENABLED } from "@/lib/commerce/poster-payment";
 import { HIDE_TEST_MODE_BANNER } from "@/lib/commerce/pg-review";
 import { SHIPPING_KRW, getProduct } from "@/lib/commerce/products";
-import { parseSelectionsFull } from "@/lib/poster/overrides";
+import { hasLiveSelections } from "@/lib/poster/snapshot";
 
 import { PosterOrderForm } from "./PosterOrderForm";
 
@@ -20,12 +20,13 @@ export default async function PosterOrderPage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  // 빈 포스터 주문 차단 — 선택이 있어야 주문 화면 진입.
+  // 빈 포스터 주문 차단 — 지금 존재하는 사건이 선택돼 있어야 주문 화면 진입
+  // (지워진 사건 id 만 남은 경우도 차단).
   const poster = await prisma.poster.findUnique({
     where: { userId },
     select: { selections: true },
   });
-  const hasSelections = parseSelectionsFull(poster?.selections).length > 0;
+  const hasSelections = await hasLiveSelections(userId, poster?.selections);
   if (!hasSelections) redirect("/poster/select");
 
   const product = getProduct("poster")!;

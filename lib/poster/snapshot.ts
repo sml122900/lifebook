@@ -1,6 +1,6 @@
 // 포스터 주문 스냅샷 — /poster/view 와 주문 생성이 공유하는 단일 빌더.
 //
-// Poster.selections(+override) + life_event → P3 refine → PosterCompose props
+// Poster.selections(+override) + life_event·v3 브릿지 → P3 refine → PosterCompose props
 // ({ownerName, nodes, memos}). 주문 시점에 ProductOrder.posterSnapshot 으로
 // 박아 두면, 사용자가 이후 포스터를 편집해도 발주 파일은 주문 시점으로 고정된다.
 // 관리자 페이지는 이 스냅샷으로 P7-a export(브라우저)한다.
@@ -10,6 +10,7 @@ import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import type { ItemOverride } from "@/lib/poster/overrides";
 import { parseSelectionsFull } from "@/lib/poster/overrides";
 import { refineForPosterBatch } from "@/lib/poster/poster-sentences";
+import { POSTER_EVENT_CREATED_VIA, syncV3Bridge } from "@/lib/poster/v3-bridge";
 
 export type SnapshotNode = {
   eventId: string;
@@ -43,7 +44,7 @@ export async function buildPosterSnapshot(
   userId: string,
   ownerName: string,
 ): Promise<PosterSnapshot | null> {
-  const [poster, events, userBirthYear] = await Promise.all([
+  const [poster, events, userBirthYear, bridge] = await Promise.all([
     prisma.poster.findUnique({
       where: { userId },
       select: {
@@ -55,11 +56,16 @@ export async function buildPosterSnapshot(
     }),
     getLifeEvents(userId),
     getBirthYear(userId),
+    syncV3Bridge(userId),
   ]);
 
-  const byId = new Map(
-    events.filter((e) => e.kind === "life_event").map((e) => [e.id, e]),
-  );
+  // life_event + v3 브릿지 행(getLifeEvents 밖이라 syncV3Bridge 결과로 합침).
+  const byId = new Map<string, { title: string; content: string | null; eventYear: number }>([
+    ...events
+      .filter((e) => e.kind === "life_event")
+      .map((e) => [e.id, { title: e.title, content: e.content, eventYear: e.eventYear }] as const),
+    ...bridge.map((b) => [b.id, { title: b.title, content: b.content, eventYear: b.year }] as const),
+  ]);
   const ordered = parseSelectionsFull(poster?.selections)
     .filter((s) => byId.has(s.eventId))
     .sort((a, b) => a.order - b.order);
@@ -109,4 +115,24 @@ export async function buildPosterSnapshot(
     eraTier: poster?.eraTier ?? 1,
     removedEraEvents: poster?.removedEraEvents ?? [],
   };
+}
+
+// /poster/order 게이트 — selections 중 지금 존재하는 사건이 하나라도 있는지(count 1회).
+// 지워진 사건 id(유령)만 남은 포스터로 주문 화면에 들어가지 않게 한다(스냅샷과 같은 기준).
+export async function hasLiveSelections(
+  userId: string,
+  rawSelections: unknown,
+): Promise<boolean> {
+  const ids = parseSelectionsFull(rawSelections).map((s) => s.eventId);
+  if (ids.length === 0) return false;
+  const live = await prisma.userMemory.count({
+    where: {
+      userId,
+      id: { in: ids },
+      isDraft: false,
+      createdVia: { in: POSTER_EVENT_CREATED_VIA },
+      eventYear: { not: null },
+    },
+  });
+  return live > 0;
 }

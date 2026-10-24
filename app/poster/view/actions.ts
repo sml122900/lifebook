@@ -14,6 +14,7 @@ import {
   sanitizeOverride,
   type PosterSelectionFull,
 } from "@/lib/poster/overrides";
+import { POSTER_EVENT_CREATED_VIA } from "@/lib/poster/v3-bridge";
 
 export type SaveOverridesResult =
   | { ok: true; count: number }
@@ -26,9 +27,9 @@ export async function savePosterOverrides(
   if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
   const userId = session.user.id;
 
-  // 소유·존재 검증 — 본인 life_event id 만 허용(select 와 동일 가드).
+  // 소유·존재 검증 — 본인 life_event·v3 브릿지 id 만 허용(select 와 동일 가드).
   const owned = await prisma.userMemory.findMany({
-    where: { userId, createdVia: "life_event", eventYear: { not: null } },
+    where: { userId, createdVia: { in: POSTER_EVENT_CREATED_VIA }, eventYear: { not: null } },
     select: { id: true },
   });
   const ownedIds = new Set(owned.map((o) => o.id));

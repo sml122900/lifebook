@@ -27,6 +27,7 @@ import {
 import type { MappingEvent } from "@/lib/poster/types";
 import { mapToPlacement } from "@/lib/poster/mapping";
 import { loadMasterSvg, renderPoster } from "@/lib/poster/render";
+import { hasPosterSourceEvents } from "@/lib/poster/v3-bridge";
 import { riverManifest } from "@/lib/poster/templates/river";
 import { sephirotManifest } from "@/lib/poster/templates/sephirot";
 import { zelkovaManifest } from "@/lib/poster/templates/zelkova";
@@ -85,8 +86,8 @@ export default async function PosterTemplatePage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const [events, poster, userRow] = await Promise.all([
-    getLifeEvents(userId),
+  const [hasLifeEvents, poster, userRow] = await Promise.all([
+    hasPosterSourceEvents(userId),
     prisma.poster.findUnique({
       where: { userId },
       select: { template: true },
@@ -97,8 +98,7 @@ export default async function PosterTemplatePage() {
     }),
   ]);
 
-  // 포스터 = 본인 인생 골격(life_event). 사건이 없으면 연혁부터.
-  const hasLifeEvents = events.some((e) => e.kind === "life_event");
+  // 포스터 = 본인 인생 골격(life_event 또는 확정된 v3 사건). 사건이 없으면 연혁부터.
   if (!hasLifeEvents) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-12">
