@@ -27,11 +27,17 @@ export function bridgeMemoryId(lifeEventId: string): string {
   return `v3_${lifeEventId}`;
 }
 
+// 구간 이야기(isPeriod Episode) 행 — 앵커 본문에 섞지 않고 Episode 마다 따로.
+export function periodMemoryId(episodeId: string): string {
+  return `v3p_${episodeId}`;
+}
+
 export type V3BridgeRow = {
   id: string;
   title: string;
   content: string | null; // 실질 Episode 가 없으면 null → node 고정
-  year: number;
+  year: number; // 구간 행은 앵커 사건 연도(정렬용, 포스터엔 연도 미표시)
+  isPeriod: boolean;
 };
 
 const CONFIRMED_STATUSES = ["CONFIRMED", "CORRECTED"] as const;
@@ -48,7 +54,10 @@ export async function syncV3Bridge(userId: string): Promise<V3BridgeRow[]> {
         year: true,
         correctedLabel: true,
         correctedYear: true,
-        episodes: { select: { content: true }, orderBy: { createdAt: "asc" } },
+        episodes: {
+          select: { id: true, content: true, isPeriod: true, memory: { select: { title: true } } },
+          orderBy: { createdAt: "asc" },
+        },
       },
     }),
     prisma.userMemory.findMany({
@@ -60,18 +69,28 @@ export async function syncV3Bridge(userId: string): Promise<V3BridgeRow[]> {
   const rows: V3BridgeRow[] = [];
   for (const e of events) {
     const year = e.correctedYear ?? e.year;
-    if (year === null) continue; // placeholder 연도 금지
-    const bodies = e.episodes
-      .filter((ep) => isSubstantiveEpisodeContent(ep.content))
-      .map((ep) => ep.content.trim());
+    if (year === null) continue; // placeholder 연도 금지(앵커가 빠지면 구간 행도 같이 빠짐)
+    const substantive = e.episodes.filter((ep) => isSubstantiveEpisodeContent(ep.content));
+    const bodies = substantive.filter((ep) => !ep.isPeriod).map((ep) => ep.content.trim());
     rows.push({
       id: bridgeMemoryId(e.id),
       title: e.correctedLabel ?? e.label,
       content: bodies.length > 0 ? bodies.join("\n\n") : null,
       year,
+      isPeriod: false,
     });
+    // 구간 이야기 — 제목은 Episode 제목(브릿지 메모리 title, 예: "군 입대 이후").
+    for (const ep of substantive.filter((x) => x.isPeriod)) {
+      rows.push({
+        id: periodMemoryId(ep.id),
+        title: ep.memory.title,
+        content: ep.content.trim(),
+        year,
+        isPeriod: true,
+      });
+    }
   }
-  rows.sort((a, b) => a.year - b.year); // 같은 해는 sequenceOrder 유지(안정 정렬)
+  rows.sort((a, b) => a.year - b.year); // 같은 해는 sequenceOrder·앵커→구간 순 유지(안정 정렬)
 
   const existingById = new Map(existing.map((m) => [m.id, m]));
   const changed = rows.filter((r) => {
@@ -116,16 +135,23 @@ async function deleteBridgeRows(userId: string, ids: string[]): Promise<void> {
   }
 }
 
-// 본문 없는 브릿지 행은 node 고정 — P1 후보와 저장돼 있던 선택 둘 다 memo → node.
-export function applyBodilessNodeRule(
+// 브릿지 행 후보 유형 규칙.
+// - 본문 없는 행은 node 고정 — P1 후보와 저장돼 있던 선택 둘 다 memo → node.
+// - 구간 이야기 행은 기본 memo 후보(P1 제안만 바꿈, 사용자가 node 로 골라도 됨).
+export function applyBridgeTypeRules(
   candidates: PosterCandidate[],
   savedSelections: PosterSelectionItem[],
   rows: V3BridgeRow[],
 ): { candidates: PosterCandidate[]; savedSelections: PosterSelectionItem[] } {
   const bodiless = new Set(rows.filter((r) => r.content === null).map((r) => r.id));
+  const period = new Set(rows.filter((r) => r.isPeriod).map((r) => r.id));
   return {
     candidates: candidates.map((c): PosterCandidate =>
-      bodiless.has(c.eventId) ? { ...c, suggestedType: "node" } : c,
+      bodiless.has(c.eventId)
+        ? { ...c, suggestedType: "node" }
+        : period.has(c.eventId)
+          ? { ...c, suggestedType: "memo" }
+          : c,
     ),
     savedSelections: savedSelections.map((s): PosterSelectionItem =>
       bodiless.has(s.eventId) ? { ...s, type: "node" } : s,

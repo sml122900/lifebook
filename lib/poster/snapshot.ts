@@ -60,11 +60,16 @@ export async function buildPosterSnapshot(
   ]);
 
   // life_event + v3 브릿지 행(getLifeEvents 밖이라 syncV3Bridge 결과로 합침).
-  const byId = new Map<string, { title: string; content: string | null; eventYear: number }>([
+  // nodeYear = 노드에 그릴 연도. 구간 이야기 행은 앵커 연도로 정렬만 하고 연도는
+  // 안 그린다(null → 연도 표시를 켜도 빈 칸, 시대 대사건 보간에서도 빠짐).
+  type Entry = { title: string; content: string | null; eventYear: number; nodeYear: number | null };
+  const byId = new Map<string, Entry>([
     ...events
       .filter((e) => e.kind === "life_event")
-      .map((e) => [e.id, { title: e.title, content: e.content, eventYear: e.eventYear }] as const),
-    ...bridge.map((b) => [b.id, { title: b.title, content: b.content, eventYear: b.year }] as const),
+      .map((e) => [e.id, { title: e.title, content: e.content, eventYear: e.eventYear, nodeYear: e.eventYear }] as const),
+    ...bridge.map(
+      (b) => [b.id, { title: b.title, content: b.content, eventYear: b.year, nodeYear: b.isPeriod ? null : b.year }] as const,
+    ),
   ]);
   const ordered = parseSelectionsFull(poster?.selections)
     .filter((s) => byId.has(s.eventId))
@@ -87,7 +92,7 @@ export async function buildPosterSnapshot(
       nodes.push({
         eventId: s.eventId,
         order: s.order,
-        year: byId.get(s.eventId)!.eventYear,
+        year: byId.get(s.eventId)!.nodeYear,
         label: sent.nodeLabel,
         override: s.override,
       });

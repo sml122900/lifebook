@@ -31,7 +31,7 @@ import {
 } from "@/lib/poster/selections";
 import {
   POSTER_EVENT_CREATED_VIA,
-  applyBodilessNodeRule,
+  applyBridgeTypeRules,
   syncV3Bridge,
   type V3BridgeRow,
 } from "@/lib/poster/v3-bridge";
@@ -104,9 +104,9 @@ export async function loadPosterEditor(): Promise<PosterEditorData> {
     validIds.has(s.eventId),
   );
 
-  // 본문 없는 v3 사건은 node 고정(P1 후보 + 저장돼 있던 선택).
+  // 본문 없는 v3 사건은 node 고정(P1 후보 + 저장돼 있던 선택), 구간 이야기는 기본 memo 후보.
   return {
-    ...applyBodilessNodeRule(candidates, savedSelections, bridge),
+    ...applyBridgeTypeRules(candidates, savedSelections, bridge),
     bridgeIds: bridge.map((b) => b.id),
     bodilessIds: bridge.filter((b) => b.content === null).map((b) => b.id),
   };
