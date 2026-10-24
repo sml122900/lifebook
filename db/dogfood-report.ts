@@ -6,9 +6,12 @@
 //   세어 본문을 불러오지 않는다.
 // - 기존 테이블에 없는 항목은 "기록 없음"으로 표시한다(새 기록을 만들지 않는다).
 // - 실고객 계정(sml122900)은 --user 로 줘도 거부한다.
+// - 오늘의 인터뷰(InterviewItem): 세션 수·완료율·출처별 문항·문항별 답 길이·AI 사용량.
+//   비용은 lib/lab/usage.ts 가격표(가정값) 기준 추정.
 import "dotenv/config";
 
 import { prisma } from "../lib/db";
+import { estimateCostMicroUsd } from "../lib/lab/usage";
 
 const BLOCKED_LOCAL_PART = "sml122900";
 const KST_MS = 9 * 60 * 60 * 1000;
@@ -103,7 +106,7 @@ async function main() {
   const inRange = (d: Date | null | undefined) => !!d && d >= from && d < to;
   const userId = user.id;
 
-  const [messages, lifeEvents, episodes, people, tokenTxs, labUsages, aiMessages, poster] = await Promise.all([
+  const [messages, lifeEvents, episodes, people, tokenTxs, labUsages, aiMessages, poster, interviewItems] = await Promise.all([
     // 본문은 불러오지 않고 길이만.
     prisma.$queryRaw<{ sessionId: string; role: string; createdAt: Date; len: number }[]>`
       SELECT "sessionId", role::text AS role, "createdAt", LENGTH(content)::int AS len
@@ -136,6 +139,21 @@ async function main() {
     prisma.poster.findUnique({
       where: { userId },
       select: { selections: true, design: true, updatedAt: true },
+    }),
+    // 세션 키(day)가 KST 날짜 문자열이라 그대로 범위 비교.
+    prisma.interviewItem.findMany({
+      where: { userId, day: { gte: fromDay, lte: toDay } },
+      select: {
+        day: true,
+        source: true,
+        status: true,
+        askedAt: true,
+        answerChars: true,
+        aiCalls: true,
+        aiInputTokens: true,
+        aiOutputTokens: true,
+        aiModel: true,
+      },
     }),
   ]);
 
@@ -280,7 +298,9 @@ async function main() {
   for (const [k, n] of [...peopleBreakdown].sort()) console.log(`  - ${k}: ${n}`);
 
   console.log("\n── AI 호출 ──");
-  console.log(`/chat-v3 AI 호출 수·토큰·비용: ${NO_RECORD} (lib/ai.ts chat() 는 사용량을 DB 에 남기지 않음)`);
+  console.log(
+    `/chat-v3 AI 호출 수·토큰·비용: ${NO_RECORD} (lib/ai.ts chat() 는 사용량을 DB 에 남기지 않음 — 오늘의 인터뷰만 아래 섹션에 기록)`,
+  );
   if (chargeByReason.size === 0) {
     console.log("사용자 토큰 차감(TokenTransaction): 기간 안 0건");
   } else {
@@ -305,6 +325,8 @@ async function main() {
     `레거시 추억 대화(AIMessage): ${aiMessages.length}회 · 입력 ${aiIn} · 출력 ${aiOut}` +
       (aiMessages.length ? " (모델 컬럼 없음 — 비용 추정 안 함)" : ""),
   );
+
+  printInterview(interviewItems);
 
   console.log("\n── 포스터 ──");
   console.log(`선택 저장 횟수: ${NO_RECORD} (Poster 는 사용자당 1행 — 저장 이력 없음)`);
@@ -334,3 +356,89 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+type InterviewRow = {
+  day: string;
+  source: string;
+  status: string;
+  askedAt: Date | null;
+  answerChars: number;
+  aiCalls: number;
+  aiInputTokens: number;
+  aiOutputTokens: number;
+  aiModel: string | null;
+};
+
+function median(xs: number[]): number {
+  if (xs.length === 0) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+}
+
+// 오늘의 인터뷰 — 세션 = (사용자, day). 시작 = 문항 하나라도 화면에 나옴(askedAt),
+// 완료 = PLANNED 로 남은 문항 0. 비용은 문항별 모델 기준 추정(가격표에 없으면 따로 표시).
+function printInterview(rows: InterviewRow[]) {
+  console.log("\n── 오늘의 인터뷰 ──");
+  if (rows.length === 0) {
+    console.log("기간 안 세션 없음");
+    return;
+  }
+  const cost = (r: InterviewRow): number | null => {
+    if (r.aiCalls === 0) return 0;
+    if (!r.aiModel) return null;
+    try {
+      return estimateCostMicroUsd(r.aiModel, { input: r.aiInputTokens, output: r.aiOutputTokens });
+    } catch {
+      return null;
+    }
+  };
+  const usd = (micro: number) => `$${(micro / 1e6).toFixed(4)}`;
+  const isDone = (r: InterviewRow) => r.status !== "PLANNED";
+  const countBy = (rs: InterviewRow[], status: string) => rs.filter((r) => r.status === status).length;
+  const days = [...new Set(rows.map((r) => r.day))].sort();
+
+  printTable(
+    ["날짜", "문항", "답", "건너뜀", "제외", "남음", "답 글자", "AI호출", "추정비용"],
+    days.map((d) => {
+      const rs = rows.filter((r) => r.day === d);
+      return [
+        d,
+        String(rs.length),
+        String(countBy(rs, "ANSWERED")),
+        String(countBy(rs, "SKIPPED")),
+        String(countBy(rs, "DROPPED")),
+        String(rs.filter((r) => !isDone(r)).length),
+        String(rs.reduce((n, r) => n + r.answerChars, 0)),
+        String(rs.reduce((n, r) => n + r.aiCalls, 0)),
+        usd(rs.reduce((n, r) => n + (cost(r) ?? 0), 0)),
+      ];
+    }),
+  );
+
+  const started = days.filter((d) => rows.some((r) => r.day === d && r.askedAt)).length;
+  const completed = days.filter((d) => rows.filter((r) => r.day === d).every(isDone)).length;
+  console.log(
+    `세션 수: ${days.length} · 시작: ${started} · 완료: ${completed} · 완료율: ${Math.round((completed / days.length) * 100)}%`,
+  );
+
+  console.log("출처별 문항 — 제시 → 답/건너뜀/제외/남음 · 답한 문항의 답 글자 평균·중앙값:");
+  for (const source of [...new Set(rows.map((r) => r.source))].sort()) {
+    const rs = rows.filter((r) => r.source === source);
+    const lens = rs.filter((r) => r.status === "ANSWERED").map((r) => r.answerChars);
+    const avg = lens.length ? Math.round(lens.reduce((a, b) => a + b, 0) / lens.length) : 0;
+    console.log(
+      `  - ${source}: ${rs.length} → ${lens.length}/${countBy(rs, "SKIPPED")}/${countBy(rs, "DROPPED")}/${rs.filter((r) => !isDone(r)).length}` +
+        ` · 평균 ${avg} · 중앙값 ${median(lens)}`,
+    );
+  }
+
+  const unpriced = rows.filter((r) => cost(r) === null).length;
+  const models = [...new Set(rows.map((r) => r.aiModel).filter(Boolean))].join(", ") || "없음";
+  console.log(
+    `AI: ${rows.reduce((n, r) => n + r.aiCalls, 0)}회 · 입력 ${rows.reduce((n, r) => n + r.aiInputTokens, 0)}` +
+      ` · 출력 ${rows.reduce((n, r) => n + r.aiOutputTokens, 0)} · 모델 ${models}` +
+      ` · 추정 ${usd(rows.reduce((n, r) => n + (cost(r) ?? 0), 0))}` +
+      (unpriced ? ` (가격표에 없는 모델 문항 ${unpriced}개는 비용 제외)` : ""),
+  );
+}
