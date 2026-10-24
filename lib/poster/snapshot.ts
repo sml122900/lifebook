@@ -21,7 +21,7 @@ import {
 } from "@/lib/poster/ai-cache";
 import type { ItemOverride, PosterSelectionFull } from "@/lib/poster/overrides";
 import { parseSelectionsFull, toStoredSelection } from "@/lib/poster/overrides";
-import { refineForPosterBatch, type PosterEventInput } from "@/lib/poster/poster-sentences";
+import { refineForPosterBatch, type PosterEventInput, type PosterSentence } from "@/lib/poster/poster-sentences";
 import { POSTER_EVENT_CREATED_VIA, syncV3Bridge } from "@/lib/poster/v3-bridge";
 
 export type SnapshotNode = {
@@ -82,6 +82,11 @@ async function loadEntries(userId: string): Promise<Map<string, Entry>> {
 // 문장 AI 입력.
 function sentenceInput(e: Entry): PosterEventInput {
   return { title: e.title, content: e.content, year: e.eventYear };
+}
+
+// 항목 유형 → 쓰는 문장(노드=라벨·메모=문장).
+function sentenceField(type: "node" | "memo"): keyof PosterSentence {
+  return type === "node" ? "nodeLabel" : "memoText";
 }
 
 // 선택이 없으면 null.
@@ -173,10 +178,11 @@ export async function buildPosterSnapshot(
     const generatedAt = new Date().toISOString();
     const generated = missing.flatMap((idx, k) => {
       const s = parts.ordered[idx];
-      const text = s.type === "node" ? sentences[k].nodeLabel : sentences[k].memoText;
+      const field = sentenceField(s.type);
+      const text = sentences[k][field];
       texts[idx] = text;
-      // 응답에서 못 읽어 기본값으로 채운 항목은 화면에만 쓰고 저장 안 함(다음 로드에 그 항목만 다시 생성).
-      return fromAi[k] ? [{ eventId: s.eventId, type: s.type, generatedText: text, sourceHash: parts.hashes[idx], generatedAt }] : [];
+      // 기본값으로 채운 문장(응답 누락·메모 상한 초과)은 화면에만 쓰고 저장 안 함(다음 로드에 그 항목만 다시 생성).
+      return fromAi[k][field] ? [{ eventId: s.eventId, type: s.type, generatedText: text, sourceHash: parts.hashes[idx], generatedAt }] : [];
     });
     if (generated.length > 0) await saveGeneratedSentences(userId, generated);
   }
@@ -236,9 +242,10 @@ export async function buildPreviewSentence(
     sentences: [out],
     fromAi: [ok],
   } = await refineForPosterBatch([input]);
-  const text = type === "node" ? out.nodeLabel : out.memoText;
-  // 응답에서 못 읽어 기본값이면 보여만 주고 저장 안 함(시안과 같은 원칙).
-  if (ok) {
+  const field = sentenceField(type);
+  const text = out[field];
+  // 기본값이면 보여만 주고 저장 안 함(시안과 같은 원칙).
+  if (ok[field]) {
     const g = { eventId, type, generatedText: text, sourceHash: hash, generatedAt: new Date().toISOString() };
     if (item) await saveGeneratedSentences(userId, [g]);
     else await savePreviewSentence(userId, g);

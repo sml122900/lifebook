@@ -1,10 +1,10 @@
-// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(32항목). 설계: docs/phase/v3-poster-bridge.md
+// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(34항목). 설계: docs/phase/v3-poster-bridge.md
 // 실행: npx tsx db/test-v3-poster-bridge.ts
 //
 // 자체 픽스처 계정(fixture-bridge@lifebook.invalid)을 시작 시 만들고 끝에
 // (성공·실패 모두) 하위 데이터째 삭제한다. test30 등 다른 계정 접촉 0.
 // 외부 AI 호출(Sonnet)은 4회 — "연도 표시" 항목의 P3 1회, AI 문장 고정 항목의 P1 1회·P3 2회.
-// 후속 항목(P3 응답 항목 누락·선택 화면 미리보기·프롬프트 버전)은 fetch 스텁이 응답한다(실제 호출 0).
+// 후속 항목(P3 응답 항목 누락·선택 화면 미리보기·프롬프트 버전·메모 60자 상한)은 fetch 스텁이 응답한다(실제 호출 0).
 // 나머지는 loadPosterEditor(auth 필요) 대신 그 안의 동기화·규칙·가드·캐시 함수를 직접
 // 호출. AI 호출 수는 lib/ai.ts chat() 이 개발 모드에서 남기는 "[ai] model=" 로그로 센다.
 // 사진 정리 경로는 Storage 에 없는 경로로 remove 를 부른다(없는 경로는 Supabase 가
@@ -26,6 +26,7 @@ import { createRoom, listRoomMemories } from "../lib/rooms";
 import { getPosterCandidates, sentenceSourceHash } from "../lib/poster/ai-cache";
 import type { PosterSelectionFull } from "../lib/poster/overrides";
 import type { PosterCandidate } from "../lib/poster/poster-candidates";
+import { MEMO_AI_MAX } from "../lib/poster/poster-sentences";
 import { BRIDGE_BODILESS_EDIT_BLOCKED_MESSAGE, BRIDGE_EDIT_BLOCKED_MESSAGE } from "../lib/poster/select-constants";
 import { editPosterEventText, persistPosterOverrides, persistPosterSelections } from "../lib/poster/selections";
 import {
@@ -54,6 +55,10 @@ const STORY_C = "열여섯에 서울로 올라와 봉제 공장에 다녔다.";
 const STORY_EP = "졸업할 무렵 동네에 처음으로 텔레비전이 들어왔다."; // 국민학교 입학 이후(구간)
 const STORY_MP = "제대 후 부품 공장에 들어갔다가 월급을 더 준다는 곳으로 옮겼다."; // 군 입대 이후(구간)
 const STORY_A2 = "운동회 날 달리기에서 처음으로 일등을 했다.";
+// 60자를 넘는 메모 원문 — 60자 이내 원문은 AI 메모 대신 원문 그대로라, 스텁 메모 경로는 이걸로 검증.
+const STORY_LONG =
+  "결혼하고 처음 얻은 셋방은 부엌이 따로 없어서 마당 수돗가에서 밥을 지었다. 겨울이면 물이 얼어 아침마다 주전자로 녹였다.";
+const STORY_LONG2 = `${STORY_LONG} 그 방에서 큰애를 낳았다.`;
 const SHIP = {
   recipientName: "[fixture]",
   recipientPhone: "010-0000-0000",
@@ -560,7 +565,7 @@ async function scenario(userId: string) {
 
   // ── 주문 거부 — 저장 문장 없음(시안 안 본 새 항목) / 원본 해시 불일치. 주문 행 안 생김, AI 0
   const life2 = await prisma.userMemory.create({
-    data: { userId, year: 1985, title: "새 기록", eventTitle: "새 기록", eventYear: 1985, createdVia: "life_event", content: "새로 쓴 이야기" },
+    data: { userId, year: 1985, title: "새 기록", eventTitle: "새 기록", eventYear: 1985, createdVia: "life_event", content: STORY_LONG },
     select: { id: true },
   });
   const current = afterOv.map((s) => ({ eventId: s.eventId, type: s.type, order: s.order }));
@@ -677,12 +682,17 @@ async function scenario(userId: string) {
     { stalePrev1, stalePrev2, stalePrev2Calls, newPrev1, newPrev2, newPrev2Calls },
   );
 
-  // ══ P3 프롬프트 버전(2 = 원문 보존) — 버전 상수가 없던 변경 전 공식으로 저장된 문장은 해시가
-  //    안 맞아 다시 만든다(시안·미리보기 보관함 둘 다). AI 응답은 스텁.
+  // ══ P3 프롬프트 버전 — 이전 버전으로 저장된 문장은 해시가 안 맞아 다시 만든다(시안·미리보기 보관함
+  //    둘 다). selections 는 직전 버전(2), 보관함은 버전 상수 도입 전 공식으로 저장된 것처럼 둔다. AI 응답은 스텁.
   //    지금 selections = birth(node)·elem(node)·elemP(memo)·life(node, 직접 고친 문구)·life2(memo).
   type Src = { title: string; content: string | null; year: number };
   const v1Hash = (i: Src, type: "node" | "memo", tpl: string | null) =>
     createHash("sha256").update(JSON.stringify([i.title, i.content, i.year, type, tpl])).digest("hex");
+  const v2Hash = (i: Src, type: "node" | "memo", tpl: string | null) =>
+    createHash("sha256").update(JSON.stringify([i.title, i.content, i.year, type, tpl, 2])).digest("hex");
+  // 기대 메모 — 원문이 60자 이내면 원문 그대로, 넘으면 AI(스텁) 메모.
+  const memoOf = (content: string | null, ai: string) =>
+    content && content.length <= MEMO_AI_MAX ? content : ai;
   const sources = new Map<string, Src>([
     ...(await getLifeEvents(userId))
       .filter((e) => e.kind === "life_event")
@@ -698,7 +708,7 @@ async function scenario(userId: string) {
     where: { userId },
     data: {
       selections: JSON.parse(
-        JSON.stringify(freshSels.map((x) => ({ ...x, sourceHash: v1Hash(sources.get(x.eventId)!, x.type, tpl) }))),
+        JSON.stringify(freshSels.map((x) => ({ ...x, sourceHash: v2Hash(sources.get(x.eventId)!, x.type, tpl) }))),
       ),
       design: {
         ...((posterRow?.design ?? {}) as Record<string, unknown>),
@@ -712,27 +722,28 @@ async function scenario(userId: string) {
       },
     },
   });
-  stubReply = `[${freshSels.map((_, i) => stubItem(`버전2 ${i}`)).join(",")}]`;
+  stubReply = `[${freshSels.map((_, i) => stubItem(`새 버전 ${i}`)).join(",")}]`;
   const [view8, view8Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
   const view8Events = lastPromptEvents();
   const afterVer = await sels();
-  stubReply = `[${stubItem("버전2 보관")}]`;
+  stubReply = `[${stubItem("새 버전 보관")}]`;
   const [verPrev, verPrevCalls] = await calls(() => buildPreviewSentence(userId, life.id, "memo"));
   stubReply = null;
   const heldVer = ((await prisma.poster.findUnique({ where: { userId }, select: { design: true } }))?.design as {
     previewSentences?: Record<string, { generatedText?: string; sourceHash?: string }>;
   } | null)?.previewSentences?.[`${life.id}:memo`];
   check(
-    "★ P3 프롬프트 버전 변경 → 변경 전 해시로 저장된 문장 전부 재생성(시안 AI 1회·전 항목 요청), 미리보기 보관함 문장도 무효 → 다시 생성",
+    "★ P3 프롬프트 버전 변경 → 이전 버전 해시로 저장된 문장 전부 재생성(시안 AI 1회·전 항목 요청), 미리보기 보관함 문장도 무효 → 다시 생성",
     view7Calls === 0 && view8Calls === 1 && view8Events === freshSels.length &&
       afterVer.length === freshSels.length &&
       afterVer.every((x, i) => {
         const src = sources.get(x.eventId)!;
         return x.sourceHash === sentenceSourceHash(src, x.type, tpl) &&
-          x.sourceHash !== v1Hash(src, x.type, tpl) &&
-          x.generatedText === (x.type === "node" ? `버전2 ${i}` : `버전2 ${i} 메모`);
+          x.sourceHash !== v2Hash(src, x.type, tpl) &&
+          x.generatedText ===
+            (x.type === "node" ? `새 버전 ${i}` : memoOf(src.content, `새 버전 ${i} 메모`));
       }) &&
-      verPrevCalls === 1 && textOf(verPrev) === "버전2 보관 메모" &&
+      verPrevCalls === 1 && textOf(verPrev) === memoOf(lifeSrc.content, "새 버전 보관 메모") &&
       heldVer?.sourceHash === sentenceSourceHash(lifeSrc, "memo", tpl),
     { view7Calls, view8Calls, view8Events, afterVer, verPrev, verPrevCalls, heldVer },
   );
@@ -763,6 +774,58 @@ async function scenario(userId: string) {
       !bodiedEdit.ok && bodiedEdit.error === BRIDGE_EDIT_BLOCKED_MESSAGE &&
       !periodEdit.ok && periodEdit.error === BRIDGE_EDIT_BLOCKED_MESSAGE,
     { bodilessEdit, bodiedEdit, periodEdit },
+  );
+
+  // ── 메모 60자 상한 — 응답 메모가 60자를 넘으면 AI 결과로 치지 않음(저장 안 함·기본값 표시) → 다음 로드에
+  //    그 항목만 재요청. 판정은 필드별이라 같은 응답의 노드 라벨은 저장. 60자 정확히는 저장.
+  //    life(node)·life2(memo) 본문을 60자 넘게 바꿔 두 항목만 다시 만들게 한다(60자 이내 원문은 AI 메모를 안 씀).
+  await editPosterEventText(userId, life.id, "개인 기록(고침)", `${STORY_LONG} 개인 기록.`); // 60자 초과 — AI 메모가 쓰이는 노드 항목
+  await editPosterEventText(userId, life2.id, "새 기록", STORY_LONG2);
+  const overMemo = "가".repeat(MEMO_AI_MAX + 1);
+  const exactMemo = "나".repeat(MEMO_AI_MAX);
+  const beforeLen = await sels();
+  stubReply = JSON.stringify([
+    { nodeLabel: "노드 라벨 정상", memoText: overMemo }, // life(node)
+    { nodeLabel: "메모 항목 라벨", memoText: overMemo }, // life2(memo)
+  ]);
+  const [len1, len1Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  const len1Events = lastPromptEvents();
+  const afterLen1 = await sels();
+  stubReply = JSON.stringify([{ nodeLabel: "메모 항목 라벨", memoText: exactMemo }]);
+  const [len2, len2Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  const len2Events = lastPromptEvents();
+  const afterLen2 = await sels();
+  stubReply = null;
+  check(
+    "★ 메모 60자 초과 결과 → AI 결과로 치지 않음(저장 안 함·기본값=원문 표시), 같은 응답의 노드 라벨은 저장, 다음 로드에 그 항목만 재요청 — 60자 정확히는 저장",
+    len1Calls === 1 && len1Events === 2 &&
+      selOf(afterLen1, life.id)?.generatedText === "노드 라벨 정상" &&
+      selOf(afterLen1, life2.id)?.sourceHash === selOf(beforeLen, life2.id)?.sourceHash &&
+      selOf(afterLen1, life2.id)?.generatedText === selOf(beforeLen, life2.id)?.generatedText &&
+      len1?.memos.find((m) => m.eventId === life2.id)?.text === STORY_LONG2 &&
+      len2Calls === 1 && len2Events === 1 &&
+      selOf(afterLen2, life2.id)?.generatedText === exactMemo &&
+      len2?.memos.find((m) => m.eventId === life2.id)?.text === exactMemo,
+    { len1Calls, len1Events, afterLen1, len2Calls, len2Events, afterLen2 },
+  );
+
+  // ── 60자 이내 원문은 그대로 — AI 가 다른 메모를 줘도 원문(코드 보장). 경계: 60자 원문은 그대로,
+  //    61자 원문은 AI 메모. 실제 Sonnet 시안(22번)의 구간 이야기 메모(원문 STORY_EP)도 원문과 같다.
+  const at60 = `${"다".repeat(MEMO_AI_MAX - 1)}.`;
+  const at61 = `${"라".repeat(MEMO_AI_MAX)}.`;
+  stubReply = JSON.stringify([{ nodeLabel: "라벨", memoText: "AI 가 바꾼 메모" }]);
+  await editPosterEventText(userId, life2.id, "새 기록", at60);
+  const [keep60, keep60Calls] = await calls(() => buildPreviewSentence(userId, life2.id, "memo"));
+  await editPosterEventText(userId, life2.id, "새 기록", at61);
+  const [ai61, ai61Calls] = await calls(() => buildPreviewSentence(userId, life2.id, "memo"));
+  stubReply = null;
+  check(
+    "★ 60자 이내 원문은 그대로 — AI 메모와 상관없이 원문(60자 경계 포함), 61자 원문부터 AI 메모, 실제 Sonnet 시안의 구간 이야기 메모 = 원문",
+    at60.length === MEMO_AI_MAX && at61.length === MEMO_AI_MAX + 1 &&
+      keep60Calls === 1 && textOf(keep60) === at60 &&
+      ai61Calls === 1 && textOf(ai61) === "AI 가 바꾼 메모" &&
+      selOf(afterView1, ids.elemP)?.generatedText === STORY_EP,
+    { keep60, ai61, elemP: selOf(afterView1, ids.elemP)?.generatedText },
   );
 }
 
@@ -810,8 +873,8 @@ async function main() {
       failed += 1;
     }
   }
-  console.log(failed === 0 && count === 32 ? "\nALL PASS (32)" : `\n${failed} FAILED / ${count} 항목`);
-  process.exitCode = failed === 0 && count === 32 ? 0 : 1;
+  console.log(failed === 0 && count === 34 ? "\nALL PASS (34)" : `\n${failed} FAILED / ${count} 항목`);
+  process.exitCode = failed === 0 && count === 34 ? 0 : 1;
 }
 
 main()

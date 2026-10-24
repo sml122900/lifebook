@@ -3,9 +3,10 @@
 // 추출된 사건(정제 산문) → 포스터에 얹을 두 형태 문장으로 변환:
 //   - nodeLabel : 노드용. 짧고 담백한 명사형 사건명(감정 X). 연도는 노드가
 //                 따로 표시하므로 라벨엔 넣지 않는다. 예: "결혼", "독일 함부르크".
-//   - memoText  : 메모용. 사용자가 한 말을 그대로, 길이(짧게 1~3문장)만 맞춘다.
-//                 덜어내기·어순 최소 조정·맞춤법만 허용 — 해석·감정·교훈·평가·
-//                 없는 사실은 더하지 않고, 음슴체·구어체 등 원문 말투를 유지(v2).
+//   - memoText  : 메모용. 사용자가 한 말을 그대로, 공백 포함 60자 이내로. 60자
+//                 이내 원문은 코드가 그대로 쓰고, 넘는 원문만 AI 가 핵심 한두 문장을
+//                 원래 말 그대로 고른다 — 해석·감정·교훈·평가·없는 사실은 더하지 않고,
+//                 음슴체·구어체 등 원문 말투를 유지(v3). 60자를 넘긴 응답은 기본값 처리.
 //
 // ★ 프라이버시: 입력은 이미 리댁션·추출을 거친 사건이다. 여기서 신상·사실을
 //   새로 창작하지 않는다(없는 사실·감정 추가 금지).
@@ -19,8 +20,9 @@ const POSTER_SENTENCE_MODEL =
 
 // 프롬프트 버전 — 저장 문장의 원본 해시에 들어간다(lib/poster/ai-cache.ts). 프롬프트를
 // 바꾸면 올려서 저장해 둔 문장이 해시 불일치로 다시 만들어지게 한다.
-// 1 = 표준 반말 회상체·감정 입히기(버전 상수 도입 전), 2 = 원문 보존(2026-10-24).
-export const P3_PROMPT_VERSION = 2;
+// 1 = 표준 반말 회상체·감정 입히기(버전 상수 도입 전), 2 = 원문 보존(2026-10-24),
+// 3 = 메모 공백 포함 60자 상한·초과 시 핵심 한두 문장 그대로(2026-10-24).
+export const P3_PROMPT_VERSION = 3;
 
 export type PosterEventInput = {
   title: string;
@@ -34,7 +36,10 @@ export type PosterSentence = {
 };
 
 const NODE_LABEL_MAX = 30;
-const MEMO_MAX = 200;
+const MEMO_MAX = 200; // 기본값(원문) 메모 자르기
+// 메모 상한(공백 포함). 원문이 이 안이면 원문 그대로, AI 메모가 넘으면 AI 결과로 치지 않는다
+// (저장 안 함 → 다음 로드에 재요청).
+export const MEMO_AI_MAX = 60;
 
 const SYSTEM_PROMPT = `당신은 어르신의 인생 사건을 포스터(인생 나무)에 얹을 문장으로 다듬는 작가입니다.
 반드시 유효한 JSON 배열만 출력하세요. 설명·다른 텍스트는 절대 출력하지 마세요.`;
@@ -59,9 +64,9 @@ function buildUserMsg(events: PosterEventInput[]): string {
 - ${NODE_LABEL_MAX}자 이내.
 
 [memoText — 메모용] ★원칙: 사용자가 한 말을 그대로 옮기고, 길이만 맞추세요.
-- 길이: 짧게 1~3문장(포스터 여백에 들어갈 길이).
-- 내용이 이미 이 길이 안이면 그대로 쓰세요.
-- 길면 덜어내기만 하세요. 문장·구절을 빼서 줄이고, 어순은 꼭 필요할 때만 조금 바꾸세요.
+- 길이: 공백 포함 ${MEMO_AI_MAX}자 이내.
+- 내용이 ${MEMO_AI_MAX}자 이내면 한 글자도 빼지 말고 그대로 쓰세요(맞춤법 정리만 허용).
+- ${MEMO_AI_MAX}자를 넘으면 내용 전체를 조금씩 줄이지 말고, 가장 핵심인 한두 문장(또는 구절)을 골라 원래 말 그대로 옮기세요.
 - 원문의 어휘와 말투를 최대한 유지하세요. 음슴체("~함/~였음")·구어체도 그대로 두고, 다른 문체로 바꾸지 마세요.
 - 맞춤법·띄어쓰기는 바로잡아도 됩니다. 말투가 드러나는 입말(예: "~거 같애", "~할라고")은 고치지 마세요.
 - ★사용자가 말하지 않은 해석·감정·교훈·평가를 덧붙이지 마세요(예: "삶의 뿌리가 되었네", "단단해졌어" 같은 말).
@@ -84,11 +89,15 @@ function fallbackSentence(e: PosterEventInput): PosterSentence {
   };
 }
 
-// fromAi[i]=false 는 그 항목을 응답에서 못 읽어 기본값이 들어간 것(응답 전체를 못 읽으면 전부 false).
+// 필드별 AI 결과 여부 — false 면 그 필드는 기본값.
+export type SentenceFromAi = Record<keyof PosterSentence, boolean>;
+
+// fromAi[i].nodeLabel/memoText=false 는 그 필드를 응답에서 못 읽었거나(응답 전체를 못 읽으면
+// 전부 false) 메모가 상한을 넘어 기본값이 들어간 것.
 function parseSentences(
   raw: string,
   events: PosterEventInput[],
-): { sentences: PosterSentence[]; fromAi: boolean[] } {
+): { sentences: PosterSentence[]; fromAi: SentenceFromAi[] } {
   let arr: unknown[] | null = null;
   try {
     const cleaned = raw.trim().replace(/^```json\s*|^```\s*/i, "").replace(/\s*```$/, "");
@@ -99,25 +108,37 @@ function parseSentences(
   }
   const list = arr ?? [];
 
-  // 입력 순서·개수에 맞춰 매핑. 누락·형식오류는 항목별 fallback(그 항목 fromAi=false).
-  const fromAi: boolean[] = [];
+  // 입력 순서·개수에 맞춰 매핑. 누락·형식오류·메모 상한 초과는 필드별 fallback(그 필드 fromAi=false).
+  const fromAi: SentenceFromAi[] = [];
   const sentences = events.map((e, i) => {
     const item = list[i];
     const obj = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
     const nodeLabel = typeof obj.nodeLabel === "string" ? obj.nodeLabel.trim().slice(0, NODE_LABEL_MAX) : "";
-    const memoText = typeof obj.memoText === "string" ? obj.memoText.trim().slice(0, MEMO_MAX) : "";
-    fromAi.push(nodeLabel !== "" && memoText !== "");
+    // 원문이 상한 이내면 AI 메모 대신 원문 그대로 — 모델은 글자 수를 못 세서 58자 원문도
+    // 줄였다(2026-10-24 실측, 결정: 성민). 상한을 넘는 원문만 AI 메모를 쓴다.
+    const content = e.content?.trim() ?? "";
+    const memoText =
+      content !== "" && content.length <= MEMO_AI_MAX
+        ? content
+        : typeof obj.memoText === "string"
+          ? obj.memoText.trim()
+          : "";
+    const ok = { nodeLabel: nodeLabel !== "", memoText: memoText !== "" && memoText.length <= MEMO_AI_MAX };
+    fromAi.push(ok);
     const fallback = fallbackSentence(e);
-    return { nodeLabel: nodeLabel || fallback.nodeLabel, memoText: memoText || fallback.memoText };
+    return {
+      nodeLabel: ok.nodeLabel ? nodeLabel : fallback.nodeLabel,
+      memoText: ok.memoText ? memoText : fallback.memoText,
+    };
   });
   return { sentences, fromAi };
 }
 
 // 사건 여러 개 → 포스터 문장 배열(입력 순서·개수 보존). 한 번의 LLM 호출.
-// fromAi[i]=false 면 그 항목은 기본값 — 호출자는 그 항목을 저장·고정하지 않는다.
+// fromAi[i] 의 필드가 false 면 그 필드는 기본값 — 호출자는 그 필드 문장을 저장·고정하지 않는다.
 export async function refineForPosterBatch(
   events: PosterEventInput[],
-): Promise<{ sentences: PosterSentence[]; fromAi: boolean[] }> {
+): Promise<{ sentences: PosterSentence[]; fromAi: SentenceFromAi[] }> {
   if (events.length === 0) return { sentences: [], fromAi: [] };
 
   const res = await chat([{ role: "user", content: buildUserMsg(events) }], {
