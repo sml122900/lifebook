@@ -80,7 +80,7 @@ export function PosterOrderForm({
     }
     setSubmitting(true);
     try {
-      const order = await startPosterOrder(
+      const result = await startPosterOrder(
         optionId,
         {
           recipientName,
@@ -93,6 +93,12 @@ export function PosterOrderForm({
         },
         method,
       );
+      if (!result.ok) {
+        setError(result.error);
+        setSubmitting(false);
+        return;
+      }
+      const order = result.order;
 
       // 무통장입금 — 결제 없이 입금대기로 접수, 입금 안내 화면으로.
       if (method === "bank_transfer") {

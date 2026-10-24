@@ -34,6 +34,12 @@ export type PosterSelectionFull = {
   type: "node" | "memo";
   order: number;
   override?: ItemOverride;
+  // P3 생성 문장 고정 — /poster/view 가 만든 문장(노드=라벨·메모=문장)과 그때의 원본
+  // 해시. 해시가 지금 원본과 같으면 다시 만들지 않고, 주문도 이 문장으로 굽는다.
+  // 서버만 채운다(클라가 보낸 값은 쓰지 않음).
+  generatedText?: string;
+  sourceHash?: string;
+  generatedAt?: string;
 };
 
 function clampNum(v: unknown, lo: number, hi: number): number | undefined {
@@ -81,7 +87,31 @@ export function parseSelectionsFull(raw: unknown): PosterSelectionFull[] {
     const type = o.type === "memo" ? "memo" : "node";
     const order = typeof o.order === "number" ? o.order : 0;
     const override = sanitizeOverride(o.override);
-    out.push({ eventId: o.eventId, type, order, override });
+    const item: PosterSelectionFull = { eventId: o.eventId, type, order, override };
+    // 생성 문장은 세 필드가 다 있을 때만 인정(일부만 있으면 없는 것으로 보고 다시 생성).
+    if (
+      typeof o.generatedText === "string" &&
+      typeof o.sourceHash === "string" &&
+      typeof o.generatedAt === "string"
+    ) {
+      item.generatedText = o.generatedText;
+      item.sourceHash = o.sourceHash;
+      item.generatedAt = o.generatedAt;
+    }
+    out.push(item);
   }
   return out;
+}
+
+// 저장용 JSON — 없는 필드(override·생성 문장)는 키 자체를 빼서 가볍게.
+export function toStoredSelection(s: PosterSelectionFull) {
+  return {
+    eventId: s.eventId,
+    type: s.type,
+    order: s.order,
+    ...(s.override ? { override: s.override } : {}),
+    ...(s.generatedText !== undefined && s.sourceHash && s.generatedAt
+      ? { generatedText: s.generatedText, sourceHash: s.sourceHash, generatedAt: s.generatedAt }
+      : {}),
+  };
 }

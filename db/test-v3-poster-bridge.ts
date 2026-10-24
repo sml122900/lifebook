@@ -1,25 +1,30 @@
-// v3 → 포스터 브릿지 검증(20항목). 설계: docs/phase/v3-poster-bridge.md
+// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(26항목). 설계: docs/phase/v3-poster-bridge.md
 // 실행: npx tsx db/test-v3-poster-bridge.ts
 //
 // 자체 픽스처 계정(fixture-bridge@lifebook.invalid)을 시작 시 만들고 끝에
 // (성공·실패 모두) 하위 데이터째 삭제한다. test30 등 다른 계정 접촉 0.
-// 외부 AI 호출은 "연도 표시 시 구간 행 연도 없음" 항목의 buildPosterSnapshot(P3 문장
-// 1회)뿐 — 나머지는 P1 을 부르는 loadPosterEditor 대신 그 안의 동기화·규칙·가드 함수를
-// 직접 호출. 사진 정리 경로는 Storage 에 없는 경로로 remove 를 부른다(없는 경로는
-// Supabase 가 무시 — 실제 파일 변화 0).
+// 외부 AI 호출(Sonnet)은 4회 — "연도 표시" 항목의 P3 1회, AI 문장 고정 항목의 P1 1회·P3 2회.
+// 나머지는 loadPosterEditor(auth 필요) 대신 그 안의 동기화·규칙·가드·캐시 함수를 직접
+// 호출. AI 호출 수는 lib/ai.ts chat() 이 개발 모드에서 남기는 "[ai] model=" 로그로 센다.
+// 사진 정리 경로는 Storage 에 없는 경로로 remove 를 부른다(없는 경로는 Supabase 가
+// 무시 — 실제 파일 변화 0). 주문 항목은 결제 전(pending) 주문 행을 만들고, 탈퇴 정리가
+// 지운다(끝에서 행 0 확인).
 
 import "dotenv/config";
 
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
+import { createPendingPosterOrder } from "../lib/commerce/poster-orders";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEpisodeBridge } from "../lib/episode";
 import { getLifeEvents } from "../lib/life-events";
 import { deleteCustomLifeEvent } from "../lib/life-event-delete";
 import { createRoom, listRoomMemories } from "../lib/rooms";
+import { getPosterCandidates } from "../lib/poster/ai-cache";
+import type { PosterSelectionFull } from "../lib/poster/overrides";
 import type { PosterCandidate } from "../lib/poster/poster-candidates";
-import { editPosterEventText, persistPosterSelections } from "../lib/poster/selections";
-import { buildPosterSnapshot, hasLiveSelections } from "../lib/poster/snapshot";
+import { editPosterEventText, persistPosterOverrides, persistPosterSelections } from "../lib/poster/selections";
+import { buildPosterSnapshot, hasLiveSelections, type PosterSnapshot } from "../lib/poster/snapshot";
 import {
   CREATED_VIA_V3_BRIDGE,
   applyBridgeTypeRules,
@@ -38,6 +43,26 @@ const STORY_M2 = "제대하던 날 동기들과 부대 앞 국밥집에 갔다."
 const STORY_C = "열여섯에 서울로 올라와 봉제 공장에 다녔다.";
 const STORY_EP = "졸업할 무렵 동네에 처음으로 텔레비전이 들어왔다."; // 국민학교 입학 이후(구간)
 const STORY_MP = "제대 후 부품 공장에 들어갔다가 월급을 더 준다는 곳으로 옮겼다."; // 군 입대 이후(구간)
+const STORY_A2 = "운동회 날 달리기에서 처음으로 일등을 했다.";
+const SHIP = {
+  recipientName: "[fixture]",
+  recipientPhone: "010-0000-0000",
+  postalCode: "00000",
+  address1: "[fixture] 주소",
+  address2: null,
+  jibunAddress: null,
+  deliveryMemo: null,
+};
+const STALE_MESSAGE = "포스터 내용이 바뀌었어요. 시안을 다시 확인해 주세요.";
+
+// AI 호출 수 — chat() 의 "[ai] model=" 로그(개발 모드만)를 센다.
+let aiCalls = 0;
+const baseLog = console.log.bind(console);
+console.log = (...args: unknown[]) => {
+  if (typeof args[0] === "string" && args[0].startsWith("[ai] model=")) aiCalls += 1;
+  baseLog(...args);
+};
+const createdOrderIds: string[] = [];
 
 let failed = 0;
 let count = 0;
@@ -375,9 +400,159 @@ async function scenario(userId: string) {
       !roomView.some((m) => bridgeIds.has(m.id)) && roomView.some((m) => m.id === life.id),
     { timeline: timeline.map((e) => e.id), room: roomView.map((m) => m.id) },
   );
+
+  // ══ 포스터 AI 문장 고정 — P1 후보 캐시 · P3 문장 저장(2026-10-24)
+  type StoredSel = PosterSelectionFull & { override?: { textOverride?: string } };
+  const sels = async () => ((await readSelections(userId)) ?? []) as StoredSel[];
+  const selOf = (list: StoredSel[], id: string) => list.find((s) => s.eventId === id);
+  const calls = async <T>(fn: () => Promise<T>): Promise<[T, number]> => {
+    const before = aiCalls;
+    const out = await fn();
+    return [out, aiCalls - before];
+  };
+
+  // ── P1 — loadPosterEditor 와 같은 입력(life_event + 브릿지 행, 연도순)으로 2회
+  const bridgeNow = await syncV3Bridge(userId);
+  const candInputs = [
+    ...(await getLifeEvents(userId))
+      .filter((e) => e.kind === "life_event")
+      .map((e) => ({ eventId: e.id, year: e.eventYear, title: e.title, content: e.content, category: e.category })),
+    ...bridgeNow.map((b) => ({ eventId: b.id, year: b.year, title: b.title, content: b.content, category: null })),
+  ].sort((a, b) => (a.year ?? 0) - (b.year ?? 0));
+  const [cand1, p1First] = await calls(() => getPosterCandidates(userId, candInputs));
+  const [cand2, p1Second] = await calls(() => getPosterCandidates(userId, candInputs));
+  const design = (await prisma.poster.findUnique({ where: { userId }, select: { design: true } }))?.design as
+    | { candidateCache?: { inputHash?: unknown } }
+    | null;
+  // 2회차는 DB(JSONB — 키 순서가 바뀜)에서 읽은 값이라 필드 값으로 비교.
+  const candValues = (list: PosterCandidate[]) =>
+    JSON.stringify(list.map((c) => [c.eventId, c.year, c.title, c.suggestedType, c.gist, c.priority, c.recommended]));
+  check(
+    "★ P1 후보 — 같은 입력 2회 로드: 1회차 AI 1회·2회차 AI 0회, 결과 동일(Poster.design.candidateCache 저장)",
+    p1First === 1 && p1Second === 0 && cand1.length === candInputs.length &&
+      candValues(cand1) === candValues(cand2) && typeof design?.candidateCache?.inputHash === "string",
+    { p1First, p1Second, n: cand1.length, first: candValues(cand1), second: candValues(cand2) },
+  );
+
+  // ── P3 — 선택 재저장(같은 항목·유형은 문장 유지) → 시안 1회차: 없는 항목만 생성 → 2회차 AI 0
+  const beforeSave = await sels(); // 연도 표시 항목의 시안이 저장한 elem(node)·elemP(node) 문장
+  const finalItems = [
+    { eventId: ids.birth, type: "node" as const, order: 0 },
+    { eventId: ids.elem, type: "node" as const, order: 1 },
+    { eventId: ids.elemP, type: "memo" as const, order: 2 },
+    { eventId: life.id, type: "node" as const, order: 3 },
+  ];
+  await persistPosterSelections(userId, finalItems);
+  const afterSave = await sels();
+  const [view1, view1Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  const afterView1 = await sels();
+  const [view2, view2Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  const afterView2 = await sels();
+  const elemAt = selOf(beforeSave, ids.elem)?.generatedAt;
+  check(
+    "★ P3 문장 — 재저장 후에도 같은 항목 문장 유지, 시안 1회차는 없는 항목만 생성(AI 1회)·2회차 AI 0회·문장·DB 동일",
+    elemAt !== undefined && selOf(afterSave, ids.elem)?.generatedAt === elemAt &&
+      selOf(afterSave, ids.elemP)?.generatedText === undefined &&
+      view1Calls === 1 && view2Calls === 0 &&
+      afterView1.length === 4 && afterView1.every((s) => s.generatedText && s.sourceHash && s.generatedAt) &&
+      selOf(afterView1, ids.elem)?.generatedAt === elemAt &&
+      view1?.nodes.find((n) => n.eventId === ids.elem)?.label === selOf(afterView1, ids.elem)?.generatedText &&
+      JSON.stringify(view1) === JSON.stringify(view2) && JSON.stringify(afterView1) === JSON.stringify(afterView2),
+    { view1Calls, view2Calls, afterSave, afterView1 },
+  );
+
+  // ── 본문 변경 → 그 항목만 다시 생성
+  await editPosterEventText(userId, life.id, "개인 기록(고침)", "직접 쓴 이야기 — 덧붙임");
+  const [view3, view3Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  const afterView3 = await sels();
+  const regenerated = afterView3
+    .filter((s) => s.generatedAt !== selOf(afterView2, s.eventId)?.generatedAt)
+    .map((s) => s.eventId);
+  check(
+    "★ 본문 변경 → 그 항목만 다시 생성(AI 1회), 나머지 문장·생성 시각 그대로",
+    view3Calls === 1 && JSON.stringify(regenerated) === JSON.stringify([life.id]) &&
+      selOf(afterView3, life.id)?.sourceHash !== selOf(afterView2, life.id)?.sourceHash,
+    { view3Calls, regenerated },
+  );
+
+  // ── 주문 — AI 0, 주문 스냅샷 문장 = 직전 시안 문장
+  const sentencesOf = (s: PosterSnapshot | null | undefined) =>
+    JSON.stringify({ n: s?.nodes.map((n) => [n.eventId, n.label]), m: s?.memos.map((m) => [m.eventId, m.text]) });
+  const orderSnapshot = async (id: string) =>
+    (await prisma.productOrder.findUnique({ where: { id }, select: { posterSnapshot: true } }))
+      ?.posterSnapshot as PosterSnapshot | null;
+  const [order1, order1Calls] = await calls(() =>
+    createPendingPosterOrder(userId, "[fixture] bridge", "standard", SHIP, "card"),
+  );
+  if (order1.ok) createdOrderIds.push(order1.order.orderId);
+  const order1Snap = order1.ok ? await orderSnapshot(order1.order.orderId) : null;
+  check(
+    "★ 주문 스냅샷 문장 = 직전 시안 문장(주문 때 AI 0회)",
+    order1.ok && order1Calls === 0 && view3 !== null && sentencesOf(order1Snap) === sentencesOf(view3),
+    { order1, order1Calls, order: sentencesOf(order1Snap), view: sentencesOf(view3) },
+  );
+
+  // ── override 우선 — 편집 저장에도 문장 유지(클라가 보낸 문장 값은 무시), 직접 고친 문구 항목은
+  //    원본이 또 바뀌어도 주문 통과·그 문구로 고정
+  const editorItems: PosterSelectionFull[] = afterView3.map((s) => ({
+    eventId: s.eventId,
+    type: s.type,
+    order: s.order,
+    override: s.eventId === life.id ? { textOverride: "내가 고친 제목" } : undefined,
+    generatedText: "클라가 보낸 값",
+  }));
+  const ovSave = await persistPosterOverrides(userId, editorItems);
+  const afterOv = await sels();
+  await editPosterEventText(userId, life.id, "개인 기록(고침)", "직접 쓴 이야기 — 또 바꿈");
+  const [order2, order2Calls] = await calls(() =>
+    createPendingPosterOrder(userId, "[fixture] bridge", "standard", SHIP, "card"),
+  );
+  if (order2.ok) createdOrderIds.push(order2.order.orderId);
+  const lifeNode = order2.ok ? (await orderSnapshot(order2.order.orderId))?.nodes.find((n) => n.eventId === life.id) : undefined;
+  check(
+    "★ override 우선 — 편집 저장 뒤에도 생성 문장 유지(클라 값 무시), 직접 고친 문구 항목은 원본이 바뀌어도 주문 통과·그 문구로 고정",
+    ovSave.ok &&
+      afterOv.every(
+        (s) => s.generatedText === selOf(afterView3, s.eventId)?.generatedText &&
+          s.generatedAt === selOf(afterView3, s.eventId)?.generatedAt,
+      ) &&
+      selOf(afterOv, life.id)?.override?.textOverride === "내가 고친 제목" &&
+      order2.ok && order2Calls === 0 &&
+      lifeNode?.override?.textOverride === "내가 고친 제목" && lifeNode.label === "내가 고친 제목",
+    { ovSave, afterOv, order2, order2Calls, lifeNode },
+  );
+
+  // ── 주문 거부 — 저장 문장 없음(시안 안 본 새 항목) / 원본 해시 불일치. 주문 행 안 생김, AI 0
+  const life2 = await prisma.userMemory.create({
+    data: { userId, year: 1985, title: "새 기록", eventTitle: "새 기록", eventYear: 1985, createdVia: "life_event", content: "새로 쓴 이야기" },
+    select: { id: true },
+  });
+  const current = afterOv.map((s) => ({ eventId: s.eventId, type: s.type, order: s.order }));
+  await persistPosterSelections(userId, [...current, { eventId: life2.id, type: "node", order: 9 }]);
+  const ordersBefore = await prisma.productOrder.count({ where: { userId } });
+  const [missing, missingCalls] = await calls(() =>
+    createPendingPosterOrder(userId, "[fixture] bridge", "standard", SHIP, "card"),
+  );
+  await persistPosterSelections(userId, current);
+  if (!(await createEpisodeBridge(userId, elem.id, "대구 국민학교 입학", 1958, STORY_A2, "raw"))) {
+    throw new Error("episode 추가 실패");
+  }
+  const [mismatch, mismatchCalls] = await calls(() =>
+    createPendingPosterOrder(userId, "[fixture] bridge", "standard", SHIP, "card"),
+  );
+  const ordersAfter = await prisma.productOrder.count({ where: { userId } });
+  check(
+    "★ 저장 문장 없음·원본 해시 불일치 → 주문 거부(시안 재확인 안내), 주문 행 안 생김, AI 0회",
+    !missing.ok && missing.error === STALE_MESSAGE && !mismatch.ok && mismatch.error === STALE_MESSAGE &&
+      missingCalls === 0 && mismatchCalls === 0 && ordersAfter === ordersBefore,
+    { missing, mismatch, missingCalls, mismatchCalls, ordersBefore, ordersAfter },
+  );
 }
 
 async function main() {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error('NODE_ENV=production 이면 chat() 이 "[ai] model=" 로그를 안 남겨 AI 호출 수를 셀 수 없음');
+  }
   await removeFixture();
   let userId: string | null = null;
   try {
@@ -403,22 +578,23 @@ async function main() {
     // 시나리오 도중 실패해도 이메일로 찾아 지운다.
     await removeFixture();
     const id = userId ?? "";
-    const [user, events, memories, photos, rooms] = await Promise.all([
+    const [user, events, memories, photos, rooms, orders] = await Promise.all([
       prisma.user.count({ where: { email: FIXTURE_EMAIL } }),
       prisma.lifeEvent.count({ where: { userId: id } }),
       prisma.userMemory.count({ where: { userId: id } }),
       prisma.photo.count({ where: { userId: id } }),
       prisma.sharedRoom.count({ where: { ownerId: id } }),
+      prisma.productOrder.count({ where: { id: { in: createdOrderIds } } }),
     ]);
-    if (user + events + memories + photos + rooms === 0) {
-      console.log("정리 — 픽스처 계정·하위 데이터 삭제 확인");
+    if (user + events + memories + photos + rooms + orders === 0) {
+      console.log("정리 — 픽스처 계정·하위 데이터(주문 행 포함) 삭제 확인");
     } else {
-      console.log("정리 실패 — 픽스처 잔재:", { user, events, memories, photos, rooms });
+      console.log("정리 실패 — 픽스처 잔재:", { user, events, memories, photos, rooms, orders });
       failed += 1;
     }
   }
-  console.log(failed === 0 && count === 20 ? "\nALL PASS (20)" : `\n${failed} FAILED / ${count} 항목`);
-  process.exitCode = failed === 0 && count === 20 ? 0 : 1;
+  console.log(failed === 0 && count === 26 ? "\nALL PASS (26)" : `\n${failed} FAILED / ${count} 항목`);
+  process.exitCode = failed === 0 && count === 26 ? 0 : 1;
 }
 
 main()

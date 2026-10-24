@@ -90,21 +90,23 @@ function fallbackCandidate(e: PosterCandidateInput): PosterCandidate {
   };
 }
 
+// parsed=false 는 응답이 JSON 배열이 아니라 전부 기본값으로 채운 경우.
 function parseCandidates(
   raw: string,
   events: PosterCandidateInput[],
-): PosterCandidate[] {
-  let arr: unknown[] = [];
+): { candidates: PosterCandidate[]; parsed: boolean } {
+  let arr: unknown[] | null = null;
   try {
     const cleaned = raw.trim().replace(/^```json\s*|^```\s*/i, "").replace(/\s*```$/, "");
     const parsed = JSON.parse(cleaned);
     if (Array.isArray(parsed)) arr = parsed;
   } catch {
-    arr = [];
+    arr = null;
   }
+  const list = arr ?? [];
 
-  return events.map((e, i) => {
-    const item = arr[i];
+  const candidates = events.map((e, i): PosterCandidate => {
+    const item = list[i];
     if (!item || typeof item !== "object") return fallbackCandidate(e);
     const obj = item as Record<string, unknown>;
 
@@ -129,14 +131,16 @@ function parseCandidates(
       recommended,
     };
   });
+  return { candidates, parsed: arr !== null };
 }
 
 // 사용자 life_event 전체 → 포스터 후보(분류·우선순위). 한 번의 LLM 호출.
 // 입력 순서·개수 보존, eventId 는 입력에서 그대로 echo(AI 출력 불신뢰).
+// fromAi=false 면 AI 실패·응답 해석 실패로 전부 기본값 — 캐시하지 않는다(lib/poster/ai-cache.ts).
 export async function selectPosterCandidates(
   events: PosterCandidateInput[],
-): Promise<PosterCandidate[]> {
-  if (events.length === 0) return [];
+): Promise<{ candidates: PosterCandidate[]; fromAi: boolean }> {
+  if (events.length === 0) return { candidates: [], fromAi: false };
 
   // AI 호출 실패(타임아웃·레이트리밋·키 오류)가 /poster/select 페이지 전체를
   // 500 으로 무너뜨리지 않도록 폴백. river→select 진입이 AI 가용성에 매이면 안 됨.
@@ -150,8 +154,9 @@ export async function selectPosterCandidates(
     });
   } catch (e) {
     console.error("[poster] 후보 분류 AI 실패 — 폴백 사용", e instanceof Error ? e.message : e);
-    return events.map(fallbackCandidate);
+    return { candidates: events.map(fallbackCandidate), fromAi: false };
   }
 
-  return parseCandidates(res.text, events);
+  const { candidates, parsed } = parseCandidates(res.text, events);
+  return { candidates, fromAi: parsed };
 }

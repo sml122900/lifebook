@@ -7,7 +7,8 @@
 //   previewPosterSentence : P3 refineForPoster 로 노드/메모 문장 미리보기
 //   updatePosterEventText : 사건 제목/내용 인라인 정정(life_event 원본 수정)
 //
-// 후보(P1)는 임시(매번 AI). 확정 선택만 Poster.selections 에 영속(P4 합성이 읽음).
+// 후보(P1)는 입력이 같으면 저장해 둔 결과(lib/poster/ai-cache.ts, 바뀌었을 때만 AI).
+// 확정 선택만 Poster.selections 에 영속(P4 합성이 읽음).
 // 저장·정정 본체는 lib/poster/selections.ts(auth 없음) — 여기선 auth·revalidate 만.
 // v3 가입자의 사건은 lib/poster/v3-bridge.ts 가 브릿지 행으로 동기화해 함께 다룬다.
 
@@ -16,8 +17,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { getLifeEvents } from "@/lib/life-events";
+import { getPosterCandidates } from "@/lib/poster/ai-cache";
 import {
-  selectPosterCandidates,
   type PosterCandidate,
   type PosterCandidateInput,
 } from "@/lib/poster/poster-candidates";
@@ -91,7 +92,7 @@ export async function loadPosterEditor(): Promise<PosterEditorData> {
   const inputs = toCandidateInputs(events, bridge);
 
   const [candidates, poster] = await Promise.all([
-    selectPosterCandidates(inputs),
+    getPosterCandidates(userId, inputs),
     prisma.poster.findUnique({
       where: { userId },
       select: { selections: true },

@@ -17,8 +17,8 @@ import { PosterSelectClient } from "./PosterSelectClient";
 // P1 후보(AI 분류)를 불러와 사용자가 노드/메모/제외를 정하고, 제목·내용을
 // 정정하고, P3 미리보기를 본 뒤 Poster.selections 로 저장한다. SVG 합성은 P4.
 //
-// loadPosterEditor 가 P1 AI 분류를 돌리므로 첫 로드에 몇 초 걸릴 수 있음
-// (후속: 후보 캐싱).
+// loadPosterEditor 는 후보 입력이 바뀐 로드에서만 P1 AI 분류를 돌린다(몇 초 —
+// 그동안 loading.tsx). 입력이 같으면 저장해 둔 결과(lib/poster/ai-cache.ts).
 
 export const metadata = { title: "포스터에 담을 이야기 고르기" };
 

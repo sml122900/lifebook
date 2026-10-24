@@ -3,7 +3,7 @@
 // 경로를 그대로 재사용한다(productId="poster"). 금액은 서버가 진실.
 
 import { prisma } from "../db";
-import { buildPosterSnapshot } from "../poster/snapshot";
+import { buildOrderSnapshot } from "../poster/snapshot";
 import { POSTER_PAYMENT_LIVE_ENABLED } from "./poster-payment";
 import {
   computeOptionOrderAmount,
@@ -38,11 +38,19 @@ export async function createPendingPosterOrder(
     return { ok: false, error: "받는 분·연락처·우편번호·주소를 입력해 주세요." };
   }
 
-  // 주문 시점 스냅샷 — 이후 편집과 무관하게 발주 파일 고정.
-  const snapshot = await buildPosterSnapshot(userId, ownerName);
-  if (!snapshot) {
-    return { ok: false, error: "먼저 포스터에 담을 이야기를 골라 주세요." };
+  // 주문 시점 스냅샷 — 이후 편집과 무관하게 발주 파일 고정. 문장은 /poster/view 에서
+  // 저장해 둔 것 그대로(AI 재호출 없음 → 주문 = 직전 시안). 원본이 바뀌었으면 거부.
+  const built = await buildOrderSnapshot(userId, ownerName);
+  if (!built.ok) {
+    return {
+      ok: false,
+      error:
+        built.reason === "empty"
+          ? "먼저 포스터에 담을 이야기를 골라 주세요."
+          : "포스터 내용이 바뀌었어요. 시안을 다시 확인해 주세요.",
+    };
   }
+  const snapshot = built.snapshot;
 
   const order = await prisma.productOrder.create({
     data: {
