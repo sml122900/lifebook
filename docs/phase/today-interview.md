@@ -544,12 +544,12 @@ T안 장점: 세션 계획 고정(PLANNED 행), 상태가 명시적이라 추론
 | 파일 | 역할 |
 |---|---|
 | `prisma/migrations/20261025000000_interview_item` | `InterviewItem` 1개(순수 CREATE). 운영 DB 적용 완료 |
-| `lib/interview/gate.ts` · `access.ts` | 허용 목록 게이트(`INTERVIEW_ALLOWED_USER_IDS`) — lab 게이트와 같은 2층(화면 404 + 액션 throw). `proxy.ts` 무접촉 |
+| ~~`lib/interview/gate.ts` · `access.ts`~~ | ~~허용 목록 게이트~~ — 2026-10-25 같은 날 제거(아래 "게이트 제거"). 접근 = 로그인한 V3 사용자 전원 |
 | `lib/interview/copy.ts` | 화면 문구 전부(항목마다 `// [임시 — 성민 확정 필요]`) |
 | `lib/interview/question-pool.ts` | 풀 예시 5개(임시). `favorite-food` 는 대상 시기 없음이라 꺼 둠(Q6) |
 | `lib/interview/keys.ts` · `plan.ts` · `year.ts` · `session.ts` | 문항 키·KST 날짜 / 계획(순수 `pickPlan`·`isEligible`·`poolCandidates`) / 연도 해석(정규식 → Sonnet) / 세션 진행 본체 |
-| `app/interview/` | `layout.tsx`(게이트) · `page.tsx`(게이트 → V3 → 재동의 → 골격 완료) · `actions.ts`(5개, 첫 줄 게이트) · `InterviewClient.tsx` |
-| `app/story-review/page.tsx` | 상단 진입 카드(허용 목록일 때만 조회·표시, 오늘 기록 1회 조회) |
+| `app/interview/` | `page.tsx`(로그인 → V3 → 재동의 → 골격 완료) · `actions.ts`(5개, 첫 줄 `requireUserId()` — 비로그인 throw) · `InterviewClient.tsx` |
+| `app/story-review/page.tsx` | 상단 진입 카드(항상 표시, 오늘 기록 1회 조회) |
 | `lib/episode-chat.ts` | `continueEpisodeChat`·`finishEpisodeChat` 본체를 auth 없는 순수 모듈로 옮김(본문 무변). 액션은 auth + revalidate 래퍼. 추가: `isPeriodOverride` 선택 인자(풀 질문 = 제목만 바꾸고 구간 아님), 결과에 `episodeId` |
 | `lib/episode-opening.ts` · `lib/episode-text.ts` | `buildEpisodeOpeningPrompt`·`schoolPhaseName`·`isAskingQuestion` 을 `ChatV3Client` 에서 옮겨 공유(본문 무변) |
 | `lib/ai.ts` | `trackAiUsage(usage, fn)` — `AsyncLocalStorage` 로 그 안의 `chat()` 호출 수·토큰·모델을 합산. 바깥에선 동작 없음(기존 호출부 무변) |
@@ -565,11 +565,19 @@ T안 장점: 세션 계획 고정(PLANNED 행), 상태가 명시적이라 추론
 - 연도 문항에 "기억이 안 나요" 버튼을 붙였다(입력 없이 모름 처리 — 어르신 동선 단축).
 - "오늘은 그만"·"그만할래요"는 그 문항에 답한 내용이 있으면 저장한 뒤 멈춘다(`/chat-v3` P12-1 과 같은 원칙 — 답을 버리지 않음).
 
+### 게이트 제거 (2026-10-25, 성민 결정)
+
+처음엔 `INTERVIEW_ALLOWED_USER_IDS` 허용 목록(lab 패턴 — 화면 404 + 액션 throw)으로 막았다가, 같은 날 성민 결정으로 제거했다. 근거: 실사용자가 아직 없고, 전원 대상 기능이다.
+- 삭제: `lib/interview/gate.ts`·`access.ts`·`app/interview/layout.tsx`(게이트 호출만 하던 파일), `.env.example` 의 `INTERVIEW_ALLOWED_USER_IDS`.
+- 남은 접근 조건: 로그인(proxy 기존 게이트) · V2 → `/enter` · 재동의 → `/consent` · 골격 미완성·확인대기 → `/chat-v3`(`page.tsx` 기존 분기). 서버 액션은 첫 줄 `requireUserId()`(auth, 비로그인 throw). 문항은 itemId + userId 로만 찾아 남의 문항은 못 건드린다.
+- `/story-review` 진입 카드는 조건 없이 항상 표시(V3 전용 화면).
+- `proxy.ts` 무접촉.
+
 ### 검증 (2026-10-25)
 
-- `db/test-interview.ts` 70항목 통과 — 게이트(판정·배선 정적 검사)·세션 생성(계획 순서·하루 1세션)·이어하기·연도(실제 Sonnet, year 만 채움)·이야기(실제 Sonnet, Episode 구간 아님·풀 제목)·DROPPED·종료 요약·진입 카드·다음 날/8일 뒤 중복 미출제·재노출 규칙·SKIPPED 값 미사용·AI 사용량 기록·픽스처 정리.
+- `db/test-interview.ts` 70항목 통과(게이트 제거 후 63항목 — 게이트 판정·배선 11항목 삭제, 액션 첫 줄 5항목은 `requireUserId()` 로 교체, 정적 검사 4항목 추가: 비로그인 throw·page 분기·카드 항상 표시·게이트 잔재 0) — 접근 배선(정적 검사)·세션 생성(계획 순서·하루 1세션)·이어하기·연도(실제 Sonnet, year 만 채움)·이야기(실제 Sonnet, Episode 구간 아님·풀 제목)·DROPPED·종료 요약·진입 카드·다음 날/8일 뒤 중복 미출제·재노출 규칙·SKIPPED 값 미사용·AI 사용량 기록·픽스처 정리.
 - 회귀 세트 15종 전부 exit 0, `tsc`·`eslint`·`next build` 통과.
-- 화면은 브라우저로 직접 확인하지 않았다(로그인 필요) — test30 E2E 는 `INTERVIEW_ALLOWED_USER_IDS` 설정 후 성민 확인 대기.
+- 화면은 브라우저로 직접 확인하지 않았다(로그인 필요) — test30 E2E 는 성민 확인 대기(게이트 제거로 env 설정 없이 바로 가능).
 
 ## 결정 로그
 
@@ -580,3 +588,4 @@ T안 장점: 세션 계획 고정(PLANNED 행), 상태가 명시적이라 추론
 | 2026-10-25 | Q2·Q4~Q8·Q10~Q14 = 설계 추천안 채택(성민 위임) — §12 결정 열 | Claude Code | 성민(위임) |
 | 2026-10-25 | 마이그 `20261025000000_interview_item` SQL 승인 → 운영 DB deploy(적용 1건) | Claude Code | 성민 |
 | 2026-10-25 | 접근 게이트 = `INTERVIEW_ALLOWED_USER_IDS`(lab 패턴, proxy 무접촉) / 화면 문구 = `lib/interview/copy.ts` 임시 | 성민 | 성민 |
+| 2026-10-25 | 접근 게이트 제거 — 로그인한 V3 사용자 전원 공개(근거: 실사용자 없음, 전원 대상 기능). gate·access·layout 삭제, 액션은 auth 확인으로 대체, 진입 카드 항상 표시. (중간에 요청됐던 `"*"` 전체 공개 옵션은 이 결정으로 대체돼 커밋하지 않음) | 성민 | 성민 |
