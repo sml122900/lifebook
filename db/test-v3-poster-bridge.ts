@@ -1,10 +1,10 @@
-// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(34항목). 설계: docs/phase/v3-poster-bridge.md
+// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(36항목). 설계: docs/phase/v3-poster-bridge.md
 // 실행: npx tsx db/test-v3-poster-bridge.ts
 //
 // 자체 픽스처 계정(fixture-bridge@lifebook.invalid)을 시작 시 만들고 끝에
 // (성공·실패 모두) 하위 데이터째 삭제한다. test30 등 다른 계정 접촉 0.
 // 외부 AI 호출(Sonnet)은 4회 — "연도 표시" 항목의 P3 1회, AI 문장 고정 항목의 P1 1회·P3 2회.
-// 후속 항목(P3 응답 항목 누락·선택 화면 미리보기·프롬프트 버전·메모 60자 상한)은 fetch 스텁이 응답한다(실제 호출 0).
+// 후속 항목(P3 응답 항목 누락·선택 화면 미리보기·프롬프트 버전·메모 60자 상한·재요청)은 fetch 스텁이 응답한다(실제 호출 0).
 // 나머지는 loadPosterEditor(auth 필요) 대신 그 안의 동기화·규칙·가드·캐시 함수를 직접
 // 호출. AI 호출 수는 lib/ai.ts chat() 이 개발 모드에서 남기는 "[ai] model=" 로그로 센다.
 // 사진 정리 경로는 Storage 에 없는 경로로 remove 를 부른다(없는 경로는 Supabase 가
@@ -82,13 +82,17 @@ const createdOrderIds: string[] = [];
 // AI 응답 스텁 — stubReply 가 있으면 Anthropic 메시지 API 요청에 그 텍스트를 응답으로 준다
 // (P3 응답 항목 누락 재현, 실제 Sonnet 호출 없이 저장 경로 검증). SDK 는 클라이언트를 처음
 // 만들 때 전역 fetch 를 잡아 두므로 첫 AI 호출 전(모듈 로드 시) 감싼다. chat() 은 그대로
-// 거치므로 "[ai] model=" 로그 수에도 잡힌다.
+// 거치므로 "[ai] model=" 로그 수에도 잡힌다. stubQueue 에 넣어 두면 호출마다 앞에서 하나씩
+// 꺼내 쓴다(첫 요청·재요청에 다른 응답 — 비면 stubReply).
 let stubReply: string | null = null;
+const stubQueue: string[] = [];
 const stubBodies: string[] = [];
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-  if (stubReply === null || !url.includes("/v1/messages")) return realFetch(input, init);
+  if (!url.includes("/v1/messages")) return realFetch(input, init);
+  const reply = stubQueue.shift() ?? stubReply;
+  if (reply === null) return realFetch(input, init);
   stubBodies.push(String(init?.body ?? ""));
   return new Response(
     JSON.stringify({
@@ -96,7 +100,7 @@ globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters
       type: "message",
       role: "assistant",
       model: "fixture-stub",
-      content: [{ type: "text", text: stubReply }],
+      content: [{ type: "text", text: reply }],
       stop_reason: "end_turn",
       stop_sequence: null,
       usage: { input_tokens: 0, output_tokens: 0 },
@@ -683,13 +687,13 @@ async function scenario(userId: string) {
   );
 
   // ══ P3 프롬프트 버전 — 이전 버전으로 저장된 문장은 해시가 안 맞아 다시 만든다(시안·미리보기 보관함
-  //    둘 다). selections 는 직전 버전(2), 보관함은 버전 상수 도입 전 공식으로 저장된 것처럼 둔다. AI 응답은 스텁.
+  //    둘 다). selections 는 직전 버전(3 — 지금 운영에 나가 있는 버전), 보관함은 버전 상수 도입 전 공식으로 저장된 것처럼 둔다. AI 응답은 스텁.
   //    지금 selections = birth(node)·elem(node)·elemP(memo)·life(node, 직접 고친 문구)·life2(memo).
   type Src = { title: string; content: string | null; year: number };
   const v1Hash = (i: Src, type: "node" | "memo", tpl: string | null) =>
     createHash("sha256").update(JSON.stringify([i.title, i.content, i.year, type, tpl])).digest("hex");
-  const v2Hash = (i: Src, type: "node" | "memo", tpl: string | null) =>
-    createHash("sha256").update(JSON.stringify([i.title, i.content, i.year, type, tpl, 2])).digest("hex");
+  const prevHash = (i: Src, type: "node" | "memo", tpl: string | null) =>
+    createHash("sha256").update(JSON.stringify([i.title, i.content, i.year, type, tpl, 3])).digest("hex");
   // 기대 메모 — 원문이 60자 이내면 원문 그대로, 넘으면 AI(스텁) 메모.
   const memoOf = (content: string | null, ai: string) =>
     content && content.length <= MEMO_AI_MAX ? content : ai;
@@ -708,7 +712,7 @@ async function scenario(userId: string) {
     where: { userId },
     data: {
       selections: JSON.parse(
-        JSON.stringify(freshSels.map((x) => ({ ...x, sourceHash: v2Hash(sources.get(x.eventId)!, x.type, tpl) }))),
+        JSON.stringify(freshSels.map((x) => ({ ...x, sourceHash: prevHash(sources.get(x.eventId)!, x.type, tpl) }))),
       ),
       design: {
         ...((posterRow?.design ?? {}) as Record<string, unknown>),
@@ -739,7 +743,7 @@ async function scenario(userId: string) {
       afterVer.every((x, i) => {
         const src = sources.get(x.eventId)!;
         return x.sourceHash === sentenceSourceHash(src, x.type, tpl) &&
-          x.sourceHash !== v2Hash(src, x.type, tpl) &&
+          x.sourceHash !== prevHash(src, x.type, tpl) &&
           x.generatedText ===
             (x.type === "node" ? `새 버전 ${i}` : memoOf(src.content, `새 버전 ${i} 메모`));
       }) &&
@@ -776,20 +780,26 @@ async function scenario(userId: string) {
     { bodilessEdit, bodiedEdit, periodEdit },
   );
 
-  // ── 메모 60자 상한 — 응답 메모가 60자를 넘으면 AI 결과로 치지 않음(저장 안 함·기본값 표시) → 다음 로드에
-  //    그 항목만 재요청. 판정은 필드별이라 같은 응답의 노드 라벨은 저장. 60자 정확히는 저장.
+  // ── 메모 60자 상한 — 응답 메모가 60자를 넘으면 같은 로드에서 그 메모 항목만 1회 다시 요청하고, 또 넘으면
+  //    AI 결과로 치지 않음(저장 안 함·기본값 표시 → 다음 로드에 재요청). 판정은 필드별이라 같은 응답의 노드
+  //    라벨은 저장(노드 항목은 메모가 넘어도 재요청 안 함). 60자 정확히는 저장.
   //    life(node)·life2(memo) 본문을 60자 넘게 바꿔 두 항목만 다시 만들게 한다(60자 이내 원문은 AI 메모를 안 씀).
   await editPosterEventText(userId, life.id, "개인 기록(고침)", `${STORY_LONG} 개인 기록.`); // 60자 초과 — AI 메모가 쓰이는 노드 항목
   await editPosterEventText(userId, life2.id, "새 기록", STORY_LONG2);
   const overMemo = "가".repeat(MEMO_AI_MAX + 1);
   const exactMemo = "나".repeat(MEMO_AI_MAX);
   const beforeLen = await sels();
-  stubReply = JSON.stringify([
-    { nodeLabel: "노드 라벨 정상", memoText: overMemo }, // life(node)
-    { nodeLabel: "메모 항목 라벨", memoText: overMemo }, // life2(memo)
-  ]);
+  const promptEventsSince = (mark: number) => stubBodies.slice(mark).map((b) => (b.match(/제목: /g) ?? []).length);
+  const mark33 = stubBodies.length;
+  stubQueue.push(
+    JSON.stringify([
+      { nodeLabel: "노드 라벨 정상", memoText: overMemo }, // life(node)
+      { nodeLabel: "메모 항목 라벨", memoText: overMemo }, // life2(memo)
+    ]),
+    JSON.stringify([{ nodeLabel: "메모 항목 라벨", memoText: overMemo }]), // 재요청(life2)도 초과
+  );
   const [len1, len1Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
-  const len1Events = lastPromptEvents();
+  const len1Prompts = promptEventsSince(mark33);
   const afterLen1 = await sels();
   stubReply = JSON.stringify([{ nodeLabel: "메모 항목 라벨", memoText: exactMemo }]);
   const [len2, len2Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
@@ -797,8 +807,8 @@ async function scenario(userId: string) {
   const afterLen2 = await sels();
   stubReply = null;
   check(
-    "★ 메모 60자 초과 결과 → AI 결과로 치지 않음(저장 안 함·기본값=원문 표시), 같은 응답의 노드 라벨은 저장, 다음 로드에 그 항목만 재요청 — 60자 정확히는 저장",
-    len1Calls === 1 && len1Events === 2 &&
+    "★ 메모 60자 초과 → 1회 재요청도 초과면 저장 안 함(기본값=원문 표시·재요청은 1회만), 같은 응답의 노드 라벨은 저장, 다음 로드에 그 항목만 다시 — 60자 정확히는 저장",
+    len1Calls === 2 && JSON.stringify(len1Prompts) === "[2,1]" && stubQueue.length === 0 &&
       selOf(afterLen1, life.id)?.generatedText === "노드 라벨 정상" &&
       selOf(afterLen1, life2.id)?.sourceHash === selOf(beforeLen, life2.id)?.sourceHash &&
       selOf(afterLen1, life2.id)?.generatedText === selOf(beforeLen, life2.id)?.generatedText &&
@@ -806,7 +816,7 @@ async function scenario(userId: string) {
       len2Calls === 1 && len2Events === 1 &&
       selOf(afterLen2, life2.id)?.generatedText === exactMemo &&
       len2?.memos.find((m) => m.eventId === life2.id)?.text === exactMemo,
-    { len1Calls, len1Events, afterLen1, len2Calls, len2Events, afterLen2 },
+    { len1Calls, len1Prompts, afterLen1, len2Calls, len2Events, afterLen2 },
   );
 
   // ── 60자 이내 원문은 그대로 — AI 가 다른 메모를 줘도 원문(코드 보장). 경계: 60자 원문은 그대로,
@@ -826,6 +836,53 @@ async function scenario(userId: string) {
       ai61Calls === 1 && textOf(ai61) === "AI 가 바꾼 메모" &&
       selOf(afterView1, ids.elemP)?.generatedText === STORY_EP,
     { keep60, ai61, elemP: selOf(afterView1, ids.elemP)?.generatedText },
+  );
+
+  // ── 재요청 성공 — 60자 초과로 거부된 메모만 같은 로드에서 1회 다시 요청해 성공하면 저장. 재요청은 그 항목만
+  //    (노드 항목·정상 메모 항목은 다시 안 보냄). life3(memo)를 더해 노드 1·메모 2 항목을 한 번에 만든다.
+  const life3 = await prisma.userMemory.create({
+    data: {
+      userId, year: 1990, title: "세 번째 기록", eventTitle: "세 번째 기록", eventYear: 1990,
+      createdVia: "life_event", content: `${STORY_LONG2} 셋째.`,
+    },
+    select: { id: true },
+  });
+  await persistPosterSelections(userId, [
+    ...(await sels()).map((x) => ({ eventId: x.eventId, type: x.type, order: x.order })),
+    { eventId: life3.id, type: "memo", order: 9 },
+  ]);
+  await editPosterEventText(userId, life.id, "개인 기록(고침)", `${STORY_LONG} 개인 기록 다시.`);
+  await editPosterEventText(userId, life2.id, "새 기록", `${STORY_LONG2} 다시.`);
+  const mark35 = stubBodies.length;
+  stubQueue.push(
+    JSON.stringify([
+      { nodeLabel: "다시 노드 라벨", memoText: overMemo }, // life(node) — 노드 항목이라 재요청 안 함
+      { nodeLabel: "x", memoText: overMemo }, // life2(memo) → 재요청
+      { nodeLabel: "y", memoText: "셋째 메모 정상" }, // life3(memo)
+    ]),
+    JSON.stringify([{ nodeLabel: "x", memoText: "재요청 메모 정상" }]),
+  );
+  const [retryView, retryCalls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  const retryBodies = stubBodies.slice(mark35);
+  const afterRetry = await sels();
+  const [, retryAgainCalls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  check(
+    "★ 60자 초과로 거부된 메모 → 같은 로드에서 1회 재요청, 성공하면 저장(시안도 그 문장, 다음 로드 AI 0)",
+    retryCalls === 2 && stubQueue.length === 0 &&
+      selOf(afterRetry, life2.id)?.generatedText === "재요청 메모 정상" &&
+      retryView?.memos.find((m) => m.eventId === life2.id)?.text === "재요청 메모 정상" &&
+      selOf(afterRetry, life3.id)?.generatedText === "셋째 메모 정상" &&
+      selOf(afterRetry, life.id)?.generatedText === "다시 노드 라벨" &&
+      retryAgainCalls === 0,
+    { retryCalls, afterRetry, retryAgainCalls },
+  );
+  check(
+    "★ 재요청은 그 항목만 — 첫 요청 3건(노드 1·메모 2) 중 거부된 메모 1건만 다시 보냄(메모가 넘은 노드 항목·정상 메모 항목 제외)",
+    JSON.stringify(promptEventsSince(mark35)) === "[3,1]" &&
+      retryBodies[1]?.includes("제목: 새 기록") === true &&
+      !retryBodies[1]?.includes("제목: 개인 기록") &&
+      !retryBodies[1]?.includes("제목: 세 번째 기록"),
+    { prompts: promptEventsSince(mark35) },
   );
 }
 
@@ -873,8 +930,8 @@ async function main() {
       failed += 1;
     }
   }
-  console.log(failed === 0 && count === 34 ? "\nALL PASS (34)" : `\n${failed} FAILED / ${count} 항목`);
-  process.exitCode = failed === 0 && count === 34 ? 0 : 1;
+  console.log(failed === 0 && count === 36 ? "\nALL PASS (36)" : `\n${failed} FAILED / ${count} 항목`);
+  process.exitCode = failed === 0 && count === 36 ? 0 : 1;
 }
 
 main()

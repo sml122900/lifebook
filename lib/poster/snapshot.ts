@@ -174,14 +174,17 @@ export async function buildPosterSnapshot(
   const texts = parts.ordered.map((s, i) => savedText(s, parts.hashes[i]));
   const missing = texts.flatMap((t, i) => (t === undefined ? [i] : []));
   if (missing.length > 0) {
-    const { sentences, fromAi } = await refineForPosterBatch(missing.map((i) => parts.inputs[i]));
+    const { sentences, fromAi } = await refineForPosterBatch(
+      missing.map((i) => parts.inputs[i]),
+      missing.map((i) => parts.ordered[i].type),
+    );
     const generatedAt = new Date().toISOString();
     const generated = missing.flatMap((idx, k) => {
       const s = parts.ordered[idx];
       const field = sentenceField(s.type);
       const text = sentences[k][field];
       texts[idx] = text;
-      // 기본값으로 채운 문장(응답 누락·메모 상한 초과)은 화면에만 쓰고 저장 안 함(다음 로드에 그 항목만 다시 생성).
+      // 기본값으로 채운 문장(응답 누락·재요청 뒤에도 메모 상한 초과)은 화면에만 쓰고 저장 안 함(다음 로드에 그 항목만 다시 생성).
       return fromAi[k][field] ? [{ eventId: s.eventId, type: s.type, generatedText: text, sourceHash: parts.hashes[idx], generatedAt }] : [];
     });
     if (generated.length > 0) await saveGeneratedSentences(userId, generated);
@@ -241,7 +244,7 @@ export async function buildPreviewSentence(
   const {
     sentences: [out],
     fromAi: [ok],
-  } = await refineForPosterBatch([input]);
+  } = await refineForPosterBatch([input], [type]);
   const field = sentenceField(type);
   const text = out[field];
   // 기본값이면 보여만 주고 저장 안 함(시안과 같은 원칙).
