@@ -7,6 +7,8 @@
 //            문구만 고칠 땐 id 유지.
 //   text     화면에 보이는 질문
 //   topic    저장될 이야기 제목(/story-review "들려주신 이야기" 카드 제목)
+//            text·topic 자리표시: {elemSchool} = 출생연도 기준 국민학교/초등학교,
+//            {elemSchool:은/는} = 명칭 + 조사(lib/interview/pool-text.ts)
 //   category "taste"(취향) | "daily"(일상) — 같은 분류 연속 출제를 피하는 데 쓴다
 //   anchor   대상 시기. 이 유형의 사건이 확정(CONFIRMED/CORRECTED)일 때만 묻고, 답은 그
 //            사건의 Episode 로 저장한다. 1차는 필수 — null 이면 출제 안 함(Q6)
@@ -31,8 +33,8 @@ export type InterviewPoolQuestion = {
 export const QUESTION_POOL: InterviewPoolQuestion[] = [
   {
     id: "elem-play",
-    text: "국민학교 다닐 때 친구들이랑 즐겨 하던 놀이가 있으세요?", // [임시 — 성민 확정 필요]
-    topic: "국민학교 시절 놀이", // [임시 — 성민 확정 필요]
+    text: "{elemSchool} 다닐 때 친구들이랑 즐겨 하던 놀이가 있으세요?", // [임시 — 성민 확정 필요]
+    topic: "{elemSchool} 시절 놀이", // [임시 — 성민 확정 필요]
     category: "daily",
     anchor: "ELEM_SCHOOL",
     followUp: true,

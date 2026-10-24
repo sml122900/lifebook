@@ -28,6 +28,7 @@ import { getConfirmedLifeEvent } from "../life-event-query";
 import { INTERVIEW_COPY } from "./copy";
 import { kstDay, parseItemKey } from "./keys";
 import { computeTodayPlan } from "./plan";
+import { renderPoolText } from "./pool-text";
 import { QUESTION_POOL } from "./question-pool";
 import { isUnknownYearAnswer, parseYearDeterministic, parseYearWithAi } from "./year";
 
@@ -72,13 +73,15 @@ async function resolveTarget(userId: string, itemKey: string, requireOpen: boole
       select: { id: true, label: true, correctedLabel: true, year: true, correctedYear: true },
     });
     if (!ev) return null;
+    // {elemSchool} 등 자리표시는 출생연도 기준으로 치환(lib/interview/pool-text.ts).
+    const birthYear = await birthYearOf(userId);
     return {
       eventId: ev.id,
       label: ev.correctedLabel ?? ev.label,
       kind: "story",
-      question: q.text,
+      question: renderPoolText(q.text, birthYear),
       followUp: q.followUp,
-      topicOverride: { label: q.topic, year: ev.correctedYear ?? ev.year },
+      topicOverride: { label: renderPoolText(q.topic, birthYear), year: ev.correctedYear ?? ev.year },
       isPeriodOverride: false,
     };
   }

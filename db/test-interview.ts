@@ -9,6 +9,7 @@
 //   ⑥ 그사이 채워진 문항은 DROPPED, 종료 요약·진입 카드
 //   ⑦ 중복 질문 미출제 — 다음 날·8일 뒤 계획, 재노출 규칙(Q4·Q5) 순수 함수, 풀 대상 시기
 //   ⑧ LifeEvent.status SKIPPED 값 미사용 — DB 스냅샷 전후 동일 + 정적 검사
+//   ⑨ 풀 문구 {elemSchool} — 출생연도 기준 국민학교/초등학교 치환(+ 조사), 1960년생 픽스처 제목
 //
 // 자체 픽스처 계정(fixture-interview@lifebook.invalid)을 시작 시 만들고 끝에(성공·실패
 // 모두) deleteAccountTx 로 하위 데이터째 삭제한다. test30·실고객 계정 읽기·쓰기 0.
@@ -25,7 +26,8 @@ import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEpisodeBridge } from "../lib/episode";
 import { kstDay } from "../lib/interview/keys";
 import { computeTodayPlan, isEligible, poolCandidates, type PlanHistoryRow } from "../lib/interview/plan";
-import type { InterviewPoolQuestion } from "../lib/interview/question-pool";
+import { elemSchoolName, renderPoolText } from "../lib/interview/pool-text";
+import { QUESTION_POOL, type InterviewPoolQuestion } from "../lib/interview/question-pool";
 import {
   answerInterviewYear,
   finishInterviewStory,
@@ -179,6 +181,18 @@ function staticChecks() {
 }
 
 function pureChecks() {
+  // ⑨ 풀 문구 {elemSchool} — 출생연도 기준 국민학교/초등학교(입학 = 출생+7, 1996 개칭).
+  check("⑨ 1958년생 → 국민학교", renderPoolText("{elemSchool} 시절 놀이", 1958) === "국민학교 시절 놀이");
+  check("⑨ 2001년생 → 초등학교", renderPoolText("{elemSchool} 다닐 때", 2001) === "초등학교 다닐 때");
+  check("⑨ 출생연도 없음 → 초등학교", renderPoolText("{elemSchool} 시절", null) === "초등학교 시절");
+  check("⑨ 경계: 1988년생(1995 입학) 국민 / 1989년생(1996 입학) 초등", elemSchoolName(1988) === "국민학교" && elemSchoolName(1989) === "초등학교");
+  check("⑨ 조사 {elemSchool:은/는} → josa 유틸", renderPoolText("{elemSchool:은/는} 어땠어요?", 1958) === "국민학교는 어땠어요?");
+  check("⑨ 모르는 조사 쌍은 그대로 둠", renderPoolText("{elemSchool:요/오}", 1958) === "{elemSchool:요/오}");
+  check("⑨ 풀 예시 elem-play 질문·제목에 자리표시", (() => {
+    const q = QUESTION_POOL.find((p) => p.id === "elem-play");
+    return !!q && q.text.includes("{elemSchool}") && q.topic.includes("{elemSchool}");
+  })());
+
   // ④ 연도 해석(정규식 — AI 0회).
   const now = new Date("2026-10-25T00:00:00Z");
   check("④ '85년도요' → 1985", parseYearDeterministic("85년도요", 1960, now) === 1985);
