@@ -19,6 +19,7 @@ import {
 } from "@/lib/tours";
 
 import { chooseTemplate } from "./actions";
+import { TemplateSubmitButton } from "./TemplateSubmitButton";
 import {
   PosterInteractive,
   type PosterSlot,
@@ -220,12 +221,7 @@ function TemplateCard({
           </Link>
         ) : ready ? (
           <form action={chooseTemplate.bind(null, t.id)} className="mt-2">
-            <button
-              type="submit"
-              className="inline-flex min-h-[52px] w-full items-center justify-center rounded-md bg-action px-5 py-3 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
-            >
-              이 디자인으로 만들기 →
-            </button>
+            <TemplateSubmitButton />
           </form>
         ) : (
           <div
