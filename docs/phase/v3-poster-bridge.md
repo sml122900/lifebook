@@ -13,10 +13,11 @@ v3 트랙 가입자의 인생 사건은 `LifeEvent`·`Episode` 에 있고 life_e
 |---|---|
 | 파일 | `lib/poster/v3-bridge.ts` |
 | 태그 | `createdVia="v3_bridge"` |
-| 동기화 | 고정 id upsert. id = `` `v3_${lifeEventId}` ``. 원천(LifeEvent)에서 사라지거나 대상에서 빠진 것만 삭제. clear-and-rebuild 폐기(편집 override·연결 보존 위해) |
+| 동기화 | 고정 id upsert. id = `` `v3_${lifeEventId}` `` (구간 행은 `` `v3p_${episodeId}` ``). 원천(LifeEvent·Episode)에서 사라지거나 대상에서 빠진 것만 삭제. clear-and-rebuild 폐기(편집 override·연결 보존 위해) |
 | 시점 | 온디맨드. `loadPosterEditor`·`buildPosterSnapshot` 2곳에서만 실행 |
 | 대상 | CONFIRMED/CORRECTED 만, year null 제외(placeholder 연도 금지), BIRTH 행 생성 |
-| 행 구성 | LifeEvent 당 1행, Episode 본문 병합. 인물 마커 미사용 |
+| 행 구성 | LifeEvent 당 1행, Episode 본문 병합(구간 이야기 `isPeriod=true` 는 제외). 인물 마커 미사용 |
+| 구간 이야기 (2026-10-24 변경) | 구간 Episode 마다 별도 행 — 제목 = Episode 제목, 본문 = Episode 본문(실질 내용 있는 것만). 정렬 연도 = 앵커 사건 연도, 포스터 "연도 표시"를 켜도 연도 미표시. 기본 memo 후보(node 선택 허용). 앵커가 대상에서 빠지면 같이 제외. 편집 차단·가드·가족 룸 제외·탈퇴 집계 제외는 v3_bridge 규칙 그대로 |
 | 본문 없는 사건(Episode 기준) | node 고정. P1 후보 단계 강제 + `savePosterSelections` 서버 거부 |
 | 편집 | v3_bridge 행은 `updatePosterEventText` 차단, "원본 채팅에서 고쳐주세요" 안내 |
 | 소유권 가드 | 4곳 화이트리스트에 v3_bridge 추가 |
@@ -29,6 +30,7 @@ v3 트랙 가입자의 인생 사건은 `LifeEvent`·`Episode` 에 있고 life_e
 - 소유권 가드 4곳: `savePosterSelections` · `previewPosterSentence` · `savePosterOverrides` · `/poster/order` 게이트(`hasLiveSelections`). 공용 상수 `POSTER_EVENT_CREATED_VIA = ["life_event", "v3_bridge"]`.
 - `getLifeEvents` 를 고치지 않으므로, 동기화 함수(`syncV3Bridge`)가 현재 브릿지 행을 돌려주고 두 실행 지점이 life_event 와 합쳐 쓴다.
 - 동기화는 바뀐 행만 쓴다(정상 상태에서는 읽기 쿼리 3회 — LifeEvent·Episode·기존 브릿지 행, 쓰기 0회). 삭제는 DB 먼저, 사진 파일 정리는 그 뒤 `removeStorageObjects` 로(실패해도 포스터 화면은 막지 않고 로그만).
+- 구간 행의 "연도 미표시"는 주문 스냅샷(`buildPosterSnapshot`)에서 노드 연도를 `null` 로 두는 방식. 합성(`PosterCompose`)·인쇄(`print-export`)가 null 연도를 이미 빈 칸으로 그려 렌더러는 무수정. 시대 대사건 배치는 이 노드의 상자는 피하되 연도 보간에서만 뺀다. 사용자가 편집에서 연도를 직접 적으면(yearOverride) 그 값은 보인다.
 - 테스트에서 실제 코드를 부르도록 `savePosterSelections`·`updatePosterEventText` 본체를 userId 인자 함수로 `lib/poster/selections.ts` 에 옮기고, 서버 액션은 auth + revalidate 만 감싼다(`lib/life-event-query.ts` 와 같은 패턴).
 
 ### 알려진 한계
@@ -45,6 +47,7 @@ v3 트랙 가입자의 인생 사건은 `LifeEvent`·`Episode` 에 있고 life_e
 | 2026-10-24 | v3_bridge 행은 가족 룸 목록(`listRoomMemories`)에서 제외 — episode 제외 결정과 일관, 가족 공유는 v3 공유 결정 때 별도 | Claude Code 조사(10/24) | 성민 |
 | 2026-10-24 | "본문 없는 사건 node 고정"은 v3_bridge 행에만 적용(기존 life_event 사용자 동작 무변) | Claude Code 조사(10/24) | 성민 |
 | 2026-10-24 | Episode 본문 병합은 실질 내용만(`isSubstantiveEpisodeContent`, 갭 감지기와 같은 기준). 안내문뿐이면 본문 없음 → node 고정 | Claude Code 조사(10/24) | 성민 |
+| 2026-10-24 | 구간 이야기(isPeriod) 별도 행 분리 — 앵커 본문 병합에서 제외, Episode 마다 `v3p_${episodeId}` 행(제목·본문 = Episode), 정렬 연도 = 앵커·연도 미표시, 기본 memo 후보, 앵커 제외 시 같이 제외. 계기: test30 E2E 에서 "군 입대" 항목에 "군 입대 이후" 구간의 이직 이야기가 섞임 | Claude Code | 성민 |
 
 ## 작업
 
@@ -52,3 +55,4 @@ v3 트랙 가입자의 인생 사건은 `LifeEvent`·`Episode` 에 있고 life_e
 - [x] 구현 전 확인 — cuid 형식 가정 코드 없음, 설계 불일치 1건(가족 룸 노출) → 결정 반영
 - [x] 구현
 - [x] 회귀 `db/test-v3-poster-bridge.ts` 15항목 + v3 회귀 세트 14종 재실행
+- [x] 구간 이야기 별도 행 분리 + 회귀 5항목 추가(총 20항목)
