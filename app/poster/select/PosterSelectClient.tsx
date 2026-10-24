@@ -240,17 +240,20 @@ function CandidateCard({
   const [editing, setEditing] = useState(false);
   const [editBlocked, setEditBlocked] = useState(false);
   const bodilessReasonId = `bodiless-${candidate.eventId}`;
-  const [preview, setPreview] = useState<{ nodeLabel: string; memoText: string } | null>(null);
+  const [preview, setPreview] = useState<{ type: "node" | "memo"; text: string } | null>(null);
   const [isPending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
 
   const selected = choice !== "exclude";
 
+  // 지금 고른 유형의 문장(시안과 같은 저장 문장). 유형을 바꾸면 다시 눌러 그 유형 문장을 본다.
   function doPreview() {
+    if (choice === "exclude") return;
+    const type = choice;
     setErr(null);
     start(async () => {
-      const res = await previewPosterSentence(candidate.eventId);
-      if (res.ok) setPreview({ nodeLabel: res.nodeLabel, memoText: res.memoText });
+      const res = await previewPosterSentence(candidate.eventId, type);
+      if (res.ok) setPreview({ type, text: res.text });
       else setErr(res.error);
     });
   }
@@ -339,12 +342,12 @@ function CandidateCard({
       {err && <p role="alert" className="mt-2 text-sm text-danger">{err}</p>}
 
       {/* P3 미리보기 */}
-      {preview && selected && (
+      {preview && preview.type === choice && (
         <div className="mt-3 rounded-md border border-line bg-canvas px-3 py-2 text-sm">
-          {choice === "node" ? (
-            <p><span className="text-ink-faint">노드: </span><b className="text-ink">{preview.nodeLabel}</b></p>
+          {preview.type === "node" ? (
+            <p><span className="text-ink-faint">노드: </span><b className="text-ink">{preview.text}</b></p>
           ) : (
-            <p><span className="text-ink-faint">메모: </span><span className="text-ink">{preview.memoText}</span></p>
+            <p><span className="text-ink-faint">메모: </span><span className="text-ink">{preview.text}</span></p>
           )}
         </div>
       )}

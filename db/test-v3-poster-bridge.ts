@@ -1,9 +1,10 @@
-// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(26항목). 설계: docs/phase/v3-poster-bridge.md
+// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(29항목). 설계: docs/phase/v3-poster-bridge.md
 // 실행: npx tsx db/test-v3-poster-bridge.ts
 //
 // 자체 픽스처 계정(fixture-bridge@lifebook.invalid)을 시작 시 만들고 끝에
 // (성공·실패 모두) 하위 데이터째 삭제한다. test30 등 다른 계정 접촉 0.
 // 외부 AI 호출(Sonnet)은 4회 — "연도 표시" 항목의 P3 1회, AI 문장 고정 항목의 P1 1회·P3 2회.
+// 후속 항목(P3 응답 항목 누락·선택 화면 미리보기)은 fetch 스텁이 응답한다(실제 호출 0).
 // 나머지는 loadPosterEditor(auth 필요) 대신 그 안의 동기화·규칙·가드·캐시 함수를 직접
 // 호출. AI 호출 수는 lib/ai.ts chat() 이 개발 모드에서 남기는 "[ai] model=" 로그로 센다.
 // 사진 정리 경로는 Storage 에 없는 경로로 remove 를 부른다(없는 경로는 Supabase 가
@@ -24,7 +25,13 @@ import { getPosterCandidates } from "../lib/poster/ai-cache";
 import type { PosterSelectionFull } from "../lib/poster/overrides";
 import type { PosterCandidate } from "../lib/poster/poster-candidates";
 import { editPosterEventText, persistPosterOverrides, persistPosterSelections } from "../lib/poster/selections";
-import { buildPosterSnapshot, hasLiveSelections, type PosterSnapshot } from "../lib/poster/snapshot";
+import {
+  buildPosterSnapshot,
+  buildPreviewSentence,
+  hasLiveSelections,
+  type PosterSnapshot,
+  type PreviewSentenceResult,
+} from "../lib/poster/snapshot";
 import {
   CREATED_VIA_V3_BRIDGE,
   applyBridgeTypeRules,
@@ -63,6 +70,32 @@ console.log = (...args: unknown[]) => {
   baseLog(...args);
 };
 const createdOrderIds: string[] = [];
+
+// AI 응답 스텁 — stubReply 가 있으면 Anthropic 메시지 API 요청에 그 텍스트를 응답으로 준다
+// (P3 응답 항목 누락 재현, 실제 Sonnet 호출 없이 저장 경로 검증). SDK 는 클라이언트를 처음
+// 만들 때 전역 fetch 를 잡아 두므로 첫 AI 호출 전(모듈 로드 시) 감싼다. chat() 은 그대로
+// 거치므로 "[ai] model=" 로그 수에도 잡힌다.
+let stubReply: string | null = null;
+const stubBodies: string[] = [];
+const realFetch = globalThis.fetch;
+globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  if (stubReply === null || !url.includes("/v1/messages")) return realFetch(input, init);
+  stubBodies.push(String(init?.body ?? ""));
+  return new Response(
+    JSON.stringify({
+      id: "msg_fixture_stub",
+      type: "message",
+      role: "assistant",
+      model: "fixture-stub",
+      content: [{ type: "text", text: stubReply }],
+      stop_reason: "end_turn",
+      stop_sequence: null,
+      usage: { input_tokens: 0, output_tokens: 0 },
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
+}) as typeof fetch;
 
 let failed = 0;
 let count = 0;
@@ -547,6 +580,99 @@ async function scenario(userId: string) {
       missingCalls === 0 && mismatchCalls === 0 && ordersAfter === ordersBefore,
     { missing, mismatch, missingCalls, mismatchCalls, ordersBefore, ordersAfter },
   );
+
+  // ══ 후속 — P3 응답 항목 누락 미저장 · 선택 화면 미리보기 = 시안 문장(AI 응답은 스텁)
+  //    지금 selections = birth(node)·elem(node)·elemP(memo)·life(node, 직접 고친 문구).
+  //    elem(원본에 이야기 추가)·life(본문 변경)는 저장 문장의 원본 해시가 안 맞는 상태.
+  const stubItem = (label: string) => JSON.stringify({ nodeLabel: label, memoText: `${label} 메모` });
+  const lastPromptEvents = () => (stubBodies[stubBodies.length - 1]?.match(/제목: /g) ?? []).length;
+  const heldPreview = async (eventId: string, type: "node" | "memo") => {
+    const d = (await prisma.poster.findUnique({ where: { userId }, select: { design: true } }))?.design as
+      | { previewSentences?: Record<string, { generatedText?: string }> }
+      | null;
+    return d?.previewSentences?.[`${eventId}:${type}`];
+  };
+  const textOf = (r: PreviewSentenceResult) => (r.ok ? r.text : undefined);
+
+  // ── 항목 누락 — 시안: 2개 요청에 응답은 elem 1개 → elem 만 저장, life 는 기본값(제목)을 화면에만
+  //    → 다음 로드에 life 만 요청·저장. 미리보기: 빈 응답이면 기본값만 보여 주고 보관 안 함.
+  const beforeGap = await sels();
+  stubReply = `[${stubItem("스텁 elem")}]`;
+  const [gap1, gap1Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  const gap1Events = lastPromptEvents();
+  const afterGap1 = await sels();
+  stubReply = `[${stubItem("스텁 life")}]`;
+  const [, gap2Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  const gap2Events = lastPromptEvents();
+  const afterGap2 = await sels();
+  stubReply = "[]";
+  const [gapPreview, gapPreviewCalls] = await calls(() => buildPreviewSentence(userId, life2.id, "node"));
+  const heldAfterGap = await heldPreview(life2.id, "node");
+  check(
+    "★ P3 응답 항목 누락 → 그 항목만 미저장(시안은 기본값을 화면에만·미리보기는 보관 안 함), 다음 로드에 그 항목만 재생성",
+    gap1Calls === 1 && gap1Events === 2 &&
+      selOf(afterGap1, ids.elem)?.generatedText === "스텁 elem" &&
+      selOf(afterGap1, life.id)?.sourceHash === selOf(beforeGap, life.id)?.sourceHash &&
+      selOf(afterGap1, life.id)?.generatedAt === selOf(beforeGap, life.id)?.generatedAt &&
+      gap1?.nodes.find((n) => n.eventId === life.id)?.label === "개인 기록(고침)" &&
+      gap2Calls === 1 && gap2Events === 1 &&
+      selOf(afterGap2, life.id)?.generatedText === "스텁 life" &&
+      selOf(afterGap2, ids.elem)?.generatedAt === selOf(afterGap1, ids.elem)?.generatedAt &&
+      textOf(gapPreview) === "새 기록" && gapPreviewCalls === 1 && heldAfterGap === undefined,
+    { gap1Calls, gap1Events, gap2Calls, gap2Events, afterGap1, afterGap2, gapPreview, gapPreviewCalls, heldAfterGap },
+  );
+
+  // ── 미리보기 = 시안 문장 / 미리보기 2회차 AI 0
+  //    여기서 AI 를 더 부르면 빈 응답(기본값)이 나와 문장 비교가 깨지고 호출 수에도 잡힌다.
+  stubReply = "[]";
+  const [view4, view4Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  const [savedPrev, savedPrevCalls] = await calls(async () => [
+    await buildPreviewSentence(userId, ids.elem, "node"),
+    await buildPreviewSentence(userId, ids.elemP, "memo"),
+  ]);
+  // 선택에 있는데 원본이 바뀐 항목 → 만들어 selections 에 저장(시안과 같은 경로)
+  await editPosterEventText(userId, life.id, "개인 기록(고침)", "직접 쓴 이야기 — 세 번째");
+  stubReply = `[${stubItem("스텁 미리보기 life")}]`;
+  const [stalePrev1, stalePrev1Calls] = await calls(() => buildPreviewSentence(userId, life.id, "node"));
+  stubReply = "[]";
+  const [stalePrev2, stalePrev2Calls] = await calls(() => buildPreviewSentence(userId, life.id, "node"));
+  const afterStalePrev = await sels();
+  const heldLife = await heldPreview(life.id, "node");
+  const [view5, view5Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  // 선택에 없는 항목 → 보관 → 선택 저장 때 이어 붙음
+  stubReply = `[${stubItem("스텁 새 기록")}]`;
+  const [newPrev1, newPrev1Calls] = await calls(() => buildPreviewSentence(userId, life2.id, "memo"));
+  stubReply = "[]";
+  const [newPrev2, newPrev2Calls] = await calls(() => buildPreviewSentence(userId, life2.id, "memo"));
+  const heldLife2 = await heldPreview(life2.id, "memo");
+  const beforeAdd = await sels();
+  await persistPosterSelections(userId, [...current, { eventId: life2.id, type: "memo", order: 9 }]);
+  const afterAdd = await sels();
+  const [view6, view6Calls] = await calls(() => buildPosterSnapshot(userId, "[fixture] bridge"));
+  stubReply = null;
+  check(
+    "★ 미리보기 = 시안 문장 — 저장된 항목은 시안 문장 그대로(AI 0), 원본이 바뀐 선택 항목은 만들어 selections 에 저장, 선택에 없는 항목은 보관했다가 선택 저장 때 이어 붙음 → 시안 AI 0·같은 문장",
+    view4Calls === 0 && savedPrevCalls === 0 &&
+      textOf(savedPrev[0]) === view4?.nodes.find((n) => n.eventId === ids.elem)?.label &&
+      textOf(savedPrev[1]) === view4?.memos.find((m) => m.eventId === ids.elemP)?.text &&
+      textOf(stalePrev1) === "스텁 미리보기 life" && stalePrev1Calls === 1 &&
+      selOf(afterStalePrev, life.id)?.generatedText === "스텁 미리보기 life" && heldLife === undefined &&
+      view5Calls === 0 && view5?.nodes.find((n) => n.eventId === life.id)?.label === "스텁 미리보기 life" &&
+      textOf(newPrev1) === "스텁 새 기록 메모" && newPrev1Calls === 1 &&
+      heldLife2?.generatedText === "스텁 새 기록 메모" && selOf(beforeAdd, life2.id) === undefined &&
+      selOf(afterAdd, life2.id)?.generatedText === "스텁 새 기록 메모" &&
+      view6Calls === 0 && view6?.memos.find((m) => m.eventId === life2.id)?.text === "스텁 새 기록 메모",
+    {
+      view4Calls, savedPrevCalls, savedPrev, stalePrev1, stalePrev1Calls, heldLife, view5Calls,
+      newPrev1, newPrev1Calls, heldLife2, afterAdd: selOf(afterAdd, life2.id), view6Calls,
+    },
+  );
+  check(
+    "★ 미리보기 2회 — 2회차 AI 0·같은 문장(원본이 바뀌어 다시 만든 선택 항목·선택에 없는 보관 항목)",
+    stalePrev1Calls === 1 && stalePrev2Calls === 0 && textOf(stalePrev2) === textOf(stalePrev1) &&
+      newPrev1Calls === 1 && newPrev2Calls === 0 && textOf(newPrev2) === textOf(newPrev1),
+    { stalePrev1, stalePrev2, stalePrev2Calls, newPrev1, newPrev2, newPrev2Calls },
+  );
 }
 
 async function main() {
@@ -593,8 +719,8 @@ async function main() {
       failed += 1;
     }
   }
-  console.log(failed === 0 && count === 26 ? "\nALL PASS (26)" : `\n${failed} FAILED / ${count} 항목`);
-  process.exitCode = failed === 0 && count === 26 ? 0 : 1;
+  console.log(failed === 0 && count === 29 ? "\nALL PASS (29)" : `\n${failed} FAILED / ${count} 항목`);
+  process.exitCode = failed === 0 && count === 29 ? 0 : 1;
 }
 
 main()

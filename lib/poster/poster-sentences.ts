@@ -77,11 +77,11 @@ function fallbackSentence(e: PosterEventInput): PosterSentence {
   };
 }
 
-// parsed=false 는 응답이 JSON 배열이 아니라 전부 기본값으로 채운 경우.
+// fromAi[i]=false 는 그 항목을 응답에서 못 읽어 기본값이 들어간 것(응답 전체를 못 읽으면 전부 false).
 function parseSentences(
   raw: string,
   events: PosterEventInput[],
-): { sentences: PosterSentence[]; parsed: boolean } {
+): { sentences: PosterSentence[]; fromAi: boolean[] } {
   let arr: unknown[] | null = null;
   try {
     const cleaned = raw.trim().replace(/^```json\s*|^```\s*/i, "").replace(/\s*```$/, "");
@@ -92,30 +92,26 @@ function parseSentences(
   }
   const list = arr ?? [];
 
-  // 입력 순서·개수에 맞춰 매핑. 누락·형식오류는 항목별 fallback.
+  // 입력 순서·개수에 맞춰 매핑. 누락·형식오류는 항목별 fallback(그 항목 fromAi=false).
+  const fromAi: boolean[] = [];
   const sentences = events.map((e, i) => {
     const item = list[i];
-    if (!item || typeof item !== "object") return fallbackSentence(e);
-    const obj = item as Record<string, unknown>;
-    const nodeLabel =
-      typeof obj.nodeLabel === "string" && obj.nodeLabel.trim()
-        ? obj.nodeLabel.trim().slice(0, NODE_LABEL_MAX)
-        : fallbackSentence(e).nodeLabel;
-    const memoText =
-      typeof obj.memoText === "string" && obj.memoText.trim()
-        ? obj.memoText.trim().slice(0, MEMO_MAX)
-        : fallbackSentence(e).memoText;
-    return { nodeLabel, memoText };
+    const obj = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+    const nodeLabel = typeof obj.nodeLabel === "string" ? obj.nodeLabel.trim().slice(0, NODE_LABEL_MAX) : "";
+    const memoText = typeof obj.memoText === "string" ? obj.memoText.trim().slice(0, MEMO_MAX) : "";
+    fromAi.push(nodeLabel !== "" && memoText !== "");
+    const fallback = fallbackSentence(e);
+    return { nodeLabel: nodeLabel || fallback.nodeLabel, memoText: memoText || fallback.memoText };
   });
-  return { sentences, parsed: arr !== null };
+  return { sentences, fromAi };
 }
 
 // 사건 여러 개 → 포스터 문장 배열(입력 순서·개수 보존). 한 번의 LLM 호출.
-// fromAi=false 면 응답을 못 읽어 전부 기본값 — 호출자는 이 결과를 저장·고정하지 않는다.
+// fromAi[i]=false 면 그 항목은 기본값 — 호출자는 그 항목을 저장·고정하지 않는다.
 export async function refineForPosterBatch(
   events: PosterEventInput[],
-): Promise<{ sentences: PosterSentence[]; fromAi: boolean }> {
-  if (events.length === 0) return { sentences: [], fromAi: false };
+): Promise<{ sentences: PosterSentence[]; fromAi: boolean[] }> {
+  if (events.length === 0) return { sentences: [], fromAi: [] };
 
   const res = await chat([{ role: "user", content: buildUserMsg(events) }], {
     system: SYSTEM_PROMPT,
@@ -124,16 +120,5 @@ export async function refineForPosterBatch(
     temperature: 0.5, // 감정·문장 다양성 약간
   });
 
-  const { sentences, parsed } = parseSentences(res.text, events);
-  return { sentences, fromAi: parsed };
-}
-
-// 사건 1건 → 포스터 문장.
-export async function refineForPoster(
-  event: PosterEventInput,
-): Promise<PosterSentence> {
-  const {
-    sentences: [out],
-  } = await refineForPosterBatch([event]);
-  return out ?? fallbackSentence(event);
+  return parseSentences(res.text, events);
 }

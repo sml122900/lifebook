@@ -9,10 +9,16 @@
 // - /poster/view(buildPosterSnapshot): 해시가 맞는 항목은 저장 문장, 없거나 안 맞는
 //   항목만 AI 로 만들어 저장.
 // - 주문(buildOrderSnapshot): AI 를 부르지 않고 저장 문장만 → 주문 = 직전 시안.
+// - 선택 화면 미리보기(buildPreviewSentence): 시안과 같은 입력·해시·저장 문장.
 
 import { prisma } from "@/lib/db";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
-import { sentenceSourceHash } from "@/lib/poster/ai-cache";
+import {
+  previewSentenceOf,
+  savePreviewSentence,
+  sentenceSourceHash,
+  type GeneratedSentence,
+} from "@/lib/poster/ai-cache";
 import type { ItemOverride, PosterSelectionFull } from "@/lib/poster/overrides";
 import { parseSelectionsFull, toStoredSelection } from "@/lib/poster/overrides";
 import { refineForPosterBatch, type PosterEventInput } from "@/lib/poster/poster-sentences";
@@ -60,9 +66,27 @@ type Parts = {
   userBirthYear: number | null;
 };
 
+// 사건 id → Entry. 시안·주문·미리보기가 같은 원본(같은 해시)을 쓰게 한 곳에서 만든다.
+async function loadEntries(userId: string): Promise<Map<string, Entry>> {
+  const [events, bridge] = await Promise.all([getLifeEvents(userId), syncV3Bridge(userId)]);
+  return new Map<string, Entry>([
+    ...events
+      .filter((e) => e.kind === "life_event")
+      .map((e) => [e.id, { title: e.title, content: e.content, eventYear: e.eventYear, nodeYear: e.eventYear }] as const),
+    ...bridge.map(
+      (b) => [b.id, { title: b.title, content: b.content, eventYear: b.year, nodeYear: b.isPeriod ? null : b.year }] as const,
+    ),
+  ]);
+}
+
+// 문장 AI 입력.
+function sentenceInput(e: Entry): PosterEventInput {
+  return { title: e.title, content: e.content, year: e.eventYear };
+}
+
 // 선택이 없으면 null.
 async function loadParts(userId: string): Promise<Parts | null> {
-  const [poster, events, userBirthYear, bridge] = await Promise.all([
+  const [poster, byId, userBirthYear] = await Promise.all([
     prisma.poster.findUnique({
       where: { userId },
       select: {
@@ -73,29 +97,17 @@ async function loadParts(userId: string): Promise<Parts | null> {
         removedEraEvents: true,
       },
     }),
-    getLifeEvents(userId),
+    loadEntries(userId),
     getBirthYear(userId),
-    syncV3Bridge(userId),
   ]);
 
-  const byId = new Map<string, Entry>([
-    ...events
-      .filter((e) => e.kind === "life_event")
-      .map((e) => [e.id, { title: e.title, content: e.content, eventYear: e.eventYear, nodeYear: e.eventYear }] as const),
-    ...bridge.map(
-      (b) => [b.id, { title: b.title, content: b.content, eventYear: b.year, nodeYear: b.isPeriod ? null : b.year }] as const,
-    ),
-  ]);
   const ordered = parseSelectionsFull(poster?.selections)
     .filter((s) => byId.has(s.eventId))
     .sort((a, b) => a.order - b.order);
 
   if (ordered.length === 0) return null;
 
-  const inputs = ordered.map((s) => {
-    const e = byId.get(s.eventId)!;
-    return { title: e.title, content: e.content, year: e.eventYear };
-  });
+  const inputs = ordered.map((s) => sentenceInput(byId.get(s.eventId)!));
   const template = poster?.template ?? null;
   const hashes = ordered.map((s, i) => sentenceSourceHash(inputs[i], s.type, template));
   return { ordered, byId, inputs, hashes, poster, userBirthYear };
@@ -159,14 +171,14 @@ export async function buildPosterSnapshot(
   if (missing.length > 0) {
     const { sentences, fromAi } = await refineForPosterBatch(missing.map((i) => parts.inputs[i]));
     const generatedAt = new Date().toISOString();
-    const generated = missing.map((idx, k) => {
+    const generated = missing.flatMap((idx, k) => {
       const s = parts.ordered[idx];
       const text = s.type === "node" ? sentences[k].nodeLabel : sentences[k].memoText;
       texts[idx] = text;
-      return { eventId: s.eventId, type: s.type, generatedText: text, sourceHash: parts.hashes[idx], generatedAt };
+      // 응답에서 못 읽어 기본값으로 채운 항목은 화면에만 쓰고 저장 안 함(다음 로드에 그 항목만 다시 생성).
+      return fromAi[k] ? [{ eventId: s.eventId, type: s.type, generatedText: text, sourceHash: parts.hashes[idx], generatedAt }] : [];
     });
-    // 응답을 못 읽어 기본값으로 채운 문장은 화면에만 쓰고 저장 안 함(다음 로드에 다시 생성).
-    if (fromAi) await saveGeneratedSentences(userId, generated);
+    if (generated.length > 0) await saveGeneratedSentences(userId, generated);
   }
 
   return assemble(ownerName, parts, texts as string[]);
@@ -195,12 +207,48 @@ export async function buildOrderSnapshot(
   return { ok: true, snapshot: assemble(ownerName, parts, texts) };
 }
 
+export type PreviewSentenceResult = { ok: true; text: string } | { ok: false; error: string };
+
+// 선택 화면 "문장 미리보기" — 시안과 같은 문장. 저장 문장(선택 항목 → 미리보기 보관함 순)이
+// 지금 원본 해시와 같으면 그대로(AI 0), 없거나 안 맞으면 만들어 저장한다. 선택에 있는 항목은
+// selections(시안과 같은 경로), 아직 없는 항목은 보관함 — 선택 저장 때 selections 로 옮겨 붙는다.
+// 소유 가드 = loadEntries(본인 life_event·v3 브릿지 행만).
+export async function buildPreviewSentence(
+  userId: string,
+  eventId: string,
+  type: "node" | "memo",
+): Promise<PreviewSentenceResult> {
+  const [poster, byId] = await Promise.all([
+    prisma.poster.findUnique({ where: { userId }, select: { selections: true, template: true, design: true } }),
+    loadEntries(userId),
+  ]);
+  const entry = byId.get(eventId);
+  if (!entry) return { ok: false, error: "사건을 찾을 수 없어요." };
+
+  const input = sentenceInput(entry);
+  const hash = sentenceSourceHash(input, type, poster?.template ?? null);
+  const item = parseSelectionsFull(poster?.selections).find((s) => s.eventId === eventId && s.type === type);
+  const held = previewSentenceOf(poster?.design, eventId, type);
+  const saved = (item ? savedText(item, hash) : undefined) ?? (held?.sourceHash === hash ? held.generatedText : undefined);
+  if (saved !== undefined) return { ok: true, text: saved };
+
+  const {
+    sentences: [out],
+    fromAi: [ok],
+  } = await refineForPosterBatch([input]);
+  const text = type === "node" ? out.nodeLabel : out.memoText;
+  // 응답에서 못 읽어 기본값이면 보여만 주고 저장 안 함(시안과 같은 원칙).
+  if (ok) {
+    const g = { eventId, type, generatedText: text, sourceHash: hash, generatedAt: new Date().toISOString() };
+    if (item) await saveGeneratedSentences(userId, [g]);
+    else await savePreviewSentence(userId, g);
+  }
+  return { ok: true, text };
+}
+
 // 새로 만든 문장 저장 — DB 의 selections 를 다시 읽어 같은 항목(eventId+type)에만 붙인다
 // (그사이 바뀐 선택·편집을 덮어쓰지 않게).
-async function saveGeneratedSentences(
-  userId: string,
-  generated: Required<Pick<PosterSelectionFull, "eventId" | "type" | "generatedText" | "sourceHash" | "generatedAt">>[],
-): Promise<void> {
+async function saveGeneratedSentences(userId: string, generated: GeneratedSentence[]): Promise<void> {
   const current = await prisma.poster.findUnique({ where: { userId }, select: { selections: true } });
   const byKey = new Map(generated.map((g) => [`${g.eventId}\u0000${g.type}`, g]));
   const next = parseSelectionsFull(current?.selections).map((s) => {

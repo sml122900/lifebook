@@ -4,6 +4,7 @@
 // lib/life-event-query.ts 와 같은 패턴으로 분리했다(2026-10-24).
 
 import { prisma } from "../db";
+import { previewSentenceOf } from "./ai-cache";
 import {
   parseSelectionsFull,
   sanitizeOverride,
@@ -26,7 +27,7 @@ export async function persistPosterSelections(
   userId: string,
   selections: PosterSelectionItem[],
 ): Promise<SaveResult> {
-  // 소유·존재 검증 + 기존 override 보존을 위해 현재 selections 도 함께 읽는다.
+  // 소유·존재 검증 + 기존 override 보존을 위해 현재 selections(+미리보기 보관함)도 함께 읽는다.
   const [owned, existing] = await Promise.all([
     prisma.userMemory.findMany({
       where: { userId, createdVia: { in: POSTER_EVENT_CREATED_VIA }, eventYear: { not: null } },
@@ -34,7 +35,7 @@ export async function persistPosterSelections(
     }),
     prisma.poster.findUnique({
       where: { userId },
-      select: { selections: true },
+      select: { selections: true, design: true },
     }),
   ]);
   const ownedIds = new Set(owned.map((o) => o.id));
@@ -49,6 +50,7 @@ export async function persistPosterSelections(
   // selection 재저장에도 보존한다. 키는 eventId+type: 같은 항목(eventId·type
   // 동일)만 override·문장을 잇고, 새 항목·type 이 바뀐 항목(노드↔메모 — x/y·텍스트
   // 의미가 달라짐)은 자동배치·새 문장으로, 빠진 항목은 자연히 버린다.
+  // 새 항목은 선택 화면 미리보기 보관함에 같은 항목 문장이 있으면 그걸 붙인다(미리보기 = 시안).
   const prevItems = previousItemMap(existing?.selections);
 
   const clean: PosterSelectionFull[] = [];
@@ -64,7 +66,9 @@ export async function persistPosterSelections(
       type: s.type,
       order: s.order,
       override: prev?.override,
-      ...generatedOf(prev),
+      ...(prev?.generatedText !== undefined
+        ? generatedOf(prev)
+        : previewSentenceOf(existing?.design, s.eventId, s.type)),
     });
   }
 

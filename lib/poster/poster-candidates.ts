@@ -13,7 +13,7 @@
 // preferences(취향, S6 분리분)는 *포스터 후보 아님* → 디자인용(P5). 여기 입력에
 //   안 섞는다(호출자가 life_event 만 넘김).
 //
-// 미리보기 문장(nodeLabel/memoText, P3 refineForPoster)은 사용자가 P2 에서
+// 미리보기 문장(nodeLabel/memoText, P3 poster-sentences)은 사용자가 P2 에서
 //   고른 것만 변환하는 게 효율적이라 여기 후보엔 안 붙인다(분류·요지까지만).
 
 import { chat } from "../ai";

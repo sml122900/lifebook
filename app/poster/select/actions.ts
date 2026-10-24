@@ -4,7 +4,7 @@
 //
 //   loadPosterEditor      : P1 후보(AI 분류) + 저장된 Poster.selections 로드
 //   savePosterSelections  : 사용자 확정 선택을 Poster 에 upsert
-//   previewPosterSentence : P3 refineForPoster 로 노드/메모 문장 미리보기
+//   previewPosterSentence : P3 노드/메모 문장 미리보기(시안과 같은 저장 문장, lib/poster/snapshot.ts)
 //   updatePosterEventText : 사건 제목/내용 인라인 정정(life_event 원본 수정)
 //
 // 후보(P1)는 입력이 같으면 저장해 둔 결과(lib/poster/ai-cache.ts, 바뀌었을 때만 AI).
@@ -22,7 +22,6 @@ import {
   type PosterCandidate,
   type PosterCandidateInput,
 } from "@/lib/poster/poster-candidates";
-import { refineForPoster } from "@/lib/poster/poster-sentences";
 import { type PosterSelectionItem } from "@/lib/poster/select-constants";
 import {
   editPosterEventText,
@@ -30,8 +29,8 @@ import {
   type EditResult,
   type SaveResult,
 } from "@/lib/poster/selections";
+import { buildPreviewSentence, type PreviewSentenceResult } from "@/lib/poster/snapshot";
 import {
-  POSTER_EVENT_CREATED_VIA,
   applyBridgeTypeRules,
   syncV3Bridge,
   type V3BridgeRow,
@@ -127,28 +126,15 @@ export async function savePosterSelections(
   return result;
 }
 
-export type PreviewResult =
-  | { ok: true; nodeLabel: string; memoText: string }
-  | { ok: false; error: string };
-
+// 지금 고른 유형(노드/메모)의 문장. 같은 항목의 저장 문장이 원본과 맞으면 AI 0.
 export async function previewPosterSentence(
   eventId: string,
-): Promise<PreviewResult> {
+  type: "node" | "memo",
+): Promise<PreviewSentenceResult> {
   const session = await auth();
   if (!session?.user?.id) return { ok: false, error: "로그인이 필요해요." };
 
-  const row = await prisma.userMemory.findFirst({
-    where: { id: eventId, userId: session.user.id, createdVia: { in: POSTER_EVENT_CREATED_VIA } },
-    select: { eventTitle: true, title: true, content: true, eventYear: true },
-  });
-  if (!row) return { ok: false, error: "사건을 찾을 수 없어요." };
-
-  const { nodeLabel, memoText } = await refineForPoster({
-    title: row.eventTitle ?? row.title,
-    content: row.content,
-    year: row.eventYear,
-  });
-  return { ok: true, nodeLabel, memoText };
+  return buildPreviewSentence(session.user.id, eventId, type === "memo" ? "memo" : "node");
 }
 
 // 사건 제목/내용 인라인 정정 — life_event 원본 수정(v3 브릿지 행은 차단).
