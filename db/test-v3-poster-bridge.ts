@@ -687,13 +687,13 @@ async function scenario(userId: string) {
   );
 
   // ══ P3 프롬프트 버전 — 이전 버전으로 저장된 문장은 해시가 안 맞아 다시 만든다(시안·미리보기 보관함
-  //    둘 다). selections 는 직전 버전(3 — 지금 운영에 나가 있는 버전), 보관함은 버전 상수 도입 전 공식으로 저장된 것처럼 둔다. AI 응답은 스텁.
+  //    둘 다). selections 는 직전 버전(4 — 지금 운영에 나가 있는 버전), 보관함은 버전 상수 도입 전 공식으로 저장된 것처럼 둔다. AI 응답은 스텁.
   //    지금 selections = birth(node)·elem(node)·elemP(memo)·life(node, 직접 고친 문구)·life2(memo).
   type Src = { title: string; content: string | null; year: number };
   const v1Hash = (i: Src, type: "node" | "memo", tpl: string | null) =>
     createHash("sha256").update(JSON.stringify([i.title, i.content, i.year, type, tpl])).digest("hex");
   const prevHash = (i: Src, type: "node" | "memo", tpl: string | null) =>
-    createHash("sha256").update(JSON.stringify([i.title, i.content, i.year, type, tpl, 3])).digest("hex");
+    createHash("sha256").update(JSON.stringify([i.title, i.content, i.year, type, tpl, 4])).digest("hex");
   // 기대 메모 — 원문이 60자 이내면 원문 그대로, 넘으면 AI(스텁) 메모.
   const memoOf = (content: string | null, ai: string) =>
     content && content.length <= MEMO_AI_MAX ? content : ai;
@@ -877,11 +877,12 @@ async function scenario(userId: string) {
     { retryCalls, afterRetry, retryAgainCalls },
   );
   check(
-    "★ 재요청은 그 항목만 — 첫 요청 3건(노드 1·메모 2) 중 거부된 메모 1건만 다시 보냄(메모가 넘은 노드 항목·정상 메모 항목 제외)",
+    "★ 재요청은 그 항목만 — 첫 요청 3건(노드 1·메모 2) 중 거부된 메모 1건만 다시 보냄(메모가 넘은 노드 항목·정상 메모 항목 제외), 재요청에만 \"넘었다\" 한 줄",
     JSON.stringify(promptEventsSince(mark35)) === "[3,1]" &&
       retryBodies[1]?.includes("제목: 새 기록") === true &&
       !retryBodies[1]?.includes("제목: 개인 기록") &&
-      !retryBodies[1]?.includes("제목: 세 번째 기록"),
+      !retryBodies[1]?.includes("제목: 세 번째 기록") &&
+      retryBodies[1]?.includes("★ 다시 요청") === true && retryBodies[0]?.includes("★ 다시 요청") === false,
     { prompts: promptEventsSince(mark35) },
   );
 }

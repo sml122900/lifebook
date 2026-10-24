@@ -5,9 +5,10 @@
 //                 따로 표시하므로 라벨엔 넣지 않는다. 예: "결혼", "독일 함부르크".
 //   - memoText  : 메모용. 사용자가 한 말을 그대로, 공백 포함 60자 이내로. 60자
 //                 이내 원문은 코드가 그대로 쓰고, 넘는 원문만 AI 가 핵심 한두 문장을
-//                 원래 말 그대로 고른다(프롬프트 목표 50자, 빠진 주어는 원문 표현 그대로
-//                 붙여도 됨) — 해석·감정·교훈·평가·없는 사실은 더하지 않고, 음슴체·구어체
-//                 등 원문 말투를 유지(v4). 60자를 넘긴 응답은 1회 재요청, 또 넘으면 기본값.
+//                 원래 말 그대로 고른다(프롬프트 목표 50자, 대명사·지칭은 원문에서 밝힌
+//                 표현으로 바꾸고 빠진 주어는 원문 표현 그대로 붙여도 됨) — 해석·감정·교훈·
+//                 평가·없는 사실은 더하지 않고, 음슴체·구어체 등 원문 말투를 유지(v5).
+//                 60자를 넘긴 응답은 1회 재요청, 또 넘으면 기본값.
 //
 // ★ 프라이버시: 입력은 이미 리댁션·추출을 거친 사건이다. 여기서 신상·사실을
 //   새로 창작하지 않는다(없는 사실·감정 추가 금지).
@@ -23,8 +24,9 @@ const POSTER_SENTENCE_MODEL =
 // 바꾸면 올려서 저장해 둔 문장이 해시 불일치로 다시 만들어지게 한다.
 // 1 = 표준 반말 회상체·감정 입히기(버전 상수 도입 전), 2 = 원문 보존(2026-10-24),
 // 3 = 메모 공백 포함 60자 상한·초과 시 핵심 한두 문장 그대로(2026-10-24),
-// 4 = 프롬프트 목표 50자(서버 검증 60자)·빠진 주어는 원문 표현 그대로 붙여도 됨(2026-10-24).
-export const P3_PROMPT_VERSION = 4;
+// 4 = 프롬프트 목표 50자(서버 검증 60자)·빠진 주어는 원문 표현 그대로 붙여도 됨(2026-10-24),
+// 5 = 대명사·지칭은 원문에서 밝힌 표현으로 반드시 바꿈(주어 허용 규칙과 한 줄로, 2026-10-24).
+export const P3_PROMPT_VERSION = 5;
 
 export type PosterEventInput = {
   title: string;
@@ -49,7 +51,9 @@ const MEMO_PROMPT_MAX = 50;
 const SYSTEM_PROMPT = `당신은 어르신의 인생 사건을 포스터(인생 나무)에 얹을 문장으로 다듬는 작가입니다.
 반드시 유효한 JSON 배열만 출력하세요. 설명·다른 텍스트는 절대 출력하지 마세요.`;
 
-function buildUserMsg(events: PosterEventInput[]): string {
+// retry = 메모가 상한을 넘어 다시 요청하는 경우. 같은 프롬프트로 다시 물으면 같은 길이로 돌아와서
+// (2026-10-24 실측 61·62자 → 61·62자) 넘었다는 사실과 목표를 한 줄 붙인다(결정: 성민).
+function buildUserMsg(events: PosterEventInput[], retry = false): string {
   const list = events
     .map((e, i) => {
       const yr = e.year != null ? `${e.year}년` : "연도미상";
@@ -57,6 +61,9 @@ function buildUserMsg(events: PosterEventInput[]): string {
       return `[${i}] (${yr}) 제목: ${e.title}\n내용: ${body}`;
     })
     .join("\n\n");
+  const retryNote = retry
+    ? `★ 다시 요청: 앞서 받은 메모가 공백 포함 ${MEMO_AI_MAX}자를 넘었습니다. 이번에는 반드시 ${MEMO_PROMPT_MAX}자 이내로, 원문의 한 문장(또는 구절)만 고르세요.\n\n`
+    : "";
 
   return `아래 사건들을 각각 포스터용 두 문장으로 바꿔주세요.
 
@@ -72,7 +79,7 @@ function buildUserMsg(events: PosterEventInput[]): string {
 - 길이: 공백 포함 ${MEMO_PROMPT_MAX}자 이내.
 - 내용이 ${MEMO_PROMPT_MAX}자 이내면 한 글자도 빼지 말고 그대로 쓰세요(맞춤법 정리만 허용).
 - ${MEMO_PROMPT_MAX}자를 넘으면 내용 전체를 조금씩 줄이지 말고, 가장 핵심인 한두 문장(또는 구절)을 골라 원래 말 그대로 옮기세요.
-- 고른 문장에서 누가 한 일인지(주어)가 빠지면, 원문에 있던 주어 표현을 원래 말 그대로 앞에 붙여도 됩니다. 그 밖에는 아무것도 덧붙이지 마세요.
+- 고른 문장의 대명사·지칭("그 친구", "그분", "거기", "그때" 등)이 원문 다른 곳에서 밝힌 사람·장소·시기를 가리키면 원문에 있던 그 표현으로 반드시 바꾸고(예: "그 친구" → "김 일병"), 누가 한 일인지(주어)가 빠지면 원문의 주어 표현을 원래 말 그대로 앞에 붙여도 됩니다. 원문에 없는 표현으로 바꾸거나 설명을 덧붙이지는 마세요.
 - 원문의 어휘와 말투를 최대한 유지하세요. 음슴체("~함/~였음")·구어체도 그대로 두고, 다른 문체로 바꾸지 마세요.
 - 맞춤법·띄어쓰기는 바로잡아도 됩니다. 말투가 드러나는 입말(예: "~거 같애", "~할라고")은 고치지 마세요.
 - ★사용자가 말하지 않은 해석·감정·교훈·평가를 덧붙이지 마세요(예: "삶의 뿌리가 되었네", "단단해졌어" 같은 말).
@@ -82,7 +89,7 @@ function buildUserMsg(events: PosterEventInput[]): string {
 [규칙]
 - ★사실 왜곡 금지: 입력 내용에 없는 사실·신상을 새로 만들지 마세요.
 
----사건---
+${retryNote}---사건---
 ${list}
 ---끝---`;
 }
@@ -142,8 +149,8 @@ function parseSentences(
   return { sentences, fromAi, memoTooLong };
 }
 
-async function requestSentences(events: PosterEventInput[]) {
-  const res = await chat([{ role: "user", content: buildUserMsg(events) }], {
+async function requestSentences(events: PosterEventInput[], retry = false) {
+  const res = await chat([{ role: "user", content: buildUserMsg(events, retry) }], {
     system: SYSTEM_PROMPT,
     model: POSTER_SENTENCE_MODEL,
     maxTokens: 2048,
@@ -153,7 +160,7 @@ async function requestSentences(events: PosterEventInput[]) {
 }
 
 // 사건 여러 개 → 포스터 문장 배열(입력 순서·개수 보존). types[i] = 그 사건을 담을 유형.
-// 메모 항목의 AI 메모가 상한을 넘으면 그 항목만 모아 1회 다시 요청한다(같은 로드 안).
+// 메모 항목의 AI 메모가 상한을 넘으면 그 항목만 모아 1회 다시 요청한다(같은 로드 안, "넘었다" 한 줄 추가).
 // fromAi[i] 의 필드가 false 면 그 필드는 기본값 — 호출자는 그 필드 문장을 저장·고정하지 않는다.
 export async function refineForPosterBatch(
   events: PosterEventInput[],
@@ -164,7 +171,7 @@ export async function refineForPosterBatch(
   const { sentences, fromAi, memoTooLong } = await requestSentences(events);
   const retry = memoTooLong.flatMap((long, i) => (long && types[i] === "memo" ? [i] : []));
   if (retry.length > 0) {
-    const again = await requestSentences(retry.map((i) => events[i]));
+    const again = await requestSentences(retry.map((i) => events[i]), true);
     // 다시 받은 메모만 바꾼다(또 넘으면 기본값 그대로·저장 안 함). 노드 라벨은 첫 응답 것.
     retry.forEach((i, j) => {
       if (!again.fromAi[j].memoText) return;
