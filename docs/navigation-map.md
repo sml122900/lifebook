@@ -119,7 +119,7 @@
 ### 분기·동의 (UI 거의 없는 게이트)
 | 화면 | 동작 |
 |---|---|
-| `/enter` | 비로그인 → `/login` · **V3 트랙**: skeleton 완성+확인대기(UNCONFIRMED) 0건 → `/story-review`, 아니면 → `/start` · **V2 트랙**: 이벤트≥1 또는 기존기록 → `/life-timeline` · 신규(V2) → `/onboarding-chat` |
+| `/enter` | 비로그인 → `/login` · 동의 버전 < 현재(`CURRENT_CONSENT_VERSION`) → `/consent`(재동의) · **V3 트랙**: skeleton 완성+확인대기(UNCONFIRMED) 0건 → `/story-review`, 아니면 → `/start` · **V2 트랙**: 이벤트≥1 또는 기존기록 → `/life-timeline` · 신규(V2) → `/onboarding-chat` |
 | `/consent` | 비로그인 → `/login` · 동의완료 → `/enter` · "개인정보 처리방침 자세히 보기" → `/privacy`(새 창) · "이용약관 자세히 보기" → `/terms`(새 창) · 시작하기 → `/enter` |
 | `/start` | V2 트랙으로 직접 진입 시 → `/enter` (자동 전환 없음) |
 | `/chat-v3` | V2 트랙으로 직접 진입 시 → `/enter` |

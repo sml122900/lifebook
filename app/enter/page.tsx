@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { CURRENT_CONSENT_VERSION } from "@/lib/consent-version";
 import { prisma } from "@/lib/db";
 import { getLifeEvents } from "@/lib/life-events";
 import { hasAnyUserMemory } from "@/lib/user-entry";
@@ -36,6 +37,10 @@ export default async function EnterPage() {
   if (!session?.user?.id) {
     redirect("/login");
   }
+  // 동의 버전 재동의 게이트 — companion·free-record 와 같은 검사. session 은
+  // Node auth() 의 jwt 콜백이 매번 DB 에서 다시 읽은 값이라 /consent 페이지의
+  // DB 판정과 어긋나지 않는다(proxy 의 Edge JWT 와 달리 루프 없음).
+  if ((session.consentVersion ?? 0) < CURRENT_CONSENT_VERSION) redirect("/consent");
   const userId = session.user.id;
 
   const user = await prisma.user.findUnique({
