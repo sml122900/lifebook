@@ -20,6 +20,8 @@ import {
   updatePosterEventText,
 } from "./actions";
 import {
+  BODILESS_MEMO_MESSAGE,
+  BRIDGE_EDIT_BLOCKED_MESSAGE,
   MAX_MEMO_ITEMS,
   type PosterSelectionItem,
 } from "@/lib/poster/select-constants";
@@ -35,9 +37,13 @@ type CardState = {
 export function PosterSelectClient({
   candidates,
   savedSelections,
+  bridgeIds,
+  bodilessIds,
 }: {
   candidates: PosterCandidate[];
   savedSelections: PosterSelectionItem[];
+  bridgeIds: string[];
+  bodilessIds: string[];
 }) {
   // 시간순 정렬(연도 → 제목).
   const sorted = useMemo(
@@ -176,6 +182,8 @@ export function PosterSelectClient({
             candidate={c}
             isFirst={i === 0}
             card={cards[c.eventId]}
+            isBridge={bridgeIds.includes(c.eventId)}
+            bodiless={bodilessIds.includes(c.eventId)}
             choice={choices[c.eventId]}
             onChoice={(next) => setChoice(c.eventId, next)}
             onEdited={(title, content) =>
@@ -214,6 +222,8 @@ function CandidateCard({
   candidate,
   isFirst,
   card,
+  isBridge,
+  bodiless,
   choice,
   onChoice,
   onEdited,
@@ -221,11 +231,15 @@ function CandidateCard({
   candidate: PosterCandidate;
   isFirst: boolean;
   card: CardState;
+  isBridge: boolean; // v3 브릿지 행 — 원본이 채팅이라 여기서 편집 X
+  bodiless: boolean; // 본문 없는 브릿지 행 — 메모 X(노드만)
   choice: Choice;
   onChoice: (next: Choice) => void;
   onEdited: (title: string, content: string | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [editBlocked, setEditBlocked] = useState(false);
+  const bodilessReasonId = `bodiless-${candidate.eventId}`;
   const [preview, setPreview] = useState<{ nodeLabel: string; memoText: string } | null>(null);
   const [isPending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -262,13 +276,20 @@ function CandidateCard({
         </div>
         <button
           type="button"
-          onClick={() => setEditing((v) => !v)}
+          onClick={() => (isBridge ? setEditBlocked((v) => !v) : setEditing((v) => !v))}
           aria-label="제목·내용 고치기"
           className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-line bg-surface hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
         >
           <Pencil strokeWidth={1.75} aria-hidden className="h-4 w-4 text-ink-soft" />
         </button>
       </div>
+
+      {/* v3 브릿지 행 — 편집 폼 대신 차단 안내(서버 가드와 같은 문구) */}
+      {editBlocked && (
+        <p role="status" className="mt-3 rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink-soft">
+          {BRIDGE_EDIT_BLOCKED_MESSAGE}
+        </p>
+      )}
 
       {/* 인라인 정정 */}
       {editing && (
@@ -287,7 +308,14 @@ function CandidateCard({
       {/* 3택 토글 */}
       <div className="mt-3 flex flex-wrap gap-2">
         <ChoiceButton label="큰 사건 (노드)" active={choice === "node"} onClick={() => onChoice("node")} tone="action" />
-        <ChoiceButton label="작은 이야기 (메모)" active={choice === "memo"} onClick={() => onChoice("memo")} tone="brand" />
+        <ChoiceButton
+          label="작은 이야기 (메모)"
+          active={choice === "memo"}
+          onClick={() => onChoice("memo")}
+          tone="brand"
+          disabled={bodiless}
+          describedBy={bodiless ? bodilessReasonId : undefined}
+        />
         <ChoiceButton label="제외" active={choice === "exclude"} onClick={() => onChoice("exclude")} tone="muted" />
         {selected && (
           <button
@@ -301,6 +329,12 @@ function CandidateCard({
           </button>
         )}
       </div>
+
+      {bodiless && (
+        <p id={bodilessReasonId} className="mt-2 text-sm text-ink-soft">
+          {BODILESS_MEMO_MESSAGE}
+        </p>
+      )}
 
       {err && <p role="alert" className="mt-2 text-sm text-danger">{err}</p>}
 
@@ -323,11 +357,15 @@ function ChoiceButton({
   active,
   onClick,
   tone,
+  disabled = false,
+  describedBy,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
   tone: "action" | "brand" | "muted";
+  disabled?: boolean;
+  describedBy?: string; // 비활성 이유 문구 id
 }) {
   const activeCls =
     tone === "action"
@@ -340,8 +378,10 @@ function ChoiceButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      disabled={disabled}
+      aria-describedby={describedBy}
       className={
-        "inline-flex min-h-[44px] items-center justify-center rounded-md border-2 px-3 py-1.5 text-sm font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
+        "inline-flex min-h-[44px] items-center justify-center rounded-md border-2 px-3 py-1.5 text-sm font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50 " +
         (active ? activeCls : "border-line bg-surface text-ink hover:bg-banner")
       }
     >

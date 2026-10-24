@@ -9,7 +9,12 @@ import {
   type ItemOverride,
   type PosterSelectionFull,
 } from "./overrides";
-import { MAX_MEMO_ITEMS, type PosterSelectionItem } from "./select-constants";
+import {
+  BODILESS_MEMO_MESSAGE,
+  BRIDGE_EDIT_BLOCKED_MESSAGE,
+  MAX_MEMO_ITEMS,
+  type PosterSelectionItem,
+} from "./select-constants";
 import { CREATED_VIA_V3_BRIDGE, POSTER_EVENT_CREATED_VIA } from "./v3-bridge";
 
 export type SaveResult =
@@ -53,10 +58,7 @@ export async function persistPosterSelections(
     if (!ownedIds.has(s.eventId)) continue;
     if (s.type !== "node" && s.type !== "memo") continue;
     if (s.type === "memo" && bodilessBridgeIds.has(s.eventId)) {
-      return {
-        ok: false,
-        error: "들려주신 이야기가 아직 없는 사건은 큰 사건(노드)으로만 담을 수 있어요.",
-      };
+      return { ok: false, error: BODILESS_MEMO_MESSAGE };
     }
     clean.push({
       eventId: s.eventId,
@@ -122,10 +124,7 @@ export async function editPosterEventText(
   });
   if (!current) return { ok: false, error: "사건을 찾을 수 없어요." };
   if (current.createdVia === CREATED_VIA_V3_BRIDGE) {
-    return {
-      ok: false,
-      error: "대화로 들려주신 이야기라 여기서는 고칠 수 없어요. 원본 채팅에서 고쳐주세요.",
-    };
+    return { ok: false, error: BRIDGE_EDIT_BLOCKED_MESSAGE };
   }
   const contentChanged = (current.content ?? null) !== trimmedContent;
 

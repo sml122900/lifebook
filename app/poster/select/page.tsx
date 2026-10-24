@@ -26,7 +26,7 @@ export default async function PosterSelectPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const [{ candidates, savedSelections }, userRow] = await Promise.all([
+  const [{ candidates, savedSelections, bridgeIds, bodilessIds }, userRow] = await Promise.all([
     loadPosterEditor(),
     prisma.user.findUnique({
       where: { id: session.user.id },
@@ -56,6 +56,8 @@ export default async function PosterSelectPage() {
           <PosterSelectClient
             candidates={candidates}
             savedSelections={savedSelections}
+            bridgeIds={bridgeIds}
+            bodilessIds={bodilessIds}
           />
           <ScreenTour
             tourId={POSTER_SELECT_TOUR_ID}

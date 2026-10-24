@@ -39,6 +39,9 @@ import {
 export type PosterEditorData = {
   candidates: PosterCandidate[];
   savedSelections: PosterSelectionItem[];
+  // v3 브릿지 행 id(편집 대신 차단 안내) / 그중 본문 없는 것(메모 버튼 비활성).
+  bridgeIds: string[];
+  bodilessIds: string[];
 };
 
 // life_event + v3 브릿지 행 → 후보 입력(연도순). era_event·photo 제외(나무는 본인 골격만).
@@ -102,7 +105,11 @@ export async function loadPosterEditor(): Promise<PosterEditorData> {
   );
 
   // 본문 없는 v3 사건은 node 고정(P1 후보 + 저장돼 있던 선택).
-  return applyBodilessNodeRule(candidates, savedSelections, bridge);
+  return {
+    ...applyBodilessNodeRule(candidates, savedSelections, bridge),
+    bridgeIds: bridge.map((b) => b.id),
+    bodilessIds: bridge.filter((b) => b.content === null).map((b) => b.id),
+  };
 }
 
 export async function savePosterSelections(
