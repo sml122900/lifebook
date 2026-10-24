@@ -178,6 +178,9 @@ model User {
   memoryCards       MemoryCard[]
   labUsages         LabUsage[]
   labAgentRuns      LabAgentRun[]
+
+  // 오늘의 인터뷰(docs/phase/today-interview.md) — 문항 기록. 탈퇴 시 Cascade.
+  interviewItems InterviewItem[]
 }
 
 // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
@@ -1335,4 +1338,46 @@ model LabAgentRun {
 
   @@index([userId, createdAt])
   @@index([refId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 오늘의 인터뷰 — docs/phase/today-interview.md (Q1: 채팅 로그 테이블 혼용 안 함).
+//
+// 문항 1건 = 1행. 세션 = (userId, day) — 세션 시작 때 그날 문항을 PLANNED 로 한꺼번에
+// 만들어 두고(계획 고정 → 재진입 시 같은 순서로 이어감), 답/건너뛰기마다 갱신한다.
+// 답 본문은 여기 두지 않는다(저장은 기존 Episode·LifeEvent 경로 — refId 로만 가리킴).
+// AI 사용량은 문항별 합계(호출 수·입출력 토큰·모델). v3 호출은 모델 하나
+// (LIFE_EVENT_CONFIRM_MODEL)라 aiModel 은 마지막 호출 모델 1개로 충분하다.
+// ─────────────────────────────────────────────────────────────────────────
+model InterviewItem {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // KST "YYYY-MM-DD" — 세션 키.
+  day     String
+  // 그날 몇 번째 문항(1부터).
+  ordinal Int
+  // 날짜를 넘어 같은 질문을 알아보는 영구 키 — gap:episode:<eventId> |
+  // gap:period:<eventId> | gap:year:<eventId> | pool:<poolId>
+  itemKey String
+  source  String // GAP_EPISODE | GAP_PERIOD | GAP_YEAR | POOL
+  // PLANNED(아직) | ANSWERED | SKIPPED(사용자 건너뜀) | DROPPED(그사이 다른 경로로 채워져 안 물음)
+  status  String @default("PLANNED")
+
+  askedAt     DateTime? // 처음 화면에 보인 시각(null = 아직 안 보임)
+  doneAt      DateTime? // ANSWERED/SKIPPED/DROPPED 된 시각
+  turns       Int       @default(0) // 사용자 답 턴 수
+  answerChars Int       @default(0) // 사용자 답 글자 수 합(본문은 안 둠)
+  refId       String? // 저장 결과 — Episode.id 또는 LifeEvent.id
+
+  aiCalls        Int     @default(0)
+  aiInputTokens  Int     @default(0)
+  aiOutputTokens Int     @default(0)
+  aiModel        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, day, ordinal])
+  @@index([userId, itemKey])
 }
