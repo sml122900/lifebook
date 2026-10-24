@@ -15,8 +15,17 @@ const DATE_FMT = new Intl.DateTimeFormat("ko-KR", {
   day: "2-digit",
 });
 
+// 동의 내역 날짜는 한국 시간 기준. 서버 렌더(Vercel = UTC)라 timeZone 이 없으면
+// 한국 시간 오전 9시 전에 동의한 날이 하루 앞당겨 보인다.
+const CONSENT_DATE_FMT = new Intl.DateTimeFormat("ko-KR", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  timeZone: "Asia/Seoul",
+});
+
 function fmt(d: Date | null) {
-  return d ? DATE_FMT.format(d) : "동의 안 함";
+  return d ? CONSENT_DATE_FMT.format(d) : "동의 안 함";
 }
 
 // 설정 — 동의 내역 확인 + 회원 탈퇴 진입.
