@@ -748,7 +748,7 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [ ] 탈퇴 Storage 정합성 점검 자동화 — `db/reconcile-storage.ts` 로직을 `/api/cron/*`(CRON_SECRET 확인) 일 1회 실행으로. 크론 라우트가 proxy 로그인 게이트에 걸려 `proxy.ts` 공개 경로 등록이 필요 → PG 심사 통과 후 별도 작업(심사 중 proxy 무수정). 그전까지는 수동 dry-run → `--apply`.
 - [ ] `/lab` proxy 1차 게이트 — PG 심사 기간이라 `proxy.ts` 무수정으로 시작(현재 게이트 = `app/lab/memory/layout.tsx` `notFound()` + 서버 액션별 `requireLabUser()` 2중). 심사 통과 후 별도 작업으로 추가.
 - [ ] 에피소드 다듬은 글 잔존(운영 결함, 2026-09-30 기억 에이전트 조사 중 발견·미수정) — `updateEpisodeContent`(`lib/episode.ts`)가 브릿지 UserMemory 의 `content` 만 갱신하고 다듬기 3필드(`refinedText`·`refinedAt`·`displayRefined`)를 초기화하지 않음 + refine 라우트(`app/api/memory/[memoryId]/refine` → `refineMemorySpelling`)에 createdVia 가드 없음 → 에피소드를 고친 뒤에도 옛 다듬은 글이 보일 수 있음. 수정 여부는 성민 판단.
-- [ ] `db/test-p18-1.ts` 가 test30 계정(`test30@test.com`)의 대기 중 대화 상태를 전제함. test30 을 도그푸딩 계정(기억 에이전트 연구실 허용 목록, 2026-09-30 확정)으로 쓰기 시작하면 FAIL 발생 → 도그푸딩 시작 전 자체 픽스처 계정으로 이전 필요. (읽기 전용 스크립트라 데이터를 덮어쓰지는 않음)
+- [x] `db/test-p18-1.ts` 가 test30 계정(`test30@test.com`)의 대기 중 대화 상태를 전제함. test30 을 도그푸딩 계정(기억 에이전트 연구실 허용 목록, 2026-09-30 확정)으로 쓰기 시작하면 FAIL 발생 → 도그푸딩 시작 전 자체 픽스처 계정으로 이전 필요. (읽기 전용 스크립트라 데이터를 덮어쓰지는 않음) → 2026-10-24 이전 완료: 스크립트가 `fixture-p18-1@lifebook.invalid`(이름 `[fixture]` 접두, v3 트랙·동의 v4·출생/군 입대 이벤트·EPISODE 대기)를 직접 시드하고 try/finally 로 삭제. assert 2개 동일, test30 읽기·쓰기 0.
 - [ ] 문서 정리 — 위 "다듬기 모델 선택+차등 차감(2026-06-13)" 항목의 `tokensFromUsageForModel` 은 2026-07-01 데드코드 정리 때 삭제된 함수(현행: `tokensFromUsage` + `MODEL_MULTIPLIER`·`tokensFromUsageForRefine`, `lib/tokens/policy.ts`).
 
 ---
