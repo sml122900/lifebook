@@ -9,6 +9,8 @@
 //      장소 삭제, 본문 사진 메모리 정리(이야기 브릿지는 보존)
 //   ⑥ 일반 이야기(STORY)만 센다 — 갭 판정·포스터 브릿지·인터뷰
 //   ⑦ 같은 유형 중심 2개일 때 인터뷰 계획 — 풀 질문 1번·대상 = 세션과 같은 기준의 첫 사건
+//   ⑧ Q9 — 이야기 본문 정정(updateEpisodeContent) 시 다듬기 3필드 초기화, 다듬기
+//      (refineMemorySpelling — /api/memory/[id]/refine 본체)는 life_event 행만(모델 호출 전 차단)
 //
 // 자체 픽스처 계정 3개만 만들고 지운다(test30·실고객 접촉 0).
 // 실행: npx tsx db/test-node-graph.ts
@@ -17,14 +19,16 @@ import "dotenv/config";
 
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
+import { newAiUsage, trackAiUsage } from "../lib/ai";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
-import { createEpisodeBridge, deleteEpisode } from "../lib/episode";
+import { createEpisodeBridge, deleteEpisode, updateEpisodeContent } from "../lib/episode";
 import { detectGaps } from "../lib/gap-detector";
 import type { LifeEventType, NodeType } from "../lib/generated/prisma/enums";
 import { computeTodayPlan } from "../lib/interview/plan";
 import { itemKeyOf, kstDay } from "../lib/interview/keys";
 import { startInterviewSession } from "../lib/interview/session";
 import { deleteCustomLifeEvent } from "../lib/life-event-delete";
+import { refineMemorySpelling } from "../lib/memory-refine";
 import { NODE_RANK, normalizeNodePair, saveNodeLink } from "../lib/node-graph";
 import { syncV3Bridge } from "../lib/poster/v3-bridge";
 
@@ -284,6 +288,33 @@ async function main() {
     check("⑦ 순서까지 같으면 id 로 가름 — 계획과 세션 기준이 같은 사건", midHit === undefined || (twinEvents.includes(midHit.eventId) && midHit.eventId === midPick?.id), { midHit, midPick });
     const state = await startInterviewSession(b);
     check("⑦ 같은 유형 2개인 계정으로 세션 시작 정상", state.kind === "item" && (await prisma.interviewItem.count({ where: { userId: b } })) > 0, state.kind);
+
+    // ── ⑧ Q9 — 이야기 본문 정정 시 다듬기 3필드 초기화 · 다듬기는 life_event 행만 ──
+    const q9 = await makeStory(c, birthC, "출생", "마당 있는 집에서 태어났다.");
+    const refinedOf = (id: string) =>
+      prisma.userMemory.findUniqueOrThrow({ where: { id }, select: { content: true, refinedText: true, refinedAt: true, displayRefined: true } });
+    await prisma.userMemory.update({ where: { id: q9.memoryId }, data: { refinedText: "옛 본문 기준 교정본", refinedAt: new Date(), displayRefined: true } });
+    const same = await updateEpisodeContent(c, q9.episodeId, "마당 있는 집에서 태어났다.");
+    const m0 = await refinedOf(q9.memoryId);
+    check("⑧ 본문이 그대로면 다듬기 필드 유지", same.ok && m0.refinedText === "옛 본문 기준 교정본" && m0.displayRefined, m0);
+    const edited = await updateEpisodeContent(c, q9.episodeId, "마당 넓은 기와집에서 태어났다.");
+    const m1 = await refinedOf(q9.memoryId);
+    const ep1 = await prisma.episode.findUniqueOrThrow({ where: { id: q9.episodeId }, select: { content: true } });
+    check("⑧ 본문을 고치면 다듬기 3필드 초기화 + 이야기·브릿지 본문 동기화",
+      edited.ok && m1.refinedText === null && m1.refinedAt === null && !m1.displayRefined &&
+        m1.content === "마당 넓은 기와집에서 태어났다." && ep1.content === m1.content,
+      m1);
+    const usage = newAiUsage();
+    const rEp = await trackAiUsage(usage, () => refineMemorySpelling(c, q9.memoryId, "haiku"));
+    check("⑧ 다듬기 — 이야기 브릿지 행은 not_found(모델 호출 0·교정본 미저장)",
+      rEp.status === "not_found" && usage.calls === 0 && (await refinedOf(q9.memoryId)).refinedText === null,
+      { rEp, calls: usage.calls });
+    const lifeRow = await prisma.userMemory.create({
+      data: { userId: c, year: 2018, title: "[fixture] 연혁 사건", content: null, createdVia: "life_event" },
+      select: { id: true },
+    });
+    const rLife = await trackAiUsage(usage, () => refineMemorySpelling(c, lifeRow.id, "haiku"));
+    check("⑧ 다듬기 — life_event 행은 그대로 통과(빈 본문 = empty, 모델 호출 0)", rLife.status === "empty" && usage.calls === 0, rLife);
   } finally {
     await removeFixtures();
     console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B, EMAIL_C] } } }));

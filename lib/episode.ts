@@ -135,6 +135,8 @@ export async function deleteEpisode(
 // UserMemory.content 도 함께 갱신 — createEpisodeBridge 가 애초에 두 값을
 // 같은 텍스트로 채워 저장하므로(브릿지 행이 나중에 가족 룸 등 다른 화면에
 // 노출될 가능성 대비) 어긋나지 않게 유지한다.
+// 본문이 실제로 바뀌면 브릿지 행의 다듬기 3필드(refinedText·refinedAt·displayRefined)도
+// 초기화 — 옛 본문 기준 교정본이라 stale(lib/life-events.ts saveMemoryContent 와 같은 정책).
 export type UpdateEpisodeContentResult = { ok: true } | { ok: false; error: string };
 
 export async function updateEpisodeContent(
@@ -147,13 +149,20 @@ export async function updateEpisodeContent(
 
   const episode = await prisma.episode.findFirst({
     where: { id: episodeId, memory: { userId } },
-    select: { id: true, memoryId: true },
+    select: { id: true, memoryId: true, memory: { select: { content: true } } },
   });
   if (!episode) return { ok: false, error: "이야기를 찾을 수 없어요." };
+  const contentChanged = episode.memory.content !== trimmed;
 
   await prisma.$transaction([
     prisma.episode.update({ where: { id: episode.id }, data: { content: trimmed } }),
-    prisma.userMemory.update({ where: { id: episode.memoryId }, data: { content: trimmed } }),
+    prisma.userMemory.update({
+      where: { id: episode.memoryId },
+      data: {
+        content: trimmed,
+        ...(contentChanged ? { refinedText: null, refinedAt: null, displayRefined: false } : {}),
+      },
+    }),
   ]);
 
   return { ok: true };

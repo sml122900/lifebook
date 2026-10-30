@@ -15,6 +15,7 @@
 
 import { chat } from "./ai";
 import { prisma } from "./db";
+import { CREATED_VIA_LIFE_EVENT } from "./life-events";
 import { chargeOneShot } from "./tokens/charge";
 import {
   type ModelTier,
@@ -124,13 +125,17 @@ export async function refineRawText(
 // NO_CHANGE·길이가드 탈락이면 저장도 차감도 안 함. 실제 저장될 때만 과금하되,
 // 차감(chargeOneShot)을 저장 *앞*에 두어 잔액 부족이면 저장 없이
 // InsufficientBalanceError 가 위로 전파된다(API 가 402 로 변환).
+//
+// 대상은 life_event 행만 — 다듬기 화면(RefineSection)이 연혁 사건 편집에만 있다. 이야기
+// 브릿지(episode) 등 다른 행은 본문을 고치는 경로가 따로 있어, 여기서 not_found 로 막는다
+// (모델 호출·차감 전).
 export async function refineMemorySpelling(
   userId: string,
   memoryId: string,
   tier: ModelTier = "haiku",
 ): Promise<RefineResult> {
   const memory = await prisma.userMemory.findFirst({
-    where: { id: memoryId, userId },
+    where: { id: memoryId, userId, createdVia: CREATED_VIA_LIFE_EVENT },
     select: { content: true },
   });
   if (!memory) return { status: "not_found" };
@@ -184,7 +189,7 @@ export async function refineMemorySpelling(
   );
 
   await prisma.userMemory.updateMany({
-    where: { id: memoryId, userId },
+    where: { id: memoryId, userId, createdVia: CREATED_VIA_LIFE_EVENT },
     data: { refinedText: refined, refinedAt: new Date() },
   });
   return {
