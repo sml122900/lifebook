@@ -32,9 +32,6 @@ const SILENCE_THRESHOLD = 0.015;
 const SILENCE_AUTO_STOP_MS = 10_000;
 const SILENCE_CHECK_INTERVAL_MS = 200;
 
-// TTS 프로바이더 — CLOVA 복귀 시 이 한 줄만 "clova" 로 교체
-const TTS_PROVIDER: "browser" | "clova" = "browser";
-
 const OPENING_TRIGGER =
   "[대화 시작] 어르신께 따뜻하게 인사하고 편하게 이야기를 시작할 첫 질문을 드려주세요.";
 const OPENING_FALLBACK =
@@ -247,34 +244,15 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
   async function speakText(text: string): Promise<void> {
     if (!ttsOnRef.current) return;
 
-    if (TTS_PROVIDER === "browser") {
-      const voice = await getKoreanVoice();
-      await new Promise<void>((resolve) => {
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = "ko-KR";
-        if (voice) utter.voice = voice;
-        utter.rate = 0.88;
-        utter.onend = () => resolve();
-        utter.onerror = () => resolve();
-        speechSynthesis.speak(utter);
-      });
-      return;
-    }
-
-    // CLOVA path — TTS_PROVIDER = "clova" 시 활성 (dormant)
-    const res = await fetch("/api/tts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!res.ok) { console.error("[companion/tts]", res.status); return; }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
+    const voice = await getKoreanVoice();
     await new Promise<void>((resolve) => {
-      const audio = new Audio(url);
-      audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-      audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-      audio.play().catch(() => resolve());
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "ko-KR";
+      if (voice) utter.voice = voice;
+      utter.rate = 0.88;
+      utter.onend = () => resolve();
+      utter.onerror = () => resolve();
+      speechSynthesis.speak(utter);
     });
   }
 

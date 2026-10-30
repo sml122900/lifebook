@@ -761,7 +761,7 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [x] `db/test-p18-1.ts` 가 test30 계정(`test30@test.com`)의 대기 중 대화 상태를 전제함. test30 을 도그푸딩 계정(기억 에이전트 연구실 허용 목록, 2026-09-30 확정)으로 쓰기 시작하면 FAIL 발생 → 도그푸딩 시작 전 자체 픽스처 계정으로 이전 필요. (읽기 전용 스크립트라 데이터를 덮어쓰지는 않음) → 2026-10-24 이전 완료: 스크립트가 `fixture-p18-1@lifebook.invalid`(이름 `[fixture]` 접두, v3 트랙·동의 v4·출생/군 입대 이벤트·EPISODE 대기)를 직접 시드하고 try/finally 로 삭제. assert 2개 동일, test30 읽기·쓰기 0.
 - [ ] 오늘의 인터뷰 도그푸딩 시작 전 — ① test30 브라우저 E2E(시작·답·건너뛰기·오늘은 그만·재진입·요약, 390px) ② 임시 문구 확정(`lib/interview/copy.ts` 전부 + `question-pool.ts` 예시 5개 — `// [임시 — 성민 확정 필요]`). 집계는 `db/dogfood-report.ts` 인터뷰 섹션.
 - [x] 미사용 API 정리(2026-10-30) → `/api/clova-stt/refine` 삭제(호출처 0 — 이 라우트가 쓰던 `lib/voice-cleanup` 은 타임머신 `cleanup-action` 이 써서 보존).
-- [ ] `/api/tts`·`lib/clova-tts` 삭제 여부 — 2026-10-30 정리 때 호출처가 1곳 남아 보존: `CompanionClient` 의 휴면 CLOVA 경로(`TTS_PROVIDER` 상수를 `"clova"` 로 바꾸면 복귀, 현재 `"browser"`). 지우려면 이 휴면 경로도 함께 지워야 함 — 성민 판단.
+- [x] `/api/tts`·`lib/clova-tts` 삭제(2026-10-30, 성민 결정) — `CompanionClient` 의 휴면 CLOVA 경로(`TTS_PROVIDER`)와 함께 삭제. 말동무 읽어주기는 브라우저 `speechSynthesis` 만. `.env.example`·README 의 `NCP_TTS_KEY_*` 항목도 삭제(Vercel env 는 남아 있어도 무해).
 - [ ] 문서 정리 — 위 "다듬기 모델 선택+차등 차감(2026-06-13)" 항목의 `tokensFromUsageForModel` 은 2026-07-01 데드코드 정리 때 삭제된 함수(현행: `tokensFromUsage` + `MODEL_MULTIPLIER`·`tokensFromUsageForRefine`, `lib/tokens/policy.ts`).
 
 ---

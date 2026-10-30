@@ -65,7 +65,6 @@ npm install
 | `TOSS_CLIENT_KEY` · `TOSS_SECRET_KEY` | 토스페이먼츠 (테스트 키 `test_` 접두사 확인) |
 | `GOOGLE_MAPS_API_KEY` · `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | 구글 장소 검색(서버) / 지도 SDK(클라) — **다른 키로 발급** |
 | `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID` | 네이버 지도 SDK (NCP Maps, 클라) |
-| `NCP_TTS_KEY_ID` · `NCP_TTS_KEY_SECRET` | CLOVA Voice (TTS) |
 | `CLOVA_SPEECH_INVOKE_URL` · `CLOVA_SPEECH_SECRET` | CLOVA Speech (STT) |
 | `VOYAGE_API_KEY` | 음악 추천 임베딩(레거시 RAG 경로) |
 | `OPENAI_API_KEY` | 포스터 맞춤 배경 이미지 생성 |
