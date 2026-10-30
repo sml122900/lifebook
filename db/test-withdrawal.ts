@@ -9,6 +9,7 @@
 // 5) UserMemory cascade. 그에 달린 고아 룸 댓글은 사전 정리.
 // (scenario 4) v3 모델 cascade. (scenario 5) 탈퇴 시 Storage 파일 삭제 — 실제 Storage 에
 // 작은 테스트 파일을 올렸다가 지운다(이웃 폴더는 테스트 끝에 직접 정리).
+// (scenario 6) 노드 그래프 테이블 cascade + 노드 삭제 트리거가 함께 도는 탈퇴.
 
 import "dotenv/config";
 
@@ -17,6 +18,7 @@ import { createClient } from "@supabase/supabase-js";
 import { prisma } from "../lib/db";
 import { deleteAccountTx, withdrawAccount } from "../lib/account-deletion";
 import { createEpisodeBridge } from "../lib/episode";
+import { saveNodeLink } from "../lib/node-graph";
 import { listUserStorageObjects } from "../lib/storage-purge";
 
 async function cleanup() {
@@ -391,6 +393,57 @@ async function scenario4_v3Models() {
   }
 }
 
+// 2026-10-30 — 노드 그래프 1단계 테이블(Place·PersonGroup·PersonGroupMember·NodeLink·NodeBody)
+// 이 탈퇴로 남김없이 지워지는지. 사용자 FK Cascade 와 노드 삭제 트리거가 같이 도는 경로라
+// 탈퇴 트랜잭션이 에러 없이 끝나는 것까지 본다. 연결은 실제 저장 함수(saveNodeLink)로 만든다.
+async function scenario6_nodeGraph() {
+  console.log("\n=== scenario 6: 노드 그래프 테이블 cascade (2026-10-30) ===");
+  const hana = await prisma.user.create({
+    data: { email: "withdrawal-test-node-hana@test", name: "hana", birthYear: 1960 },
+  });
+  const ev = await prisma.lifeEvent.create({
+    data: { userId: hana.id, type: "HIGH_SCHOOL", label: "고등학교 입학", year: 1976, status: "CONFIRMED", confirmedAt: new Date(), sequenceOrder: 0 },
+  });
+  const bridge = await createEpisodeBridge(hana.id, ev.id, "고등학교 입학", 1976, "합창부 친구들과 매일 노래했다.", "[본인] 합창부 친구들과 매일 노래했다.");
+  if (!bridge) throw new Error("createEpisodeBridge failed in setup");
+  const person = await prisma.person.create({ data: { userId: hana.id, name: "[fixture] 친구", relation: "고교 친구" } });
+  const place = await prisma.place.create({ data: { userId: hana.id, name: "[fixture] 학교 강당" } });
+  const group = await prisma.personGroup.create({ data: { userId: hana.id, name: "[fixture] 합창부" } });
+  await prisma.personGroupMember.create({ data: { groupId: group.id, personId: person.id, userId: hana.id } });
+  const links = await Promise.all([
+    saveNodeLink(hana.id, { type: "PLACE", id: place.id }, { type: "LIFE_EVENT", id: ev.id }),
+    saveNodeLink(hana.id, { type: "EPISODE", id: bridge.episodeId }, { type: "PERSON", id: person.id }),
+    saveNodeLink(hana.id, { type: "EPISODE", id: bridge.episodeId }, { type: "PERSON_GROUP", id: group.id }),
+  ]);
+  if (!links.every((l) => l.ok)) throw new Error(`saveNodeLink failed in setup: ${JSON.stringify(links)}`);
+  const bodyMemory = await prisma.userMemory.create({
+    data: { userId: hana.id, year: 1976, title: "[fixture] 본문", createdVia: "node_body" },
+  });
+  await prisma.nodeBody.create({
+    data: { userId: hana.id, nodeType: "PLACE", nodeId: place.id, doc: { v: 1, blocks: [] }, plainText: "", memoryId: bodyMemory.id },
+  });
+
+  const count = async () => ({
+    places: await prisma.place.count({ where: { userId: hana.id } }),
+    groups: await prisma.personGroup.count({ where: { userId: hana.id } }),
+    members: await prisma.personGroupMember.count({ where: { userId: hana.id } }),
+    links: await prisma.nodeLink.count({ where: { userId: hana.id } }),
+    bodies: await prisma.nodeBody.count({ where: { userId: hana.id } }),
+    bodyMemory: await prisma.userMemory.count({ where: { id: bodyMemory.id } }),
+  });
+  console.log("before deletion:", await count());
+
+  await deleteAccountTx(hana.id);
+
+  const userAfter = await prisma.user.findUnique({ where: { id: hana.id } });
+  const after = await count();
+  console.log("user deleted:", userAfter === null);
+  console.log("after deletion (expect all 0):", after);
+  if (userAfter !== null || Object.values(after).some((n) => n !== 0)) {
+    throw new Error("scenario6 FAILED — node graph rows remain or user not deleted");
+  }
+}
+
 // 2026-10-01 — 탈퇴 시 Storage 파일 삭제(A안). 실제 탈퇴 흐름 withdrawAccount() 그대로.
 // 본인 폴더 3곳(photos/{id}/, photos/poster-bg/{id}/, recordings/{id}/)은 0개가 되고,
 // 이름이 비슷한 이웃 폴더(더 긴 id·더 짧은 id·"_"를 다른 글자로 바꾼 id)는 그대로여야 한다.
@@ -473,6 +526,7 @@ async function main() {
   await scenario3_userMemoryComments();
   await scenario4_v3Models();
   await scenario5_storagePurge();
+  await scenario6_nodeGraph();
   await cleanup();
   console.log("\n✓ done");
 }

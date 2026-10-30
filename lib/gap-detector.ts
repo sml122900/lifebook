@@ -81,7 +81,8 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
       // P16-1 — hasEpisode 플래그(배지 표시용) 대신 실질 내용을 직접 본다.
       // isPeriod 필터를 없애고 전부 가져와 아래 두 갈래(episode 갭·time_gap
       // 갭)에 각자 다른 기준으로 쓴다.
-      episodes: { select: { id: true, content: true, isPeriod: true } },
+      // 노드 그래프 1단계 — 일반 이야기(STORY)만. "그때의 나"(SELF) 는 이야기 갭을 지우지 않는다.
+      episodes: { where: { kind: "STORY" }, select: { id: true, content: true, isPeriod: true } },
     },
   });
   // P16-1 — period(구간) 이야기 중 실질 내용이 있는 게 하나라도 있으면
@@ -168,8 +169,8 @@ export async function detectGaps(userId: string): Promise<Gap[]> {
       relation: true,
       // P16-1 — take:1 로 아무 Episode 나 하나 있는지만 보던 것을, 실질
       // 내용 여부까지 확인하도록 전부 가져온다(인물당 Episode 수는 적어
-      // 비용 부담 미미).
-      episodes: { select: { id: true, content: true } },
+      // 비용 부담 미미). 일반 이야기(STORY)만 센다(노드 그래프 1단계).
+      episodes: { where: { kind: "STORY" }, select: { id: true, content: true } },
       lifeEvents: {
         take: 1,
         orderBy: { createdAt: "asc" },
@@ -266,7 +267,7 @@ export async function getPeriodPromptForEvent(
       year: true,
       correctedYear: true,
       // P11-4 — 이 앵커에 period Episode 가 이미 있으면 2회차 문구.
-      episodes: { where: { isPeriod: true }, select: { id: true }, take: 1 },
+      episodes: { where: { isPeriod: true, kind: "STORY" }, select: { id: true }, take: 1 },
     },
   });
   if (!e) return null;

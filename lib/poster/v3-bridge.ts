@@ -71,7 +71,9 @@ export async function syncV3Bridge(userId: string): Promise<V3BridgeRow[]> {
         year: true,
         correctedLabel: true,
         correctedYear: true,
+        // 일반 이야기(STORY)만 — "그때의 나"(SELF) 는 포스터 본문·구간 행에 넣지 않는다(노드 그래프 1단계).
         episodes: {
+          where: { kind: "STORY" },
           select: { id: true, content: true, isPeriod: true, memory: { select: { title: true } } },
           orderBy: { createdAt: "asc" },
         },

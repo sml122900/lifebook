@@ -54,17 +54,20 @@ export function isEligible(
 }
 
 // 대상 시기 사건이 확정인 풀 질문만(SKIPPED=해당 없음 시기는 안 묻는다).
+// 노드 그래프 1단계 — 같은 유형 사건이 여러 개(두 번째 직장 등)일 수 있다. 풀 질문은 질문당
+// 1번만 내고, 대상은 순서상 첫 사건(목록 [0] — sequenceOrder·id 순, session.ts resolveTarget
+// 과 같은 기준).
 export function poolCandidates(
   pool: InterviewPoolQuestion[],
-  confirmedEventByType: Map<LifeEventType, string>,
+  confirmedEventsByType: Map<LifeEventType, readonly string[]>,
 ): PlanCandidate[] {
   return pool
-    .filter((q) => q.enabled && q.anchor !== null && confirmedEventByType.has(q.anchor))
+    .filter((q) => q.enabled && q.anchor !== null && (confirmedEventsByType.get(q.anchor)?.length ?? 0) > 0)
     .sort((a, b) => a.order - b.order)
     .map((q) => ({
       itemKey: itemKeyOf("POOL", q.id),
       source: "POOL" as const,
-      eventId: confirmedEventByType.get(q.anchor as LifeEventType) as string,
+      eventId: (confirmedEventsByType.get(q.anchor as LifeEventType) as readonly string[])[0],
       category: q.category,
     }));
 }
@@ -114,7 +117,7 @@ export async function computeTodayPlan(userId: string, today: string): Promise<P
     detectGaps(userId),
     prisma.lifeEvent.findMany({
       where: { userId, status: { in: ["CONFIRMED", "CORRECTED"] }, needsReview: false },
-      orderBy: { sequenceOrder: "asc" },
+      orderBy: [{ sequenceOrder: "asc" }, { id: "asc" }],
       select: { id: true, type: true, year: true, correctedYear: true },
     }),
     prisma.interviewItem.findMany({
@@ -137,8 +140,8 @@ export async function computeTodayPlan(userId: string, today: string): Promise<P
     .filter((e) => (e.correctedYear ?? e.year) === null)
     .map((e) => ({ itemKey: itemKeyOf("GAP_YEAR", e.id), source: "GAP_YEAR", eventId: e.id }));
 
-  const firstByType = new Map<LifeEventType, string>();
-  for (const e of events) if (!firstByType.has(e.type)) firstByType.set(e.type, e.id);
+  const eventsByType = new Map<LifeEventType, string[]>();
+  for (const e of events) eventsByType.set(e.type, [...(eventsByType.get(e.type) ?? []), e.id]);
 
-  return pickPlan({ years, gaps: gapCandidates, pools: poolCandidates(QUESTION_POOL, firstByType) }, history, today);
+  return pickPlan({ years, gaps: gapCandidates, pools: poolCandidates(QUESTION_POOL, eventsByType) }, history, today);
 }

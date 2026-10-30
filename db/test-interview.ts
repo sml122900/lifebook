@@ -226,7 +226,7 @@ function pureChecks() {
   const q = (id: string, anchor: LifeEventType | null, enabled = true): InterviewPoolQuestion => ({
     id, text: "t", topic: "t", category: "daily", anchor, followUp: false, order: 1, enabled,
   });
-  const confirmed = new Map<LifeEventType, string>([["ELEM_SCHOOL", "ev-elem"]]);
+  const confirmed = new Map<LifeEventType, readonly string[]>([["ELEM_SCHOOL", ["ev-elem"]]]);
   const pc = poolCandidates([q("a", "ELEM_SCHOOL"), q("b", "UNIVERSITY"), q("c", null), q("d", "ELEM_SCHOOL", false)], confirmed);
   check("⑦ 풀: 확정 시기만·대상 시기 필수·enabled 만", pc.length === 1 && pc[0].itemKey === "pool:a" && pc[0].eventId === "ev-elem", pc);
 }

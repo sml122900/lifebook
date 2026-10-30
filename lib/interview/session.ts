@@ -67,9 +67,10 @@ async function resolveTarget(userId: string, itemKey: string, requireOpen: boole
   if (parsed.source === "POOL") {
     const q = QUESTION_POOL.find((p) => p.id === parsed.id);
     if (!q || !q.enabled || q.anchor === null) return null;
+    // 같은 유형 사건이 여러 개면 순서상 첫 사건 — plan.ts poolCandidates 와 같은 기준(sequenceOrder·id).
     const ev = await prisma.lifeEvent.findFirst({
       where: { userId, type: q.anchor, status: { in: ["CONFIRMED", "CORRECTED"] }, needsReview: false },
-      orderBy: { sequenceOrder: "asc" },
+      orderBy: [{ sequenceOrder: "asc" }, { id: "asc" }],
       select: { id: true, label: true, correctedLabel: true, year: true, correctedYear: true },
     });
     if (!ev) return null;
@@ -95,8 +96,9 @@ async function resolveTarget(userId: string, itemKey: string, requireOpen: boole
   }
 
   if (requireOpen) {
+    // 일반 이야기(STORY)만 — "그때의 나"(SELF) 가 이야기 문항을 닫지 않게.
     const episodes = await prisma.episode.findMany({
-      where: { lifeEventId: ev.id },
+      where: { lifeEventId: ev.id, kind: "STORY" },
       select: { content: true, isPeriod: true },
     });
     const open = !episodes.some(
