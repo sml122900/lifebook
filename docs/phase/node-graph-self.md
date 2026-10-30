@@ -1,6 +1,6 @@
 # 노드 그래프 + 자아 메뉴 — 설계
 
-- 상태: **설계(구현 전)** — 코드 변경 없음. 결정 대기 질문은 §7.
+- 상태: **설계 확정(§7 결정 2026-10-30) · 1단계(데이터 층) 완료 2026-10-30** — 결과는 §6 "1단계 구현 결과". 2단계(노드 화면·직접 작성) 대기. 자아 메뉴 테이블은 3단계 마이그.
 - 작성: 2026-10-30 · Claude Code (성민 요청). 직전 조사(같은 날, 노드 구조 사전 조사) 후속.
 - 결정(성민, 제안: 리뷰 채팅): 중간안 — 기존 테이블(`LifeEvent`·`Episode`·`Person`)을 원본으로 두고 id 보존 + 범용 연결 테이블 1개. 중심노드 같은 유형 여러 개·끝 연도, 사건노드 자체 연도·여러 인물/장소, 장소 독립 개체(MemoryPlace 이관·중복 병합), 인물 그룹, "그때의 나" = 이야기(Episode)의 한 종류, 자아 메뉴 = 별도 해석 층(근거 인용 필수·사용자 승인·진단/성격유형 꼬리표 금지), 노드별 블로그식 직접 작성(사진 본문 삽입, 기존 평문 그대로 읽힘), 포스터 무기한 연기(깨지지만 않게).
 - 화면 문구는 새로 쓰지 않는다. 자리는 `[문구 필요: 위치]` 로 적고 §4.5 에 모았다.
@@ -8,7 +8,7 @@
 
 ## 0. 요약
 
-- **원본은 그대로, 연결만 새로.** `LifeEvent`(중심·직접 추가 사건)·`Episode`(이야기·그때의 나)·`Person`(인물)은 id 그대로 원본으로 남는다. 새 테이블은 `Place`·`PersonGroup`(+구성원)·`NodeLink`(범용 다대다)·`NodeBody`(블로그 본문)·`SelfAspect`(+근거·실행 기록) 다섯 묶음. 기존 테이블은 컬럼 추가만(§1.3).
+- **원본은 그대로, 연결만 새로.** `LifeEvent`(중심·직접 추가 사건)·`Episode`(이야기·그때의 나)·`Person`(인물)은 id 그대로 원본으로 남는다. 새 테이블은 `Place`·`PersonGroup`(+구성원)·`NodeLink`(범용 다대다)·`NodeBody`(블로그 본문) 네 묶음이 1단계, `SelfAspect`(+근거·실행 기록)는 3단계. 기존 테이블은 컬럼 추가만(§1.3).
 - **한 쌍은 한 곳에만 저장**한다. 이미 있는 연결(인물↔중심 `PersonLifeEvent`, 이야기의 대상 인물 `Episode.personId`, 이야기의 장소 `MemoryPlace`)은 그 자리에 두고, 새로 생기는 쌍만 `NodeLink` 에 둔다(§1.5).
 - **연결 정리는 DB 트리거**로 한다. 이야기는 앱 코드가 아니라 cascade(브릿지 메모리·중심 삭제)로도 지워지기 때문에, 앱 코드 정리만으로는 고아 연결이 남는다(§1.6).
 - **본문 평문은 계속 단일 출처로 유지**한다. 블로그 본문(블록 JSON)을 저장하면 평문을 같이 갱신해 포스터·lab·다듬기·가족 룸은 지금처럼 평문만 읽는다(§1.8).
@@ -38,27 +38,29 @@
 | 그때의 나(원재료) | `Episode`(kind=SELF) | 중심에 소속 + 인물·그룹 연결. 사건노드와 같은 테이블·같은 저장 경로 |
 | 인물노드 | `Person`(subjectType=person) | 그룹은 `PersonGroup` 신설 |
 | 장소노드 | `Place` 신설 | `MemoryPlace` 34건을 이관(§1.7) |
-| 자아 메뉴(해석 층) | `SelfAspect` 신설 | 원재료가 아니라 해석. 근거는 이야기 인용 |
+| 자아 메뉴(해석 층) | `SelfAspect` 신설(3단계 마이그) | 원재료가 아니라 해석. 근거는 이야기 인용 |
 
 ### 1.3 기존 테이블 변경(컬럼 추가만)
 
 | 테이블 | 추가 | 의미·규칙 |
 |---|---|---|
-| `LifeEvent` | `endYear Int?` | 중심의 끝 연도. null 이면 지금처럼 "다음 골격 연도 직전"으로 추정(lab `period.ts`·`gap-detector` 의 time_gap). 정정 흐름은 기존 `correctedYear` 와 같이 둘지 §7 Q2 |
+| `LifeEvent` | `endYear Int?` | 중심의 끝 연도. null 이면 지금처럼 "다음 골격 연도 직전"으로 추정(lab `period.ts`·`gap-detector` 의 time_gap). 정정 칸은 두지 않는다(Q2) |
 | `Episode` | `kind EpisodeKind @default(STORY)` (STORY·SELF) | 기존 86건은 기본값 STORY. `isPeriod`(구간 이야기)와 독립 |
 | `Episode` | `year Int?` · `endYear Int?` | 이야기 자체 연도. null = 지금처럼 중심 연도 상속 |
 | `MemoryPlace` | `placeId String?` → `Place` (SetNull) | 이관·병합 결과. v2 화면은 이 컬럼을 몰라도 그대로 동작 |
 
-**같은 유형 여러 개.** 스키마에는 이미 유형별 유니크가 없다(운영에서 같은 사용자·같은 골격 유형 2개 이상 = 0건). 막는 것은 코드의 "유형당 1개" 가정이라, 1단계에서 아래를 고친다.
+**같은 유형 여러 개(Q1 — 이름으로 구분).** 스키마·DB 에 유형별 유니크가 없다 — 운영 DB 카탈로그 확인(2026-10-30): `LifeEvent` 인덱스는 기본 키·`(userId, sequenceOrder)` 일반 인덱스뿐, 제약은 기본 키·사용자 FK 뿐, 트리거 0. 그래서 **제약 제거 SQL 은 필요 없다**. 운영에서 같은 사용자·같은 골격 유형 2개 이상 = 0건. 막는 것은 코드의 "유형당 1개" 가정이고, 두 번째 중심을 만드는 화면·AI 정리는 2단계부터라 1단계에서는 아래 표의 "1단계" 항목만 고친다.
 
-| 위치 | 가정 | 바꿀 것 |
-|---|---|---|
-| `lib/interview/plan.ts` `confirmedEventByType: Map<LifeEventType, string>` | 유형 → 사건 1개 | 유형 → 사건 목록, 질문 풀 문항은 사건별로 후보화(키에 사건 id 포함은 이미 됨) |
-| `lib/interview/session.ts` `resolveTarget` `findFirst({ type: q.anchor })` | 유형으로 사건 1개 조회 | 계획 때 고정한 `eventId`(InterviewItem.refId/키)로 조회 |
-| `lib/lab/context.ts` `skeleton.find(type === "BIRTH")` | 출생 1개 | 그대로(출생은 1개 고정 — §7 Q1) |
-| `lib/gap-detector.ts` time_gap | 연도순 정렬 | 영향 없음(여러 개여도 정렬로 처리) |
-| 골격 생성 `app/actions/onboarding.ts` `generateSkeleton` | 유형당 1개 생성 | 그대로. 두 번째부터는 사용자·AI 정리로 추가 |
-| 유형 기반 문장(`buildEpisodeOpeningPrompt`·`buildPersonAskPrompt`·`gap-detector` 문장) | "첫 직장" 등 유형 이름 | 두 번째 직장에 "첫 직장" 문장이 나가지 않게 라벨 기반으로 점검(§7 Q1) |
+| 위치 | 가정 | 바꿀 것 | 시점 |
+|---|---|---|---|
+| `lib/interview/plan.ts:59·140` `confirmedEventByType`·`firstByType`(`Map<LifeEventType, string>`, 먼저 나온 1개) | 유형 → 사건 1개 | 유형 → 사건 목록, 질문 풀 문항은 사건별로 후보화 | 1단계 |
+| `lib/interview/session.ts:70` `resolveTarget` `findFirst({ type: q.anchor })` | 유형으로 사건 1개 조회 | 계획 때 고정한 사건 id 로 조회 | 1단계 |
+| `lib/lab/context.ts:56` `skeleton.find(type === "BIRTH")` | 출생 1개 | 그대로(출생은 1개 고정 — Q1) | — |
+| `lib/lab/context.ts:63~` 시기 앵커 `anchors[stage]`(단계당 1개, 먼저 나온 것) | 시기당 1개 | 두 번째 직장 등은 앵커에 안 들어감 → 단계당 목록 또는 끝 연도 반영 | 3단계(lab 승격 때) |
+| `lib/gap-detector.ts` time_gap | 연도순 정렬 | 영향 없음(여러 개여도 정렬로 처리) | — |
+| 골격 생성 `app/actions/onboarding.ts` `generateSkeleton` | 유형당 1개 생성 | 그대로. 두 번째부터는 사용자·AI 정리로 추가 | — |
+| 유형 기반 문장 `lib/episode-opening.ts`(FIRST_JOB = "처음 일하셨을 때…")·`buildPersonAskPrompt`·`gap-detector` 문장 | 유형 이름 그대로 | 두 번째 직장에 "처음" 문장이 나가지 않게 라벨 기반으로 | 2단계(두 번째 중심을 만들 수 있게 될 때) |
+| `lib/poster/v3-bridge.ts` `CATEGORY_BY_TYPE`·`lib/lab/period.ts` 유형→단계 표 | 유형 → 값 | 영향 없음(같은 유형은 같은 값) | — |
 
 ### 1.4 새 테이블
 
@@ -72,16 +74,17 @@ PersonGroupMember   id, groupId(→PersonGroup Cascade), personId(→Person Casc
                     @@unique([groupId, personId])
 
 NodeLink            id, userId(Cascade), fromType NodeType, fromId, toType NodeType, toId,
-                    role String?, status LinkStatus @default(CONFIRMED)  -- PROPOSED|CONFIRMED
-                    source String  -- USER|AI|MIGRATION, createdAt, confirmedAt?
-                    @@unique([fromType, fromId, toType, toId, role])
-                    @@index([userId, fromType, fromId]) @@index([userId, toType, toId])
-enum NodeType       LIFE_EVENT EPISODE PERSON PERSON_GROUP PLACE SELF_ASPECT
+                    role String @default(""), status LinkStatus @default(CONFIRMED)  -- PROPOSED|CONFIRMED
+                    source String @default("USER")  -- USER|AI|MIGRATION, createdAt, confirmedAt?
+                    @@unique([fromType, fromId, toType, toId, role])  @@index([toType, toId])  @@index([userId])
+                    CHECK NodeLink_direction_check(방향 규칙, 마이그 SQL 에만)
+enum NodeType       LIFE_EVENT EPISODE PERSON_GROUP PERSON PLACE   -- 선언 순서 = 방향 순위. SELF_ASPECT 는 3단계에 추가
 
 NodeBody            id, userId(Cascade), nodeType NodeType, nodeId, doc Json, plainText Text,
                     memoryId?(→UserMemory, 사진 첨부용 브릿지), version Int, updatedAt
                     @@unique([nodeType, nodeId])
 
+── 아래는 3단계 마이그레이션(1단계 제외) ──
 SelfAspect          id, userId(Cascade), name, description, yearFrom?, yearTo?,
                     lifeEventId?(→LifeEvent SetNull, 주 시기), status SelfAspectStatus,
                     origin String(AI|USER), userEdited Boolean, needsRecheck Boolean,
@@ -97,8 +100,10 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
                     proposed, blocked, error?, startedAt, finishedAt?
 ```
 
-- **방향 규칙(`NodeLink`)**: `from` = 감싸는 쪽·해석 쪽, `to` = 들어 있는 쪽. 같은 두 노드를 반대 방향으로 또 쓰지 않도록 헬퍼(`linkNodes`)가 방향을 정규화한다(§1.5 표의 순서).
-- **`role`**: 같은 두 노드 사이 의미 구분용(예: 장소 `AT`=그곳에서 / `FROM`=그곳 출신). 1단계는 null 만 써도 된다(§7 Q4).
+- **방향 규칙(`NodeLink`, 확정)**: 노드 종류 순위 **`LIFE_EVENT` > `EPISODE` > `PERSON_GROUP` > `PERSON` > `PLACE`**(3단계에 `SELF_ASPECT` 를 맨 위에 추가 예정)에서 상위가 `from`. 같은 종류끼리는 **id 사전순(바이트 순)으로 앞선 쪽이 `from`**, 자기 자신과의 연결은 거부. 그래서 A→B 와 B→A 는 같은 행이 된다.
+  - 생성은 `lib/node-graph.ts` 의 저장 함수 **하나로만**: 방향 정규화 → 양 끝 존재·같은 소유자 확인(다른 사용자 노드면 거부) → upsert(유니크 충돌은 같은 행으로 합침).
+  - DB 방어선: `CHECK NodeLink_direction_check` — Postgres enum 비교는 선언 순서를 따르므로 `"fromType" < "toType"`(= from 이 상위) 또는 같은 종류이면 `"fromId" COLLATE "C" < "toId" COLLATE "C"`. DB 기본 정렬(en_US.UTF-8) 대신 바이트 순으로 비교해 JS 문자열 비교와 같게 한다. 그래서 `NodeType` 은 **선언 순서 = 순위**로 두고, 값을 추가할 때는 `ALTER TYPE … ADD VALUE … BEFORE/AFTER` 로 순위 자리에 넣고 lib 순위표도 같이 고친다.
+- **`role`**: 같은 두 노드 사이 의미 구분용(예: 장소 `AT`=그곳에서 / `FROM`=그곳 출신). null 대신 `""`(일반 연결) 기본값 — Postgres 유니크는 null 끼리 다르게 봐 중복을 못 막는다. 1단계는 `""` 만(Q4).
 - **`status`**: AI 정리 결과는 PROPOSED 로 들어가고 사용자가 확인하면 CONFIRMED(§3.1). 노드 화면은 PROPOSED 를 흐리게(점선) 보여 주거나 숨긴다.
 - **`SelfAspectEvidence` 는 `NodeLink` 가 아니라 전용 테이블** — 인용 위치(시작·끝)가 필요하고, 이야기가 지워지면 FK cascade 로 근거가 같이 지워져야 해서 타입 있는 FK 가 맞다.
 - **`cardId` 는 보조** — 카드는 재추출로 id 가 바뀔 수 있다(lab §12 "재추출로 카드 id 가 바뀌면 답변 기록이 비워짐"). 근거의 원본은 `episodeId + quote 위치 + 인용 문자열 스냅샷`.
@@ -116,17 +121,17 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
 | 중심 → 장소 / 인물 → 장소 | `NodeLink(LIFE_EVENT→PLACE)` / `(PERSON→PLACE)` | 신규 |
 | 그룹 → 인물 | `PersonGroupMember` | 신규(FK) |
 | 중심·이야기 → 그룹 | `NodeLink(LIFE_EVENT|EPISODE→PERSON_GROUP)` | 신규 |
-| 자아 → 중심·인물·그룹·장소 | `NodeLink(SELF_ASPECT→*)` | 신규 |
-| 자아 → 근거 이야기 | `SelfAspectEvidence` | 신규(FK) |
+| 자아 → 중심·인물·그룹·장소 | `NodeLink(SELF_ASPECT→*)` | 3단계 |
+| 자아 → 근거 이야기 | `SelfAspectEvidence` | 3단계(FK) |
 | 노드 → 블로그 본문 | `NodeBody(nodeType,nodeId)` | 신규(이야기는 §1.8 동기화 규칙) |
 
 ### 1.6 무결성 — 삭제 시 연결 정리
 
 `NodeLink`·`NodeBody` 는 여러 테이블을 가리키는 다형 연결이라 FK 를 걸 수 없다(lab `MemoryCard` 와 같은 처지). 정리 방법:
 
-1. **노드 삭제 → DB 트리거.** `LifeEvent`·`Episode`·`Person`·`PersonGroup`·`Place`·`SelfAspect` 각각에 `AFTER DELETE` 트리거를 두고 `NodeLink` 의 양쪽 끝(`fromType/fromId`, `toType/toId`)과 `NodeBody(nodeType,nodeId)` 를 지운다. **앱 코드 정리로는 안 되는 이유**: 이야기는 `deleteEpisode` 가 브릿지 `UserMemory` 를 지우면 cascade 로 지워지고(`lib/episode.ts:93`), 직접 추가 사건(CUSTOM)을 지우면 그 이야기들도 cascade 로 지워진다 — 앱은 cascade 로 지워진 행을 모른다. Prisma 는 트리거를 표현하지 못하므로 마이그 SQL 에만 두고 schema 주석에 적는다(era_event partial unique 와 같은 처리).
+1. **노드 삭제 → DB 트리거.** `LifeEvent`·`Episode`·`PersonGroup`·`Person`·`Place` 각각에(1단계 5개, `SelfAspect` 는 3단계에 추가) `AFTER DELETE` 트리거를 두고 `NodeLink` 의 양쪽 끝(`fromType/fromId`, `toType/toId`)과 `NodeBody(nodeType,nodeId)` 를 지운다. **앱 코드 정리로는 안 되는 이유**: 이야기는 `deleteEpisode` 가 브릿지 `UserMemory` 를 지우면 cascade 로 지워지고(`lib/episode.ts:93`), 직접 추가 사건(CUSTOM)을 지우면 그 이야기들도 cascade 로 지워진다 — 앱은 cascade 로 지워진 행을 모른다. Prisma 는 트리거를 표현하지 못하므로 마이그 SQL 에만 두고 schema 주석에 적는다(era_event partial unique 와 같은 처리).
 2. **탈퇴 → `userId` FK Cascade.** 새 테이블 전부. `deleteAccountTx` 무수정, `db/test-withdrawal.ts` 에 시나리오 추가(새 테이블 행을 만든 뒤 탈퇴 → 0행).
-3. **쓰기 검증 → 헬퍼 1곳.** `lib/node-graph.ts` `linkNodes(userId, from, to, …)` 가 두 끝 존재·같은 소유자·허용 쌍(§1.5)·방향 정규화를 검사하고 P2002 는 멱등 처리(기존 `PersonEvent` 패턴).
+3. **쓰기 → 저장 함수 1곳.** `lib/node-graph.ts` 의 저장 함수 하나가 방향 정규화(§1.4)·두 끝 존재·같은 소유자·허용 쌍(§1.5)을 검사하고 upsert 한다(역방향 요청·재요청은 같은 행으로 합쳐짐). 다른 경로의 `nodeLink.create` 는 쓰지 않는다.
 4. **`NodeBody` 의 사진.** 본문 사진은 `NodeBody.memoryId` 브릿지 `UserMemory`(createdVia `node_body`)에 붙인다 — 사진 업로드·GPS 제거·signed URL 파이프라인을 그대로 쓰기 위해서. 노드가 지워지면 트리거가 `NodeBody` 와 브릿지 메모리를 지우고(사진 DB 행은 cascade), Storage 파일은 `db/reconcile-storage.ts` 확장(현존 계정의 미참조 파일까지)이 정리한다. 이야기 노드는 새 브릿지 없이 기존 이야기 브릿지 메모리를 쓴다.
 5. **정합 점검 스크립트** — `db/reconcile-node-links.ts`(기본 dry-run): 끝이 없는 연결·소유자 불일치 연결 수를 센다. 트리거가 있으면 0 이어야 한다.
 6. **가족 룸** — `node_body` 브릿지 메모리를 `listRoomMemories` 제외 목록에 추가(현재 photo·episode·v3_bridge 제외, `lib/rooms.ts:163`). 자아 메뉴는 비공개 고정(§7 Q15).
@@ -182,7 +187,7 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
 | 대상 | 본인 + `lab_persona_*` | 본인만(페르소나 대상 선택 없음) |
 | LLM 키 | `LAB_ANTHROPIC_API_KEY` 전용(`lib/lab/llm.ts` 는 운영 키로 대체 금지) | 운영 키(`lib/ai.ts` `chat` + `trackAiUsage`). 추출기·통합기에 호출자를 주입(`agent.ts` 에 이미 `ModelCaller` 타입이 있음) — lab 래퍼는 그대로 |
 | 원가 | `LabUsage` + `LAB_MONTHLY_BUDGET_USD`(기본 $30) | `SelfAspectRun` 에 실행별 기록. 전역 예산 가드·사용자 토큰 차감 여부는 §7 Q12 |
-| 임베딩 | Voyage AI(`voyage-3.5`, `VOYAGE_API_KEY`) | **처리방침 국외 이전 목록에 Voyage AI 없음**(§5) — 추가하거나 운영 경로는 키워드 검색만(§7 Q14) |
+| 임베딩 | Voyage AI(`voyage-3.5`, `VOYAGE_API_KEY`) | **처리방침 국외 이전 목록에 Voyage AI 없음**(§5) → 처리방침 v1.2 국외 이전에 추가(Q14 결정, 3단계 전 개정) |
 | 색인 데이터 | `MemorySourceUnit`·`MemoryCard` = 허용 대상 3명만(카드 12·54·138장) | 운영 전원 색인 백필(사용자당 원본 수 × ≈$0.007) |
 | lab 운영 전환 과제(§12) | 미착수 | 해당분만: 카드 인물 id 생존 확인, 카드 교체 시 인용 이전(→ 근거 원본을 이야기 인용으로 둬서 회피), 기록 간 연도 대조(골격 연도 ≠ 이야기 연도 모순 후보) |
 
@@ -293,7 +298,7 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
 | "회원님이 회상에 자발적으로 민감정보를 적으시더라도, 이를 프로파일링이나 광고에 사용하지 않습니다." | 1항 민감정보 | **직접 충돌 위험.** 자아 추천이 민감정보가 담긴 이야기를 근거로 쓰면 위반. → 민감 근거 제외 필터(§2.2) 필수. 문장은 유지 가능하나 "프로파일링" 표현을 자아 정리와 구분해 다시 써야 함 |
 | "회원 식별·인증, 인생 연혁 작성·보관, AI 회상 보조와 문장 다듬기, 인생 포스터 문장 및 배경 이미지 생성, 장소 검색과 지도 표시, 가족 공유 기능 제공, 결제·정산, 문의 응대 및 서비스 개선을 위해 이용합니다." | 2항 이용 목적 | **공백.** 기록 분석을 통한 자아 정리 제안 목적 없음 → 추가 |
 | Anthropic 이전 목적 "AI 회상 보조·문장 다듬기·인생 기록 정리·포스터 문장 생성" | 3항 국외 이전 | "인생 기록 정리"에 포함된다고 보기엔 해석 다툼 소지 → "기록을 바탕으로 한 자아 정리 제안" 명시 |
-| (임베딩 업체 기재 없음) | 3항 국외 이전 | **공백.** lab 은 기억 카드를 Voyage AI(미국)로 임베딩한다. 지금은 허용 계정(본인·가상 페르소나)만이지만, 운영 승격 시 이전 대상 추가 또는 운영 경로에서 임베딩 제외(§7 Q14) |
+| (임베딩 업체 기재 없음) | 3항 국외 이전 | **공백.** lab 은 기억 카드를 Voyage AI(미국)로 임베딩한다. 지금은 허용 계정(본인·가상 페르소나)만이지만, 운영 승격 전 v1.2 에 이전 대상으로 추가(Q14 결정) |
 | 수집 항목 "나. 서비스 이용 중 입력·생성" (직접 입력 기록·AI 대화 내용·사진…, "AI가 대화 내용에서 정리한 취향 키워드") | 1항 | **공백.** AI 가 만든 자아 정리 결과(확정·거절 기록 포함)라는 파생 정보 항목 추가 |
 | "개인 프로필을 분석한 맞춤형 광고를 하지 않습니다." | 0항 약속 | 충돌 없음(광고 아님). 단 "프로필 분석" 자체는 하게 되므로 2항에서 목적을 분명히 해 오해를 막는다 |
 | "회원님은 언제든지 본인 개인정보의 열람·정정·삭제·처리정지 및 동의 …" | 7항 권리 | 자아 정리 끄기(처리정지)·결과 삭제 방법 안내 추가 |
@@ -301,7 +306,7 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
 ### 5.3 개정 필요 항목과 동의
 
 - 처리방침 v1.2: 1항(수집 — 파생 정보)·1항 민감정보 문장 재작성·2항(이용 목적)·3항(국외 이전 목적, 임베딩 업체)·7항(끄기·삭제). 10항 규칙대로 시행 전 서비스 내 공지.
-- 동의: **자아 정리는 선택 기능 → 기능을 처음 켤 때 별도 선택 동의**를 권장(§7 Q13). 필수 동의 버전(`CURRENT_CONSENT_VERSION`)을 올리면 2026-10-30 부터 proxy 가 전원을 `/consent` 로 보내므로, 선택 동의로 두면 기존 사용자 흐름을 막지 않는다. 다만 3항 국외 이전 내용이 바뀌면(임베딩 업체 추가) 필수 동의 재수집이 필요할 수 있다 — 변호사 검토 항목.
+- 동의: **자아 정리는 선택 기능 → 기능을 처음 켤 때 별도 선택 동의**(Q13 결정). 동의 기록 칸은 3단계 마이그에 넣는다. 필수 동의 버전(`CURRENT_CONSENT_VERSION`)을 올리면 2026-10-30 부터 proxy 가 전원을 `/consent` 로 보내므로, 선택 동의로 두면 기존 사용자 흐름을 막지 않는다. 다만 3항 국외 이전 내용이 바뀌면(임베딩 업체 추가) 필수 동의 재수집이 필요할 수 있다 — 변호사 검토 항목.
 - 노드 그래프·블로그 본문(1·2단계)은 사용자가 직접 입력·확인하는 기록이라 현 방침 범위 안. AI 정리 제안(§3.1)은 기존 "AI 회상 보조·인생 기록 정리" 목적 안으로 본다(검토 항목에 포함).
 
 ---
@@ -310,12 +315,20 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
 
 ### 1단계 — 데이터 층(화면 변화 0, 기존 기능 무손상)
 
-- 마이그(추가만): `Place`·`PersonGroup`·`PersonGroupMember`·`NodeLink`·`NodeBody`·`SelfAspect`·`SelfAspectEvidence`·`SelfAspectRun`, 컬럼 `LifeEvent.endYear`·`Episode.kind/year/endYear`·`MemoryPlace.placeId`, 삭제 트리거 6개. 절차는 기존 규칙(`migrate diff` 로 SQL 생성 → SQL 승인 → `deploy`, 알려진 드리프트 4항목 제외).
-- `lib/node-graph.ts`(연결 헬퍼·검증), `db/migrate-places.ts`(dry-run → 확인 → `--apply`), `db/reconcile-node-links.ts`.
+- 마이그(추가만, `20261030000000_node_graph`): `Place`·`PersonGroup`·`PersonGroupMember`·`NodeLink`·`NodeBody`, enum `EpisodeKind`·`NodeType`(5값)·`LinkStatus`, 컬럼 `LifeEvent.endYear`·`Episode.kind/year/endYear`·`MemoryPlace.placeId`, 방향 CHECK 1개, 삭제 트리거 5개 + `NodeBody` 메모리 정리 트리거 1개. 자아 메뉴 테이블은 제외(3단계). 절차는 기존 규칙(`migrate diff` 로 SQL 생성 → SQL 승인 → `deploy`, 알려진 드리프트 4항목 제외).
+- `lib/node-graph.ts`(연결 저장 함수 1개·검증), `db/migrate-places.ts`(dry-run 기본, 승인된 6묶음만 병합 적용, 실고객 계정 19행 제외 — 2026-10-30 승인), `db/reconcile-node-links.ts`.
 - 같은 유형 여러 개 대응(§1.3 표), SELF 제외 필터: `gap-detector`(episode·person_episode 판정은 STORY 만)·포스터 브릿지(본문 병합·구간 행은 STORY 만)·`/story-review` 이야기 목록(2단계까지 SELF 미표시)·인터뷰 저장(기본 STORY).
 - 포스터: 위 필터 1곳 외 무수정 — 이야기 자체 연도는 무시(앵커 연도 유지), 리치 본문은 평문 동기화로 영향 없음.
-- **완료 기준**: 회귀 15종 exit 0 · 신규 `db/test-node-graph.ts`(연결 생성·중복 멱등·남의 노드 거부·허용 안 된 쌍 거부·**브릿지 메모리 삭제로 cascade 된 이야기의 연결이 트리거로 정리**·CUSTOM 삭제 cascade·탈퇴 후 새 테이블 0행) · `test-v3-poster-bridge` 에 SELF 이야기 제외 항목 · 장소 이관 dry-run = 34행 → 20곳(묶음 6) · `reconcile-node-links` 0건 · 빌드.
+- **완료 기준**: 회귀 15종 exit 0 · 신규 `db/test-node-graph.ts`(연결 생성·중복 멱등·**역방향 중복 생성 시 같은 행으로 합쳐짐**·**다른 사용자 노드 연결 거부**·허용 안 된 쌍 거부·DB CHECK 가 역방향 직접 삽입 거부·**트리거 존재 확인**·**브릿지 메모리 삭제로 cascade 된 이야기의 연결이 트리거로 정리**·CUSTOM 삭제 cascade·탈퇴 후 새 테이블 0행) → 회귀 세트 16종 · `test-v3-poster-bridge` 에 SELF 이야기 제외 항목 · 장소 이관 dry-run = 34행 → 20곳(묶음 6) · `reconcile-node-links` 0건 · 빌드.
 - 회귀 범위: 15종 + `test-withdrawal` 시나리오 추가 + lab 테스트(`test-lab-sync`·`test-lab-search` — 원천 해시 변경 영향 확인).
+
+#### 1단계 구현 결과 (2026-10-30)
+
+- 마이그 `20261030000000_node_graph` 적용(deploy 1건). 운영 카탈로그 조회로 정리 트리거 6개(활성)·`NodeLink_direction_check` 1개·`NodeType` 순서 확인. 적용 뒤 DB↔스키마 diff 는 알려진 드리프트 5문장뿐(CHECK·트리거는 Prisma 가 보지 않아 거짓 드리프트 없음).
+- 장소 이관 `db/migrate-places.ts --apply`: 대상 34행 → `Place` 20곳(단독 14 + 승인 6묶음 20행), 실고객 계정 19행 제외(placeId 빈 채로), 보류 0. 재실행 dry-run = 대상 0(멱등).
+- 코드: `lib/node-graph.ts`(`saveNodeLink` — 방향 정규화·허용 쌍·양 끝 소유·upsert·제안→확정만 올림), STORY 필터(`gap-detector` 3곳·포스터 브릿지·인터뷰 `resolveTarget`), 같은 유형 여러 개(`plan.ts` 유형→사건 목록·`[0]`, `plan.ts`/`session.ts` 정렬 `sequenceOrder`·`id` 로 같은 기준). 화면 변화 0.
+- 회귀: 기존 15종 + 신규 `db/test-node-graph.ts`(35항목, LLM 0) = **16종**. `test-withdrawal` 시나리오 6(노드 그래프 테이블 cascade + 트리거) 추가. 세션 필터를 빼면 `test-node-graph` ⑥이 실패함을 확인(검사가 결함을 잡는지).
+- 설계와 달라진 점: `db/reconcile-node-links.ts`·`/story-review` 이야기 목록의 SELF 제외는 **2단계로 이월**(1단계엔 SELF 이야기를 만드는 경로가 없고, 트리거 정리는 회귀로 확인). 포스터 브릿지의 SELF 제외 확인은 `test-v3-poster-bridge` 대신 `test-node-graph` ⑥에 넣음(픽스처 공유).
 
 ### 2단계 — 노드 화면·직접 작성
 
@@ -325,14 +338,16 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
 
 ### 3단계 — 자아 메뉴
 
-- 선행: 처리방침 v1.2 시행 + 선택 동의(§5.3).
+- 선행: 처리방침 v1.2 시행(Voyage AI 국외 이전 추가 포함) + 선택 동의(§5.3).
+- 마이그: `SelfAspect`·`SelfAspectEvidence`·`SelfAspectRun`, enum `SelfAspectStatus`, `NodeType` 에 `SELF_ASPECT` 추가, `SelfAspect` 삭제 트리거, 선택 동의 기록 칸(§1.4 설계 그대로).
+  - ⚠️ **`SELF_ASPECT` 는 반드시 `ALTER TYPE "NodeType" ADD VALUE 'SELF_ASPECT' BEFORE 'LIFE_EVENT'` 로 넣는다.** `NodeLink_direction_check` 가 enum 선언 순서(= 방향 순위)에 의존하므로, 그냥 `ADD VALUE`(맨 뒤 추가)를 하면 자아 항목이 최하위가 되어 자아→노드 연결이 CHECK 에 막힌다. `prisma migrate diff` 가 만드는 SQL 은 순서 지정 없이 맨 뒤에 붙이므로 그 줄을 손으로 고쳐야 한다. `schema.prisma` 의 enum 도 맨 위에 쓰고, `lib/node-graph.ts` `NODE_RANK` 맨 앞에 추가, `test-node-graph` ①(DB 순서 = NODE_RANK)로 확인.
 - `SelfAspect` 생성기(lab 모듈의 운영 래퍼 — 운영 키·`SelfAspectRun` 원가), 금지 꼬리표·민감 필터, 목록·상세·확정/거절/직접 쓰기(§4.3), 근거 소멸 재확인.
 - **완료 기준**: 저장된 근거 인용 100% 원문 부분문자열(코드 검증, `verifyStoredQuotes` 패턴) · 금지 단어 필터 단위 테스트 · 상태 전이(확정·거절은 사용자 액션만, 모델은 PROPOSED 만 생성) 단위 테스트 · 근거 삭제 시 `needsRecheck` · 거절 유사 재제안 차단 · 가상 페르소나 평가(통과 기준은 성민 정의) · `SelfAspectRun` 원가 실측 기록 · `/lab` 격리 유지(`test-lab-gate`).
 - 회귀 범위: 15종 + node 테스트 2종 + 신규 `test-self-aspect` + `test-lab-gate`.
 
 ---
 
-## 7. 결정 필요 질문
+## 7. 결정 질문 (2026-10-30 결정 — 아래 7.1)
 
 | # | 질문 | 추천 |
 |---|---|---|
@@ -356,8 +371,37 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
 | Q18 | 메뉴·기능 이름(화면 용어) | [문구 필요] — 성민 |
 | Q19 | 승격 후 `/lab` 연구실 유지 여부 | 유지(격리 그대로, 연구·평가용) |
 
+### 7.1 결정 결과 (2026-10-30)
+
+성민 직접 결정: Q1·Q5·Q6·Q13·Q14. 나머지는 **추천안 채택(성민 위임)**. Q18 은 화면 문구라 확정 대기.
+
+| # | 결정 |
+|---|---|
+| Q1 | (성민) 같은 유형 중심노드 여러 개 + 이름(label)으로 구분. 출생 1개 고정·결혼 여러 개 허용은 추천안 |
+| Q2 | 추천안 — 끝 연도 정정 칸 없음 |
+| Q3 | 추천안 — 노드 보기는 `/story-review` 와 병행, 상단에서 진입 |
+| Q4 | 추천안 — 1단계 `role` 미사용(`""` 기본값) |
+| Q5 | (성민) 대상 인물은 현행 `Episode.personId` 유지 + 함께 나온 인물은 `NodeLink` |
+| Q6 | (성민) 인물 저장에 확인 단계(대화 종료 시 일괄 확인). 1단계는 데이터만(기존 `Person.isDraft` + `NodeLink.status=PROPOSED` 로 표현, 새 칸 없음), 확인 화면은 2단계 |
+| Q7 | 추천안 + 성민 승인 — 장소 6묶음 병합·실고객 계정 19행 제외, location 인물 신규 생성은 2단계에 `Place` 로 전환, `LifeProfile` 장소 JSON 은 이관 안 함 |
+| Q8 | 추천안 — 블록(문단·사진·소제목)만, 에디터 라이브러리 0, 저장 버튼 명시형 |
+| Q9 | 추천안 — 다듬기 필드 미초기화 결함을 2단계 전에 고침 |
+| Q10 | 추천안 — 인터뷰 6문항 중 "관계별 나" 최대 1개 |
+| Q11 | 추천안 — 자아 추천은 수동 버튼으로 시작 |
+| Q12 | 추천안 — 도그푸딩 동안 무료 + 전역 예산 가드, 차감은 실측 후 |
+| Q13 | (성민) 자아 메뉴는 선택 동의 |
+| Q14 | (성민) Voyage AI 를 처리방침 v1.2 국외 이전에 추가(3단계 전 개정) |
+| Q15 | 추천안 — 자아 메뉴 비공개 고정 |
+| Q16 | 추천안 — 상태 4종 + `userEdited` |
+| Q17 | 추천안 — §2.2 예시 목록으로 시작, 도그푸딩 중 추가 |
+| Q18 | 확정 대기 — 메뉴·기능 이름은 성민 문구 |
+| Q19 | 추천안 — `/lab` 연구실 유지 |
+
 ---
 
 ## 결정 로그
 
 - 2026-10-30 — 설계 문서 작성(구현 전). 데이터 방식·노드 구성·자아 메뉴 원칙·포스터 연기는 성민 결정(제안: 리뷰 채팅). 같은 날 `/api/tts`·`lib/clova-tts` 삭제(설계와 별개, 별도 커밋).
+- 2026-10-30 — §7 결정: Q1·Q5·Q6·Q13·Q14 성민 결정(제안: 리뷰 채팅), 나머지 **추천안 채택(성민 위임)**, Q18 문구 대기(§7.1).
+- 2026-10-30 — 1단계 단계 A 수정(성민): 자아 메뉴 테이블·enum·`NodeType.SELF_ASPECT`·트리거를 3단계 마이그로 분리. `NodeLink` 방향 규칙 확정(순위 `LIFE_EVENT > EPISODE > PERSON_GROUP > PERSON > PLACE`, 같은 종류는 id 바이트 순, 저장 함수 1개 + DB CHECK). `LifeEvent` 유형 유니크 없음 확인 → 제거 SQL 불필요. 장소 이관 6묶음·실고객 19행 제외 승인.
+- 2026-10-30 — 1단계 구현 완료: deploy 1건·카탈로그 확인, 장소 이관 34행→20곳(실고객 19행 제외), `saveNodeLink`·STORY 필터·같은 유형 여러 개 대응, 회귀 16종(`test-node-graph` 추가). `reconcile-node-links`·story-review SELF 제외는 2단계로 이월. 3단계 `SELF_ASPECT` 추가는 `ADD VALUE … BEFORE 'LIFE_EVENT'` 필수(CHECK 가 enum 순서에 의존) — §6 3단계에 메모.
