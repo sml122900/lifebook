@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import authConfig from "./auth.config";
 import { isAdminEmail } from "./lib/admin";
+import { CURRENT_CONSENT_VERSION } from "./lib/consent-version";
 import { isLabUser } from "./lib/lab/gate";
 
 // Edge 전용 NextAuth — Prisma 어댑터 없이 Node 측 인스턴스가 발급한 JWT 만
@@ -48,10 +49,15 @@ export default auth((req) => {
   // /consent 는 "로그인했지만 아직 동의 안 한" 상태로 들어갈 수 있는 유일한 페이지.
   if (pathname === "/consent") return;
 
-  // 동의 미완료 → 동의 페이지로 (JWT 의 consentComplete 는 auth.ts 가 채움).
-  // 동의 버전 재확인은 앱-wide 리다이렉트 루프 원인 → 기능 게이팅으로 대체.
-  // (v1 유저는 앱 정상 접근, 오디오 저장만 /api/recordings 에서 version 체크로 제한)
-  if (!session.consentComplete) {
+  // 동의 미완료·이전 버전 동의 → 동의 페이지로 (JWT 의 consentComplete·
+  // consentVersion 은 auth.ts 가 DB 에서 채움). 동의 제출 직후엔 ConsentForm 의
+  // update() 가 쿠키를 새로 받는다. 쿠키 값이 DB 보다 오래된 경우(다른 기기에서
+  // 동의 등)엔 /consent 가 DB 로 최신 동의를 확인하고 세션을 갱신한 뒤 넘긴다
+  // (ConsentSessionSync) — 서버 redirect 만 하면 쿠키가 그대로라 /enter↔/consent 루프.
+  if (
+    !session.consentComplete ||
+    (session.consentVersion ?? 0) < CURRENT_CONSENT_VERSION
+  ) {
     return NextResponse.redirect(new URL("/consent", req.url));
   }
 

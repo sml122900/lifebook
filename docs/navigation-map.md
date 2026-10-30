@@ -1,7 +1,7 @@
 # 라이프북 — 버튼·링크 이동 지도 (Navigation Map)
 
 > 서비스의 모든 버튼/링크가 **어디로 이동하는지** 한눈에 보는 문서.
-> 작성: 2026-06-26 · 최신화: 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드, 같은 날 허용 목록 게이트 제거 — V3 전원) · 코드 기준 정리.
+> 작성: 2026-06-26 · 최신화: 2026-10-30(proxy 동의 버전 검사 — 이전 버전 동의자 전 화면 → `/consent`, `/lab` proxy 404) · 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드, 같은 날 허용 목록 게이트 제거 — V3 전원) · 코드 기준 정리.
 > 표기: `→ /경로` 내부 이동, `↗ https://…` 외부 새 탭, `⚙ 액션` 서버액션(페이지 전환 없음/새로고침).
 
 ---
@@ -120,7 +120,7 @@
 | 화면 | 동작 |
 |---|---|
 | `/enter` | 비로그인 → `/login` · 동의 버전 < 현재(`CURRENT_CONSENT_VERSION`) → `/consent`(재동의) · **V3 트랙**: skeleton 완성+확인대기(UNCONFIRMED) 0건 → `/story-review`, 아니면 → `/start` · **V2 트랙**: 이벤트≥1 또는 기존기록 → `/life-timeline` · 신규(V2) → `/onboarding-chat` |
-| `/consent` | 비로그인 → `/login` · 동의완료 → `/enter` · "개인정보 처리방침 자세히 보기" → `/privacy`(새 창) · "이용약관 자세히 보기" → `/terms`(새 창) · 시작하기 → `/enter` |
+| `/consent` | 비로그인 → `/login` · 이미 최신 동의 → 세션 갱신 후 `/enter`(client `router.replace` — 쿠키가 오래돼 proxy 가 보낸 경우 루프 방지) · "개인정보 처리방침 자세히 보기" → `/privacy`(새 창) · "이용약관 자세히 보기" → `/terms`(새 창) · 시작하기 → `/enter` |
 | `/start` | V2 트랙으로 직접 진입 시 → `/enter` (자동 전환 없음) |
 | `/chat-v3` | V2 트랙으로 직접 진입 시 → `/enter` |
 | `/story-review` | V2 트랙으로 직접 진입 시 → `/enter` |
@@ -385,4 +385,4 @@
 | `/lab`·`/lab/memory` 이하 | 허용 목록 밖 로그인 사용자 → 404 (proxy 가 없는 경로로 rewrite + 화면 `notFound()`, 리다이렉트 아님 — 존재를 드러내지 않음) |
 | `/interview` | 비로그인 → `/login` · V2 → `/enter` · 재동의 필요 → `/consent` · 골격 미완성 → `/chat-v3` |
 | 로그인 필요한 모든 화면 | 비로그인 시 → `/login` |
-| 동의 필요 화면 | 미동의 시 → `/consent` |
+| 동의 필요 화면 | 미동의·이전 버전 동의(`consentVersion` < `CURRENT_CONSENT_VERSION`) 시 → `/consent` (proxy — 공개 경로·`/consent`·`/api/auth/*` 제외) |

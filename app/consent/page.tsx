@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { CURRENT_CONSENT_VERSION } from "@/lib/consent-version";
 
 import { ConsentForm } from "./ConsentForm";
+import { ConsentSessionSync } from "./ConsentSessionSync";
 
 // 동의 게이트 페이지. 로그인했으나 3종 동의(개인정보·국외이전·약관)가
 // 아직이면 미들웨어(proxy.ts)가 여기로 보낸다. 이미 다 동의했으면
@@ -13,6 +14,9 @@ import { ConsentForm } from "./ConsentForm";
 //
 // 버전 체크: timestamp 있어도 privacyConsentVersion < CURRENT 이면 폼 재노출.
 // (버전만 올라가면 기존 동의자도 재동의 필요 — 버전 없이 스킵하면 루프 발생)
+//
+// 이미 최신 동의면 서버 redirect 대신 세션을 갱신한 뒤 /enter 로 보낸다
+// (ConsentSessionSync) — proxy 가 오래된 쿠키 값으로 여기 보냈을 수 있어서.
 export default async function ConsentPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -33,7 +37,7 @@ export default async function ConsentPage() {
     user?.termsConsentAt &&
     (user?.privacyConsentVersion ?? 0) >= CURRENT_CONSENT_VERSION
   ) {
-    redirect("/enter");
+    return <ConsentSessionSync />;
   }
 
   return (
