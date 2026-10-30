@@ -181,6 +181,12 @@ model User {
 
   // 오늘의 인터뷰(docs/phase/today-interview.md) — 문항 기록. 탈퇴 시 Cascade.
   interviewItems InterviewItem[]
+
+  // 노드 그래프(docs/phase/node-graph-self.md) — 탈퇴 시 Cascade.
+  places       Place[]
+  personGroups PersonGroup[]
+  nodeLinks    NodeLink[]
+  nodeBodies   NodeBody[]
 }
 
 // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
@@ -727,6 +733,10 @@ model UserMemory {
   // /life-timeline 에는 안 보임).
   episode Episode?
 
+  // 노드 그래프 — 블로그 본문(NodeBody)의 사진 첨부 자리. 이야기 노드는 위 Episode
+  // 브릿지 메모리를, 그 밖의 노드는 createdVia="node_body" 브릿지 메모리를 쓴다.
+  nodeBody NodeBody?
+
   @@index([userId])
   // Phase L1 — 인생 연혁 화면(L3)에서 사용자별 life_event 시간순 정렬용.
   @@index([userId, eventYear, eventMonth])
@@ -917,6 +927,9 @@ model Person {
   // P7-7 — 이 인물을 대상으로 한 미완료 person_episode 대기 대화(있다면 1개).
   pendingChatContexts ChatV3PendingContext[]
 
+  // 노드 그래프 — 인물 그룹 구성원(PersonGroupMember). 인물 삭제 시 Cascade.
+  groupMemberships PersonGroupMember[]
+
   @@index([userId])
   @@index([userId, subjectType])
 }
@@ -1007,7 +1020,14 @@ model MemoryPlace {
   sortOrder    Int        @default(0)
   createdAt    DateTime   @default(now())
 
+  // 노드 그래프 — 독립 장소(Place) 연결. 이관(db/migrate-places.ts)이 같은 사용자·같은
+  // 이름 행을 한 Place 로 묶는다. 위 평면 필드는 그대로 둬 v2 화면은 이 칸을 몰라도 된다.
+  // Place 삭제 시 SetNull(이 행의 장소명은 남는다).
+  placeId String?
+  place   Place?  @relation(fields: [placeId], references: [id], onDelete: SetNull)
+
   @@index([memoryId])
+  @@index([placeId])
 }
 
 // Phase companion — 음성 동반자 세션 저장.
@@ -1075,6 +1095,11 @@ model LifeEvent {
   correctedYear  Int?
   correctedLabel String?
 
+  // 노드 그래프 — 중심노드의 끝 연도(사용자가 직접 고치는 값 하나, 정정 칸 없음 — Q2).
+  // null = 지금처럼 "다음 골격 연도 직전"으로 추정. 같은 유형 여러 개(두 번째 직장 등)는
+  // 스키마 제약 없이 label 로 구분한다(Q1).
+  endYear Int?
+
   // 확인질문 응답이 UNCLEAR로 판정된 횟수. required(optional=false) 이벤트가
   // 이 값 만큼 반복되면 무한루프 방지를 위해 needsReview 를 세우고 재질문을
   // 멈춘다(status 는 UNCONFIRMED 유지 — 사람이 직접 처리).
@@ -1129,9 +1154,21 @@ model Episode {
   // gap-detector 가 이 값으로 time_gap 갭 해소 여부를 판단한다.
   isPeriod Boolean @default(false)
 
+  // 노드 그래프 — STORY(일반 이야기) | SELF("그때의 나" 원재료). 기존 행은 전부 STORY.
+  // 갭 판정·포스터 브릿지·인터뷰 저장은 STORY 만 센다(SELF 가 이야기 갭을 지우지 않게).
+  kind    EpisodeKind @default(STORY)
+  // 이야기 자체 연도. null = 지금처럼 소속 중심(lifeEvent)의 연도를 물려받는다.
+  year    Int?
+  endYear Int?
+
   createdAt DateTime @default(now())
 
   @@index([personId])
+}
+
+enum EpisodeKind {
+  STORY
+  SELF
 }
 
 // v3 P6 — Person ↔ LifeEvent 다대다 조인(PersonEvent 와 같은 패턴, 대상만
@@ -1380,4 +1417,124 @@ model InterviewItem {
 
   @@unique([userId, day, ordinal])
   @@index([userId, itemKey])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 노드 그래프 — docs/phase/node-graph-self.md (1단계 = 데이터 층, 자아 메뉴 테이블은 3단계).
+//
+// 원본(LifeEvent·Episode·Person)은 그대로 두고 id 를 보존한다. 노드 사이 새 다대다
+// 연결은 NodeLink 한 테이블. 한 쌍은 한 곳에만 저장한다(문서 §1.5 표 — 인물↔중심은
+// PersonLifeEvent, 이야기의 대상 인물은 Episode.personId, 이야기의 장소는 MemoryPlace).
+// NodeLink·NodeBody 는 여러 테이블을 가리켜 FK 를 못 건다 → 노드 삭제 시 정리는
+// DB 트리거(마이그 20261030000000_node_graph — Prisma 가 트리거를 표현 못 해 SQL 에만).
+// ─────────────────────────────────────────────────────────────────────────
+
+// 장소노드. 이름 유니크 없음("우리 집"·"할머니 댁"처럼 동명 다른 곳이 있다).
+model Place {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  address   String?
+  lat       Float?
+  lng       Float?
+  source    String? // "naver" | "google"
+  memo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memoryPlaces MemoryPlace[]
+
+  @@index([userId])
+}
+
+// 인물 그룹("고등학교 친구들" 등) + 구성원.
+model PersonGroup {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  memo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members PersonGroupMember[]
+
+  @@index([userId])
+}
+
+// PersonLifeEvent 와 같은 패턴 — userId 는 권한 확인용(group·person 의 userId 와 일치).
+model PersonGroupMember {
+  id        String      @id @default(cuid())
+  groupId   String
+  group     PersonGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  personId  String
+  person    Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime    @default(now())
+
+  @@unique([groupId, personId])
+  @@index([personId])
+}
+
+// 선언 순서 = NodeLink 방향 순위(위가 상위). DB CHECK(NodeLink_direction_check)가 enum 비교
+// (선언 순서)로 방향을 강제하므로, 값을 추가할 때는 ALTER TYPE ... ADD VALUE ... BEFORE/AFTER 로
+// 순위 자리에 넣고 lib 순위표도 같이 고친다. 자아 항목(SELF_ASPECT)은 3단계에서 추가.
+enum NodeType {
+  LIFE_EVENT
+  EPISODE
+  PERSON_GROUP
+  PERSON
+  PLACE
+}
+
+enum LinkStatus {
+  PROPOSED // AI 정리 제안 — 사용자 확인 전(2단계 확인 화면에서 CONFIRMED 또는 삭제)
+  CONFIRMED
+}
+
+// 범용 연결. 방향 규칙: 노드 종류 순위(LIFE_EVENT > EPISODE > PERSON_GROUP > PERSON > PLACE)
+// 에서 상위가 from, 같은 종류끼리는 id 사전순(바이트 순)으로 앞선 쪽이 from. 그래서 A→B 와
+// B→A 가 같은 행이 된다. 생성은 lib 저장 함수 하나로만(정규화 + 양 끝 소유권 확인 + upsert),
+// DB 는 CHECK(NodeLink_direction_check)로 역방향 행을 거부한다(마이그 SQL 에만 — Prisma 미표현).
+// role = 같은 두 노드 사이 의미 구분. "" = 일반 연결(1단계는 "" 만 — Q4). null 대신 ""
+// 를 쓰는 이유: Postgres 유니크는 NULL 끼리 다르게 봐 중복을 못 막는다.
+model NodeLink {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromType    NodeType
+  fromId      String
+  toType      NodeType
+  toId        String
+  role        String     @default("")
+  status      LinkStatus @default(CONFIRMED)
+  source      String     @default("USER") // USER | AI | MIGRATION
+  createdAt   DateTime   @default(now())
+  confirmedAt DateTime?
+
+  @@unique([fromType, fromId, toType, toId, role])
+  @@index([toType, toId])
+  @@index([userId])
+}
+
+// 노드별 블로그 본문(블록 JSON). plainText 는 doc 에서 만든 평문 — 이야기 노드는 저장 때
+// Episode.content·브릿지 UserMemory.content 도 같은 평문으로 갱신한다(평문 단일 출처 유지).
+// NodeBody 가 없으면 화면은 기존 평문을 문단으로 보여 준다(이관 없음).
+model NodeBody {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodeType  NodeType
+  nodeId    String
+  doc       Json
+  plainText String      @db.Text
+  // 본문 사진이 붙는 메모리(이야기 = 그 이야기의 브릿지, 그 밖 = createdVia "node_body").
+  memoryId  String?     @unique
+  memory    UserMemory? @relation(fields: [memoryId], references: [id], onDelete: SetNull)
+  version   Int         @default(1)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@unique([nodeType, nodeId])
 }
