@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 import { getAttendanceStatus } from "@/lib/attendance";
+import { KST_DATE_TIME_FMT } from "@/lib/kst-date";
 import { getBalance } from "@/lib/tokens/wallet";
 
 import {
@@ -42,14 +43,6 @@ const REASON_LABEL: Record<string, string> = {
 function reasonLabel(reason: string): string {
   return REASON_LABEL[reason] ?? reason;
 }
-
-const DATE_FMT = new Intl.DateTimeFormat("ko-KR", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
 export default async function TokensPage() {
   const session = await auth();
@@ -135,7 +128,7 @@ export default async function TokensPage() {
                       {reasonLabel(t.reason)}
                     </p>
                     <p className="text-base text-ink-soft">
-                      {DATE_FMT.format(t.createdAt)}
+                      {KST_DATE_TIME_FMT.format(t.createdAt)}
                     </p>
                   </div>
                   <p

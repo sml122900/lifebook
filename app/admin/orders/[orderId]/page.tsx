@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { BANK_TRANSFER_INFO } from "@/lib/commerce/bank";
 import { ORDER_STATUS_LABEL } from "@/lib/commerce/order-display";
 import { getProduct, getProductOption } from "@/lib/commerce/products";
+import { KST_DATE_TIME_FULL_FMT } from "@/lib/kst-date";
 import type { PosterSnapshot } from "@/lib/poster/snapshot";
 
 import { PosterCompose } from "../../../poster/PosterCompose";
@@ -16,7 +17,7 @@ import {
 } from "../actions";
 
 const won = (n: number) => n.toLocaleString("ko-KR");
-const dt = (d: Date | null) => (d ? d.toLocaleString("ko-KR") : "—");
+const dt = (d: Date | null) => (d ? KST_DATE_TIME_FULL_FMT.format(d) : "—");
 
 export default async function AdminOrderDetailPage({
   params,

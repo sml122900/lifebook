@@ -4,6 +4,7 @@
 // 승인/거절은 form action (server action .bind 패턴) — JavaScript 없어도 동작.
 
 import { prisma } from "@/lib/db";
+import { KST_DATE_LONG_FMT } from "@/lib/kst-date";
 
 import {
   approveDraftMemoryAction,
@@ -112,11 +113,7 @@ export async function DraftReview({ userId }: { userId: string }) {
       </p>
 
       {sessions.map((s) => {
-        const dateStr = s.createdAt.toLocaleDateString("ko-KR", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
+        const dateStr = KST_DATE_LONG_FMT.format(s.createdAt);
 
         return (
           <div

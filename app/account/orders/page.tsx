@@ -9,6 +9,7 @@ import {
   isRefundable,
 } from "@/lib/commerce/order-display";
 import { getProduct, getProductOption } from "@/lib/commerce/products";
+import { KST_DATE_NUMERIC_FMT } from "@/lib/kst-date";
 
 import { BankDepositGuide } from "./BankDepositGuide";
 import { requestRefund } from "./actions";
@@ -58,7 +59,7 @@ export default async function MyOrdersPage() {
                   </span>
                 </div>
                 <p className="mt-1 text-base text-ink-soft">
-                  {won(o.totalKrw)}원 · {o.createdAt.toLocaleDateString("ko-KR")}
+                  {won(o.totalKrw)}원 · {KST_DATE_NUMERIC_FMT.format(o.createdAt)}
                 </p>
 
                 {o.status === "awaiting_payment" && (

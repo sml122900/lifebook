@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { buttonClasses } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 import { HIDE_TEST_MODE_BANNER } from "@/lib/commerce/pg-review";
+import { KST_DATE_TIME_FMT } from "@/lib/kst-date";
 import { TOPUP_PACKAGES } from "@/lib/tokens/policy";
 import { getBalance } from "@/lib/tokens/wallet";
 
@@ -23,14 +24,6 @@ const REASON_LABEL: Record<string, string> = {
 function reasonLabel(reason: string): string {
   return REASON_LABEL[reason] ?? reason;
 }
-
-const DATE_FMT = new Intl.DateTimeFormat("ko-KR", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
 // /billing — 토큰 지갑 + 충전 입구 + 거래 내역. 클라이언트 키는 마크업에
 // 박아도 안전(공개용 설계). 시크릿 키는 서버를 떠나지 않는다.
@@ -125,7 +118,7 @@ export default async function BillingPage() {
                       {reasonLabel(t.reason)}
                     </p>
                     <p className="text-base text-ink-soft">
-                      {DATE_FMT.format(t.createdAt)}
+                      {KST_DATE_TIME_FMT.format(t.createdAt)}
                     </p>
                   </div>
                   <p

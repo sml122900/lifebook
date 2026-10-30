@@ -1,4 +1,6 @@
-﻿import {
+﻿import { KST_DATE_TIME_FMT } from "@/lib/kst-date";
+
+import {
   createCommentAction,
   deleteCommentAction,
 } from "./comment-actions";
@@ -13,14 +15,6 @@ type Comment = {
   createdAt: Date;
   author: { name: string | null; email: string | null };
 };
-
-const DATE_FMT = new Intl.DateTimeFormat("ko-KR", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
 function authorLabel(
   authorId: string,
@@ -65,7 +59,7 @@ export function CommentThread({
                     {authorLabel(c.authorId, c.author.name, c.author.email, viewerId)}
                   </p>
                   <p className="text-sm text-ink-soft">
-                    {DATE_FMT.format(c.createdAt)}
+                    {KST_DATE_TIME_FMT.format(c.createdAt)}
                   </p>
                 </div>
                 <p className="mt-2 whitespace-pre-wrap text-lg text-ink">

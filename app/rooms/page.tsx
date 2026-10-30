@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { KST_DATE_FMT } from "@/lib/kst-date";
 import { listUserRooms } from "@/lib/rooms";
 
 import { createRoomAction } from "./actions";
@@ -14,12 +15,6 @@ const ROLE_LABEL: Record<string, string> = {
   owner: "방장",
   member: "멤버",
 };
-
-const DATE_FMT = new Intl.DateTimeFormat("ko-KR", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
 
 export default async function RoomsPage() {
   const session = await auth();
@@ -84,7 +79,7 @@ export default async function RoomsPage() {
                   </p>
                   <p className="mt-1 text-base text-ink-soft">
                     {ROLE_LABEL[m.role] ?? m.role} · 가입{" "}
-                    {DATE_FMT.format(m.joinedAt)}
+                    {KST_DATE_FMT.format(m.joinedAt)}
                   </p>
                 </Link>
               </li>

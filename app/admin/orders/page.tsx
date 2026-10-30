@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { ORDER_STATUS_LABEL } from "@/lib/commerce/order-display";
 import { getProduct, getProductOption } from "@/lib/commerce/products";
+import { KST_DATE_NUMERIC_FMT } from "@/lib/kst-date";
 
 // /admin/orders — 주문 목록(최신순). 게이트는 layout 에서.
 
@@ -61,7 +62,7 @@ export default async function AdminOrdersPage() {
                     </span>
                     <span className="text-sm text-ink-soft">
                       {o.recipientName} · {o.user?.name ?? o.user?.email ?? "탈퇴"} ·{" "}
-                      {o.createdAt.toLocaleDateString("ko-KR")}
+                      {KST_DATE_NUMERIC_FMT.format(o.createdAt)}
                     </span>
                   </span>
                   <span className="flex flex-col items-end">

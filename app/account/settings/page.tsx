@@ -8,24 +8,10 @@ import { buttonClasses } from "@/components/ui/Button";
 import { isAiModel } from "@/lib/ai-model";
 import { DEFAULT_CHARACTER_ID, isCharacterId } from "@/lib/characters";
 import { prisma } from "@/lib/db";
-
-const DATE_FMT = new Intl.DateTimeFormat("ko-KR", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
-// 동의 내역 날짜는 한국 시간 기준. 서버 렌더(Vercel = UTC)라 timeZone 이 없으면
-// 한국 시간 오전 9시 전에 동의한 날이 하루 앞당겨 보인다.
-const CONSENT_DATE_FMT = new Intl.DateTimeFormat("ko-KR", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  timeZone: "Asia/Seoul",
-});
+import { KST_DATE_FMT } from "@/lib/kst-date";
 
 function fmt(d: Date | null) {
-  return d ? CONSENT_DATE_FMT.format(d) : "동의 안 함";
+  return d ? KST_DATE_FMT.format(d) : "동의 안 함";
 }
 
 // 설정 — 동의 내역 확인 + 회원 탈퇴 진입.
@@ -76,7 +62,7 @@ export default async function AccountSettingsPage() {
           <dt className="text-ink-soft">이름</dt>
           <dd>{user.name ?? "-"}</dd>
           <dt className="text-ink-soft">가입일</dt>
-          <dd>{DATE_FMT.format(user.createdAt)}</dd>
+          <dd>{KST_DATE_FMT.format(user.createdAt)}</dd>
         </dl>
       </section>
 
