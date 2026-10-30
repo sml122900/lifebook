@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import authConfig from "./auth.config";
 import { isAdminEmail } from "./lib/admin";
+import { isLabUser } from "./lib/lab/gate";
 
 // Edge 전용 NextAuth — Prisma 어댑터 없이 Node 측 인스턴스가 발급한 JWT 만
 // 읽는다 (Edge 런타임은 Prisma 사용 불가).
@@ -58,6 +59,16 @@ export default auth((req) => {
   // 재검증(이메일 누락 Edge JWT 대비). 비관리자 → 메인으로.
   if (pathname.startsWith("/admin") && !isAdminEmail(session.user?.email)) {
     return NextResponse.redirect(new URL("/life-timeline", req.url));
+  }
+
+  // 기억 연구실 1차 — LAB_ALLOWED_USER_IDS 밖은 없는 주소와 같은 404(없는 경로로
+  // rewrite → 앱의 not-found). 화면(requireLabPage)·서버 액션(requireLabUser)
+  // 게이트는 그대로 두어 3중. 미설정이면 전원 404.
+  if (
+    (pathname === "/lab" || pathname.startsWith("/lab/")) &&
+    !isLabUser(session.user?.id)
+  ) {
+    return NextResponse.rewrite(new URL("/_lab-gate-404", req.url));
   }
 });
 

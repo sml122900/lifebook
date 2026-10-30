@@ -1,6 +1,7 @@
-// 기억 에이전트 R1-2 — /lab 게이트 2중 검증 (LLM·DB 0).
+// 기억 에이전트 R1-2 — /lab 게이트 검증 (LLM·DB 0). 2026-10-30 부터 3중.
 //
-//   층 ① 화면      : app/lab/memory 의 layout.tsx·모든 page.tsx → requireLabPage() → notFound()
+//   층 ⓪ proxy     : proxy.ts 가 /lab·/lab/* 를 isLabUser() 로 먼저 막음(정적 검사)
+//   층 ① 화면: app/lab/memory 의 layout.tsx·모든 page.tsx → requireLabPage() → notFound()
 //   층 ② 서버 액션 : app/lab·lib/lab 의 모든 "use server" 액션 첫 문장 →
 //                    requireLabUser() / requireLabSubject()
 //
@@ -335,6 +336,15 @@ async function main() {
     }
     console.log(
       `   (lab "use server" 파일 ${actionFiles}개, 액션 ${actionCount}개 검사 — R1-2 시점엔 0개가 정상, R1-6 부터 생김)`,
+    );
+
+    // ── 층 ⓪ proxy 1차(2026-10-30) — /lab 경로를 허용 목록으로 먼저 막는지(정적) ──
+    const proxySrc = fs.readFileSync(path.join(ROOT, "proxy.ts"), "utf8");
+    check(
+      "⓪ proxy.ts 가 lib/lab/gate 의 isLabUser 로 /lab·/lab/* 를 막고 404 경로로 rewrite",
+      /import\s*\{\s*isLabUser\s*\}\s*from\s*"\.\/lib\/lab\/gate"/.test(proxySrc) &&
+        /pathname === "\/lab" \|\| pathname\.startsWith\("\/lab\/"\)\)\s*&&\s*!isLabUser\(session\.user\?\.id\)/.test(proxySrc) &&
+        /NextResponse\.rewrite\(/.test(proxySrc),
     );
 
     // 정적 검사기가 실제로 잡는지 자체 검증(가짜 소스).

@@ -5,7 +5,8 @@
 // db/test-lab-gate.ts 가 env 를 바꿔 가며 요청 컨텍스트 없이 그대로 검증하기 위함.
 // prisma·auth 의존 0. auth() 를 부르는 얇은 래퍼는 lib/lab/access.ts.
 //
-// 게이트 2중(phase/기억에이전트_R1-R4_기획.md 결정 5 — proxy.ts 는 PG 심사 기간 무수정):
+// 게이트 3중(phase/기억에이전트_R1-R4_기획.md 결정 5 — proxy 층은 2026-10-30 추가):
+//   ⓪ proxy: proxy.ts 가 /lab·/lab/* 를 isLabUser() 로 먼저 막고 404 경로로 rewrite
 //   ① 화면: app/lab/memory/layout.tsx + 각 page.tsx → requireLabPage() → notFound()
 //   ② 서버 액션: 모든 lab 액션 첫 줄 → requireLabUser()/requireLabSubject() → throw
 // 대상 제한(결정 4): 허용 목록 AND (본인 OR "lab_persona_" 로 시작하는 가상 페르소나).

@@ -382,7 +382,7 @@
 | `/timemachine/[year]/[month]` | → `/life-timeline` (월 화면 비활성, 코드 보존) |
 | `/timeline` | → `/life-timeline` (레거시 Phase 5 타임라인 비활성, archive 스텁 — `_TimelinePageArchived` + RAG 체인 보존) |
 | `/onboarding` | → `/onboarding-chat` (레거시 위저드 온보딩 비활성, archive 스텁 — 코드 보존) |
-| `/lab/memory` 이하 | 허용 목록 밖 로그인 사용자 → 404 (`notFound()`, 리다이렉트 아님 — 존재를 드러내지 않음) |
+| `/lab`·`/lab/memory` 이하 | 허용 목록 밖 로그인 사용자 → 404 (proxy 가 없는 경로로 rewrite + 화면 `notFound()`, 리다이렉트 아님 — 존재를 드러내지 않음) |
 | `/interview` | 비로그인 → `/login` · V2 → `/enter` · 재동의 필요 → `/consent` · 골격 미완성 → `/chat-v3` |
 | 로그인 필요한 모든 화면 | 비로그인 시 → `/login` |
 | 동의 필요 화면 | 미동의 시 → `/consent` |
