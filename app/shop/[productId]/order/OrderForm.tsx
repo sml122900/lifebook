@@ -20,15 +20,15 @@ type Props = {
   productId: string;
   clientKey: string;
   customerKey: string; // User.id
-  // PG 심사 대응 — 서버(page.tsx)가 HIDE_TEST_MODE_BANNER(lib/commerce/
-  // pg-review.ts)를 읽어 내려준다. 렌더링만 건너뜀, 문구·조건 무수정.
-  hideTestModeBanner?: boolean;
+  // 토스 테스트 키 여부 — 서버(page.tsx)가 isTossTestMode()(lib/tokens/toss.ts)로
+  // 판단해 내려준다. 테스트 키일 때만 "테스트 모드" 안내를 보인다.
+  testMode: boolean;
 };
 
 const FIELD =
   "w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2";
 
-export function OrderForm({ productId, clientKey, customerKey, hideTestModeBanner }: Props) {
+export function OrderForm({ productId, clientKey, customerKey, testMode }: Props) {
   const router = useRouter();
   // 카드결제는 PG 심사 전 테스트 모드라, 실작동하는 무통장입금을 기본값으로.
   const [method, setMethod] = useState<PaymentMethod>("bank_transfer");
@@ -171,7 +171,7 @@ export function OrderForm({ productId, clientKey, customerKey, hideTestModeBanne
       <PaymentMethodChoice
         value={method}
         onChange={setMethod}
-        hideTestModeBanner={hideTestModeBanner}
+        testMode={testMode}
       />
 
       {/* 주문제작 청약철회 제한 동의 */}
@@ -213,7 +213,7 @@ export function OrderForm({ productId, clientKey, customerKey, hideTestModeBanne
             : "결제하기"}
       </button>
 
-      {!hideTestModeBanner && (
+      {testMode && (
         <p className="text-base text-ink-soft">
           무통장입금(계좌이체)은 실제 주문이에요. 카드결제는 지금 테스트 모드예요.
         </p>

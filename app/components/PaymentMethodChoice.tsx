@@ -5,18 +5,17 @@ import type { PaymentMethod } from "@/lib/commerce/orders";
 // 결제수단 선택 — 포스터/굿즈 주문 폼 공용. 무통장입금(실작동)과 카드결제
 // (PG 심사 전 테스트 모드)를 명확히 구분해 어르신이 헷갈리지 않게.
 //
-// PG 심사 대응 — hideTestModeBanner(lib/commerce/pg-review.ts)면 카드결제의
-// 테스트 모드 설명만 숨긴다(무통장입금 설명은 그대로). 문구 자체는 무수정,
-// 렌더링 조건만 추가.
+// 카드결제의 테스트 모드 설명은 testMode(서버가 토스 테스트 키로 판단 —
+// lib/tokens/toss.ts isTossTestMode)일 때만 보인다(무통장입금 설명은 그대로).
 
 export function PaymentMethodChoice({
   value,
   onChange,
-  hideTestModeBanner,
+  testMode,
 }: {
   value: PaymentMethod;
   onChange: (m: PaymentMethod) => void;
-  hideTestModeBanner?: boolean;
+  testMode: boolean;
 }) {
   return (
     <fieldset className="flex flex-col gap-3 border-t-2 border-line pt-6">
@@ -32,9 +31,9 @@ export function PaymentMethodChoice({
         onSelect={() => onChange("card")}
         title="카드결제"
         desc={
-          hideTestModeBanner
-            ? undefined
-            : "지금은 테스트 모드예요 — 실제로 청구되지 않아요(준비 중)."
+          testMode
+            ? "지금은 테스트 모드예요 — 실제로 청구되지 않아요(준비 중)."
+            : undefined
         }
       />
     </fieldset>

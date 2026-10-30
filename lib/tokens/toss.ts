@@ -14,6 +14,12 @@ function getSecretKey(): string {
   return key;
 }
 
+// 화면의 카드결제 "테스트 모드" 안내는 이 판단 하나로만 켠다(서버 전용).
+// 테스트 키(test_ 접두)면 실제 청구가 없고, 라이브 키로 바꾸면 안내가 저절로 사라진다.
+export function isTossTestMode(): boolean {
+  return process.env.TOSS_CLIENT_KEY?.startsWith("test_") ?? false;
+}
+
 function basicAuthHeader(): string {
   // 토스는 "시크릿키:" 형식(콜론 유지, 비밀번호는 빈 값)을 base64 로 받는다.
   return "Basic " + Buffer.from(`${getSecretKey()}:`).toString("base64");

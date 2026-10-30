@@ -24,9 +24,9 @@ type Props = {
   shippingKrw: number;
   clientKey: string;
   customerKey: string; // User.id
-  // PG 심사 대응 — page.tsx 가 HIDE_TEST_MODE_BANNER(lib/commerce/
-  // pg-review.ts)를 읽어 내려준다. PaymentMethodChoice 로 그대로 전달.
-  hideTestModeBanner?: boolean;
+  // 토스 테스트 키 여부 — page.tsx 가 isTossTestMode()(lib/tokens/toss.ts)로
+  // 판단해 내려준다. PaymentMethodChoice 로 그대로 전달.
+  testMode: boolean;
 };
 
 const FIELD =
@@ -39,7 +39,7 @@ export function PosterOrderForm({
   shippingKrw,
   clientKey,
   customerKey,
-  hideTestModeBanner,
+  testMode,
 }: Props) {
   const router = useRouter();
   const [optionId, setOptionId] = useState(options[0]?.id ?? "");
@@ -220,7 +220,7 @@ export function PosterOrderForm({
       <PaymentMethodChoice
         value={method}
         onChange={setMethod}
-        hideTestModeBanner={hideTestModeBanner}
+        testMode={testMode}
       />
 
       {/* 금액 요약 */}

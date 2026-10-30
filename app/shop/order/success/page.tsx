@@ -7,8 +7,7 @@ import {
   findSettledProductOrder,
   settleProductOrder,
 } from "@/lib/commerce/orders";
-import { HIDE_TEST_MODE_BANNER } from "@/lib/commerce/pg-review";
-import { TossConfirmError, confirmTossPayment } from "@/lib/tokens/toss";
+import { TossConfirmError, confirmTossPayment, isTossTestMode } from "@/lib/tokens/toss";
 
 // /shop/order/success — 토스가 결제 확인 후 리다이렉트. 적립이 아니라
 // 주문 접수(status=paid) 기록. confirm(서버) + 금액 대조 후에만 확정.
@@ -121,7 +120,7 @@ function SuccessScreen({
         <span className="font-bold">{productName}</span> ·{" "}
         {totalKrw.toLocaleString()}원
       </p>
-      {!HIDE_TEST_MODE_BANNER && (
+      {isTossTestMode() && (
         <p
           role="note"
           className="rounded-md border-2 border-brand bg-banner px-5 py-4 text-lg font-semibold text-action"

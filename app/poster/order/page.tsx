@@ -3,10 +3,9 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { POSTER_PAYMENT_LIVE_ENABLED } from "@/lib/commerce/poster-payment";
-import { HIDE_TEST_MODE_BANNER } from "@/lib/commerce/pg-review";
 import { SHIPPING_KRW, getProduct } from "@/lib/commerce/products";
 import { hasLiveSelections } from "@/lib/poster/snapshot";
+import { isTossTestMode } from "@/lib/tokens/toss";
 
 import { PosterOrderForm } from "./PosterOrderForm";
 
@@ -33,6 +32,7 @@ export default async function PosterOrderPage() {
   // PG 심사 대응 — hidden 옵션(프리미엄)은 주문 화면 선택 UI에서 제외.
   const options = (product.options ?? []).filter((o) => !o.hidden);
   const clientKey = process.env.TOSS_CLIENT_KEY ?? "";
+  const testMode = isTossTestMode();
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -43,7 +43,7 @@ export default async function PosterOrderPage() {
         </p>
       </header>
 
-      {!POSTER_PAYMENT_LIVE_ENABLED && !HIDE_TEST_MODE_BANNER && (
+      {testMode && (
         <p
           role="note"
           className="mb-5 rounded-md border-2 border-brand bg-banner px-4 py-3 text-base font-semibold text-action"
@@ -63,7 +63,7 @@ export default async function PosterOrderPage() {
         shippingKrw={SHIPPING_KRW}
         clientKey={clientKey}
         customerKey={userId}
-        hideTestModeBanner={HIDE_TEST_MODE_BANNER}
+        testMode={testMode}
       />
 
       <div className="mt-6">

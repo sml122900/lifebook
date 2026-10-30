@@ -752,7 +752,7 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [ ] 비서 검색 답 토큰 정책 재조정 (V4 깊이별 실측 후 — Haiku 10 / Sonnet 43 / Opus 56)
 - [ ] 출석 streak 30/100일 같은 milestone UX (지금은 7배수만)
 - [ ] RSC 503 ~11% 잔존(P22-2 prefetch/loading.tsx 적용 후) — 이미 가벼운 라우트(`/`)에서도 발생해 인프라(Vercel 콜드스타트·Supabase 커넥션 풀) 추정, 코드 레버 못 찾음. 모니터링만.
-- [ ] `HIDE_TEST_MODE_BANNER`는 PG 심사 기간 한정. 심사 통과 후 반드시 false 로 되돌리거나 라이브 키로 전환할 것.
+- [x] 카드결제 "테스트 모드" 안내 6곳(2026-10-30) → 토스 키가 테스트 키(`test_` 접두)일 때만 표시. 판단은 서버 `isTossTestMode()`(`lib/tokens/toss.ts`, `TOSS_CLIENT_KEY`) 하나 — 라이브 키로 바꾸면 저절로 사라진다. 심사용 숨김 플래그는 폐기.
 - [ ] `lib/commerce/products.ts` 포스터 "프리미엄" 옵션의 `hidden: true`도 PG 심사 기간 한정. 심사 통과 후 되돌릴 것(정의는 보존, 표시만 숨김).
 - [ ] 탈퇴 Storage 정합성 점검 자동화 — `db/reconcile-storage.ts` 로직을 `/api/cron/*`(CRON_SECRET 확인) 일 1회 실행으로. 크론 라우트가 proxy 로그인 게이트에 걸려 `proxy.ts` 공개 경로 등록이 필요 → PG 심사 통과 후 별도 작업(심사 중 proxy 무수정). 그전까지는 수동 dry-run → `--apply`.
 - [ ] `/lab` proxy 1차 게이트 — PG 심사 기간이라 `proxy.ts` 무수정으로 시작(현재 게이트 = `app/lab/memory/layout.tsx` `notFound()` + 서버 액션별 `requireLabUser()` 2중). 심사 통과 후 별도 작업으로 추가.
