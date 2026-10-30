@@ -12,6 +12,7 @@
 
 import { prisma } from "./db";
 import { isSubstantiveEpisodeContent } from "./episode-text";
+import type { EpisodeKind } from "./generated/prisma/enums";
 import type { PlaceInfo } from "./place-types";
 
 export const CREATED_VIA_EPISODE = "episode";
@@ -34,6 +35,9 @@ function resolveMemoryYear(year: number | null): number {
 // LifeEvent 에 이벤트-자체 Episode 와 period Episode 가 여러 건 함께 붙을
 // 수 있다(unique 제약 없음 — 의도된 설계, gap-detector 가 isPeriod 로 해소
 // 여부만 판단).
+//
+// kind(optional, 기본 STORY) — "그때의 나"(SELF, 오늘의 인터뷰 "관계별 나")는 일반 이야기가
+// 아니라 hasEpisode("이야기 있음" 배지·/chat-v3 심화 대화 대상 판정)를 켜지 않는다.
 export async function createEpisodeBridge(
   userId: string,
   lifeEventId: string,
@@ -43,6 +47,7 @@ export async function createEpisodeBridge(
   rawTranscript: string,
   personId?: string,
   isPeriod?: boolean,
+  kind?: EpisodeKind,
 ): Promise<{ episodeId: string; memoryId: string } | null> {
   // 2026-09-01 — CORRECTED 도 허용(app/actions/episode.ts requireConfirmedEvent
   // 와 같은 이유). 저 함수가 이미 CORRECTED 이벤트를 통과시키는데 여기서 다시
@@ -72,13 +77,16 @@ export async function createEpisodeBridge(
         rawTranscript,
         personId: personId ?? null,
         isPeriod: isPeriod ?? false,
+        kind: kind ?? "STORY",
       },
       select: { id: true },
     });
-    await tx.lifeEvent.update({
-      where: { id: lifeEventId },
-      data: { hasEpisode: true },
-    });
+    if ((kind ?? "STORY") === "STORY") {
+      await tx.lifeEvent.update({
+        where: { id: lifeEventId },
+        data: { hasEpisode: true },
+      });
+    }
     return { episodeId: episode.id, memoryId: memory.id };
   });
 }
@@ -114,9 +122,9 @@ export async function deleteEpisode(
 
     // P16-1 이 hasEpisode 대신 "실질 내용 있는 Episode 존재"로 갭을
     // 판단하지만, 배지 표시용 hasEpisode 플래그도 정합을 맞춘다(핸드오프
-    // 명시 요구) — 남은 Episode 중 실질 내용이 하나라도 있으면 유지.
+    // 명시 요구) — 남은 일반 이야기(STORY) 중 실질 내용이 하나라도 있으면 유지.
     const remaining = await tx.episode.findMany({
-      where: { lifeEventId: episode.lifeEventId },
+      where: { lifeEventId: episode.lifeEventId, kind: "STORY" },
       select: { content: true },
     });
     const stillHasEpisode = remaining.some((e) => isSubstantiveEpisodeContent(e.content));

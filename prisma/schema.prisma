@@ -1395,9 +1395,10 @@ model InterviewItem {
   // 그날 몇 번째 문항(1부터).
   ordinal Int
   // 날짜를 넘어 같은 질문을 알아보는 영구 키 — gap:episode:<eventId> |
-  // gap:period:<eventId> | gap:year:<eventId> | pool:<poolId>
+  // gap:period:<eventId> | gap:year:<eventId> | pool:<poolId> |
+  // self:<questionId>:<eventId>[:person:<personId> | :group:<groupId>](관계별 나)
   itemKey String
-  source  String // GAP_EPISODE | GAP_PERIOD | GAP_YEAR | POOL
+  source  String // GAP_EPISODE | GAP_PERIOD | GAP_YEAR | POOL | SELF
   // PLANNED(아직) | ANSWERED | SKIPPED(사용자 건너뜀) | DROPPED(그사이 다른 경로로 채워져 안 물음)
   status  String @default("PLANNED")
 

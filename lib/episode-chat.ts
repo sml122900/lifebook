@@ -19,6 +19,7 @@ import {
 } from "./prompts/episode-chat";
 import { createEpisodeBridge } from "./episode";
 import { isSummaryGuidance } from "./episode-text";
+import type { EpisodeKind } from "./generated/prisma/enums";
 import { savePeopleMentionedInEpisode } from "./person-chat";
 
 // 추출/분류와 같은 이유로 Sonnet 고정 — 전역 aiModel(라이브 응답)과 무관.
@@ -117,6 +118,7 @@ export type FinishEpisodeResult =
 //
 // isPeriodOverride — 오늘의 인터뷰 풀 질문처럼 제목(topicOverride)만 바꾸고 구간
 // 이야기는 아닌 경우 false 를 넘긴다. 안 넘기면 기존 추론(topicOverride 유무) 그대로.
+// kind — 기본 STORY. 오늘의 인터뷰 "관계별 나"만 SELF("그때의 나", 노드 그래프 2a).
 export async function finishEpisodeChatCore(
   userId: string,
   lifeEventId: string,
@@ -124,6 +126,7 @@ export async function finishEpisodeChatCore(
   personId?: string,
   topicOverride?: EpisodeTopic,
   isPeriodOverride?: boolean,
+  kind?: EpisodeKind,
 ): Promise<FinishEpisodeResult> {
   const event = await requireConfirmedEvent(userId, lifeEventId);
   if (!event) return { ok: false, error: "이야기를 찾을 수 없어요." };
@@ -216,6 +219,7 @@ export async function finishEpisodeChatCore(
       transcript,
       ownedPersonId,
       isPeriod,
+      kind,
     );
     if (!result) {
       // v3 P22-1 — "화면엔 성공 멘트가 떴는데 DB 엔 없다"는 실측(test30)의
@@ -231,6 +235,7 @@ export async function finishEpisodeChatCore(
       episodeId: result.episodeId,
       memoryId: result.memoryId,
       isPeriod,
+      kind: kind ?? "STORY",
     });
     // P12-2 — 대화 중 언급된 새 인물(이름 있는 사람만)을 함께 저장·연결.
     // 저장이 성공한 뒤에만(이야기 없이 인물만 남지 않게), best-effort —

@@ -7,7 +7,7 @@ import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
 import { INTERVIEW_COPY } from "@/lib/interview/copy";
 import { getInterviewCardState, type InterviewCardState } from "@/lib/interview/session";
 import { getOnboardingTrack } from "@/lib/onboarding-track";
-import { getStoryReviewData } from "@/lib/story-review";
+import { getStoryReviewData, type EpisodeSummary } from "@/lib/story-review";
 
 import { EpisodeCard } from "./EpisodeCard";
 import { TimelineRow } from "./TimelineRow";
@@ -67,7 +67,7 @@ export default async function StoryReviewPage() {
   }
 
   // 오늘의 인터뷰 진입 카드 — 오늘 기록만 1회 조회(계획 계산 없음). V3 화면이라 항상 표시.
-  const [{ timeline, episodes }, gaps, pending, interviewCard] = await Promise.all([
+  const [{ timeline, episodes, selfEpisodes }, gaps, pending, interviewCard] = await Promise.all([
     getStoryReviewData(userId),
     detectGaps(userId),
     getPendingChatContext(userId),
@@ -105,18 +105,15 @@ export default async function StoryReviewPage() {
       {episodes.length > 0 && (
         <section className="flex flex-col gap-4">
           <h2 className="text-2xl font-bold text-ink">들려주신 이야기</h2>
-          <div className="flex flex-col gap-3">
-            {episodes.map((ep) => (
-              <EpisodeCard
-                key={ep.id}
-                episodeId={ep.id}
-                label={ep.label}
-                year={ep.year}
-                content={ep.content}
-                familyActivityCount={ep.familyActivityCount}
-              />
-            ))}
-          </div>
+          <EpisodeList episodes={episodes} />
+        </section>
+      )}
+
+      {/* 노드 그래프 2a — "그때의 나"(SELF, 오늘의 인터뷰 "관계별 나")는 일반 이야기와 따로 묶는다. */}
+      {selfEpisodes.length > 0 && (
+        <section className="flex flex-col gap-4">
+          <h2 className="text-2xl font-bold text-ink">{INTERVIEW_COPY.selfStoriesTitle}</h2>
+          <EpisodeList episodes={selfEpisodes} />
         </section>
       )}
 
@@ -158,6 +155,23 @@ export default async function StoryReviewPage() {
         계속 이야기하기
       </ButtonLink>
     </main>
+  );
+}
+
+function EpisodeList({ episodes }: { episodes: EpisodeSummary[] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {episodes.map((ep) => (
+        <EpisodeCard
+          key={ep.id}
+          episodeId={ep.id}
+          label={ep.label}
+          year={ep.year}
+          content={ep.content}
+          familyActivityCount={ep.familyActivityCount}
+        />
+      ))}
+    </div>
   );
 }
 

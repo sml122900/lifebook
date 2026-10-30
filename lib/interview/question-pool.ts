@@ -83,3 +83,63 @@ export const QUESTION_POOL: InterviewPoolQuestion[] = [
     note: "대상 시기 없는 취향 질문 예시 — 저장 위치 결정(Q6) 전까지 꺼 둠",
   },
 ];
+
+// ── "관계별 나"(SELF) 문항 — 노드 그래프 2a(docs/phase/node-graph-self.md §3.2) ──
+// 그 시기에 누구와 있을 때의 나를 묻는다. 답은 Episode(kind=SELF, "그때의 나")로 대상 시기
+// 사건에 저장하고, 일반 이야기 갭은 채우지 않는다(갭 판정은 STORY 만 센다). 오늘 6문항 중
+// 최대 1개(Q10). 아래 3개는 구조 예시(임시).
+//
+// 필드(id·text·topic·followUp·order·enabled 는 위 풀 질문과 같은 뜻):
+//   anchor   대상 시기(중심노드 유형, 필수). 이 유형의 확정 사건 중 순서상 첫 사건이 대상
+//            (풀 질문과 같은 기준 — sequenceOrder·id 순)
+//   relation 관계 대상
+//            { kind: "category", label } — 일반 범주("선생님"·"친구들"·"가족"). 연결 없음
+//            { kind: "linked" } — 그 사건에 연결된 실제 인물(PersonLifeEvent, 확정 인물만)·
+//              인물 그룹(NodeLink, 확정 연결만)마다 1문항. 답을 저장하면 이야기 ↔ 인물·그룹
+//              연결(saveNodeLink)
+//   text·topic 자리표시: {elemSchool}·{elemSchool:은/는}(위와 같음) + {who} = 관계 대상
+//            이름(범주면 label), {who:과/와} = 이름 + 조사(lib/interview/pool-text.ts)
+
+export type InterviewSelfQuestion = {
+  id: string;
+  text: string;
+  topic: string;
+  anchor: LifeEventType;
+  relation: { kind: "category"; label: string } | { kind: "linked" };
+  followUp: boolean;
+  order: number;
+  enabled: boolean;
+};
+
+export const SELF_QUESTION_POOL: InterviewSelfQuestion[] = [
+  {
+    id: "self-high-linked",
+    text: "고등학교 다니실 때, {who:과/와} 같이 있을 때는 어떤 사람이셨어요?", // [임시 — 성민 확정 필요]
+    topic: "고등학교 때 {who:과/와} 있을 때의 나", // [임시 — 성민 확정 필요]
+    anchor: "HIGH_SCHOOL",
+    relation: { kind: "linked" },
+    followUp: true,
+    order: 10,
+    enabled: true,
+  },
+  {
+    id: "self-elem-teacher",
+    text: "{elemSchool} 다니실 때, {who} 앞에서는 어떤 아이셨어요?", // [임시 — 성민 확정 필요]
+    topic: "{elemSchool} 시절 {who} 앞의 나", // [임시 — 성민 확정 필요]
+    anchor: "ELEM_SCHOOL",
+    relation: { kind: "category", label: "선생님" }, // [임시 — 성민 확정 필요]
+    followUp: true,
+    order: 20,
+    enabled: true,
+  },
+  {
+    id: "self-firstjob-family",
+    text: "첫 직장 다니실 때, 집에서 {who}한테는 어떤 사람이셨어요?", // [임시 — 성민 확정 필요]
+    topic: "첫 직장 시절 {who} 곁의 나", // [임시 — 성민 확정 필요]
+    anchor: "FIRST_JOB",
+    relation: { kind: "category", label: "가족" }, // [임시 — 성민 확정 필요]
+    followUp: true,
+    order: 30,
+    enabled: true,
+  },
+];

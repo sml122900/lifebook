@@ -10,6 +10,9 @@
 //   ⑦ 중복 질문 미출제 — 다음 날·8일 뒤 계획, 재노출 규칙(Q4·Q5) 순수 함수, 풀 대상 시기
 //   ⑧ LifeEvent.status SKIPPED 값 미사용 — DB 스냅샷 전후 동일 + 정적 검사
 //   ⑨ 풀 문구 {elemSchool} — 출생연도 기준 국민학교/초등학교 치환(+ 조사), 1960년생 픽스처 제목
+//   ⑩ 관계별 나(노드 그래프 2a, 실제 Sonnet 요약 1~2 + 인물 추출 1) — 출제(최대 1개·관계 대상 이름
+//      치환), Episode(kind=SELF) 저장, 이야기 ↔ 인물 확정 연결, 이야기 갭·배지 미충족, 포스터 브릿지
+//      제외, /story-review 별도 묶음, 순수 함수(키·후보·재노출·최대 1개·{who} 치환)
 //
 // 자체 픽스처 계정(fixture-interview@lifebook.invalid)을 시작 시 만들고 끝에(성공·실패
 // 모두) deleteAccountTx 로 하위 데이터째 삭제한다. test30·실고객 계정 읽기·쓰기 0.
@@ -24,10 +27,26 @@ import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEpisodeBridge } from "../lib/episode";
-import { kstDay } from "../lib/interview/keys";
-import { computeTodayPlan, isEligible, poolCandidates, type PlanHistoryRow } from "../lib/interview/plan";
+import { detectGaps } from "../lib/gap-detector";
+import { kstDay, parseSelfKeyId, selfKeyId } from "../lib/interview/keys";
+import {
+  computeTodayPlan,
+  isEligible,
+  pickPlan,
+  poolCandidates,
+  selfCandidates,
+  type PlanCandidate,
+  type PlanHistoryRow,
+} from "../lib/interview/plan";
 import { elemSchoolName, renderPoolText } from "../lib/interview/pool-text";
-import { QUESTION_POOL, type InterviewPoolQuestion } from "../lib/interview/question-pool";
+import {
+  QUESTION_POOL,
+  SELF_QUESTION_POOL,
+  type InterviewPoolQuestion,
+  type InterviewSelfQuestion,
+} from "../lib/interview/question-pool";
+import { syncV3Bridge } from "../lib/poster/v3-bridge";
+import { getStoryReviewData } from "../lib/story-review";
 import {
   answerInterviewYear,
   finishInterviewStory,
@@ -86,7 +105,8 @@ async function removeFixture(): Promise<void> {
 }
 
 // 1960년생 V3 사용자. 골격 확정(대학은 SKIPPED=해당 없음), 첫 직장·결혼은 연도 없음.
-async function seedFixture(): Promise<{ userId: string; ev: Record<string, string> }> {
+// 고등학교 사건에 확정 인물 1명 연결(관계별 나 linked 문항 대상).
+async function seedFixture(): Promise<{ userId: string; ev: Record<string, string>; friendId: string }> {
   const now = new Date();
   const user = await prisma.user.create({
     data: {
@@ -132,7 +152,12 @@ async function seedFixture(): Promise<{ userId: string; ev: Record<string, strin
     });
     ev[type] = e.id;
   }
-  return { userId: user.id, ev };
+  const friend = await prisma.person.create({
+    data: { userId: user.id, name: "박영수", relation: "고등학교 친구" },
+    select: { id: true },
+  });
+  await prisma.personLifeEvent.create({ data: { personId: friend.id, lifeEventId: ev.HIGH_SCHOOL, userId: user.id } });
+  return { userId: user.id, ev, friendId: friend.id };
 }
 
 function staticChecks() {
@@ -178,6 +203,9 @@ function staticChecks() {
   const writes = src.match(/lifeEvent\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\(/g) ?? [];
   check("⑧ 인터뷰 코드의 LifeEvent 쓰기 = 1곳", writes.length === 1, writes);
   check("⑧ 그 쓰기의 data = { year } 만", /lifeEvent\.updateMany\(\{[\s\S]{0,200}data:\s*\{\s*year\s*\}/.test(src));
+
+  // ⑩ /story-review — 그때의 나 묶음을 따로 그리고 제목은 문구 파일에서.
+  check("⑩ /story-review 그때의 나 묶음 = selfEpisodes + 문구 파일 제목", reviewSrc.includes("selfEpisodes.length > 0") && reviewSrc.includes("INTERVIEW_COPY.selfStoriesTitle"));
 }
 
 function pureChecks() {
@@ -229,6 +257,61 @@ function pureChecks() {
   const confirmed = new Map<LifeEventType, readonly string[]>([["ELEM_SCHOOL", ["ev-elem"]]]);
   const pc = poolCandidates([q("a", "ELEM_SCHOOL"), q("b", "UNIVERSITY"), q("c", null), q("d", "ELEM_SCHOOL", false)], confirmed);
   check("⑦ 풀: 확정 시기만·대상 시기 필수·enabled 만", pc.length === 1 && pc[0].itemKey === "pool:a" && pc[0].eventId === "ev-elem", pc);
+
+  // ⑩ 관계별 나 — 순수 함수.
+  check("⑩ {who:과/와} 받침 없음 → 와 / 받침 있음 → 과", renderPoolText("{who:과/와} 같이", null, "박영수") === "박영수와 같이" && renderPoolText("{who:과/와} 같이", null, "김철") === "김철과 같이");
+  check("⑩ {who} 이름 그대로 · who 없으면 자리표시 유지", renderPoolText("{who} 앞에서", null, "선생님") === "선생님 앞에서" && renderPoolText("{who} 앞에서", 1960) === "{who} 앞에서");
+  check("⑩ {elemSchool}·{who} 함께 치환", renderPoolText("{elemSchool} 다닐 때 {who} 앞", 1960, "선생님") === "국민학교 다닐 때 선생님 앞");
+  const rel = { type: "PERSON" as const, id: "p1" };
+  check("⑩ 문항 키 왕복(범주·인물·그룹)",
+    JSON.stringify(parseSelfKeyId(selfKeyId("q", "e1", null))) === JSON.stringify({ questionId: "q", lifeEventId: "e1", relation: null }) &&
+      JSON.stringify(parseSelfKeyId(selfKeyId("q", "e1", rel))) === JSON.stringify({ questionId: "q", lifeEventId: "e1", relation: rel }) &&
+      parseSelfKeyId(selfKeyId("q", "e1", { type: "PERSON_GROUP", id: "g1" }))?.relation?.type === "PERSON_GROUP" &&
+      selfKeyId("q", "e1", rel) === "q:e1:person:p1");
+  check("⑩ 잘못된 키 → null", ["q", "q:e1:x:p1", "q::person:p1", "q:e1:person"].every((k2) => parseSelfKeyId(k2) === null));
+  const sq = (id: string, anchor: LifeEventType, relation: InterviewSelfQuestion["relation"], enabled = true, order = 1): InterviewSelfQuestion => ({
+    id, text: "t", topic: "t", anchor, relation, followUp: false, order, enabled,
+  });
+  const events = new Map<LifeEventType, readonly string[]>([["HIGH_SCHOOL", ["ev-high", "ev-high2"]], ["ELEM_SCHOOL", ["ev-elem"]]]);
+  const relations = new Map([["ev-high", [rel, { type: "PERSON_GROUP" as const, id: "g1" }]], ["ev-high2", [{ type: "PERSON" as const, id: "p9" }]]]);
+  const sc = selfCandidates(
+    [
+      sq("linked", "HIGH_SCHOOL", { kind: "linked" }, true, 2),
+      sq("cat", "ELEM_SCHOOL", { kind: "category", label: "선생님" }, true, 1),
+      sq("off", "ELEM_SCHOOL", { kind: "category", label: "가족" }, false),
+      sq("nojob", "FIRST_JOB", { kind: "category", label: "가족" }),
+      sq("norel", "ELEM_SCHOOL", { kind: "linked" }, true, 3),
+    ],
+    events,
+    relations,
+  );
+  check("⑩ 후보: 범주 1개·linked 는 첫 사건의 관계 대상마다·확정 시기만·enabled 만·순서대로",
+    JSON.stringify(sc.map((c) => c.itemKey)) === JSON.stringify(["self:cat:ev-elem", "self:linked:ev-high:person:p1", "self:linked:ev-high:group:g1"]) &&
+      sc.every((c) => c.source === "SELF") && sc[1].eventId === "ev-high",
+    sc);
+  const sk = "self:cat:ev-elem";
+  check("⑩ 답한 관계별 나 → 영구 제외 / 건너뜀 1회 → 7일", !isEligible(sk, "SELF", [h(sk, "ANSWERED", "2026-11-01")], "2027-11-01") &&
+    !isEligible(sk, "SELF", [h(sk, "SKIPPED", "2026-11-01")], "2026-11-07") && isEligible(sk, "SELF", [h(sk, "SKIPPED", "2026-11-01")], "2026-11-08"));
+  const cand = (key: string, source: PlanCandidate["source"], category?: "taste" | "daily"): PlanCandidate => ({ itemKey: key, source, eventId: key, category });
+  const base = {
+    years: [cand("y1", "GAP_YEAR")],
+    gaps: [cand("g1", "GAP_EPISODE"), cand("g2", "GAP_EPISODE")],
+    pools: [cand("p1", "POOL", "daily"), cand("p2", "POOL", "taste"), cand("p3", "POOL", "daily")],
+  };
+  const noSelf = pickPlan({ ...base, selves: [] }, [], "2026-11-01").map((c) => c.itemKey);
+  const withSelf = pickPlan({ ...base, selves: [cand("s1", "SELF"), cand("s2", "SELF"), cand("s3", "SELF")] }, [], "2026-11-01").map((c) => c.itemKey);
+  check("⑩ 관계별 나 후보가 없으면 기존 순서 그대로(연도·갭·풀·갭·풀·풀)", JSON.stringify(noSelf) === JSON.stringify(["y1", "g1", "p1", "g2", "p2", "p3"]), noSelf);
+  check("⑩ 후보가 여럿이어도 6문항 중 1개만, 자리 = 5번째", JSON.stringify(withSelf) === JSON.stringify(["y1", "g1", "p1", "g2", "s1", "p2"]), withSelf);
+  const onlySelf = pickPlan({ years: [], gaps: [], pools: [], selves: [cand("s1", "SELF"), cand("s2", "SELF")] }, [], "2026-11-01");
+  check("⑩ 다른 후보가 없어도 관계별 나는 1개까지", onlySelf.length === 1 && onlySelf[0].itemKey === "s1", onlySelf);
+  check("⑩ 예시 3개 — 범주·linked 둘 다·{elemSchool} 치환 1개 이상",
+    SELF_QUESTION_POOL.length === 3 &&
+      SELF_QUESTION_POOL.some((q2) => q2.relation.kind === "linked") &&
+      SELF_QUESTION_POOL.some((q2) => q2.relation.kind === "category") &&
+      SELF_QUESTION_POOL.some((q2) => q2.text.includes("{elemSchool}")) &&
+      new Set(SELF_QUESTION_POOL.map((q2) => q2.id)).size === 3);
+  const selfBlock = read("lib/interview/question-pool.ts").split("export const SELF_QUESTION_POOL")[1] ?? "";
+  check("⑩ 예시 문구에 [임시 — 성민 확정 필요] 표기(질문·제목 6 + 범주 2)", (selfBlock.match(/\[임시 — 성민 확정 필요\]/g) ?? []).length === 8);
 }
 
 async function main() {
@@ -241,6 +324,8 @@ async function main() {
     const seeded = await seedFixture();
     userId = seeded.userId;
     const ev = seeded.ev;
+    const friendId = seeded.friendId;
+    const selfKey = `self:self-high-linked:${ev.HIGH_SCHOOL}:person:${friendId}`;
     const now = new Date();
     const today = kstDay(now);
     const statusBefore = await prisma.lifeEvent.findMany({ where: { userId }, select: { id: true, status: true }, orderBy: { sequenceOrder: "asc" } });
@@ -257,10 +342,10 @@ async function main() {
       `gap:period:${ev.MILITARY}`,
       "pool:elem-play",
       `gap:episode:${ev.BIRTH}`,
+      selfKey,
       "pool:high-song",
-      "pool:middle-lunchbox",
     ];
-    check("② 계획 = 연도·구간·풀·이야기·풀·풀(정해진 순서)", JSON.stringify(rows.map((r) => r.itemKey)) === JSON.stringify(expectedKeys), rows.map((r) => r.itemKey));
+    check("② 계획 = 연도·구간·풀·이야기·관계별 나·풀(정해진 순서)", JSON.stringify(rows.map((r) => r.itemKey)) === JSON.stringify(expectedKeys), rows.map((r) => r.itemKey));
     check("② ordinal 1..6 · 전부 PLANNED", rows.every((r, i) => r.ordinal === i + 1 && r.status === "PLANNED"));
     check("② 같은 세션 안 문항 키 중복 없음", new Set(rows.map((r) => r.itemKey)).size === rows.length);
     check("② 첫 문항 = 연도(1/6)", itemOf(first)?.kind === "year" && itemOf(first)?.ordinal === 1 && itemOf(first)?.total === 6, first);
@@ -318,22 +403,72 @@ async function main() {
     check("⑥ 그사이 채워진 문항은 DROPPED → 5/6", itemOf(at5)?.id === rows[4].id && (await prisma.interviewItem.findUnique({ where: { id: rows[3].id } }))?.status === "DROPPED", at5);
     check("⑥ 진입 카드 = 진행 중(4/6)", JSON.stringify(await getInterviewCardState(userId, now)) === JSON.stringify({ kind: "progress", done: 4, total: 6 }));
 
-    await skipInterviewItem(userId, rows[4].id, now);
+    // ⑩ 관계별 나 — 5/6. 실제 Sonnet(후속 질문 없이 첫 답으로 마무리 — 요약 1~2 + 인물 추출 1).
+    const selfQ = itemOf(at5);
+    check("⑩ 관계별 나 문항 = 대상 시기(고교)·관계 대상 이름·조사 치환", selfQ?.kind === "story" && selfQ.question === "고등학교 다니실 때, 박영수와 같이 있을 때는 어떤 사람이셨어요?", selfQ);
+    const selfAnswer = "그 친구랑 있으면 제가 말이 많아졌어요. 평소엔 조용한 편이었는데 그 친구 앞에서는 장난도 잘 치고 많이 웃었지요.";
+    const selfFin = await finishInterviewStory(userId, rows[4].id, [
+      { role: "assistant", text: selfQ?.question ?? "" },
+      { role: "user", text: selfAnswer },
+    ], now);
+    const selfItem = await prisma.interviewItem.findUnique({ where: { id: rows[4].id } });
+    const selfEp = selfItem?.refId
+      ? await prisma.episode.findUnique({ where: { id: selfItem.refId }, include: { memory: { select: { title: true, createdVia: true } } } })
+      : null;
+    check("⑩ 저장 성공·문항 ANSWERED", selfFin.ok && selfItem?.status === "ANSWERED", selfFin);
+    check("⑩ Episode = 그때의 나(SELF)·대상 시기 사건(고교)·구간 아님·제목 치환·대상 인물 칸 비움",
+      selfEp?.kind === "SELF" && selfEp.lifeEventId === ev.HIGH_SCHOOL && !selfEp.isPeriod && selfEp.personId === null &&
+        selfEp.memory.title === "고등학교 때 박영수와 있을 때의 나" && selfEp.memory.createdVia === "episode" && selfEp.content.trim().length > 0,
+      selfEp && { kind: selfEp.kind, lifeEventId: selfEp.lifeEventId, title: selfEp.memory.title, personId: selfEp.personId });
+    const selfEpId = selfEp?.id ?? "";
+    const selfLinks = await prisma.nodeLink.findMany({
+      where: { userId, OR: [{ fromType: "EPISODE", fromId: selfEpId }, { toType: "EPISODE", toId: selfEpId }] },
+    });
+    check("⑩ 이야기 ↔ 관계 인물 확정 연결 1건(EPISODE→PERSON, CONFIRMED)",
+      selfLinks.length === 1 && selfLinks[0].fromType === "EPISODE" && selfLinks[0].fromId === selfEpId &&
+        selfLinks[0].toType === "PERSON" && selfLinks[0].toId === friendId && selfLinks[0].status === "CONFIRMED",
+      selfLinks);
+    const gapsAfterSelf = await detectGaps(userId);
+    const highAfter = await prisma.lifeEvent.findUnique({ where: { id: ev.HIGH_SCHOOL }, select: { hasEpisode: true } });
+    check("⑩ 갭 미충족 — 고교 이야기 갭 그대로·'이야기 있음' 배지 안 켜짐",
+      gapsAfterSelf.some((g) => g.type === "episode" && g.targetEventId === ev.HIGH_SCHOOL) && highAfter?.hasEpisode === false,
+      { gaps: gapsAfterSelf.map((g) => `${g.type}:${g.targetEventId}`), highAfter });
+    check("⑩ 갭 미충족 — 인물 이야기 갭(박영수)도 그대로", gapsAfterSelf.some((g) => g.type === "person_episode" && g.targetPersonId === friendId));
+    const bridgeRows = await syncV3Bridge(userId);
+    const highRow = bridgeRows.find((r) => r.id === `v3_${ev.HIGH_SCHOOL}`);
+    check("⑩ 포스터 브릿지 — 그때의 나는 본문·구간 행에 안 들어감(고교 = 본문 없음)",
+      highRow !== undefined && highRow.content === null &&
+        !bridgeRows.some((r) => r.id === `v3p_${selfEpId}` || (!!selfEp && (r.content ?? "").includes(selfEp.content.trim()))),
+      highRow);
+    const review = await getStoryReviewData(userId);
+    check("⑩ /story-review — 그때의 나는 별도 묶음, 일반 이야기 목록엔 없음",
+      JSON.stringify(review.selfEpisodes.map((e) => e.id)) === JSON.stringify([selfEpId]) &&
+        review.selfEpisodes[0]?.label === "고등학교 때 박영수와 있을 때의 나" &&
+        !review.episodes.some((e) => e.id === selfEpId) && review.episodes.length === 2,
+      { self: review.selfEpisodes.map((e) => e.label), stories: review.episodes.map((e) => e.label) });
+
     const summary = await skipInterviewItem(userId, rows[5].id, now);
-    check("⑥ 마지막 뒤 = 종료 요약(답 2·건너뜀 3)", summary.kind === "summary" && summary.answered === 2 && summary.skipped === 3, summary);
-    check("⑥ 요약 목록 = 연도 사건·이야기 제목", summary.kind === "summary" && summary.saved.length === 2 && summary.saved.some((s) => s.includes("첫 직장")) && summary.saved.includes("국민학교 시절 놀이"), summary);
+    check("⑥ 마지막 뒤 = 종료 요약(답 3·건너뜀 2)", summary.kind === "summary" && summary.answered === 3 && summary.skipped === 2, summary);
+    check("⑥ 요약 목록 = 연도 사건·이야기 제목·관계별 나 제목", summary.kind === "summary" && summary.saved.length === 3 && summary.saved.some((s) => s.includes("첫 직장")) && summary.saved.includes("국민학교 시절 놀이") && summary.saved.includes("고등학교 때 박영수와 있을 때의 나"), summary);
     check("⑥ 진입 카드 = 오늘 완료", (await getInterviewCardState(userId, now)).kind === "done");
     check("⑥ 완료 후 다시 들어와도 요약(새 세션 없음)", (await getInitialInterviewState(userId, now)).kind === "summary" && (await prisma.interviewItem.count({ where: { userId } })) === 6);
 
     // ⑦ 중복 질문 미출제 — 다음 날.
     const tomorrow = kstDay(new Date(now.getTime() + DAY_MS));
     const planTomorrow = (await computeTodayPlan(userId, tomorrow)).map((c) => c.itemKey);
-    const expectTomorrow = [`gap:year:${ev.MARRIAGE}`, `gap:period:${ev.FIRST_JOB}`, "pool:firstjob-payday", `gap:episode:${ev.MIDDLE_SCHOOL}`, `gap:episode:${ev.HIGH_SCHOOL}`];
-    check("⑦ 다음 날 = 답한·건너뛴·채워진 것 빼고(결혼 연도·첫 직장 이후·첫 월급·중학·고교)", JSON.stringify(planTomorrow) === JSON.stringify(expectTomorrow), planTomorrow);
+    const expectTomorrow = [
+      `gap:year:${ev.MARRIAGE}`,
+      `gap:period:${ev.FIRST_JOB}`,
+      "pool:middle-lunchbox",
+      `gap:episode:${ev.MIDDLE_SCHOOL}`,
+      `self:self-elem-teacher:${ev.ELEM_SCHOOL}`,
+      "pool:firstjob-payday",
+    ];
+    check("⑦ 다음 날 = 답한·건너뛴·채워진 것 빼고(결혼 연도·첫 직장 이후·중학 도시락·중학·관계별 나(선생님)·첫 월급)", JSON.stringify(planTomorrow) === JSON.stringify(expectTomorrow), planTomorrow);
     const todayDone = rows.filter((r) => r.ordinal !== 4).map((r) => r.itemKey);
     check("⑦ 다음 날 계획에 오늘 답·건너뜀 문항 0개", planTomorrow.every((k2) => !todayDone.includes(k2)));
     const plan8 = (await computeTodayPlan(userId, kstDay(new Date(now.getTime() + 8 * DAY_MS)))).map((c) => c.itemKey);
-    check("⑦ 8일 뒤 = 1회 건너뛴 구간 다시 나옴, 답한 풀은 계속 제외", plan8.includes(`gap:period:${ev.MILITARY}`) && !plan8.includes("pool:elem-play"), plan8);
+    check("⑦ 8일 뒤 = 1회 건너뛴 구간 다시 나옴, 답한 풀·관계별 나는 계속 제외", plan8.includes(`gap:period:${ev.MILITARY}`) && !plan8.includes("pool:elem-play") && !plan8.includes(selfKey), plan8);
 
     // ⑧ SKIPPED 값 미사용 — 상태 스냅샷 동일.
     const statusAfter = await prisma.lifeEvent.findMany({ where: { userId }, select: { id: true, status: true }, orderBy: { sequenceOrder: "asc" } });

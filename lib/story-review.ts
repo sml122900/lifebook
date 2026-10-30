@@ -26,9 +26,12 @@ export type EpisodeSummary = {
   familyActivityCount: number;
 };
 
+// episodes = 일반 이야기(STORY), selfEpisodes = "그때의 나"(SELF — 오늘의 인터뷰 "관계별 나",
+// 노드 그래프 2a). 화면은 두 묶음을 따로 보여준다.
 export async function getStoryReviewData(userId: string): Promise<{
   timeline: TimelineItem[];
   episodes: EpisodeSummary[];
+  selfEpisodes: EpisodeSummary[];
 }> {
   const events = await prisma.lifeEvent.findMany({
     where: { userId, status: { in: ["CONFIRMED", "CORRECTED"] } },
@@ -46,7 +49,7 @@ export async function getStoryReviewData(userId: string): Promise<{
       // episode.ts resolveMemoryYear) 그걸 실제 연도처럼 보여주면 오히려
       // 왜곡 — 아래에서 LifeEvent 의 correctedYear/year 를 그대로 쓴다.
       episodes: {
-        select: { id: true, memoryId: true, content: true, memory: { select: { title: true } } },
+        select: { id: true, memoryId: true, content: true, kind: true, memory: { select: { title: true } } },
         orderBy: { createdAt: "asc" },
       },
       people: { select: { person: { select: { id: true, name: true } } } },
@@ -69,6 +72,7 @@ export async function getStoryReviewData(userId: string): Promise<{
       label: ep.memory.title,
       year: e.correctedYear ?? e.year,
       content: ep.content,
+      kind: ep.kind,
     })),
   );
 
@@ -98,10 +102,12 @@ export async function getStoryReviewData(userId: string): Promise<{
     activityCount.set(r.targetId, (activityCount.get(r.targetId) ?? 0) + r._count._all);
   }
 
-  const episodes: EpisodeSummary[] = rawEpisodes.map((e) => ({
-    ...e,
-    familyActivityCount: activityCount.get(e.memoryId) ?? 0,
+  const summaries = rawEpisodes.map(({ kind, ...e }) => ({
+    kind,
+    summary: { ...e, familyActivityCount: activityCount.get(e.memoryId) ?? 0 } satisfies EpisodeSummary,
   }));
+  const episodes = summaries.filter((x) => x.kind === "STORY").map((x) => x.summary);
+  const selfEpisodes = summaries.filter((x) => x.kind === "SELF").map((x) => x.summary);
 
-  return { timeline, episodes };
+  return { timeline, episodes, selfEpisodes };
 }

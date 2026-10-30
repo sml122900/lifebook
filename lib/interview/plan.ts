@@ -1,21 +1,28 @@
 // 오늘의 인터뷰 — 오늘 문항 계획(docs/phase/today-interview.md §2·§3). 1차 범위.
 //
-// 출처: 갭 이야기(episode·time_gap) · 연도 없는 확정 사건 · 질문 풀(대상 시기 있는 것만).
-// 이어가기·인물 갭은 2차. 계산은 세션 시작 때 1회(detectGaps 가 무겁다 — P20).
-// pickPlan·isEligible·poolCandidates 는 순수 함수(db/test-interview.ts 가 직접 검증).
+// 출처: 갭 이야기(episode·time_gap) · 연도 없는 확정 사건 · 질문 풀(대상 시기 있는 것만) ·
+// "관계별 나"(SELF, 노드 그래프 2a — 최대 1개). 이어가기·인물 갭은 2차. 계산은 세션 시작 때
+// 1회(detectGaps 가 무겁다 — P20).
+// pickPlan·isEligible·poolCandidates·selfCandidates 는 순수 함수(db/test-interview.ts 가 직접 검증).
 
 import { prisma } from "../db";
 import { detectGaps } from "../gap-detector";
 import type { LifeEventType } from "../generated/prisma/enums";
-import { daysBetween, itemKeyOf, type InterviewSource } from "./keys";
-import { QUESTION_POOL, type InterviewPoolQuestion } from "./question-pool";
+import { daysBetween, itemKeyOf, selfKeyId, type InterviewSource, type SelfRelationRef } from "./keys";
+import {
+  QUESTION_POOL,
+  SELF_QUESTION_POOL,
+  type InterviewPoolQuestion,
+  type InterviewSelfQuestion,
+} from "./question-pool";
 
 export const SESSION_SIZE = 6; // Q2
 
-type Kind = "GAP_YEAR" | "GAP" | "POOL";
-const KIND_LIMIT: Record<Kind, number> = { GAP_YEAR: 2, GAP: 3, POOL: 3 };
-// 가벼운 연도로 시작해 무거운 이야기 사이에 취향을 끼운다(§2.3). 빈 자리는 취향→갭→연도 순.
-const BASE_PATTERN: Kind[] = ["GAP_YEAR", "GAP", "POOL", "GAP", "POOL"];
+type Kind = "GAP_YEAR" | "GAP" | "POOL" | "SELF";
+const KIND_LIMIT: Record<Kind, number> = { GAP_YEAR: 2, GAP: 3, POOL: 3, SELF: 1 }; // SELF 최대 1개(노드 그래프 Q10)
+// 가벼운 연도로 시작해 무거운 이야기 사이에 취향을 끼운다(§2.3). "관계별 나"는 뒤쪽 한 자리
+// (후보가 없으면 건너뛰어 기존 순서 그대로). 빈 자리는 취향→갭→연도 순.
+const BASE_PATTERN: Kind[] = ["GAP_YEAR", "GAP", "POOL", "GAP", "SELF", "POOL"];
 const FILL_ORDER: Kind[] = ["POOL", "GAP", "GAP_YEAR"];
 
 export type PlanCandidate = {
@@ -28,7 +35,7 @@ export type PlanCandidate = {
 export type PlanHistoryRow = { itemKey: string; status: string; refId: string | null; day: string };
 
 // 재노출 규칙(Q4·Q5). 오늘 이전 기록만 본다. DROPPED·PLANNED(중간 이탈)는 영향 없음.
-//   답한 풀 질문 → 영구 제외
+//   답한 풀 질문·관계별 나 → 영구 제외
 //   건너뜀 1회 → 7일 / 2회 → 30일 / 3회 → 영구 제외
 //   연도 "모름"(답했는데 연도 미저장) 1회 → 14일 / 2회 → 영구 제외
 //   답했지만 갭이 남은 이야기(실질 내용 아님) → 7일
@@ -42,7 +49,7 @@ export function isEligible(
     (h) => h.itemKey === itemKey && h.day < today && (h.status === "ANSWERED" || h.status === "SKIPPED"),
   );
   if (rows.length === 0) return true;
-  if (source === "POOL" && rows.some((r) => r.status === "ANSWERED")) return false;
+  if ((source === "POOL" || source === "SELF") && rows.some((r) => r.status === "ANSWERED")) return false;
   const skips = rows.filter((r) => r.status === "SKIPPED").length;
   if (skips >= 3) return false;
   if (source === "GAP_YEAR" && rows.filter((r) => r.status === "ANSWERED" && r.refId === null).length >= 2) {
@@ -72,8 +79,31 @@ export function poolCandidates(
     }));
 }
 
+// "관계별 나" 후보 — 대상 시기(anchor 유형의 첫 확정 사건, 풀과 같은 기준)마다
+// 범주 문항은 1개, linked 문항은 그 사건에 연결된 인물·그룹마다 1개.
+export function selfCandidates(
+  pool: InterviewSelfQuestion[],
+  confirmedEventsByType: Map<LifeEventType, readonly string[]>,
+  relationsByEvent: Map<string, readonly SelfRelationRef[]>,
+): PlanCandidate[] {
+  return pool
+    .filter((q) => q.enabled)
+    .sort((a, b) => a.order - b.order)
+    .flatMap((q) => {
+      const eventId = confirmedEventsByType.get(q.anchor)?.[0];
+      if (!eventId) return [];
+      const relations: (SelfRelationRef | null)[] =
+        q.relation.kind === "category" ? [null] : [...(relationsByEvent.get(eventId) ?? [])];
+      return relations.map((r) => ({
+        itemKey: itemKeyOf("SELF", selfKeyId(q.id, eventId, r)),
+        source: "SELF" as const,
+        eventId,
+      }));
+    });
+}
+
 export function pickPlan(
-  candidates: { years: PlanCandidate[]; gaps: PlanCandidate[]; pools: PlanCandidate[] },
+  candidates: { years: PlanCandidate[]; gaps: PlanCandidate[]; pools: PlanCandidate[]; selves: PlanCandidate[] },
   history: PlanHistoryRow[],
   today: string,
   size: number = SESSION_SIZE,
@@ -83,9 +113,10 @@ export function pickPlan(
     GAP_YEAR: candidates.years.filter(eligible),
     GAP: candidates.gaps.filter(eligible),
     POOL: candidates.pools.filter(eligible),
+    SELF: candidates.selves.filter(eligible),
   };
   const picked: PlanCandidate[] = [];
-  const count: Record<Kind, number> = { GAP_YEAR: 0, GAP: 0, POOL: 0 };
+  const count: Record<Kind, number> = { GAP_YEAR: 0, GAP: 0, POOL: 0, SELF: 0 };
   const usedGapEvents = new Set<string>(); // 같은 세션에 같은 사건 이야기 두 번 금지
   let lastPoolCategory: string | undefined; // 같은 분류 연속 금지(대안 없으면 허용)
 
@@ -143,5 +174,37 @@ export async function computeTodayPlan(userId: string, today: string): Promise<P
   const eventsByType = new Map<LifeEventType, string[]>();
   for (const e of events) eventsByType.set(e.type, [...(eventsByType.get(e.type) ?? []), e.id]);
 
-  return pickPlan({ years, gaps: gapCandidates, pools: poolCandidates(QUESTION_POOL, eventsByType) }, history, today);
+  const relationsByEvent = await linkedRelations(userId, events.map((e) => e.id));
+  return pickPlan(
+    {
+      years,
+      gaps: gapCandidates,
+      pools: poolCandidates(QUESTION_POOL, eventsByType),
+      selves: selfCandidates(SELF_QUESTION_POOL, eventsByType, relationsByEvent),
+    },
+    history,
+    today,
+  );
+}
+
+// 사건별 연결된 관계 대상 — 확정 인물(PersonLifeEvent, subjectType=person·isDraft=false) 다음
+// 확정 그룹 연결(NodeLink LIFE_EVENT→PERSON_GROUP, CONFIRMED). 각각 연결 생성 순.
+async function linkedRelations(userId: string, eventIds: string[]): Promise<Map<string, SelfRelationRef[]>> {
+  const [people, groups] = await Promise.all([
+    prisma.personLifeEvent.findMany({
+      where: { userId, lifeEventId: { in: eventIds }, person: { userId, subjectType: "person", isDraft: false } },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: { lifeEventId: true, personId: true },
+    }),
+    prisma.nodeLink.findMany({
+      where: { userId, fromType: "LIFE_EVENT", fromId: { in: eventIds }, toType: "PERSON_GROUP", status: "CONFIRMED" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: { fromId: true, toId: true },
+    }),
+  ]);
+  const map = new Map<string, SelfRelationRef[]>();
+  const add = (eventId: string, r: SelfRelationRef) => map.set(eventId, [...(map.get(eventId) ?? []), r]);
+  for (const p of people) add(p.lifeEventId, { type: "PERSON", id: p.personId });
+  for (const g of groups) add(g.fromId, { type: "PERSON_GROUP", id: g.toId });
+  return map;
 }

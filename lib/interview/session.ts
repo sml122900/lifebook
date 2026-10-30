@@ -7,6 +7,8 @@
 //
 // 답 저장은 기존 경로만 쓴다(§6.1): 이야기형 = finishEpisodeChatCore(Episode + 브릿지 +
 // 인물 추출), 연도 = LifeEvent.year(원래 null 인 확정 사건만, status 등 다른 값 무변).
+// "관계별 나"(SELF) 는 같은 경로에 kind=SELF 로 저장하고, 관계 대상이 실제 인물·그룹이면
+// 이야기 ↔ 인물·그룹 연결을 saveNodeLink 로 만든다(노드 그래프 2a).
 // ⚠️ LifeEvent.status 는 절대 쓰지 않는다 — "SKIPPED"(해당 없음)는 인터뷰의
 // "건너뛰기"(InterviewItem.status)와 다른 뜻이다.
 
@@ -24,12 +26,14 @@ import {
 } from "../episode-chat";
 import { getPeriodPromptForEvent } from "../gap-detector";
 import type { InterviewItem } from "../generated/prisma/client";
+import type { EpisodeKind } from "../generated/prisma/enums";
 import { getConfirmedLifeEvent } from "../life-event-query";
+import { saveNodeLink } from "../node-graph";
 import { INTERVIEW_COPY } from "./copy";
-import { kstDay, parseItemKey } from "./keys";
+import { kstDay, parseItemKey, parseSelfKeyId, type SelfRelationRef } from "./keys";
 import { computeTodayPlan } from "./plan";
 import { renderPoolText } from "./pool-text";
-import { QUESTION_POOL } from "./question-pool";
+import { QUESTION_POOL, SELF_QUESTION_POOL } from "./question-pool";
 import { isUnknownYearAnswer, parseYearDeterministic, parseYearWithAi } from "./year";
 
 export type InterviewItemView = {
@@ -56,6 +60,8 @@ type Target = {
   followUp: boolean;
   topicOverride?: EpisodeTopic;
   isPeriodOverride?: boolean;
+  episodeKind?: EpisodeKind; // 기본 STORY. "관계별 나"만 SELF
+  relation?: SelfRelationRef; // SELF 의 관계 대상이 실제 인물·그룹일 때 — 저장 후 연결
 };
 
 // 문항 키 → 대상 사건·질문. requireOpen=true 면 "아직 물을 이유가 있는지"까지 본다
@@ -86,6 +92,8 @@ async function resolveTarget(userId: string, itemKey: string, requireOpen: boole
       isPeriodOverride: false,
     };
   }
+
+  if (parsed.source === "SELF") return resolveSelfTarget(userId, parsed.id);
 
   const ev = await getConfirmedLifeEvent(userId, parsed.id);
   if (!ev) return null;
@@ -127,6 +135,50 @@ async function resolveTarget(userId: string, itemKey: string, requireOpen: boole
     question: buildEpisodeOpeningPrompt(ev.type, ev.label),
     followUp: true,
   };
+}
+
+// "관계별 나" 문항 — 대상 시기 사건이 아직 확정이고 질문의 시기 유형과 같으며, 관계 대상이
+// 실제 인물·그룹이면 그 사건과 아직 연결돼 있어야 한다(아니면 null → 문항을 낼 때 DROPPED).
+async function resolveSelfTarget(userId: string, keyId: string): Promise<Target | null> {
+  const key = parseSelfKeyId(keyId);
+  const q = key ? SELF_QUESTION_POOL.find((p) => p.id === key.questionId) : undefined;
+  if (!key || !q || !q.enabled) return null;
+  if ((q.relation.kind === "linked") !== (key.relation !== null)) return null;
+  const ev = await getConfirmedLifeEvent(userId, key.lifeEventId);
+  if (!ev || ev.type !== q.anchor) return null;
+  const who = q.relation.kind === "category" ? q.relation.label : await linkedRelationName(userId, ev.id, key.relation);
+  if (!who) return null;
+  const birthYear = await birthYearOf(userId);
+  return {
+    eventId: ev.id,
+    label: ev.label,
+    kind: "story",
+    question: renderPoolText(q.text, birthYear, who),
+    followUp: q.followUp,
+    topicOverride: { label: renderPoolText(q.topic, birthYear, who), year: ev.year },
+    isPeriodOverride: false,
+    episodeKind: "SELF",
+    relation: key.relation ?? undefined,
+  };
+}
+
+// 사건에 연결된 확정 인물(PersonLifeEvent)·확정 그룹 연결(NodeLink)의 이름. 없으면 null.
+async function linkedRelationName(userId: string, lifeEventId: string, r: SelfRelationRef | null): Promise<string | null> {
+  if (!r) return null;
+  if (r.type === "PERSON") {
+    const link = await prisma.personLifeEvent.findFirst({
+      where: { userId, lifeEventId, personId: r.id, person: { userId, subjectType: "person", isDraft: false } },
+      select: { person: { select: { name: true } } },
+    });
+    return link?.person.name ?? null;
+  }
+  const link = await prisma.nodeLink.findFirst({
+    where: { userId, fromType: "LIFE_EVENT", fromId: lifeEventId, toType: "PERSON_GROUP", toId: r.id, status: "CONFIRMED" },
+    select: { id: true },
+  });
+  if (!link) return null;
+  const group = await prisma.personGroup.findFirst({ where: { id: r.id, userId }, select: { name: true } });
+  return group?.name ?? null;
 }
 
 async function todayItems(userId: string, day: string): Promise<InterviewItem[]> {
@@ -288,12 +340,25 @@ export async function finishInterviewStory(
   let result: FinishEpisodeResult;
   try {
     result = await trackAiUsage(usage, () =>
-      finishEpisodeChatCore(userId, target.eventId, transcript, undefined, target.topicOverride, target.isPeriodOverride),
+      finishEpisodeChatCore(
+        userId,
+        target.eventId,
+        transcript,
+        undefined,
+        target.topicOverride,
+        target.isPeriodOverride,
+        target.episodeKind,
+      ),
     );
   } finally {
     await addUsage(row.id, usage);
   }
   if (!result.ok) return { ok: false, error: INTERVIEW_COPY.saveFailed };
+  // 질문이 이미 상대를 정했으므로 확인 없이 확정 연결. best-effort — 실패해도 이야기는 남는다.
+  if (target.relation) {
+    const link = await saveNodeLink(userId, { type: "EPISODE", id: result.episodeId }, target.relation);
+    if (!link.ok) console.error("[interview] self relation link failed", { itemId: row.id, reason: link.reason });
+  }
   const answers = transcript.filter((t) => t.role === "user");
   await prisma.interviewItem.updateMany({
     where: { id: row.id, status: "PLANNED" },
