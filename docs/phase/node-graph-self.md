@@ -1,6 +1,6 @@
 # 노드 그래프 + 자아 메뉴 — 설계
 
-- 상태: **설계 확정(§7 결정 2026-10-30) · 1단계(데이터 층) 완료 2026-10-30** — 결과는 §6 "1단계 구현 결과". 2단계(노드 화면·직접 작성) 대기. 자아 메뉴 테이블은 3단계 마이그.
+- 상태: **설계 확정(§7 결정 2026-10-30) · 1단계(데이터 층) 완료 2026-10-30 · 2a("관계별 나" 가설 검증 경로) 완료 2026-10-31** — 결과는 §6 "1단계 구현 결과"·"2a 구현 결과". 2단계 나머지(노드 화면·직접 작성) 대기. 자아 메뉴 테이블은 3단계 마이그.
 - 작성: 2026-10-30 · Claude Code (성민 요청). 직전 조사(같은 날, 노드 구조 사전 조사) 후속.
 - 결정(성민, 제안: 리뷰 채팅): 중간안 — 기존 테이블(`LifeEvent`·`Episode`·`Person`)을 원본으로 두고 id 보존 + 범용 연결 테이블 1개. 중심노드 같은 유형 여러 개·끝 연도, 사건노드 자체 연도·여러 인물/장소, 장소 독립 개체(MemoryPlace 이관·중복 병합), 인물 그룹, "그때의 나" = 이야기(Episode)의 한 종류, 자아 메뉴 = 별도 해석 층(근거 인용 필수·사용자 승인·진단/성격유형 꼬리표 금지), 노드별 블로그식 직접 작성(사진 본문 삽입, 기존 평문 그대로 읽힘), 포스터 무기한 연기(깨지지만 않게).
 - 화면 문구는 새로 쓰지 않는다. 자리는 `[문구 필요: 위치]` 로 적고 §4.5 에 모았다.
@@ -276,7 +276,8 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
 | 정리 확인 카드 | 맞아요 · 아니에요 · 고칠게요 · 정리할 것 N개 |
 | 노드 보기 | 확인 전 표시 · 필터 해제 안내 |
 | 노드 상세·편집 | 고치기 · 사진 넣기 · 문단 추가 · 지워진 사진 자리 |
-| 인터뷰 | 관계별 나 질문 틀 · 그 시절의 나 일반 질문 |
+| 인터뷰 | 관계별 나 질문 틀 · 그 시절의 나 일반 질문 (2a — 예시 3개 임시 문구로 들어감, `SELF_QUESTION_POOL`) |
+| `/story-review` | 그때의 나 묶음 제목 (2a — 임시 문구, `INTERVIEW_COPY.selfStoriesTitle`) |
 | 자아 메뉴 | 메뉴 이름(§7 Q18) · 직접 쓰기 · 제안 받아 보기 · AI 정리 표시 · 맞아요/아니에요/고쳐 쓸게요 · 근거 소멸 재확인 |
 | 동의 | 자아 정리 선택 동의 문구(§5) |
 
@@ -335,6 +336,24 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
 - 노드 보기(§4.1)·노드 상세·블로그 편집(§4.2, `NodeBody` + 평문 동기화 + 사진 블록), 장소 선택 UI 의 `Place` 재사용, 정리 제안 확인 카드(§3.1), 인터뷰 SELF 출처(§3.2), `/story-review` 의 "그때의 나" 표시, `docs/navigation-map.md` 갱신.
 - **완료 기준**: 390px 헤드리스 실측(가로 스크롤 0·56px·18px) · 기존 평문 이야기가 편집 없이 그대로 보임 · 블로그 저장 후 `Episode.content`·브릿지 `content` 평문 동기화(포스터 브릿지·lab 원천이 평문을 읽음) · 사진 삭제 시 블록 자리표시 · test30 브라우저 E2E · 문구 자리 확정.
 - 회귀 범위: 15종 + `test-node-graph` + 신규 `test-node-body`(평문 동기화·사진 소유 검사·다듬기 필드) + `test-interview`(SELF 출처·재노출·STORY 갭 무영향).
+
+#### 2a 구현 결과 — "관계별 나" 가설 검증 경로 (2026-10-31)
+
+2단계 중 인터뷰 SELF 출처(§3.2)·`/story-review` "그때의 나" 표시·Q9 를 먼저 했다(성민 요청). 마이그 0.
+
+- **Q9 선행 수정**: `updateEpisodeContent` 가 본문이 실제로 바뀌면 브릿지 메모리의 다듬기 3필드(`refinedText`·`refinedAt`·`displayRefined`)를 초기화(같은 본문이면 유지 — `saveMemoryContent` 와 같은 정책). 다듬기 본체 `refineMemorySpelling`(`/api/memory/[id]/refine`)은 `createdVia=life_event` 행만 — 다른 행은 모델 호출·차감 전에 not_found(→ 404). 회귀 `test-node-graph` ⑧.
+- **문항 형식**: 질문 풀 파일에 `SELF_QUESTION_POOL`(`lib/interview/question-pool.ts`) — 대상 시기 `anchor`(중심노드 유형) + 관계 대상 `relation`(일반 범주 `{ kind: "category", label }` / 그 사건에 연결된 실제 인물·그룹마다 1문항 `{ kind: "linked" }`). 자리표시 `{who}`·`{who:과/와}` + 기존 학교 명칭 `{elemSchool}`. 예시 3개(고교 + 연결 인물·그룹 / 국민·초등학교 + 선생님 / 첫 직장 + 가족) 전부 `[임시 — 성민 확정 필요]`.
+- **설계와 달라진 점**:
+  - §3.2 는 대상을 "(중심, 연결 인물·그룹) 쌍"으로만 잡았지만, 요청대로 **질문 풀 문항(틀)** 으로 두고 범주형("선생님" 등 연결 없는 상대)도 같은 형식에 넣었다. 그래서 문항 키에 질문 id 가 붙는다: `self:<questionId>:<eventId>` · `…:person:<personId>` · `…:group:<groupId>`.
+  - 대상 시기 = 그 유형의 **순서상 첫 확정 사건**(풀 질문과 같은 기준). 두 번째 직장 등에는 "첫 직장" 문구가 맞지 않아서다(§1.3 라벨 기반 문장은 2단계 나머지).
+  - 연결 인물 = `PersonLifeEvent` 의 확정 인물(`subjectType=person`·`isDraft=false`), 연결 그룹 = `NodeLink(LIFE_EVENT→PERSON_GROUP, CONFIRMED)`. 그룹을 만드는 화면은 아직 없다(데이터가 생기면 바로 대상).
+- **계획**: 6문항 중 최대 1개(Q10), 기본 순서 5번째 자리(연도·갭·풀·갭·관계별 나·풀). 후보가 없으면 그 자리를 건너뛰어 기존 계획과 같다(회귀로 확인). 재노출: 답함 = 영구 제외(풀과 같음), 건너뜀 7·30·영구.
+- **저장**: `finishEpisodeChatCore` 에 `kind` 인자(기본 STORY — 기존 호출 무변) → `Episode(kind=SELF, lifeEventId=대상 사건)`. 대상 인물 칸(`Episode.personId`)은 비우고(Q5 — 그 칸은 person_episode 갭·대기 대화용), 관계 대상이 실제 인물·그룹이면 `saveNodeLink(EPISODE→PERSON|PERSON_GROUP, CONFIRMED)` — 질문이 상대를 정했으므로 확인 없이 확정, `source` 는 기본값(USER). 연결 실패는 로그만(이야기는 남음).
+- **갭·배지**: SELF 이야기는 이야기 갭(1단계 STORY 필터)을 채우지 않고, `LifeEvent.hasEpisode`("이야기 있음" 배지 + `/chat-v3` 심화 대화 대상 판정)도 켜지 않는다 — `createEpisodeBridge` 는 STORY 일 때만 켜고, `deleteEpisode` 재계산도 STORY 만 센다.
+- **`/story-review`**: 일반 이야기("들려주신 이야기")와 별도 묶음으로 "그때의 나"(제목 `INTERVIEW_COPY.selfStoriesTitle`, 임시) — 카드는 기존 `EpisodeCard`(고치기·지우기) 그대로. 1단계에서 이월한 "SELF 미표시"는 이 별도 묶음으로 대체. 헤드리스 390px 실측(픽스처 계정, 운영 빌드): 가로 스크롤 0·버튼 최소 56px·글씨 최소 18px — 기본·그때의 나 고치기·지우기 확인창·인터뷰 관계별 나 문항 화면.
+- **포스터 브릿지**: SELF 제외 유지 — 실제 인터뷰로 저장한 SELF 가 본문·구간 행에 안 들어감(`test-interview` ⑩) + 1단계 `test-node-graph` ⑥.
+- **회귀**: `test-interview` 70 → 91항목(⑩ 관계별 나 — 출제·SELF 저장·연결·갭·배지 미충족·브릿지 제외·별도 묶음·순수 함수), `test-node-graph` 35 → 39항목(⑧ Q9). 세트는 16종 그대로.
+- **2단계 남은 것**: 노드 보기·상세·블로그 편집(§4.1·§4.2), `Place` 재사용, 정리 제안 확인 카드(§3.1·Q6), `db/reconcile-node-links.ts`, 라벨 기반 문장(§1.3), `docs/navigation-map.md`(새 화면 생길 때), 문구 확정(관계별 나 질문 틀·묶음 제목 포함), test30 E2E.
 
 ### 3단계 — 자아 메뉴
 
@@ -405,3 +424,4 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
 - 2026-10-30 — §7 결정: Q1·Q5·Q6·Q13·Q14 성민 결정(제안: 리뷰 채팅), 나머지 **추천안 채택(성민 위임)**, Q18 문구 대기(§7.1).
 - 2026-10-30 — 1단계 단계 A 수정(성민): 자아 메뉴 테이블·enum·`NodeType.SELF_ASPECT`·트리거를 3단계 마이그로 분리. `NodeLink` 방향 규칙 확정(순위 `LIFE_EVENT > EPISODE > PERSON_GROUP > PERSON > PLACE`, 같은 종류는 id 바이트 순, 저장 함수 1개 + DB CHECK). `LifeEvent` 유형 유니크 없음 확인 → 제거 SQL 불필요. 장소 이관 6묶음·실고객 19행 제외 승인.
 - 2026-10-30 — 1단계 구현 완료: deploy 1건·카탈로그 확인, 장소 이관 34행→20곳(실고객 19행 제외), `saveNodeLink`·STORY 필터·같은 유형 여러 개 대응, 회귀 16종(`test-node-graph` 추가). `reconcile-node-links`·story-review SELF 제외는 2단계로 이월. 3단계 `SELF_ASPECT` 추가는 `ADD VALUE … BEFORE 'LIFE_EVENT'` 필수(CHECK 가 enum 순서에 의존) — §6 3단계에 메모.
+- 2026-10-31 — 2a("관계별 나" 가설 검증 경로, 성민 요청) 완료: Q9 선행 수정(본문 정정 시 다듬기 3필드 초기화·다듬기는 life_event 행만), 인터뷰 SELF 출처(질문 풀 관계별 문항 형식 — 대상 시기 + 관계 대상, 예시 3개 임시, 6문항 중 최대 1개), 답 = `Episode(kind=SELF)` + 실제 인물·그룹이면 `saveNodeLink`, SELF 는 이야기 갭·`hasEpisode` 미충족, `/story-review` "그때의 나" 별도 묶음, 포스터 브릿지 SELF 제외 유지. 마이그 0, 회귀 16종(§6 "2a 구현 결과").
