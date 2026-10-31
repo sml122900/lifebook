@@ -13,7 +13,16 @@ import "dotenv/config";
 
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
-import { buildPersonEpisodeTranscript, isSummaryGuidance, stripEpisodeDoneSignal, isEpisodeDoneIntent } from "../lib/episode-text";
+import {
+  buildPersonEpisodeTranscript,
+  EPISODE_CLOSING_SENTENCES,
+  EPISODE_DONE_PHRASES,
+  EXIT_PHRASES,
+  isSummaryGuidance,
+  stripEpisodeDoneSignal,
+  isEpisodeDoneIntent,
+  isExitIntent,
+} from "../lib/episode-text";
 import { isRelationCompatible } from "../lib/person-relation";
 import { buildPersonAddress } from "../lib/person-honorific";
 import { saveOrLinkPerson } from "../lib/person-chat";
@@ -49,6 +58,24 @@ function pureChecks() {
   check("내용 + 마무리 말 → 내용만", s4 === "매일 같이 등교했어요.", s4);
   check("종료 신호 낱말이 든 내용 문장은 떼지 않음(됐어요·그만·그 정도면)",
     ["대학에 합격이 됐어요", "회사를 그만두고 장사를 시작했어요", "그 정도면 꽤 큰 돈이었죠"].every((t) => stripEpisodeDoneSignal(t) === t));
+  console.log("=== 2026-11-01 — 종료 문구 문장 전체 일치(오탐 수정) ===");
+  check("'회사를 그만두고 장사를 시작했어요' → 종료 아님(명시·완곡 둘 다)",
+    !isExitIntent("회사를 그만두고 장사를 시작했어요") && !isEpisodeDoneIntent("회사를 그만두고 장사를 시작했어요"));
+  check("'그만할래요'·'오늘은 여기까지' → 명시적 종료", isExitIntent("그만할래요") && isExitIntent("오늘은 여기까지"));
+  check("'선생님이 됐어요' → 종료 아님", !isEpisodeDoneIntent("선생님이 됐어요") && !isExitIntent("선생님이 됐어요"));
+  check("'됐어요' 단독 → 완곡 종료(명시 종료 아님)", isEpisodeDoneIntent("됐어요") && !isExitIntent("됐어요"));
+  const exitMiss = EXIT_PHRASES.flatMap((p) => [p, `${p}.`, `네 ${p}`]).filter((t) => !isExitIntent(t));
+  check(`명시적 종료 문구 ${EXIT_PHRASES.length}개 — 단독 문장(·마침표·"네" 앞)이면 전부 종료`, exitMiss.length === 0, exitMiss);
+  const doneList = [...EPISODE_DONE_PHRASES, ...EPISODE_CLOSING_SENTENCES];
+  const doneMiss = doneList.flatMap((p) => [p, `${p}.`, `네 ${p}`]).filter((t) => !isEpisodeDoneIntent(t));
+  check(`완곡 종료·마무리 말 ${doneList.length}개 — 단독 문장이면 전부 종료`, doneMiss.length === 0, doneMiss);
+  check("띄어 쓴 자연 표기도 종료(그만하고 싶어요·다음에 할게요·그걸로 된 것 같아요·이 정도면 됐어요)",
+    isExitIntent("그만하고 싶어요") && isExitIntent("다음에 할게요") && isEpisodeDoneIntent("그걸로 된 것 같아요") && isEpisodeDoneIntent("이 정도면 됐어요"));
+  check("문장부호 없는 '친구랑 놀았어요 그만할래요' → 종료 + 내용 보존",
+    isExitIntent("친구랑 놀았어요 그만할래요") && stripEpisodeDoneSignal("친구랑 놀았어요 그만할래요") === "친구랑 놀았어요");
+  check("종료 낱말이 든 내용 문장은 종료 아님(여기까지 걸어왔어요·밥은 충분해요·대학에 합격이 됐어요)",
+    ["여기까지 걸어왔어요", "밥은 충분해요", "대학에 합격이 됐어요"].every((t) => !isExitIntent(t) && !isEpisodeDoneIntent(t)));
+
   const seed = buildPersonEpisodeTranscript("고등학교 다닐 때 친하게 지낸 사람 있으세요?", "김민수라는 친구랑 매일 같이 등교했어요", "김민수랑 기억나는 일 있으세요?");
   check("인물 질문 답 → 이야기 기록 첫 본인 턴([질문, 답, 오프닝])",
     seed.map((t) => t.role).join() === "assistant,user,assistant" && seed[1].text === "김민수라는 친구랑 매일 같이 등교했어요", seed);

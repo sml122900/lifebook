@@ -6,6 +6,8 @@
 // 종종 "잘 됐다"는 뜻으로 오독해 마무리 대신 되묻는다 — 에피소드 대화 중엔
 // AI 판단 전에 키워드로 먼저 거른다(존엄 원칙상 오탐(조기 종료)이 미탐
 // (계속 캐물음)보다 안전).
+// 2026-11-01 — 아래 세 목록 모두 "문장 전체 일치"로 판정한다(matchClosing). 예전 부분 일치는
+// "선생님이 됐어요"("됐어요")를 이야기 종료로, "회사를 그만두고…"("그만")를 세션 종료로 잡았다.
 export const EPISODE_DONE_PHRASES = [
   "그걸로된것같아요",
   "그정도면됐어요",
@@ -31,8 +33,8 @@ export const EXIT_PHRASES = [
   "쉬고싶어요",
 ];
 
-// E2E 후속(2026-11-01) — 문장 하나가 통째로 마무리 말일 때만 잡는 말("네 그 정도예요"). 위 두 목록과
-// 달리 부분 일치로 쓰지 않는다 — "한 시간 그 정도 걸었어요" 같은 내용 문장을 지키려고.
+// E2E 후속(2026-11-01) — 문장 끝 마무리 말("네 그 정도예요"). 완곡 종료와 같이 다룬다.
+// "한 시간 그 정도 걸었어요" 같은 내용 문장은 문장 전체 일치가 아니라 안 잡힌다.
 export const EPISODE_CLOSING_SENTENCES = [
   "그정도예요",
   "그정도에요",
@@ -59,35 +61,35 @@ export const EPISODE_CLOSING_SENTENCES = [
 // 마무리 말 앞뒤에 붙어도 마무리 문장으로 보는 군말·말머리·말끝("네", "뭐", "이제", "기억나는 건",
 // "오늘은 … 할게요"). 이것 말고 다른 말이 남으면 내용 문장이다("선생님이 됐어요" — "선생님이" 가 남음).
 const CLOSING_FILLER_RE =
-  /^(네|예|응|음|아|어|뭐|그냥|이제|아마|그럼|일단|오늘은|이만|다|정말|진짜|저는|전|제가|글쎄요|이야기는|얘기는|기억나는건|생각나는건|기억나는게|생각나는게|할게요|할래요|하죠|해요|요|될것같아요|될거같아요|된것같아요|된거같아요|것같아요|같아요)*$/;
+  /^(네|예|응|음|아|어|뭐|그냥|이제|아마|그럼|일단|오늘은|이만|다|정말|진짜|저는|전|제가|글쎄요|이야기는|얘기는|기억나는건|생각나는건|기억나는게|생각나는게|할게요|할래요|하죠|해요|요|해|할래|할게|하자|합시다|될것같아요|될거같아요|된것같아요|된거같아요|것같아요|같아요)*$/;
 
+const EXIT_SET = new Set(EXIT_PHRASES);
 const ALL_CLOSING_PHRASES = [...EPISODE_DONE_PHRASES, ...EXIT_PHRASES, ...EPISODE_CLOSING_SENTENCES].sort(
   (a, b) => b.length - a.length,
 );
 
-// 문장(마침표 등으로 나눈 한 조각)이 마무리 말뿐인지 — 종료 신호를 지우고 남는 게 군말뿐이면 참.
-function isClosingSentence(sentence: string): boolean {
+// 문장(한 조각)이 종료·마무리 말뿐인지 — 종료 문구를 지우고 남는 게 군말뿐이면 그 문장은 종료 문장.
+// exit = 명시적 종료 문구가 들어 있음, done = 완곡 종료·마무리 말이 들어 있음. 아니면 null(내용 문장).
+function matchClosing(sentence: string): { exit: boolean; done: boolean } | null {
   let rest = sentence.replace(/[\s.,!?~…。！？'"“”‘’]+/g, "");
-  let found = false;
+  let exit = false;
+  let done = false;
   for (const p of ALL_CLOSING_PHRASES) {
-    if (rest.includes(p)) {
-      rest = rest.split(p).join("");
-      found = true;
-    }
+    if (!rest.includes(p)) continue;
+    rest = rest.split(p).join("");
+    if (EXIT_SET.has(p)) exit = true;
+    else done = true;
   }
-  return found && CLOSING_FILLER_RE.test(rest);
+  return (exit || done) && CLOSING_FILLER_RE.test(rest) ? { exit, done } : null;
 }
 
+// 마침표·물음표·느낌표·줄바꿈, 그리고 "~요"·"~죠" 뒤 띄어쓰기에서 나눈다 — 음성 입력·채팅은 문장부호
+// 없이 "친구랑 놀았어요 그만할래요" 처럼 오는 일이 많아, 그대로면 한 문장이 돼 종료를 놓친다.
 function splitSentences(text: string): string[] {
   return text
-    .split(/(?<=[.!?。！？])\s+|\n+/)
+    .split(/(?<=[.!?。！？요죠])\s+|\n+/)
     .map((s) => s.trim())
     .filter(Boolean);
-}
-
-function hasAny(text: string, phrases: string[]): boolean {
-  const normalized = text.replace(/\s+/g, "");
-  return phrases.some((p) => normalized.includes(p));
 }
 
 // P10-2 — capped(강제 마감) 응답이 프롬프트 지시("새 질문 대신 마무리 말을")
@@ -98,14 +100,14 @@ export function isAskingQuestion(text: string): boolean {
   return /[?？]\s*$/.test(text.trim());
 }
 
+// 종료 판정 2종 — /chat-v3·오늘의 인터뷰·온보딩 이야기 대화가 모두 이 함수를 쓴다.
+// 메시지의 어느 한 문장이라도 종료 문장이면 참("재밌었어요. 그만할래요").
 export function isExitIntent(text: string): boolean {
-  return hasAny(text, EXIT_PHRASES);
+  return splitSentences(text).some((s) => matchClosing(s)?.exit === true);
 }
 
-// 대화를 끝낼지는 넓게 본다(부분 일치 — P8-2 오탐이 미탐보다 안전). 문장 끝 마무리 말
-// ("네 그 정도예요")은 문장 단위로만 본다.
 export function isEpisodeDoneIntent(text: string): boolean {
-  return hasAny(text, EPISODE_DONE_PHRASES) || splitSentences(text).some(isClosingSentence);
+  return splitSentences(text).some((s) => matchClosing(s)?.done === true);
 }
 
 // P14-1(3) — 같은 메시지에 이야기 내용과 종료 신호가 함께 있는 경우
@@ -114,12 +116,12 @@ export function isEpisodeDoneIntent(text: string): boolean {
 // 뺐는데, 그러면 1턴 대화가 "내용 없음"이 돼 요약 모델이 안내문을 만들어
 // 그대로 저장되던 원인이었다. 문장 단위(마침표·물음표·느낌표·줄바꿈)로
 // 나눠 버린다. 남는 게 없으면 빈 문자열.
-// E2E 후속(2026-11-01) — 버리는 건 마무리 말뿐인 문장만(isClosingSentence). 예전엔 종료 신호가
+// E2E 후속(2026-11-01) — 버리는 건 종료·마무리 말뿐인 문장만(matchClosing). 예전엔 종료 신호가
 // 든 문장을 통째로 버려 "대학에 합격이 됐어요"("됐어요")·"회사를 그만두고 장사를 했어요"("그만")
 // 같은 내용 문장까지 사라졌다.
 export function stripEpisodeDoneSignal(text: string): string {
   return splitSentences(text)
-    .filter((s) => !isClosingSentence(s))
+    .filter((s) => !matchClosing(s))
     .join(" ")
     .trim();
 }

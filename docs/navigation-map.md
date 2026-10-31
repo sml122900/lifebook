@@ -1,7 +1,7 @@
 # 라이프북 — 버튼·링크 이동 지도 (Navigation Map)
 
 > 서비스의 모든 버튼/링크가 **어디로 이동하는지** 한눈에 보는 문서.
-> 작성: 2026-06-26 · 최신화: 2026-11-01(노드 그래프 2b-2 — 이야기에 나온 인물 확인 `/story-review/confirm`, `/chat-v3` 종료 시 대기 있으면 그리로 · 같은 날 E2E 후속 — `/chat-v3` 이야기 저장 직후 대화창 확인 카드) · 2026-10-30(proxy 동의 버전 검사 — 이전 버전 동의자 전 화면 → `/consent`, `/lab` proxy 404) · 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드, 같은 날 허용 목록 게이트 제거 — V3 전원) · 코드 기준 정리.
+> 작성: 2026-06-26 · 최신화: 2026-11-01(노드 그래프 2b-2 — 이야기에 나온 인물 확인 `/story-review/confirm`, `/chat-v3` 종료 시 대기 있으면 그리로 · 같은 날 E2E 후속 — `/chat-v3` 이야기 저장 직후 대화창 확인 카드 · 종료 문구 문장 전체 일치 — 온보딩 이야기 대화 종료 문구 → `/onboarding-episode?after=`) · 2026-10-30(proxy 동의 버전 검사 — 이전 버전 동의자 전 화면 → `/consent`, `/lab` proxy 404) · 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드, 같은 날 허용 목록 게이트 제거 — V3 전원) · 코드 기준 정리.
 > 표기: `→ /경로` 내부 이동, `↗ https://…` 외부 새 탭, `⚙ 액션` 서버액션(페이지 전환 없음/새로고침).
 
 ---
@@ -136,6 +136,7 @@
 |---|---|---|
 | `/onboarding-chat` | 진행/넘어가기·인물 정리 완료·나중에 | 최종 → `/life-timeline` |
 | `/onboarding` (레거시, archive 스텁) | — | → `/onboarding-chat` 로 redirect (본문 `_OnboardingPageArchived` 보존) |
+| `/onboarding-episode-chat/[eventId]` (STAGE4 — `/onboarding-confirm` → `/onboarding-episode` 에서 진입) | 종료 문구로 끝냄(저장할 내용 없음, 2026-11-01) · 사진·장소 [다음에 할게요] · 장소 저장 뒤 | → `/onboarding-episode?after=<eventId>` |
 
 ### v3 통합 채팅 — `/start` · `/chat-v3` · `/story-review` (v3 P17)
 | 화면 | 버튼 | 이동 |

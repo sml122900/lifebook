@@ -19,6 +19,7 @@ import {
 } from "@/app/actions/episode";
 import type { ConfirmedEpisodeItem } from "@/app/actions/life-event";
 import { PlacesEditor } from "@/app/components/PlacesEditor";
+import { isEpisodeDoneIntent, isExitIntent, stripEpisodeDoneSignal } from "@/lib/episode-text";
 import {
   EventPhotos,
   type AttachedPhoto,
@@ -71,6 +72,11 @@ export function EpisodeChatClient({ item }: { item: ConfirmedEpisodeItem }) {
         fullTranscript.map((m): EpisodeTurn => ({ role: m.role, text: m.text })),
       );
       if (!result.ok) {
+        // 마무리 말뿐이라 저장할 내용이 없음 — 오류가 아니라 다음 이야기로(건너뛰기와 같은 곳).
+        if ("empty" in result && result.empty) {
+          router.push(`/onboarding-episode?after=${item.id}`);
+          return;
+        }
         setErrorMsg(result.error);
         setPhase("error");
         return;
@@ -91,6 +97,19 @@ export function EpisodeChatClient({ item }: { item: ConfirmedEpisodeItem }) {
     setInputVal("");
     addUser(text);
     setPhase("thinking");
+
+    // 종료 의사 — /chat-v3·오늘의 인터뷰와 같은 판정(lib/episode-text). 종료 문장은 떼고 지금까지를
+    // 저장, 남는 본인 발화가 없으면 저장 없이 다음 이야기로.
+    if (isExitIntent(text) || isEpisodeDoneIntent(text)) {
+      const kept = stripEpisodeDoneSignal(text);
+      const full: Msg[] = kept ? [...messages, { role: "user", text: kept }] : messages;
+      if (!full.some((m) => m.role === "user")) {
+        router.push(`/onboarding-episode?after=${item.id}`);
+        return;
+      }
+      await runFinish(full);
+      return;
+    }
 
     // 오프닝(템플릿, messages[0])은 실제 API 턴이 아니라서 제외.
     const priorApiTurns = messages
