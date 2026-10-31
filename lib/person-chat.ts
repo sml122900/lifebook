@@ -33,7 +33,7 @@ function normalizeName(name: string): string {
 
 // 같은 사람 찾기 — 이름(공백 무시) 같고 관계 호환(P14-2). draft=false 는 확정 인물,
 // draft=true 는 이야기 마무리 추출이 만든 확인 대기 초안(말동무 초안은 companionSessionId
-// 가 있어 제외). 노드 그래프 2b-2 — 확인 화면(lib/node-confirm.ts)이 트랜잭션 안에서도 쓴다.
+// 가 있어 제외). 확인 화면(lib/node-confirm.ts)은 이걸로 자동 병합하지 않고 findSameNamePeople 로 되묻는다.
 export async function findCompatiblePerson(
   db: Prisma.TransactionClient,
   userId: string,
@@ -48,6 +48,22 @@ export async function findCompatiblePerson(
     orderBy: { createdAt: "asc" },
   });
   return rows.find((r) => normalizeName(r.name) === norm && isRelationCompatible(r.relation, relation)) ?? null;
+}
+
+// 이름(공백 무시)만 같은 확정 인물 전부(관계 무관). 확인 화면이 자동으로 합치지 않고
+// "같은 분인가요?" 를 물을 때 쓴다(lib/node-confirm.ts).
+export async function findSameNamePeople(
+  db: Prisma.TransactionClient,
+  userId: string,
+  name: string,
+): Promise<{ id: string; name: string; relation: string | null }[]> {
+  const norm = normalizeName(name);
+  const rows = await db.person.findMany({
+    where: { userId, subjectType: "person", isDraft: false },
+    select: { id: true, name: true, relation: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return rows.filter((r) => normalizeName(r.name) === norm);
 }
 
 function stripJsonFence(raw: string): string {

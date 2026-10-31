@@ -17,6 +17,12 @@ export const CONFIRM_COPY = {
   editSave: "이렇게 고칠게요", // [임시 — 성민 확정 필요]
   editCancel: "취소", // [임시 — 성민 확정 필요]
   editInvalid: "이름을 적어 주세요. 이름은 50자, 관계는 30자까지예요.", // [임시 — 성민 확정 필요]
+  // 같은 이름의 확정 인물이 있을 때 [맞아요]·[이렇게 고칠게요] 뒤 되묻기(자동 병합 안 함)
+  sameNameAsk: "같은 이름으로 이미 등록된 분이 있어요. 같은 분인가요?", // [임시 — 성민 확정 필요]
+  sameYes: "같은 분이에요", // [임시 — 성민 확정 필요] (기존 인물로 합침)
+  sameYesLabel: (name: string, relation: string | null) => `${name}${relation ? `, ${relation}` : ""} — 같은 분이에요`, // [임시 — 성민 확정 필요] (화면 낭독용)
+  sameNo: "다른 분이에요", // [임시 — 성민 확정 필요] (새 인물로 확정)
+  sameBack: "돌아가기", // [임시 — 성민 확정 필요]
   saving: "담고 있어요…", // [임시 — 성민 확정 필요]
   rowConfirmed: "확인했어요", // [임시 — 성민 확정 필요]
   rowRejected: "뺐어요", // [임시 — 성민 확정 필요]

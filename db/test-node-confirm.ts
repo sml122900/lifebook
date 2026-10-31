@@ -7,9 +7,11 @@
 //   ③ 확인 화면 데이터 — 이야기별 묶음·순서·"이미 등록된 분"
 //   ④ 맞아요 — 확정·연결 CONFIRMED·PersonLifeEvent(멱등) · 두 번 = 건너뜀 · 남의 연결 = 건너뜀
 //   ⑤ 아니에요 — 초안은 삭제, 확정 인물은 보존
-//   ⑥ 고칠게요 — 초안 이름 고침 · 다른 확정 인물로 합침(초안 삭제) · 잘못 맞춰진 확정 인물 → 새 인물(원래 정보 무변) ·
-//      대상 인물로 고치면 연결 대신 PersonLifeEvent 만 · 잘못된 입력 거부
-//   ⑦ 맞아요 시 그새 생긴 같은 확정 인물로 합침 · 모두 맞아요(목록 전체)
+//   ⑥ 고칠게요 — 초안 이름 고침 · 고친 이름이 확정 인물과 같으면 되물음 → 같은 분 = 그 인물로 합침(초안 삭제) ·
+//      잘못 맞춰진 확정 인물 → 새 인물(원래 정보 무변) · 대상 인물로 고치면 연결 대신 PersonLifeEvent 만 · 잘못된 입력 거부
+//   ⑦ 동명이인(자동 병합 안 함) — 맞아요 때 같은 이름 확정 인물이 있으면 되물음(관계가 달라도) ·
+//      같은 분이에요 → 병합(초안의 다른 이야기 대기 연결도 옮김) · 다른 분이에요 → 별도 확정 ·
+//      등록된 분 행을 같은 이름으로 고치기 → 다른 분 = 새 인물 · 잘못된 같은 분 대상 거부 · 모두 맞아요(되묻는 행만 남음)
 //   ⑧ 확인 후 노출 + 정합 점검(고아 초안·끝 없는 연결·한 쌍 두 곳 0, 대기 0)
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0).
@@ -196,8 +198,13 @@ async function main() {
 
     const yongsu = (await personByName(a, "박용수"))[0];
     const l2Yong = await linkOf(a, story2, yongsu.id);
-    await decidePeople(a, [{ linkId: l2Yong!.id, kind: "edit", name: "박영수", relation: "친구" }]);
-    check("⑥ 고친 이름이 다른 확정 인물과 맞음 → 그 인물에 연결·중심 연결, 초안 삭제",
+    const askYong = await decidePeople(a, [{ linkId: l2Yong!.id, kind: "edit", name: "박영수", relation: "친구" }]);
+    check("⑥ 고친 이름과 같은 확정 인물이 있으면 되물음(후보 = 박영수) · 상태 무변",
+      askYong.ask.length === 1 && askYong.ask[0].candidates.map((c) => c.id).join() === park && askYong.done.length === 0 &&
+        (await linkOf(a, story2, yongsu.id))?.status === "PROPOSED" && (await personByName(a, "박용수")).length === 1,
+      askYong);
+    await decidePeople(a, [{ linkId: l2Yong!.id, kind: "same", personId: park }]);
+    check("⑥ 같은 분이에요 → 그 인물에 연결·중심 연결, 초안 삭제",
       (await linkOf(a, story2, park))?.status === "CONFIRMED" && (await ple(park, mil)) === 1 &&
         (await personByName(a, "박용수")).length === 0 && (await linkOf(a, story2, yongsu.id)) === null);
 
@@ -214,23 +221,92 @@ async function main() {
 
     await saveProposedPeople(a, hs, story1, [{ name: "최영희", relation: "선생님" }]);
     const choi = (await personByName(a, "최영희"))[0];
-    await decidePeople(a, [{ linkId: (await linkOf(a, story1, choi.id))!.id, kind: "edit", name: "최담임", relation: "담임 선생님" }]);
-    check("⑥ 이야기의 대상 인물로 고치면 연결은 안 만들고(한 쌍 = 한 곳) 초안 삭제",
-      (await linkOf(a, story1, teacher)) === null && (await personByName(a, "최영희")).length === 0 && (await ple(teacher, hs)) === 1);
+    const choiLink = (await linkOf(a, story1, choi.id))!.id;
+    const askChoi = await decidePeople(a, [{ linkId: choiLink, kind: "edit", name: "최담임", relation: "담임 선생님" }]);
+    await decidePeople(a, [{ linkId: choiLink, kind: "same", personId: askChoi.ask[0]?.candidates[0]?.id ?? "" }]);
+    check("⑥ 이야기의 대상 인물로 고쳐 같은 분이에요 → 연결은 안 만들고(한 쌍 = 한 곳) 초안 삭제",
+      askChoi.ask[0]?.candidates[0]?.id === teacher &&
+        (await linkOf(a, story1, teacher)) === null && (await personByName(a, "최영희")).length === 0 && (await ple(teacher, hs)) === 1);
 
-    // ── ⑦ 그새 생긴 같은 확정 인물로 합침 · 모두 맞아요 ─────────────────
+    // ── ⑦ 동명이인 — 자동 병합 안 함 ───────────────────────────────
+    // 같은 분이에요 → 병합: 초안 뒤에 같은 이름·호환 관계 확정 인물이 생긴 경우(인물 모드 직접 답 흉내).
     await saveProposedPeople(a, mil, story3, [{ name: "한상철", relation: "선임" }]);
     const hanDraft = (await personByName(a, "한상철"))[0];
-    const hanConfirmed = await makePerson(a, "한상철", "선임"); // 인물 모드 직접 답으로 생긴 확정 인물(흉내)
-    await decidePeople(a, [{ linkId: (await linkOf(a, story3, hanDraft.id))!.id, kind: "yes" }]);
-    check("⑦ 맞아요 때 같은 이름·호환 관계 확정 인물이 있으면 그 인물로 합치고 초안 삭제",
+    const hanConfirmed = await makePerson(a, "한상철", "선임");
+    const hanLink = (await linkOf(a, story3, hanDraft.id))!.id;
+    const askHan = await decidePeople(a, [{ linkId: hanLink, kind: "yes" }]);
+    check("⑦ 맞아요 → 같은 이름 확정 인물이 있으면 되물음(후보 = 그 인물) · 초안·연결·중심 연결 무변",
+      askHan.ask.length === 1 && askHan.ask[0].candidates.map((c) => c.id).join() === hanConfirmed && askHan.done.length === 0 &&
+        (await prisma.person.findUnique({ where: { id: hanDraft.id } }))?.isDraft === true &&
+        (await linkOf(a, story3, hanDraft.id))?.status === "PROPOSED" && (await ple(hanConfirmed, mil)) === 0,
+      askHan);
+    const foreignPerson = await makePerson(b, "한상철", "선임");
+    const badSame = await decidePeople(a, [{ linkId: hanLink, kind: "same", personId: foreignPerson }]);
+    const badSame2 = await decidePeople(a, [{ linkId: hanLink, kind: "same", personId: hanDraft.id }]);
+    check("⑦ 같은 분이에요 대상이 남의 인물·초안이면 거부(상태 무변)",
+      badSame.invalid.length === 1 && badSame2.invalid.length === 1 && (await linkOf(a, story3, hanDraft.id))?.status === "PROPOSED");
+    await decidePeople(a, [{ linkId: hanLink, kind: "same", personId: hanConfirmed }]);
+    check("⑦ 같은 분이에요 → 그 인물로 합침(연결 CONFIRMED·중심 연결), 초안 삭제",
       (await personByName(a, "한상철")).length === 1 && (await linkOf(a, story3, hanConfirmed))?.status === "CONFIRMED" && (await ple(hanConfirmed, mil)) === 1);
 
-    await saveProposedPeople(a, mil, story3, [{ name: "오만석", relation: "후임" }, { name: "유재석", relation: "전우" }]);
+    // 다른 분이에요 → 별도 확정: 이름만 같고 관계가 다른 경우(아내 정미숙 vs 여자친구 정미숙).
+    const job = await makeEvent(a, "FIRST_JOB", "첫 직장", 1982, 6);
+    const story4 = await makeStory(a, job, "첫 직장 회식");
+    await saveProposedPeople(a, job, story4, [{ name: "정미숙", relation: "여자친구" }]);
+    const gfDraft = (await personByName(a, "정미숙")).find((p) => p.isDraft);
+    check("⑦ 이름만 같고 관계가 다르면 저장 때 새 초안(확정 아내와 따로)", gfDraft !== undefined && (await linkOf(a, story4, wife)) === null);
+    const gfLink = (await linkOf(a, story4, gfDraft!.id))!.id;
+    const askGf = await decidePeople(a, [{ linkId: gfLink, kind: "yes" }]);
+    check("⑦ 관계가 달라도 같은 이름이면 되물음(후보 = 아내 정미숙)",
+      askGf.ask.length === 1 && askGf.ask[0].candidates.map((c) => c.id).join() === wife && askGf.ask[0].candidates[0].relation === "아내", askGf);
+    await decidePeople(a, [{ linkId: gfLink, kind: "different" }]);
+    const mi = await personByName(a, "정미숙");
+    const wifeAfter = await prisma.person.findUnique({ where: { id: wife } });
+    check("⑦ 다른 분이에요 → 초안을 새 인물로 확정(연결 CONFIRMED·중심 연결), 기존 인물 무변 — 정미숙 2명",
+      mi.length === 2 && mi.every((p) => !p.isDraft) && (await linkOf(a, story4, gfDraft!.id))?.status === "CONFIRMED" &&
+        (await ple(gfDraft!.id, job)) === 1 && (await ple(wife, job)) === 0 && wifeAfter?.relation === "아내",
+      mi);
+
+    // 같은 분이에요 = 초안 한 사람 전체: 두 이야기에 걸친 초안의 다른 대기 연결도 옮긴다.
+    const aunt = await makePerson(a, "김순덕", "이모");
+    await saveProposedPeople(a, mil, story2, [{ name: "김순덕", relation: "동네 이웃" }]);
+    await saveProposedPeople(a, job, story4, [{ name: "김 순덕", relation: "이웃" }]);
+    const ndDraft = (await personByName(a, "김순덕")).find((p) => p.isDraft)!;
+    const ndLink2 = (await linkOf(a, story2, ndDraft.id))!.id;
+    const ndLink4 = (await linkOf(a, story4, ndDraft.id))!.id;
+    await decidePeople(a, [{ linkId: ndLink2, kind: "same", personId: aunt }]);
+    const moved = await prisma.nodeLink.findUnique({ where: { id: ndLink4 } });
+    check("⑦ 같은 분이에요 → 초안의 다른 이야기 대기 연결도 그 인물로(같은 연결 id·대기 유지), 초안 삭제",
+      (await linkOf(a, story2, aunt))?.status === "CONFIRMED" && moved?.toId === aunt && moved.status === "PROPOSED" &&
+        (await prisma.person.count({ where: { id: ndDraft.id } })) === 0,
+      moved);
+    const ndYes = await decidePeople(a, [{ linkId: ndLink4, kind: "yes" }]);
+    check("⑦ 옮겨진 행 맞아요 → 되묻지 않고 확정(연결 CONFIRMED·중심 연결)",
+      ndYes.done.length === 1 && (await linkOf(a, story4, aunt))?.status === "CONFIRMED" && (await ple(aunt, job)) === 1, ndYes);
+
+    // 등록된 분 행(확정 박영수로 맞춰짐)을 같은 이름으로 고치기 → 되물음 → 다른 분 = 고친 값으로 새 인물.
+    await saveProposedPeople(a, job, story4, [{ name: "박영수", relation: "친구" }]);
+    const l4Park = (await linkOf(a, story4, park))!.id;
+    const askPark = await decidePeople(a, [{ linkId: l4Park, kind: "edit", name: "박영수", relation: "직장 동료" }]);
+    await decidePeople(a, [{ linkId: l4Park, kind: "different", name: "박영수", relation: "직장 동료" }]);
+    const parks = await personByName(a, "박영수");
+    const coworker = parks.find((p) => p.id !== park);
+    check("⑦ 등록된 분 행을 같은 이름으로 고치면 되물음(후보에 그 인물) → 다른 분이에요 = 새 인물, 원래 인물·연결 정리",
+      askPark.ask[0]?.candidates.some((c) => c.id === park) === true && parks.length === 2 && coworker?.relation === "직장 동료" &&
+        (await linkOf(a, story4, coworker.id))?.status === "CONFIRMED" && (await linkOf(a, story4, park)) === null &&
+        (await prisma.person.findUnique({ where: { id: park } }))?.relation === "고교 친구",
+      { askPark, parks });
+
+    // 모두 맞아요 — 되묻는 행만 남고 나머지는 처리.
+    await saveProposedPeople(a, mil, story3, [{ name: "오만석", relation: "후임" }, { name: "유재석", relation: "전우" }, { name: "정미숙", relation: "첫사랑" }]);
     const open = (await getPendingPeopleGroups(a)).flatMap((g) => g.rows.map((r) => r.linkId));
     const all = await decidePeople(a, open.map((linkId) => ({ linkId, kind: "yes" as const })));
-    check("⑦ 모두 맞아요 → 남은 대기 전부 처리, 대기 0", all.done.length === open.length && open.length === 3 && (await countPendingPeople(a)) === 0, { open: open.length, all });
-    check("⑦ 모두 맞아요로 확정된 초안 0", (await prisma.person.count({ where: { userId: a, isDraft: true } })) === 0);
+    check("⑦ 모두 맞아요 → 같은 이름 확정 인물이 있는 행만 되물음(후보 2명), 나머지 처리",
+      open.length === 4 && all.done.length === 3 && all.ask.length === 1 && all.ask[0].candidates.length === 2 && (await countPendingPeople(a)) === 1,
+      { open: open.length, all });
+    await decidePeople(a, [{ linkId: all.ask[0].linkId, kind: "different" }]);
+    check("⑦ 남은 행 다른 분이에요 → 대기 0 · 초안 0",
+      (await countPendingPeople(a)) === 0 && (await prisma.person.count({ where: { userId: a, isDraft: true } })) === 0);
 
     // ── ⑧ 확인 후 노출 + 정합 점검 ────────────────────────────────
     const people1 = await listPeople(a);
