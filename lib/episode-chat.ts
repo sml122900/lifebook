@@ -15,16 +15,19 @@ import { prisma } from "./db";
 import { chat } from "./ai";
 import {
   buildEpisodeChatSystemPrompt,
+  EPISODE_SUMMARY_NO_CONTENT,
   EPISODE_SUMMARY_SYSTEM_PROMPT,
 } from "./prompts/episode-chat";
 import { createEpisodeBridge } from "./episode";
-import { isSummaryGuidance } from "./episode-text";
+import { isSummaryGuidance, stripEpisodeDoneSignal } from "./episode-text";
 import type { EpisodeKind } from "./generated/prisma/enums";
 import { savePeopleMentionedInEpisode } from "./person-chat";
 
 // 추출/분류와 같은 이유로 Sonnet 고정 — 전역 aiModel(라이브 응답)과 무관.
 const CHAT_MODEL = process.env.LIFE_EVENT_CONFIRM_MODEL ?? "claude-sonnet-4-6";
 const MAX_FOLLOWUPS = 2;
+// 요약 모델의 "내용 없음" 표식을 믿는 본인 발화 길이 상한(공백 제외) — "네 맞아요"·"그냥 그랬죠" 길이.
+const NO_CONTENT_MAX_CHARS = 12;
 
 // 2026-09-01 — CORRECTED 도 허용(확인은 됐고 값만 정정된 상태 — 미확인이
 // 아니다). getConfirmedLifeEvent(life-event.ts) 와 같은 이유로 함께 넓힘 —
@@ -111,7 +114,8 @@ export async function continueEpisodeChatCore(
 
 export type FinishEpisodeResult =
   | { ok: true; memoryId: string; episodeId: string }
-  | { ok: false; error: string };
+  // empty — 마무리 말을 빼면 이야기 내용이 없어 저장하지 않음(실패가 아니다 — 호출부는 오류 문구를 안 띄운다).
+  | { ok: false; error: string; empty?: true };
 
 // 대화 전체(오프닝 포함, transcriptHistory)를 요약해 Episode.content +
 // UserMemory 를 함께 만들고 LifeEvent.hasEpisode=true 로 갱신.
@@ -152,14 +156,23 @@ export async function finishEpisodeChatCore(
     }
   }
 
+  // E2E 후속(2026-11-01) — 본인 턴마다 마무리 말뿐인 문장("네 그 정도예요")을 뗀다. 클라는 종료 신호
+  // 키워드로 끝낸 경우만 떼서, AI 가 끝내기로 판단한 경우(후속 상한 포함)엔 마지막 마무리 말이 본문이
+  // 됐다. 여기서 한 번 더 하면 /chat-v3·오늘의 인터뷰·온보딩 이야기 대화가 모두 같다(이미 뗀 턴엔 무변).
+  const turns = transcriptHistory.flatMap((t): EpisodeTurn[] => {
+    if (t.role !== "user") return [t];
+    const kept = stripEpisodeDoneSignal(t.text);
+    return kept ? [{ role: "user", text: kept }] : [];
+  });
+
   const transcript =
     personLine +
-    transcriptHistory
+    turns
       .map((t) => `[${t.role === "assistant" ? "동반자" : "본인"}] ${t.text}`)
       .join("\n");
 
   // 요약 실패 폴백 — 본인 발화만 이어붙여서라도 저장은 막지 않는다.
-  const rawUserText = transcriptHistory
+  const rawUserText = turns
     .filter((t) => t.role === "user")
     .map((t) => t.text)
     .join(" ")
@@ -168,7 +181,7 @@ export async function finishEpisodeChatCore(
   // P14-1 — 본인 발화가 한 턴도 없으면 요약 모델을 부르지 않는다. 부르면
   // "이 대화에는 실제 이야기 내용이 없어…" 같은 판정문이 그대로 저장된다.
   if (!rawUserText) {
-    return { ok: false, error: "저장할 이야기가 없어요." };
+    return { ok: false, error: "저장할 이야기가 없어요.", empty: true };
   }
 
   // P14-1(2) — 요약 결과가 2인칭 안내문("더 들려주세요", "정리해
@@ -178,7 +191,7 @@ export async function finishEpisodeChatCore(
   let content = rawUserText;
   const attempts = [
     transcript,
-    `${transcript}\n\n[지시] 위 대화의 본인 발화를 "-다"체 서술문으로만 바꿔 출력하세요. 사용자에게 말을 걸거나 내용이 부족하다고 쓰지 마세요.`,
+    `${transcript}\n\n[지시] 위 대화의 본인 발화를 "-다"체 서술문으로만 바꿔 출력하세요(맞장구·마무리 말은 빼고). 사용자에게 말을 걸거나 내용이 부족하다고 쓰지 마세요.`,
   ];
   for (const input of attempts) {
     try {
@@ -193,6 +206,16 @@ export async function finishEpisodeChatCore(
       );
       const cleaned = res.text.trim();
       if (!cleaned) continue;
+      // 요약 모델이 "이야기 내용 없음" 이라고 판단. 본인 발화가 짧을 때(맞장구 길이)만 믿고 저장하지
+      // 않는다. 길면 내용이 있는데 잘못 판단한 것으로 보고(실측 — 사람을 소개하는 답) 다시 요청,
+      // 그래도 표식이면 원문 폴백으로 저장한다(내용 유실 > 군말 한 줄).
+      if (cleaned.includes(EPISODE_SUMMARY_NO_CONTENT)) {
+        if (rawUserText.replace(/\s+/g, "").length <= NO_CONTENT_MAX_CHARS) {
+          return { ok: false, error: "저장할 이야기가 없어요.", empty: true };
+        }
+        console.warn("[episode-finish] NO_CONTENT on long user text — retry");
+        continue;
+      }
       if (isSummaryGuidance(cleaned)) {
         console.warn("[episode-finish] summary guidance rejected:", cleaned.slice(0, 80));
         continue;
@@ -243,10 +266,10 @@ export async function finishEpisodeChatCore(
     // 노드 그래프 2b-2 — 방금 저장한 이야기와의 확인 대기 연결로 남는다(확인 화면에서 확정).
     try {
       const question =
-        transcriptHistory[0]?.role === "assistant"
-          ? transcriptHistory[0].text
+        turns[0]?.role === "assistant"
+          ? turns[0].text
           : `${label} 이야기`;
-      const userText = transcriptHistory
+      const userText = turns
         .filter((t) => t.role === "user")
         .map((t) => t.text)
         .join("\n");

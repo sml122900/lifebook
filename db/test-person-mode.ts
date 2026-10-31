@@ -23,6 +23,11 @@
 // 10) P12-2 + 노드 그래프 2b-2 — 이야기 마무리 인물 추출(실제 Sonnet 1회)은 확인 없이 확정하지
 //    않는다: 새 이름 = 초안 + 확인 대기 연결, PersonLifeEvent 없음, /people 미노출, 이야기의 대상
 //    인물에는 연결을 안 만듦 → 확인(맞아요) 뒤 확정 + 연결 CONFIRMED + PersonLifeEvent.
+// 11) E2E 후속(2026-11-01, 운영 test30 재현) — 이야기 내용 유실. 실제 Sonnet(인물 추출 1 + 요약 4 +
+//    요약 뒤 인물 추출 3). ① 인물 질문 답("김민수라는 친구랑 매일 같이 등교했어요") + AI 가 끝낸
+//    대화의 "네 그 정도예요" → 본문에 등교 내용, 마무리 말 없음(buildPersonEpisodeTranscript +
+//    서버 마무리 문장 떼기) ② 마무리 말만 있는 턴 → 저장 안 함(LLM 0) ③ 맞장구만("네 맞아요") →
+//    요약 모델 NO_CONTENT → 저장 안 함 ④ "한 시간 그 정도 걸었어요" 내용 문장 보존 ⑤ 여러 턴 내용 모두 반영.
 
 import "dotenv/config";
 
@@ -39,6 +44,8 @@ import { detectGaps } from "../lib/gap-detector";
 import { deletePerson, listPeople } from "../lib/people";
 import { countPendingPeople, decidePeople, getPendingPeopleGroups } from "../lib/node-confirm";
 import { getConfirmedLifeEvent, listConfirmedLifeEvents } from "../lib/life-event-query";
+import { finishEpisodeChatCore, type EpisodeTurn } from "../lib/episode-chat";
+import { buildPersonEpisodeTranscript } from "../lib/episode-text";
 
 async function cleanup() {
   await prisma.user.deleteMany({ where: { email: { startsWith: "person-mode-test-" } } });
@@ -413,11 +420,97 @@ async function scenarioP12() {
   if (userAfter !== null) fail("P12 scenario user not deleted");
 }
 
+async function scenarioContentLoss() {
+  console.log("\n=== 11. E2E 후속 — 이야기 내용 유실(운영 test30 재현) ===");
+  const user = await prisma.user.create({
+    data: { email: "person-mode-test-e2e@test", name: "e2e", birthYear: 1958 },
+  });
+  const mk = (type: "HIGH_SCHOOL" | "MILITARY", label: string, year: number, sequenceOrder: number) =>
+    prisma.lifeEvent.create({
+      data: { userId: user.id, type, label, year, isOptional: false, status: "CONFIRMED", confirmedAt: new Date(), sequenceOrder },
+    });
+  const hs = await mk("HIGH_SCHOOL", "고등학교 입학", 1974, 0);
+  const mil = await mk("MILITARY", "군 입대", 1978, 1);
+  const episodes = () => prisma.episode.count({ where: { lifeEvent: { userId: user.id } } });
+
+  // ① 인물 질문(ChatV3Client buildPersonAskPrompt HIGH_SCHOOL 과 같은 문구) → 인물 저장 → 그 인물과의 이야기.
+  const question = "고등학교 다닐 때 친하게 지낸 사람 있으세요?";
+  const answer = "고등학교 때 김민수라는 친구랑 매일 같이 등교했어요";
+  const r = await submitPersonAnswer(user.id, hs.id, question, answer);
+  if (!r.firstPersonId || !r.firstPersonName) fail("person answer should save 김민수");
+  const opening = `${buildPersonAddress(r.firstPersonName, r.firstPersonRelation)} 기억나는 일 있으세요?`;
+  const transcript = buildPersonEpisodeTranscript(question, answer, opening);
+  console.log("기록 시작 턴:", transcript.map((t) => t.role).join(","), "(expect assistant,user,assistant)");
+  if (transcript.map((t) => t.role).join() !== "assistant,user,assistant") fail("person answer should be the first user turn");
+  // AI 가 끝내기로 판단한 경로(②) — 클라는 마무리 말을 떼지 않고 넘긴다. 서버가 뗀다.
+  const aiEnded: EpisodeTurn[] = [
+    ...transcript,
+    { role: "user", text: "네 그 정도예요" },
+    { role: "assistant", text: "네, 잘 들었어요. 소중한 이야기 들려주셔서 고마워요." },
+  ];
+  const f1 = await finishEpisodeChatCore(user.id, hs.id, aiEnded, r.firstPersonId);
+  if (!f1.ok) fail(`content-loss case should save: ${f1.error}`);
+  const ep1 = await prisma.episode.findUnique({ where: { id: f1.episodeId }, select: { content: true, rawTranscript: true } });
+  console.log("① 본문:", ep1?.content);
+  if (!ep1 || !/등교|학교/.test(ep1.content) || /그\s*정도/.test(ep1.content)) fail("summary should keep the 등교 story and drop the closing remark");
+  if (!ep1.rawTranscript?.includes("등교") || ep1.rawTranscript.includes("그 정도예요")) fail("stored transcript should include the person answer, not the closing remark");
+  if ((await prisma.person.count({ where: { userId: user.id, name: "김민수" } })) !== 1) fail("김민수 should not be duplicated");
+  if ((await countPendingPeople(user.id)) !== 0) fail("the story's subject person should not become a pending link");
+
+  // ② 마무리 말만 있는 턴 → 저장 안 함(요약 모델 호출 전).
+  const before2 = await episodes();
+  const f2 = await finishEpisodeChatCore(user.id, mil.id, [
+    { role: "assistant", text: "군대 시절 기억나는 일 있으세요?" },
+    { role: "user", text: "네 그 정도예요" },
+    { role: "assistant", text: "네, 잘 들었어요." },
+  ]);
+  console.log("② 마무리 말만:", JSON.stringify(f2));
+  if (f2.ok || !f2.empty || (await episodes()) !== before2) fail("closing-only turn should not be saved");
+
+  // ③ 맞장구만 — 코드 목록엔 없음 → 요약 모델이 NO_CONTENT → 저장 안 함.
+  const f3 = await finishEpisodeChatCore(user.id, mil.id, [
+    { role: "assistant", text: "그때 기분이 어떠셨어요?" },
+    { role: "user", text: "네 맞아요" },
+  ]);
+  console.log("③ 맞장구만:", JSON.stringify(f3));
+  if (f3.ok || !f3.empty || (await episodes()) !== before2) fail("affirmation-only turn should not be saved (NO_CONTENT)");
+
+  // ④ "그 정도" 가 든 내용 문장은 보존.
+  const f4 = await finishEpisodeChatCore(user.id, mil.id, [
+    { role: "assistant", text: "군대 시절 기억나는 일 있으세요?" },
+    { role: "user", text: "훈련소에서 매일 아침 한 시간 그 정도 걸었어요" },
+  ]);
+  if (!f4.ok) fail(`content sentence should be saved: ${f4.error}`);
+  const ep4 = await prisma.episode.findUnique({ where: { id: f4.episodeId }, select: { content: true } });
+  console.log("④ 본문:", ep4?.content);
+  if (!ep4 || !/한\s*시간/.test(ep4.content)) fail("content sentence with '그 정도' should be kept");
+
+  // ⑤ 여러 턴 — 앞 턴 내용까지 모두 반영, 끝의 마무리 말은 빠짐.
+  const f5 = await finishEpisodeChatCore(user.id, hs.id, [
+    { role: "assistant", text: "고등학교 시절 기억나는 일 있으세요?" },
+    { role: "user", text: "운동장에서 축구를 자주 했어요" },
+    { role: "assistant", text: "누구랑 하셨어요?" },
+    { role: "user", text: "반 친구들이랑 점심시간마다 했어요" },
+    { role: "assistant", text: "재밌으셨겠어요." },
+    { role: "user", text: "네, 그게 다예요" },
+  ]);
+  if (!f5.ok) fail(`multi-turn should be saved: ${f5.error}`);
+  const ep5 = await prisma.episode.findUnique({ where: { id: f5.episodeId }, select: { content: true } });
+  console.log("⑤ 본문:", ep5?.content);
+  if (!ep5 || !ep5.content.includes("축구") || !ep5.content.includes("점심") || /그게\s*다/.test(ep5.content)) {
+    fail("multi-turn summary should include every turn's content and drop the closing remark");
+  }
+
+  await deleteAccountTx(user.id);
+  if ((await prisma.user.findUnique({ where: { id: user.id } })) !== null) fail("content-loss scenario user not deleted");
+}
+
 async function main() {
   await cleanup();
   await scenarioPersonMode();
   await scenarioCorrectedStatus();
   await scenarioP12();
+  await scenarioContentLoss();
   await cleanup();
   console.log("\n✓ done");
 }

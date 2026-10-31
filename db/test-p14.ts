@@ -13,7 +13,7 @@ import "dotenv/config";
 
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
-import { isSummaryGuidance, stripEpisodeDoneSignal, isEpisodeDoneIntent } from "../lib/episode-text";
+import { buildPersonEpisodeTranscript, isSummaryGuidance, stripEpisodeDoneSignal, isEpisodeDoneIntent } from "../lib/episode-text";
 import { isRelationCompatible } from "../lib/person-relation";
 import { buildPersonAddress } from "../lib/person-honorific";
 import { saveOrLinkPerson } from "../lib/person-chat";
@@ -36,6 +36,24 @@ function pureChecks() {
   check("명시 종료 포함 문장 제거", stripEpisodeDoneSignal("재밌었어요. 그만할래요") === "재밌었어요.");
   check("줄바꿈 분리", stripEpisodeDoneSignal("친구랑 놀았어요\n됐어요") === "친구랑 놀았어요");
   check("종료 신호 판정 유지", isEpisodeDoneIntent("그 정도면 됐어요") && !isEpisodeDoneIntent("친구랑 놀았어요"));
+
+  console.log("=== E2E 후속(2026-11-01) — 문장 끝 마무리 말 · 내용 문장 보존 ===");
+  check("'네 그 정도예요' = 종료 신호 · 떼면 빈 문자열",
+    isEpisodeDoneIntent("네 그 정도예요") && isEpisodeDoneIntent("네, 그 정도예요.") && stripEpisodeDoneSignal("네 그 정도예요") === "");
+  check("마무리 말 변형(그게 다예요·특별한 건 없어요·기억나는 건 그 정도예요) 떼기",
+    ["그게 다예요", "특별한 건 없어요", "기억나는 건 그 정도예요", "더는 없어요"].every((t) => isEpisodeDoneIntent(t) && stripEpisodeDoneSignal(t) === ""));
+  check("'한 시간 그 정도 걸었어요' = 종료 아님 · 보존",
+    !isEpisodeDoneIntent("한 시간 그 정도 걸었어요") && stripEpisodeDoneSignal("한 시간 그 정도 걸었어요") === "한 시간 그 정도 걸었어요");
+  check("'키가 그 정도예요' = 종료 아님(문장 전체가 마무리 말일 때만)", !isEpisodeDoneIntent("키가 그 정도예요"));
+  const s4 = stripEpisodeDoneSignal("매일 같이 등교했어요. 그게 다예요");
+  check("내용 + 마무리 말 → 내용만", s4 === "매일 같이 등교했어요.", s4);
+  check("종료 신호 낱말이 든 내용 문장은 떼지 않음(됐어요·그만·그 정도면)",
+    ["대학에 합격이 됐어요", "회사를 그만두고 장사를 시작했어요", "그 정도면 꽤 큰 돈이었죠"].every((t) => stripEpisodeDoneSignal(t) === t));
+  const seed = buildPersonEpisodeTranscript("고등학교 다닐 때 친하게 지낸 사람 있으세요?", "김민수라는 친구랑 매일 같이 등교했어요", "김민수랑 기억나는 일 있으세요?");
+  check("인물 질문 답 → 이야기 기록 첫 본인 턴([질문, 답, 오프닝])",
+    seed.map((t) => t.role).join() === "assistant,user,assistant" && seed[1].text === "김민수라는 친구랑 매일 같이 등교했어요", seed);
+  const seed2 = buildPersonEpisodeTranscript("친한 사람 있으세요?", "김민수요. 그 정도예요", "김민수랑 기억나는 일 있으세요?");
+  check("인물 질문 답의 마무리 말은 떼고 넘김", seed2[1]?.text === "김민수요.", seed2);
 
   console.log("=== P14-1 요약 안내문 가드 ===");
   check("안내문 1", isSummaryGuidance("더 많은 이야기를 들려주세요. 박정호 선생님과 어떤 일이 있으셨나요?"));

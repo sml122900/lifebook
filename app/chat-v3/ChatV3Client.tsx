@@ -63,6 +63,7 @@ import type { LifeEventType } from "@/lib/generated/prisma/enums";
 import { buildPersonAddress, buildPersonLabel } from "@/lib/person-honorific";
 import { buildEpisodeOpeningPrompt, schoolPhaseName } from "@/lib/episode-opening";
 import {
+  buildPersonEpisodeTranscript,
   buildResumeAnnouncement,
   EPISODE_CLOSINGS,
   isAskingQuestion,
@@ -579,7 +580,11 @@ export function ChatV3Client({
         return;
       }
       triggerReaction("happy");
-      await enterPersonEpisode(eventId, result.firstPersonId, result.firstPersonName, result.firstPersonRelation);
+      // E2E 후속 — 이 답(이야기가 담긴 경우가 많다)을 이야기 대화 기록의 첫 본인 턴으로 넘긴다.
+      await enterPersonEpisode(eventId, result.firstPersonId, result.firstPersonName, result.firstPersonRelation, {
+        question: personQuestionRef.current,
+        answer: text,
+      });
     } catch (e) {
       console.error("[chat-v3]", e);
       enterError("답변을 처리하지 못했어요.", () => submitPersonTurn(text));
@@ -588,12 +593,14 @@ export function ChatV3Client({
 
   // 인물 저장 직후 자동 진입, 또는 person_episode 갭에서 진입 — 둘 다 여기로
   // 모인다. "episode" 단계 기존 엔진(submitEpisodeTurn/finishEpisodeStage)을
-  // personId 태그만 붙여 그대로 탄다.
+  // personId 태그만 붙여 그대로 탄다. personAnswer — 인물 질문에서 바로 넘어온 경우 그 질문과 답
+  // (기록이 [인물 질문, 본인 답, 이야기 오프닝]으로 시작, lib/episode-text buildPersonEpisodeTranscript).
   async function enterPersonEpisode(
     eventId: string,
     personId: string,
     personName: string,
     personRelation: string | null,
+    personAnswer?: { question: string; answer: string },
   ) {
     setStage("episode");
     setStatus("loading");
@@ -606,13 +613,15 @@ export function ChatV3Client({
       await markPendingEpisode(eventId, personId);
       // P10-4 — 윗사람(가족·은사)이면 호칭을 살려 격식 조사로 부른다.
       const opening = `${buildPersonAddress(personName, personRelation)} 기억나는 일 있으세요?`;
-      episodeTranscriptRef.current = [{ role: "assistant", text: opening }];
+      episodeTranscriptRef.current = personAnswer
+        ? buildPersonEpisodeTranscript(personAnswer.question, personAnswer.answer, opening)
+        : [{ role: "assistant", text: opening }];
       await addBot(opening);
       setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
       enterError("이야기를 준비하지 못했어요.", () =>
-        enterPersonEpisode(eventId, personId, personName, personRelation),
+        enterPersonEpisode(eventId, personId, personName, personRelation, personAnswer),
       );
     }
   }
@@ -798,7 +807,10 @@ export function ChatV3Client({
           )
         : { ok: false as const, error: "" };
       if (!result.ok) {
-        await addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
+        // empty = 마무리 말뿐이라 저장할 내용이 없음 — 실패가 아니라 오류 문구를 안 띄운다.
+        if (!("empty" in result && result.empty)) {
+          await addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
+        }
       } else {
         ok = true;
         triggerReaction("happy");
@@ -821,17 +833,24 @@ export function ChatV3Client({
   // 없다 — saveEpisode 를 타면 "저장하지 못했어요" 가 떠서 어르신이 뭔가
   // 잘못한 것처럼 보인다. 컨텍스트만 비우고 다음 이야기로.
   // P14-4 — 마무리 멘트를 몇 가지로 돌려 쓴다(같은 문구 연속 반복 완화).
+  // E2E 후속 — 마무리 말뿐인 본인 턴("네 그 정도예요")은 본인 발화로 치지 않는다(서버도 같은 기준으로
+  // 떼고 저장 안 함). 저장이 안 됐으면 "잘 담아뒀어요" 류 마무리 문구도 쓰지 않는다.
   async function finishEpisodeStage(opts: { afterModelClosing?: boolean } = {}) {
-    const hasUserTurn = episodeTranscriptRef.current.some((t) => t.role === "user");
+    const hasUserTurn = hasEpisodeUserContent();
+    let saved = false;
     if (hasUserTurn) {
-      await saveEpisode();
+      saved = await saveEpisode();
     } else {
       activePersonRef.current = null;
       periodTopicRef.current = null;
     }
     await enterOpenStage(
-      opts.afterModelClosing || !hasUserTurn ? "다른 이야기도 있으세요?" : nextEpisodeClosing(),
+      opts.afterModelClosing || !saved ? "다른 이야기도 있으세요?" : nextEpisodeClosing(),
     );
+  }
+
+  function hasEpisodeUserContent(): boolean {
+    return episodeTranscriptRef.current.some((t) => t.role === "user" && stripEpisodeDoneSignal(t.text));
   }
 
   // P15-1 — useRef 는 리마운트마다 0 으로 돌아간다. 실측(test20) 에서 이야기
@@ -1240,7 +1259,7 @@ export function ChatV3Client({
         if (kept) {
           episodeTranscriptRef.current = [...episodeTranscriptRef.current, { role: "user", text: kept }];
         }
-        if (episodeTranscriptRef.current.some((t) => t.role === "user")) {
+        if (hasEpisodeUserContent()) {
           awaitingFinalAnswerRef.current = false;
           savedEpisode = await saveEpisode();
         }

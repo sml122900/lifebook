@@ -31,6 +31,60 @@ export const EXIT_PHRASES = [
   "쉬고싶어요",
 ];
 
+// E2E 후속(2026-11-01) — 문장 하나가 통째로 마무리 말일 때만 잡는 말("네 그 정도예요"). 위 두 목록과
+// 달리 부분 일치로 쓰지 않는다 — "한 시간 그 정도 걸었어요" 같은 내용 문장을 지키려고.
+export const EPISODE_CLOSING_SENTENCES = [
+  "그정도예요",
+  "그정도에요",
+  "그정도요",
+  "이정도예요",
+  "이정도에요",
+  "그게다예요",
+  "그게다에요",
+  "이게다예요",
+  "이게다에요",
+  "그게전부예요",
+  "그게전부에요",
+  "그뿐이에요",
+  "그뿐이예요",
+  "더는없어요",
+  "더없어요",
+  "더는기억안나요",
+  "특별한건없어요",
+  "특별한거없어요",
+  "별다른건없어요",
+  "별거없어요",
+];
+
+// 마무리 말 앞뒤에 붙어도 마무리 문장으로 보는 군말·말머리·말끝("네", "뭐", "이제", "기억나는 건",
+// "오늘은 … 할게요"). 이것 말고 다른 말이 남으면 내용 문장이다("선생님이 됐어요" — "선생님이" 가 남음).
+const CLOSING_FILLER_RE =
+  /^(네|예|응|음|아|어|뭐|그냥|이제|아마|그럼|일단|오늘은|이만|다|정말|진짜|저는|전|제가|글쎄요|이야기는|얘기는|기억나는건|생각나는건|기억나는게|생각나는게|할게요|할래요|하죠|해요|요|될것같아요|될거같아요|된것같아요|된거같아요|것같아요|같아요)*$/;
+
+const ALL_CLOSING_PHRASES = [...EPISODE_DONE_PHRASES, ...EXIT_PHRASES, ...EPISODE_CLOSING_SENTENCES].sort(
+  (a, b) => b.length - a.length,
+);
+
+// 문장(마침표 등으로 나눈 한 조각)이 마무리 말뿐인지 — 종료 신호를 지우고 남는 게 군말뿐이면 참.
+function isClosingSentence(sentence: string): boolean {
+  let rest = sentence.replace(/[\s.,!?~…。！？'"“”‘’]+/g, "");
+  let found = false;
+  for (const p of ALL_CLOSING_PHRASES) {
+    if (rest.includes(p)) {
+      rest = rest.split(p).join("");
+      found = true;
+    }
+  }
+  return found && CLOSING_FILLER_RE.test(rest);
+}
+
+function splitSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?。！？])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 function hasAny(text: string, phrases: string[]): boolean {
   const normalized = text.replace(/\s+/g, "");
   return phrases.some((p) => normalized.includes(p));
@@ -48,12 +102,10 @@ export function isExitIntent(text: string): boolean {
   return hasAny(text, EXIT_PHRASES);
 }
 
+// 대화를 끝낼지는 넓게 본다(부분 일치 — P8-2 오탐이 미탐보다 안전). 문장 끝 마무리 말
+// ("네 그 정도예요")은 문장 단위로만 본다.
 export function isEpisodeDoneIntent(text: string): boolean {
-  return hasAny(text, EPISODE_DONE_PHRASES);
-}
-
-function hasDonePhrase(text: string): boolean {
-  return hasAny(text, EPISODE_DONE_PHRASES) || hasAny(text, EXIT_PHRASES);
+  return hasAny(text, EPISODE_DONE_PHRASES) || splitSentences(text).some(isClosingSentence);
 }
 
 // P14-1(3) — 같은 메시지에 이야기 내용과 종료 신호가 함께 있는 경우
@@ -61,14 +113,36 @@ function hasDonePhrase(text: string): boolean {
 // 종료 문장만 떼고 내용은 살린다. P10-3 은 메시지를 통째로 요약 입력에서
 // 뺐는데, 그러면 1턴 대화가 "내용 없음"이 돼 요약 모델이 안내문을 만들어
 // 그대로 저장되던 원인이었다. 문장 단위(마침표·물음표·느낌표·줄바꿈)로
-// 나눠 종료 신호가 든 문장만 버린다. 남는 게 없으면 빈 문자열.
+// 나눠 버린다. 남는 게 없으면 빈 문자열.
+// E2E 후속(2026-11-01) — 버리는 건 마무리 말뿐인 문장만(isClosingSentence). 예전엔 종료 신호가
+// 든 문장을 통째로 버려 "대학에 합격이 됐어요"("됐어요")·"회사를 그만두고 장사를 했어요"("그만")
+// 같은 내용 문장까지 사라졌다.
 export function stripEpisodeDoneSignal(text: string): string {
-  return text
-    .split(/(?<=[.!?。！？])\s+|\n+/)
-    .map((s) => s.trim())
-    .filter((s) => s && !hasDonePhrase(s))
+  return splitSentences(text)
+    .filter((s) => !isClosingSentence(s))
     .join(" ")
     .trim();
+}
+
+// E2E 후속(2026-11-01) — 인물 질문의 답에서 그 인물과의 이야기로 바로 넘어갈 때 이야기 대화 기록의
+// 시작. 그 답에 실제 이야기가 담긴 경우가 많아("김민수라는 친구랑 매일 같이 등교했어요") 첫 본인
+// 턴으로 넘긴다 — 예전엔 인물 추출에만 쓰이고 기록에서 빠져, 다음 답이 "네 그 정도예요" 뿐이면
+// 본문이 마무리 말로 채워졌다(운영 test30). 자유 대화 → 이야기 전환(submitOpenChat)과 같은 방식.
+export function buildPersonEpisodeTranscript(
+  personQuestion: string,
+  personAnswer: string,
+  opening: string,
+): { role: "assistant" | "user"; text: string }[] {
+  const kept = stripEpisodeDoneSignal(personAnswer);
+  return [
+    ...(personQuestion && kept
+      ? [
+          { role: "assistant" as const, text: personQuestion },
+          { role: "user" as const, text: kept },
+        ]
+      : []),
+    { role: "assistant", text: opening },
+  ];
 }
 
 // P14-1(2) — 요약 결과가 "이야기 정리"가 아니라 사용자에게 말을 거는
