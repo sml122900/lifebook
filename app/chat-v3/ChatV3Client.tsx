@@ -21,8 +21,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { CharacterStage } from "@/app/components/CharacterStage";
+import { CONFIRM_COPY } from "@/lib/node-confirm-copy";
 import type { CharacterState } from "@/lib/characters";
 
 import { completeOnboarding } from "@/app/actions/onboarding";
@@ -232,6 +233,9 @@ export function ChatV3Client({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loadingHint, setLoadingHint] = useState<string | null>(null);
   const [gapSuggestions, setGapSuggestions] = useState<Gap[]>([]);
+  // 노드 그래프 2b-2 후속(Q25 갱신) — 이야기 저장 직후 확인 대기 인물 수. 1명 이상이면 대화창에
+  // 확인 카드(대화는 계속). 세션이 끝나면 finishSession 이 지금처럼 확인 화면으로 보낸다.
+  const [pendingPeople, setPendingPeople] = useState(0);
   // 캐릭터 리액션 — 확인질문 통과·에피소드 저장 시 잠깐 happy 로 덮어씀
   // (그 외엔 status/입력 포커스로 idle·listening·thinking 자동 계산).
   const [reaction, setReaction] = useState<CharacterState | null>(null);
@@ -814,6 +818,8 @@ export function ChatV3Client({
       } else {
         ok = true;
         triggerReaction("happy");
+        // Q25 갱신 — 확인 대기 인물이 있으면 대화창에 확인 카드(수를 못 읽으면 카드 없이 그대로).
+        setPendingPeople(await countPendingPeopleAction().catch(() => 0));
       }
     } catch (e) {
       console.error("[chat-v3]", e);
@@ -1342,6 +1348,15 @@ export function ChatV3Client({
             </div>
           </div>
         ))}
+
+        {pendingPeople > 0 && status !== "finished" && (
+          <section className="flex flex-col gap-3 rounded-2xl border-2 border-brand bg-banner p-5">
+            <p className="text-lg text-ink">{CONFIRM_COPY.chatCardDesc}</p>
+            <ButtonLink href="/story-review/confirm" variant="secondary" size="lg">
+              {CONFIRM_COPY.chatCardButton(pendingPeople)}
+            </ButtonLink>
+          </section>
+        )}
 
         {(status === "loading" || status === "submitting") && (
           <div className="flex justify-start">

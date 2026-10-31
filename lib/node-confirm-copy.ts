@@ -38,6 +38,10 @@ export const CONFIRM_COPY = {
   reviewCardDesc: (n: number) => `이야기에 나온 분 ${n}명이 맞는지 확인해 주세요.`, // [임시 — 성민 확정 필요]
   reviewCardButton: "확인하러 가기", // [임시 — 성민 확정 필요]
 
+  // ── /chat-v3 대화창 카드(이야기 저장 직후 대기 ≥1, 대화는 계속) ──
+  chatCardDesc: "확인은 지금 해도 되고, 이야기를 더 나눈 뒤에 해도 돼요.", // [임시 — 성민 확정 필요]
+  chatCardButton: (n: number) => `이야기에 나온 분 ${n}명 확인하기`, // [임시 — 성민 확정 필요]
+
   // ── 오늘의 인터뷰 종료 요약 카드 ──
   interviewCardDesc: (n: number) => `이야기에 나온 분 ${n}명, 맞는지 확인해 주세요.`, // [임시 — 성민 확정 필요] (대기 전체 수)
   interviewCardButton: "확인하러 가기", // [임시 — 성민 확정 필요]
