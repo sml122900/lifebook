@@ -12,6 +12,7 @@
 // 노드 삭제 시 연결 정리는 DB 트리거(마이그 20261030000000_node_graph)가 한다.
 
 import { prisma } from "./db";
+import type { Prisma } from "./generated/prisma/client";
 import type { LinkStatus, NodeType } from "./generated/prisma/enums";
 
 // 순위 — prisma/schema.prisma 의 NodeType 선언 순서와 같아야 한다(DB CHECK 가 그 순서를 쓴다).
@@ -39,19 +40,19 @@ export function normalizeNodePair(a: NodeRef, b: NodeRef): { from: NodeRef; to: 
   return a.id < b.id ? { from: a, to: b } : { from: b, to: a };
 }
 
-async function ownsNode(userId: string, n: NodeRef): Promise<boolean> {
+async function ownsNode(db: Prisma.TransactionClient, userId: string, n: NodeRef): Promise<boolean> {
   const where = { id: n.id, userId };
   switch (n.type) {
     case "LIFE_EVENT":
-      return (await prisma.lifeEvent.count({ where })) > 0;
+      return (await db.lifeEvent.count({ where })) > 0;
     case "EPISODE":
-      return (await prisma.episode.count({ where: { id: n.id, lifeEvent: { userId } } })) > 0;
+      return (await db.episode.count({ where: { id: n.id, lifeEvent: { userId } } })) > 0;
     case "PERSON_GROUP":
-      return (await prisma.personGroup.count({ where })) > 0;
+      return (await db.personGroup.count({ where })) > 0;
     case "PERSON":
-      return (await prisma.person.count({ where })) > 0;
+      return (await db.person.count({ where })) > 0;
     case "PLACE":
-      return (await prisma.place.count({ where })) > 0;
+      return (await db.place.count({ where })) > 0;
   }
 }
 
@@ -63,25 +64,27 @@ export async function saveNodeLink(
   userId: string,
   a: NodeRef,
   b: NodeRef,
-  opts: { role?: string; status?: LinkStatus; source?: "USER" | "AI" | "MIGRATION" } = {},
+  // db — 트랜잭션 안에서 부를 때 그 클라이언트(2b-2 확인 화면). 없으면 기본 클라이언트.
+  opts: { role?: string; status?: LinkStatus; source?: "USER" | "AI" | "MIGRATION"; db?: Prisma.TransactionClient } = {},
 ): Promise<SaveNodeLinkResult> {
+  const db = opts.db ?? prisma;
   const pair = normalizeNodePair(a, b);
   if (!pair) return { ok: false, reason: "self_link" };
   const { from, to } = pair;
   if (!ALLOWED_PAIRS.has(`${from.type}>${to.type}`)) return { ok: false, reason: "pair_not_allowed" };
 
-  const [fromOwned, toOwned] = await Promise.all([ownsNode(userId, from), ownsNode(userId, to)]);
+  const [fromOwned, toOwned] = await Promise.all([ownsNode(db, userId, from), ownsNode(db, userId, to)]);
   if (!fromOwned || !toOwned) return { ok: false, reason: "not_found" };
 
   // 이야기의 주 소속 시기를 추가 소속으로 또 적지 않는다(한 쌍 = 한 곳).
   if (from.type === "LIFE_EVENT" && to.type === "EPISODE") {
-    const primary = await prisma.episode.count({ where: { id: to.id, lifeEventId: from.id } });
+    const primary = await db.episode.count({ where: { id: to.id, lifeEventId: from.id } });
     if (primary > 0) return { ok: false, reason: "primary_membership" };
   }
 
   const role = opts.role ?? "";
   const status = opts.status ?? "CONFIRMED";
-  const link = await prisma.nodeLink.upsert({
+  const link = await db.nodeLink.upsert({
     where: {
       fromType_fromId_toType_toId_role: {
         fromType: from.type,
@@ -106,7 +109,7 @@ export async function saveNodeLink(
     select: { id: true, status: true },
   });
   if (status === "CONFIRMED" && link.status === "PROPOSED") {
-    await prisma.nodeLink.update({
+    await db.nodeLink.update({
       where: { id: link.id },
       data: { status: "CONFIRMED", confirmedAt: new Date() },
     });

@@ -6,6 +6,8 @@ import { getPendingChatContext, type PendingChatContext } from "@/lib/chat-v3-pe
 import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
 import { INTERVIEW_COPY } from "@/lib/interview/copy";
 import { getInterviewCardState, type InterviewCardState } from "@/lib/interview/session";
+import { countPendingPeople } from "@/lib/node-confirm";
+import { CONFIRM_COPY } from "@/lib/node-confirm-copy";
 import { getOnboardingTrack } from "@/lib/onboarding-track";
 import { getStoryReviewData, type EpisodeSummary } from "@/lib/story-review";
 
@@ -67,7 +69,9 @@ export default async function StoryReviewPage() {
   }
 
   // 오늘의 인터뷰 진입 카드 — 오늘 기록만 1회 조회(계획 계산 없음). V3 화면이라 항상 표시.
-  const [{ timeline, episodes, selfEpisodes }, gaps, pending, interviewCard] = await Promise.all([
+  // 노드 그래프 2b-2 — 인물 확인 대기 수(1쿼리). 대화 종료 경로를 안 거친 경우(창 닫기 등) 보완.
+  const [pendingPeople, { timeline, episodes, selfEpisodes }, gaps, pending, interviewCard] = await Promise.all([
+    countPendingPeople(userId),
     getStoryReviewData(userId),
     detectGaps(userId),
     getPendingChatContext(userId),
@@ -86,6 +90,8 @@ export default async function StoryReviewPage() {
           채워진 인생 이야기를 한눈에 보여드릴게요.
         </p>
       </header>
+
+      {pendingPeople > 0 && <PendingPeopleCard count={pendingPeople} />}
 
       <InterviewCard state={interviewCard} />
 
@@ -172,6 +178,19 @@ function EpisodeList({ episodes }: { episodes: EpisodeSummary[] }) {
         />
       ))}
     </div>
+  );
+}
+
+function PendingPeopleCard({ count }: { count: number }) {
+  const C = CONFIRM_COPY;
+  return (
+    <section className="flex flex-col gap-4 rounded-md border-2 border-brand bg-banner p-5">
+      <h2 className="text-2xl font-bold text-ink">{C.reviewCardTitle}</h2>
+      <p className="text-lg text-ink">{C.reviewCardDesc(count)}</p>
+      <ButtonLink href="/story-review/confirm" variant="secondary" size="lg">
+        {C.reviewCardButton}
+      </ButtonLink>
+    </section>
   );
 }
 

@@ -240,6 +240,7 @@ export async function finishEpisodeChatCore(
     // P12-2 — 대화 중 언급된 새 인물(이름 있는 사람만)을 함께 저장·연결.
     // 저장이 성공한 뒤에만(이야기 없이 인물만 남지 않게), best-effort —
     // 추출이 실패해도 방금 저장한 이야기 결과는 그대로 돌려준다.
+    // 노드 그래프 2b-2 — 방금 저장한 이야기와의 확인 대기 연결로 남는다(확인 화면에서 확정).
     try {
       const question =
         transcriptHistory[0]?.role === "assistant"
@@ -249,7 +250,7 @@ export async function finishEpisodeChatCore(
         .filter((t) => t.role === "user")
         .map((t) => t.text)
         .join("\n");
-      await savePeopleMentionedInEpisode(userId, lifeEventId, question, userText);
+      await savePeopleMentionedInEpisode(userId, lifeEventId, result.episodeId, question, userText);
     } catch (e) {
       console.error("[episode-finish] people", e);
     }

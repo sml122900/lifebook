@@ -44,6 +44,7 @@ import {
   type EpisodeTurn,
 } from "@/app/actions/episode";
 import { getPeriodPromptByEventId, getTopGaps } from "@/app/actions/gaps";
+import { countPendingPeopleAction } from "@/app/actions/node-confirm";
 import { respondToOpenChat } from "@/app/actions/open-chat";
 import { submitPersonAnswer, getPersonEpisodeTarget } from "@/app/actions/person-chat";
 import {
@@ -363,7 +364,11 @@ export function ChatV3Client({
     setStatus("finished");
     await addBot(msg);
     if (canReview) {
-      setTimeout(() => router.push("/story-review"), 1200);
+      // 노드 그래프 2b-2(Q25) — 이야기에 나온 인물 확인 대기가 있으면 확인 화면으로. 수를 못
+      // 읽으면 지금처럼 정리 화면(그곳 상단 카드가 대기를 다시 알려 준다).
+      const pendingPeople = await countPendingPeopleAction().catch(() => 0);
+      const next = pendingPeople > 0 ? "/story-review/confirm" : "/story-review";
+      setTimeout(() => router.push(next), 1200);
     }
   }
 

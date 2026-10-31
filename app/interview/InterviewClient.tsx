@@ -21,6 +21,7 @@ import {
 } from "@/lib/episode-text";
 import { INTERVIEW_COPY as C } from "@/lib/interview/copy";
 import type { InterviewItemView, InterviewState } from "@/lib/interview/session";
+import { CONFIRM_COPY } from "@/lib/node-confirm-copy";
 
 import {
   answerInterviewYearAction,
@@ -92,6 +93,15 @@ export function InterviewClient({ initial }: { initial: InterviewState }) {
       <section className="flex flex-col gap-6">
         <h1 className="text-3xl font-bold text-ink">{C.summaryTitle}</h1>
         <p className="text-lg text-ink">{C.summaryCounts(state.answered, state.skipped)}</p>
+        {/* 노드 그래프 2b-2 — 이야기에 나온 인물 확인 대기가 있으면 확인 화면으로. */}
+        {state.pendingPeople > 0 && (
+          <div className="flex flex-col gap-4 rounded-md border-2 border-brand bg-banner p-5">
+            <p className="text-lg text-ink">{CONFIRM_COPY.interviewCardDesc(state.pendingPeople)}</p>
+            <ButtonLink href="/story-review/confirm" variant="secondary" size="lg">
+              {CONFIRM_COPY.interviewCardButton}
+            </ButtonLink>
+          </div>
+        )}
         {state.saved.length > 0 && (
           <div className="flex flex-col gap-3">
             <h2 className="text-2xl font-bold text-ink">{C.summarySavedHeading}</h2>

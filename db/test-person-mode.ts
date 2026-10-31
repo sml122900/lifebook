@@ -20,6 +20,9 @@
 // 9) CORRECTED 이벤트(2026-09-01 픽스) — getConfirmedLifeEvent/
 //    listConfirmedLifeEvents 가 포함하는지, person 갭·episode 갭(에피소드
 //    저장까지) 둘 다 실제로 동작하는지.
+// 10) P12-2 + 노드 그래프 2b-2 — 이야기 마무리 인물 추출(실제 Sonnet 1회)은 확인 없이 확정하지
+//    않는다: 새 이름 = 초안 + 확인 대기 연결, PersonLifeEvent 없음, /people 미노출, 이야기의 대상
+//    인물에는 연결을 안 만듦 → 확인(맞아요) 뒤 확정 + 연결 CONFIRMED + PersonLifeEvent.
 
 import "dotenv/config";
 
@@ -33,7 +36,8 @@ import {
 } from "../lib/person-chat";
 import { buildPersonAddress } from "../lib/person-honorific";
 import { detectGaps } from "../lib/gap-detector";
-import { deletePerson } from "../lib/people";
+import { deletePerson, listPeople } from "../lib/people";
+import { countPendingPeople, decidePeople, getPendingPeopleGroups } from "../lib/node-confirm";
 import { getConfirmedLifeEvent, listConfirmedLifeEvents } from "../lib/life-event-query";
 
 async function cleanup() {
@@ -358,20 +362,51 @@ async function scenarioP12() {
   if (r3.firstPersonName !== "김부장") fail(`expected name 김부장, got ${r3.firstPersonName}`);
   console.log("address:", buildPersonAddress(r3.firstPersonName, r3.firstPersonRelation));
 
-  // --- P12-2 에피소드 대화 중 언급된 인물 저장(주인공 박정호는 dedup, 이순자 신규)
+  // --- P12-2 + 2b-2 에피소드 대화 중 언급된 인물(주인공 박정호 = 이야기의 대상 인물, 이순자 신규)
+  // 실제 흐름처럼 이야기(박정호와의 이야기)를 먼저 저장하고, 그 이야기 id 로 추출·저장한다.
+  const story = await createEpisodeBridge(
+    user.id, middle.id, "중학교 입학", 1963,
+    "운동회 때 박정호 선생님이 저희 반을 응원하시느라 목이 쉬셨다. 국어 선생님 이순자 씨도 다정하셨다.",
+    "[본인] 운동회", r1.firstPersonId,
+  );
+  if (!story) fail("episode bridge for P12-2 not created");
   const saved = await savePeopleMentionedInEpisode(
     user.id,
     middle.id,
+    story.episodeId,
     "박정호 선생님과 기억나는 일 있으세요?",
     "운동회 때 저희 반을 응원하시느라 목이 쉬셨어요.\n국어 선생님 이순자 씨도 기억나요. 참 다정하셨죠.",
   );
-  console.log("savePeopleMentionedInEpisode count:", saved);
+  console.log("savePeopleMentionedInEpisode links:", saved);
   const lee = await prisma.person.findFirst({ where: { userId: user.id, name: "이순자" } });
   const parkCountAfter = await prisma.person.count({ where: { userId: user.id, name: "박정호" } });
-  console.log("이순자 saved (expect true):", lee !== null, "/ 박정호 still 1 (expect 1):", parkCountAfter);
-  if (!lee || parkCountAfter !== 1) fail("episode person extraction wrong");
+  console.log("이순자 saved as draft (expect true):", lee?.isDraft, "/ 박정호 still 1 (expect 1):", parkCountAfter);
+  if (!lee || !lee.isDraft || lee.companionSessionId !== null || parkCountAfter !== 1) fail("episode person extraction should create a draft");
+  const leeLinkBefore = await prisma.personLifeEvent.findFirst({ where: { personId: lee.id, lifeEventId: middle.id } });
+  const proposed = await prisma.nodeLink.findFirst({
+    where: { userId: user.id, fromType: "EPISODE", fromId: story.episodeId, toType: "PERSON", toId: lee.id },
+  });
+  const parkLinked = await prisma.nodeLink.count({
+    where: { userId: user.id, fromType: "EPISODE", fromId: story.episodeId, toType: "PERSON", toId: r1.firstPersonId },
+  });
+  console.log("확인 전 — PersonLifeEvent 없음(expect true):", leeLinkBefore === null, "/ 연결:", proposed?.status, proposed?.source, "/ 대상 인물 연결(expect 0):", parkLinked);
+  if (leeLinkBefore) fail("이순자 must not be linked to the event before confirmation");
+  if (proposed?.status !== "PROPOSED" || proposed.source !== "AI") fail("이순자 should have a PROPOSED AI link to the story");
+  if (parkLinked !== 0) fail("the story subject (Episode.personId) must not get a NodeLink");
+  if ((await listPeople(user.id)).some((p) => p.id === lee.id)) fail("draft must not appear in /people before confirmation");
+  const row = (await getPendingPeopleGroups(user.id)).flatMap((g) => g.rows).find((r) => r.linkId === proposed.id);
+  if (!row || row.registered) fail("confirm screen should list 이순자 as a new (unregistered) person");
+
+  const decided = await decidePeople(user.id, [{ linkId: proposed.id, kind: "yes" }]);
+  const leeAfter = await prisma.person.findUnique({ where: { id: lee.id } });
+  const linkAfter = await prisma.nodeLink.findUnique({ where: { id: proposed.id } });
   const leeLink = await prisma.personLifeEvent.findFirst({ where: { personId: lee.id, lifeEventId: middle.id } });
-  if (!leeLink) fail("이순자 should be linked to middle school event");
+  console.log("확인 후 — decided:", decided, "/ isDraft:", leeAfter?.isDraft, "/ 연결:", linkAfter?.status, "/ PersonLifeEvent:", leeLink !== null);
+  if (decided.done.length !== 1 || leeAfter?.isDraft !== false || linkAfter?.status !== "CONFIRMED" || !leeLink) {
+    fail("맞아요 should confirm the person, the link and add PersonLifeEvent");
+  }
+  if ((await countPendingPeople(user.id)) !== 0) fail("no pending people should remain");
+  if (!(await listPeople(user.id)).some((p) => p.id === lee.id)) fail("confirmed person should appear in /people");
 
   await deleteAccountTx(user.id);
   const userAfter = await prisma.user.findUnique({ where: { id: user.id } });

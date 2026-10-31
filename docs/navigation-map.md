@@ -1,7 +1,7 @@
 # 라이프북 — 버튼·링크 이동 지도 (Navigation Map)
 
 > 서비스의 모든 버튼/링크가 **어디로 이동하는지** 한눈에 보는 문서.
-> 작성: 2026-06-26 · 최신화: 2026-10-30(proxy 동의 버전 검사 — 이전 버전 동의자 전 화면 → `/consent`, `/lab` proxy 404) · 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드, 같은 날 허용 목록 게이트 제거 — V3 전원) · 코드 기준 정리.
+> 작성: 2026-06-26 · 최신화: 2026-11-01(노드 그래프 2b-2 — 이야기에 나온 인물 확인 `/story-review/confirm`, `/chat-v3` 종료 시 대기 있으면 그리로) · 2026-10-30(proxy 동의 버전 검사 — 이전 버전 동의자 전 화면 → `/consent`, `/lab` proxy 404) · 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드, 같은 날 허용 목록 게이트 제거 — V3 전원) · 코드 기준 정리.
 > 표기: `→ /경로` 내부 이동, `↗ https://…` 외부 새 탭, `⚙ 액션` 서버액션(페이지 전환 없음/새로고침).
 
 ---
@@ -26,6 +26,7 @@
    └─ [새 방식으로 이야기해보기] 배너 → 확인 모달 → ⚙ onboardingTrack=V3 → /start
 
 /story-review (v3 메인) ── [이야기하기] 갭 카드 ──▶ /chat-v3(?gapEventId=…) ──▶ (완료) /story-review
+                                                                              └ 인물 확인 대기 있으면 /story-review/confirm ──[확인 마치기]──▶ /story-review
 ```
 
 ---
@@ -124,6 +125,7 @@
 | `/start` | V2 트랙으로 직접 진입 시 → `/enter` (자동 전환 없음) |
 | `/chat-v3` | V2 트랙으로 직접 진입 시 → `/enter` |
 | `/story-review` | V2 트랙으로 직접 진입 시 → `/enter` |
+| `/story-review/confirm` | 비로그인 → `/login` · V2 트랙으로 직접 진입 시 → `/enter` |
 | `/interview` | 비로그인 → `/login` · V2 트랙 → `/enter` · 동의 버전 < 현재 → `/consent` · 골격 미완성·확인대기 있음 → `/chat-v3` |
 | `/onboarding-chat` (v2 파이프라인) | V3 트랙으로 직접 진입 시 → `/enter` |
 | `/life-timeline` (P20-2b) | V3 트랙으로 직접 진입 시 → `/story-review` |
@@ -141,6 +143,10 @@
 | `/start` | 시작하기 | → `/chat-v3` |
 | `/story-review` | 갭 카드 [이야기하기] | → `/chat-v3?gapEventId=…&gapType=…` |
 | `/story-review` | 오늘의 인터뷰 카드 [시작하기 / 이어서 하기 / 오늘 답 보기] (항상 표시) | → `/interview` |
+| `/story-review` | 정리할 것 카드 [확인하러 가기] (인물 확인 대기 ≥1 일 때만, 인터뷰 카드 위) | → `/story-review/confirm` |
+| `/chat-v3` | 대화 종료(뼈대 완성·질문 상한·그만할래요) | 인물 확인 대기 ≥1 → `/story-review/confirm`, 0 → `/story-review` |
+| `/story-review/confirm` | 행마다 [맞아요 / 고칠게요 / 아니에요] · 화면 위 [모두 맞아요](남은 행 2개 이상) · 고칠게요 열림 [이렇게 고칠게요 / 취소] | ⚙ 확인 처리(페이지 전환 없음) |
+| `/story-review/confirm` | 확인 마치기 · (대기 0 으로 들어오면) 지금까지 채운 이야기 보기 | → `/story-review` |
 | `/life-timeline` (V2) | [새 방식으로 이야기해보기] 배너 → 확인 모달 [예, 새 방식으로] | ⚙ `onboardingTrack=V3` → `/start` |
 
 ### 오늘의 인터뷰 `/interview` (로그인한 V3 사용자 전원 — `docs/phase/today-interview.md`)
@@ -152,6 +158,7 @@
 | 문항 | 오늘은 그만할게요 | ⚙ (답한 이야기 있으면 저장) → 중단 화면(페이지 전환 없음) |
 | 중단 화면 | 이어서 하기 / 지금까지 채운 이야기 보기 | 같은 문항부터(전환 없음) / → `/story-review` |
 | 종료 요약 | 지금까지 채운 이야기 보기 / 더 이야기 나누기 | → `/story-review` / → `/chat-v3` |
+| 종료 요약 | 인물 확인 카드 [확인하러 가기] (대기 ≥1 일 때만) | → `/story-review/confirm` |
 | 빈 계획 | 더 이야기 나누기 / 지금까지 채운 이야기 보기 | → `/chat-v3` / → `/story-review` |
 
 ### 법적·고객센터·초대
