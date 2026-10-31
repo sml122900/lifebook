@@ -19,8 +19,8 @@ export const NODE_RANK: readonly NodeType[] = ["LIFE_EVENT", "EPISODE", "PERSON_
 
 export type NodeRef = { type: NodeType; id: string };
 
-// 정규화된 (from, to) 순서로 쓴 허용 쌍. 문서 §1.5 표의 NodeLink 행만.
-const ALLOWED_PAIRS = new Set<string>([
+// 정규화된 (from, to) 순서로 쓴 허용 쌍. 문서 §1.5 표의 NodeLink 행만. 정합 점검(lib/node-graph-reconcile.ts)도 이 목록을 쓴다.
+export const ALLOWED_PAIRS: ReadonlySet<string> = new Set<string>([
   "LIFE_EVENT>EPISODE", // 이야기의 추가 소속 시기(주 소속은 Episode.lifeEventId)
   "LIFE_EVENT>PERSON_GROUP",
   "LIFE_EVENT>PLACE",

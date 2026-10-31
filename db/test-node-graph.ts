@@ -11,6 +11,9 @@
 //   ⑦ 같은 유형 중심 2개일 때 인터뷰 계획 — 풀 질문 1번·대상 = 세션과 같은 기준의 첫 사건
 //   ⑧ Q9 — 이야기 본문 정정(updateEpisodeContent) 시 다듬기 3필드 초기화, 다듬기
 //      (refineMemorySpelling — /api/memory/[id]/refine 본체)는 life_event 행만(모델 호출 전 차단)
+//   ⑨ 정합 점검(2b-1, lib/node-graph-reconcile.ts — db/reconcile-node-links.ts 본체) — 일부러 만든 이상 행을
+//      항목별로 세고, 정리는 끝 없는 연결·노드 없는 본문·고아 초안 3종만(정상 행·보고 전용 항목 무변),
+//      다른 사용자 범위는 0
 //
 // 자체 픽스처 계정 3개만 만들고 지운다(test30·실고객 접촉 0).
 // 실행: npx tsx db/test-node-graph.ts
@@ -30,6 +33,7 @@ import { startInterviewSession } from "../lib/interview/session";
 import { deleteCustomLifeEvent } from "../lib/life-event-delete";
 import { refineMemorySpelling } from "../lib/memory-refine";
 import { NODE_RANK, normalizeNodePair, saveNodeLink } from "../lib/node-graph";
+import { applyNodeGraphCleanup, countNodeGraphIssues } from "../lib/node-graph-reconcile";
 import { syncV3Bridge } from "../lib/poster/v3-bridge";
 
 const EMAIL_A = "fixture-nodegraph-a@lifebook.invalid";
@@ -315,6 +319,51 @@ async function main() {
     });
     const rLife = await trackAiUsage(usage, () => refineMemorySpelling(c, lifeRow.id, "haiku"));
     check("⑧ 다듬기 — life_event 행은 그대로 통과(빈 본문 = empty, 모델 호출 0)", rLife.status === "empty" && usage.calls === 0, rLife);
+
+    // ── ⑨ 정합 점검(2b-1) ─────────────────────────────────────────
+    const clean0 = await countNodeGraphIssues({ userId: a });
+    check("⑨ 정상 상태 — 끝 없는 연결·주인 불일치·방향·한 쌍 두 곳·본문·고아 초안 0",
+      clean0.danglingLinks === 0 && clean0.ownerMismatch === 0 && clean0.badDirectionOrPair === 0 &&
+        clean0.primaryMembershipDup === 0 && clean0.episodeSubjectDup === 0 && clean0.bodyMissingNode === 0 &&
+        clean0.bodyOwnerMismatch === 0 && clean0.bodyForeignMemory === 0 && clean0.staleBodies === 0 &&
+        clean0.missingPhotoBlocks === 0 && clean0.orphanDrafts === 0 && clean0.locationPeople === 0,
+      clean0);
+    // 이상 행을 일부러 만든다(저장 함수를 거치지 않는 직접 삽입 — 트리거·저장 함수가 막는 상황의 흉내).
+    const ghost = await prisma.nodeLink.create({ data: { userId: a, fromType: "EPISODE", fromId: story1.episodeId, toType: "PERSON", toId: "ghost-person" } });
+    const ghostBody = await prisma.nodeBody.create({ data: { userId: a, nodeType: "PERSON", nodeId: "ghost-node", doc: { v: 1, blocks: [] }, plainText: "" } });
+    const orphan = await prisma.person.create({ data: { userId: a, name: "[fixture] 고아 초안", relation: "친구", isDraft: true }, select: { id: true } });
+    const pendingDraft = await prisma.person.create({ data: { userId: a, name: "[fixture] 대기 초안", relation: "친구", isDraft: true }, select: { id: true } });
+    await saveNodeLink(a, { type: "EPISODE", id: story1.episodeId }, { type: "PERSON", id: pendingDraft.id }, { status: "PROPOSED", source: "AI" });
+    await prisma.nodeBody.create({
+      data: { userId: a, nodeType: "EPISODE", nodeId: story1.episodeId, plainText: "예전 본문", memoryId: story1.memoryId,
+        doc: { v: 1, blocks: [{ type: "paragraph", text: "예전 본문" }, { type: "photo", photoId: "ghost-photo" }] } },
+    });
+    const subjectStory = await makeStory(a, mil, "군 입대", "짝꿍과 같은 부대로 배치됐다.", personA2);
+    await prisma.nodeLink.create({ data: { userId: a, fromType: "EPISODE", fromId: subjectStory.episodeId, toType: "PERSON", toId: personA2 } });
+    await prisma.nodeLink.create({ data: { userId: a, fromType: "LIFE_EVENT", fromId: hs, toType: "EPISODE", toId: story1.episodeId } });
+    await prisma.person.create({ data: { userId: a, name: "[fixture] 장소형 인물", subjectType: "location" } });
+    const dirty = await countNodeGraphIssues({ userId: a });
+    check("⑨ 1 끝 없는 연결 1(없는 끝 = PERSON)", dirty.danglingLinks === 1 && dirty.danglingByType.PERSON === 1, dirty.danglingByType);
+    check("⑨ 4 한 쌍 두 곳 — 주 소속 1·대상 인물 1", dirty.primaryMembershipDup === 1 && dirty.episodeSubjectDup === 1, dirty);
+    check("⑨ 5 노드 없는 본문 1 · 6 낡은 본문 1 · 7 없는 사진 블록 1", dirty.bodyMissingNode === 1 && dirty.staleBodies === 1 && dirty.missingPhotoBlocks === 1, dirty);
+    check("⑨ 8 고아 초안 1(확인 대기 연결 있는 초안은 아님) · 9 대기 1 · 10 장소형 인물 1",
+      dirty.orphanDrafts === 1 && dirty.pendingPeopleLinks === 1 && dirty.oldestPendingDays === 0 && dirty.locationPeople === 1, dirty);
+    const otherScope = await applyNodeGraphCleanup({ userId: b });
+    check("⑨ 다른 사용자 범위 정리 = 0건(이 사용자 행 무변)",
+      otherScope.danglingLinks === 0 && otherScope.bodiesMissingNode === 0 && otherScope.orphanDrafts === 0 &&
+        (await countNodeGraphIssues({ userId: a })).danglingLinks === 1,
+      otherScope);
+    const linksBefore = await prisma.nodeLink.count({ where: { userId: a } });
+    const applied = await applyNodeGraphCleanup({ userId: a });
+    const after = await countNodeGraphIssues({ userId: a });
+    check("⑨ 정리 = 3종 각 1건 → 다시 세면 0", applied.danglingLinks === 1 && applied.bodiesMissingNode === 1 && applied.orphanDrafts === 1 &&
+      after.danglingLinks === 0 && after.bodyMissingNode === 0 && after.orphanDrafts === 0, { applied, after });
+    check("⑨ 정리는 그 3종만 — 정상 연결·대기 초안·보고 전용 항목(한 쌍 두 곳·낡은 본문·사진 블록·장소형 인물) 무변",
+      (await prisma.nodeLink.count({ where: { userId: a } })) === linksBefore - 1 &&
+        (await prisma.nodeLink.count({ where: { id: ghost.id } })) === 0 && (await prisma.nodeBody.count({ where: { id: ghostBody.id } })) === 0 &&
+        (await prisma.person.count({ where: { id: orphan.id } })) === 0 && (await prisma.person.count({ where: { id: pendingDraft.id } })) === 1 &&
+        after.primaryMembershipDup === 1 && after.episodeSubjectDup === 1 && after.staleBodies === 1 && after.missingPhotoBlocks === 1 && after.locationPeople === 1,
+      after);
   } finally {
     await removeFixtures();
     console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B, EMAIL_C] } } }));
