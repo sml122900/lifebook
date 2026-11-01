@@ -10,7 +10,7 @@ import { saveConsent } from "./actions";
 // 동의 폼(클라). 필수 3종 체크박스 + 시작 버튼. 저장 후 JWT 를 갱신해야
 // 미들웨어가 consentComplete=true 를 본다.
 //
-// 문구는 개인정보 처리방침 v1.1(/privacy)과 정합 — 수집·이용은 처리방침
+// 문구는 개인정보 처리방침 v1.1~v1.2(/privacy)와 정합(v1.2 는 3항 항목에 장소 이름만 더해 이 문구 무변) — 수집·이용은 처리방침
 // 1·2항, 국외이전은 3항(Anthropic·OpenAI·Google·Vercel·Supabase, 필수 동의) 기준. "자세히 보기" 가
 // /privacy 로 연결된다. 이용약관은 /terms(표준약관 전문 게시, 2026-09)로
 // 연결.

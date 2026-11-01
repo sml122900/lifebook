@@ -2,10 +2,13 @@ import Link from "next/link";
 
 import { BUSINESS_INFO } from "@/lib/commerce/business";
 
-// 개인정보 처리방침 v1.1 (경영방 확정). 공개 정적 페이지(비로그인 접근,
+// 개인정보 처리방침 v1.2. 공개 정적 페이지(비로그인 접근,
 // proxy.ts PUBLIC_PATHS 등록). 2026-09-10 — 토스페이먼츠 PG 심사 대응으로
 // placeholder([시행일] 배너·10항 시행일) 제거, 정식 시행일로 확정.
 // v1.1(2026-10-24 시행) —가입·로그인 수단과 수집 항목 정비, 국외 이전 대상 추가, 처리위탁 목록 갱신.
+// v1.2(2026-11-02 시행) — 3항 Anthropic 이전 항목에 "장소 이름" 추가(이야기 정리 때 이미 기록된 장소와
+//   같은 곳인지 맞추려고 장소 이름 목록을 함께 보냄 — 주소·좌표 제외). 이전받는 자·국가·목적·보유 기간은 그대로라
+//   동의 버전은 올리지 않음(판단 근거: docs/phase/my-life-restructure.md 결정 로그 2026-11-02 "처리방침 v1.2").
 
 export const metadata = {
   title: "개인정보 처리방침 — 라이프북",
@@ -27,7 +30,7 @@ const TRANSFERS = [
     contact: "https://www.anthropic.com/legal/privacy",
     country: "미국",
     items:
-      "AI 기능 이용 시 입력하신 대화·회상 내용, 녹음을 변환한 텍스트, 답변 품질을 위해 함께 전달하는 기본 정보(출생연도·지역, 인물 이름·관계, 대화 중 답하신 내용)",
+      "AI 기능 이용 시 입력하신 대화·회상 내용, 녹음을 변환한 텍스트, 답변 품질을 위해 함께 전달하는 기본 정보(출생연도·지역, 인물 이름·관계, 장소 이름, 대화 중 답하신 내용)",
     purpose: "AI 회상 보조·문장 다듬기·인생 기록 정리·포스터 문장 생성",
     period:
       "API 처리 후 7일 이내 자동 삭제 (법령·정책 위반 대응 목적 제외, 모델 학습 미사용)",
@@ -323,13 +326,16 @@ export default function PrivacyPage() {
             이 개인정보 처리방침의 내용에 추가·삭제·수정이 있을 경우 시행 전
             서비스 내 공지를 통해 안내합니다.
           </p>
-          <p className={"mt-1 " + P}>· 시행일: 2026년 10월 24일</p>
+          <p className={"mt-1 " + P}>· 시행일: 2026년 11월 2일</p>
           <p className={P}>· 개정 이력</p>
           <ul className="flex flex-col gap-1 pl-4">
             <li className={P}>- v1.0 — 2026년 9월 10일 시행</li>
             <li className={P}>
               - v1.1 — 2026년 10월 24일 시행 (가입·로그인 수단과 수집 항목 정비,
               국외 이전 대상 추가, 처리위탁 목록 갱신)
+            </li>
+            <li className={P}>
+              - v1.2 — 2026년 11월 2일 시행 (국외 이전 항목에 장소 이름 추가)
             </li>
           </ul>
         </Article>

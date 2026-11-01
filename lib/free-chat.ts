@@ -530,6 +530,18 @@ export async function recentSavedStories(userId: string, titles: string[]): Prom
     .slice(0, RECENT_TITLES_MAX);
 }
 
+// 이번 구간 밖의 글 — 앞 구간 본인 말(구간 시작 전, 최근 SEGMENT_MESSAGES_MAX 개) + 방금 남긴 이야기 제목·본문.
+// 제안 카드 제목·장소가 이 글에만 있는 낱말을 쓰면 코드가 비운다(lib/node-proposal materialGuard — 2026-11-02 버그).
+export async function outsideSegmentText(userId: string, segmentStart: Date, saved: { title: string; summary: string }[]): Promise<string> {
+  const before = await prisma.onboardingChatMessage.findMany({
+    where: { userId, role: "user", createdAt: { lt: segmentStart } },
+    orderBy: { createdAt: "desc" },
+    take: SEGMENT_MESSAGES_MAX,
+    select: { content: true },
+  });
+  return [...before.map((r) => r.content), ...saved.flatMap((s) => [s.title, s.summary])].join("\n");
+}
+
 export type ProposeResult =
   | { kind: "card"; view: ProposalView }
   | { kind: "none"; segmentTurns: number }
@@ -568,10 +580,12 @@ export async function proposeFromSegment(
   if (await isOverDailyBudget(now)) return { kind: "budget" };
 
   const topic = await topicInfo(userId, seg);
+  const alreadySaved = await recentSavedStories(userId, seg.recentTitles);
   const result = await buildProposal(userId, {
     turns: turns.map((t): TranscriptTurn => ({ role: t.role, text: t.content })),
     topic: topic.carried ? `직전 이야기의 시기 ${topic.label}(대화가 분명히 다른 때를 말하지 않으면 이 시기)` : topic.label,
-    alreadySaved: await recentSavedStories(userId, seg.recentTitles),
+    alreadySaved,
+    foreignText: await outsideSegmentText(userId, seg.startedAt, alreadySaved),
     centerId: topic.centerId,
     centerFixed: false,
     targetPersonId: topic.targetPersonId,

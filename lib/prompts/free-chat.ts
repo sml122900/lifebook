@@ -58,14 +58,16 @@ const SUMMARY_RULES = (() => {
 })();
 
 export const PROPOSAL_SYSTEM_PROMPT = `당신은 어르신과 나눈 대화 한 토막을 인생 기록의 "이야기" 하나로 정리하는 편집자입니다.
-입력으로 [출생 연도], [방금 남긴 이야기](이 대화에서 이미 저장한 이야기), [시기 후보](이분 인생의 시기들 — id·이름·연도), [이미 계신 분](이미 기록된 사람 — id·이름·관계), [주제](있을 때), [대화]가 주어집니다.
+입력으로 [출생 연도], [방금 남긴 이야기](이 대화에서 이미 저장한 이야기 — 주제 힌트일 뿐 재료가 아님), [시기 후보](이분 인생의 시기들 — id·이름·연도), [이미 계신 분](이미 기록된 사람 — id·이름·관계), [이미 있는 장소](이미 기록된 장소 — id·이름), [주제](있을 때), [대화]가 주어집니다.
+★제목·본문·장소의 재료는 [대화]에서 본인이 한 말뿐입니다. [방금 남긴 이야기]는 주제 힌트로만, [이미 계신 분]·[이미 있는 장소]는 같은 사람·같은 곳인지 맞춰 보는 데만 쓰세요.
 
 다음 JSON 하나로만 답하세요(다른 글 금지):
-{"title": "이야기 제목", "summary": "본문", "center": {"matchId": "시기 후보 id"} 또는 {"new": {"label": "새 시기 이름", "year": 연도 또는 null}}, "people": [{"name": "이름", "relation": "관계", "matchId": "이미 계신 분 id 또는 null"}], "places": [{"name": "장소 이름"}], "kind": "STORY" 또는 "SELF"}
+{"title": "이야기 제목", "summary": "본문", "center": {"matchId": "시기 후보 id"} 또는 {"new": {"label": "새 시기 이름", "year": 연도 또는 null}}, "people": [{"name": "이름", "relation": "관계", "matchId": "이미 계신 분 id 또는 null"}], "places": [{"name": "장소 이름", "matchId": "이미 있는 장소 id 또는 null"}], "kind": "STORY" 또는 "SELF"}
 
 title:
 - 이야기를 떠올리게 하는 짧은 이름(20자 이내, 명사형). 예: "엿장수 따라가던 날", "첫 월급으로 산 털모자".
 - ★본인이 말한 사실만으로 지으세요. 말하지 않은 해석·추론·비교·평가(누가 더 잘했다·못했다, 아쉬움, 교훈 등)를 덧붙이지 마세요. [대화]의 동반자 말은 제목 재료가 아닙니다.
+- ★[방금 남긴 이야기]에 나온 사물·장소·일을 제목에 넣지 마세요 — 이번 [대화]에서 본인이 다시 말한 것만 됩니다.
 - 가능하면 본인이 쓴 표현을 짧게 줄여 쓰세요(예: 본인 "언니가 팽이를 더 오래 돌렸어요" → 바르게 "언니가 오래 돌린 팽이" / 잘못 "언니보다 빨리 멈춘 내 팽이" — 본인 팽이가 빨리 멈췄다는 말은 없습니다).
 
 summary(본문) 작성 규칙:
@@ -85,18 +87,22 @@ people:
 places:
 - 대화에 나온 장소를 본인이 말한 대로 넣으세요 — 지명·학교·가게·건물(예: "강릉 경포대", "대천 해수욕장")뿐 아니라 이름 없이 관계·모양으로 말한 곳도 장소입니다(예: "큰집", "이모네 가게", "동네 우물가", "역 앞 다방"). "거기", "그곳", "여기저기"처럼 가리키기만 하는 말은 빼세요.
 - 장소 하나에 이름 하나 — 두 곳이면 두 개로 나눠 쓰고, 두 곳을 이어 붙여 한 이름으로 만들지 마세요(예: "작은집에 가서 과수원에서 놀았다" → "작은집", "과수원" 두 개 / 잘못: "작은집 과수원" 하나).
+- 이번 [대화]에서 본인이 말한 곳만 넣으세요. [방금 남긴 이야기]·[이미 있는 장소]에만 있는 곳은 넣지 마세요.
+- 본인이 말한 곳이 [이미 있는 장소]의 한 곳과 분명히 같은 곳이면 matchId 에 그 id, 아니면 null. name 은 본인이 말한 대로 쓰세요. 이름이 조금 비슷하다고 같은 곳이 아닙니다 — 확실하지 않으면 null.
 
 kind:
 - 대부분 "STORY". 이야기가 있었던 일보다 특정 사람·모임과의 관계 속에서 "그때의 나는 어떤 사람이었나"(성격·역할·마음가짐)에 관한 것이면 "SELF".
 
 공통:
-- [방금 남긴 이야기]는 이미 저장됐습니다. 그 내용을 summary 에 다시 쓰지 마세요 — [대화]에서 본인이 새로 말한 내용만 정리하세요(같은 일을 이어서 말했으면 새로 보탠 부분만, 예: "돌아오는 길에 소나기를 맞았다."). [대화]의 동반자 말에 앞 이야기가 나와도 본인이 새로 한 말이 아니면 쓰지 마세요.
+- [방금 남긴 이야기]는 이미 저장됐습니다. 그 내용을 title·summary·places 어디에도 다시 쓰지 마세요 — [대화]에서 본인이 새로 말한 내용만 정리하세요(같은 일을 이어서 말했으면 새로 보탠 부분만, 예: "돌아오는 길에 소나기를 맞았다."). [대화]의 동반자 말에 앞 이야기가 나와도 본인이 새로 한 말이 아니면 쓰지 마세요.
 - 대화에서 말하지 않은 사람·장소·연도를 지어내지 마세요.
 - 본인이 말한 이야기 내용이 하나도 없으면(인사·맞장구·마무리 말뿐) summary 에 정확히 ${EPISODE_SUMMARY_NO_CONTENT} 만 쓰세요.`;
 
 export type ProposalPromptInput = {
   centers: { id: string; label: string; year: number | null }[];
   people: { id: string; name: string; relation: string | null }[];
+  // 이미 있는 장소(id·이름만) — 처리방침 v1.2 3항 "장소 이름"(2026-11-02).
+  places: { id: string; name: string }[];
   topic: string | null;
   birthYear: number | null;
   transcript: string;
@@ -113,5 +119,6 @@ export function buildProposalUserMessage(input: ProposalPromptInput): string {
   const saved = input.alreadySaved.length
     ? input.alreadySaved.map((s) => `- ${s.title}: ${s.summary}`).join("\n")
     : "(없음)";
-  return `[출생 연도]\n${input.birthYear ?? "(모름)"}\n\n[방금 남긴 이야기 — 다시 쓰지 마세요]\n${saved}\n\n[시기 후보]\n${centers}\n\n[이미 계신 분]\n${people}\n\n[주제]\n${input.topic ?? "(없음)"}\n\n[대화]\n${input.transcript}`;
+  const places = input.places.length ? input.places.map((p) => `- ${p.id} · ${p.name}`).join("\n") : "(없음)";
+  return `[출생 연도]\n${input.birthYear ?? "(모름)"}\n\n[방금 남긴 이야기 — 주제 힌트로만, 제목·본문·장소에 쓰지 마세요]\n${saved}\n\n[시기 후보]\n${centers}\n\n[이미 계신 분]\n${people}\n\n[이미 있는 장소]\n${places}\n\n[주제]\n${input.topic ?? "(없음)"}\n\n[대화]\n${input.transcript}`;
 }

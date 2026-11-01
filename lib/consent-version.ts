@@ -4,4 +4,6 @@
 //   2 — 음성 녹음 파일 추가 수집 (2026-06-19, Phase 7b)
 //   3 — AI 음성 동반자(실시간 멀티턴 대화) 추가, CLOVA STT 국내 위탁 명시 (2026-06-22)
 //   4 — 처리방침 v1.1: 로그인 수단 4종·수집 항목 정비, 국외 이전 대상 추가(OpenAI·Google·Vercel·Supabase), 국외 이전 필수 동의 명시 (2026-10-24)
+//   (4 유지) — 처리방침 v1.2(2026-11-02): 3항 Anthropic 이전 항목에 장소 이름 추가. 이전받는 자·국가·목적·보유 기간이
+//     같아 올리지 않음(근거: docs/phase/my-life-restructure.md 결정 로그 2026-11-02 "처리방침 v1.2").
 export const CURRENT_CONSENT_VERSION = 4;

@@ -13,6 +13,8 @@
 // 실제 모델 항목 실패는 db/test-logs/live-failures/ 에 입출력, 시나리오 A 4턴 이내 제안 비율은 db/test-logs/live-stats.jsonl.
 // ⑮(LLM 0) = 남은 구간 처리 — 6시간 넘은 구간 입장 때 닫음(짧으면 조용히·실질 내용은 카드부터)·주제 바뀜/다른 주제 + 짧으면 카드 없음(E2E 같은 문장·시각 조작).
 // ⑭(LLM 0) = 긴 제목 표시 — 20자 안팎 어절 경계 줄임(저장 안내·지도 노드·목록)·카드 제목 2줄·머리말 scroll-padding.
+// ⑰(LLM 0) = 제안 재료 확인(2026-11-02) — 제목·장소는 이번 구간 본인 말에서만(저장한 이야기·앞 구간 낱말이면 제목 비움·장소 뺌)·
+//   장소 후보 목록(처리방침 v1.2 — 이름만)·모델이 고른 이름 다른 장소 = 되묻기. --live G = 같은 버그 재현(냇가·수박) + 장소록의 곳을 말하면 연결.
 // ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@·fixture-chat-e2e@lifebook.invalid)만 만들고 끝에 지운다.
 // 실고객·test30 접촉 0. 원가 원장(ChatV3Usage)은 실제 호출 원가라 남긴다(탈퇴처럼 userId 만 비워짐).
 
@@ -49,6 +51,7 @@ import {
   recentSavedStories,
   getFreeChatTopic,
   isAppNotice,
+  outsideSegmentText,
   isShortLeftover,
   LEFTOVER_SHORT_MAX_CHARS,
   LEFTOVER_SHORT_MAX_TURNS,
@@ -65,7 +68,20 @@ import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { Prisma } from "../lib/generated/prisma/client";
 import { getMyLifeData } from "../lib/my-life";
 import { searchMyLife } from "../lib/my-life-search";
-import { cardToEdit, createFromCard, overlappingPlaces, parseCard, personRow, placeRow, type CardEdit, type ProposalCard } from "../lib/node-proposal";
+import {
+  cardToEdit,
+  contentWords,
+  createFromCard,
+  foreignOnlyWords,
+  overlappingPlaces,
+  parseCard,
+  personRow,
+  placeFromModel,
+  placeRow,
+  placeSaidNow,
+  type CardEdit,
+  type ProposalCard,
+} from "../lib/node-proposal";
 import { periodMemoryId, syncV3Bridge } from "../lib/poster/v3-bridge";
 import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
 import { DEFAULT_PERIOD_LABELS, displayTitle, isPeriodNameTitle, SHORT_TITLE_MAX, shortTitle, storedStoryTitle } from "../lib/story-title";
@@ -237,7 +253,11 @@ function staticChecks() {
   check("⑦ /enter V3 설정 완료 → /my-life(Q68)", /if \(unconfirmed === 0\) \{\s*redirect\("\/my-life"\);/.test(read("app/enter/page.tsx")));
   check("⑦ /my-life 채팅 진입 버튼(→ /chat-v3)", (read("app/my-life/MyLifeView.tsx").match(/href="\/chat-v3"/g) ?? []).length >= 3);
   check("⑦ proxy.ts 무접촉(자유 대화 언급 없음)", !/free-chat|chat-v3/.test(read("proxy.ts")));
-  check("⑦ 제안 호출 후보에 장소 목록 없음(Q70) — 프롬프트 입력에 장소 칸 없음", !read("lib/prompts/free-chat.ts").includes("[이미 있는 장소]") && !/places:\s*\{\s*id/.test(read("lib/prompts/free-chat.ts")));
+  // Q70 — 장소 후보 목록은 처리방침 v1.2(3항 Anthropic 이전 항목 "장소 이름") 이후에만(2026-11-02 반영). 이름만, 주소·좌표 없음.
+  check("⑦ 제안 호출 장소 후보(Q70) — 처리방침 3항 Anthropic 항목에 장소 이름이 있을 때만 · 보내는 칸은 id·이름뿐",
+    read("lib/prompts/free-chat.ts").includes("[이미 있는 장소]") === /to: "Anthropic, PBC",[^}]*?items:\s*"[^"]*장소 이름/.test(read("app/privacy/page.tsx")) &&
+      /places: \{ id: string; name: string \}\[\];/.test(read("lib/prompts/free-chat.ts")) &&
+      /select: \{ id: true, name: true \}/.test(read("lib/node-proposal.ts").slice(read("lib/node-proposal.ts").indexOf("async function userPlaces"))));
 }
 
 async function cardChecks(fx: Fixture) {
@@ -666,8 +686,8 @@ async function e2eFollowupChecks(fx: Fixture) {
   check("⑨-1 앱 안내문 판정 — 만든 뒤·안 만들기·인사 = 안내문 / 본인 말 같은 문장 = 아님",
     isAppNotice(FREE_CHAT_COPY.created("방학마다 외할머니 댁 개울에서 물고기 잡기")) && isAppNotice(FREE_CHAT_COPY.declined) &&
       isAppNotice(FREE_CHAT_COPY.greeting) && !isAppNotice("그 이야기를 My Life 에 남겼어요 하고 웃었어요") && !isAppNotice("네 맛있었어요"));
-  const msg = buildProposalUserMessage({ centers: [], people: [], topic: null, birthYear: 1958, transcript: "[본인] x", alreadySaved: [{ title: "개울 물고기", summary: "개울에서 물고기를 잡았다." }] });
-  check("⑨-1 제안 입력에 [방금 남긴 이야기 — 다시 쓰지 마세요] 제목·본문", msg.includes("[방금 남긴 이야기 — 다시 쓰지 마세요]\n- 개울 물고기: 개울에서 물고기를 잡았다."));
+  const msg = buildProposalUserMessage({ centers: [], people: [], places: [], topic: null, birthYear: 1958, transcript: "[본인] x", alreadySaved: [{ title: "개울 물고기", summary: "개울에서 물고기를 잡았다." }] });
+  check("⑨-1 제안 입력에 [방금 남긴 이야기 — 주제 힌트로만, 제목·본문·장소에 쓰지 마세요] 제목·본문", msg.includes("[방금 남긴 이야기 — 주제 힌트로만, 제목·본문·장소에 쓰지 마세요]\n- 개울 물고기: 개울에서 물고기를 잡았다."));
 
   // [만들기] 직후 — 구간 = 그 뒤 턴만, 안내문만 있으면 실질 0 · 제안 호출 0. 다음 기본 시기 = 방금 만든 이야기의 시기.
   await prisma.chatV3Segment.update({ where: { userId }, data: { startedAt: new Date(), proposal: Prisma.DbNull, topicEventId: null, topicGapType: null, topicPersonId: null } });
@@ -748,6 +768,8 @@ const FIXTURE_WORDS = [
   "운동회", "수학여행", "불국사", "해운대", "신문 배달", "논산", "미숫가루", "신발 공장", "돼지국밥",
   "정다운", "서울역", "김민수", "박영수", "외삼촌", "담임 선생님", "서울 상경", "졸업식", "소풍", "보물찾기",
   "셋방", "운동장", "스무 살",
+  // ⑰·--live G(2026-11-02 — 제목 출처 버그 재현·장소 후보)
+  "냇가", "수박", "장작", "물집", "나루터", "해 질 녘",
 ];
 
 async function placeMergeChecks(fx: Fixture) {
@@ -809,6 +831,155 @@ async function placeMergeChecks(fx: Fixture) {
   const replyOwn = buildFreeChatReplySystemPrompt({ birthYear: null, topic: null, recentTitles: [] });
   const hits = FIXTURE_WORDS.filter((w) => proposalOwn.includes(w) || replyOwn.includes(w));
   check("⑩ 프롬프트 예시 소재 — 재현 대화·픽스처 낱말 0(응답·제안 프롬프트)", hits.length === 0 && proposalOwn.length < PROPOSAL_SYSTEM_PROMPT.length, hits);
+}
+
+// ─── 제안 재료 확인 + 장소 후보(2026-11-02) — LLM 0 ─────────────────────────────
+
+// 버그 재현 문장(운영과 같은 모양): 저장된 구간 "냇가에서 수박을 먹었어요" → 새 구간 카드 제목 "냇가에서 수박 나눠 먹던 날".
+const SAVED_LINES = ["여름이면 냇가에서 수박을 먹었어요", "동생이랑 나눠 먹었어요"];
+const NEW_LINES = ["겨울에는 아버지랑 장작을 팼어요", "손에 물집이 잡혔어요"];
+
+async function materialChecks(fx: Fixture) {
+  const { userId } = fx;
+  const src = { user: NEW_LINES.join(" "), foreign: [...SAVED_LINES, "냇가에서 수박 먹던 여름", "여름이면 냇가에서 동생과 수박을 나눠 먹었다."].join("\n"), allowed: "국민학교 입학 중학교 입학" };
+  check("⑰ 낱말 뽑기 — 조사 떼고 2자 이상(냇가에서 → 냇가)", contentWords("냇가에서 수박 나눠 먹던 날").join() === "냇가,수박,나눠,먹던", contentWords("냇가에서 수박 나눠 먹던 날"));
+  const leaked = foreignOnlyWords("냇가에서 수박 나눠 먹던 날", src);
+  check("⑰ 재현 제목 \"냇가에서 수박 나눠 먹던 날\" → 구간 밖 낱말(냇가·수박) 잡힘", leaked.includes("냇가") && leaked.includes("수박"), leaked);
+  check("⑰ 이번 구간 말로 지은 제목 → 0(아버지랑 장작 패던 날)", foreignOnlyWords("아버지랑 장작 패던 날", src).length === 0, foreignOnlyWords("아버지랑 장작 패던 날", src));
+  check("⑰ 같은 소재를 이번 구간에 다시 말했으면 통과(\"그 냇가에 다음 날 또 갔어요\")",
+    foreignOnlyWords("냇가에 또 간 날", { ...src, user: "그 냇가에 다음 날 또 갔어요" }).length === 0);
+  check("⑰ 주제·시기 이름은 힌트라 통과(중학교)", foreignOnlyWords("중학교 겨울 장작", { ...src, foreign: src.foreign + " 중학교" }).length === 0);
+  check("⑰ 구간 밖 글이 없으면(첫 구간·인터뷰) 확인 안 함", foreignOnlyWords("냇가에서 수박 나눠 먹던 날", { ...src, foreign: "" }).length === 0);
+  check("⑰ 장소 — 구간 밖에만 있는 곳(냇가) 뺌 · 이번에 말한 곳(뒷마당) 둠 · 후보 목록에서 옮겨 온 곳(말 안 함) 뺌",
+    !placeSaidNow("냇가", src) && placeSaidNow("뒷마당", { ...src, user: src.user + " 뒷마당에서 쌓았어요" }) && !placeSaidNow("강변 나루터", src));
+
+  // 장소 후보(이름만) — 제안 입력에 [이미 있는 장소] id·이름.
+  const naru = await prisma.place.create({ data: { userId, name: "강변 나루터", address: "[fixture] 주소는 보내지 않음" }, select: { id: true } });
+  const rows = await prisma.place.findMany({ where: { userId }, select: { id: true, name: true } });
+  const msg = buildProposalUserMessage({ centers: [], people: [], places: rows, topic: null, birthYear: 1952, transcript: "[본인] x", alreadySaved: [] });
+  check("⑰ 제안 입력에 [이미 있는 장소] id·이름(주소 없음)", msg.includes(`[이미 있는 장소]\n`) && msg.includes(`- ${naru.id} · 강변 나루터`) && !msg.includes("주소는 보내지 않음"));
+  check("⑰ 프롬프트 — 재료 = 본인 말·방금 남긴 이야기 힌트만·장소 matchId 규칙",
+    PROPOSAL_SYSTEM_PROMPT.includes("재료는 [대화]에서 본인이 한 말뿐입니다") && PROPOSAL_SYSTEM_PROMPT.includes("[방금 남긴 이야기]에 나온 사물·장소·일을 제목에 넣지 마세요") &&
+      PROPOSAL_SYSTEM_PROMPT.includes("\"matchId\": \"이미 있는 장소 id 또는 null\"") && PROPOSAL_SYSTEM_PROMPT.includes("확실하지 않으면 null"));
+  // 모델이 고른 후보 — 같은 이름이면 그곳, 이름이 다르면 되묻기 맨 앞, 없는 id 무시.
+  const exact = placeFromModel(rows, "강변나루터", null);
+  const fuzzy = placeFromModel(rows, "나루터", naru.id);
+  const ghost = placeFromModel(rows, "나루터", "no-such-place");
+  check("⑰ 모델 후보 — 같은 이름(공백 무시) = 그곳 · 이름 다른데 후보 고름 = 되묻기 맨 앞 · 없는 id = 새로",
+    exact.placeId === naru.id && fuzzy.placeId === null && fuzzy.overlap?.[0]?.id === naru.id && ghost.placeId === null && (ghost.overlap?.length ?? 0) === 0, { exact, fuzzy, ghost });
+  const placesBefore = await prisma.place.count({ where: { userId } });
+  const card = baseCard({ title: "[fixture] 나루터 이야기", center: { id: fx.ev.ELEM_SCHOOL, label: "국민학교 입학", year: 1959 }, places: [fuzzy] });
+  const asked = await createFromCard(userId, card, cardToEdit(card));
+  check("⑰ [만들기] — 이름 다른 후보 = 되묻기(서버 카드의 후보, 저장 0)",
+    !asked.ok && asked.reason === "ask" && asked.placeAsk[0]?.candidates.some((c) => c.id === naru.id) === true && (await prisma.place.count({ where: { userId } })) === placesBefore, asked);
+  const same = await createFromCard(userId, card, { ...cardToEdit(card), places: [{ name: "나루터", placeId: null, decision: "same", samePlaceId: naru.id }] });
+  const ep = same.ok ? await prisma.episode.findUnique({ where: { id: same.episodeId }, select: { memoryId: true } }) : null;
+  const mp = ep ? await prisma.memoryPlace.findMany({ where: { memoryId: ep.memoryId }, select: { placeId: true } }) : [];
+  check("⑰ [같은 곳이에요] → 기존 강변 나루터에 연결 · 새 장소 0",
+    same.ok && mp.length === 1 && mp[0].placeId === naru.id && (await prisma.place.count({ where: { userId } })) === placesBefore, { same, mp });
+
+  // 구간 밖 글 = 구간 시작 전 본인 말 + 방금 남긴 이야기(제목·본문). 구간 안 말·동반자 말은 안 들어감.
+  const t0 = new Date();
+  await sleep(5);
+  await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "user", content: "[fixture] 앞 구간 본인 말 냇가" } });
+  await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "assistant", content: "[fixture] 앞 구간 동반자 말" } });
+  await sleep(5);
+  const segStart = new Date();
+  await sleep(5);
+  await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "user", content: "[fixture] 이번 구간 본인 말" } });
+  const outside = await outsideSegmentText(userId, segStart, [{ title: "수박 먹던 여름", summary: "냇가에서 수박을 먹었다." }]);
+  check("⑰ 구간 밖 글 — 앞 구간 본인 말 + 남긴 이야기 제목·본문, 이번 구간 말·동반자 말 없음",
+    outside.includes("앞 구간 본인 말 냇가") && outside.includes("수박 먹던 여름") && outside.includes("냇가에서 수박을 먹었다.") &&
+      !outside.includes("이번 구간 본인 말") && !outside.includes("동반자 말"), outside);
+  await prisma.onboardingChatMessage.deleteMany({ where: { userId, createdAt: { gte: t0 }, content: { startsWith: "[fixture]" } } });
+  check("⑰ 제안 쪽 연결 — proposeFromSegment 가 구간 밖 글을 넘기고, buildProposal 이 제목·장소를 확인",
+    /foreignText: await outsideSegmentText\(userId, seg\.startedAt, alreadySaved\)/.test(read("lib/free-chat.ts")) &&
+      /const leaked = foreignOnlyWords\(modelTitle, guard\)/.test(read("lib/node-proposal.ts")) && /if \(!placeSaidNow\(name, guard\)\)/.test(read("lib/node-proposal.ts")));
+}
+
+// --live G — 같은 버그 재현(실제 Haiku·Sonnet): 저장한 구간 "냇가에서 수박" → 다음 구간 카드에 냇가·수박 없음.
+// + 장소록에 있는 "강변 나루터"를 대화에서 "나루터"로 말함 → 새로 만들지 않고 그곳에 연결(애매하면 되묻기 → 같은 곳).
+async function liveMaterialAndPlaces() {
+  liveConversation = [];
+  const EMAIL = "fixture-chat-material@lifebook.invalid";
+  const old = await prisma.user.findUnique({ where: { email: EMAIL }, select: { id: true } });
+  if (old) await deleteAccountTx(old.id);
+  const now = new Date();
+  const userId = (
+    await prisma.user.create({
+      data: {
+        email: EMAIL, name: "[fixture] chat material", birthYear: 1955, onboardingTrack: "V3",
+        termsConsentAt: now, privacyConsentAt: now, overseasTransferConsentAt: now, privacyConsentVersion: CURRENT_CONSENT_VERSION,
+      },
+      select: { id: true },
+    })
+  ).id;
+  try {
+    await prisma.onboardingProfile.create({ data: { userId, birthYear: 1955, region: "충청", skeletonGeneratedAt: now } });
+    const rows: [LifeEventType, string, number | null][] = [["BIRTH", "출생", 1955], ["ELEM_SCHOOL", "국민학교 입학", 1962], ["MIDDLE_SCHOOL", "중학교 입학", 1968]];
+    for (const [i, [type, label, year]] of rows.entries()) {
+      await prisma.lifeEvent.create({ data: { userId, type, label, year, status: "CONFIRMED", confirmedAt: now, sequenceOrder: i, personAsked: true } });
+    }
+    const naru = await prisma.place.create({ data: { userId, name: "강변 나루터" }, select: { id: true } });
+    await getFreeChatState(userId);
+    await sleep(5);
+
+    // 첫 구간 → 카드 → [만들기](저장된 이야기 = 냇가·수박).
+    let r: FreeChatReplyResult | null = null;
+    for (const line of SAVED_LINES) r = await say(userId, line);
+    const p1 = await proposeFromSegment(userId, { until: r?.kind === "reply" ? (r.propose?.until ?? null) : null });
+    const c1 = p1.kind === "card" ? p1.view.card : null;
+    const made = c1 ? await createFromFreeChatProposal(userId, cardToEdit({ ...c1, transcript: "" })) : null;
+    if (made?.ok) {
+      await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "assistant", content: FREE_CHAT_COPY.created(made.title) } });
+      await sleep(5);
+    }
+    console.log("   G 카드1:", JSON.stringify(c1 && { title: c1.title, summary: c1.summary, places: c1.places.map((x) => x.name) }), "/ 만들기:", made?.ok);
+    check("G 실제 — 첫 구간 카드 [만들기](재현 준비 — 저장된 이야기에 냇가·수박)", !!made?.ok && /(냇가|수박)/.test(`${c1?.title} ${c1?.summary}`), { c1, made });
+
+    // 다음 구간 — 다른 이야기. 카드 제목·본문·장소에 앞 이야기 낱말(냇가·수박) 없음.
+    for (const line of NEW_LINES) r = await say(userId, line);
+    const p2 = await proposeFromSegment(userId, { until: r?.kind === "reply" ? (r.propose?.until ?? null) : null });
+    const stored2 = parseCard((await prisma.chatV3Segment.findUnique({ where: { userId }, select: { proposal: true } }))?.proposal);
+    console.log("   G 카드2:", JSON.stringify(stored2 && { title: stored2.title, summary: stored2.summary, places: stored2.places.map((x) => x.name) }));
+    check("G 실제 — 다음 구간 카드 제목·본문·장소에 앞 이야기 낱말(냇가·수박) 없음 · 이번 말(장작) 있음",
+      p2.kind === "card" && !!stored2 && !/(냇가|수박)/.test(`${stored2.title} ${stored2.summary} ${stored2.places.map((x) => x.name).join(" ")}`) && /장작/.test(stored2.summary),
+      stored2 && { title: stored2.title, summary: stored2.summary, places: stored2.places, transcript: stored2.transcript });
+    if (p2.kind === "card") await declineFreeChatProposal(userId);
+    await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "assistant", content: FREE_CHAT_COPY.declined } });
+    await sleep(5);
+
+    // 장소록에 있는 곳(강변 나루터)을 "나루터"로 말함 → 연결(새 장소 0).
+    liveConversation = [];
+    for (const line of ["어릴 때 나루터에서 아버지 배가 들어오기를 기다렸어요", "해 질 녘까지 거기 앉아 있곤 했어요"]) r = await say(userId, line);
+    const p3 = await proposeFromSegment(userId, { until: r?.kind === "reply" ? (r.propose?.until ?? null) : null });
+    const c3 = p3.kind === "card" ? p3.view.card : null;
+    const row = c3?.places.find((x) => x.name.includes("나루터"));
+    console.log("   G 카드3 장소:", JSON.stringify(c3?.places));
+    const linkedOrAsked = !!row && (row.placeId === naru.id || row.overlap?.some((o) => o.id === naru.id) === true);
+    check("G 실제 — 장소록의 곳(강변 나루터)을 \"나루터\"로 말함 → 그곳으로 맞춤(바로 연결 또는 되묻기 후보)", linkedOrAsked, c3?.places);
+    const placesBefore = await prisma.place.count({ where: { userId } });
+    let done = c3 ? await createFromFreeChatProposal(userId) : null;
+    if (done && !done.ok && done.reason === "ask" && c3) {
+      const edit = cardToEdit({ ...c3, transcript: "" });
+      done = await createFromFreeChatProposal(userId, {
+        ...edit,
+        places: edit.places.map((p) => (p.name.includes("나루터") && !p.placeId ? { ...p, decision: "same" as const, samePlaceId: naru.id } : { ...p, decision: "separate" as const })),
+      });
+    }
+    const ep = done?.ok ? await prisma.episode.findUnique({ where: { id: done.episodeId }, select: { memoryId: true } }) : null;
+    const mp = ep ? await prisma.memoryPlace.findMany({ where: { memoryId: ep.memoryId }, select: { placeId: true, placeName: true } }) : [];
+    check("G 실제 — [만들기] 뒤 새 장소 0 · 이야기 장소 = 강변 나루터",
+      !!done?.ok && mp.some((m) => m.placeId === naru.id) && (await prisma.place.count({ where: { userId, name: { contains: "나루터" } } })) === 1 &&
+        (await prisma.place.count({ where: { userId } })) <= placesBefore + Math.max(0, mp.length - 1),
+      { done, mp });
+    const u = await usageSince(userId, new Date(0));
+    console.log("   G 원가:", JSON.stringify(u));
+  } finally {
+    await deleteAccountTx(userId);
+    const left = await Promise.all([prisma.user.count({ where: { email: EMAIL } }), prisma.onboardingChatMessage.count({ where: { userId } })]);
+    check("G 정리 — 픽스처 계정·대화 로그 0", left.every((n) => n === 0), left);
+  }
 }
 
 // ─── 제목 없음(빈 문자열) — 공용 판정·[고치기]·읽는 곳(2026-11-02) — LLM 0 ───────
@@ -1235,6 +1406,7 @@ async function main() {
     await fallbackCountChecks(fx);
     await e2eFollowupChecks(fx);
     await placeMergeChecks(fx);
+    await materialChecks(fx);
     await titleChecks(fx);
     await periodTitleGuardChecks(fx);
     await leftoverChecks(fx);
@@ -1245,6 +1417,7 @@ async function main() {
       await requireTestBudget("test-chat-proposal --live");
       await liveScenarios(fx);
       await liveE2EReplay();
+      await liveMaterialAndPlaces();
     }
     const total = await usageSince(fx.userId, new Date(0));
     console.log(`\n원가 합계(이 실행, 픽스처): 호출 ${total.calls} · $${total.usd.toFixed(4)}`);

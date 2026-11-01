@@ -3,8 +3,10 @@
 // 회귀(db/test-chat-proposal.ts)가 같은 함수를 userId 로 부른다.
 //
 // 만들기(Sonnet 고정, 1회): 구간 대화 → 제목·본문·시기·사람·장소·종류. AI 에 보내는 후보 = 확정 중심과
-// 확정 인물의 id·이름(·연도·관계)만(Q70 — 장소 이름 목록은 처리방침 v1.2 전까지 보내지 않는다. 대화에서
-// 장소 이름을 뽑는 건 허용, 기존 장소와의 맞춤은 코드가 이름으로).
+// 확정 인물의 id·이름(·연도·관계) + 장소 id·이름(Q70 — 처리방침 v1.2 3항 "장소 이름", 2026-11-02 부터. 주소·좌표·
+// 메모는 안 보냄). 장소는 이름이 같으면 기존 장소(코드), 모델이 후보를 골랐는데 이름이 다르면 카드에서 되묻는다.
+// 재료 확인: 제목·장소는 이번 구간 본인 말에서만 — 구간 밖 글(앞 구간 본인 말·방금 남긴 이야기)에만 있는 낱말이면
+// 제목은 비우고(제목 없음) 그 장소는 뺀다(foreignOnlyWords·placeSaidNow).
 //
 // 저장([만들기]): 이야기 본문이 먼저(createEpisodeBridge), 사람·장소 연결은 하나씩(실패해도 이야기는 남는다).
 // 사람은 카드에서 이미 확인했으므로 확정 인물 + CONFIRMED 연결 — 초안(isDraft)·PROPOSED 를 만들지 않는다.
@@ -37,6 +39,8 @@ export const PLACE_NAME_MAX = 50;
 const MAX_PEOPLE = 8;
 const MAX_PLACES = 6;
 const MAX_OVERLAP = 3;
+// 제안 호출에 보내는 장소 후보 수 상한(운영 최대 14곳 — 이름만이라 입력 토큰 영향 작음).
+const MAX_PLACE_CANDIDATES = 60;
 // 요약 모델의 "내용 없음" 표식을 믿는 본인 발화 길이 상한(공백 제외) — lib/episode-chat.ts 와 같은 값.
 const NO_CONTENT_MAX_CHARS = 12;
 // 만난 해를 비우는 가족 관계(출생 시기에 만난 비가족은 연도가 틀리기 쉬워 비운다 — Q33).
@@ -171,6 +175,52 @@ export function placeRow(rows: PlaceRow[], name: string): CardPlace {
   return same ? { name, placeId: same.id, overlap: [] } : { name, placeId: null, overlap: overlappingPlaces(rows, name) };
 }
 
+// 모델이 고른 장소 후보(matchId)까지 본 카드 행 — 이름이 같으면 그곳(placeRow), 이름은 다른데 모델이 후보를
+// 골랐으면 애매 → 그 후보를 되묻기 맨 앞에(같은 곳/따로 만들기), 없는 id 는 무시.
+export function placeFromModel(rows: PlaceRow[], name: string, matchId: string | null): CardPlace {
+  const row = placeRow(rows, name);
+  const hit = matchId ? rows.find((r) => r.id === matchId) : undefined;
+  if (row.placeId || !hit) return row;
+  const rest = (row.overlap ?? []).filter((o) => o.id !== hit.id);
+  return { name, placeId: null, overlap: [{ id: hit.id, name: hit.name }, ...rest].slice(0, MAX_OVERLAP) };
+}
+
+// ── 재료 확인(2026-11-02) — 제목·장소는 이번 구간 본인 말에서만 ─────────────────
+// 형태소 분석 없이: 낱말 끝 조사 하나를 떼고(남는 말 2자 이상일 때만) 2자 이상 낱말을 공백 없는 본문과 부분 일치로 본다.
+const JOSA = ["에게서", "한테서", "에서는", "으로는", "에서", "에게", "한테", "으로", "로는", "까지", "부터", "처럼", "보다", "하고", "이랑",
+  "랑", "과", "와", "을", "를", "은", "는", "이", "가", "의", "도", "만", "에", "께", "로"];
+
+export function contentWords(text: string): string[] {
+  const out = new Set<string>();
+  for (const w of text.normalize("NFC").split(/[^0-9A-Za-z가-힣]+/)) {
+    const j = JOSA.find((x) => w.endsWith(x) && w.length - x.length >= 2);
+    const stem = j ? w.slice(0, -j.length) : w;
+    if (stem.length >= 2) out.add(stem.toLowerCase());
+  }
+  return [...out];
+}
+
+export type MaterialSources = { user: string; foreign: string; allowed: string };
+const flat = (s: string) => norm(s).toLowerCase();
+
+// 이번 구간 본인 말(user)엔 없고 구간 밖 글(foreign)에만 있는 낱말 — 힌트(allowed: 주제·시기 이름)에 있는 말은 뺀다.
+export function foreignOnlyWords(text: string, src: MaterialSources): string[] {
+  const user = flat(src.user);
+  const foreign = flat(src.foreign);
+  const allowed = flat(src.allowed);
+  if (!foreign) return [];
+  return contentWords(text).filter((w) => !user.includes(w) && foreign.includes(w) && !allowed.includes(w));
+}
+
+// 장소 이름이 이번 구간 본인 말에서 나왔는지 — 낱말 하나라도 본인 말에 있고(후보 목록에서 그냥 옮겨 온 곳이 아님),
+// 구간 밖 글에만 있는 낱말이 없을 때.
+export function placeSaidNow(name: string, src: MaterialSources): boolean {
+  const user = flat(src.user);
+  const words = contentWords(name);
+  const said = words.length > 0 ? words.some((w) => user.includes(w)) : user.includes(flat(name));
+  return said && foreignOnlyWords(name, src).length === 0;
+}
+
 // 사람 한 명을 카드 행으로 — 이미 계신 분(AI 의 matchId 또는 이름·관계 호환)이면 그분, 아니면 새 이름 +
 // 같은 이름 확정 인물 목록(있으면 되묻기). 2b-2 와 같은 규칙.
 export async function personRow(
@@ -214,6 +264,9 @@ export type BuildProposalInput = {
   titleHint?: string | null;
   // 이 대화에서 방금 남긴 이야기(제목·본문) — 제안 본문에 다시 쓰지 않게(E2E: 저장한 이야기가 다음 카드에 또 들어감).
   alreadySaved?: { title: string; summary: string }[];
+  // 이번 구간 밖의 글(앞 구간 본인 말·저장한 이야기 제목·본문) — 주제 힌트일 뿐 제목·장소 재료가 아니다.
+  // 주면 제목·장소에 "이번 구간 본인 말엔 없고 이 글에만 있는 낱말"이 들어왔는지 코드가 확인한다(materialGuard).
+  foreignText?: string;
   // 주면 모델 제목 대신 이 제목(오늘의 인터뷰 — 문항 주제가 제목, 지금까지와 같다). 카드에서 고칠 수 있다.
   fixedTitle?: string | null;
   until: string | null;
@@ -232,9 +285,10 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
     .trim();
   if (!rawUserText) return { kind: "empty" };
 
-  const [centers, people, birthYear, target] = await Promise.all([
+  const [centers, people, owned, birthYear, target] = await Promise.all([
     confirmedCenters(userId),
     confirmedPeople(userId),
+    userPlaces(userId),
     birthYearOf(userId),
     input.targetPersonId
       ? prisma.person.findFirst({ where: { id: input.targetPersonId, userId }, select: { id: true, name: true, relation: true } })
@@ -256,7 +310,16 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
           {
             role: "user",
             content:
-              buildProposalUserMessage({ centers, people, topic: input.topic, birthYear, transcript, alreadySaved: input.alreadySaved ?? [] }) + extra,
+              buildProposalUserMessage({
+                centers,
+                people,
+                // 장소 후보 = 이름만(id·이름 — 주소·좌표·메모 제외). 처리방침 v1.2 3항 "장소 이름"(Q70 후속, 2026-11-02).
+                places: owned.slice(0, MAX_PLACE_CANDIDATES),
+                topic: input.topic,
+                birthYear,
+                transcript,
+                alreadySaved: input.alreadySaved ?? [],
+              }) + extra,
           },
         ],
         { system: PROPOSAL_SYSTEM_PROMPT, model: PROPOSAL_MODEL, maxTokens: 1200, temperature: 0.3 },
@@ -321,22 +384,38 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
     push(await personRow(userId, name, relation, typeof p.matchId === "string" ? p.matchId : null, people));
   }
 
-  // 장소 — 이름으로 기존 장소와 맞춤(코드), 없으면 새로(기존 장소 이름을 품으면 카드에서 되묻기).
+  // 재료 확인 — 제목·장소는 이번 구간 본인 말에서만(2026-11-02 버그: 저장한 이야기의 "냇가에서 수박을 먹었어요"가
+  // 새 구간 카드 제목 "냇가에서 수박 나눠 먹던 날"로). 시기 이름·주제는 힌트라 허용.
+  const guard: MaterialSources = {
+    user: rawUserText,
+    foreign: input.foreignText ?? "",
+    allowed: [input.topic ?? "", ...centers.map((c) => c.label)].join(" "),
+  };
+
+  // 장소 — 본인이 이번 구간에 말한 곳만. 이름이 같으면 기존 장소, 모델이 후보 id 를 골랐는데 이름이 다르면
+  // 그 장소를 되묻기 후보 맨 앞에(애매 — 카드에서 같은 곳/따로 묻기), 아니면 새로(기존 이름을 품으면 되묻기).
   const places: CardPlace[] = [];
   const seenPlace = new Set<string>();
-  const placeNames = (Array.isArray(obj.places) ? obj.places : [])
-    .map((raw) => str((raw as Record<string, unknown> | null)?.name, PLACE_NAME_MAX))
-    .filter(Boolean);
-  const owned = placeNames.length > 0 ? await userPlaces(userId) : [];
-  for (const name of placeNames) {
-    if (seenPlace.has(norm(name)) || places.length >= MAX_PLACES) continue;
+  for (const raw of Array.isArray(obj.places) ? obj.places : []) {
+    const p = (raw ?? {}) as Record<string, unknown>;
+    const name = str(p.name, PLACE_NAME_MAX);
+    if (!name || seenPlace.has(norm(name)) || places.length >= MAX_PLACES) continue;
+    if (!placeSaidNow(name, guard)) {
+      console.warn("[node-proposal] place not from this segment — dropped");
+      continue;
+    }
     seenPlace.add(norm(name));
-    places.push(placeRow(owned, name));
+    places.push(placeFromModel(owned, name, typeof p.matchId === "string" ? p.matchId : null));
   }
 
   // 시기 이름 자리 표시 제목은 카드에서부터 비운다(저장 규칙과 같은 함수 — 카드에 보인 제목 = 저장될 제목).
+  // 모델 제목에 이번 구간 밖에서 온 낱말이 있으면 제목을 비운다(= 제목 없음 — 화면은 본문 첫 문장, [고치기]로 적을 수 있음).
+  const modelTitle = str(obj.title, TITLE_MAX);
+  const leaked = foreignOnlyWords(modelTitle, guard);
+  if (leaked.length > 0) console.warn("[node-proposal] title uses words from outside this segment — cleared");
   const title = storedStoryTitle(
-    input.fixedTitle?.trim().slice(0, TITLE_MAX) || str(obj.title, TITLE_MAX) || input.titleHint?.slice(0, TITLE_MAX) || summary.slice(0, 20),
+    input.fixedTitle?.trim().slice(0, TITLE_MAX) ||
+      (leaked.length > 0 ? "" : modelTitle || input.titleHint?.slice(0, TITLE_MAX) || summary.slice(0, 20)),
     centers.map((c) => c.label),
     false,
   );
@@ -498,7 +577,10 @@ export async function createFromCard(
     // 이름을 고쳤으면 그곳이 아니다(새 이름으로 다시 판단).
     let placeId = mine && norm(mine.name) === norm(name) ? mine.id : placeRow(owned, name).placeId;
     if (!placeId) {
-      const overlap = overlappingPlaces(owned, name);
+      // 되묻기 후보 = 이 이름이 품은 기존 장소 + 카드(서버 저장본)의 같은 이름 행이 가진 후보(모델이 같은 곳으로 본
+      // 이름 다른 장소 — placeFromModel). 화면이 보낸 값이 아니라 서버 카드에서 읽고, 지금도 내 장소인 것만.
+      const fromCard = (card.places.find((c) => norm(c.name) === norm(name))?.overlap ?? []).filter((o) => owned.some((r) => r.id === o.id));
+      const overlap = [...new Map([...fromCard, ...overlappingPlaces(owned, name)].map((o) => [o.id, o] as const)).values()];
       if (pl.decision === "same") {
         const pick = overlap.find((o) => o.id === pl.samePlaceId);
         if (!pick) return { ok: false, reason: "invalid", message: FREE_CHAT_COPY.repickSamePlace };
