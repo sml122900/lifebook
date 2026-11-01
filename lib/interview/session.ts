@@ -66,6 +66,9 @@ type Target = {
   question: string;
   followUp: boolean;
   topicOverride?: EpisodeTopic;
+  // topicOverride.label 이 문항 주제라 카드 제목으로 쓴다(질문 풀·"관계별 나"). 갭 문항(이야기·구간)은 주제가 시기 이름이라
+  // 제목으로 쓰지 않는다 — 시기 이름 제목 = 제목 없음(2026-11-02 정리), 카드 제목은 모델이 짓고 [고치기]로 고친다.
+  topicIsTitle?: true;
   isPeriodOverride?: boolean;
   episodeKind?: EpisodeKind; // 기본 STORY. "관계별 나"만 SELF
   relation?: SelfRelationRef; // SELF 의 관계 대상이 실제 인물·그룹일 때 — 저장 후 연결
@@ -96,6 +99,7 @@ async function resolveTarget(userId: string, itemKey: string, requireOpen: boole
       question: renderPoolText(q.text, birthYear),
       followUp: q.followUp,
       topicOverride: { label: renderPoolText(q.topic, birthYear), year: ev.correctedYear ?? ev.year },
+      topicIsTitle: true,
       isPeriodOverride: false,
     };
   }
@@ -163,6 +167,7 @@ async function resolveSelfTarget(userId: string, keyId: string): Promise<Target 
     question: renderPoolText(q.text, birthYear, who),
     followUp: q.followUp,
     topicOverride: { label: renderPoolText(q.topic, birthYear, who), year: ev.year },
+    topicIsTitle: true,
     isPeriodOverride: false,
     episodeKind: "SELF",
     relation: key.relation ?? undefined,
@@ -364,8 +369,8 @@ export async function finishInterviewStory(
         targetPersonId: null,
         kind: target.episodeKind ?? "STORY",
         isPeriod: target.isPeriodOverride ?? target.topicOverride !== undefined,
-        titleHint: target.topicOverride?.label ?? target.label,
-        fixedTitle: target.topicOverride?.label ?? target.label,
+        titleHint: target.topicIsTitle ? target.topicOverride?.label : null,
+        fixedTitle: target.topicIsTitle ? target.topicOverride?.label : null,
         until: null,
         purpose: "INTERVIEW_PROPOSAL",
       }),

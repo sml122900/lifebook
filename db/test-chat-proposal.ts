@@ -802,6 +802,12 @@ async function titleChecks(fx: Fixture) {
   });
   const screens = ["lib/my-life-search.ts", "app/my-life/MyLifeView.tsx", "app/components/ProposalCard.tsx"].filter((rel) => !code(rel).includes("displayTitle("));
   check("⑪ 제목 읽는 곳 = displayTitle(서버 5곳 · 지도·목록·패널·찾기·카드)", rawReads.length === 0 && screens.length === 0 && !code("app/my-life/MyLifeView.tsx").includes("storyText"), { rawReads, screens });
+
+  // 제목 칸에 시기 이름을 넣는 경로 0 — 오늘의 인터뷰 카드 제목은 문항 주제(질문 풀·"관계별 나")만, 갭 문항(주제 = 시기 이름)은 모델 제목.
+  const session = code("lib/interview/session.ts");
+  check("⑪ 오늘의 인터뷰 카드 제목 — 문항 주제만 고정, 갭 문항은 시기 이름을 제목으로 안 씀",
+    /fixedTitle: target\.topicIsTitle \? target\.topicOverride\?\.label : null/.test(session) && !/(fixedTitle|titleHint): target\.topicOverride\?\.label \?\? target\.label/.test(session) &&
+      (session.match(/topicIsTitle: true/g) ?? []).length === 2);
 }
 
 const FAREWELL = /(들려주셔서|고마워요|고맙습니다|감사|잘 들었|즐거웠|다음에 또|안녕히)/;
