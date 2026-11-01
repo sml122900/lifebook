@@ -5,7 +5,7 @@
 // 새 이름·고친 이름이 확정 인물과 같으면 [같은 분이에요]/[다른 분이에요], 답할 때까지 만들기 안 됨).
 // 저장 쪽(lib/node-proposal createFromCard)이 모든 값을 다시 확인한다 — 이 화면 값은 믿지 않는다.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
@@ -54,6 +54,12 @@ export function ProposalCard({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [full, setFull] = useState(false);
+
+  // 카드가 떠 있는 동안 오른쪽 아래 비서 버튼 숨김(app/globals.css — 390 에서 [안 만들기]를 가렸다).
+  useEffect(() => {
+    document.body.setAttribute("data-proposal-card", "");
+    return () => document.body.removeAttribute("data-proposal-card");
+  }, []);
 
   const unanswered = Object.keys(asks).some((k) => {
     const p = edit.people[Number(k)];

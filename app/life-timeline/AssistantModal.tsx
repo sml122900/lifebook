@@ -101,6 +101,7 @@ export function AssistantModal({
           onClick={() => setOpen(true)}
           aria-label="AI 비서와 대화"
           title="AI 비서와 대화"
+          data-assistant-fab=""
           className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full border-2 border-brand bg-surface text-action shadow-xl transition-transform hover:scale-105 hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <Sparkles strokeWidth={1.75} aria-hidden className="h-7 w-7 text-action" />

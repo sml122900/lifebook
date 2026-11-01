@@ -73,6 +73,12 @@ body {
   word-break: keep-all;
 }
 
+/* 제안 카드("이 이야기를 남길까요?")가 떠 있는 동안 오른쪽 아래 비서 버튼을 숨긴다 — 390 에서 카드 버튼을
+   가렸다(My Life 개편 2단계 후속). 카드 컴포넌트(app/components/ProposalCard.tsx)가 body 표식을 켜고 끈다. */
+body[data-proposal-card] [data-assistant-fab] {
+  display: none;
+}
+
 /* 제목 = 명조(Noto Serif KR) 기본값. 컴포넌트의 text-* 유틸리티가
    크기를 덮어쓰는 곳은 그대로 두고(레이아웃 변경 금지) 서체만 입힌다. */
 @layer base {
