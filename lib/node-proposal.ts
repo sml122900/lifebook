@@ -182,6 +182,8 @@ export type BuildProposalInput = {
   kind?: EpisodeKind; // 주면 고정(오늘의 인터뷰 "관계별 나")
   isPeriod?: boolean;
   titleHint?: string | null;
+  // 이 대화에서 방금 남긴 이야기(제목·본문) — 제안 본문에 다시 쓰지 않게(E2E: 저장한 이야기가 다음 카드에 또 들어감).
+  alreadySaved?: { title: string; summary: string }[];
   // 주면 모델 제목 대신 이 제목(오늘의 인터뷰 — 문항 주제가 제목, 지금까지와 같다). 카드에서 고칠 수 있다.
   fixedTitle?: string | null;
   until: string | null;
@@ -224,7 +226,7 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
           {
             role: "user",
             content:
-              buildProposalUserMessage({ centers, people, topic: input.topic, birthYear, transcript }) + extra,
+              buildProposalUserMessage({ centers, people, topic: input.topic, birthYear, transcript, alreadySaved: input.alreadySaved ?? [] }) + extra,
           },
         ],
         { system: PROPOSAL_SYSTEM_PROMPT, model: PROPOSAL_MODEL, maxTokens: 1200, temperature: 0.3 },

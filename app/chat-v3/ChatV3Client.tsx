@@ -291,7 +291,7 @@ export function ChatV3Client({
   async function afterConfirmResolved() {
     if (isTargetedConfirmRef.current) {
       isTargetedConfirmRef.current = false;
-      await enterFree({ intro: "네, 반영했어요. 다른 이야기도 편하게 해 주세요." });
+      await enterFree({ intro: FC.confirmApplied });
     } else {
       await loadNextConfirmQuestion();
     }
@@ -306,7 +306,7 @@ export function ChatV3Client({
       const res = await getConfirmQuestionForEvent(userId, eventId);
       if (res.done) {
         isTargetedConfirmRef.current = false;
-        await enterFree({ intro: "그 이야기는 이미 확인했나봐요. 다른 이야기도 편하게 해 주세요." });
+        await enterFree({ intro: FC.confirmAlready });
         return;
       }
       activeEventIdRef.current = res.eventId;

@@ -32,6 +32,7 @@ import {
 } from "./node-proposal";
 import { getPersonEpisodeTarget } from "./person-chat";
 import { buildPersonAddress, buildPersonLabel } from "./person-honorific";
+import { FREE_CHAT_COPY } from "./free-chat-copy";
 import { buildFreeChatReplySystemPrompt } from "./prompts/free-chat";
 import { resolveLiveModel } from "./user-ai-model";
 
@@ -74,6 +75,28 @@ async function getSegment(userId: string): Promise<SegmentRow> {
 
 type LogTurn = { role: "user" | "assistant"; content: string; createdAt: Date };
 
+// 앱이 대화창에 남기는 안내문(인사·"'…' 이야기를 My Life 에 남겼어요."·"남기지 않을게요" 등) — 대화가 아니다.
+// 구간에 넣으면 제안 모델이 이미 저장한 이야기 제목을 보고 다시 본문에 섞었다(운영 test30 E2E). 구간에서 뺀다.
+const APP_NOTICES = new Set<string>([
+  FREE_CHAT_COPY.greeting,
+  FREE_CHAT_COPY.setupDone,
+  FREE_CHAT_COPY.resume,
+  FREE_CHAT_COPY.staleNotice,
+  FREE_CHAT_COPY.budgetPaused,
+  FREE_CHAT_COPY.topicGone,
+  FREE_CHAT_COPY.cardFirst,
+  FREE_CHAT_COPY.confirmApplied,
+  FREE_CHAT_COPY.confirmAlready,
+  FREE_CHAT_COPY.exitAfterCard,
+  FREE_CHAT_COPY.declined,
+]);
+const [CREATED_HEAD, CREATED_TAIL] = FREE_CHAT_COPY.created("\u0000").split("\u0000");
+
+export function isAppNotice(content: string): boolean {
+  const t = content.trim();
+  return APP_NOTICES.has(t) || (t.startsWith(CREATED_HEAD) && t.endsWith(CREATED_TAIL) && t.length > CREATED_HEAD.length + CREATED_TAIL.length);
+}
+
 async function logTurns(userId: string, from: Date, until?: Date): Promise<LogTurn[]> {
   const rows = await prisma.onboardingChatMessage.findMany({
     where: { userId, createdAt: { gte: from, ...(until ? { lt: until } : {}) } },
@@ -81,7 +104,10 @@ async function logTurns(userId: string, from: Date, until?: Date): Promise<LogTu
     take: SEGMENT_MESSAGES_MAX,
     select: { role: true, content: true, createdAt: true },
   });
-  return rows.reverse().map((r) => ({ role: r.role === "assistant" ? "assistant" : "user", content: r.content, createdAt: r.createdAt }));
+  return rows
+    .reverse()
+    .filter((r) => !(r.role === "assistant" && isAppNotice(r.content)))
+    .map((r) => ({ role: r.role === "assistant" ? "assistant" : "user", content: r.content, createdAt: r.createdAt }));
 }
 
 // 본인 실질 턴 — 마무리 말·종료 말뿐인 턴은 세지 않는다.
@@ -133,7 +159,8 @@ function stripJsonFence(raw: string): string {
     .replace(/\s*```$/, "");
 }
 
-type TopicInfo = { label: string | null; centerId: string | null; targetPersonId: string | null; isPeriod: boolean };
+// carried — 주제가 아니라 직전에 만든 이야기의 시기를 이어받은 기본 시기 힌트(topicGapType "carry").
+type TopicInfo = { label: string | null; centerId: string | null; targetPersonId: string | null; isPeriod: boolean; carried?: boolean };
 
 async function topicInfo(userId: string, seg: Pick<SegmentRow, "topicEventId" | "topicPersonId" | "topicGapType">): Promise<TopicInfo> {
   if (!seg.topicEventId) return { label: null, centerId: null, targetPersonId: null, isPeriod: false };
@@ -151,6 +178,7 @@ async function topicInfo(userId: string, seg: Pick<SegmentRow, "topicEventId" | 
     if (p) return { label: `${base} — ${buildPersonLabel(p.name, p.relation)} 이야기`, centerId: ev.id, targetPersonId: p.id, isPeriod: false };
   }
   if (seg.topicGapType === "person") return { label: `${base} — 그 시절 가까이 지낸 분`, centerId: ev.id, targetPersonId: null, isPeriod: false };
+  if (seg.topicGapType === "carry") return { label: base, centerId: ev.id, targetPersonId: null, isPeriod: false, carried: true };
   return { label: base, centerId: ev.id, targetPersonId: null, isPeriod: false };
 }
 
@@ -344,7 +372,7 @@ export async function freeChatReply(userId: string): Promise<FreeChatReplyResult
     const system =
       buildFreeChatReplySystemPrompt({
         birthYear,
-        topic: topic.label,
+        topic: topic.carried ? null : topic.label,
         recentTitles: [...(card ? [card.title] : []), ...seg.recentTitles].slice(0, RECENT_TITLES_MAX),
       }) + (opening ? `\n\n대화를 시작한 말: "${opening}"` : "");
     try {
@@ -418,6 +446,18 @@ export function replyResultFrom(
 
 // ─── 제안 ───────────────────────────────────────────────────────────────
 
+// 방금 이 대화에서 남긴 이야기(제목·본문, 최대 2) — 제안 모델이 다시 쓰지 않게 넘긴다.
+async function recentSavedStories(userId: string, titles: string[]): Promise<{ title: string; summary: string }[]> {
+  if (titles.length === 0) return [];
+  const rows = await prisma.episode.findMany({
+    where: { lifeEvent: { userId }, memory: { title: { in: titles } } },
+    orderBy: { createdAt: "desc" },
+    take: RECENT_TITLES_MAX,
+    select: { content: true, memory: { select: { title: true } } },
+  });
+  return rows.map((r) => ({ title: r.memory.title ?? "", summary: r.content }));
+}
+
 export type ProposeResult =
   | { kind: "card"; view: ProposalView }
   | { kind: "none"; segmentTurns: number }
@@ -442,7 +482,13 @@ export async function proposeFromSegment(
     if (!Number.isNaN(t.getTime()) && t > seg.startedAt) until = t;
   }
   const all = await logTurns(userId, seg.startedAt);
-  until ??= all.length ? new Date(all[all.length - 1].createdAt.getTime() + 1) : now;
+  // 경계는 안내문까지 포함한 마지막 메시지 뒤(안내문은 구간 대화에서만 빠진다).
+  const lastAny = await prisma.onboardingChatMessage.findFirst({
+    where: { userId, createdAt: { gte: seg.startedAt } },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+  until ??= lastAny ? new Date(lastAny.createdAt.getTime() + 1) : now;
   const turns = all.filter((t) => t.createdAt < until);
   if (substantiveUserTurns(turns) === 0) {
     return { kind: "none", segmentTurns: substantiveUserTurns(await logTurns(userId, seg.startedAt)) };
@@ -452,7 +498,8 @@ export async function proposeFromSegment(
   const topic = await topicInfo(userId, seg);
   const result = await buildProposal(userId, {
     turns: turns.map((t): TranscriptTurn => ({ role: t.role, text: t.content })),
-    topic: topic.label,
+    topic: topic.carried ? `직전 이야기의 시기 ${topic.label}(대화가 분명히 다른 때를 말하지 않으면 이 시기)` : topic.label,
+    alreadySaved: await recentSavedStories(userId, seg.recentTitles),
     centerId: topic.centerId,
     centerFixed: false,
     targetPersonId: topic.targetPersonId,
@@ -464,9 +511,10 @@ export async function proposeFromSegment(
   if (result.kind !== "card") {
     // 내용 없음(또는 실패) — 이 구간은 넘긴다. 주제도 끝. 인물 주제에 "기억이 잘 안 나요" 류로 답한 것도 여기.
     if (result.kind === "empty") await markPersonAsked(userId, seg, null);
+    const keepCarry = seg.topicGapType === "carry";
     await prisma.chatV3Segment.update({
       where: { userId },
-      data: { startedAt: until, topicEventId: null, topicPersonId: null, topicGapType: null },
+      data: { startedAt: until, ...(keepCarry ? {} : { topicEventId: null, topicPersonId: null, topicGapType: null }) },
     });
     return { kind: "none", segmentTurns: substantiveUserTurns(await logTurns(userId, until)) };
   }
@@ -497,9 +545,10 @@ export async function createFromFreeChatProposal(userId: string, edit?: CardEdit
       startedAt: until,
       proposal: Prisma.DbNull,
       recentTitles: [result.title, ...seg.recentTitles.filter((t) => t !== result.title)].slice(0, RECENT_TITLES_MAX),
-      topicEventId: null,
+      // 다음 구간 기본 시기 = 방금 만든 이야기의 시기(이어서 같은 시절 이야기를 하는 일이 많다 — E2E).
+      topicEventId: result.eventId,
       topicPersonId: null,
-      topicGapType: null,
+      topicGapType: "carry",
     },
   });
   return { ...result, segmentTurns: substantiveUserTurns(await logTurns(userId, until)) };
@@ -511,9 +560,15 @@ export async function declineFreeChatProposal(userId: string): Promise<{ segment
   const card = parseCard(seg.proposal);
   const until = card?.until ? new Date(card.until) : new Date();
   if (card) await markPersonAsked(userId, seg, "id" in card.center ? card.center.id : "new");
+  // 안 만든 이야기는 다시 제안하지 않는다(구간을 카드 뒤로). 직전에 만든 이야기의 시기 힌트(carry)는 그대로 둔다.
+  const keepCarry = seg.topicGapType === "carry";
   await prisma.chatV3Segment.update({
     where: { userId },
-    data: { startedAt: until, proposal: Prisma.DbNull, topicEventId: null, topicPersonId: null, topicGapType: null },
+    data: {
+      startedAt: until,
+      proposal: Prisma.DbNull,
+      ...(keepCarry ? {} : { topicEventId: null, topicPersonId: null, topicGapType: null }),
+    },
   });
   return { segmentTurns: substantiveUserTurns(await logTurns(userId, until)) };
 }
@@ -527,7 +582,8 @@ export async function adoptLegacyPending(userId: string): Promise<boolean> {
   if (!pending) return false;
   await prisma.chatV3PendingContext.deleteMany({ where: { userId } });
   const seg = await getSegment(userId);
-  if (parseCard(seg.proposal) || seg.topicEventId) return false;
+  // 직전 이야기 시기 힌트(carry)는 주제가 아니다 — 옛 대기 대화가 이긴다(갭 칩·딥링크와 같다).
+  if (parseCard(seg.proposal) || (seg.topicEventId && seg.topicGapType !== "carry")) return false;
   const kind: FreeTopicKind =
     pending.stage === "PERSON" ? "person" : pending.targetPersonId ? "person_episode" : "episode";
   await prisma.chatV3Segment.update({

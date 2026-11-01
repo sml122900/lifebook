@@ -13,6 +13,8 @@ export const FREE_CHAT_COPY = {
   budgetPaused: "오늘은 이야기 친구가 쉬는 시간이에요. 내일 다시 이야기 나눠요.",
   topicGone: "그 이야기는 지금 들을 수 없나봐요. 다른 이야기도 편하게 해 주세요.",
   cardFirst: "먼저 위 카드를 정해 주세요.",
+  confirmApplied: "네, 반영했어요. 다른 이야기도 편하게 해 주세요.",
+  confirmAlready: "그 이야기는 이미 확인했나봐요. 다른 이야기도 편하게 해 주세요.",
   exitAfterCard: "카드를 정하시면 오늘은 여기까지 할게요.",
 
   // ── 제안 카드 ──

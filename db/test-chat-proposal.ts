@@ -3,8 +3,9 @@
 //
 // 실행: npx tsx db/test-chat-proposal.ts          (LLM 0 검사 + 실제 모델 1편 — Haiku 응답 + Sonnet 제안)
 //       npx tsx db/test-chat-proposal.ts --live   (+ 실제 모델 시나리오: 일단락 판단 / 6턴 강제 / 안 만들기 후 계속 /
-//                                                   고치기 후 만들기 / 동명이인 + 이야기 1편 원가)
-// ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@lifebook.invalid)만 만들고 끝에 지운다.
+//                                                   고치기 후 만들기 / 동명이인 + 이야기 1편 원가 /
+//                                                   F 운영 test30 E2E 같은 문장 재현 — 별도 픽스처 fixture-chat-e2e@)
+// ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@·fixture-chat-e2e@lifebook.invalid)만 만들고 끝에 지운다.
 // 실고객·test30 접촉 0. 원가 원장(ChatV3Usage)은 실제 호출 원가라 남긴다(탈퇴처럼 userId 만 비워짐).
 
 import "dotenv/config";
@@ -17,6 +18,7 @@ import { deleteAccountTx } from "../lib/account-deletion";
 import { costMicroUsd, dayStartKst } from "../lib/chat-v3-usage";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { prisma } from "../lib/db";
+import { createEpisodeBridge } from "../lib/episode";
 import {
   adoptLegacyPending,
   createFromFreeChatProposal,
@@ -24,6 +26,8 @@ import {
   decideProposal,
   freeChatReply,
   getFreeChatState,
+  getFreeChatTopic,
+  isAppNotice,
   parseReplyOutput,
   proposeFromSegment,
   replyResultFrom,
@@ -31,9 +35,14 @@ import {
   substantiveUserTurns,
   type FreeChatReplyResult,
 } from "../lib/free-chat";
+import { FREE_CHAT_COPY } from "../lib/free-chat-copy";
 import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { Prisma } from "../lib/generated/prisma/client";
+import { getMyLifeData, storyTitleOf } from "../lib/my-life";
+import { storyLead, storyText } from "../lib/my-life-layout";
+import { searchMyLife } from "../lib/my-life-search";
 import { cardToEdit, createFromCard, personRow, type CardEdit, type ProposalCard } from "../lib/node-proposal";
+import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
 
 const FIXTURE_EMAIL = "fixture-chat-proposal@lifebook.invalid";
 const ROOT = path.resolve(__dirname, "..");
@@ -598,6 +607,174 @@ async function liveScenarios(fx: Fixture) {
   }
 }
 
+// ─── 운영 test30 E2E 후속(2026-11-01) — LLM 0 ────────────────────────────
+
+async function e2eFollowupChecks(fx: Fixture) {
+  const { userId, ev } = fx;
+
+  // 1 — 앱 안내문은 구간 대화가 아니다(저장한 이야기 제목이 다음 제안에 섞이던 원인).
+  check("⑨-1 앱 안내문 판정 — 만든 뒤·안 만들기·인사 = 안내문 / 본인 말 같은 문장 = 아님",
+    isAppNotice(FREE_CHAT_COPY.created("방학마다 외할머니 댁 개울에서 물고기 잡기")) && isAppNotice(FREE_CHAT_COPY.declined) &&
+      isAppNotice(FREE_CHAT_COPY.greeting) && !isAppNotice("그 이야기를 My Life 에 남겼어요 하고 웃었어요") && !isAppNotice("네 맛있었어요"));
+  const msg = buildProposalUserMessage({ centers: [], people: [], topic: null, birthYear: 1958, transcript: "[본인] x", alreadySaved: [{ title: "개울 물고기", summary: "개울에서 물고기를 잡았다." }] });
+  check("⑨-1 제안 입력에 [방금 남긴 이야기 — 다시 쓰지 마세요] 제목·본문", msg.includes("[방금 남긴 이야기 — 다시 쓰지 마세요]\n- 개울 물고기: 개울에서 물고기를 잡았다."));
+
+  // [만들기] 직후 — 구간 = 그 뒤 턴만, 안내문만 있으면 실질 0 · 제안 호출 0. 다음 기본 시기 = 방금 만든 이야기의 시기.
+  await prisma.chatV3Segment.update({ where: { userId }, data: { startedAt: new Date(), proposal: Prisma.DbNull, topicEventId: null, topicGapType: null, topicPersonId: null } });
+  await sleep(5);
+  await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "user", content: "중학교 때 소풍을 갔어요. 김밥을 싸 갔지요." } });
+  await sleep(5);
+  const until = new Date();
+  await sleep(5);
+  await prisma.chatV3Segment.update({
+    where: { userId },
+    data: { proposal: baseCard({ title: "[fixture] 소풍", summary: "중학교 때 소풍을 갔다.", center: { id: ev.HIGH_SCHOOL, label: "고등학교 입학", year: 1968 }, until: until.toISOString() }) as unknown as Prisma.InputJsonValue },
+  });
+  const made = await createFromFreeChatProposal(userId);
+  await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "assistant", content: FREE_CHAT_COPY.created("[fixture] 소풍") } });
+  await sleep(5);
+  const usage0 = await prisma.chatV3Usage.count({ where: { userId } });
+  const st = await getFreeChatState(userId);
+  const none = await proposeFromSegment(userId);
+  const segAfter = await prisma.chatV3Segment.findUniqueOrThrow({ where: { userId } });
+  check("⑨-1 [만들기] 직후 구간 = 그 뒤 턴만 — 안내문만 있으면 실질 0 · 카드 없음 · 모델 호출 0",
+    made.ok && st.segmentTurns === 0 && none.kind === "none" && (await prisma.chatV3Usage.count({ where: { userId } })) === usage0, { st, none });
+  check("⑨-3 [만들기] 뒤 다음 구간 기본 시기 = 방금 만든 이야기의 시기(carry) · /story-review 진행 중 아님",
+    made.ok && segAfter.topicEventId === made.eventId && segAfter.topicGapType === "carry" && (await getFreeChatTopic(userId)) === null, segAfter);
+
+  // [안 만들기] — 안 만든 이야기는 다시 제안하지 않고(구간을 카드 뒤로), 직전에 만든 이야기의 시기 힌트는 그대로.
+  await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "user", content: "소풍 가서 보물찾기를 했어요." } });
+  await sleep(5);
+  const until2 = new Date();
+  await sleep(5);
+  await prisma.chatV3Segment.update({ where: { userId }, data: { proposal: baseCard({ title: "[fixture] 보물찾기", until: until2.toISOString() }) as unknown as Prisma.InputJsonValue } });
+  const dec = await declineFreeChatProposal(userId);
+  const segDec = await prisma.chatV3Segment.findUniqueOrThrow({ where: { userId } });
+  check("⑨-1 [안 만들기] = 그 내용 다시 제안 안 함(구간 0턴) · 시기 힌트(carry) 유지",
+    dec.segmentTurns === 0 && segDec.startedAt.getTime() === until2.getTime() && segDec.topicGapType === "carry" && segDec.topicEventId === (made.ok ? made.eventId : ""), { dec, segDec });
+  const topicStart = await startFreeTopic(userId, { eventId: ev.MILITARY, kind: "episode" }, SESSION);
+  const segTopic = await prisma.chatV3Segment.findUniqueOrThrow({ where: { userId } });
+  check("⑨-3 갭 칩·딥링크 주제가 시기 힌트보다 우선", topicStart.kind === "opening" && segTopic.topicGapType === "episode" && segTopic.topicEventId === ev.MILITARY);
+
+  // 2 — 제목: 카드에서 만든·고친 제목이 지도·목록에 보인다(옛 이야기는 시기 이름이 제목 칸이라 본문 첫 문장).
+  check("⑨-2 제목 판정 — 진짜 제목 / 시기 이름·\"… 이후\" = 제목 아님",
+    storyTitleOf("방학마다 외할머니 댁 개울에서 물고기 잡기", ["중학교 입학", null]) === "방학마다 외할머니 댁 개울에서 물고기 잡기" &&
+      storyTitleOf("중학교 입학", ["중학교 입학", null]) === null && storyTitleOf("중학교 입학 이후", ["중학교 입학", null]) === null &&
+      storyTitleOf("결혼", ["결혼", "결혼식"]) === null && storyTitleOf("", ["x", null]) === null);
+  const legacy = await createEpisodeBridge(userId, ev.HIGH_SCHOOL, "고등학교 입학", 1968, "고등학교 강당에서 졸업식을 했다. 눈이 왔다.", "[본인] 졸업식");
+  const data = await getMyLifeData(userId);
+  const all = data.events.flatMap((e) => e.stories);
+  const titled = all.find((x) => made.ok && x.id === made.episodeId);
+  const old = all.find((x) => x.id === legacy?.episodeId);
+  check("⑨-2 지도·목록 글자 — 제목 있는 이야기 = 제목 / 옛 이야기 = 본문 첫 문장",
+    titled?.title === "[fixture] 소풍" && !!titled && storyText(titled) === "[fixture] 소풍" &&
+      old?.title === null && !!old && storyText(old) === "고등학교 강당에서 졸업식을 했다.",
+    { titled: titled && { title: titled.title, text: storyText(titled) }, old: old && { title: old.title, text: storyText(old) } });
+  const found = searchMyLife(data, "소풍", storyLead).find((r) => made.ok && r.key.endsWith(made.episodeId));
+  check("⑨-2 찾기 — 제목으로 찾고 결과 이름 = 제목", found?.title === "[fixture] 소풍" && found.rank === 0, found);
+
+  // 3 — 새 시기는 인생 단계만(프롬프트 규칙 — 판단은 모델, 낱말 목록 보정은 test-p23 원양어선을 잘못 옮겨 뺐다).
+  // 실제 출력: --live F(놀이 이야기 → 기존 시기 유지) + test-p23(스물다섯 원양어선 = 새 시기).
+  check("⑨-3 새 시기 규칙 — 인생 단계 자체일 때만, 놀이·여행·방학·사건·사람 이야기는 기존 시기",
+    PROPOSAL_SYSTEM_PROMPT.includes("new(새 시기)는 이야기가 인생 단계 자체일 때만") && PROPOSAL_SYSTEM_PROMPT.includes("놀이·여행·방학·사건·사람 이야기는 새 시기가 아닙니다"));
+
+  // 4·5 — 프롬프트 규칙(실제 출력은 --live E2E 재현에서).
+  check("⑨-4 장소 규칙 — 이름 없는 곳(외할머니 댁·개울)도 장소, 가리키기만 하는 말만 뺌",
+    PROPOSAL_SYSTEM_PROMPT.includes('"외할머니 댁", "개울"') && PROPOSAL_SYSTEM_PROMPT.includes('"거기", "그곳"') && !PROPOSAL_SYSTEM_PROMPT.includes('"집", "거기", "학교"처럼 막연한 말은 빼세요'));
+  const replyPrompt = buildFreeChatReplySystemPrompt({ birthYear: 1958, topic: null, recentTitles: [] });
+  check("⑨-5 일단락 답 규칙 — 대화를 이어 가는 말, 작별·마무리 인사 금지(예시에도 없음)",
+    replyPrompt.includes("작별·마무리 인사로 끝내지 마세요") && !/당신: \{"reply": "[^"]*(들려주셔서 고마워요|잘 들었어요)/.test(replyPrompt));
+}
+
+const FAREWELL = /(들려주셔서|고마워요|고맙습니다|감사|잘 들었|즐거웠|다음에 또|안녕히)/;
+
+// 운영 test30 E2E 같은 문장 재현(실제 Haiku·Sonnet) — 두 번째 제안에 첫 이야기 미포함·중학교 시기 유지·장소 추출·작별 인사 없음·제목 표시.
+async function liveE2EReplay() {
+  const EMAIL = "fixture-chat-e2e@lifebook.invalid";
+  const old = await prisma.user.findUnique({ where: { email: EMAIL }, select: { id: true } });
+  if (old) await deleteAccountTx(old.id);
+  const now = new Date();
+  const userId = (
+    await prisma.user.create({
+      data: {
+        email: EMAIL, name: "[fixture] chat e2e", birthYear: 1958, onboardingTrack: "V3",
+        termsConsentAt: now, privacyConsentAt: now, overseasTransferConsentAt: now, privacyConsentVersion: CURRENT_CONSENT_VERSION,
+      },
+      select: { id: true },
+    })
+  ).id;
+  try {
+    await prisma.onboardingProfile.create({ data: { userId, birthYear: 1958, region: "서울", skeletonGeneratedAt: now } });
+    const rows: [LifeEventType, string, number | null][] = [
+      ["BIRTH", "출생", 1958], ["ELEM_SCHOOL", "국민학교 입학", 1965], ["MIDDLE_SCHOOL", "중학교 입학", 1971], ["HIGH_SCHOOL", "고등학교 입학", 1974],
+      ["UNIVERSITY", "대학교 입학", 1977], ["MILITARY", "군 입대", 1978], ["FIRST_JOB", "첫 직장", null], ["MARRIAGE", "결혼", null],
+    ];
+    const ev: Record<string, string> = {};
+    for (const [i, [type, label, year]] of rows.entries()) {
+      ev[type] = (await prisma.lifeEvent.create({ data: { userId, type, label, year, status: "CONFIRMED", confirmedAt: now, sequenceOrder: i, personAsked: true }, select: { id: true } })).id;
+    }
+    await getFreeChatState(userId); // 자유 대화 진입
+    await sleep(5);
+    const say1 = async (text: string) => say(userId, text);
+
+    // 첫 이야기(같은 문장)
+    let r: FreeChatReplyResult | null = null;
+    for (const line of ["중학교 때 방학마다 외할머니 댁에 가서 개울에서 물고기를 잡았어요", "사촌 동생 정우랑 같이 갔어요", "저녁엔 할머니가 해주신 감자전을 먹었어요", "네 맛있었어요"]) {
+      r = await say1(line);
+    }
+    const firstReply = r?.kind === "reply" ? r : null;
+    console.log("   E2E 4턴째 응답:", firstReply?.reply, "/ 제안:", JSON.stringify(firstReply?.propose));
+    // 제안 시점(일단락 판단)은 모델 판단이라 4턴째가 아닐 수 있다 — 카드는 아래에서 바로 만들고, 제안이 뜬 턴의 답만 본다.
+    if (firstReply?.propose) check("F 실제 — 카드를 띄운 턴(4턴째) 답이 작별·마무리 인사 아님(5)", !FAREWELL.test(firstReply.reply), firstReply.reply);
+    const p1 = await proposeFromSegment(userId, { until: firstReply?.propose?.until ?? null });
+    const c1 = p1.kind === "card" ? p1.view.card : null;
+    console.log("   카드1:", JSON.stringify(c1 && { title: c1.title, center: c1.center, people: c1.people.map((x) => x.name), places: c1.places.map((x) => x.name), summary: c1.summary }));
+    check("F 실제 — 카드1 시기 = 중학교 입학 · 사람 정우 · 장소에 외할머니 댁·개울(4)",
+      !!c1 && "id" in c1.center && c1.center.id === ev.MIDDLE_SCHOOL && c1.people.some((x) => x.name.includes("정우")) &&
+        c1.places.some((x) => x.name.includes("외할머니")) && c1.places.some((x) => x.name.includes("개울")),
+      c1 && { center: c1.center, people: c1.people, places: c1.places });
+    // E2E 처럼 제목을 고쳐서 [만들기] → 대화창에 "남겼어요" 안내(화면과 같이 로그에 남김).
+    const title = "방학마다 외할머니 댁 개울에서 물고기 잡기";
+    const made = c1 ? await createFromFreeChatProposal(userId, { ...cardToEdit({ ...c1, transcript: "" }), title }) : null;
+    if (made?.ok) {
+      await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "assistant", content: FREE_CHAT_COPY.created(made.title) } });
+      await sleep(5);
+    }
+    const map = await getMyLifeData(userId);
+    const story = map.events.flatMap((e) => e.stories).find((x) => made?.ok && x.id === made.episodeId);
+    check("F 실제 — 고친 제목이 My Life 지도·목록 글자(2)", !!story && storyText(story) === title, story && { title: story.title, text: storyText(story) });
+
+    // 두 번째 구간(같은 문장) — 첫 이야기 미포함·중학교 시기 유지(1·3).
+    let r2: FreeChatReplyResult | null = null;
+    for (const line of ["그날 개울물이 엄청 차가웠어요", "네 발 담그고 놀았어요"]) r2 = await say1(line);
+    const second = r2?.kind === "reply" ? r2 : null;
+    console.log("   E2E 6턴째 응답:", second?.reply, "/ 제안:", JSON.stringify(second?.propose));
+    const p2 = await proposeFromSegment(userId, { until: second?.propose?.until ?? null });
+    const c2 = p2.kind === "card" ? p2.view.card : null;
+    console.log("   카드2:", JSON.stringify(c2 && { title: c2.title, center: c2.center, summary: c2.summary, people: c2.people.map((x) => x.name), places: c2.places.map((x) => x.name) }));
+    check("F 실제 — 두 번째 카드: 첫 이야기 내용(감자전·정우·방학) 없음 · 새로 한 말(차가운 개울물·발) 있음(1)",
+      !!c2 && !/(감자전|정우|방학)/.test(c2.summary) && /(차가|차갑)/.test(c2.summary) && /발/.test(c2.summary), c2?.summary);
+    check("F 실제 — 두 번째 카드 시기 = 중학교 입학 유지(3)", !!c2 && "id" in c2.center && c2.center.id === ev.MIDDLE_SCHOOL, c2?.center);
+    if (second?.propose) check("F 실제 — 두 번째 제안 턴 응답도 작별 인사 아님(5)", !FAREWELL.test(second.reply), second.reply);
+    // [안 만들기] 뒤 대화 계속 — 안 만든 내용은 구간에서 빠짐.
+    if (c2) await declineFreeChatProposal(userId);
+    await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "assistant", content: FREE_CHAT_COPY.declined } });
+    await sleep(5);
+    const r3 = await say1("정우가 물고기를 더 많이 잡았어요");
+    check("F 실제 — [안 만들기] 뒤 계속: 새 구간 실질 1턴(안 만든 두 턴·안내문 제외)", r3.kind === "reply" && r3.segmentTurns === 1, r3);
+    const u = await usageSince(userId, new Date(0));
+    console.log("   E2E 재현 원가:", JSON.stringify(u));
+  } finally {
+    await deleteAccountTx(userId);
+    const left = await Promise.all([
+      prisma.user.count({ where: { email: EMAIL } }),
+      prisma.lifeEvent.count({ where: { userId } }),
+      prisma.onboardingChatMessage.count({ where: { userId } }),
+    ]);
+    check("F 정리 — E2E 픽스처 계정·시기·대화 로그 0", left.every((n) => n === 0), left);
+  }
+}
+
 async function main() {
   pureChecks();
   staticChecks();
@@ -610,8 +787,10 @@ async function main() {
     await segmentChecks(fx);
     fallbackOutputChecks();
     await fallbackCountChecks(fx);
+    await e2eFollowupChecks(fx);
     await liveBasic(fx);
     if (LIVE) await liveScenarios(fx);
+    if (LIVE) await liveE2EReplay();
     const total = await usageSince(fx.userId, new Date(0));
     console.log(`\n원가 합계(이 실행, 픽스처): 호출 ${total.calls} · $${total.usd.toFixed(4)}`);
   } finally {
