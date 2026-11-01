@@ -1,6 +1,6 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-02(안 쓰는 키 7개 삭제 반영). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 4개의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 ## 요약
@@ -8,13 +8,13 @@
 | 파일 | 임시 문구 | 화면에 안 나오는 키(쓰는 곳 없음) | 보이는 곳 |
 |---|---|---|---|
 | `lib/free-chat-copy.ts` | 54 (전부) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
-| `lib/my-life-copy.ts` | 86 (확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 7 | `/my-life` · 사이드 패널 메뉴 · `/story-review` |
+| `lib/my-life-copy.ts` | 79 (확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 | `/my-life` · 사이드 패널 메뉴 · `/story-review` |
 | `lib/node-confirm-copy.ts` | 32 (전부) | 0 | `/story-review/confirm` · `/story-review` "정리할 것이 있어요" 카드 · `/interview` 요약 |
 | `lib/interview/copy.ts` | 43 (전부) | 0 | `/interview` · `/story-review` "오늘의 인터뷰" 카드·"그때의 나" |
 | `lib/interview/question-pool.ts` | 문항 8개(18줄 — 구조 예시 5 + "관계별 나" 3) | — | `/interview` 질문·이야기 제목 |
 | 그 밖 | 1 | — | 아래 "그 밖" |
 
-- "쓰는 곳 없음" = 문구 파일에만 있고 화면 코드가 안 부른다(지금 화면에 안 나옴). 확정 대상에서 빼도 된다 — 지울지는 성민 결정.
+- 화면 코드가 안 부르던 My Life 키 7개(`listBranches`·`groupTag`·`alsoElsewhere`·`personName`·`groupName`·`placeName`·`noPlaceGroup`)는 2026-11-02 삭제(성민 지시) — 지금 목록에 쓰는 곳 없는 키 0.
 - `lib/free-chat.ts` 80~97줄의 쓰임은 앱 안내문 판정(`isAppNotice` — 구간 대화에서 안내문을 빼는 목록)이라 "보이는 곳"에 안 적었다. 이 문구를 바꾸면 판정도 저절로 따라간다.
 - 문구가 아닌 임시(참고): `lib/characters.ts` 말동무 캐릭터 그림(임시 도형 Lottie), `lib/constants/education-labels.ts` 국민학교/초등학교 명칭 기준(학제 연혁 받기 전 임시 규칙).
 
@@ -86,87 +86,80 @@
 | `mapListLabel` | 15 | "My Life — 시기 순서" | /my-life | app/my-life/MyLifeView.tsx:937, app/my-life/MyLifeView.tsx:1189 |
 | `mapRegionLabel` | 16 | "My Life 지도" | /my-life | app/my-life/MyLifeView.tsx:764 |
 | `listStories` | 17 | "이야기" | /my-life | app/my-life/MyLifeView.tsx:972, app/my-life/MyLifeView.tsx:1204 |
-| `listBranches` | 18 | "사람·모임·장소" | 쓰는 곳 없음(화면에 안 나옴) | — |
-| `nowViewing` | 19 | `` (where: string) => `지금 보는 곳: ${where}` `` | /my-life | app/my-life/MyLifeView.tsx:679, app/my-life/MyLifeView.tsx:681 |
-| `nowViewingNone` | 20 | "지금 보는 곳: 처음" | /my-life | app/my-life/MyLifeView.tsx:682 |
-| `fitAll` | 21 | "전체 보기" | /my-life | app/my-life/MyLifeView.tsx:823 |
-| `zoomIn` | 22 | "크게 보기" | /my-life | app/my-life/MyLifeView.tsx:813 |
-| `zoomOut` | 23 | "작게 보기" | /my-life | app/my-life/MyLifeView.tsx:800 |
-| `zoomAnnounce` | 24 | `` (percent: number) => `지금 ${percent}%` `` | /my-life | app/my-life/MyLifeView.tsx:574, app/my-life/MyLifeView.tsx:625, app/my-life/MyLifeView.tsx:804, app/my-life/MyLifeView.tsx:817 |
-| `toList` | 25 | "목록으로 보기" | /my-life | app/my-life/MyLifeView.tsx:698 |
-| `chatEntry` | 26 | "이야기 나누기" | /my-life | app/my-life/MyLifeView.tsx:691, app/my-life/MyLifeView.tsx:706, app/my-life/MyLifeView.tsx:1187 |
-| `toMap` | 27 | "지도로 보기" | /my-life | app/my-life/MyLifeView.tsx:1181 |
-| `unfold` | 28 | `` (n: number) => `가지 ${n}개 펼치기` `` | /my-life | app/my-life/MyLifeView.tsx:968, app/my-life/MyLifeView.tsx:1429 |
-| `fold` | 29 | "가지 접기" | /my-life | app/my-life/MyLifeView.tsx:1429 |
-| `unfoldAll` | 30 | "모두 펼치기" | /my-life | app/my-life/MyLifeView.tsx:731 |
-| `yearsLater` | 31 | `` (n: number) => `${n}년 뒤` `` | /my-life | app/my-life/MyLifeView.tsx:932 |
-| `yearUnknown` | 32 | "연도 모름" | /my-life | app/my-life/MyLifeView.tsx:79, app/my-life/MyLifeView.tsx:84, app/my-life/MyLifeView.tsx:681 |
-| `selfTag` | 33 | "그때의 나" | /my-life | app/my-life/MyLifeView.tsx:1102, app/my-life/MyLifeView.tsx:1585 |
-| `groupTag` | 34 | "모임" | 쓰는 곳 없음(화면에 안 나옴) | — |
-| `kindPerson` | 35 | "사람" | /my-life | app/my-life/MyLifeView.tsx:1316, app/my-life/MyLifeView.tsx:1450 |
-| `kindPlace` | 36 | "장소" | /my-life | app/my-life/MyLifeView.tsx:1317, app/my-life/MyLifeView.tsx:1513 |
-| `pendingTag` | 37 | "확인 전" | /my-life | app/my-life/MyLifeView.tsx:89, app/my-life/MyLifeView.tsx:1053, app/my-life/MyLifeView.tsx:1059, app/my-life/MyLifeView.tsx:1103, app/my-life/MyLifeView.tsx:1272, app/my-life/MyLifeView.tsx:1602 |
-| `alsoElsewhere` | 38 | "다른 시기에도 있어요" | 쓰는 곳 없음(화면에 안 나옴) | — |
-| `alsoElsewhereShort` | 39 | "여러 시기" | /my-life | app/my-life/MyLifeView.tsx:1104 |
-| `close` | 40 | "닫기" | /my-life | app/my-life/MyLifeView.tsx:322, app/my-life/MyLifeView.tsx:1368 |
-| `readBody` | 41 | "본문 보기" | /my-life | app/my-life/MyLifeView.tsx:1593 |
-| `hideBody` | 42 | "본문 접기" | /my-life | app/my-life/MyLifeView.tsx:1593 |
-| `goConfirm` | 43 | "확인하러 가기" | /my-life | app/my-life/MyLifeView.tsx:1473, app/my-life/MyLifeView.tsx:1627 |
-| `pendingNote` | 44 | "이 이야기에 아직 확인하지 않은 분이 있어요." | /my-life | app/my-life/MyLifeView.tsx:1625 |
-| `openPerson` | 45 | "인물록에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1499 |
-| `openMap` | 46 | "지도에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1543 |
-| `emptyTitle` | 47 | "아직 지도에 담을 이야기가 없어요" | /my-life | app/my-life/page.tsx:33 |
-| `emptyDesc` | 48 | "이야기를 나누면 인생의 시기들이 여기에 하나씩 생겨요." | /my-life | app/my-life/page.tsx:34 |
-| `emptyCta` | 49 | "이야기 나누기" | /my-life | app/my-life/page.tsx:34 |
-| `panelStories` | 51 | `` (n: number) => `이야기 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
-| `panelPeople` | 52 | `` (n: number) => `사람 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
-| `panelPlaces` | 53 | `` (n: number) => `장소 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
-| `panelWithPeople` | 54 | "함께 나온 분" | /my-life | app/my-life/MyLifeView.tsx:1597 |
-| `panelWithPlaces` | 55 | "나온 곳" | /my-life | app/my-life/MyLifeView.tsx:1610 |
-| `panelAlsoIn` | 56 | "같이 보이는 시기" | /my-life | app/my-life/MyLifeView.tsx:1620 |
-| `panelMembers` | 57 | "모임 사람들" | /my-life | app/my-life/MyLifeView.tsx:1562 |
-| `panelRelation` | 58 | "관계" | /my-life | app/my-life/MyLifeView.tsx:1456 |
-| `panelMetYear` | 59 | "만난 해" | /my-life | app/my-life/MyLifeView.tsx:1461 |
-| `panelAddress` | 60 | "주소" | /my-life | app/my-life/MyLifeView.tsx:1519 |
-| `eventName` | 62 | `` (yearText: string, label: string, stories: number, others: number) => `${yearText} ${label}, 이야기 ${stories}, 사람·장소 ${others}` `` | /my-life | app/my-life/MyLifeView.tsx:85 |
-| `storyName` | 64 | `` (lead: string, withNames: string[]) => withNames.length > 0 ? `이야기, ${lead}, 함께: ${withNames.join(", ")}` : `이야기, ${lead}` `` | /my-life | app/my-life/MyLifeView.tsx:90 |
-| `selfName` | 66 | `` (lead: string, withNames: string[]) => withNames.length > 0 ? `그때의 나, ${lead}, 함께: ${withNames.join(", ")}` : `그때의 나, ${lead}` `` | /my-life | app/my-life/MyLifeView.tsx:90 |
-| `personName` | 68 | `` (name: string) => `사람, ${name}` `` | 쓰는 곳 없음(화면에 안 나옴) | — |
-| `groupName` | 69 | `` (name: string) => `모임, ${name}` `` | 쓰는 곳 없음(화면에 안 나옴) | — |
-| `placeName` | 70 | `` (name: string) => `장소, ${name}` `` | 쓰는 곳 없음(화면에 안 나옴) | — |
-| `edgePersonOn` | 72 | "인물 간선 켜기" | /my-life | app/my-life/MyLifeView.tsx:719 |
-| `edgePlaceOn` | 73 | "장소 간선 켜기" | /my-life | app/my-life/MyLifeView.tsx:722 |
-| `peopleTitle` | 74 | "인물록" | /my-life | app/my-life/MyLifeView.tsx:679, app/my-life/MyLifeView.tsx:991, app/my-life/MyLifeView.tsx:1041, app/my-life/MyLifeView.tsx:1240 |
-| `placesTitle` | 75 | "장소록" | /my-life | app/my-life/MyLifeView.tsx:679, app/my-life/MyLifeView.tsx:1071, app/my-life/MyLifeView.tsx:1074, app/my-life/MyLifeView.tsx:1282, app/my-life/MyLifeView.tsx:1284 |
-| `noGroup` | 76 | "모임 없는 분" | /my-life | app/my-life/MyLifeView.tsx:1033, app/my-life/MyLifeView.tsx:1268, app/my-life/MyLifeView.tsx:1269 |
-| `noPlaceGroup` | 77 | "묶음 없는 곳" | 쓰는 곳 없음(화면에 안 나옴) | — |
-| `otherGroups` | 78 | `` (n: number) => `+${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1060 |
-| `otherGroupsLong` | 79 | `` (n: number) => `다른 모임 ${n}개` `` | /my-life | app/my-life/MyLifeView.tsx:1258 |
-| `groupChipShown` | 80 | "✓" | /my-life | app/my-life/MyLifeView.tsx:1009 |
-| `groupEmpty` | 81 | "아직 아무도 없어요" | /my-life | app/my-life/MyLifeView.tsx:1038, app/my-life/MyLifeView.tsx:1249, app/my-life/MyLifeView.tsx:1559 |
-| `selectedLine` | 82 | `` (name: string, n: number) => `선택 — ${name} · 연결 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:712 |
-| `clearSelection` | 83 | "선택 풀기" | /my-life | app/my-life/MyLifeView.tsx:714 |
-| `find` | 84 | "찾기" | /my-life | app/my-life/MyLifeView.tsx:695, app/my-life/MyLifeView.tsx:1178 |
-| `findTitle` | 85 | "기록 찾기" | /my-life | app/my-life/MyLifeView.tsx:1332, app/my-life/MyLifeView.tsx:1340 |
-| `findPlaceholder` | 86 | "이름이나 이야기 속 낱말" | /my-life | app/my-life/MyLifeView.tsx:1339 |
-| `findNone` | 87 | "찾는 기록이 없어요" | /my-life | app/my-life/MyLifeView.tsx:1345 |
-| `findCount` | 88 | `` (n: number) => `${n}개 찾았어요` `` | /my-life | app/my-life/MyLifeView.tsx:1345 |
-| `kindEvent` | 89 | "시기" | /my-life | app/my-life/MyLifeView.tsx:1314 |
-| `kindStory` | 90 | "이야기" | /my-life | app/my-life/MyLifeView.tsx:1315 |
-| `kindGroup` | 91 | "모임" | /my-life | app/my-life/MyLifeView.tsx:1318, app/my-life/MyLifeView.tsx:1554 |
-| `toPeople` | 92 | "인물록" | /my-life | app/my-life/MyLifeView.tsx:847 |
-| `toPlaces` | 93 | "장소록" | /my-life | app/my-life/MyLifeView.tsx:848 |
-| `toTimeline` | 94 | "시간 줄기" | /my-life | app/my-life/MyLifeView.tsx:849 |
-| `toRelated` | 95 | `` (n: number) => `연결된 곳 차례로 보기(${n})` `` | /my-life | app/my-life/MyLifeView.tsx:846 |
-| `panelStoriesWith` | 96 | "나온 이야기" | /my-life | app/my-life/MyLifeView.tsx:1479, app/my-life/MyLifeView.tsx:1524 |
-| `panelEventsWith` | 97 | "그 시기" | /my-life | app/my-life/MyLifeView.tsx:1489, app/my-life/MyLifeView.tsx:1534 |
-| `panelGroups` | 98 | "모임" | /my-life | app/my-life/MyLifeView.tsx:1466 |
-| `goThere` | 99 | "여기로 가기" | /my-life | app/my-life/MyLifeView.tsx:1384 |
-| `draftNote` | 100 | "이야기에서 찾은 분이에요. 아직 확인하지 않았어요." | /my-life | app/my-life/MyLifeView.tsx:1471 |
-| `personName2` | 101 | `` (name: string, groups: string[], stories: number) => `사람, ${name}${groups.length ? `, 모임 ${groups.join("·")}` : ""}, 이야기 ${stories}` `` | /my-life | app/my-life/MyLifeView.tsx:1053 |
-| `placeName2` | 103 | `` (name: string, stories: number) => `장소, ${name}, 이야기 ${stories}` `` | /my-life | app/my-life/MyLifeView.tsx:1084 |
-| `groupLabelName` | 104 | `` (name: string, n: number) => `모임, ${name}, ${n}명` `` | /my-life | app/my-life/MyLifeView.tsx:1022 |
-| `groupChipName` | 105 | `` (name: string, shown: boolean) => (shown ? `모임 ${name}, 지도에 보이는 중` : `모임 ${name}, 지도에 보이기`) `` | /my-life | app/my-life/MyLifeView.tsx:1004 |
+| `nowViewing` | 18 | `` (where: string) => `지금 보는 곳: ${where}` `` | /my-life | app/my-life/MyLifeView.tsx:679, app/my-life/MyLifeView.tsx:681 |
+| `nowViewingNone` | 19 | "지금 보는 곳: 처음" | /my-life | app/my-life/MyLifeView.tsx:682 |
+| `fitAll` | 20 | "전체 보기" | /my-life | app/my-life/MyLifeView.tsx:823 |
+| `zoomIn` | 21 | "크게 보기" | /my-life | app/my-life/MyLifeView.tsx:813 |
+| `zoomOut` | 22 | "작게 보기" | /my-life | app/my-life/MyLifeView.tsx:800 |
+| `zoomAnnounce` | 23 | `` (percent: number) => `지금 ${percent}%` `` | /my-life | app/my-life/MyLifeView.tsx:574, app/my-life/MyLifeView.tsx:625, app/my-life/MyLifeView.tsx:804, app/my-life/MyLifeView.tsx:817 |
+| `toList` | 24 | "목록으로 보기" | /my-life | app/my-life/MyLifeView.tsx:698 |
+| `chatEntry` | 25 | "이야기 나누기" | /my-life | app/my-life/MyLifeView.tsx:691, app/my-life/MyLifeView.tsx:706, app/my-life/MyLifeView.tsx:1187 |
+| `toMap` | 26 | "지도로 보기" | /my-life | app/my-life/MyLifeView.tsx:1181 |
+| `unfold` | 27 | `` (n: number) => `가지 ${n}개 펼치기` `` | /my-life | app/my-life/MyLifeView.tsx:968, app/my-life/MyLifeView.tsx:1429 |
+| `fold` | 28 | "가지 접기" | /my-life | app/my-life/MyLifeView.tsx:1429 |
+| `unfoldAll` | 29 | "모두 펼치기" | /my-life | app/my-life/MyLifeView.tsx:731 |
+| `yearsLater` | 30 | `` (n: number) => `${n}년 뒤` `` | /my-life | app/my-life/MyLifeView.tsx:932 |
+| `yearUnknown` | 31 | "연도 모름" | /my-life | app/my-life/MyLifeView.tsx:79, app/my-life/MyLifeView.tsx:84, app/my-life/MyLifeView.tsx:681 |
+| `selfTag` | 32 | "그때의 나" | /my-life | app/my-life/MyLifeView.tsx:1102, app/my-life/MyLifeView.tsx:1585 |
+| `kindPerson` | 33 | "사람" | /my-life | app/my-life/MyLifeView.tsx:1316, app/my-life/MyLifeView.tsx:1450 |
+| `kindPlace` | 34 | "장소" | /my-life | app/my-life/MyLifeView.tsx:1317, app/my-life/MyLifeView.tsx:1513 |
+| `pendingTag` | 35 | "확인 전" | /my-life | app/my-life/MyLifeView.tsx:89, app/my-life/MyLifeView.tsx:1053, app/my-life/MyLifeView.tsx:1059, app/my-life/MyLifeView.tsx:1103, app/my-life/MyLifeView.tsx:1272, app/my-life/MyLifeView.tsx:1602 |
+| `alsoElsewhereShort` | 36 | "여러 시기" | /my-life | app/my-life/MyLifeView.tsx:1104 |
+| `close` | 37 | "닫기" | /my-life | app/my-life/MyLifeView.tsx:322, app/my-life/MyLifeView.tsx:1368 |
+| `readBody` | 38 | "본문 보기" | /my-life | app/my-life/MyLifeView.tsx:1593 |
+| `hideBody` | 39 | "본문 접기" | /my-life | app/my-life/MyLifeView.tsx:1593 |
+| `goConfirm` | 40 | "확인하러 가기" | /my-life | app/my-life/MyLifeView.tsx:1473, app/my-life/MyLifeView.tsx:1627 |
+| `pendingNote` | 41 | "이 이야기에 아직 확인하지 않은 분이 있어요." | /my-life | app/my-life/MyLifeView.tsx:1625 |
+| `openPerson` | 42 | "인물록에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1499 |
+| `openMap` | 43 | "지도에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1543 |
+| `emptyTitle` | 44 | "아직 지도에 담을 이야기가 없어요" | /my-life | app/my-life/page.tsx:33 |
+| `emptyDesc` | 45 | "이야기를 나누면 인생의 시기들이 여기에 하나씩 생겨요." | /my-life | app/my-life/page.tsx:34 |
+| `emptyCta` | 46 | "이야기 나누기" | /my-life | app/my-life/page.tsx:34 |
+| `panelStories` | 48 | `` (n: number) => `이야기 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
+| `panelPeople` | 49 | `` (n: number) => `사람 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
+| `panelPlaces` | 50 | `` (n: number) => `장소 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
+| `panelWithPeople` | 51 | "함께 나온 분" | /my-life | app/my-life/MyLifeView.tsx:1597 |
+| `panelWithPlaces` | 52 | "나온 곳" | /my-life | app/my-life/MyLifeView.tsx:1610 |
+| `panelAlsoIn` | 53 | "같이 보이는 시기" | /my-life | app/my-life/MyLifeView.tsx:1620 |
+| `panelMembers` | 54 | "모임 사람들" | /my-life | app/my-life/MyLifeView.tsx:1562 |
+| `panelRelation` | 55 | "관계" | /my-life | app/my-life/MyLifeView.tsx:1456 |
+| `panelMetYear` | 56 | "만난 해" | /my-life | app/my-life/MyLifeView.tsx:1461 |
+| `panelAddress` | 57 | "주소" | /my-life | app/my-life/MyLifeView.tsx:1519 |
+| `eventName` | 59 | `` (yearText: string, label: string, stories: number, others: number) => `${yearText} ${label}, 이야기 ${stories}, 사람·장소 ${others}` `` | /my-life | app/my-life/MyLifeView.tsx:85 |
+| `storyName` | 61 | `` (lead: string, withNames: string[]) => withNames.length > 0 ? `이야기, ${lead}, 함께: ${withNames.join(", ")}` : `이야기, ${lead}` `` | /my-life | app/my-life/MyLifeView.tsx:90 |
+| `selfName` | 63 | `` (lead: string, withNames: string[]) => withNames.length > 0 ? `그때의 나, ${lead}, 함께: ${withNames.join(", ")}` : `그때의 나, ${lead}` `` | /my-life | app/my-life/MyLifeView.tsx:90 |
+| `edgePersonOn` | 66 | "인물 간선 켜기" | /my-life | app/my-life/MyLifeView.tsx:719 |
+| `edgePlaceOn` | 67 | "장소 간선 켜기" | /my-life | app/my-life/MyLifeView.tsx:722 |
+| `peopleTitle` | 68 | "인물록" | /my-life | app/my-life/MyLifeView.tsx:679, app/my-life/MyLifeView.tsx:991, app/my-life/MyLifeView.tsx:1041, app/my-life/MyLifeView.tsx:1240 |
+| `placesTitle` | 69 | "장소록" | /my-life | app/my-life/MyLifeView.tsx:679, app/my-life/MyLifeView.tsx:1071, app/my-life/MyLifeView.tsx:1074, app/my-life/MyLifeView.tsx:1282, app/my-life/MyLifeView.tsx:1284 |
+| `noGroup` | 70 | "모임 없는 분" | /my-life | app/my-life/MyLifeView.tsx:1033, app/my-life/MyLifeView.tsx:1268, app/my-life/MyLifeView.tsx:1269 |
+| `otherGroups` | 71 | `` (n: number) => `+${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1060 |
+| `otherGroupsLong` | 72 | `` (n: number) => `다른 모임 ${n}개` `` | /my-life | app/my-life/MyLifeView.tsx:1258 |
+| `groupChipShown` | 73 | "✓" | /my-life | app/my-life/MyLifeView.tsx:1009 |
+| `groupEmpty` | 74 | "아직 아무도 없어요" | /my-life | app/my-life/MyLifeView.tsx:1038, app/my-life/MyLifeView.tsx:1249, app/my-life/MyLifeView.tsx:1559 |
+| `selectedLine` | 75 | `` (name: string, n: number) => `선택 — ${name} · 연결 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:712 |
+| `clearSelection` | 76 | "선택 풀기" | /my-life | app/my-life/MyLifeView.tsx:714 |
+| `find` | 77 | "찾기" | /my-life | app/my-life/MyLifeView.tsx:695, app/my-life/MyLifeView.tsx:1178 |
+| `findTitle` | 78 | "기록 찾기" | /my-life | app/my-life/MyLifeView.tsx:1332, app/my-life/MyLifeView.tsx:1340 |
+| `findPlaceholder` | 79 | "이름이나 이야기 속 낱말" | /my-life | app/my-life/MyLifeView.tsx:1339 |
+| `findNone` | 80 | "찾는 기록이 없어요" | /my-life | app/my-life/MyLifeView.tsx:1345 |
+| `findCount` | 81 | `` (n: number) => `${n}개 찾았어요` `` | /my-life | app/my-life/MyLifeView.tsx:1345 |
+| `kindEvent` | 82 | "시기" | /my-life | app/my-life/MyLifeView.tsx:1314 |
+| `kindStory` | 83 | "이야기" | /my-life | app/my-life/MyLifeView.tsx:1315 |
+| `kindGroup` | 84 | "모임" | /my-life | app/my-life/MyLifeView.tsx:1318, app/my-life/MyLifeView.tsx:1554 |
+| `toPeople` | 85 | "인물록" | /my-life | app/my-life/MyLifeView.tsx:847 |
+| `toPlaces` | 86 | "장소록" | /my-life | app/my-life/MyLifeView.tsx:848 |
+| `toTimeline` | 87 | "시간 줄기" | /my-life | app/my-life/MyLifeView.tsx:849 |
+| `toRelated` | 88 | `` (n: number) => `연결된 곳 차례로 보기(${n})` `` | /my-life | app/my-life/MyLifeView.tsx:846 |
+| `panelStoriesWith` | 89 | "나온 이야기" | /my-life | app/my-life/MyLifeView.tsx:1479, app/my-life/MyLifeView.tsx:1524 |
+| `panelEventsWith` | 90 | "그 시기" | /my-life | app/my-life/MyLifeView.tsx:1489, app/my-life/MyLifeView.tsx:1534 |
+| `panelGroups` | 91 | "모임" | /my-life | app/my-life/MyLifeView.tsx:1466 |
+| `goThere` | 92 | "여기로 가기" | /my-life | app/my-life/MyLifeView.tsx:1384 |
+| `draftNote` | 93 | "이야기에서 찾은 분이에요. 아직 확인하지 않았어요." | /my-life | app/my-life/MyLifeView.tsx:1471 |
+| `personName2` | 94 | `` (name: string, groups: string[], stories: number) => `사람, ${name}${groups.length ? `, 모임 ${groups.join("·")}` : ""}, 이야기 ${stories}` `` | /my-life | app/my-life/MyLifeView.tsx:1053 |
+| `placeName2` | 96 | `` (name: string, stories: number) => `장소, ${name}, 이야기 ${stories}` `` | /my-life | app/my-life/MyLifeView.tsx:1084 |
+| `groupLabelName` | 97 | `` (name: string, n: number) => `모임, ${name}, ${n}명` `` | /my-life | app/my-life/MyLifeView.tsx:1022 |
+| `groupChipName` | 98 | `` (name: string, shown: boolean) => (shown ? `모임 ${name}, 지도에 보이는 중` : `모임 ${name}, 지도에 보이기`) `` | /my-life | app/my-life/MyLifeView.tsx:1004 |
 
 ### `lib/node-confirm-copy.ts` (`CONFIRM_COPY`)
 
