@@ -41,7 +41,7 @@ import {
 import { FREE_CHAT_COPY } from "../lib/free-chat-copy";
 import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { Prisma } from "../lib/generated/prisma/client";
-import { getMyLifeData, storyTitleOf } from "../lib/my-life";
+import { getMyLifeData } from "../lib/my-life";
 import { searchMyLife } from "../lib/my-life-search";
 import { cardToEdit, createFromCard, overlappingPlaces, personRow, placeRow, type CardEdit, type ProposalCard } from "../lib/node-proposal";
 import { periodMemoryId, syncV3Bridge } from "../lib/poster/v3-bridge";
@@ -661,20 +661,22 @@ async function e2eFollowupChecks(fx: Fixture) {
   const segTopic = await prisma.chatV3Segment.findUniqueOrThrow({ where: { userId } });
   check("⑨-3 갭 칩·딥링크 주제가 시기 힌트보다 우선", topicStart.kind === "opening" && segTopic.topicGapType === "episode" && segTopic.topicEventId === ev.MILITARY);
 
-  // 2 — 제목: 카드에서 만든·고친 제목이 지도·목록에 보인다(옛 이야기는 시기 이름이 제목 칸이라 본문 첫 문장).
-  check("⑨-2 제목 판정 — 진짜 제목 / 시기 이름·\"… 이후\" = 제목 아님",
-    storyTitleOf("방학마다 외할머니 댁 개울에서 물고기 잡기", ["중학교 입학", null]) === "방학마다 외할머니 댁 개울에서 물고기 잡기" &&
-      storyTitleOf("중학교 입학", ["중학교 입학", null]) === null && storyTitleOf("중학교 입학 이후", ["중학교 입학", null]) === null &&
-      storyTitleOf("결혼", ["결혼", "결혼식"]) === null && storyTitleOf("", ["x", null]) === null);
-  const legacy = await createEpisodeBridge(userId, ev.HIGH_SCHOOL, "고등학교 입학", 1968, "고등학교 강당에서 졸업식을 했다. 눈이 왔다.", "[본인] 졸업식");
+  // 2 — 제목: 지도·목록 글자 = 제목 칸 그대로, 비었으면 본문 첫 문장(displayTitle). 2026-11-02 "시기 이름이면 제목으로
+  // 안 봄" 조건 제거 — 옛 제목(시기 이름)은 db/cleanup-legacy-story-titles.ts 가 빈 문자열로 비웠다(실고객 0편).
+  const cleared = await createEpisodeBridge(userId, ev.HIGH_SCHOOL, "", 1968, "고등학교 강당에서 졸업식을 했다. 눈이 왔다.", "[본인] 졸업식");
+  const periodNamed = await createEpisodeBridge(userId, ev.HIGH_SCHOOL, "고등학교 입학", 1968, "교복을 처음 입었다.", "[본인] 교복");
   const data = await getMyLifeData(userId);
   const all = data.events.flatMap((e) => e.stories);
   const titled = all.find((x) => made.ok && x.id === made.episodeId);
-  const old = all.find((x) => x.id === legacy?.episodeId);
-  check("⑨-2 지도·목록 글자 — 제목 있는 이야기 = 제목 / 옛 이야기 = 본문 첫 문장",
+  const old = all.find((x) => x.id === cleared?.episodeId);
+  const named = all.find((x) => x.id === periodNamed?.episodeId);
+  check("⑨-2 지도·목록 글자 — 제목 있는 이야기 = 제목 / 제목을 비운 옛 이야기 = 본문 첫 문장 / 시기 이름도 제목 칸에 있으면 그대로(조건 제거)",
     titled?.title === "[fixture] 소풍" && !!titled && displayTitle(titled) === "[fixture] 소풍" &&
-      old?.title === null && !!old && displayTitle(old) === "고등학교 강당에서 졸업식을 했다.",
-    { titled: titled && { title: titled.title, text: displayTitle(titled) }, old: old && { title: old.title, text: displayTitle(old) } });
+      old?.title === "" && !!old && displayTitle(old) === "고등학교 강당에서 졸업식을 했다." &&
+      !!named && displayTitle(named) === "고등학교 입학",
+    { titled: titled && { title: titled.title, text: displayTitle(titled) }, old: old && { title: old.title, text: displayTitle(old) }, named: named && displayTitle(named) });
+  check("⑨-2 \"시기 이름이면 제목으로 안 봄\" 조건 제거 — lib/my-life 에 storyTitleOf·시기 이름 판정 없음",
+    !/storyTitleOf|isPeriodNameTitle/.test(read("lib/my-life.ts")));
   const found = searchMyLife(data, "소풍").find((r) => made.ok && r.key.endsWith(made.episodeId));
   check("⑨-2 찾기 — 제목으로 찾고 결과 이름 = 제목", found?.title === "[fixture] 소풍" && found.rank === 0, found);
 
@@ -778,7 +780,7 @@ async function titleChecks(fx: Fixture) {
   const ep = made.ok ? await prisma.episode.findUnique({ where: { id: made.episodeId }, select: { memory: { select: { title: true } } } }) : null;
   const story = made.ok ? (await getMyLifeData(userId)).events.flatMap((e) => e.stories).find((x) => x.id === made.episodeId) : undefined;
   check("⑪ [고치기]에서 제목을 지움 → 저장 = 빈 문자열 · 지도 제목 없음 · 지도 글자·결과 제목 = 본문 첫 문장",
-    made.ok && ep?.memory.title === "" && story?.title === null && !!story && displayTitle(story) === lead && made.title === lead, { made, ep, story });
+    made.ok && ep?.memory.title === "" && story?.title === "" && !!story && displayTitle(story) === lead && made.title === lead, { made, ep, story });
 
   // 읽는 곳 — /story-review 이름 · 포스터 구간 행 제목 · 방금 남긴 이야기(화면 제목으로 찾음).
   const period = await createEpisodeBridge(userId, ev.MILITARY, "", 1973, "훈련소에서 첫 편지를 썼다. 손이 떨렸다.", "[본인] 편지", undefined, true);
