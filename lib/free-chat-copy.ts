@@ -58,6 +58,13 @@ export const FREE_CHAT_COPY = {
   separatePlace: "따로 만들기",
   answerPlaceAskFirst: "같은 곳인지 먼저 골라 주세요.",
   createFailed: "남기지 못했어요. 다시 해 주세요.",
+  // 카드 [만들기] 때 저장 쪽이 다시 확인하고 막는 문구 — 카드 아래 빨간 글씨(/chat-v3·/interview). lib/node-proposal createFromCard.
+  needSummary: "내용이 필요해요.",
+  needCenter: "시기를 골라 주세요.",
+  centerNotFound: "그 시기를 찾지 못했어요.",
+  needNewCenterLabel: "새 시기 이름이 필요해요.",
+  repickSamePerson: "같은 분을 다시 골라 주세요.",
+  repickSamePlace: "같은 곳을 다시 골라 주세요.",
   created: (title: string) => `'${title}' 이야기를 My Life 에 남겼어요.`,
   viewOnMap: "My Life 에서 보기",
   declined: "네, 남기지 않을게요.",

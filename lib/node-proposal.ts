@@ -17,6 +17,7 @@ import { recordChatUsage, type ChatUsagePurpose } from "./chat-v3-usage";
 import { prisma } from "./db";
 import { createEpisodeBridge } from "./episode";
 import { isSummaryGuidance, stripEpisodeDoneSignal } from "./episode-text";
+import { FREE_CHAT_COPY } from "./free-chat-copy";
 import type { EpisodeKind } from "./generated/prisma/enums";
 import { saveNodeLink } from "./node-graph";
 import { createCustomLifeEvent } from "./open-chat-promote";
@@ -427,23 +428,23 @@ export async function createFromCard(
   // 제목은 비워도 된다 — 빈 문자열 = 제목 없음(화면은 본문 첫 문장, lib/story-title).
   const title = str(edit.title, TITLE_MAX);
   const summary = str(edit.summary, SUMMARY_MAX);
-  if (!summary) return { ok: false, reason: "invalid", message: "내용이 필요해요." };
+  if (!summary) return { ok: false, reason: "invalid", message: FREE_CHAT_COPY.needSummary };
 
   // 시기 — 고정 카드는 카드의 시기만.
   let centerId: string | null = null;
   let newCenter: { label: string; year: number | null } | null = null;
   const wantCenter = card.centerFixed ? ("id" in card.center ? { id: card.center.id } : null) : edit.center;
-  if (!wantCenter) return { ok: false, reason: "invalid", message: "시기를 골라 주세요." };
+  if (!wantCenter) return { ok: false, reason: "invalid", message: FREE_CHAT_COPY.needCenter };
   if ("id" in wantCenter) {
     const ev = await prisma.lifeEvent.findFirst({
       where: { id: wantCenter.id, userId, status: { in: ["CONFIRMED", "CORRECTED"] } },
       select: { id: true },
     });
-    if (!ev) return { ok: false, reason: "invalid", message: "그 시기를 찾지 못했어요." };
+    if (!ev) return { ok: false, reason: "invalid", message: FREE_CHAT_COPY.centerNotFound };
     centerId = ev.id;
   } else {
     const label = str(wantCenter.new?.label, CENTER_LABEL_MAX);
-    if (!label) return { ok: false, reason: "invalid", message: "새 시기 이름이 필요해요." };
+    if (!label) return { ok: false, reason: "invalid", message: FREE_CHAT_COPY.needNewCenterLabel };
     newCenter = { label, year: yearInRange(wantCenter.new?.year, birthYear) };
   }
 
@@ -470,7 +471,7 @@ export async function createFromCard(
       const same = await findSameNamePeople(prisma, userId, name);
       if (p.decision === "same") {
         const pick = same.find((s) => s.id === p.samePersonId);
-        if (!pick) return { ok: false, reason: "invalid", message: "같은 분을 다시 골라 주세요." };
+        if (!pick) return { ok: false, reason: "invalid", message: FREE_CHAT_COPY.repickSamePerson };
         personId = pick.id;
       } else if (p.decision !== "different" && same.length > 0) {
         ask.push({ index: i, candidates: same });
@@ -500,7 +501,7 @@ export async function createFromCard(
       const overlap = overlappingPlaces(owned, name);
       if (pl.decision === "same") {
         const pick = overlap.find((o) => o.id === pl.samePlaceId);
-        if (!pick) return { ok: false, reason: "invalid", message: "같은 곳을 다시 골라 주세요." };
+        if (!pick) return { ok: false, reason: "invalid", message: FREE_CHAT_COPY.repickSamePlace };
         placeId = pick.id;
       } else if (pl.decision !== "separate" && overlap.length > 0) {
         placeAsk.push({ index: i, candidates: overlap });

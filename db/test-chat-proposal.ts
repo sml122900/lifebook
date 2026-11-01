@@ -8,6 +8,7 @@
 // ⑩(LLM 0) = 장소 이름 합쳐짐 되묻기 + 프롬프트 예시 소재가 픽스처·재현 대화와 겹치지 않는지.
 // ⑪(LLM 0) = 제목 없음(빈 문자열) — 공용 판정 displayTitle·[고치기]에서 제목 지움·제목을 읽는 곳.
 // ⑫(LLM 0) = 시기 이름 제목 재발 방지 — 저장 한 곳(createEpisodeBridge) 규칙·userSetTitle 예외·저장 경로 전수.
+// ⑬(LLM 0) = 이름 뒤 조사 — 받침으로 고름(같은 곳·같은 분 되묻기), 문구 파일에 조사 하드코딩 0.
 // ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@·fixture-chat-e2e@lifebook.invalid)만 만들고 끝에 지운다.
 // 실고객·test30 접촉 0. 원가 원장(ChatV3Usage)은 실제 호출 원가라 남긴다(탈퇴처럼 userId 만 비워짐).
 
@@ -812,15 +813,36 @@ async function titleChecks(fx: Fixture) {
       (session.match(/topicIsTitle: true/g) ?? []).length === 2);
 }
 
+// ─── 조사 — 이름 뒤 조사를 받침으로 고른다(2026-11-02) — LLM 0 ──────────────
+
+function josaChecks() {
+  const place = (n: string) => FREE_CHAT_COPY.samePlaceQuestion(n);
+  check("⑬ 같은 곳 되묻기 조사 — 받침 있음 \"과\"(개울·외할머니 댁·역 앞 다방) / 없음 \"와\"(학교·우물가) / 한글 아님 \"와\"(Tokyo Tower) · \"과/와\" 글자 그대로 0",
+    place("개울") === "이미 있는 장소 개울과 같은 곳인가요?" && place("외할머니 댁") === "이미 있는 장소 외할머니 댁과 같은 곳인가요?" &&
+      place("역 앞 다방").includes("다방과 ") && place("학교") === "이미 있는 장소 학교와 같은 곳인가요?" && place("동네 우물가").includes("우물가와 ") &&
+      place("Tokyo Tower").includes("Tower와 ") && !["개울", "학교", "Tokyo Tower"].some((n) => place(n).includes("과/와")));
+  check("⑬ 같은 분 되묻기 — \"님과\"(님 = 받침 있음, 늘 맞음) · 관계 있으면 괄호",
+    FREE_CHAT_COPY.sameNameQuestion("김민수", "친구") === "이미 계신 김민수(친구) 님과 같은 분인가요?" && FREE_CHAT_COPY.sameNameQuestion("정우", null) === "이미 계신 정우 님과 같은 분인가요?");
+  // 문구 파일 4개 — 이름(보간) 바로 뒤에 조사를 글자로 박은 곳 0(조사는 withJosa 로).
+  const hard = ["lib/free-chat-copy.ts", "lib/my-life-copy.ts", "lib/node-confirm-copy.ts", "lib/interview/copy.ts"].flatMap((rel) =>
+    read(rel).split("\n").filter((l) => /\$\{[^}]+\}(이|가|을|를|은|는|과|와|으로|로|이랑|랑|에게|께서)[ "`'.,?!)]/.test(l)).map((l) => `${rel}: ${l.trim()}`),
+  );
+  check("⑬ 문구 파일 — 보간 바로 뒤 조사 하드코딩 0", hard.length === 0, hard);
+}
+
 // ─── 시기 이름 제목 재발 방지 — 이야기 저장 한 곳(createEpisodeBridge)의 규칙(2026-11-02) — LLM 0 ────
 
 async function periodTitleGuardChecks(fx: Fixture) {
   const { userId, ev } = fx;
   const own = ["군 입대", null, "서울 상경", "고향 떠난 해"];
-  check("⑫ 판정 — 그 계정 시기 이름(고친 이름 포함)·기본 시기 이름 9개·\"… 이후\"(공백 무시) = 자리 표시 / 진짜 제목 = 아님",
+  check("⑫ 판정 — 그 계정 시기 이름(고친 이름 포함)·기본 시기 이름 9개·그 이름 + \" 이후\"(공백 무시) = 자리 표시 / 진짜 제목 = 아님",
     isPeriodNameTitle("군 입대", own) && isPeriodNameTitle("고향 떠난 해", own) && isPeriodNameTitle(" 국민학교  입학 ", []) && isPeriodNameTitle("초등학교 입학", []) &&
-      isPeriodNameTitle("결혼 이후", []) && isPeriodNameTitle("서울 상경 이후", own) && !isPeriodNameTitle("결혼식 날 비가 왔다", own) &&
+      isPeriodNameTitle("결혼 이후", []) && isPeriodNameTitle("서울 상경 이후", own) && isPeriodNameTitle("군입대이후", own) && !isPeriodNameTitle("결혼식 날 비가 왔다", own) &&
       !isPeriodNameTitle("엿장수 따라가던 날", own) && !isPeriodNameTitle("", own));
+  // "… 이후" 는 시기 이름 + " 이후" 만 — 끝이 "이후"인 일반 제목은 그대로(2026-11-02 좁힘).
+  check("⑫ 일반 \"… 이후\" 제목 — \"광복 이후\"·\"그 이후\"·\"아버지 떠나신 이후\"는 자리 표시 아님 · 저장도 그대로",
+    !isPeriodNameTitle("광복 이후", own) && !isPeriodNameTitle("그 이후", own) && !isPeriodNameTitle("아버지 떠나신 이후", own) &&
+      storedStoryTitle("광복 이후", own, false) === "광복 이후");
   check("⑫ 저장할 제목 — 자리 표시면 빈 문자열 / 사용자가 직접 적었으면 그대로 / 진짜 제목은 그대로(앞뒤 공백 정리)",
     storedStoryTitle("중학교 입학", [], false) === "" && storedStoryTitle("중학교 입학", [], true) === "중학교 입학" && storedStoryTitle("  연 날리던 날 ", [], false) === "연 날리던 날");
 
@@ -839,9 +861,10 @@ async function periodTitleGuardChecks(fx: Fixture) {
   const c = await createEpisodeBridge(userId, ev.MILITARY, "결혼", 1973, "휴가 때 선을 봤다.", "[본인] 선");
   const d = await createEpisodeBridge(userId, ev.MILITARY, "군 입대", 1973, "내가 정한 제목이다.", "[본인] 제목", undefined, false, "STORY", true);
   const e = await createEpisodeBridge(userId, ev.MILITARY, "훈련소 별 보던 밤", 1973, "별이 많았다.", "[본인] 별");
-  const titles = { a: await titleOf(a), b: await titleOf(b), c: await titleOf(c), d: await titleOf(d), e: await titleOf(e) };
-  check("⑫ 저장 — 계정 시기 이름·\"… 이후\"·기본 시기 이름 → 빈 문자열 / 사용자가 적은 시기 이름 → 그대로 / 진짜 제목 → 그대로 · 결과 title = 저장 값",
-    titles.a === "" && titles.b === "" && titles.c === "" && titles.d === "군 입대" && titles.e === "훈련소 별 보던 밤" && a?.title === "" && d?.title === "군 입대", titles);
+  const g = await createEpisodeBridge(userId, ev.MILITARY, "광복 이후", 1973, "만세 소리가 들렸다.", "[본인] 만세");
+  const titles = { a: await titleOf(a), b: await titleOf(b), c: await titleOf(c), d: await titleOf(d), e: await titleOf(e), g: await titleOf(g) };
+  check("⑫ 저장 — 계정 시기 이름·시기 이름 + \" 이후\"·기본 시기 이름 → 빈 문자열 / 사용자가 적은 시기 이름 → 그대로 / 진짜 제목·\"광복 이후\" → 그대로 · 결과 title = 저장 값",
+    titles.a === "" && titles.b === "" && titles.c === "" && titles.d === "군 입대" && titles.e === "훈련소 별 보던 밤" && titles.g === "광복 이후" && a?.title === "" && d?.title === "군 입대", titles);
 
   // 카드 [만들기] — 카드 제목 그대로면 자동(규칙 적용), [고치기]로 바꾼 제목이면 사용자 제목(시기 이름이어도 그대로).
   const card = baseCard({ title: "고등학교 입학", summary: "입학식 날 교복이 컸다. 어머니가 웃으셨다.", center: { id: ev.HIGH_SCHOOL, label: "고등학교 입학", year: 1968 } });
@@ -968,6 +991,7 @@ async function liveE2EReplay() {
 async function main() {
   pureChecks();
   staticChecks();
+  josaChecks();
   await removeFixture();
   let fx: Fixture | null = null;
   try {

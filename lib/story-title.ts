@@ -30,14 +30,14 @@ export const DEFAULT_PERIOD_LABELS = [
   "결혼",
 ] as const;
 
-// 제목이 시기 이름 자리 표시인지(공백 무시) — 그 계정의 시기 이름(고친 이름 포함)·기본 시기 이름과 같거나, 끝이 "이후"
-// ("군 입대 이후" 같은 구간 이야기 자리 표시). 옛 저장 경로·갭 문항이 이런 값을 제목 칸에 넣었다(2026-11-02 정리).
+// 제목이 시기 이름 자리 표시인지(공백 무시) — 그 계정의 시기 이름(고친 이름 포함)·기본 시기 이름과 같거나, 그 이름 +
+// " 이후"("군 입대 이후" 같은 구간 이야기 자리 표시). "광복 이후" 같은 일반 제목은 아니다. 옛 저장 경로·갭 문항이 이런
+// 값을 제목 칸에 넣었다(2026-11-02 정리).
 export function isPeriodNameTitle(title: string, accountLabels: readonly (string | null)[]): boolean {
   const norm = (s: string) => s.replace(/\s+/g, "");
   const t = norm(title);
   if (!t) return false;
-  if (t.endsWith("이후")) return true;
-  return [...accountLabels, ...DEFAULT_PERIOD_LABELS].some((l) => !!l && norm(l) === t);
+  return [...accountLabels, ...DEFAULT_PERIOD_LABELS].some((l) => !!l && (norm(l) === t || `${norm(l)}이후` === t));
 }
 
 // 저장할 이야기 제목 — 사용자가 직접 적은 제목([고치기])이 아니면 시기 이름 자리 표시는 빈 문자열(= 제목 없음).
