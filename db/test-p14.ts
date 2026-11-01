@@ -4,9 +4,10 @@
 //
 // P14-1 — stripEpisodeDoneSignal(내용+종료 혼합 메시지에서 내용만 살림),
 //         isSummaryGuidance(요약 결과가 2인칭 안내문이면 거부).
-// P14-2 — isRelationCompatible + saveOrLinkPerson 이 같은 이름·다른 관계
-//         (선생님 vs 선배)를 별도 Person 으로, 호환 관계(친구 vs 친한 친구)는
-//         병합하는지 실제 DB 로.
+// P14-2 — isRelationCompatible + 지금 앱 경로(제안 카드 사람 행 personRow · 저장 createFromCard,
+//         My Life 개편 2단계): 같은 이름·다른 관계(선생님 vs 선배)는 자동으로 합치지 않고 되묻고
+//         [다른 분이에요] = 별도 Person, 호환 관계(친구 vs 친한 친구·지인)는 기존 인물로 — 실제 DB 로.
+//         (옛 saveOrLinkPerson 은 /chat-v3 인물 단계와 함께 삭제.)
 // P14-3 — buildPersonAddress 배우자 동의어(안사람·영감).
 
 import "dotenv/config";
@@ -25,7 +26,27 @@ import {
 } from "../lib/episode-text";
 import { isRelationCompatible } from "../lib/person-relation";
 import { buildPersonAddress } from "../lib/person-honorific";
-import { saveOrLinkPerson } from "../lib/person-chat";
+import { cardToEdit, createFromCard, personRow, type ProposalCard } from "../lib/node-proposal";
+
+// 카드 사람 행 하나로 이야기 저장 — /chat-v3·인터뷰 카드와 같은 경로. decision 은 되묻기 답.
+async function saveViaCard(userId: string, eventId: string, name: string, relation: string, decision?: "different") {
+  const roster = await prisma.person.findMany({
+    where: { userId, subjectType: "person", isDraft: false },
+    select: { id: true, name: true, relation: true },
+  });
+  const row = await personRow(userId, name, relation, null, roster);
+  const card: ProposalCard = {
+    v: 1, title: "[test] p14", summary: `${name} 이야기`, center: { id: eventId, label: "", year: null }, centerFixed: false,
+    people: [row], places: [], kind: "STORY", transcript: "", until: null, targetPersonId: null, isPeriod: false,
+  };
+  const edit = cardToEdit(card);
+  if (decision) edit.people[0] = { ...edit.people[0], decision };
+  const result = await createFromCard(userId, card, edit);
+  const linked = result.ok
+    ? await prisma.nodeLink.findFirst({ where: { fromType: "EPISODE", fromId: result.episodeId, toType: "PERSON" }, select: { toId: true } })
+    : null;
+  return { row, result, personId: linked?.toId ?? null };
+}
 
 let failed = 0;
 function check(label: string, ok: boolean, detail?: unknown) {
@@ -131,20 +152,25 @@ async function dbChecks() {
     const hs = await mk("HIGH_SCHOOL", "고등학교 입학", 1978, 0);
     const uni = await mk("UNIVERSITY", "대학교 입학", 1981, 1);
 
-    const a = await saveOrLinkPerson(user.id, hs.id, { name: "박정호", relation: "국사 선생님" }, 1978);
-    const b = await saveOrLinkPerson(user.id, uni.id, { name: "박정호", relation: "동아리 선배" }, 1981);
-    check("선생님·선배 동명이인 → 별도 Person", a.id !== b.id && b.created, { a, b });
-    check("두 번째 인물 호칭 = 선배님", buildPersonAddress(b.name, b.relation) === "박정호 선배님과");
+    const a = await saveViaCard(user.id, hs.id, "박정호", "국사 선생님");
+    check("첫 박정호(국사 선생님) → 새 인물", a.result.ok && a.row.personId === null && a.row.sameName.length === 0 && !!a.personId, a);
+    const bAsk = await saveViaCard(user.id, uni.id, "박정호", "동아리 선배");
+    check("선생님·선배 동명이인 → 자동 병합 안 하고 되묻기(저장 0)",
+      bAsk.row.personId === null && bAsk.row.sameName.some((x) => x.id === a.personId) && !bAsk.result.ok && bAsk.result.reason === "ask", bAsk);
+    const b = await saveViaCard(user.id, uni.id, "박정호", "동아리 선배", "different");
+    check("[다른 분이에요] → 별도 Person", b.result.ok && !!b.personId && b.personId !== a.personId, b);
+    const bRow = await prisma.person.findUnique({ where: { id: b.personId ?? "" }, select: { name: true, relation: true } });
+    check("두 번째 인물 호칭 = 선배님", !!bRow && buildPersonAddress(bRow.name, bRow.relation) === "박정호 선배님과");
 
-    const c = await saveOrLinkPerson(user.id, uni.id, { name: "박정호", relation: "선생님" }, 1981);
-    check("선생님(호환) → 첫 인물에 병합", c.id === a.id && !c.created, c);
+    const c = await saveViaCard(user.id, uni.id, "박정호", "선생님");
+    check("선생님(호환) → 첫 인물(이미 계신 분)", c.row.personId === a.personId && c.personId === a.personId, c);
 
-    const d = await saveOrLinkPerson(user.id, hs.id, { name: "최영수", relation: "친구" }, 1978);
-    const e = await saveOrLinkPerson(user.id, uni.id, { name: "최 영수", relation: "친한 친구" }, 1981);
-    check("친구 vs 친한 친구(공백 무시) → 병합", d.id === e.id && !e.created);
+    const d = await saveViaCard(user.id, hs.id, "최영수", "친구");
+    const e = await saveViaCard(user.id, uni.id, "최 영수", "친한 친구");
+    check("친구 vs 친한 친구(공백 무시) → 같은 인물", !!d.personId && e.row.personId === d.personId && e.personId === d.personId, { d, e });
 
-    const f = await saveOrLinkPerson(user.id, uni.id, { name: "최영수", relation: "지인" }, 1981);
-    check("지인(관계 정보 없음) → 병합", f.id === d.id);
+    const f = await saveViaCard(user.id, uni.id, "최영수", "지인");
+    check("지인(관계 정보 없음) → 같은 인물", f.personId === d.personId);
 
     const people = await prisma.person.count({ where: { userId: user.id } });
     check("Person 총 3명(박정호×2·최영수×1)", people === 3, people);

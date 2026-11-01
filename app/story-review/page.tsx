@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
-import { getPendingChatContext, type PendingChatContext } from "@/lib/chat-v3-pending";
+import { gapMatchesTopic, getFreeChatTopic } from "@/lib/free-chat";
 import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
 import { INTERVIEW_COPY } from "@/lib/interview/copy";
 import { getInterviewCardState, type InterviewCardState } from "@/lib/interview/session";
@@ -39,25 +39,6 @@ function gapHref(gap: Gap): string {
   return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=confirm`;
 }
 
-// P18-1 — ChatV3PendingContext(대기 대화)와 이 갭이 같은 대상인지 판정.
-// stage="PERSON"은 person 갭(새 인물 이름 확인), stage="EPISODE"는 personId
-// 유무로 person_episode 대 episode/time_gap 을 가른다(episode·time_gap 은
-// pending 테이블에 구분 표식이 없어 — ChatV3Client.tryResumePendingContext
-// 참조 — 같은 이벤트면 둘 다 매칭 대상으로 본다).
-function matchesPending(gap: Gap, pending: PendingChatContext | null): boolean {
-  if (!pending || !gap.targetEventId || gap.targetEventId !== pending.targetEventId) {
-    return false;
-  }
-  if (gap.type === "person") return pending.stage === "PERSON";
-  if (gap.type === "person_episode") {
-    return pending.stage === "EPISODE" && pending.targetPersonId === gap.targetPersonId;
-  }
-  if (gap.type === "episode" || gap.type === "time_gap") {
-    return pending.stage === "EPISODE" && pending.targetPersonId === null;
-  }
-  return false;
-}
-
 export default async function StoryReviewPage() {
   const session = await auth();
   if (!session?.user?.id) {
@@ -71,11 +52,13 @@ export default async function StoryReviewPage() {
 
   // 오늘의 인터뷰 진입 카드 — 오늘 기록만 1회 조회(계획 계산 없음). V3 화면이라 항상 표시.
   // 노드 그래프 2b-2 — 인물 확인 대기 수(1쿼리). 대화 종료 경로를 안 거친 경우(창 닫기 등) 보완.
-  const [pendingPeople, { timeline, episodes, selfEpisodes }, gaps, pending, interviewCard] = await Promise.all([
+  // P18-1 "진행 중" — 자유 대화에서 주제로 시작해 아직 결정 안 한 대화(My Life 개편 2단계부터 구간 주제로 판정,
+  // lib/free-chat gapMatchesTopic — 이전엔 옛 대기 대화 테이블).
+  const [pendingPeople, { timeline, episodes, selfEpisodes }, gaps, chatTopic, interviewCard] = await Promise.all([
     countPendingPeople(userId),
     getStoryReviewData(userId),
     detectGaps(userId),
-    getPendingChatContext(userId),
+    getFreeChatTopic(userId),
     getInterviewCardState(userId),
   ]);
   // P7-8 — 단순 slice(0,3) 는 한 타입(person/person_episode 등)이 수가
@@ -133,7 +116,7 @@ export default async function StoryReviewPage() {
           <h2 className="text-2xl font-bold text-ink">더 들어볼까요?</h2>
           <div className="flex flex-col gap-3">
             {topGaps.map((gap) => {
-              const inProgress = matchesPending(gap, pending);
+              const inProgress = gapMatchesTopic(gap, chatTopic);
               return (
                 <div
                   key={`${gap.type}:${gap.targetEventId ?? ""}:${gap.targetPersonId ?? ""}`}

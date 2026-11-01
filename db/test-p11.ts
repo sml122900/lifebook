@@ -26,7 +26,14 @@ import {
   listPeopleByEvent,
   unlinkPersonFromEvent,
 } from "../lib/people";
-import { linkPersonToLifeEvent } from "../lib/person-life-event";
+import { saveNodeLink } from "../lib/node-graph";
+
+// 인물 ↔ 시기 연결 — 앱의 연결 입구(saveNodeLink, Q44)가 PersonLifeEvent 로 넘긴다(옛 linkPersonToLifeEvent 대체).
+async function linkPersonToLifeEvent(userId: string, personId: string, lifeEventId: string): Promise<void> {
+  const r = await saveNodeLink(userId, { type: "LIFE_EVENT", id: lifeEventId }, { type: "PERSON", id: personId });
+  if (!r.ok) throw new Error(`saveNodeLink(LIFE_EVENT→PERSON) 실패: ${r.reason}`);
+}
+
 
 let failed = 0;
 function check(label: string, cond: boolean) {

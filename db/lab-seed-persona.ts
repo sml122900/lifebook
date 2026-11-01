@@ -2,7 +2,7 @@
 //
 // db/lab/personas/persona-*.ts(동결)를 --persona 로 골라 적재한다(목록 = registry.ts). 앱에 lib 함수가 있는 원본은 그
 // 함수로(createEpisodeBridge·saveEpisodePlaces·createLifeEvent·createPerson·
-// linkPersonToEvent·linkPersonToLifeEvent·stashEraEvent·saveEraMemory), 앱이
+// linkPersonToEvent·saveNodeLink(인물↔시기)·stashEraEvent·saveEraMemory), 앱이
 // 직접 prisma 로 만드는 행(골격 LifeEvent·OnboardingProfile·LifeProfile·카테고리
 // 없는 사건·동반자 초안)은 그 경로와 같은 필드로 만든다. 그 뒤 createdAt 을
 // (baseDateKst + day-1) 10:00 KST 로 덮어쓴다 — L2 "서로 다른 날 근거" 규칙 시험용.
@@ -32,9 +32,16 @@ import { saveEraMemory, stashEraEvent } from "../lib/era-stash";
 import { LAB_PERSONA_PREFIX } from "../lib/lab/gate";
 import { createLifeEvent } from "../lib/life-events";
 import { createPerson, linkPersonToEvent } from "../lib/people";
-import { linkPersonToLifeEvent } from "../lib/person-life-event";
+import { saveNodeLink } from "../lib/node-graph";
 import type { PlaceInfo } from "../lib/place-types";
 import { labPersona } from "./lab/personas/registry";
+
+// 인물 ↔ 시기 연결 — 앱의 연결 입구(saveNodeLink, Q44)가 PersonLifeEvent 로 넘긴다(옛 linkPersonToLifeEvent 대체).
+async function linkPersonToLifeEvent(userId: string, personId: string, lifeEventId: string): Promise<void> {
+  const r = await saveNodeLink(userId, { type: "LIFE_EVENT", id: lifeEventId }, { type: "PERSON", id: personId });
+  if (!r.ok) throw new Error(`saveNodeLink(LIFE_EVENT→PERSON) 실패: ${r.reason}`);
+}
+
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);

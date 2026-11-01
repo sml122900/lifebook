@@ -440,7 +440,13 @@ export function ChatV3Client({
         showMsg({ role: "a", text: r.opening });
         setSegTurns(0);
       } else if (r.kind === "pending") {
+        // 결정 전 카드(또는 하던 이야기로 방금 만든 카드)부터.
+        setProposal(r.view);
         await addBot(FC.cardFirst);
+      } else if (r.kind === "resume") {
+        await addBot(FC.resume);
+      } else if (r.kind === "budget") {
+        await addBot(FC.budgetPaused);
       } else {
         await addBot(FC.topicGone);
       }

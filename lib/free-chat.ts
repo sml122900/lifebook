@@ -203,20 +203,83 @@ export async function getFreeChatState(userId: string, now: Date = new Date()): 
   };
 }
 
+// ─── 지금 주제(/story-review "진행 중" 표시) ─────────────────────────────
+
+export type FreeChatTopic = { eventId: string; kind: FreeTopicKind; personId: string | null };
+
+function topicOf(seg: Pick<SegmentRow, "topicEventId" | "topicGapType" | "topicPersonId">): FreeChatTopic | null {
+  const kind = seg.topicGapType;
+  if (!seg.topicEventId || (kind !== "episode" && kind !== "period" && kind !== "person" && kind !== "person_episode")) return null;
+  return { eventId: seg.topicEventId, kind, personId: seg.topicPersonId };
+}
+
+// 주제로 시작해 아직 결정(만들기·안 만들기)하지 않은 대화의 주제. 없으면 null(읽기만 — 행을 만들지 않는다).
+export async function getFreeChatTopic(userId: string): Promise<FreeChatTopic | null> {
+  const seg = await prisma.chatV3Segment.findUnique({
+    where: { userId },
+    select: { topicEventId: true, topicGapType: true, topicPersonId: true },
+  });
+  return seg ? topicOf(seg) : null;
+}
+
+// 갭 카드가 지금 주제와 같은 대상인지(순수). 이전엔 /story-review 가 옛 대기 대화(ChatV3PendingContext)로
+// 판정했다 — 개편 2단계부터 대기 대화는 만들어지지 않는다(P18-1 의 같은 규칙을 구간 주제로).
+export function gapMatchesTopic(
+  gap: { type: string; targetEventId?: string | null; targetPersonId?: string | null },
+  topic: FreeChatTopic | null,
+): boolean {
+  if (!topic || !gap.targetEventId || gap.targetEventId !== topic.eventId) return false;
+  if (gap.type === "person") return topic.kind === "person";
+  if (gap.type === "person_episode") return topic.kind === "person_episode" && topic.personId === gap.targetPersonId;
+  if (gap.type === "episode") return topic.kind === "episode";
+  if (gap.type === "time_gap") return topic.kind === "period";
+  return false;
+}
+
+function sameTopic(seg: Pick<SegmentRow, "topicEventId" | "topicGapType" | "topicPersonId">, t: FreeTopicInput): boolean {
+  const cur = topicOf(seg);
+  return !!cur && cur.eventId === t.eventId && cur.kind === t.kind && (t.kind !== "person_episode" || cur.personId === (t.personId ?? null));
+}
+
+// P8-4·P23 — 인물 주제("그 시절 가까이 지낸 분")에 답했으면 그 시기에 "물어봤다"를 남긴다(person 갭 재노출 막음).
+// 다른 시기 이야기로 넘어간 경우(카드 시기 ≠ 주제 시기)는 남기지 않는다 — 원래 질문은 나중에 다시 뜬다.
+// centerId = null 은 "이야기 내용 없음"(기억이 잘 안 나요 류 — 답은 했다).
+async function markPersonAsked(userId: string, seg: Pick<SegmentRow, "topicEventId" | "topicGapType">, centerId: string | null) {
+  if (seg.topicGapType !== "person" || !seg.topicEventId) return;
+  if (centerId !== null && centerId !== seg.topicEventId) return;
+  await prisma.lifeEvent.updateMany({ where: { id: seg.topicEventId, userId }, data: { personAsked: true } });
+}
+
 // ─── 주제(갭 칩·딥링크) ────────────────────────────────────────────────
 
-export type StartTopicResult = { kind: "opening"; announce: string; opening: string } | { kind: "pending" } | { kind: "gone" };
+export type StartTopicResult =
+  | { kind: "opening"; announce: string; opening: string }
+  // 결정 전 카드가 있음 — 그 카드부터(지금 구간에 이야기가 있었으면 여기서 카드를 만들어 돌려준다).
+  | { kind: "pending"; view: ProposalView }
+  // 같은 주제로 이야기하던 중 — 새로 시작하지 않고 이어서(딥링크 재진입).
+  | { kind: "resume" }
+  | { kind: "budget" }
+  | { kind: "gone" };
 
-// 주제로 새 구간 시작 — 카드가 떠 있으면 시작하지 않는다(카드부터 결정). 오프닝 질문은 기존 템플릿.
+// 주제로 새 구간 시작. 오프닝 질문은 기존 템플릿.
 // 주제 고른 말(본인 버블)과 오프닝을 여기서 순서대로 로그에 저장한다(화면은 보여 주기만): 고른 말 → 구간 시작
 // → 오프닝. 그래서 "~ 이야기도 해볼게요"는 구간 밖(본인 실질 턴·제안 입력에 안 섞임), 오프닝부터 구간.
+// 지금 구간에 아직 카드로 안 만든 이야기가 있으면 버리지 않는다: 같은 주제면 이어서, 다른 주제면 그 이야기를
+// 먼저 카드로(/story-review 다른 갭 카드로 다시 들어온 경우 — 이전엔 구간을 새로 시작해 앞 이야기가 제안에서 빠졌다).
 export async function startFreeTopic(
   userId: string,
   topic: FreeTopicInput,
   sessionId: string,
 ): Promise<StartTopicResult> {
   const seg = await getSegment(userId);
-  if (parseCard(seg.proposal)) return { kind: "pending" };
+  const card = parseCard(seg.proposal);
+  if (card) return { kind: "pending", view: await toView(userId, card) };
+  if (substantiveUserTurns(await logTurns(userId, seg.startedAt)) > 0) {
+    if (sameTopic(seg, topic)) return { kind: "resume" };
+    const p = await proposeFromSegment(userId);
+    if (p.kind === "card") return { kind: "pending", view: p.view };
+    if (p.kind === "budget") return { kind: "budget" };
+  }
   const ev = await prisma.lifeEvent.findFirst({
     where: { id: topic.eventId, userId, status: { in: ["CONFIRMED", "CORRECTED"] } },
     select: { id: true, type: true, label: true, correctedLabel: true },
@@ -288,9 +351,16 @@ export async function freeChatReply(userId: string): Promise<FreeChatReplyResult
     try {
       const res = await chat(messages, { system, model: live.model, maxTokens: 400, temperature: 0.6 });
       await recordChatUsage(userId, "REPLY", res);
-      const parsed = JSON.parse(stripJsonFence(res.text).match(/\{[\s\S]*\}/)?.[0] ?? "") as { reply?: unknown; segment?: unknown };
-      if (typeof parsed.reply === "string" && parsed.reply.trim()) reply = parsed.reply.trim();
-      if (parsed.segment === "done" || parsed.segment === "topic_shift") segment = parsed.segment;
+      const json = stripJsonFence(res.text).match(/\{[\s\S]*\}/)?.[0];
+      const plain = res.text.trim();
+      if (!json && plain && plain.length <= 300 && !/[{}]/.test(plain)) {
+        // 모델이 JSON 없이 답 문장만 낸 경우(실측 2/24 — 예시 문구를 따라 할 때) — 기본 문구 대신 그 문장, 판단은 continue.
+        reply = plain;
+      } else {
+        const parsed = JSON.parse(json ?? "") as { reply?: unknown; segment?: unknown };
+        if (typeof parsed.reply === "string" && parsed.reply.trim()) reply = parsed.reply.trim();
+        if (parsed.segment === "done" || parsed.segment === "topic_shift") segment = parsed.segment;
+      }
     } catch (e) {
       console.error("[free-chat] reply", e instanceof Error ? e.message : e);
     }
@@ -350,7 +420,8 @@ export async function proposeFromSegment(
     purpose: "PROPOSAL",
   });
   if (result.kind !== "card") {
-    // 내용 없음(또는 실패) — 이 구간은 넘긴다. 주제도 끝.
+    // 내용 없음(또는 실패) — 이 구간은 넘긴다. 주제도 끝. 인물 주제에 "기억이 잘 안 나요" 류로 답한 것도 여기.
+    if (result.kind === "empty") await markPersonAsked(userId, seg, null);
     await prisma.chatV3Segment.update({
       where: { userId },
       data: { startedAt: until, topicEventId: null, topicPersonId: null, topicGapType: null },
@@ -376,6 +447,7 @@ export async function createFromFreeChatProposal(userId: string, edit?: CardEdit
   if (!card) return { ok: false, reason: "no_card" };
   const result = await createFromCard(userId, card, edit ?? cardToEdit(card));
   if (!result.ok) return result;
+  await markPersonAsked(userId, seg, result.eventId);
   const until = card.until ? new Date(card.until) : new Date();
   await prisma.chatV3Segment.update({
     where: { userId },
@@ -396,6 +468,7 @@ export async function declineFreeChatProposal(userId: string): Promise<{ segment
   const seg = await getSegment(userId);
   const card = parseCard(seg.proposal);
   const until = card?.until ? new Date(card.until) : new Date();
+  if (card) await markPersonAsked(userId, seg, "id" in card.center ? card.center.id : "new");
   await prisma.chatV3Segment.update({
     where: { userId },
     data: { startedAt: until, proposal: Prisma.DbNull, topicEventId: null, topicPersonId: null, topicGapType: null },

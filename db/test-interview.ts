@@ -184,7 +184,7 @@ function staticChecks() {
   const reviewSrc = read("app/story-review/page.tsx");
   check(
     "① /story-review 진입 카드 항상 조회·표시(조건 없음)",
-    /getPendingChatContext\(userId\),\s*getInterviewCardState\(userId\),\s*\]\)/.test(reviewSrc) &&
+    /getFreeChatTopic\(userId\),\s*getInterviewCardState\(userId\),\s*\]\)/.test(reviewSrc) &&
       reviewSrc.includes("<InterviewCard state={interviewCard} />"),
   );
   const gateLeft = ["app", "lib"]

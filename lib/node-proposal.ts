@@ -215,7 +215,7 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
           {
             role: "user",
             content:
-              buildProposalUserMessage({ centers, people, topic: input.topic, transcript }) + extra,
+              buildProposalUserMessage({ centers, people, topic: input.topic, birthYear, transcript }) + extra,
           },
         ],
         { system: PROPOSAL_SYSTEM_PROMPT, model: PROPOSAL_MODEL, maxTokens: 1200, temperature: 0.3 },

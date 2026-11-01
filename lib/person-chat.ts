@@ -7,10 +7,7 @@ import { prisma } from "./db";
 import { chat } from "./ai";
 import type { Prisma } from "./generated/prisma/client";
 import { saveNodeLink } from "./node-graph";
-import { createPerson } from "./people";
-import { linkPersonToLifeEvent } from "./person-life-event";
 import { isRelationCompatible } from "./person-relation";
-import { promoteOpenTurn } from "./open-chat-promote";
 import {
   PERSON_EXTRACT_SYSTEM_PROMPT,
   buildPersonExtractUserMessage,
@@ -99,49 +96,6 @@ export async function extractPersonCandidates(
   }
 }
 
-type SavedPerson = { id: string; name: string; relation: string | null; created: boolean };
-
-// P12-3 — 같은 사용자의 같은 이름(공백 무시) 인물이 이미 등록돼 있으면 새로
-// 만들지 않고 기존 Person 에 PersonLifeEvent 링크만 추가한다(이전엔 갭마다
-// createPerson 을 무조건 호출해 "박정호/1955년" · "박정호/1962년" 처럼 같은
-// 사람이 둘로 쌓였다). metYear 는 첫 등록값 유지(먼저 물어본 시절이 보통
-// 더 이른 연결이고, 갱신 경쟁을 안 만든다).
-//
-// 이름이 없어 관계를 이름 자리에 쓰는 경우("친구"·"어머니")는 dedup 대상이
-// 아니다 — 이름 없는 "친구" 둘을 한 사람으로 합치면 안 된다. isDraft 인물
-// (말동무 AI 추론 초안)은 /people 정식 등록이 아니라 매칭 대상에서 뺀다.
-export async function saveOrLinkPerson(
-  userId: string,
-  lifeEventId: string,
-  candidate: PersonCandidate,
-  metYear: number | null,
-): Promise<SavedPerson> {
-  if (candidate.name) {
-    // P14-2 — 같은 이름이라도 관계 부류가 명백히 다르면(선생님 vs 선배)
-    // 다른 사람으로 본다. 애매하면 병합 안 함(lib/person-relation.ts).
-    const existing = await findCompatiblePerson(prisma, userId, candidate.name, candidate.relation, false);
-    if (existing) {
-      await linkPersonToLifeEvent(userId, existing.id, lifeEventId);
-      return { id: existing.id, name: existing.name, relation: existing.relation, created: false };
-    }
-  }
-  // 이름 없이 호칭만 나온 경우(name=null) 관계를 이름 자리에 대신 써서
-  // 저장을 막지 않는다 — "이름이 뭐예요?" 되묻는 추가 왕복은 존엄 원칙의
-  // "캐묻지 않기" 취지에 안 맞다고 판단(사용자 지시).
-  const name = (candidate.name ?? candidate.relation).slice(0, NAME_MAX);
-  const person = await createPerson(userId, {
-    subjectType: "person",
-    name,
-    relation: candidate.relation,
-    birthYear: null,
-    category: null,
-    metYear,
-    memo: null,
-  });
-  await linkPersonToLifeEvent(userId, person.id, lifeEventId);
-  return { id: person.id, name, relation: candidate.relation, created: true };
-}
-
 // P12-2 — 에피소드 대화(STAGE4) 본인 발화에서 언급된 인물을 마무리(저장)
 // 시점에 함께 저장한다. 이전엔 인물 모드(submitPersonAnswer) 답변에서만
 // 추출해, 에피소드 대화 중 "국어 선생님 이순자 씨가 기억나요" 처럼 새로
@@ -211,91 +165,6 @@ export async function saveProposedPeople(
     else console.error("[person-chat] proposed link failed", { reason: r.reason });
   }
   return linked;
-}
-
-export type SubmitPersonAnswerResult = {
-  savedCount: number;
-  firstPersonId: string | null;
-  firstPersonName: string | null;
-  // P10-4 — 호칭 판정(lib/person-honorific.ts)에 필요.
-  firstPersonRelation: string | null;
-  // v3 P23-1 — 이름 후보가 0개라 인물 답변으로 안 걸렸지만, open 모드
-  // 분류기(promoteOpenTurn)로 보니 실은 그 시절과 무관한 실질 이야기였던
-  // 경우(예: "스물다섯 살 때 부산에서 배를 탔어요") 새로 만든 CUSTOM
-  // LifeEvent. 있으면 호출부가 person 흐름을 접고 이 이벤트로 에피소드
-  // 대화를 이어간다 — "이름이 없으니 거절"로 오분류해 실제 이야기를 버리던
-  // 것을 막는다(핵심 원칙: 하고 싶은 이야기가 유실되면 안 됨).
-  promoted: { eventId: string; label: string; year: number | null } | null;
-};
-
-// question 은 방금 사용자에게 던진 질문 문구(추출 프롬프트에 맥락으로 씀).
-export async function submitPersonAnswer(
-  userId: string,
-  lifeEventId: string,
-  question: string,
-  answer: string,
-): Promise<SubmitPersonAnswerResult> {
-  const event = await prisma.lifeEvent.findFirst({
-    where: { id: lifeEventId, userId, status: { in: ["CONFIRMED", "CORRECTED"] } },
-    select: { id: true, year: true, correctedYear: true },
-  });
-  const empty: SubmitPersonAnswerResult = {
-    savedCount: 0,
-    firstPersonId: null,
-    firstPersonName: null,
-    firstPersonRelation: null,
-    promoted: null,
-  };
-  if (!event) return empty;
-
-  const candidates = await extractPersonCandidates(question, answer);
-  if (candidates.length === 0) {
-    const promotion = await promoteOpenTurn(userId, answer);
-    if (promotion.kind === "promoted") {
-      // v3 P23(재검토) — 승격은 "이 질문에 답했다"가 아니라 "다른 이야기로
-      // 넘어갔다"다. personAsked 를 세우면 이 person 갭이 영구히 다시 안
-      // 뜨는데, 정작 원래 질문("~시절 가까이 지내신 분 있으세요?")엔 아직
-      // 아무도 답한 적이 없다 — 세우지 않고 그대로 둬 다음 detectGaps 에서
-      // 다시 제안될 수 있게 한다(핵심 원칙: 하고 싶은 이야기도, 원래 묻던
-      // 질문도 유실되면 안 됨).
-      return {
-        ...empty,
-        promoted: { eventId: promotion.eventId, label: promotion.label, year: promotion.year },
-      };
-    }
-    // P8-4 — 진짜 거절/무응답("기억이 잘 안 나요")만 "물어봤다"로 기록.
-    // gap-detector 의 person 갭 재노출만 막고, 다른 경로(자유 발화 등)로
-    // 인물을 추가하는 것까지 막지는 않는다.
-    await prisma.lifeEvent.update({
-      where: { id: event.id },
-      data: { personAsked: true },
-    });
-    return empty;
-  }
-
-  // 이름 후보가 있어 실제로 답한 경우도 물어봤다로 기록(위와 같은 이유).
-  await prisma.lifeEvent.update({
-    where: { id: event.id },
-    data: { personAsked: true },
-  });
-
-  const metYear = event.correctedYear ?? event.year;
-  let first: SavedPerson | null = null;
-  let savedCount = 0;
-
-  for (const c of candidates) {
-    const saved = await saveOrLinkPerson(userId, lifeEventId, c, metYear);
-    savedCount += 1;
-    if (!first) first = saved;
-  }
-
-  return {
-    savedCount,
-    firstPersonId: first?.id ?? null,
-    firstPersonName: first?.name ?? null,
-    firstPersonRelation: first?.relation ?? null,
-    promoted: null,
-  };
 }
 
 export type PersonEpisodeTarget = { personName: string; personRelation: string | null } | null;

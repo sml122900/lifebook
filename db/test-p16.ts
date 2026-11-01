@@ -14,13 +14,20 @@ import { deleteAccountTx } from "../lib/account-deletion";
 import { detectGaps } from "../lib/gap-detector";
 import { createEpisodeBridge } from "../lib/episode";
 import { createPerson } from "../lib/people";
-import { linkPersonToLifeEvent } from "../lib/person-life-event";
+import { saveNodeLink } from "../lib/node-graph";
 import {
   buildResumeAnnouncement,
   isSubstantiveEpisodeContent,
   lastNonResumeAssistantText,
 } from "../lib/episode-text";
 import { buildPersonAddress, buildPersonLabel } from "../lib/person-honorific";
+
+// 인물 ↔ 시기 연결 — 앱의 연결 입구(saveNodeLink, Q44)가 PersonLifeEvent 로 넘긴다(옛 linkPersonToLifeEvent 대체).
+async function linkPersonToLifeEvent(userId: string, personId: string, lifeEventId: string): Promise<void> {
+  const r = await saveNodeLink(userId, { type: "LIFE_EVENT", id: lifeEventId }, { type: "PERSON", id: personId });
+  if (!r.ok) throw new Error(`saveNodeLink(LIFE_EVENT→PERSON) 실패: ${r.reason}`);
+}
+
 
 const GUIDANCE = "더 많은 이야기를 들려주세요. 어떤 일이 있으셨나요?";
 const SUBSTANTIVE = "그날 학교 강당에서 있었던 일이 지금도 생생하다.";

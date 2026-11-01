@@ -20,8 +20,15 @@ import { deleteAccountTx } from "../lib/account-deletion";
 import { detectGaps } from "../lib/gap-detector";
 import { createEpisodeBridge } from "../lib/episode";
 import { createPerson, listEventsByPerson } from "../lib/people";
-import { linkPersonToLifeEvent } from "../lib/person-life-event";
+import { saveNodeLink } from "../lib/node-graph";
 import { isSubstantiveEpisodeContent, isSummaryGuidance } from "../lib/episode-text";
+
+// 인물 ↔ 시기 연결 — 앱의 연결 입구(saveNodeLink, Q44)가 PersonLifeEvent 로 넘긴다(옛 linkPersonToLifeEvent 대체).
+async function linkPersonToLifeEvent(userId: string, personId: string, lifeEventId: string): Promise<void> {
+  const r = await saveNodeLink(userId, { type: "LIFE_EVENT", id: lifeEventId }, { type: "PERSON", id: personId });
+  if (!r.ok) throw new Error(`saveNodeLink(LIFE_EVENT→PERSON) 실패: ${r.reason}`);
+}
+
 
 // 실측(test30) 에서 저장된 것과 같은 결의 원문 — 어르신 "-습니다"체 + 물음표.
 const RAW_STYLE_1 = "1978년에 군대에 입대했습니다. 훈련소에서 고생을 많이 했습니다.";
