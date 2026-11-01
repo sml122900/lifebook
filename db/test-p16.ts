@@ -2,8 +2,9 @@
 //
 // P16-1 — detectGaps 가 hasEpisode 플래그 대신 실질 내용 있는 Episode
 //         존재로 episode/time_gap/person_episode 갭을 판단하는지(DB).
-// P16-2 — buildResumeAnnouncement/lastNonResumeAssistantText 순수 동작 +
-//         person 라벨 리팩터(buildPersonLabel/buildPersonAddress) 회귀.
+// P16-2 — person 라벨 리팩터(buildPersonLabel/buildPersonAddress) 회귀.
+//         (옛 /chat-v3 이어받기 안내 buildResumeAnnouncement·lastNonResumeAssistantText 는
+//         My Life 개편 2단계 후속에서 함수와 함께 검사 삭제.)
 //
 // 외부 API 호출 0. 테스트 계정은 끝에 deleteAccountTx 로 삭제.
 
@@ -15,11 +16,7 @@ import { detectGaps } from "../lib/gap-detector";
 import { createEpisodeBridge } from "../lib/episode";
 import { createPerson } from "../lib/people";
 import { saveNodeLink } from "../lib/node-graph";
-import {
-  buildResumeAnnouncement,
-  isSubstantiveEpisodeContent,
-  lastNonResumeAssistantText,
-} from "../lib/episode-text";
+import { isSubstantiveEpisodeContent } from "../lib/episode-text";
 import { buildPersonAddress, buildPersonLabel } from "../lib/person-honorific";
 
 // 인물 ↔ 시기 연결 — 앱의 연결 입구(saveNodeLink, Q44)가 PersonLifeEvent 로 넘긴다(옛 linkPersonToLifeEvent 대체).
@@ -44,32 +41,6 @@ function pureChecks() {
   check("안내문 → false", !isSubstantiveEpisodeContent(GUIDANCE));
   check("실질 내용 → true", isSubstantiveEpisodeContent(SUBSTANTIVE));
 
-  console.log("=== P16-2 buildResumeAnnouncement / lastNonResumeAssistantText ===");
-  check(
-    "안내 문구 형식",
-    buildResumeAnnouncement("국민학교 입학") === "아까 국민학교 입학 이야기 이어서 들을게요.",
-  );
-
-  const real = { role: "assistant", content: "김영수랑 기억나는 일 있으세요?" };
-  const resume = { role: "assistant", content: buildResumeAnnouncement("국민학교 입학") };
-  const user = { role: "user", content: "네" };
-
-  check("안내문 없음 — 마지막 그대로", lastNonResumeAssistantText([real]) === real.content);
-  check(
-    "안내문 1개 건너뛰고 진짜 질문",
-    lastNonResumeAssistantText([real, resume]) === real.content,
-  );
-  check(
-    "안내문 연속 2개(반복 재진입 시뮬레이션) 건너뛰기",
-    lastNonResumeAssistantText([real, resume, resume]) === real.content,
-  );
-  check("로그 없음 → null", lastNonResumeAssistantText([]) === null);
-  check("마지막이 user → null", lastNonResumeAssistantText([real, user]) === null);
-  check(
-    "안내문만 있고 그 위가 없음 → null",
-    lastNonResumeAssistantText([resume]) === null,
-  );
-
   console.log("=== P16-2 buildPersonLabel/buildPersonAddress 리팩터 회귀 ===");
   check("선임 라벨", buildPersonLabel("정영식", "선임") === "정영식 선임");
   check("선임 주소(회귀)", buildPersonAddress("정영식", "선임") === "정영식 선임과");
@@ -80,7 +51,6 @@ function pureChecks() {
   check("정미숙 씨 주소(회귀)", buildPersonAddress("정미숙", "아내") === "정미숙 씨와");
   check("집사람 라벨", buildPersonLabel("집사람", "아내") === "아내분");
   check("집사람 주소(회귀)", buildPersonAddress("집사람", "아내") === "아내분과");
-  check("resume 안내에 라벨 그대로 삽입", buildResumeAnnouncement(buildPersonLabel("박정호", "국사 선생님")) === "아까 박정호 선생님 이야기 이어서 들을게요.");
 }
 
 async function dbChecks() {

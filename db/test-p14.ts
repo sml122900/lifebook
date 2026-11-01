@@ -15,7 +15,6 @@ import "dotenv/config";
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
 import {
-  buildPersonEpisodeTranscript,
   EPISODE_CLOSING_SENTENCES,
   EPISODE_DONE_PHRASES,
   EXIT_PHRASES,
@@ -96,12 +95,6 @@ function pureChecks() {
     isExitIntent("친구랑 놀았어요 그만할래요") && stripEpisodeDoneSignal("친구랑 놀았어요 그만할래요") === "친구랑 놀았어요");
   check("종료 낱말이 든 내용 문장은 종료 아님(여기까지 걸어왔어요·밥은 충분해요·대학에 합격이 됐어요)",
     ["여기까지 걸어왔어요", "밥은 충분해요", "대학에 합격이 됐어요"].every((t) => !isExitIntent(t) && !isEpisodeDoneIntent(t)));
-
-  const seed = buildPersonEpisodeTranscript("고등학교 다닐 때 친하게 지낸 사람 있으세요?", "김민수라는 친구랑 매일 같이 등교했어요", "김민수랑 기억나는 일 있으세요?");
-  check("인물 질문 답 → 이야기 기록 첫 본인 턴([질문, 답, 오프닝])",
-    seed.map((t) => t.role).join() === "assistant,user,assistant" && seed[1].text === "김민수라는 친구랑 매일 같이 등교했어요", seed);
-  const seed2 = buildPersonEpisodeTranscript("친한 사람 있으세요?", "김민수요. 그 정도예요", "김민수랑 기억나는 일 있으세요?");
-  check("인물 질문 답의 마무리 말은 떼고 넘김", seed2[1]?.text === "김민수요.", seed2);
 
   console.log("=== P14-1 요약 안내문 가드 ===");
   check("안내문 1", isSummaryGuidance("더 많은 이야기를 들려주세요. 박정호 선생님과 어떤 일이 있으셨나요?"));

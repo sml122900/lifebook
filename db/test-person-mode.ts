@@ -25,7 +25,7 @@
 //    인물에는 연결을 안 만듦 → 확인(맞아요) 뒤 확정 + 연결 CONFIRMED + PersonLifeEvent.
 // 11) E2E 후속(2026-11-01, 운영 test30 재현) — 이야기 내용 유실. 실제 Sonnet(인물 추출 1 + 요약 4 +
 //    요약 뒤 인물 추출 3). ① 인물 질문 답("김민수라는 친구랑 매일 같이 등교했어요") + AI 가 끝낸
-//    대화의 "네 그 정도예요" → 본문에 등교 내용, 마무리 말 없음(buildPersonEpisodeTranscript +
+//    대화의 "네 그 정도예요" → 본문에 등교 내용, 마무리 말 없음(인물 답을 첫 본인 턴으로 +
 //    서버 마무리 문장 떼기) ② 마무리 말만 있는 턴 → 저장 안 함(LLM 0) ③ 맞장구만("네 맞아요") →
 //    요약 모델 NO_CONTENT → 저장 안 함 ④ "한 시간 그 정도 걸었어요" 내용 문장 보존 ⑤ 여러 턴 내용 모두 반영.
 
@@ -67,7 +67,6 @@ import { deletePerson, listPeople } from "../lib/people";
 import { countPendingPeople, decidePeople, getPendingPeopleGroups } from "../lib/node-confirm";
 import { getConfirmedLifeEvent, listConfirmedLifeEvents } from "../lib/life-event-query";
 import { finishEpisodeChatCore, type EpisodeTurn } from "../lib/episode-chat";
-import { buildPersonEpisodeTranscript } from "../lib/episode-text";
 
 async function cleanup() {
   await prisma.user.deleteMany({ where: { email: { startsWith: "person-mode-test-" } } });
@@ -418,7 +417,12 @@ async function scenarioContentLoss() {
   if (!linked.ok) fail("fixture person link failed");
   const r = { firstPersonId: minsu.id, firstPersonName: minsu.name, firstPersonRelation: minsu.relation };
   const opening = `${buildPersonAddress(r.firstPersonName, r.firstPersonRelation)} 기억나는 일 있으세요?`;
-  const transcript = buildPersonEpisodeTranscript(question, answer, opening);
+  // 이야기 기록 = [인물 질문, 본인 답, 그 인물 오프닝](옛 /chat-v3 인물 → 이야기 전환과 같은 모양 — V2 마무리 경로 검사용).
+  const transcript: EpisodeTurn[] = [
+    { role: "assistant", text: question },
+    { role: "user", text: answer },
+    { role: "assistant", text: opening },
+  ];
   console.log("기록 시작 턴:", transcript.map((t) => t.role).join(","), "(expect assistant,user,assistant)");
   if (transcript.map((t) => t.role).join() !== "assistant,user,assistant") fail("person answer should be the first user turn");
   // AI 가 끝내기로 판단한 경로(②) — 클라는 마무리 말을 떼지 않고 넘긴다. 서버가 뗀다.

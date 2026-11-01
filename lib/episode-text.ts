@@ -1,6 +1,7 @@
-// v3 P14-1 — 에피소드 대화 텍스트 순수 헬퍼. prisma/auth 없음 — 클라
-// (app/chat-v3/ChatV3Client.tsx)와 서버 액션(app/actions/episode.ts), 검증
-// 스크립트(db/test-p14.ts)가 같은 함수를 공유한다.
+// v3 P14-1 — 에피소드 대화 텍스트 순수 헬퍼. prisma/auth 없음 — 클라(/chat-v3·오늘의 인터뷰·
+// 온보딩 이야기 대화)·서버(lib/episode-chat.ts·lib/free-chat.ts·lib/node-proposal.ts)·검증
+// 스크립트(db/test-p14.ts)가 같은 함수를 공유한다. (옛 /chat-v3 이어받기 안내·마무리 문구 순환·인물 답
+// 기록 함수는 My Life 개편 2단계 후속에서 삭제.)
 
 // P8-2 — "그걸로 된 것 같아요"/"충분해요" 류의 완곡한 종료 의사. LLM 이
 // 종종 "잘 됐다"는 뜻으로 오독해 마무리 대신 되묻는다 — 에피소드 대화 중엔
@@ -126,27 +127,6 @@ export function stripEpisodeDoneSignal(text: string): string {
     .trim();
 }
 
-// E2E 후속(2026-11-01) — 인물 질문의 답에서 그 인물과의 이야기로 바로 넘어갈 때 이야기 대화 기록의
-// 시작. 그 답에 실제 이야기가 담긴 경우가 많아("김민수라는 친구랑 매일 같이 등교했어요") 첫 본인
-// 턴으로 넘긴다 — 예전엔 인물 추출에만 쓰이고 기록에서 빠져, 다음 답이 "네 그 정도예요" 뿐이면
-// 본문이 마무리 말로 채워졌다(운영 test30). 자유 대화 → 이야기 전환(submitOpenChat)과 같은 방식.
-export function buildPersonEpisodeTranscript(
-  personQuestion: string,
-  personAnswer: string,
-  opening: string,
-): { role: "assistant" | "user"; text: string }[] {
-  const kept = stripEpisodeDoneSignal(personAnswer);
-  return [
-    ...(personQuestion && kept
-      ? [
-          { role: "assistant" as const, text: personQuestion },
-          { role: "user" as const, text: kept },
-        ]
-      : []),
-    { role: "assistant", text: opening },
-  ];
-}
-
 // P14-1(2) — 요약 결과가 "이야기 정리"가 아니라 사용자에게 말을 거는
 // 안내문("더 들려주세요", "정리해 드리겠습니다", "~있으신가요?")인지.
 // 요약 프롬프트가 내용 부족을 이유로 이런 문구를 만들면 Episode.content 에
@@ -192,53 +172,4 @@ export function isSummaryGuidance(text: string): boolean {
 // 남겼다.
 export function isSubstantiveEpisodeContent(content: string): boolean {
   return content.trim().length > 0 && !isSummaryGuidance(content);
-}
-
-// P16-2 — EPISODE/PERSON 대기 컨텍스트를 조용히 이어받을 때 붙이는 안내
-// 한 줄. 형식이 고정돼 있어(항상 "아까 " 로 시작·" 이야기 이어서 들을게요."
-// 로 끝) lastNonResumeAssistantText 가 정규식으로 알아본다.
-export function buildResumeAnnouncement(label: string): string {
-  return `아까 ${label} 이야기 이어서 들을게요.`;
-}
-const RESUME_ANNOUNCEMENT_RE = /^아까 .+ 이야기 이어서 들을게요\.$/;
-
-// ChatV3Client 의 tryResumePendingContext 가 "실제로 답을 기다리던 마지막
-// 질문"을 찾을 때 쓴다. 답 없이 재진입을 반복하면 로그 끝이 매번 이
-// 안내문 자신이 되므로(addBot 자체 연속-중복 방지 덕에 안내문이 여러 줄
-// 쌓이진 않는다 — 클라의 buildResumeAnnouncement 호출부 참고), 그걸 원래
-// 질문으로 착각해 다음 재진입의 컨텍스트 앵커·person/period 판정용 텍스트로
-// 삼지 않도록 건너뛰고 그 위의 진짜 질문을 찾는다.
-export function lastNonResumeAssistantText(
-  loaded: readonly { role: string; content: string }[],
-): string | null {
-  for (let i = loaded.length - 1; i >= 0; i--) {
-    const m = loaded[i];
-    if (m.role === "assistant" && RESUME_ANNOUNCEMENT_RE.test(m.content)) continue;
-    return m.role === "assistant" ? m.content : null;
-  }
-  return null;
-}
-
-// P14-4 — 에피소드 저장 뒤 마무리 멘트. 한 세션에 6회 이상 같은 문구가
-// 반복돼 단조롭다는 관찰 — 순서대로 돌려 쓴다(연속 중복 0).
-export const EPISODE_CLOSINGS = [
-  "소중한 이야기 들려주셔서 고마워요. 다른 이야기도 있으세요?",
-  "네, 잘 담아뒀어요. 또 떠오르는 이야기 있으세요?",
-  "이야기 잘 들었어요. 더 나누고 싶은 이야기 있으세요?",
-  "고마워요, 잘 기록해 뒀어요. 다른 시절 이야기도 있으세요?",
-];
-
-// P15-1 — 복원된 로그에서 마지막으로 쓴 마무리 문구를 찾아 "다음" 인덱스를
-// 돌려준다. 클라의 순환 인덱스(useRef)가 리마운트·재진입마다 0 으로 돌아가
-// 실사용에선 항상 첫 문구만 나오던 원인 — 로그는 DB 에 남으므로 여기서
-// 이어받으면 저장소 추가 없이 순환이 계속된다. 문구가 없으면 0.
-export function nextClosingIndexFromLog(
-  log: readonly { role: string; content: string }[],
-): number {
-  for (let i = log.length - 1; i >= 0; i--) {
-    if (log[i].role !== "assistant") continue;
-    const idx = EPISODE_CLOSINGS.indexOf(log[i].content);
-    if (idx >= 0) return (idx + 1) % EPISODE_CLOSINGS.length;
-  }
-  return 0;
 }
