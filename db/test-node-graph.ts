@@ -3,7 +3,8 @@
 //   ① DB 카탈로그 — 정리 트리거 6개·방향 CHECK 존재, NodeType 선언 순서 = lib 순위표
 //   ② 방향 정규화(순수 함수)
 //   ③ saveNodeLink — 역방향 요청이 같은 행으로 합쳐짐 · 제안→확정만 올림 · 다른 사용자 노드 거부 ·
-//      허용 안 된 쌍·자기 연결·주 소속 중복 거부
+//      허용 안 된 쌍·자기 연결·주 소속 중복 거부 · 유일한 입구(My Life Q44) — 중심↔인물은 PersonLifeEvent,
+//      이야기↔장소는 MemoryPlace 로 넘겨 저장(NodeLink 0행·멱등·역방향 같은 행·남의 노드 거부·PROPOSED/role 거부)
 //   ④ DB CHECK — 역방향·같은 종류 역순·자기 연결 직접 삽입 거부
 //   ⑤ 연쇄 삭제 시 트리거 정리 — 이야기(브릿지 삭제 cascade)·직접 추가 사건(CUSTOM)·인물·그룹·
 //      장소 삭제, 본문 사진 메모리 정리(이야기 브릿지는 보존)
@@ -155,12 +156,36 @@ async function main() {
     check("③ 거부된 연결은 행이 생기지 않음", (await linkCount(touching("PLACE", placeB))) === 0);
 
     const na = await Promise.all([
-      saveNodeLink(a, { type: "LIFE_EVENT", id: hs }, { type: "PERSON", id: personA }), // PersonLifeEvent 몫
-      saveNodeLink(a, { type: "EPISODE", id: story1.episodeId }, { type: "PLACE", id: placeA }), // MemoryPlace 몫
       saveNodeLink(a, { type: "PERSON_GROUP", id: groupA }, { type: "PERSON", id: personA2 }), // PersonGroupMember 몫
-      saveNodeLink(a, { type: "PERSON", id: personA }, { type: "PERSON", id: personA2 }), // 같은 종류 쌍 — 1단계 미허용
+      saveNodeLink(a, { type: "PERSON", id: personA }, { type: "PERSON", id: personA2 }), // 같은 종류 쌍 — 미허용
     ]);
-    check("③ 다른 곳에 저장하는 쌍·미허용 쌍 거부(pair_not_allowed 4건)", na.every((r) => !r.ok && r.reason === "pair_not_allowed"), na);
+    check("③ 그룹 구성원·미허용 쌍 거부(pair_not_allowed 2건)", na.every((r) => !r.ok && r.reason === "pair_not_allowed"), na);
+
+    // 유일한 입구(Q44) — 중심↔인물 = PersonLifeEvent, 이야기↔장소 = MemoryPlace. NodeLink 에는 행이 생기지 않는다.
+    const linksBeforeRouted = await prisma.nodeLink.count({ where: { userId: a } });
+    const r1 = await saveNodeLink(a, { type: "PERSON", id: personA }, { type: "LIFE_EVENT", id: hs });
+    const r2 = await saveNodeLink(a, { type: "LIFE_EVENT", id: hs }, { type: "PERSON", id: personA });
+    const pleRows = await prisma.personLifeEvent.findMany({ where: { personId: personA, lifeEventId: hs } });
+    check("③ 입구 — 중심↔인물은 PersonLifeEvent 1행(역방향·재요청 같은 행)",
+      r1.ok && r1.store === "PERSON_LIFE_EVENT" && r2.ok && r2.linkId === r1.linkId && pleRows.length === 1 && pleRows[0].userId === a, { r1, r2, n: pleRows.length });
+    const r3 = await saveNodeLink(a, { type: "PLACE", id: placeA }, { type: "EPISODE", id: story1.episodeId });
+    const r4 = await saveNodeLink(a, { type: "EPISODE", id: story1.episodeId }, { type: "PLACE", id: placeA });
+    const mpRows = await prisma.memoryPlace.findMany({ where: { memoryId: story1.memoryId } });
+    check("③ 입구 — 이야기↔장소는 브릿지 메모리 MemoryPlace 1행(placeId·장소 이름 복사, 재요청 같은 행)",
+      r3.ok && r3.store === "MEMORY_PLACE" && r4.ok && r4.linkId === r3.linkId && mpRows.length === 1 &&
+        mpRows[0].placeId === placeA && mpRows[0].placeName === "[fixture] 강당",
+      { r3, r4, mpRows });
+    check("③ 입구 — 기존 칸으로 넘긴 쌍은 NodeLink 행 0(한 쌍 = 한 곳)", (await prisma.nodeLink.count({ where: { userId: a } })) === linksBeforeRouted);
+    const r5 = await saveNodeLink(a, { type: "LIFE_EVENT", id: hs }, { type: "PERSON", id: personA }, { status: "PROPOSED" });
+    const r6 = await saveNodeLink(a, { type: "EPISODE", id: story1.episodeId }, { type: "PLACE", id: placeA }, { role: "AT" });
+    check("③ 입구 — 기존 칸 쌍에 PROPOSED·role 요청은 거부(unsupported_option)", !r5.ok && r5.reason === "unsupported_option" && !r6.ok && r6.reason === "unsupported_option", { r5, r6 });
+    const r7 = await saveNodeLink(a, { type: "LIFE_EVENT", id: hs }, { type: "PERSON", id: (await prisma.person.create({ data: { userId: b, name: "[fixture] B 인물" }, select: { id: true } })).id });
+    const r8 = await saveNodeLink(a, { type: "EPISODE", id: story1.episodeId }, { type: "PLACE", id: placeB });
+    check("③ 입구 — 기존 칸 쌍도 남의 노드는 거부(not_found, 행 0)",
+      !r7.ok && r7.reason === "not_found" && !r8.ok && r8.reason === "not_found" &&
+        (await prisma.memoryPlace.count({ where: { memoryId: story1.memoryId } })) === 1 &&
+        (await prisma.personLifeEvent.count({ where: { lifeEventId: hs } })) === 1,
+      { r7, r8 });
     const self = await saveNodeLink(a, { type: "PERSON", id: personA }, { type: "PERSON", id: personA });
     check("③ 자기 자신과의 연결 거부(self_link)", !self.ok && self.reason === "self_link", self);
     const prim = await saveNodeLink(a, { type: "LIFE_EVENT", id: hs }, { type: "EPISODE", id: story1.episodeId });

@@ -1,11 +1,13 @@
 // 노드 그래프 — 범용 연결(NodeLink) 저장. docs/phase/node-graph-self.md §1.4~§1.6.
 //
 // NodeLink 행은 이 파일의 saveNodeLink 로만 만든다(다른 곳에서 nodeLink.create 금지).
+// saveNodeLink 는 노드 연결의 유일한 입구다(My Life Q44, 2026-11-01) — 이미 다른 칸에 저장하는 쌍 중
+// 중심↔인물은 PersonLifeEvent, 이야기↔장소는 MemoryPlace 로 넘겨 저장한다(NodeLink 에 같은 쌍을 또 두지 않음).
 //   1) 방향 정규화 — 노드 종류 순위(NODE_RANK)에서 상위가 from, 같은 종류는 id 바이트 순으로
 //      앞선 쪽이 from. A→B 와 B→A 요청이 같은 행이 된다. DB 의 NodeLink_direction_check 가
 //      같은 규칙(enum 선언 순서 + COLLATE "C")으로 어긋난 행을 거부한다.
-//   2) 허용 쌍 확인 — 이미 다른 곳에 저장하는 쌍(인물↔중심 = PersonLifeEvent, 이야기↔장소 =
-//      MemoryPlace, 그룹↔인물 = PersonGroupMember)은 여기서 받지 않는다(한 쌍 = 한 곳).
+//   2) 허용 쌍 확인 — NodeLink 에 두는 쌍(ALLOWED_PAIRS)과 기존 칸으로 넘기는 쌍(ROUTED_PAIRS)만 받는다.
+//      그룹↔인물(PersonGroupMember) 등 그 밖의 쌍은 거부(한 쌍 = 한 곳).
 //   3) 양 끝 소유 확인 — 두 노드 모두 이 사용자 것이어야 한다.
 //   4) upsert — 이미 있으면 같은 행. PROPOSED 행에 CONFIRMED 요청이 오면 확정만 올린다
 //      (확정 → 제안으로 내리지 않는다).
@@ -28,6 +30,13 @@ export const ALLOWED_PAIRS: ReadonlySet<string> = new Set<string>([
   "EPISODE>PERSON_GROUP",
   "EPISODE>PERSON", // 함께 나온 인물(대상 인물 1명은 Episode.personId)
   "PERSON>PLACE",
+]);
+
+// 정규화된 쌍 중 NodeLink 가 아니라 기존 칸에 저장하는 것(§1.5). 정합 점검의 "허용 안 된 쌍"은
+// ALLOWED_PAIRS 만 보므로, 이 쌍이 NodeLink 행으로 있으면 여전히 이상 행으로 잡힌다.
+export const ROUTED_PAIRS: ReadonlySet<string> = new Set<string>([
+  "LIFE_EVENT>PERSON", // → PersonLifeEvent
+  "EPISODE>PLACE", // → 이야기 브릿지 메모리의 MemoryPlace(placeId + 이름·주소·좌표 복사)
 ]);
 
 // 순수 함수 — 방향 정규화. 같은 노드끼리면 null.
@@ -56,9 +65,16 @@ async function ownsNode(db: Prisma.TransactionClient, userId: string, n: NodeRef
   }
 }
 
+// store — 실제로 저장한 칸. linkId 는 그 칸의 행 id(NodeLink·PersonLifeEvent·MemoryPlace).
+export type LinkStore = "NODE_LINK" | "PERSON_LIFE_EVENT" | "MEMORY_PLACE";
+
 export type SaveNodeLinkResult =
-  | { ok: true; linkId: string; status: LinkStatus }
-  | { ok: false; reason: "self_link" | "pair_not_allowed" | "not_found" | "primary_membership" };
+  | { ok: true; linkId: string; status: LinkStatus; store: LinkStore }
+  | {
+      ok: false;
+      // unsupported_option — 기존 칸으로 넘기는 쌍에 PROPOSED·role 요청(그 칸들엔 상태·역할이 없다)
+      reason: "self_link" | "pair_not_allowed" | "not_found" | "primary_membership" | "unsupported_option";
+    };
 
 export async function saveNodeLink(
   userId: string,
@@ -71,10 +87,49 @@ export async function saveNodeLink(
   const pair = normalizeNodePair(a, b);
   if (!pair) return { ok: false, reason: "self_link" };
   const { from, to } = pair;
-  if (!ALLOWED_PAIRS.has(`${from.type}>${to.type}`)) return { ok: false, reason: "pair_not_allowed" };
+  const key = `${from.type}>${to.type}`;
+  const routed = ROUTED_PAIRS.has(key);
+  if (!routed && !ALLOWED_PAIRS.has(key)) return { ok: false, reason: "pair_not_allowed" };
+  if (routed && ((opts.status ?? "CONFIRMED") !== "CONFIRMED" || (opts.role ?? "") !== "")) {
+    return { ok: false, reason: "unsupported_option" };
+  }
 
   const [fromOwned, toOwned] = await Promise.all([ownsNode(db, userId, from), ownsNode(db, userId, to)]);
   if (!fromOwned || !toOwned) return { ok: false, reason: "not_found" };
+
+  if (key === "LIFE_EVENT>PERSON") {
+    const row = await db.personLifeEvent.upsert({
+      where: { personId_lifeEventId: { personId: to.id, lifeEventId: from.id } },
+      create: { personId: to.id, lifeEventId: from.id, userId },
+      update: {},
+      select: { id: true },
+    });
+    return { ok: true, linkId: row.id, status: "CONFIRMED", store: "PERSON_LIFE_EVENT" };
+  }
+  if (key === "EPISODE>PLACE") {
+    // 소유는 위에서 확인 — 이야기의 브릿지 메모리에 같은 장소 행이 있으면 그 행(멱등).
+    const [ep, place] = await Promise.all([
+      db.episode.findUniqueOrThrow({ where: { id: from.id }, select: { memoryId: true } }),
+      db.place.findUniqueOrThrow({ where: { id: to.id }, select: { name: true, address: true, lat: true, lng: true, source: true } }),
+    ]);
+    const existing = await db.memoryPlace.findFirst({ where: { memoryId: ep.memoryId, placeId: to.id }, select: { id: true } });
+    if (existing) return { ok: true, linkId: existing.id, status: "CONFIRMED", store: "MEMORY_PLACE" };
+    const last = await db.memoryPlace.aggregate({ where: { memoryId: ep.memoryId }, _max: { sortOrder: true } });
+    const row = await db.memoryPlace.create({
+      data: {
+        memoryId: ep.memoryId,
+        placeId: to.id,
+        placeName: place.name,
+        placeAddress: place.address,
+        lat: place.lat,
+        lng: place.lng,
+        placeSource: place.source,
+        sortOrder: (last._max.sortOrder ?? -1) + 1,
+      },
+      select: { id: true },
+    });
+    return { ok: true, linkId: row.id, status: "CONFIRMED", store: "MEMORY_PLACE" };
+  }
 
   // 이야기의 주 소속 시기를 추가 소속으로 또 적지 않는다(한 쌍 = 한 곳).
   if (from.type === "LIFE_EVENT" && to.type === "EPISODE") {
@@ -113,7 +168,7 @@ export async function saveNodeLink(
       where: { id: link.id },
       data: { status: "CONFIRMED", confirmedAt: new Date() },
     });
-    return { ok: true, linkId: link.id, status: "CONFIRMED" };
+    return { ok: true, linkId: link.id, status: "CONFIRMED", store: "NODE_LINK" };
   }
-  return { ok: true, linkId: link.id, status: link.status };
+  return { ok: true, linkId: link.id, status: link.status, store: "NODE_LINK" };
 }
