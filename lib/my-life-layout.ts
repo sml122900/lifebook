@@ -187,7 +187,13 @@ export function storyHeight(s: MyLifeStory): { h: number; rows: number[][]; over
   return { h, rows, overflow };
 }
 
-// 이야기 노드 글자 — 본문 첫 문장(제목 칸이 없음 — Q46). 화면은 2줄에서 자른다.
+// 이야기 노드 글자 — 제목이 있으면 제목(My Life 개편 2단계 후속 — 제안 카드 제목), 없으면 본문 첫 문장(Q46).
+// 화면은 2줄에서 자른다.
+export function storyText(s: { title: string | null; content: string }): string {
+  return s.title ?? storyLead(s.content);
+}
+
+// 본문 첫 문장.
 export function storyLead(content: string): string {
   const t = content.trim().replace(/\s+/g, " ");
   const m = t.match(/^(.+?[.!?。])(\s|$)/);

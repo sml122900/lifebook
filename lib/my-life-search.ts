@@ -75,7 +75,11 @@ export function searchMyLife(data: MyLifeData, query: string, lead: (content: st
     for (const s of ev.stories) {
       if (s.primaryEventId !== ev.id) continue; // 걸친 이야기는 주 소속 쪽 한 번만
       order++;
-      hit({ kind: "story", key: `st:${ev.id}:${s.id}`, eventId: ev.id, title: lead(s.content) }, [{ text: s.content, rank: 1, snip: true }]);
+      // 제목(있으면) 일치 = 이름 일치와 같은 순위, 본문 일치는 그다음.
+      hit({ kind: "story", key: `st:${ev.id}:${s.id}`, eventId: ev.id, title: s.title ?? lead(s.content) }, [
+        { text: s.title, rank: 0, snip: false },
+        { text: s.content, rank: 1, snip: true },
+      ]);
     }
   }
   for (const p of data.people) {

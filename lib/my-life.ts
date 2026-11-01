@@ -25,6 +25,8 @@ export type MyLifeChip = {
 export type MyLifeStory = {
   id: string;
   kind: EpisodeKind;
+  // 이야기 제목(제안 카드에서 만든·고친 제목). 옛 이야기는 브릿지 제목이 시기 이름이라 null — 화면은 본문 첫 문장.
+  title: string | null;
   content: string;
   primaryEventId: string;
   otherEventIds: string[]; // 이 이야기가 같이 보이는 다른 중심(추가 소속·주 소속)
@@ -74,6 +76,16 @@ export type MyLifeData = {
 
 type Db = typeof prisma;
 
+// 브릿지 메모리 제목이 진짜 이야기 제목인지 — 옛 저장 경로는 시기 이름("고등학교 입학", 구간이면 "… 이후")을
+// 제목 칸에 넣었다. 그런 값이면 null(화면은 본문 첫 문장), 아니면 그 제목(제안 카드·인터뷰 주제 제목).
+export function storyTitleOf(title: string | null | undefined, eventLabels: readonly (string | null)[]): string | null {
+  const t = (title ?? "").trim();
+  if (!t) return null;
+  const norm = (s: string) => s.replace(/\s+/g, "");
+  const labels = eventLabels.filter((l): l is string => !!l).flatMap((l) => [l, `${l} 이후`]);
+  return labels.some((l) => norm(l) === norm(t)) ? null : t;
+}
+
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, "ko");
 
 export async function getMyLifeData(userId: string, db: Db = prisma): Promise<MyLifeData> {
@@ -98,6 +110,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
             content: true,
             memory: {
               select: {
+                title: true,
                 places: {
                   orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
                   select: { placeId: true, placeName: true, place: { select: { name: true } } },
@@ -134,7 +147,11 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
   const groupById = new Map(groupRows.map((g) => [g.id, g]));
   const placeById = new Map(placeRows.map((p) => [p.id, p]));
   const eventIds = new Set(events.map((e) => e.id));
-  const episodeById = new Map(events.flatMap((e) => e.episodes.map((ep) => [ep.id, { ...ep, lifeEventId: e.id }] as const)));
+  const episodeById = new Map(
+    events.flatMap((e) =>
+      e.episodes.map((ep) => [ep.id, { ...ep, lifeEventId: e.id, eventLabels: [e.label, e.correctedLabel] }] as const),
+    ),
+  );
 
   const push = <T>(m: Map<string, T[]>, k: string, v: T) => {
     const arr = m.get(k);
@@ -188,6 +205,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
     return {
       id: ep.id,
       kind: ep.kind,
+      title: storyTitleOf(ep.memory.title, ep.eventLabels),
       content: ep.content,
       primaryEventId: ep.lifeEventId,
       otherEventIds: (storyEvents.get(epId) ?? []).filter((id) => id !== shownUnder),
