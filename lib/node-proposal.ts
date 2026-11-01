@@ -9,6 +9,8 @@
 // 저장([만들기]): 이야기 본문이 먼저(createEpisodeBridge), 사람·장소 연결은 하나씩(실패해도 이야기는 남는다).
 // 사람은 카드에서 이미 확인했으므로 확정 인물 + CONFIRMED 연결 — 초안(isDraft)·PROPOSED 를 만들지 않는다.
 // 같은 이름 확정 인물이 있으면 자동으로 합치지 않고 되묻는다(2b-2 규칙: 새 이름·고친 이름이면 이름만 같아도).
+// 장소도 같은 방식 — 새 이름이 기존 장소 이름을 품으면(예: 있는 "외할머니 댁"·"개울" + 새 "외할머니 댁 개울")
+// 같은 곳인지/따로 만들지 되묻는다(장소는 이름이 같아야 같은 곳으로 맞추므로, 묻지 않으면 장소가 하나 더 생긴다).
 
 import { chat } from "./ai";
 import { recordChatUsage, type ChatUsagePurpose } from "./chat-v3-usage";
@@ -32,6 +34,7 @@ export const RELATION_MAX = 30;
 export const PLACE_NAME_MAX = 50;
 const MAX_PEOPLE = 8;
 const MAX_PLACES = 6;
+const MAX_OVERLAP = 3;
 // 요약 모델의 "내용 없음" 표식을 믿는 본인 발화 길이 상한(공백 제외) — lib/episode-chat.ts 와 같은 값.
 const NO_CONTENT_MAX_CHARS = 12;
 // 만난 해를 비우는 가족 관계(출생 시기에 만난 비가족은 연도가 틀리기 쉬워 비운다 — Q33).
@@ -48,7 +51,11 @@ export type CardPerson = {
   sameName: SameNamePerson[];
 };
 
-export type CardPlace = { name: string; placeId: string | null };
+export type OverlapPlace = { id: string; name: string };
+
+// overlap — 새 이름(placeId null) 안에 들어 있는 기존 장소. 있으면 카드 행에서 같은 곳/따로 만들기를 묻는다.
+// (이 칸이 생기기 전에 저장된 카드에는 없다 — 저장 쪽이 다시 계산한다.)
+export type CardPlace = { name: string; placeId: string | null; overlap?: OverlapPlace[] };
 
 export type CardCenter = { id: string; label: string; year: number | null } | { new: { label: string; year: number | null } };
 
@@ -135,10 +142,31 @@ async function confirmedPeople(userId: string) {
   });
 }
 
-async function placeIdByName(userId: string, name: string): Promise<string | null> {
+type PlaceRow = { id: string; name: string };
+
+async function userPlaces(userId: string): Promise<PlaceRow[]> {
+  return prisma.place.findMany({ where: { userId }, select: { id: true, name: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+}
+
+// 새 이름 안에 들어 있는 기존 장소(합쳐진 이름의 후보). 한 글자 이름("집")은 흔한 말이라 뺀다.
+export function overlappingPlaces(rows: PlaceRow[], name: string): OverlapPlace[] {
   const n = norm(name);
-  const rows = await prisma.place.findMany({ where: { userId }, select: { id: true, name: true }, orderBy: { createdAt: "asc" } });
-  return rows.find((r) => norm(r.name) === n)?.id ?? null;
+  const out: OverlapPlace[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) {
+    const m = norm(r.name);
+    if (m.length < 2 || m === n || !n.includes(m) || seen.has(m)) continue;
+    seen.add(m);
+    out.push({ id: r.id, name: r.name });
+  }
+  return out.slice(0, MAX_OVERLAP);
+}
+
+// 장소 하나를 카드 행으로 — 이름이 같은 곳(공백 무시)이면 그곳, 아니면 새 이름 + 품고 있는 기존 장소.
+export function placeRow(rows: PlaceRow[], name: string): CardPlace {
+  const n = norm(name);
+  const same = rows.find((r) => norm(r.name) === n);
+  return same ? { name, placeId: same.id, overlap: [] } : { name, placeId: null, overlap: overlappingPlaces(rows, name) };
 }
 
 // 사람 한 명을 카드 행으로 — 이미 계신 분(AI 의 matchId 또는 이름·관계 호환)이면 그분, 아니면 새 이름 +
@@ -291,14 +319,17 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
     push(await personRow(userId, name, relation, typeof p.matchId === "string" ? p.matchId : null, people));
   }
 
-  // 장소 — 이름으로 기존 장소와 맞춤(코드), 없으면 새로.
+  // 장소 — 이름으로 기존 장소와 맞춤(코드), 없으면 새로(기존 장소 이름을 품으면 카드에서 되묻기).
   const places: CardPlace[] = [];
   const seenPlace = new Set<string>();
-  for (const raw of Array.isArray(obj.places) ? obj.places : []) {
-    const name = str((raw as Record<string, unknown> | null)?.name, PLACE_NAME_MAX);
-    if (!name || seenPlace.has(norm(name)) || places.length >= MAX_PLACES) continue;
+  const placeNames = (Array.isArray(obj.places) ? obj.places : [])
+    .map((raw) => str((raw as Record<string, unknown> | null)?.name, PLACE_NAME_MAX))
+    .filter(Boolean);
+  const owned = placeNames.length > 0 ? await userPlaces(userId) : [];
+  for (const name of placeNames) {
+    if (seenPlace.has(norm(name)) || places.length >= MAX_PLACES) continue;
     seenPlace.add(norm(name));
-    places.push({ name, placeId: await placeIdByName(userId, name) });
+    places.push(placeRow(owned, name));
   }
 
   const title =
@@ -348,14 +379,25 @@ export type CardEdit = {
     decision?: "same" | "different";
     samePersonId?: string;
   }[];
-  places: { name: string; placeId: string | null }[];
+  places: {
+    name: string;
+    placeId: string | null;
+    // 합쳐진 이름 되묻기 답 — same 이면 samePlaceId 의 기존 장소로, separate 면 이 이름으로 새로.
+    decision?: "same" | "separate";
+    samePlaceId?: string;
+  }[];
 };
 
 export type CreateFromCardResult =
   | { ok: true; episodeId: string; eventId: string; title: string; created: { center: boolean; people: number; places: number } }
   | { ok: false; reason: "invalid"; message: string }
-  // 같은 이름 확정 인물이 있는 새 이름 — 행 번호별 후보. 아무것도 저장하지 않았다.
-  | { ok: false; reason: "ask"; ask: { index: number; candidates: SameNamePerson[] }[] }
+  // 같은 이름 확정 인물이 있는 새 이름 · 기존 장소 이름을 품은 새 장소 이름 — 행 번호별 후보. 아무것도 저장하지 않았다.
+  | {
+      ok: false;
+      reason: "ask";
+      ask: { index: number; candidates: SameNamePerson[] }[];
+      placeAsk: { index: number; candidates: OverlapPlace[] }[];
+    }
   | { ok: false; reason: "failed" };
 
 export function cardToEdit(card: ProposalCard): CardEdit {
@@ -364,7 +406,7 @@ export function cardToEdit(card: ProposalCard): CardEdit {
     summary: card.summary,
     center: "id" in card.center ? { id: card.center.id } : { new: { ...card.center.new } },
     people: card.people.map((p) => ({ name: p.name, relation: p.relation, personId: p.personId })),
-    places: card.places.map((p) => ({ ...p })),
+    places: card.places.map((p) => ({ name: p.name, placeId: p.placeId })),
   };
 }
 
@@ -433,7 +475,37 @@ export async function createFromCard(
     seen.add(key);
     people.push({ personId, name, relation });
   }
-  if (ask.length > 0) return { ok: false, reason: "ask", ask };
+
+  // 장소 — 전부 다시 확인. 새 이름이 기존 장소 이름을 품으면(합쳐진 이름) 답을 받을 때까지 아무것도 저장 안 함.
+  const placeList = Array.isArray(edit.places) ? edit.places.slice(0, MAX_PLACES) : [];
+  const owned = placeList.some((p) => str(p?.name, PLACE_NAME_MAX)) ? await userPlaces(userId) : [];
+  const places: { placeId: string | null; name: string }[] = [];
+  const placeAsk: { index: number; candidates: OverlapPlace[] }[] = [];
+  const seenPlace = new Set<string>();
+  for (let i = 0; i < placeList.length; i++) {
+    const pl = placeList[i];
+    const name = str(pl?.name, PLACE_NAME_MAX);
+    if (!name) continue;
+    const mine = pl.placeId ? owned.find((r) => r.id === pl.placeId) : undefined;
+    // 이름을 고쳤으면 그곳이 아니다(새 이름으로 다시 판단).
+    let placeId = mine && norm(mine.name) === norm(name) ? mine.id : placeRow(owned, name).placeId;
+    if (!placeId) {
+      const overlap = overlappingPlaces(owned, name);
+      if (pl.decision === "same") {
+        const pick = overlap.find((o) => o.id === pl.samePlaceId);
+        if (!pick) return { ok: false, reason: "invalid", message: "같은 곳을 다시 골라 주세요." };
+        placeId = pick.id;
+      } else if (pl.decision !== "separate" && overlap.length > 0) {
+        placeAsk.push({ index: i, candidates: overlap });
+        continue;
+      }
+    }
+    const key = placeId ?? `n:${norm(name)}`;
+    if (seenPlace.has(key)) continue;
+    seenPlace.add(key);
+    places.push({ placeId, name });
+  }
+  if (ask.length > 0 || placeAsk.length > 0) return { ok: false, reason: "ask", ask, placeAsk };
 
   // 시기 → 이야기(먼저). 새 시기를 만들었는데 이야기 저장이 실패하면 그 시기를 지운다.
   let createdCenter = false;
@@ -503,21 +575,11 @@ export async function createFromCard(
     }
   }
 
-  // 장소 — 있는 곳은 그대로, 없으면 이름만으로 새로(같은 이름이면 재사용).
+  // 장소 — 위에서 확인한 대로. 있는 곳은 그대로, 없으면 이름만으로 새로.
   let linkedPlaces = 0;
-  const seenPlace = new Set<string>();
-  for (const pl of (Array.isArray(edit.places) ? edit.places : []).slice(0, MAX_PLACES)) {
+  for (const pl of places) {
     try {
-      const name = str(pl?.name, PLACE_NAME_MAX);
-      if (!name || seenPlace.has(norm(name))) continue;
-      seenPlace.add(norm(name));
-      let placeId: string | null = null;
-      if (pl.placeId) {
-        const owned = await prisma.place.findFirst({ where: { id: pl.placeId, userId }, select: { id: true, name: true } });
-        if (owned && norm(owned.name) === norm(name)) placeId = owned.id;
-      }
-      placeId ??= await placeIdByName(userId, name);
-      placeId ??= (await prisma.place.create({ data: { userId, name }, select: { id: true } })).id;
+      const placeId = pl.placeId ?? (await prisma.place.create({ data: { userId, name: pl.name }, select: { id: true } })).id;
       const r = await saveNodeLink(userId, episodeRef, { type: "PLACE", id: placeId });
       if (r.ok) linkedPlaces += 1;
       else console.error("[node-proposal] place link", r.reason);

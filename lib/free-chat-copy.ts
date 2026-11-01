@@ -1,6 +1,8 @@
 // My Life 개편 2단계 — /chat-v3 자유 대화·제안 카드 문구. 전부 [임시 — 성민 확정 필요].
 // docs/phase/my-life-restructure.md §7.4 "자유 대화(2단계)" 행. 클라이언트에서도 쓰는 순수 모듈.
 
+import { withJosa } from "./josa";
+
 export const FREE_CHAT_COPY = {
   // ── 자유 대화 ──
   greeting: "편하게 아무 이야기나 들려주세요. 떠오르는 대로 말씀하시면 돼요.",
@@ -50,6 +52,10 @@ export const FREE_CHAT_COPY = {
   same: "같은 분이에요",
   different: "다른 분이에요",
   answerAskFirst: "같은 분인지 먼저 골라 주세요.",
+  samePlaceQuestion: (name: string) => `이미 있는 장소 ${name}${withJosa(name, "과/와")} 같은 곳인가요?`,
+  samePlace: "같은 곳이에요",
+  separatePlace: "따로 만들기",
+  answerPlaceAskFirst: "같은 곳인지 먼저 골라 주세요.",
   createFailed: "남기지 못했어요. 다시 해 주세요.",
   created: (title: string) => `'${title}' 이야기를 My Life 에 남겼어요.`,
   viewOnMap: "My Life 에서 보기",

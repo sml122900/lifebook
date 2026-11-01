@@ -238,7 +238,7 @@ function ItemCard({
       onNext(r.next, C.storySaved, pauseAfterCard);
       return { ok: true };
     }
-    if (r.reason === "ask") return { ok: false, ask: r.ask };
+    if (r.reason === "ask") return { ok: false, ask: r.ask, placeAsk: r.placeAsk };
     if (r.reason === "invalid") return { ok: false, message: r.message };
     return { ok: false };
   }

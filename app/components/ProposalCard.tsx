@@ -3,6 +3,7 @@
 // My Life 개편 2단계 — "이 이야기를 남길까요?" 제안 카드. /chat-v3 자유 대화·오늘의 인터뷰가 함께 쓴다.
 // docs/phase/my-life-restructure.md §3.3. [만들기]·[고치기]·[안 만들기] + 같은 이름 되묻기(2b-2 규칙 —
 // 새 이름·고친 이름이 확정 인물과 같으면 [같은 분이에요]/[다른 분이에요], 답할 때까지 만들기 안 됨).
+// 장소도 같은 방식 — 새 장소 이름이 기존 장소 이름을 품으면 [같은 곳이에요]/[따로 만들기].
 // 저장 쪽(lib/node-proposal createFromCard)이 모든 값을 다시 확인한다 — 이 화면 값은 믿지 않는다.
 
 import { useEffect, useState } from "react";
@@ -11,11 +12,16 @@ import { Button } from "@/components/ui/Button";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { FREE_CHAT_COPY as C } from "@/lib/free-chat-copy";
 import type { ProposalView } from "@/lib/free-chat";
-import type { CardEdit, SameNamePerson } from "@/lib/node-proposal";
+import type { CardEdit, OverlapPlace, SameNamePerson } from "@/lib/node-proposal";
 
 export type CreateOutcome =
   | { ok: true }
-  | { ok: false; ask?: { index: number; candidates: SameNamePerson[] }[]; message?: string };
+  | {
+      ok: false;
+      ask?: { index: number; candidates: SameNamePerson[] }[];
+      placeAsk?: { index: number; candidates: OverlapPlace[] }[];
+      message?: string;
+    };
 
 const INPUT =
   "min-h-[56px] w-full rounded-[10px] border-2 border-line bg-canvas px-4 py-3 text-lg text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none";
@@ -38,6 +44,25 @@ function initialAsks(card: ProposalView["card"]): Record<number, SameNamePerson[
   return out;
 }
 
+function initialPlaceAsks(card: ProposalView["card"]): Record<number, OverlapPlace[]> {
+  const out: Record<number, OverlapPlace[]> = {};
+  card.places.forEach((p, i) => {
+    if (!p.placeId && (p.overlap?.length ?? 0) > 0) out[i] = p.overlap!;
+  });
+  return out;
+}
+
+// 행을 하나 뺐을 때 뒤 행 번호를 당긴다.
+function shiftAsks<T>(asks: Record<number, T>, removed: number): Record<number, T> {
+  const next: Record<number, T> = {};
+  for (const [k, v] of Object.entries(asks)) {
+    const n = Number(k);
+    if (n < removed) next[n] = v;
+    else if (n > removed) next[n - 1] = v;
+  }
+  return next;
+}
+
 export function ProposalCard({
   view,
   onCreate,
@@ -51,6 +76,7 @@ export function ProposalCard({
   const [edit, setEdit] = useState<CardEdit>(() => toEdit(card));
   const [editing, setEditing] = useState(false);
   const [asks, setAsks] = useState<Record<number, SameNamePerson[]>>(() => initialAsks(card));
+  const [placeAsks, setPlaceAsks] = useState<Record<number, OverlapPlace[]>>(() => initialPlaceAsks(card));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [full, setFull] = useState(false);
@@ -61,19 +87,28 @@ export function ProposalCard({
     return () => document.body.removeAttribute("data-proposal-card");
   }, []);
 
-  const unanswered = Object.keys(asks).some((k) => {
+  const peopleUnanswered = Object.keys(asks).some((k) => {
     const p = edit.people[Number(k)];
     return p && !p.decision;
   });
+  const placesUnanswered = Object.keys(placeAsks).some((k) => {
+    const p = edit.places[Number(k)];
+    return p && !p.decision;
+  });
+  const unanswered = peopleUnanswered || placesUnanswered;
 
   function setPerson(i: number, patch: Partial<CardEdit["people"][number]>) {
     setEdit((e) => ({ ...e, people: e.people.map((p, j) => (j === i ? { ...p, ...patch } : p)) }));
   }
 
+  function setPlace(i: number, patch: Partial<CardEdit["places"][number]>) {
+    setEdit((e) => ({ ...e, places: e.places.map((p, j) => (j === i ? { ...p, ...patch } : p)) }));
+  }
+
   async function create() {
     if (busy) return;
     if (unanswered) {
-      setMessage(C.answerAskFirst);
+      setMessage(peopleUnanswered ? C.answerAskFirst : C.answerPlaceAskFirst);
       return;
     }
     setBusy(true);
@@ -81,12 +116,17 @@ export function ProposalCard({
     try {
       const r = await onCreate(edit);
       if (!r.ok) {
-        if (r.ask && r.ask.length > 0) {
+        const ask = r.ask ?? [];
+        const placeAsk = r.placeAsk ?? [];
+        if (ask.length > 0 || placeAsk.length > 0) {
           const next: Record<number, SameNamePerson[]> = {};
-          for (const a of r.ask) next[a.index] = a.candidates;
+          for (const a of ask) next[a.index] = a.candidates;
+          const nextPlaces: Record<number, OverlapPlace[]> = {};
+          for (const a of placeAsk) nextPlaces[a.index] = a.candidates;
           setAsks(next);
+          setPlaceAsks(nextPlaces);
           setEditing(false);
-          setMessage(C.answerAskFirst);
+          setMessage(ask.length > 0 ? C.answerAskFirst : C.answerPlaceAskFirst);
         } else {
           setMessage(r.message ?? C.createFailed);
         }
@@ -181,10 +221,37 @@ export function ProposalCard({
               {edit.places.length === 0
                 ? <span className="text-ink-soft">{C.none}</span>
                 : edit.places.map((p, i) => (
-                    <span key={i} className="block">
-                      {p.name}
-                      <span className="text-ink-soft"> — {p.placeId ? C.existingPlace : C.newTag}</span>
-                    </span>
+                    <div key={i} className="flex flex-col gap-2">
+                      <span className="block">
+                        {p.name}
+                        <span className="text-ink-soft"> — {p.placeId || p.decision === "same" ? C.existingPlace : C.newTag}</span>
+                      </span>
+                      {placeAsks[i] && (
+                        <div className="flex flex-col gap-2 rounded-[10px] border-2 border-line bg-surface p-3">
+                          {placeAsks[i].map((s) => (
+                            <div key={s.id} className="flex flex-col gap-2">
+                              <p className="m-0 text-lg text-ink">{C.samePlaceQuestion(s.name)}</p>
+                              <Button
+                                variant={p.decision === "same" && p.samePlaceId === s.id ? "primary" : "secondary"}
+                                size="lg"
+                                aria-pressed={p.decision === "same" && p.samePlaceId === s.id}
+                                onClick={() => setPlace(i, { decision: "same", samePlaceId: s.id })}
+                              >
+                                {C.samePlace}
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            variant={p.decision === "separate" ? "primary" : "secondary"}
+                            size="lg"
+                            aria-pressed={p.decision === "separate"}
+                            onClick={() => setPlace(i, { decision: "separate", samePlaceId: undefined })}
+                          >
+                            {C.separatePlace}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   ))}
             </dd>
           </div>
@@ -293,15 +360,7 @@ export function ProposalCard({
                   size="lg"
                   onClick={() => {
                     setEdit({ ...edit, people: edit.people.filter((_, j) => j !== i) });
-                    setAsks((a) => {
-                      const next: Record<number, SameNamePerson[]> = {};
-                      for (const [k, v] of Object.entries(a)) {
-                        const n = Number(k);
-                        if (n < i) next[n] = v;
-                        else if (n > i) next[n - 1] = v;
-                      }
-                      return next;
-                    });
+                    setAsks((a) => shiftAsks(a, i));
                   }}
                 >
                   {C.remove}
@@ -323,11 +382,23 @@ export function ProposalCard({
                   placeholder={C.placeName}
                   maxLength={50}
                   value={p.name}
-                  onChange={(e) =>
-                    setEdit({ ...edit, places: edit.places.map((q, j) => (j === i ? { name: e.target.value, placeId: null } : q)) })
-                  }
+                  onChange={(e) => {
+                    setEdit({ ...edit, places: edit.places.map((q, j) => (j === i ? { name: e.target.value, placeId: null } : q)) });
+                    setPlaceAsks((a) => {
+                      const next = { ...a };
+                      delete next[i];
+                      return next;
+                    });
+                  }}
                 />
-                <Button variant="tertiary" size="lg" onClick={() => setEdit({ ...edit, places: edit.places.filter((_, j) => j !== i) })}>
+                <Button
+                  variant="tertiary"
+                  size="lg"
+                  onClick={() => {
+                    setEdit({ ...edit, places: edit.places.filter((_, j) => j !== i) });
+                    setPlaceAsks((a) => shiftAsks(a, i));
+                  }}
+                >
                   {C.remove}
                 </Button>
               </div>

@@ -515,7 +515,7 @@ export function ChatV3Client({
       }
       return { ok: true };
     }
-    if (r.reason === "ask") return { ok: false, ask: r.ask };
+    if (r.reason === "ask") return { ok: false, ask: r.ask, placeAsk: r.placeAsk };
     if (r.reason === "invalid") return { ok: false, message: r.message };
     if (r.reason === "no_card") setProposal(null);
     return { ok: false };

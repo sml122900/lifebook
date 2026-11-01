@@ -5,6 +5,7 @@
 //       npx tsx db/test-chat-proposal.ts --live   (+ 실제 모델 시나리오: 일단락 판단 / 6턴 강제 / 안 만들기 후 계속 /
 //                                                   고치기 후 만들기 / 동명이인 + 이야기 1편 원가 /
 //                                                   F 운영 test30 E2E 같은 문장 재현 — 별도 픽스처 fixture-chat-e2e@)
+// ⑩(LLM 0) = 장소 이름 합쳐짐 되묻기 + 프롬프트 예시 소재가 픽스처·재현 대화와 겹치지 않는지.
 // ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@·fixture-chat-e2e@lifebook.invalid)만 만들고 끝에 지운다.
 // 실고객·test30 접촉 0. 원가 원장(ChatV3Usage)은 실제 호출 원가라 남긴다(탈퇴처럼 userId 만 비워짐).
 
@@ -41,7 +42,7 @@ import { Prisma } from "../lib/generated/prisma/client";
 import { getMyLifeData, storyTitleOf } from "../lib/my-life";
 import { storyLead, storyText } from "../lib/my-life-layout";
 import { searchMyLife } from "../lib/my-life-search";
-import { cardToEdit, createFromCard, personRow, type CardEdit, type ProposalCard } from "../lib/node-proposal";
+import { cardToEdit, createFromCard, overlappingPlaces, personRow, placeRow, type CardEdit, type ProposalCard } from "../lib/node-proposal";
 import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
 
 const FIXTURE_EMAIL = "fixture-chat-proposal@lifebook.invalid";
@@ -679,11 +680,83 @@ async function e2eFollowupChecks(fx: Fixture) {
     PROPOSAL_SYSTEM_PROMPT.includes("new(새 시기)는 이야기가 인생 단계 자체일 때만") && PROPOSAL_SYSTEM_PROMPT.includes("놀이·여행·방학·사건·사람 이야기는 새 시기가 아닙니다"));
 
   // 4·5 — 프롬프트 규칙(실제 출력은 --live E2E 재현에서).
-  check("⑨-4 장소 규칙 — 이름 없는 곳(외할머니 댁·개울)도 장소, 가리키기만 하는 말만 뺌",
-    PROPOSAL_SYSTEM_PROMPT.includes('"외할머니 댁", "개울"') && PROPOSAL_SYSTEM_PROMPT.includes('"거기", "그곳"') && !PROPOSAL_SYSTEM_PROMPT.includes('"집", "거기", "학교"처럼 막연한 말은 빼세요'));
+  check("⑨-4 장소 규칙 — 이름 없는 곳(관계·모양으로 말한 곳)도 장소, 가리키기만 하는 말만 뺌",
+    PROPOSAL_SYSTEM_PROMPT.includes("이름 없이 관계·모양으로 말한 곳도 장소입니다") && PROPOSAL_SYSTEM_PROMPT.includes('"거기", "그곳"') && !PROPOSAL_SYSTEM_PROMPT.includes('"집", "거기", "학교"처럼 막연한 말은 빼세요'));
   const replyPrompt = buildFreeChatReplySystemPrompt({ birthYear: 1958, topic: null, recentTitles: [] });
   check("⑨-5 일단락 답 규칙 — 대화를 이어 가는 말, 작별·마무리 인사 금지(예시에도 없음)",
     replyPrompt.includes("작별·마무리 인사로 끝내지 마세요") && !/당신: \{"reply": "[^"]*(들려주셔서 고마워요|잘 들었어요)/.test(replyPrompt));
+}
+
+// ─── 장소 이름 합쳐짐 되묻기 + 프롬프트 예시 소재(2026-11-02) — LLM 0 ──────────
+
+// 프롬프트 예시에 쓰면 안 되는 소재 — 운영 test30 E2E 대화(=F 재현 문장)와 이 흐름 회귀의 픽스처 문장.
+// 모델이 예시를 그대로 베낀 전례 2회(말투 예시·작별 인사 예시), 예시가 재현 문장과 같으면 F 통과도 믿을 수 없다.
+const FIXTURE_WORDS = [
+  "외할머니", "개울", "물고기", "감자전", "정우", "발 담그",
+  "운동회", "수학여행", "불국사", "해운대", "신문 배달", "논산", "미숫가루", "신발 공장", "돼지국밥",
+  "정다운", "서울역", "김민수", "박영수", "외삼촌", "담임 선생님", "서울 상경", "졸업식", "소풍", "보물찾기",
+  "셋방", "운동장", "스무 살",
+];
+
+async function placeMergeChecks(fx: Fixture) {
+  const { userId, ev, teacherId } = fx;
+  const halmeoni = await prisma.place.create({ data: { userId, name: "외할머니 댁" }, select: { id: true } });
+  const stream = await prisma.place.create({ data: { userId, name: "개울" }, select: { id: true } });
+  await prisma.place.create({ data: { userId, name: "집" } });
+  const placesNow = () => prisma.place.findMany({ where: { userId }, select: { id: true, name: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+  const rows = await placesNow();
+  const merged = placeRow(rows, "외할머니 댁 개울");
+  check("⑩ 새 장소 이름이 기존 장소 둘을 이어 붙임 → 새 이름 + 되묻기 후보 2(외할머니 댁·개울)",
+    merged.placeId === null && merged.overlap?.map((o) => o.id).join() === [halmeoni.id, stream.id].join(), merged);
+  check("⑩ 기존 장소 하나를 품음 → 후보 1 / 같은 이름(공백 무시) → 이미 있는 곳 / 한 글자 이름(집)은 후보 아님 / 겹침 없음 → 새로",
+    overlappingPlaces(rows, "개울가 바위").map((o) => o.id).join() === stream.id && placeRow(rows, "외할머니댁").placeId === halmeoni.id &&
+      placeRow(rows, "우리 집 마당").overlap?.length === 0 && placeRow(rows, "강릉 경포대").placeId === null && placeRow(rows, "강릉 경포대").overlap?.length === 0);
+
+  const counts = async () => ({
+    episodes: await prisma.episode.count({ where: { lifeEvent: { userId } } }),
+    people: await prisma.person.count({ where: { userId } }),
+    places: await prisma.place.count({ where: { userId } }),
+  });
+  const card = baseCard({
+    title: "[fixture] 개울 이야기",
+    center: { id: ev.ELEM_SCHOOL, label: "국민학교 입학", year: 1959 },
+    people: [{ name: "김민수", relation: "친구", personId: null, sameName: [{ id: teacherId, name: "김민수", relation: "담임 선생님" }] }],
+    places: [{ name: "외할머니 댁 개울", placeId: null, overlap: merged.overlap }],
+  });
+  check("⑩ 카드 → 고칠 값(cardToEdit)에 되묻기 후보 칸은 안 옮김", !("overlap" in cardToEdit(card).places[0]));
+  const before = await counts();
+  const asked = await createFromCard(userId, card, cardToEdit(card));
+  check("⑩ [만들기] — 사람·장소 되묻기를 한 번에(사람 행 0 · 장소 행 0 후보 2), 아무것도 저장 안 함",
+    !asked.ok && asked.reason === "ask" && asked.ask[0]?.index === 0 && asked.placeAsk[0]?.index === 0 && asked.placeAsk[0].candidates.length === 2 &&
+      JSON.stringify(await counts()) === JSON.stringify(before),
+    asked);
+  const oldCard = baseCard({ ...card, people: [], places: [{ name: "외할머니 댁 개울", placeId: null }] });
+  const askedOld = await createFromCard(userId, oldCard, cardToEdit(oldCard));
+  check("⑩ 되묻기 후보 칸 없는 옛 카드도 되묻기(저장 쪽이 다시 계산)", !askedOld.ok && askedOld.reason === "ask" && askedOld.placeAsk.length === 1 && askedOld.ask.length === 0, askedOld);
+  const wrong = await createFromCard(userId, oldCard, { ...cardToEdit(oldCard), places: [{ name: "외할머니 댁 개울", placeId: null, decision: "same", samePlaceId: fx.placeId }] });
+  check("⑩ [같은 곳이에요] 후보 밖 장소 id → 거부(저장 0)", !wrong.ok && wrong.reason === "invalid" && JSON.stringify(await counts()) === JSON.stringify(before), wrong);
+
+  const same = await createFromCard(userId, oldCard, {
+    ...cardToEdit(oldCard),
+    places: [{ name: "외할머니 댁 개울", placeId: null, decision: "same", samePlaceId: stream.id }, { name: "개울", placeId: null }],
+  });
+  const sameEp = same.ok ? await prisma.episode.findUnique({ where: { id: same.episodeId }, select: { memoryId: true } }) : null;
+  const sameMp = sameEp ? await prisma.memoryPlace.findMany({ where: { memoryId: sameEp.memoryId }, select: { placeId: true } }) : [];
+  check("⑩ [같은 곳이에요] → 기존 개울에 연결 · 새 장소 0 · 같은 곳을 가리킨 두 줄은 한 번만",
+    same.ok && same.created.places === 1 && sameMp.length === 1 && sameMp[0].placeId === stream.id && (await counts()).places === before.places, { same, sameMp });
+
+  const sep = await createFromCard(userId, oldCard, { ...cardToEdit(oldCard), title: "[fixture] 따로", places: [{ name: "외할머니 댁 개울", placeId: null, decision: "separate" }] });
+  check("⑩ [따로 만들기] → 그 이름으로 새 장소 1",
+    sep.ok && sep.created.places === 1 && (await prisma.place.count({ where: { userId, name: "외할머니 댁 개울" } })) === 1 && (await counts()).places === before.places + 1, sep);
+  check("⑩ 따로 만든 뒤 같은 이름 = 이미 있는 곳(다시 묻지 않음)", placeRow(await placesNow(), "외할머니 댁 개울").placeId !== null);
+
+  // 프롬프트 — 장소 하나에 이름 하나 + 예시 소재가 픽스처·재현 대화와 겹치지 않음.
+  check("⑩ 장소 규칙 — 장소 하나에 이름 하나(두 곳이면 두 개, 이어 붙이지 않음)", PROPOSAL_SYSTEM_PROMPT.includes("장소 하나에 이름 하나 — 두 곳이면 두 개로 나눠 쓰고"));
+  // 요약 규칙(이야기 저장 요약 프롬프트와 공유하는 부분)은 빼고 이 흐름 프롬프트만 본다.
+  const proposalOwn = PROPOSAL_SYSTEM_PROMPT.replace(/summary\(본문\) 작성 규칙:[\s\S]*?\n\ncenter\(/, "center(");
+  const replyOwn = buildFreeChatReplySystemPrompt({ birthYear: null, topic: null, recentTitles: [] });
+  const hits = FIXTURE_WORDS.filter((w) => proposalOwn.includes(w) || replyOwn.includes(w));
+  check("⑩ 프롬프트 예시 소재 — 재현 대화·픽스처 낱말 0(응답·제안 프롬프트)", hits.length === 0 && proposalOwn.length < PROPOSAL_SYSTEM_PROMPT.length, hits);
 }
 
 const FAREWELL = /(들려주셔서|고마워요|고맙습니다|감사|잘 들었|즐거웠|다음에 또|안녕히)/;
@@ -733,6 +806,8 @@ async function liveE2EReplay() {
       !!c1 && "id" in c1.center && c1.center.id === ev.MIDDLE_SCHOOL && c1.people.some((x) => x.name.includes("정우")) &&
         c1.places.some((x) => x.name.includes("외할머니")) && c1.places.some((x) => x.name.includes("개울")),
       c1 && { center: c1.center, people: c1.people, places: c1.places });
+    check("F 실제 — 카드1 장소 = 장소 하나에 이름 하나(외할머니 댁·개울을 이어 붙인 이름 없음)",
+      !!c1 && !c1.places.some((x) => x.name.includes("외할머니") && x.name.includes("개울")), c1?.places);
     // E2E 처럼 제목을 고쳐서 [만들기] → 대화창에 "남겼어요" 안내(화면과 같이 로그에 남김).
     const title = "방학마다 외할머니 댁 개울에서 물고기 잡기";
     const made = c1 ? await createFromFreeChatProposal(userId, { ...cardToEdit({ ...c1, transcript: "" }), title }) : null;
@@ -751,7 +826,19 @@ async function liveE2EReplay() {
     console.log("   E2E 6턴째 응답:", second?.reply, "/ 제안:", JSON.stringify(second?.propose));
     const p2 = await proposeFromSegment(userId, { until: second?.propose?.until ?? null });
     const c2 = p2.kind === "card" ? p2.view.card : null;
-    console.log("   카드2:", JSON.stringify(c2 && { title: c2.title, center: c2.center, summary: c2.summary, people: c2.people.map((x) => x.name), places: c2.places.map((x) => x.name) }));
+    console.log("   카드2:", JSON.stringify(c2 && { title: c2.title, center: c2.center, summary: c2.summary, people: c2.people.map((x) => x.name), places: c2.places.map((x) => ({ name: x.name, existing: !!x.placeId, ask: x.overlap?.map((o) => o.name) ?? [] })) }));
+    // 카드1로 만든 장소(외할머니 댁·개울) — 카드2 새 장소 이름이 이걸 품으면 되묻기 후보가 붙어야 한다.
+    const owned = await prisma.place.findMany({ where: { userId }, select: { id: true, name: true } });
+    const mergedRows = (c2?.places ?? []).filter((x) => !x.placeId && overlappingPlaces(owned, x.name).length > 0);
+    check("F 실제 — 카드2: 기존 장소 이름을 품은 새 장소 이름이면 되묻기 후보가 붙음",
+      !!c2 && mergedRows.every((x) => (x.overlap?.length ?? 0) > 0), { mergedRows, places: c2?.places });
+    if (c2 && mergedRows.length > 0) {
+      const eps = await prisma.episode.count({ where: { lifeEvent: { userId } } });
+      const asked = await createFromFreeChatProposal(userId);
+      check("F 실제 — 카드2 합쳐진 장소 이름 → [만들기] 되묻기(저장 0)",
+        !asked.ok && asked.reason === "ask" && asked.placeAsk.length === mergedRows.length && (await prisma.episode.count({ where: { lifeEvent: { userId } } })) === eps, asked);
+    }
+    console.log(`   카드2 합쳐진 장소 이름: ${mergedRows.length}개`);
     check("F 실제 — 두 번째 카드: 첫 이야기 내용(감자전·정우·방학) 없음 · 새로 한 말(차가운 개울물·발) 있음(1)",
       !!c2 && !/(감자전|정우|방학)/.test(c2.summary) && /(차가|차갑)/.test(c2.summary) && /발/.test(c2.summary), c2?.summary);
     check("F 실제 — 두 번째 카드 시기 = 중학교 입학 유지(3)", !!c2 && "id" in c2.center && c2.center.id === ev.MIDDLE_SCHOOL, c2?.center);
@@ -788,6 +875,7 @@ async function main() {
     fallbackOutputChecks();
     await fallbackCountChecks(fx);
     await e2eFollowupChecks(fx);
+    await placeMergeChecks(fx);
     await liveBasic(fx);
     if (LIVE) await liveScenarios(fx);
     if (LIVE) await liveE2EReplay();
