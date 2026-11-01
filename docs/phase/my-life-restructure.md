@@ -481,10 +481,62 @@
 ### 9.5 남은 것
 
 - 임시 문구 확정(`lib/free-chat-copy.ts`·`lib/my-life-copy.ts` `chatEntry`).
-- 앱에서 더는 안 쓰는 lib 함수 — `lib/person-chat.ts` `submitPersonAnswer`·`lib/open-chat-promote.ts` `promoteOpenTurn`·`lib/episode-chat.ts` 의 인물 추출 저장(V2 온보딩 이야기 대화 `/onboarding-episode-chat` 은 아직 씀)·`lib/chat-v3-pending.ts` 쓰기 함수. 회귀(`test-person-mode`·`test-p23`·`test-open-promote`·`test-p18-1`)가 직접 부르고 있어 이번엔 남김 — 정리 여부 결정 필요.
-- 오른쪽 아래 비서 버튼(전역)이 390 에서 카드 맨 아래 [안 만들기] 오른쪽 끝을 조금 가린다(스크롤하면 보임, 기존 위젯 위치 문제).
-- 응답 말투: Haiku 가 가끔 "-습니다"로 끝맺음("잘 들었습니다") — 프롬프트 금지 규칙이 있으나 완전히 지키지 않음.
+- ~~앱에서 더는 안 쓰는 lib 함수~~ → §10.1 에서 정리(회귀를 지금 경로로 옮기고 삭제).
+- ~~비서 버튼이 카드 [안 만들기]를 가림~~ → §10.2.
+- ~~응답 말투 "-습니다"~~ → §10.3.
 - 실기기 확인·test30 브라우저 E2E.
+
+## 10. 2단계 후속(2026-11-01)
+
+### 10.1 안 쓰는 함수 정리 — 회귀를 지금 앱 경로로 옮기고 삭제
+
+| 회귀 | 전 | 후(지금 앱 경로) |
+|---|---|---|
+| `test-person-mode` 1~9·CORRECTED | `submitPersonAnswer` | 인물 주제 `startFreeTopic` → 본인 답 → `proposeFromSegment`(실제 Sonnet) → [만들기]/[안 만들기]. 그 인물과의 이야기 = `person_episode` 주제 → `Episode.personId` |
+| `test-person-mode` 10·11 | `submitPersonAnswer`(인물 준비용) | 카드 사람 행 `personRow` + `createFromCard`(LLM 0) · V2 이야기 대화가 아직 쓰는 `extractPersonCandidates` · 픽스처 인물 + `saveNodeLink` |
+| `test-p23` | `submitPersonAnswer` → `promoteOpenTurn` | 인물 주제에 무관한 이야기 → 카드 시기 = 새 시기 → [만들기] CUSTOM, 원래 질문은 열어 둠 / "기억이 잘 안 나요" → 카드 없음 + 물어봤다 |
+| `test-open-promote` | `classifyOpenTurn`·`promoteOpenTurn` | 자유 대화 진입 → 인사(응답만·카드 없음) → 이야기(카드 새 시기 ≈1970) → [만들기] → 연도 순 자리·갭·정리 화면 |
+| `test-p18-1` | 옛 대기 대화 직접 쓰기 + 페이지 판정 복사 | `startFreeTopic` 으로 주제 → 페이지가 쓰는 `getFreeChatTopic`·`gapMatchesTopic` 그대로 |
+| `test-p14` P14-2 | `saveOrLinkPerson` | `personRow` + `createFromCard` — 다른 관계 같은 이름 = 되묻기 → [다른 분이에요] 별도 인물, 호환 관계 = 기존 인물 |
+| `test-p11`·`p16`·`p21`·`db/lab-seed-persona` | `linkPersonToLifeEvent`(픽스처 연결) | `saveNodeLink(LIFE_EVENT→PERSON)`(앱의 연결 입구) |
+| `test-interview` | 정적 검사가 `getPendingChatContext` 를 찾음 | `getFreeChatTopic` |
+
+- 삭제: `lib/person-chat.ts` `submitPersonAnswer`·`saveOrLinkPerson` / `lib/open-chat-promote.ts` `classifyOpenTurn`·`promoteOpenTurn`(파일은 `createCustomLifeEvent` 만) / `lib/chat-v3-pending.ts` 전체 / `lib/person-life-event.ts` 전체. `ChatV3PendingContext` 테이블은 그대로(옛 행 이어받기 `adoptLegacyPending` 이 읽는다).
+- **옮기며 발견한 2단계 누락 3건 — 고침**:
+  1. 인물 주제("그 시절 가까이 지낸 분")에 답해도 `LifeEvent.personAsked` 가 안 남아 같은 인물 갭이 계속 다시 떴다 → 답이 카드(그 시기)로 끝나거나 내용 없음이면 기록, 다른 시기 이야기로 넘어가면 안 남김(P23 규칙).
+  2. `/story-review` "진행 중" 표시가 이제 안 만들어지는 옛 대기 대화 테이블을 봤다 → 자유 대화 구간 주제(`getFreeChatTopic`·`gapMatchesTopic`).
+  3. 이야기하던 중 `/story-review` 다른 갭 카드로 다시 들어오면 구간을 새로 시작해 앞 이야기가 제안에서 빠졌다 → 같은 주제면 이어서, 다른 주제면 앞 이야기를 먼저 카드로(`startFreeTopic`).
+- 제안 입력에 출생 연도 추가 — 삭제한 분류기가 하던 "스무 살 때 → 출생+20" 계산을 제안 프롬프트로.
+
+### 10.2 비서 버튼이 카드를 가리던 것
+
+카드(`ProposalCard`)가 떠 있는 동안 `body[data-proposal-card]` 를 켜고, 전역 비서 버튼(`data-assistant-fab`)을 CSS 로 숨긴다(`app/globals.css`) — 채팅·인터뷰 카드 둘 다. 390 실측: 카드 전 버튼 보임 → 카드 중 숨김(카드 버튼과 겹침 0, [안 만들기]를 화면 맨 아래로 스크롤해도) → [안 만들기] 뒤 다시 보임.
+
+### 10.3 응답 말투("-습니다")
+
+- 재현 픽스처(미커밋, 실제 Haiku): 2단계 실측에서 "잘 들었습니다"가 나온 군대 이야기 4턴 × 10회 = 40응답. 조건 A(원래 대화)·A + 방금 남긴 이야기 제목·B(본인이 "-습니다"체로 말함).
+- 고치기 전: A 0/40 · A+제목 0/40 · B 0/40 — 재현되지 않음(앞선 발생은 실제 모델 시험 2회 중 1회의 마무리 응답 1건).
+- 프롬프트: 규칙에 "본인이 '-습니다'체로 말해도 대화체로(잘못: 잘 들었습니다·감사합니다 / 바르게: 잘 들었어요·고마워요)" + 예시 대화 3개(이어가기·"-습니다"체 본인에게 대화체로·일단락).
+- 고친 뒤: A 0/40 · B 0/40.
+- 예시를 넣으며 생긴 문제와 처리: 처음 예시가 재현 대화와 내용이 겹쳐 모델이 예시 답을 베끼며 JSON 없이 문장만 냄(80회 중 3회 → 기본 문구로 대체). 예시를 다른 이야기로 바꾸고 형식을 "당신: {JSON}"으로 → 0/40 · 0/80. 코드도 JSON 없이 문장만 오면 기본 문구 대신 그 문장을 답으로(판단은 continue).
+
+### 10.4 migrate diff 드리프트 5문장(4건) — 조사만(수정 없음)
+
+| 항목 | DB | `schema.prisma` | 의도한 쪽 | 근거 | 영향 | 정리 방법(정할 것) |
+|---|---|---|---|---|---|---|
+| `UserMemory_parentMemoryId_fkey` | ON DELETE SET NULL, ON UPDATE 지정 없음(NO ACTION) | `onDelete: SetNull`, onUpdate 기본(CASCADE) | **스키마**(프로젝트 관례) | 손으로 쓴 `20260622000000_parent_memory_id` 가 ON DELETE 만 적음(주석도 SetNull 만 언급). 다른 마이그 FK 는 전부 ON UPDATE CASCADE(80곳). 같은 커밋 `e2c21e0` | 없음 — id 를 바꾸는 코드 없음 | FK 다시 만드는 작은 마이그(ON UPDATE CASCADE) 또는 스키마에 `onUpdate: NoAction` |
+| `Person_userId_isDraft_idx` | 있음 | `@@index` 없음 | **DB** | `20260622000001_companion_session` 이 "draft 전용 인덱스 — 검토 화면 쿼리 최적화" 주석과 함께 만듦. 같은 커밋 `905ca6c` 스키마에 누락 | isDraft 를 쓰는 파일 24개(lib·app), userId 와 함께 거르는 쿼리가 많다 — 지우면 손해 | 스키마에 `@@index([userId, isDraft])`(이름이 같아 DB 변경 0) |
+| `UserMemory_userId_isDraft_idx` | 있음 | 없음 | **DB** | 위와 같음 | 위와 같음(`getLifeEvents` 등 isDraft:false 조건) | 위와 같음 |
+| `CompanionSession.audioPaths` 기본값 | `NOT NULL DEFAULT ARRAY[]` | `String[]`(기본값 없음) | **DB** | 같은 마이그가 `transcriptJson DEFAULT '[]'` 와 나란히 기본값을 줌. 스키마는 `transcriptJson` 에만 `@default("[]")` — `audioPaths` 만 빠짐 | 없음 — 쓰는 곳 1곳(`app/life-timeline/companion/actions.ts:106`)이 항상 값을 넘김 | 스키마 `@default([])`(DB 변경 0) |
+
+- 셋(인덱스 2·기본값)은 스키마만 고치면 드리프트가 사라지고 DB 는 그대로. FK 1건만 DB(또는 스키마 표기) 결정이 필요.
+- 고치면 `db/lab/criteria.ts` `postDeployDriftStatements: 4`(연구 트랙 완료 기준이 이 드리프트 수를 셈)도 함께 바꿔야 한다.
+
+### 10.5 남은 것
+
+- 2단계 때 놓친 안 쓰는 함수(이번에 찾음) — `lib/episode-text.ts` `buildPersonEpisodeTranscript`·`buildResumeAnnouncement`·`lastNonResumeAssistantText`·`nextClosingIndexFromLog`·`EPISODE_CLOSINGS`(옛 /chat-v3 이어받기 안내·마무리 문구 순환). 회귀 `test-p15`(이 함수들만 검사)·`test-p14`·`test-p16`·`test-person-mode` 11 일부가 직접 부른다 — 지우려면 `test-p15` 퇴역(회귀 19 → 18) 결정 필요.
+- 임시 문구 확정(`lib/free-chat-copy.ts`·My Life 버튼) — 성민 확정 문구 대기(그때까지 유지).
+- 실기기 확인·test30 E2E(별도 진행).
 
 ## 결정 로그
 
@@ -504,3 +556,4 @@
   - Q68 — 이번 단계부터 로그인 후 첫 화면 `/my-life`.
   - 마이그 `20261101000000_chat_v3_segment` SQL 승인(`ChatV3Segment`·`ChatV3Usage`·`InterviewItem.proposal`), 오늘의 인터뷰 포함(Q67 추천안).
 - 2026-11-01 — 2단계(채팅 → 노드 제안) 구현 완료(§9). 새 의존성 0 · `proxy.ts` 무접촉.
+- 2026-11-01 — **2단계 후속(성민 지시)**: 안 쓰는 함수 정리(회귀를 지금 경로로 옮긴 뒤 삭제)·비서 버튼 숨김·응답 말투 예시·드리프트 조사(수정 없음)·임시 문구 유지(§10). 마이그 0.
