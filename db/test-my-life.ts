@@ -12,6 +12,7 @@
 //   ⑤ 검색 — 띄어쓰기 무시·이름 > 본문 순서·본문 앞뒤 조각·걸친 이야기 한 번·빈 질의
 //   ⑥ 순수 함수 — 작은 물방울 줄 나누기·본문 첫 문장·지금 보는 곳·노드 수
 //   ⑦ 3단계 — 장소 묶음(데이터·배치·간선·검색) · 영역 제목 옆 [+ 사람][+ 모임]/[+ 장소][+ 묶음] 자리
+//   ⑧ 2026-11-02 E2E 재검증 — 시기 노드 사람·장소 수(버튼 이름·패널 같은 함수, 이야기로만 이은 곳 포함) · 제목 없는 이야기 패널
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0).
 // 실행: npx tsx db/test-my-life.ts
@@ -30,6 +31,7 @@ import {
   FOLD_ALL_ABOVE,
   L,
   bandAt,
+  eventPeoplePlaces,
   countMapNodes,
   countTimelineNodes,
   estimateChipWidth,
@@ -43,7 +45,10 @@ import {
 } from "../lib/my-life-layout";
 import { normalizeForSearch, searchMyLife } from "../lib/my-life-search";
 import { saveNodeLink } from "../lib/node-graph";
-import { storyLead } from "../lib/story-title";
+import fs from "node:fs";
+import path from "node:path";
+
+import { hasOwnTitle, storyLead } from "../lib/story-title";
 
 const EMAIL_A = "fixture-mylife-a@lifebook.invalid";
 const EMAIL_B = "fixture-mylife-b@lifebook.invalid";
@@ -415,6 +420,33 @@ async function main() {
     const e7 = selectionEdges(d7, ly7, `pgl:${pgSea}`, on);
     check("⑦ 간선 — 장소 묶음 선택 = 간선 없이 구성원 장소 연결 표시", e7.edges.length === 0 && e7.related.has(`pl:${place1}`) && e7.related.size === 1, [...e7.related]);
     check("⑦ 검색 — 장소 묶음 이름", searchMyLife(d7, "바닷가").some((r) => r.kind === "placeGroup" && r.key === `pgl:${pgSea}`));
+    // ── ⑧ 시기 노드 사람·장소 수 · 제목 없는 이야기 패널(2026-11-02 E2E 재검증) ──────────
+    // 재현 모양: 카드로 만든 이야기 — 사람은 시기에도 이어지지만(PersonLifeEvent) 장소는 이야기에만(MemoryPlace).
+    const uni = await makeEvent(a, "UNIVERSITY", "대학교 입학", 1977, 7);
+    const uStory = await makeStory(a, uni, "", "[fixture] 학교 앞 가게에서 친구와 자주 먹었다. 시험이 끝나면 꼭 갔다.");
+    const uFriend = await makePerson(a, "[fixture] 대학 친구", { lifeEventId: uni });
+    const uPlace = (await prisma.place.create({ data: { userId: a, name: "[fixture] 학교 앞 가게" }, select: { id: true } })).id;
+    await saveNodeLink(a, { type: "EPISODE", id: uStory.episodeId }, { type: "PERSON", id: uFriend });
+    await saveNodeLink(a, { type: "EPISODE", id: uStory.episodeId }, { type: "PLACE", id: uPlace });
+    const d8 = await getMyLifeData(a);
+    const ev8 = d8.events.find((e) => e.id === uni)!;
+    const n8 = eventPeoplePlaces(ev8);
+    check("⑧ 시기 사람·장소 수 — 시기에 바로 이은 분 + 이야기로만 이은 곳 = 사람 1·장소 1(예전 버튼 이름은 바로 이은 것만 세어 1)",
+      n8.people === 1 && n8.places === 1 && ev8.personIds.length + ev8.placeIds.length === 1, { n8, personIds: ev8.personIds, placeIds: ev8.placeIds });
+    const hsN = eventPeoplePlaces(d8.events.find((e) => e.id === hs)!);
+    check("⑧ 시기 사람·장소 수 — 같은 분·곳 한 번 · 모임 작은 물방울·확인 대기 분은 안 셈",
+      eventPeoplePlaces({ personIds: ["p"], placeIds: [], stories: [{ chips: [{ kind: "person", id: "p", name: "x", proposed: false }, { kind: "group", id: "g", name: "모임", proposed: false }, { kind: "person", id: "q", name: "대기", proposed: true }, { kind: "place", id: null, name: "옛 장소", proposed: false }] } as never] }).people === 1 &&
+        eventPeoplePlaces({ personIds: ["p"], placeIds: [], stories: [{ chips: [{ kind: "place", id: null, name: "옛 장소", proposed: false }] } as never] }).places === 1 &&
+        hsN.people >= 1);
+    const view = fs.readFileSync(path.resolve(__dirname, "../app/my-life/MyLifeView.tsx"), "utf8");
+    check("⑧ 버튼 이름·패널이 같은 함수(eventPeoplePlaces)를 씀",
+      /const n = eventPeoplePlaces\(ev\);\n\s*return C\.eventName\(y, ev\.label, ev\.stories\.length, n\.people \+ n\.places\);/.test(view) && /C\.panelPeople\(n\.people\)} · {C\.panelPlaces\(n\.places\)}/.test(view));
+    const s8 = ev8.stories.find((s) => s.id === uStory.episodeId)!;
+    check("⑧ 제목 없는 이야기 — hasOwnTitle 거짓(빈 문자열·공백·null) · 있는 제목은 참",
+      !hasOwnTitle(s8) && !hasOwnTitle({ title: "  " }) && !hasOwnTitle({ title: null }) && hasOwnTitle({ title: "분식집 떡볶이" }));
+    check("⑧ 이야기 패널 — 제목이 없으면 제목 줄은 화면에서 생략(화면 낭독용 sr-only, 본문은 그대로) · 있으면 보임",
+      /<h2 id="mylife-panel-title" className=\{hasOwnTitle\(story\) \? "m-0 text-2xl" : "sr-only"\}>/.test(view));
+
     for (const [g, pg] of [[0, 1], [2, 2], [3, 3], [1, 5]] as const) {
       const syn = synthetic({ events: 11, stories: 23, people: 12, groups: g, places: 14, placeGroups: pg, seed: 21 + pg });
       const ly = layoutMyLife(syn);

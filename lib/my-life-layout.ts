@@ -13,7 +13,7 @@
 // 글자 폭은 재지 않는다 — 노드 크기는 종류·작은 물방울 수로만, 글자는 CSS 줄 수 제한으로 맞춘다.
 // 클라이언트에서도 쓰므로 prisma 를 import 하지 않는다(타입만).
 
-import type { MyLifeData, MyLifeStory } from "./my-life";
+import type { MyLifeData, MyLifeEvent, MyLifeStory } from "./my-life";
 import { GROUP_SHAPE, rectInsideShape, rectOutsideShape, shapeAround, SHAPE_PAD, type GroupShape, type GroupShapeKind, type Rect } from "./my-life-group-shape";
 
 const PAD = 40;
@@ -171,6 +171,21 @@ export function packChips(names: string[], rowWidth: number = L.COL_W - 2 * L.ST
     // 마지막 줄이 비면 그 줄은 "외 N" 만 담는 줄로 남긴다(줄 수 = 높이라 지우지 않음).
   }
   return { rows, overflow };
+}
+
+// 시기 노드의 사람·장소 수 — 시기에 바로 이은 분·곳 + 이 시기 이야기에 나온 분·곳(확정만, 모임 제외), 같은 분·곳은 한 번.
+// 노드 버튼 이름("사람·장소 N")과 패널("사람 N · 장소 N")이 같은 수를 쓴다(2026-11-02 E2E — 버튼 이름이 바로 이은 것만 세어
+// 이야기로만 이어진 곳(카드로 만든 이야기의 장소)이 빠져 1 적던 것).
+export function eventPeoplePlaces(ev: Pick<MyLifeEvent, "personIds" | "placeIds" | "stories">): { people: number; places: number } {
+  const people = new Set(ev.personIds.map((id) => `id:${id}`));
+  const places = new Set(ev.placeIds.map((id) => `id:${id}`));
+  for (const s of ev.stories) {
+    for (const c of s.chips) {
+      if (c.proposed || c.kind === "group") continue;
+      (c.kind === "place" ? places : people).add(c.id ? `id:${c.id}` : `name:${c.name}`);
+    }
+  }
+  return { people: people.size, places: places.size };
 }
 
 // 꼬리표 줄(한 줄, 18px) — 그때의 나 > 확인 전 > 여러 시기 순으로 하나만 보인다(나머지는 패널·버튼 이름에).

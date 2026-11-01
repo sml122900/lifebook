@@ -175,20 +175,117 @@ export function placeRow(rows: PlaceRow[], name: string): CardPlace {
   return same ? { name, placeId: same.id, overlap: [] } : { name, placeId: null, overlap: overlappingPlaces(rows, name) };
 }
 
-// 모델이 고른 장소 후보(matchId)까지 본 카드 행 — 이름이 같으면 그곳(placeRow), 이름은 다른데 모델이 후보를
-// 골랐으면 애매 → 그 후보를 되묻기 맨 앞에(같은 곳/따로 만들기), 없는 id 는 무시.
-export function placeFromModel(rows: PlaceRow[], name: string, matchId: string | null): CardPlace {
+// 모델이 고른 장소 후보(matchId)까지 본 카드 행(2026-11-02 E2E — "학교 앞 분식집" 저장 뒤 "그 분식집"):
+//   이름이 같으면(공백 무시) 그곳 · 후보를 골랐고 본인 말이 그곳을 줄이거나 가리킨 말이면(말한 이름이 기존 이름 안에 들어 있음,
+//   또는 본인 말에 "그 <기존 이름 끝말>") 그곳(확신 높음) · 후보를 골랐지만 그 밖이면 애매 → 그 후보를 되묻기 맨 앞에 · 없는 id 는 무시.
+export function placeFromModel(rows: PlaceRow[], name: string, matchId: string | null, userText = ""): CardPlace {
   const row = placeRow(rows, name);
   const hit = matchId ? rows.find((r) => r.id === matchId) : undefined;
   if (row.placeId || !hit) return row;
+  if (refersTo(hit.name, name, userText)) return { name: hit.name, placeId: hit.id, overlap: [] };
   const rest = (row.overlap ?? []).filter((o) => o.id !== hit.id);
   return { name, placeId: null, overlap: [{ id: hit.id, name: hit.name }, ...rest].slice(0, MAX_OVERLAP) };
 }
 
+const HANGUL_WORDS = /[^0-9A-Za-z가-힣]+/;
+// 이름의 끝말(2자 이상 낱말 중 마지막) — "학교 앞 분식집" → "분식집".
+function headWord(name: string): string | null {
+  const ws = name.normalize("NFC").split(HANGUL_WORDS).filter((w) => w.length >= 2);
+  return ws.length > 0 ? ws[ws.length - 1] : null;
+}
+// 본인 말에 "그 <끝말>"(가리키는 말) — "그"는 낱말 첫머리일 때만("이그" 같은 낱말 속 글자는 아님).
+function pointsAt(text: string, head: string): boolean {
+  const h = head.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^가-힣])그\\s*${h}`).test(text.normalize("NFC"));
+}
+// 줄임·가리킴 — 말한 이름(2자 이상, 공백 무시)이 기존 이름 안에 들어 있거나, 본인 말이 "그 <기존 끝말>".
+function refersTo(existing: string, said: string, userText: string): boolean {
+  const s = norm(said);
+  if (s.length >= 2 && norm(existing).includes(s)) return true;
+  const head = headWord(existing);
+  return !!head && pointsAt(userText, head);
+}
+
+// 모델이 빠뜨린 가리킴을 코드가 잡는다 — 본인 말에 "그 <끝말>"이 있고 그 끝말인 내 장소가 하나면 그곳, 여럿이면 되묻기
+// (새 이름 = 끝말, [따로 만들기]면 그 이름으로 새로). 카드에 이미 있는 장소는 건너뜀.
+export function referencedPlaces(userText: string, rows: PlaceRow[], inCard: ReadonlySet<string>): CardPlace[] {
+  const byHead = new Map<string, PlaceRow[]>();
+  for (const r of rows) {
+    const h = headWord(r.name);
+    if (!h) continue;
+    byHead.set(h, [...(byHead.get(h) ?? []), r]);
+  }
+  const out: CardPlace[] = [];
+  for (const [head, rs] of byHead) {
+    if (!pointsAt(userText, head) || rs.some((r) => inCard.has(r.id))) continue;
+    out.push(rs.length === 1 ? { name: rs[0].name, placeId: rs[0].id, overlap: [] } : { name: head, placeId: null, overlap: rs.slice(0, MAX_OVERLAP).map((r) => ({ id: r.id, name: r.name })) });
+  }
+  return out;
+}
+
+// 호칭 묶음(같은 묶음 = 같은 분을 부르는 말). 모델이 빠뜨린 "어머니가 …"를 관계가 그 호칭인 확정 인물(한 분일 때만)에 잇는다.
+const KIN_GROUPS: readonly string[][] = [
+  ["어머니", "엄마", "어머님", "모친"],
+  ["아버지", "아빠", "아버님", "부친"],
+  ["할머니", "할매"],
+  ["할아버지"],
+  ["외할머니"],
+  ["외할아버지"],
+  ["남편"],
+  ["아내", "집사람"],
+  ["언니"],
+  ["오빠"],
+  ["누나"],
+];
+// "우리 어머니"·"어머니가"는 본인 가족, "친구 어머니"는 아님 — 호칭 앞 낱말이 없거나 이 말일 때만.
+const OWN_FAMILY_LEAD = new Set(["", "우리", "저희", "내", "제", "울"]);
+
+// 본인 말을 낱말로(끝 조사 하나 떼고) — 앞 낱말도 같이.
+function tokens(text: string): string[] {
+  return text
+    .normalize("NFC")
+    .split(/\s+/)
+    .map((w) => w.replace(/[^0-9A-Za-z가-힣]/g, ""))
+    .filter(Boolean)
+    .map((w) => {
+      const j = JOSA.find((x) => w.endsWith(x) && w.length - x.length >= 2);
+      return j ? w.slice(0, -j.length) : w;
+    });
+}
+
+// 모델이 빠뜨린 이미 계신 분을 코드가 잡는다 — 본인 말에 그분 이름(2자 이상, 같은 이름이 한 분일 때)이 낱말로 있거나,
+// 본인 가족 호칭이 있고 관계가 그 호칭 묶음인 분이 한 분일 때. 카드에 이미 있는 분은 건너뜀.
+export function referencedPeople(
+  userText: string,
+  people: { id: string; name: string; relation: string | null }[],
+  inCard: ReadonlySet<string>,
+): { id: string; name: string; relation: string | null }[] {
+  const ts = tokens(userText);
+  const out = new Map<string, { id: string; name: string; relation: string | null }>();
+  for (const p of people) {
+    const n = norm(p.name);
+    if (n.length < 2 || inCard.has(p.id) || people.filter((q) => norm(q.name) === n).length !== 1) continue;
+    if (ts.includes(n)) out.set(p.id, p);
+  }
+  for (const g of KIN_GROUPS) {
+    const said = ts.some((t, i) => g.includes(t) && OWN_FAMILY_LEAD.has(i === 0 ? "" : ts[i - 1]));
+    if (!said) continue;
+    const who = people.filter((p) => g.includes(norm(p.relation ?? "")));
+    if (who.length === 1 && !inCard.has(who[0].id)) out.set(who[0].id, who[0]);
+  }
+  return [...out.values()];
+}
+
 // ── 재료 확인(2026-11-02) — 제목·장소는 이번 구간 본인 말에서만 ─────────────────
 // 형태소 분석 없이: 낱말 끝 조사 하나를 떼고(남는 말 2자 이상일 때만) 2자 이상 낱말을 공백 없는 본문과 부분 일치로 본다.
-const JOSA = ["에게서", "한테서", "에서는", "으로는", "에서", "에게", "한테", "으로", "로는", "까지", "부터", "처럼", "보다", "하고", "이랑",
-  "랑", "과", "와", "을", "를", "은", "는", "이", "가", "의", "도", "만", "에", "께", "로"];
+const JOSA = ["에게서", "한테서", "에서는", "으로는", "께서는", "에서", "에게", "한테", "으로", "로는", "까지", "부터", "처럼", "보다", "하고", "이랑",
+  "께서", "랑", "과", "와", "을", "를", "은", "는", "이", "가", "의", "도", "만", "에", "께", "로"];
+// 끝 글자가 이러면 움직임·꾸밈 말(먹던·매운·나눠·갔다)로 보고 끝 글자를 뗀 줄기로 비교한다 — 2026-11-02 재현: 앞 제목의 "먹던"이
+// 새 제목 "물 마셔 가며 먹던 매운 떡볶이"를 비우던 것. 명사(냇가·수박·분식집)는 그대로 비교.
+const VERB_END = /(던|는|운|은|고|며|서|게|지|다|요|면|려|러|자|아|어|여|워|눠|춰|봐|해|했|웠|았|었|할|될|된|한|간|온|본|준|난|울|쳐|켜|져)$/;
+function rootOf(w: string): string {
+  return w.length >= 2 && VERB_END.test(w) ? w.slice(0, -1) : w;
+}
 
 export function contentWords(text: string): string[] {
   const out = new Set<string>();
@@ -209,16 +306,23 @@ export function foreignOnlyWords(text: string, src: MaterialSources): string[] {
   const foreign = flat(src.foreign);
   const allowed = flat(src.allowed);
   if (!foreign) return [];
-  return contentWords(text).filter((w) => !user.includes(w) && foreign.includes(w) && !allowed.includes(w));
+  return contentWords(text).filter((w) => {
+    const r = rootOf(w);
+    return !user.includes(r) && foreign.includes(w) && !allowed.includes(r);
+  });
 }
 
 // 장소 이름이 이번 구간 본인 말에서 나왔는지 — 낱말 하나라도 본인 말에 있고(후보 목록에서 그냥 옮겨 온 곳이 아님),
-// 구간 밖 글에만 있는 낱말이 없을 때.
-export function placeSaidNow(name: string, src: MaterialSources): boolean {
+// 구간 밖 글에만 있는 낱말이 없을 때. matched(모델이 고른 내 장소 이름)가 있으면 그곳을 가리킨 것이라 — 말한 이름이나
+// 그 장소 이름의 낱말 하나가 본인 말에 있으면 된다(기존 이름의 다른 낱말이 앞 이야기에만 있어도 됨 — "그 분식집" ↔ "학교 앞 분식집").
+export function placeSaidNow(name: string, src: MaterialSources, matched: string | null = null): boolean {
   const user = flat(src.user);
-  const words = contentWords(name);
-  const said = words.length > 0 ? words.some((w) => user.includes(w)) : user.includes(flat(name));
-  return said && foreignOnlyWords(name, src).length === 0;
+  const said = (n: string) => {
+    const words = contentWords(n);
+    return words.length > 0 ? words.some((w) => user.includes(rootOf(w))) : user.includes(flat(n));
+  };
+  if (matched) return said(name) || said(matched);
+  return said(name) && foreignOnlyWords(name, src).length === 0;
 }
 
 // 사람 한 명을 카드 행으로 — 이미 계신 분(AI 의 matchId 또는 이름·관계 호환)이면 그분, 아니면 새 이름 +
@@ -383,6 +487,11 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
     const relation = str(p.relation, RELATION_MAX) || null;
     push(await personRow(userId, name, relation, typeof p.matchId === "string" ? p.matchId : null, people));
   }
+  // 모델이 빠뜨린 이미 계신 분(이름·본인 가족 호칭 — 한 분일 때만, 2026-11-02 E2E "어머니").
+  for (const p of referencedPeople(rawUserText, people, new Set(rows.flatMap((r) => (r.personId ? [r.personId] : []))))) {
+    console.warn("[node-proposal] person referenced but missing from model — added by code");
+    push({ name: p.name, relation: p.relation, personId: p.id, sameName: [] });
+  }
 
   // 재료 확인 — 제목·장소는 이번 구간 본인 말에서만(2026-11-02 버그: 저장한 이야기의 "냇가에서 수박을 먹었어요"가
   // 새 구간 카드 제목 "냇가에서 수박 나눠 먹던 날"로). 시기 이름·주제는 힌트라 허용.
@@ -400,12 +509,22 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
     const p = (raw ?? {}) as Record<string, unknown>;
     const name = str(p.name, PLACE_NAME_MAX);
     if (!name || seenPlace.has(norm(name)) || places.length >= MAX_PLACES) continue;
-    if (!placeSaidNow(name, guard)) {
+    const matchId = typeof p.matchId === "string" ? p.matchId : null;
+    const matched = matchId ? (owned.find((r) => r.id === matchId)?.name ?? null) : null;
+    if (!placeSaidNow(name, guard, matched)) {
       console.warn("[node-proposal] place not from this segment — dropped");
       continue;
     }
+    const row = placeFromModel(owned, name, matchId, rawUserText);
+    if (row.placeId && places.some((x) => x.placeId === row.placeId)) continue;
     seenPlace.add(norm(name));
-    places.push(placeFromModel(owned, name, typeof p.matchId === "string" ? p.matchId : null));
+    places.push(row);
+  }
+  // 모델이 빠뜨린 "그 <기존 장소 끝말>"(2026-11-02 E2E 재현).
+  for (const row of referencedPlaces(rawUserText, owned, new Set(places.flatMap((x) => (x.placeId ? [x.placeId] : x.overlap?.map((o) => o.id) ?? []))))) {
+    if (places.length >= MAX_PLACES) break;
+    console.warn("[node-proposal] place referenced but missing from model — added by code");
+    places.push(row);
   }
 
   // 시기 이름 자리 표시 제목은 카드에서부터 비운다(저장 규칙과 같은 함수 — 카드에 보인 제목 = 저장될 제목).

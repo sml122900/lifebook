@@ -25,6 +25,7 @@ import { selectionEdges, type EdgeToggles } from "@/lib/my-life-edges";
 import { shapeRadiusCss } from "@/lib/my-life-group-shape";
 import {
   FOLD_ALL_ABOVE,
+  eventPeoplePlaces,
   L,
   bandAt,
   countTimelineNodes,
@@ -35,7 +36,7 @@ import {
   type MyLifeLayout,
 } from "@/lib/my-life-layout";
 import { searchMyLife, type SearchResult } from "@/lib/my-life-search";
-import { displayTitle, shortTitle } from "@/lib/story-title";
+import { displayTitle, hasOwnTitle, shortTitle } from "@/lib/story-title";
 
 import { undoCreateAction } from "./actions";
 import { CreateSheet, NodeEditor, type CreateKind, type Created, type Notice } from "./EditUI";
@@ -87,7 +88,8 @@ function yearText(ev: MyLifeEvent): string {
 
 function eventAriaLabel(ev: MyLifeEvent): string {
   const y = ev.year === null ? C.yearUnknown : `${yearText(ev)}년`;
-  return C.eventName(y, ev.label, ev.stories.length, ev.personIds.length + ev.placeIds.length);
+  const n = eventPeoplePlaces(ev);
+  return C.eventName(y, ev.label, ev.stories.length, n.people + n.places);
 }
 
 function storyAriaLabel(s: MyLifeStory): string {
@@ -1685,11 +1687,7 @@ function panelInfo(
   if (kind === "ev") {
     const ev = idx.eventById.get(a);
     if (!ev) return null;
-    const people = new Set<string>();
-    const places = new Set<string>();
-    for (const s of ev.stories) for (const c of s.chips) (c.kind === "place" ? places : people).add(`${c.kind}:${c.id ?? c.name}`);
-    for (const id of ev.personIds) people.add(`person:${id}`);
-    for (const id of ev.placeIds) places.add(`place:${id}`);
+    const n = eventPeoplePlaces(ev);
     return (
       <>
         <p className="text-lg text-ink-soft">{yearText(ev)}</p>
@@ -1697,7 +1695,7 @@ function panelInfo(
           {ev.label}
         </h2>
         <p className="text-lg text-ink">
-          {C.panelStories(ev.stories.length)} · {C.panelPeople(people.size)} · {C.panelPlaces(places.size)}
+          {C.panelStories(ev.stories.length)} · {C.panelPeople(n.people)} · {C.panelPlaces(n.places)}
         </p>
         {showFold && ev.stories.length > 0 && (
           <Button variant="secondary" size="lg" aria-expanded={!folded.has(ev.id)} onClick={() => onToggleFold(ev.id)}>
@@ -1857,8 +1855,9 @@ function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; i
         {story.kind === "SELF" ? `${C.selfTag} · ` : ""}
         {yearText(ev)} {ev.label}
       </p>
-      <h2 id="mylife-panel-title" className="m-0 text-2xl">
-        {displayTitle(story)}
+      {/* 제목이 비면 화면의 제목 줄은 생략 — 제목 대신 본문 첫 문장이 바로 아래 본문과 두 번 보이던 것(2026-11-02 E2E). 화면 낭독용으로만 남김. */}
+      <h2 id="mylife-panel-title" className={hasOwnTitle(story) ? "m-0 text-2xl" : "sr-only"}>
+        {hasOwnTitle(story) ? displayTitle(story) : shortTitle(displayTitle(story))}
       </h2>
       <p className={`whitespace-pre-line text-lg text-ink ${full ? "" : "line-clamp-3"}`}>{story.content}</p>
       <Button variant="secondary" size="lg" aria-expanded={full} onClick={() => setFull((v) => !v)}>

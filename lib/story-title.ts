@@ -17,6 +17,12 @@ export function displayTitle(story: { title: string | null; content: string }): 
   return story.title?.trim() || storyLead(story.content);
 }
 
+// 제목 칸이 따로 있는지(빈 문자열·null = 제목 없음). 본문을 함께 보여 주는 곳(My Life 이야기 패널)은 제목이 없으면 제목 줄을
+// 생략한다 — 본문 첫 문장이 제목 줄과 본문에 두 번 보이지 않게.
+export function hasOwnTitle(story: { title: string | null }): boolean {
+  return !!story.title?.trim();
+}
+
 // 긴 제목 줄임(성민 결정 2026-11-02) — 20자 안팎에서 어절(띄어쓰기) 경계로 자르고 "…". 20자 이하면 그대로.
 // 첫 어절부터 20자를 넘거나 어절로 자른 결과가 너무 짧으면(12자 미만) 글자 수로 자른다.
 // 쓰는 곳: 저장 안내("'…' 이야기를 My Life 에 남겼어요.")·My Life 지도 노드·목록 보기. (제안 카드 제목은 2줄 말줄임 — CSS.)
