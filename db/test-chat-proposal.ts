@@ -9,6 +9,7 @@
 // ⑪(LLM 0) = 제목 없음(빈 문자열) — 공용 판정 displayTitle·[고치기]에서 제목 지움·제목을 읽는 곳.
 // ⑫(LLM 0) = 시기 이름 제목 재발 방지 — 저장 한 곳(createEpisodeBridge) 규칙·userSetTitle 예외·저장 경로 전수.
 // ⑬(LLM 0) = 이름 뒤 조사 — 받침으로 고름(같은 곳·같은 분 되묻기), 문구 파일에 조사 하드코딩 0.
+// ⑭(LLM 0) = 긴 제목 표시 — 20자 안팎 어절 경계 줄임(저장 안내·지도 노드·목록)·카드 제목 2줄·머리말 scroll-padding.
 // ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@·fixture-chat-e2e@lifebook.invalid)만 만들고 끝에 지운다.
 // 실고객·test30 접촉 0. 원가 원장(ChatV3Usage)은 실제 호출 원가라 남긴다(탈퇴처럼 userId 만 비워짐).
 
@@ -48,7 +49,7 @@ import { searchMyLife } from "../lib/my-life-search";
 import { cardToEdit, createFromCard, overlappingPlaces, personRow, placeRow, type CardEdit, type ProposalCard } from "../lib/node-proposal";
 import { periodMemoryId, syncV3Bridge } from "../lib/poster/v3-bridge";
 import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
-import { DEFAULT_PERIOD_LABELS, displayTitle, isPeriodNameTitle, storedStoryTitle } from "../lib/story-title";
+import { DEFAULT_PERIOD_LABELS, displayTitle, isPeriodNameTitle, SHORT_TITLE_MAX, shortTitle, storedStoryTitle } from "../lib/story-title";
 import { getStoryReviewData } from "../lib/story-review";
 
 const FIXTURE_EMAIL = "fixture-chat-proposal@lifebook.invalid";
@@ -813,6 +814,26 @@ async function titleChecks(fx: Fixture) {
       (session.match(/topicIsTitle: true/g) ?? []).length === 2);
 }
 
+// ─── 긴 제목 표시 — 20자 안팎 어절 경계 줄임·카드 제목 2줄·머리말 스크롤 여백(2026-11-02) — LLM 0 ─────
+
+function longTitleChecks() {
+  const long = "그해 여름 방학이 시작되자마자 기차를 타고 외할머니 댁으로 내려가서 사촌 동생 정우와 함께 하루 종일 개울에서 물고기를 잡았다.";
+  check("⑭ 줄임 — 20자 이하 그대로 / 긴 제목 = 20자 안 어절 경계 + \"…\" / 띄어쓰기 없는 긴 글 = 20자 + \"…\" / 끝 문장부호는 떼고 \"…\"",
+    shortTitle("그날 비가 왔다.") === "그날 비가 왔다." && shortTitle("   연 날리던 날 ") === "연 날리던 날" &&
+      shortTitle(long) === "그해 여름 방학이 시작되자마자 기차를…" &&
+      shortTitle("할머니가부쳐주신감자전을배가터지도록먹었다") === "할머니가부쳐주신감자전을배가터지도록먹었…" &&
+      shortTitle("가나다라마바, 사아자차카타파하 거너더러머버서") === "가나다라마바, 사아자차카타파하…" &&
+      shortTitle(long).length <= SHORT_TITLE_MAX + 1,
+    { long: shortTitle(long) });
+  const chat = read("app/chat-v3/ChatV3Client.tsx");
+  const map = read("app/my-life/MyLifeView.tsx");
+  check("⑭ 쓰는 곳 — 저장 안내 = 줄인 이름 · 지도 노드·목록 보기 = 줄인 제목 · 카드 제목 = 2줄 말줄임(본문은 그대로)",
+    chat.includes("FC.created(shortTitle(r.title))") && (map.match(/shortTitle\(displayTitle\(/g) ?? []).length === 2 &&
+      /<dd className="m-0 line-clamp-2 text-xl font-bold text-ink">\{displayTitle\(\{ title: edit\.title, content: edit\.summary \}\)\}<\/dd>/.test(read("app/components/ProposalCard.tsx")));
+  check("⑭ 카드가 고정 머리말에 안 가림 — 머리말 높이만큼 문서 scroll-padding-top(크기 바뀌면 다시 잼)",
+    /root\.style\.scrollPaddingTop = `\$\{el\.offsetHeight\}px`/.test(chat) && chat.includes("new ResizeObserver(apply)") && chat.includes("<header ref={headerRef} className=\"sticky top-0"));
+}
+
 // ─── 조사 — 이름 뒤 조사를 받침으로 고른다(2026-11-02) — LLM 0 ──────────────
 
 function josaChecks() {
@@ -992,6 +1013,7 @@ async function main() {
   pureChecks();
   staticChecks();
   josaChecks();
+  longTitleChecks();
   await removeFixture();
   let fx: Fixture | null = null;
   try {

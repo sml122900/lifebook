@@ -17,6 +17,23 @@ export function displayTitle(story: { title: string | null; content: string }): 
   return story.title?.trim() || storyLead(story.content);
 }
 
+// 긴 제목 줄임(성민 결정 2026-11-02) — 20자 안팎에서 어절(띄어쓰기) 경계로 자르고 "…". 20자 이하면 그대로.
+// 첫 어절부터 20자를 넘거나 어절로 자른 결과가 너무 짧으면(12자 미만) 글자 수로 자른다.
+// 쓰는 곳: 저장 안내("'…' 이야기를 My Life 에 남겼어요.")·My Life 지도 노드·목록 보기. (제안 카드 제목은 2줄 말줄임 — CSS.)
+export const SHORT_TITLE_MAX = 20;
+export function shortTitle(text: string, max = SHORT_TITLE_MAX): string {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (t.length <= max) return t;
+  let out = "";
+  for (const w of t.split(" ")) {
+    const next = out ? `${out} ${w}` : w;
+    if (next.length > max) break;
+    out = next;
+  }
+  if (out.length < Math.min(12, max)) out = t.slice(0, max);
+  return `${out.replace(/[\s.,!?·…]+$/, "")}…`;
+}
+
 // 앱 골격이 만드는 기본 시기 이름(app/actions/onboarding.ts 골격 — 국민학교·초등학교 둘 다). 회귀가 골격과 맞는지 본다.
 export const DEFAULT_PERIOD_LABELS = [
   "출생",

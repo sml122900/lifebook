@@ -33,7 +33,7 @@ import {
   type MyLifeLayout,
 } from "@/lib/my-life-layout";
 import { searchMyLife, type SearchResult } from "@/lib/my-life-search";
-import { displayTitle } from "@/lib/story-title";
+import { displayTitle, shortTitle } from "@/lib/story-title";
 
 const MAX_SCALE = 3;
 const MIN_SCALE = 0.5; // 지도 전체가 이보다 작아야 들어가면 그 배율까지 내려간다
@@ -1134,7 +1134,7 @@ function StoryNode({ story, node, style }: { story: MyLifeStory; node: Extract<L
       style={{ ...style, borderRadius: "32px 6px 32px 32px" }}
     >
       {tag && <span className="block h-7 shrink-0 truncate text-lg leading-7 text-ink-soft">{tag}</span>}
-      <span className="line-clamp-2 shrink-0 text-lg leading-[26px] text-ink">{displayTitle(story)}</span>
+      <span className="line-clamp-2 shrink-0 text-lg leading-[26px] text-ink">{shortTitle(displayTitle(story))}</span>
       {rows.length > 0 && (
         <span className="mt-2 flex shrink-0 flex-col gap-1.5">
           {rows.map((r, ri) => (
@@ -1216,7 +1216,7 @@ function ListMode({
                         className={`flex min-h-[56px] w-full flex-col gap-2 rounded-md border-2 bg-surface px-4 py-3 text-left hover:bg-banner ${s.kind === "SELF" ? "border-sage" : "border-ink-soft"} ${FOCUS}`}
                       >
                         {tag && <span className="text-lg text-ink-soft">{tag}</span>}
-                        <span className="text-lg text-ink">{displayTitle(s)}</span>
+                        <span className="text-lg text-ink">{shortTitle(displayTitle(s))}</span>
                         {s.chips.length > 0 && (
                           <span className="flex flex-wrap gap-1.5">
                             {s.chips.map((c, i) => (

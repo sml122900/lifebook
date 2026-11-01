@@ -51,6 +51,7 @@ import type { FreeTopicInput, ProposalView } from "@/lib/free-chat";
 import { FREE_CHAT_COPY as FC } from "@/lib/free-chat-copy";
 import type { CardEdit } from "@/lib/node-proposal";
 import { isExitIntent } from "@/lib/episode-text";
+import { shortTitle } from "@/lib/story-title";
 
 type Msg = { role: "a" | "u"; text: string };
 type Stage = "profile_year" | "profile_region" | "confirm" | "free";
@@ -204,6 +205,25 @@ export function ChatV3Client({
   const lastMessageRef = useRef<Msg | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  // 고정 머리말(sticky) 높이만큼 문서 스크롤 여백(scroll-padding-top) — 카드로 자동 스크롤할 때·키보드로 카드 버튼에 갈 때·
+  // 카드를 맨 위까지 올렸을 때 머리말 뒤로 가리지 않게(390 실측 — 카드 제목 윗줄이 가렸다). 머리말 높이가 바뀌면 다시 잰다.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const apply = () => {
+      root.style.scrollPaddingTop = `${el.offsetHeight}px`;
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.scrollPaddingTop = "";
+    };
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -507,7 +527,7 @@ export function ChatV3Client({
       setProposal(null);
       setSegTurns(r.segmentTurns);
       triggerReaction("happy", 3000);
-      await addBot(FC.created(r.title));
+      await addBot(FC.created(shortTitle(r.title)));
       setLastCreated(`/my-life?focus=${encodeURIComponent(`st:${r.eventId}:${r.episodeId}`)}`);
       if (exitAfterCardRef.current) {
         exitAfterCardRef.current = false;
@@ -662,7 +682,7 @@ export function ChatV3Client({
     <div className="flex flex-1 flex-col gap-4">
       {/* P5-4 — 캐릭터가 대화 리액션 용도라 헤더 전체를 sticky 로 고정. 작은 화면에서는 캐릭터를 제목
           아래 줄로 — 사이드 패널 "내 정보" 버튼(fixed right-4 top-4)과 세로로 겹칠 공간 자체를 없앤다. */}
-      <header className="sticky top-0 z-20 flex flex-col gap-3 border-b border-line bg-canvas py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <header ref={headerRef} className="sticky top-0 z-20 flex flex-col gap-3 border-b border-line bg-canvas py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ink">이야기 나누기</h1>
           <p className="mt-1 text-base text-ink-soft">편하게 대답만 해주세요.</p>
@@ -699,7 +719,7 @@ export function ChatV3Client({
 
         {proposal && status !== "finished" && (
           // 고정 머리 줄 높이만큼 띄워 멈춘다(좁은 화면은 캐릭터 줄까지 두 줄).
-          <div ref={cardRef} className="scroll-mt-44 sm:scroll-mt-32">
+          <div ref={cardRef} className="scroll-mt-3">
             <ProposalCard key={cardKey ?? ""} view={proposal} onCreate={handleCreate} onDecline={handleDecline} />
           </div>
         )}

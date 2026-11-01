@@ -170,7 +170,7 @@ export function ProposalCard({
         <dl className="flex flex-col gap-3 text-lg">
           <div>
             <dt className="font-semibold text-ink-soft">{C.fieldTitle}</dt>
-            <dd className="m-0 text-xl font-bold text-ink">{displayTitle({ title: edit.title, content: edit.summary })}</dd>
+            <dd className="m-0 line-clamp-2 text-xl font-bold text-ink">{displayTitle({ title: edit.title, content: edit.summary })}</dd>
           </div>
           <div>
             <dt className="font-semibold text-ink-soft">{C.fieldCenter}</dt>
