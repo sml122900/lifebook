@@ -76,14 +76,19 @@ export type MyLifeData = {
 
 type Db = typeof prisma;
 
-// 브릿지 메모리 제목이 진짜 이야기 제목인지 — 옛 저장 경로는 시기 이름("고등학교 입학", 구간이면 "… 이후")을
-// 제목 칸에 넣었다. 그런 값이면 null(화면은 본문 첫 문장), 아니면 그 제목(제안 카드·인터뷰 주제 제목).
+// 옛 저장 경로가 제목 칸에 넣은 시기 이름인지("고등학교 입학", 구간이면 "… 이후", 공백 무시).
+// db/cleanup-legacy-story-titles.ts 가 같은 판정으로 옛 제목을 찾는다.
+export function isPeriodNameTitle(title: string, eventLabels: readonly (string | null)[]): boolean {
+  const norm = (s: string) => s.replace(/\s+/g, "");
+  const t = norm(title);
+  return eventLabels.filter((l): l is string => !!l).some((l) => norm(l) === t || norm(`${l} 이후`) === t);
+}
+
+// 브릿지 메모리 제목이 진짜 이야기 제목인지 — 시기 이름이면 null(화면은 본문 첫 문장), 아니면 그 제목(제안 카드·인터뷰 주제 제목).
 export function storyTitleOf(title: string | null | undefined, eventLabels: readonly (string | null)[]): string | null {
   const t = (title ?? "").trim();
   if (!t) return null;
-  const norm = (s: string) => s.replace(/\s+/g, "");
-  const labels = eventLabels.filter((l): l is string => !!l).flatMap((l) => [l, `${l} 이후`]);
-  return labels.some((l) => norm(l) === norm(t)) ? null : t;
+  return isPeriodNameTitle(t, eventLabels) ? null : t;
 }
 
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, "ko");
