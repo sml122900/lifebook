@@ -67,12 +67,14 @@ import { deletePerson, listPeople } from "../lib/people";
 import { countPendingPeople, decidePeople, getPendingPeopleGroups } from "../lib/node-confirm";
 import { getConfirmedLifeEvent, listConfirmedLifeEvents } from "../lib/life-event-query";
 import { finishEpisodeChatCore, type EpisodeTurn } from "../lib/episode-chat";
+import { requireTestBudget, saveLiveFailure } from "./live-log";
 
 async function cleanup() {
   await prisma.user.deleteMany({ where: { email: { startsWith: "person-mode-test-" } } });
 }
 
 function fail(msg: string): never {
+  saveLiveFailure("test-person-mode", msg, null);
   throw new Error(`FAILED — ${msg}`);
 }
 
@@ -489,6 +491,7 @@ async function scenarioContentLoss() {
 }
 
 async function main() {
+  await requireTestBudget("test-person-mode");
   await cleanup();
   await scenarioPersonMode();
   await scenarioCorrectedStatus();

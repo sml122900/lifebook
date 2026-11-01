@@ -21,10 +21,12 @@ import { detectGaps } from "../lib/gap-detector";
 import { getStoryReviewData } from "../lib/story-review";
 import { createCustomLifeEvent } from "../lib/open-chat-promote";
 import { createFromFreeChatProposal, freeChatReply, getFreeChatState, proposeFromSegment } from "../lib/free-chat";
+import { requireTestBudget, saveLiveFailure } from "./live-log";
 
 const SESSION = "test-open-promote";
 
 function fail(msg: string): never {
+  saveLiveFailure("test-open-promote", msg, null);
   throw new Error(`FAILED — ${msg}`);
 }
 
@@ -38,6 +40,7 @@ async function say(userId: string, text: string) {
 }
 
 async function main() {
+  await requireTestBudget("test-open-promote");
   await cleanup();
   console.log("=== P13-4(b) 자유 대화 이야기 → 새 시기(CUSTOM) 검증 ===");
 

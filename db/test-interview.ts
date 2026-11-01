@@ -61,6 +61,7 @@ import {
 } from "../lib/interview/session";
 import { isUnknownYearAnswer, parseYearDeterministic } from "../lib/interview/year";
 import type { LifeEventType } from "../lib/generated/prisma/enums";
+import { requireTestBudget, saveLiveFailure } from "./live-log";
 
 const FIXTURE_EMAIL = "fixture-interview@lifebook.invalid";
 const ROOT = path.resolve(__dirname, "..");
@@ -69,7 +70,10 @@ const DAY_MS = 86_400_000;
 let failed = 0;
 function check(label: string, ok: boolean, detail?: unknown) {
   console.log(`${ok ? "PASS" : "FAIL"} — ${label}${!ok && detail !== undefined ? ` :: ${JSON.stringify(detail)}` : ""}`);
-  if (!ok) failed += 1;
+  if (!ok) {
+    failed += 1;
+    saveLiveFailure("test-interview", label, detail ?? null);
+  }
 }
 
 function read(rel: string): string {
@@ -316,6 +320,7 @@ function pureChecks() {
 }
 
 async function main() {
+  await requireTestBudget("test-interview");
   staticChecks();
   pureChecks();
 

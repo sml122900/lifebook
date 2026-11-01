@@ -1301,7 +1301,7 @@ model ChatV3Usage {
   id           String   @id @default(cuid())
   userId       String?
   user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  purpose      String // REPLY | PROPOSAL | INTERVIEW_PROPOSAL
+  purpose      String // REPLY | PROPOSAL | INTERVIEW_PROPOSAL — 테스트 계정(이메일 최상위 도메인 .invalid·.test)은 앞에 TEST_ (전역 예산 합계 제외)
   model        String
   inputTokens  Int      @default(0)
   outputTokens Int      @default(0)

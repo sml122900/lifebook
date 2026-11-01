@@ -9,6 +9,8 @@
 // ⑪(LLM 0) = 제목 없음(빈 문자열) — 공용 판정 displayTitle·[고치기]에서 제목 지움·제목을 읽는 곳.
 // ⑫(LLM 0) = 시기 이름 제목 재발 방지 — 저장 한 곳(createEpisodeBridge) 규칙·userSetTitle 예외·저장 경로 전수.
 // ⑬(LLM 0) = 이름 뒤 조사 — 받침으로 고름(같은 곳·같은 분 되묻기), 문구 파일에 조사 하드코딩 0.
+// ⑯(LLM 0) = 전역 하루 예산 — 테스트 계정(.invalid·.test) 사용분 제외(TEST_ 표시)·테스트 한도(CHAT_V3_TEST_BUDGET_USD).
+// 실제 모델 항목 실패는 db/test-logs/live-failures/ 에 입출력, 시나리오 A 4턴 이내 제안 비율은 db/test-logs/live-stats.jsonl.
 // ⑮(LLM 0) = 남은 구간 처리 — 6시간 넘은 구간 입장 때 닫음(짧으면 조용히·실질 내용은 카드부터)·주제 바뀜/다른 주제 + 짧으면 카드 없음(E2E 같은 문장·시각 조작).
 // ⑭(LLM 0) = 긴 제목 표시 — 20자 안팎 어절 경계 줄임(저장 안내·지도 노드·목록)·카드 제목 2줄·머리말 scroll-padding.
 // ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@·fixture-chat-e2e@lifebook.invalid)만 만들고 끝에 지운다.
@@ -22,7 +24,16 @@ import path from "node:path";
 import ts from "typescript";
 
 import { deleteAccountTx } from "../lib/account-deletion";
-import { costMicroUsd, dayStartKst } from "../lib/chat-v3-usage";
+import {
+  costMicroUsd,
+  dayStartKst,
+  isOverDailyBudget,
+  isTestAccountEmail,
+  recordChatUsage,
+  spentTodayMicroUsd,
+  testBudgetMicroUsd,
+  testSpentTodayMicroUsd,
+} from "../lib/chat-v3-usage";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { prisma } from "../lib/db";
 import { createEpisodeBridge } from "../lib/episode";
@@ -59,6 +70,7 @@ import { periodMemoryId, syncV3Bridge } from "../lib/poster/v3-bridge";
 import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
 import { DEFAULT_PERIOD_LABELS, displayTitle, isPeriodNameTitle, SHORT_TITLE_MAX, shortTitle, storedStoryTitle } from "../lib/story-title";
 import { getStoryReviewData } from "../lib/story-review";
+import { appendLiveStat, requireTestBudget, saveLiveFailure } from "./live-log";
 
 const FIXTURE_EMAIL = "fixture-chat-proposal@lifebook.invalid";
 const ROOT = path.resolve(__dirname, "..");
@@ -66,9 +78,15 @@ const LIVE = process.argv.includes("--live");
 const SESSION = "test-chat-proposal";
 
 let failed = 0;
+// 실제 모델 항목 실패 기록용 — 지금 시나리오에서 주고받은 말(say 가 쌓고, resetSegment·E2E 재현 시작이 비운다).
+let liveConversation: { role: "user" | "assistant"; text: string }[] = [];
 function check(label: string, ok: boolean, detail?: unknown) {
   console.log(`${ok ? "PASS" : "FAIL"} — ${label}${!ok && detail !== undefined ? ` :: ${JSON.stringify(detail)}` : ""}`);
-  if (!ok) failed += 1;
+  if (!ok) {
+    failed += 1;
+    // 실제 모델 항목("실제")은 입력 = 이 시나리오에서 주고받은 말, 출력 = detail 로 남긴다.
+    saveLiveFailure("test-chat-proposal", label, label.includes("실제") ? { input: liveConversation, output: detail ?? null } : (detail ?? null));
+  }
 }
 function read(rel: string): string {
   return fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -161,10 +179,12 @@ function baseCard(over: Partial<ProposalCard>): ProposalCard {
 
 async function say(userId: string, text: string): Promise<FreeChatReplyResult> {
   await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "user", content: text } });
+  liveConversation.push({ role: "user", text });
   await sleep(5);
   const r = await freeChatReply(userId);
   if (r.kind === "reply") {
     await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "assistant", content: r.reply } });
+    liveConversation.push({ role: "assistant", text: r.reply });
     await sleep(5);
   }
   return r;
@@ -478,6 +498,7 @@ async function fallbackCountChecks(fx: Fixture) {
 // ─── 실제 모델 ───────────────────────────────────────────────────────────
 
 async function resetSegment(userId: string, eventId: string | null) {
+  liveConversation = [];
   await prisma.chatV3Segment.update({
     where: { userId },
     data: { startedAt: new Date(), proposal: Prisma.DbNull, topicEventId: eventId, topicGapType: eventId ? "episode" : null, topicPersonId: null },
@@ -487,7 +508,8 @@ async function resetSegment(userId: string, eventId: string | null) {
 
 async function usageSince(userId: string, since: Date) {
   const rows = await prisma.chatV3Usage.findMany({ where: { userId, createdAt: { gte: since } }, select: { purpose: true, model: true, inputTokens: true, outputTokens: true, costMicroUsd: true } });
-  const sum = (p?: string) => rows.filter((r) => !p || r.purpose === p);
+  // 테스트 계정 사용분은 purpose 앞에 TEST_(lib/chat-v3-usage — 전역 예산 합계 제외)가 붙는다.
+  const sum = (p?: string) => rows.filter((r) => !p || r.purpose.replace(/^TEST_/, "") === p);
   return {
     calls: rows.length,
     reply: { calls: sum("REPLY").length, in: sum("REPLY").reduce((n, r) => n + r.inputTokens, 0), out: sum("REPLY").reduce((n, r) => n + r.outputTokens, 0), model: sum("REPLY")[0]?.model ?? null },
@@ -508,9 +530,11 @@ async function liveBasic(fx: Fixture) {
   check("⑤ 실제 — 응답(Haiku) 2회 · 두 번째 턴 뒤 제안(마무리 말)", r1.kind === "reply" && r2.kind === "reply" && !!r2.propose, { r1, r2 });
   const p = await proposeFromSegment(userId, { until: r2.kind === "reply" ? r2.propose?.until ?? null : null });
   const card = p.kind === "card" ? p.view.card : null;
+  // 실패 기록용 — 제안 모델이 받은 대화(카드 transcript)와 그때 주제(2026-11-02 시기 = 군 입대로 한 번 틀림 — 원인 추적).
+  const segP = await prisma.chatV3Segment.findUnique({ where: { userId }, select: { proposal: true, topicEventId: true, topicGapType: true } });
   check("⑤ 실제 — 카드(Sonnet): 시기 = 고등학교 입학 · 박영수 = 이미 계신 분 · 경주 불국사",
     !!card && "id" in card.center && card.center.id === ev.HIGH_SCHOOL && card.people.some((x) => x.personId === fx.friendId) && card.places.some((x) => x.name.includes("불국사")) && card.summary.length > 10,
-    card);
+    { card, transcript: parseCard(segP?.proposal)?.transcript ?? null, topic: { eventId: segP?.topicEventId, gapType: segP?.topicGapType, isHighSchool: segP?.topicEventId === ev.HIGH_SCHOOL } });
   const made = await createFromFreeChatProposal(userId);
   check("⑤ 실제 — [만들기] 저장 · 확인 대기 0", made.ok && JSON.stringify(await draftsAndProposed(userId)) === JSON.stringify({ drafts: 0, proposed: 0 }), made);
   const u = await usageSince(userId, t0);
@@ -521,16 +545,21 @@ async function liveBasic(fx: Fixture) {
 async function liveScenarios(fx: Fixture) {
   const { userId, ev } = fx;
 
-  // A. 일단락 판단 — 마무리 말 없이, AI 가 done 이라 판단해 제안하는지.
+  // A. 일단락 판단 — 마무리 말 없이 이야기하면 제안이 뜨는지. 일단락 판단은 모델 판단이라 흔들린다(2026-11-02 연속 2회
+  // 4턴째 continue) — 6턴 강제 제안이 안전장치. 통과 기준 = 6턴 안에 제안. 4턴 이내(AI 판단) 제안 여부는 통과/실패가 아니라
+  // db/test-logs/live-stats.jsonl 에 실행마다 쌓아 비율로 본다.
   await resetSegment(userId, null);
   const tA = new Date();
-  const a: FreeChatReplyResult[] = [];
-  for (const line of [
+  const aLines = [
     "군대 갔을 때 이야기 하나 할게요. 논산 훈련소에서 첫날 밤에 잠이 하나도 안 왔어요.",
     "집 생각이 많이 났지요. 어머니가 싸 주신 미숫가루를 동기들이랑 나눠 먹었어요.",
     "그래도 그 동기들 덕분에 버텼어요. 지금 생각해도 고마운 사람들이에요.",
     "네, 그날 일은 그렇게 지나갔어요. 이제 생각하면 웃음이 나요.",
-  ]) {
+    "제대하던 날에는 동기들이랑 부대 앞에서 사진도 찍었어요.",
+    "그 사진은 아직도 앨범에 꽂혀 있어요.",
+  ];
+  const a: FreeChatReplyResult[] = [];
+  for (const line of aLines) {
     const r = await say(userId, line);
     a.push(r);
     if (r.kind === "reply" && r.propose) break;
@@ -538,8 +567,13 @@ async function liveScenarios(fx: Fixture) {
   const aLast = a[a.length - 1];
   const aTurns = a.length;
   const aProposed = aLast?.kind === "reply" && !!aLast.propose;
-  console.log(`   A 일단락: ${aTurns}턴 만에 제안=${aProposed}`, JSON.stringify(a.map((r) => (r.kind === "reply" ? r.reply : r.kind))));
-  check("A 실제 — AI 일단락 판단으로 제안(마무리 말 없이, 6턴 전)", aProposed && aTurns < 6, a);
+  const aStats = appendLiveStat("A-일단락-4턴이내", { turns: aProposed ? aTurns : null, within4: aProposed && aTurns <= 4 });
+  const aRate = `${aStats.filter((x) => x.within4).length}/${aStats.length}`;
+  console.log(`   A 일단락: ${aTurns}턴 만에 제안=${aProposed} · 4턴 이내(AI 판단) 누적 ${aRate}`, JSON.stringify(a.map((r) => (r.kind === "reply" ? r.reply : r.kind))));
+  check("A 실제 — 마무리 말 없이 이야기해도 6턴 안에 제안(일단락 판단 또는 6턴 강제)", aProposed && aTurns <= 6, {
+    input: aLines.slice(0, aTurns),
+    output: a,
+  });
   if (aProposed) {
     const p = await proposeFromSegment(userId, { until: aLast.kind === "reply" ? aLast.propose?.until ?? null : null });
     const card = p.kind === "card" ? p.view.card : null;
@@ -914,6 +948,52 @@ async function periodTitleGuardChecks(fx: Fixture) {
     { creators, callers });
 }
 
+// ─── 전역 하루 예산 — 테스트 계정 사용분 제외 + 테스트 한도(2026-11-02) — LLM 0 ─────────────────
+
+async function budgetChecks(fx: Fixture) {
+  const { userId } = fx;
+  check("⑯ 테스트 계정 판정 — 이메일 최상위 도메인 .invalid·.test = 테스트 / test.com·gmail.com = 일반",
+    isTestAccountEmail("fixture-chat-proposal@lifebook.invalid") && isTestAccountEmail("lab-persona-a@lifebook.invalid") &&
+      isTestAccountEmail("p23-test-alice@test") && isTestAccountEmail("sample@lifebook.test") &&
+      !isTestAccountEmail("test30@test.com") && !isTestAccountEmail("someone@gmail.com") && !isTestAccountEmail("invalid@example.com") && !isTestAccountEmail(null));
+
+  // 픽스처가 큰 원가($6 — 하루 예산 $5 보다 큼)를 써도 일반 계정 예산 판정은 그대로. 원가 기록은 남는다(TEST_ 표시).
+  const before = { spent: await spentTodayMicroUsd(), test: await testSpentTodayMicroUsd() };
+  const since = new Date();
+  await recordChatUsage(userId, "REPLY", { model: "claude-haiku-4-5-20251001", inputTokens: 6_000_000, outputTokens: 0 });
+  const big = await prisma.chatV3Usage.findFirst({ where: { userId, createdAt: { gte: since } }, orderBy: { createdAt: "desc" } });
+  const after = { spent: await spentTodayMicroUsd(), test: await testSpentTodayMicroUsd() };
+  const prevDaily = process.env.CHAT_V3_DAILY_BUDGET_USD;
+  process.env.CHAT_V3_DAILY_BUDGET_USD = String(before.spent / 1e6 + 1); // 한도 = 일반 계정 오늘 사용 + $1
+  const over = await isOverDailyBudget();
+  if (prevDaily === undefined) delete process.env.CHAT_V3_DAILY_BUDGET_USD;
+  else process.env.CHAT_V3_DAILY_BUDGET_USD = prevDaily;
+  // 일반 계정 사용분은 그대로 센다(userId 없는 일반 행 — 탈퇴한 일반 계정 행과 같은 모양).
+  const real = await prisma.chatV3Usage.create({
+    data: { userId: null, purpose: "REPLY", model: "claude-haiku-4-5-20251001", inputTokens: 1000, outputTokens: 0, costMicroUsd: 1000 },
+    select: { id: true },
+  });
+  const afterReal = await spentTodayMicroUsd();
+  await prisma.chatV3Usage.deleteMany({ where: { id: { in: [big?.id ?? "", real.id] } } });
+  check("⑯ 픽스처 $6 사용(원장에 TEST_REPLY) → 일반 계정 오늘 합계 그대로 · 테스트 합계 +$6 · 예산 판정(일반 사용 + $1 한도) 안 넘음 · 일반 행은 그대로 셈",
+    big?.purpose === "TEST_REPLY" && big.costMicroUsd === 6_000_000 && after.spent === before.spent && after.test - before.test === 6_000_000 &&
+      !over && afterReal - after.spent === 1000,
+    { big: big && { purpose: big.purpose, cost: big.costMicroUsd }, before, after, over, afterReal });
+
+  // 테스트 한도(CHAT_V3_TEST_BUDGET_USD) — 넘으면 회귀가 모델을 부르기 전에 멈춘다.
+  const prevTest = process.env.CHAT_V3_TEST_BUDGET_USD;
+  process.env.CHAT_V3_TEST_BUDGET_USD = "0";
+  let stopped = false;
+  try {
+    await requireTestBudget("⑯ 확인");
+  } catch {
+    stopped = true;
+  }
+  if (prevTest === undefined) delete process.env.CHAT_V3_TEST_BUDGET_USD;
+  else process.env.CHAT_V3_TEST_BUDGET_USD = prevTest;
+  check("⑯ 테스트 한도 넘음(CHAT_V3_TEST_BUDGET_USD 0) → 회귀가 멈춤(throw) · 기본 한도 $10", stopped && (prevTest !== undefined || testBudgetMicroUsd() === 10_000_000));
+}
+
 // ─── 남은 구간 처리(2026-11-02) — 운영 test30 E2E 재현(같은 문장·시각 조작) — LLM 0 ──────────
 
 async function leftoverChecks(fx: Fixture) {
@@ -1025,6 +1105,7 @@ const FAREWELL = /(들려주셔서|고마워요|고맙습니다|감사|잘 들�
 
 // 운영 test30 E2E 같은 문장 재현(실제 Haiku·Sonnet) — 두 번째 제안에 첫 이야기 미포함·중학교 시기 유지·장소 추출·작별 인사 없음·제목 표시.
 async function liveE2EReplay() {
+  liveConversation = [];
   const EMAIL = "fixture-chat-e2e@lifebook.invalid";
   const old = await prisma.user.findUnique({ where: { email: EMAIL }, select: { id: true } });
   if (old) await deleteAccountTx(old.id);
@@ -1157,9 +1238,14 @@ async function main() {
     await titleChecks(fx);
     await periodTitleGuardChecks(fx);
     await leftoverChecks(fx);
+    await budgetChecks(fx);
+    await requireTestBudget("test-chat-proposal");
     await liveBasic(fx);
-    if (LIVE) await liveScenarios(fx);
-    if (LIVE) await liveE2EReplay();
+    if (LIVE) {
+      await requireTestBudget("test-chat-proposal --live");
+      await liveScenarios(fx);
+      await liveE2EReplay();
+    }
     const total = await usageSince(fx.userId, new Date(0));
     console.log(`\n원가 합계(이 실행, 픽스처): 호출 ${total.calls} · $${total.usd.toFixed(4)}`);
   } finally {

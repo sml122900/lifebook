@@ -19,12 +19,16 @@ import {
   proposeFromSegment,
   startFreeTopic,
 } from "../lib/free-chat";
+import { requireTestBudget, saveLiveFailure } from "./live-log";
 
 const SESSION = "test-p23";
 let failed = 0;
 function check(label: string, ok: boolean, detail?: unknown) {
   console.log(`${ok ? "PASS" : "FAIL"} — ${label}${ok ? "" : ` (${JSON.stringify(detail)})`}`);
-  if (!ok) failed += 1;
+  if (!ok) {
+    failed += 1;
+    saveLiveFailure("test-p23", label, detail ?? null);
+  }
 }
 
 async function answer(userId: string, text: string) {
@@ -33,6 +37,7 @@ async function answer(userId: string, text: string) {
 }
 
 async function main() {
+  await requireTestBudget("test-p23");
   await prisma.user.deleteMany({ where: { email: "p23-test-alice@test" } });
   const user = await prisma.user.create({
     data: { email: "p23-test-alice@test", name: "alice", birthYear: 1950 },

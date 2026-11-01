@@ -52,3 +52,6 @@ next-env.d.ts
 
 # 옛 이야기 제목 정리 백업(db/cleanup-legacy-story-titles.ts --apply — 계정 id·옛 제목, 커밋 금지)
 /db/backups/
+
+# 실제 모델 회귀 실패 입출력·비율 기록(db/live-log.ts — 커밋 금지)
+/db/test-logs/
