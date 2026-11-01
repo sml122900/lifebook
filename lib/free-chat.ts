@@ -34,12 +34,15 @@ import { getPersonEpisodeTarget } from "./person-chat";
 import { buildPersonAddress, buildPersonLabel } from "./person-honorific";
 import { FREE_CHAT_COPY } from "./free-chat-copy";
 import { buildFreeChatReplySystemPrompt } from "./prompts/free-chat";
+import { displayTitle } from "./story-title";
 import { resolveLiveModel } from "./user-ai-model";
 
 export const SEGMENT_MAX_USER_TURNS = 6;
 // 마지막 활동 7일이 지난 구간은 재진입 때 바로 제안으로 마무리 권유(Q66).
 export const STALE_SEGMENT_MS = 7 * 24 * 60 * 60 * 1000;
 const RECENT_TITLES_MAX = 2;
+// 방금 남긴 이야기 찾기 — 최근 이야기 몇 편 안에서 화면 제목으로 맞춘다(제목을 비운 이야기도 찾게).
+const RECENT_SCAN = 10;
 const SEGMENT_MESSAGES_MAX = 80;
 const REPLY_FALLBACK = "네, 이야기 잘 듣고 있어요.";
 
@@ -447,15 +450,19 @@ export function replyResultFrom(
 // ─── 제안 ───────────────────────────────────────────────────────────────
 
 // 방금 이 대화에서 남긴 이야기(제목·본문, 최대 2) — 제안 모델이 다시 쓰지 않게 넘긴다.
-async function recentSavedStories(userId: string, titles: string[]): Promise<{ title: string; summary: string }[]> {
+// recentTitles = 화면 제목(createFromCard 결과 — 제목을 비웠으면 본문 첫 문장).
+export async function recentSavedStories(userId: string, titles: string[]): Promise<{ title: string; summary: string }[]> {
   if (titles.length === 0) return [];
   const rows = await prisma.episode.findMany({
-    where: { lifeEvent: { userId }, memory: { title: { in: titles } } },
+    where: { lifeEvent: { userId } },
     orderBy: { createdAt: "desc" },
-    take: RECENT_TITLES_MAX,
+    take: RECENT_SCAN,
     select: { content: true, memory: { select: { title: true } } },
   });
-  return rows.map((r) => ({ title: r.memory.title ?? "", summary: r.content }));
+  return rows
+    .map((r) => ({ title: displayTitle({ title: r.memory.title, content: r.content }), summary: r.content }))
+    .filter((r) => titles.includes(r.title))
+    .slice(0, RECENT_TITLES_MAX);
 }
 
 export type ProposeResult =

@@ -32,6 +32,7 @@ import type { EpisodeKind } from "../generated/prisma/enums";
 import { getConfirmedLifeEvent } from "../life-event-query";
 import { countPendingPeople } from "../node-confirm";
 import { saveNodeLink } from "../node-graph";
+import { displayTitle } from "../story-title";
 import { INTERVIEW_COPY } from "./copy";
 import { kstDay, parseItemKey, parseSelfKeyId, type SelfRelationRef } from "./keys";
 import { computeTodayPlan } from "./plan";
@@ -195,7 +196,7 @@ async function summarize(userId: string, rows: InterviewItem[]): Promise<Intervi
   const answeredRows = rows.filter((r) => r.status === "ANSWERED");
   const refIds = answeredRows.map((r) => r.refId).filter((id): id is string => id !== null);
   const [episodes, events, pendingPeople] = await Promise.all([
-    prisma.episode.findMany({ where: { id: { in: refIds } }, select: { id: true, memory: { select: { title: true } } } }),
+    prisma.episode.findMany({ where: { id: { in: refIds } }, select: { id: true, content: true, memory: { select: { title: true } } } }),
     prisma.lifeEvent.findMany({
       where: { id: { in: refIds } },
       select: { id: true, label: true, correctedLabel: true, year: true, correctedYear: true },
@@ -206,7 +207,7 @@ async function summarize(userId: string, rows: InterviewItem[]): Promise<Intervi
   for (const r of answeredRows) {
     const ep = episodes.find((e) => e.id === r.refId);
     if (ep) {
-      saved.push(ep.memory.title);
+      saved.push(displayTitle({ title: ep.memory.title, content: ep.content }));
       continue;
     }
     const ev = events.find((e) => e.id === r.refId);

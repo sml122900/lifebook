@@ -37,12 +37,12 @@ import {
   overflowLabel,
   packChips,
   resolveOverlaps,
-  storyLead,
   type LayoutNode,
   type MyLifeLayout,
 } from "../lib/my-life-layout";
 import { normalizeForSearch, searchMyLife } from "../lib/my-life-search";
 import { saveNodeLink } from "../lib/node-graph";
+import { storyLead } from "../lib/story-title";
 
 const EMAIL_A = "fixture-mylife-a@lifebook.invalid";
 const EMAIL_B = "fixture-mylife-b@lifebook.invalid";
@@ -352,17 +352,17 @@ async function main() {
 
     // ── ⑤ 검색 ───────────────────────────────────────────────────
     check("⑤ 정규화 — 공백·대소문자 무시", normalizeForSearch(" 김 민 수 ") === "김민수" && normalizeForSearch("AbC") === "abc");
-    const r1 = searchMyLife(d, "짝 꿍", storyLead);
+    const r1 = searchMyLife(d, "짝 꿍");
     check("⑤ 띄어쓰기 무시 — '짝 꿍' → 인물 짝꿍", r1.some((r) => r.kind === "person" && r.key === `pe:${mate}`));
-    const r2 = searchMyLife(d, "외가", storyLead);
+    const r2 = searchMyLife(d, "외가");
     check("⑤ 이름 일치(장소 외가)가 본문 일치(출생 이야기)보다 앞, 본문은 앞뒤 조각", r2[0]?.key === `pl:${place1}` &&
       r2.some((r) => r.kind === "story" && r.snippet?.match === "외가" && r.key === `st:${birth}:${s1.episodeId}`), r2);
-    const r3 = searchMyLife(d, "태어났다", storyLead);
+    const r3 = searchMyLife(d, "태어났다");
     check("⑤ 걸친 이야기는 주 소속 쪽 한 번만", r3.filter((r) => r.kind === "story").length === 1 && r3[0].eventId === birth);
-    check("⑤ 빈 질의·공백만 = 결과 0", searchMyLife(d, "", storyLead).length === 0 && searchMyLife(d, "   ", storyLead).length === 0);
-    check("⑤ 모임·중심 이름", searchMyLife(d, "동창", storyLead).some((r) => r.key === `gl:${alumni}`) && searchMyLife(d, "고등학교", storyLead).some((r) => r.key === `ev:${hs}`));
+    check("⑤ 빈 질의·공백만 = 결과 0", searchMyLife(d, "").length === 0 && searchMyLife(d, "   ").length === 0);
+    check("⑤ 모임·중심 이름", searchMyLife(d, "동창").some((r) => r.key === `gl:${alumni}`) && searchMyLife(d, "고등학교").some((r) => r.key === `ev:${hs}`));
     const syn60 = synthetic({ events: 11, stories: 60, people: 30, groups: 0, places: 14 });
-    check("⑤ 결과 최대 30", searchMyLife(syn60, "가", storyLead).length === 30);
+    check("⑤ 결과 최대 30", searchMyLife(syn60, "가").length === 30);
 
     // ── ⑥ 순수 함수 ──────────────────────────────────────────────
     const row = L.COL_W - 2 * L.STORY_PAD_X;

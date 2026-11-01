@@ -16,6 +16,7 @@ import { isSubstantiveEpisodeContent } from "../episode-text";
 import type { LifeCategory, LifeEventType } from "../generated/prisma/enums";
 import { CREATED_VIA_LIFE_EVENT } from "../life-events";
 import { removeStorageObjects } from "../storage";
+import { displayTitle } from "../story-title";
 import type { PosterCandidate } from "./poster-candidates";
 import type { PosterSelectionItem } from "./select-constants";
 
@@ -99,11 +100,11 @@ export async function syncV3Bridge(userId: string): Promise<V3BridgeRow[]> {
       isPeriod: false,
       category: CATEGORY_BY_TYPE[e.type] ?? null,
     });
-    // 구간 이야기 — 제목은 Episode 제목(브릿지 메모리 title, 예: "군 입대 이후").
+    // 구간 이야기 — 제목은 Episode 제목(브릿지 메모리 title, 예: "군 입대 이후" — 비었으면 본문 첫 문장, lib/story-title).
     for (const ep of substantive.filter((x) => x.isPeriod)) {
       rows.push({
         id: periodMemoryId(ep.id),
-        title: ep.memory.title,
+        title: displayTitle({ title: ep.memory.title, content: ep.content }),
         content: ep.content.trim(),
         year,
         isPeriod: true,

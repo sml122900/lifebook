@@ -2,6 +2,7 @@
 
 import type { LifeEventType } from "./generated/prisma/enums";
 import { prisma } from "./db";
+import { displayTitle } from "./story-title";
 
 export type TimelineItem = {
   id: string;
@@ -69,7 +70,7 @@ export async function getStoryReviewData(userId: string): Promise<{
     e.episodes.map((ep) => ({
       id: ep.id,
       memoryId: ep.memoryId,
-      label: ep.memory.title,
+      label: displayTitle({ title: ep.memory.title, content: ep.content }),
       year: e.correctedYear ?? e.year,
       content: ep.content,
       kind: ep.kind,

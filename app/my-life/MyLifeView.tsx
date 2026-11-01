@@ -28,13 +28,12 @@ import {
   countTimelineNodes,
   layoutMyLife,
   overflowLabel,
-  storyLead,
-  storyText,
   storyTag,
   type LayoutNode,
   type MyLifeLayout,
 } from "@/lib/my-life-layout";
 import { searchMyLife, type SearchResult } from "@/lib/my-life-search";
+import { displayTitle } from "@/lib/story-title";
 
 const MAX_SCALE = 3;
 const MIN_SCALE = 0.5; // 지도 전체가 이보다 작아야 들어가면 그 배율까지 내려간다
@@ -88,7 +87,7 @@ function eventAriaLabel(ev: MyLifeEvent): string {
 
 function storyAriaLabel(s: MyLifeStory): string {
   const names = s.chips.map((c) => (c.proposed ? `${c.name}(${C.pendingTag})` : c.name));
-  return s.kind === "SELF" ? C.selfName(storyText(s), names) : C.storyName(storyText(s), names);
+  return s.kind === "SELF" ? C.selfName(displayTitle(s), names) : C.storyName(displayTitle(s), names);
 }
 
 // 외부 지도 — 기존 연혁 카드(TimelineView externalMapHref)와 같은 규칙.
@@ -150,7 +149,7 @@ function nodeName(key: string, data: MyLifeData, idx: Index): string {
   if (kind === "ev") return idx.eventById.get(a)?.label ?? "";
   if (kind === "st") {
     const s = idx.eventById.get(a)?.stories.find((x) => x.id === b);
-    return s ? storyText(s) : "";
+    return s ? displayTitle(s) : "";
   }
   if (kind === "pe") return idx.personById.get(a)?.name ?? "";
   if (kind === "pl") return idx.placeById.get(a)?.name ?? "";
@@ -1135,7 +1134,7 @@ function StoryNode({ story, node, style }: { story: MyLifeStory; node: Extract<L
       style={{ ...style, borderRadius: "32px 6px 32px 32px" }}
     >
       {tag && <span className="block h-7 shrink-0 truncate text-lg leading-7 text-ink-soft">{tag}</span>}
-      <span className="line-clamp-2 shrink-0 text-lg leading-[26px] text-ink">{storyText(story)}</span>
+      <span className="line-clamp-2 shrink-0 text-lg leading-[26px] text-ink">{displayTitle(story)}</span>
       {rows.length > 0 && (
         <span className="mt-2 flex shrink-0 flex-col gap-1.5">
           {rows.map((r, ri) => (
@@ -1217,7 +1216,7 @@ function ListMode({
                         className={`flex min-h-[56px] w-full flex-col gap-2 rounded-md border-2 bg-surface px-4 py-3 text-left hover:bg-banner ${s.kind === "SELF" ? "border-sage" : "border-ink-soft"} ${FOCUS}`}
                       >
                         {tag && <span className="text-lg text-ink-soft">{tag}</span>}
-                        <span className="text-lg text-ink">{storyText(s)}</span>
+                        <span className="text-lg text-ink">{displayTitle(s)}</span>
                         {s.chips.length > 0 && (
                           <span className="flex flex-wrap gap-1.5">
                             {s.chips.map((c, i) => (
@@ -1326,7 +1325,7 @@ function FindSheet({ data, onPick, onClose }: { data: MyLifeData; onPick: (r: Se
     const t = setTimeout(() => setQuery(q), 150);
     return () => clearTimeout(t);
   }, [q]);
-  const results = useMemo(() => searchMyLife(data, query, storyLead), [data, query]);
+  const results = useMemo(() => searchMyLife(data, query), [data, query]);
   return (
     <div className="flex flex-col gap-4 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6">
       <h2 id="mylife-find-title" className="m-0">
@@ -1480,7 +1479,7 @@ function PanelBody({
             <p className="text-lg font-semibold text-ink">{C.panelStoriesWith}</p>
             <ul className="flex flex-col gap-2">
               {stories.map(({ eventId, story }) => (
-                <GoRow key={story.id} label={storyText(story)} sub={idx.eventById.get(eventId)?.label} onClick={() => onGo(`st:${eventId}:${story.id}`, eventId)} />
+                <GoRow key={story.id} label={displayTitle(story)} sub={idx.eventById.get(eventId)?.label} onClick={() => onGo(`st:${eventId}:${story.id}`, eventId)} />
               ))}
             </ul>
           </div>
@@ -1525,7 +1524,7 @@ function PanelBody({
             <p className="text-lg font-semibold text-ink">{C.panelStoriesWith}</p>
             <ul className="flex flex-col gap-2">
               {stories.map(({ eventId, story }) => (
-                <GoRow key={story.id} label={storyText(story)} sub={idx.eventById.get(eventId)?.label} onClick={() => onGo(`st:${eventId}:${story.id}`, eventId)} />
+                <GoRow key={story.id} label={displayTitle(story)} sub={idx.eventById.get(eventId)?.label} onClick={() => onGo(`st:${eventId}:${story.id}`, eventId)} />
               ))}
             </ul>
           </div>
@@ -1587,7 +1586,7 @@ function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; i
         {yearText(ev)} {ev.label}
       </p>
       <h2 id="mylife-panel-title" className="m-0 text-2xl">
-        {storyText(story)}
+        {displayTitle(story)}
       </h2>
       <p className={`whitespace-pre-line text-lg text-ink ${full ? "" : "line-clamp-3"}`}>{story.content}</p>
       <Button variant="secondary" size="lg" aria-expanded={full} onClick={() => setFull((v) => !v)}>

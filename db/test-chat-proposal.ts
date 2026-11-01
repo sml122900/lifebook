@@ -6,6 +6,7 @@
 //                                                   고치기 후 만들기 / 동명이인 + 이야기 1편 원가 /
 //                                                   F 운영 test30 E2E 같은 문장 재현 — 별도 픽스처 fixture-chat-e2e@)
 // ⑩(LLM 0) = 장소 이름 합쳐짐 되묻기 + 프롬프트 예시 소재가 픽스처·재현 대화와 겹치지 않는지.
+// ⑪(LLM 0) = 제목 없음(빈 문자열) — 공용 판정 displayTitle·[고치기]에서 제목 지움·제목을 읽는 곳.
 // ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@·fixture-chat-e2e@lifebook.invalid)만 만들고 끝에 지운다.
 // 실고객·test30 접촉 0. 원가 원장(ChatV3Usage)은 실제 호출 원가라 남긴다(탈퇴처럼 userId 만 비워짐).
 
@@ -27,6 +28,7 @@ import {
   decideProposal,
   freeChatReply,
   getFreeChatState,
+  recentSavedStories,
   getFreeChatTopic,
   isAppNotice,
   parseReplyOutput,
@@ -40,10 +42,12 @@ import { FREE_CHAT_COPY } from "../lib/free-chat-copy";
 import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { Prisma } from "../lib/generated/prisma/client";
 import { getMyLifeData, storyTitleOf } from "../lib/my-life";
-import { storyLead, storyText } from "../lib/my-life-layout";
 import { searchMyLife } from "../lib/my-life-search";
 import { cardToEdit, createFromCard, overlappingPlaces, personRow, placeRow, type CardEdit, type ProposalCard } from "../lib/node-proposal";
+import { periodMemoryId, syncV3Bridge } from "../lib/poster/v3-bridge";
 import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
+import { displayTitle } from "../lib/story-title";
+import { getStoryReviewData } from "../lib/story-review";
 
 const FIXTURE_EMAIL = "fixture-chat-proposal@lifebook.invalid";
 const ROOT = path.resolve(__dirname, "..");
@@ -304,8 +308,8 @@ async function cardChecks(fx: Fixture) {
   });
   const ghostPerson = await prisma.person.findFirst({ where: { userId, name: "최유령" }, select: { id: true } });
   check("② 남의(없는) 사람·장소 id → 무시하고 이름으로 새로", ghost.ok && !!ghostPerson && (await prisma.place.count({ where: { userId, name: "유령 장소" } })) === 1, ghost);
-  const empty = await createFromCard(userId, card2, { ...cardToEdit(card2), title: "  ", people: [] });
-  check("② 빈 제목 → 거부", !empty.ok && empty.reason === "invalid");
+  const empty = await createFromCard(userId, card2, { ...cardToEdit(card2), summary: "  ", people: [] });
+  check("② 빈 내용 → 거부(빈 제목은 저장 — ⑪)", !empty.ok && empty.reason === "invalid");
 }
 
 async function segmentChecks(fx: Fixture) {
@@ -668,10 +672,10 @@ async function e2eFollowupChecks(fx: Fixture) {
   const titled = all.find((x) => made.ok && x.id === made.episodeId);
   const old = all.find((x) => x.id === legacy?.episodeId);
   check("⑨-2 지도·목록 글자 — 제목 있는 이야기 = 제목 / 옛 이야기 = 본문 첫 문장",
-    titled?.title === "[fixture] 소풍" && !!titled && storyText(titled) === "[fixture] 소풍" &&
-      old?.title === null && !!old && storyText(old) === "고등학교 강당에서 졸업식을 했다.",
-    { titled: titled && { title: titled.title, text: storyText(titled) }, old: old && { title: old.title, text: storyText(old) } });
-  const found = searchMyLife(data, "소풍", storyLead).find((r) => made.ok && r.key.endsWith(made.episodeId));
+    titled?.title === "[fixture] 소풍" && !!titled && displayTitle(titled) === "[fixture] 소풍" &&
+      old?.title === null && !!old && displayTitle(old) === "고등학교 강당에서 졸업식을 했다.",
+    { titled: titled && { title: titled.title, text: displayTitle(titled) }, old: old && { title: old.title, text: displayTitle(old) } });
+  const found = searchMyLife(data, "소풍").find((r) => made.ok && r.key.endsWith(made.episodeId));
   check("⑨-2 찾기 — 제목으로 찾고 결과 이름 = 제목", found?.title === "[fixture] 소풍" && found.rank === 0, found);
 
   // 3 — 새 시기는 인생 단계만(프롬프트 규칙 — 판단은 모델, 낱말 목록 보정은 test-p23 원양어선을 잘못 옮겨 뺐다).
@@ -759,6 +763,45 @@ async function placeMergeChecks(fx: Fixture) {
   check("⑩ 프롬프트 예시 소재 — 재현 대화·픽스처 낱말 0(응답·제안 프롬프트)", hits.length === 0 && proposalOwn.length < PROPOSAL_SYSTEM_PROMPT.length, hits);
 }
 
+// ─── 제목 없음(빈 문자열) — 공용 판정·[고치기]·읽는 곳(2026-11-02) — LLM 0 ───────
+
+async function titleChecks(fx: Fixture) {
+  const { userId, ev } = fx;
+  check("⑪ 제목 판정 한 곳(displayTitle) — 제목 있으면 제목(앞뒤 공백 정리) / 빈 값·공백뿐·null = 본문 첫 문장",
+    displayTitle({ title: "  연 날리기 ", content: "x." }) === "연 날리기" && displayTitle({ title: "", content: "첫 문장이다. 둘째." }) === "첫 문장이다." &&
+      displayTitle({ title: "   ", content: "첫 문장이다. 둘째." }) === "첫 문장이다." && displayTitle({ title: null, content: " 마침표 없음 " }) === "마침표 없음");
+
+  // [고치기]에서 제목을 지우고 [만들기] → 빈 문자열 = 제목 없음(전에는 "제목과 내용이 필요해요"로 거부).
+  const lead = "앞마당에서 연을 날렸다.";
+  const card = baseCard({ title: "[fixture] 지울 제목", summary: `${lead} 바람이 셌다.`, center: { id: ev.ELEM_SCHOOL, label: "국민학교 입학", year: 1959 } });
+  const made = await createFromCard(userId, card, { ...cardToEdit(card), title: "   " });
+  const ep = made.ok ? await prisma.episode.findUnique({ where: { id: made.episodeId }, select: { memory: { select: { title: true } } } }) : null;
+  const story = made.ok ? (await getMyLifeData(userId)).events.flatMap((e) => e.stories).find((x) => x.id === made.episodeId) : undefined;
+  check("⑪ [고치기]에서 제목을 지움 → 저장 = 빈 문자열 · 지도 제목 없음 · 지도 글자·결과 제목 = 본문 첫 문장",
+    made.ok && ep?.memory.title === "" && story?.title === null && !!story && displayTitle(story) === lead && made.title === lead, { made, ep, story });
+
+  // 읽는 곳 — /story-review 이름 · 포스터 구간 행 제목 · 방금 남긴 이야기(화면 제목으로 찾음).
+  const period = await createEpisodeBridge(userId, ev.MILITARY, "", 1973, "훈련소에서 첫 편지를 썼다. 손이 떨렸다.", "[본인] 편지", undefined, true);
+  const review = await getStoryReviewData(userId);
+  const label = review.episodes.find((e) => made.ok && e.id === made.episodeId)?.label;
+  const rows = await syncV3Bridge(userId);
+  const posterRow = rows.find((r) => !!period && r.id === periodMemoryId(period.episodeId));
+  const saved = await recentSavedStories(userId, [lead]);
+  check("⑪ 제목 없는 이야기 — /story-review 이름 · 포스터 구간 행 제목 = 본문 첫 문장 · 방금 남긴 이야기로 찾음",
+    label === lead && posterRow?.title === "훈련소에서 첫 편지를 썼다." && saved.length === 1 && saved[0].title === lead && saved[0].summary === card.summary,
+    { label, posterRow, saved });
+
+  // 이야기 제목(브릿지 메모리 title)을 읽는 서버 코드 — 전부 displayTitle 을 거친다(주석 제외). 화면도 displayTitle.
+  const code = (rel: string) => read(rel).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
+  const servers = ["lib/story-review.ts", "lib/node-confirm.ts", "lib/poster/v3-bridge.ts", "lib/interview/session.ts", "lib/free-chat.ts"];
+  const rawReads = servers.filter((rel) => {
+    const c = code(rel);
+    return (c.match(/memory\??\.title/g) ?? []).length !== (c.match(/displayTitle\(\{ title: \w+\.memory\.title/g) ?? []).length;
+  });
+  const screens = ["lib/my-life-search.ts", "app/my-life/MyLifeView.tsx", "app/components/ProposalCard.tsx"].filter((rel) => !code(rel).includes("displayTitle("));
+  check("⑪ 제목 읽는 곳 = displayTitle(서버 5곳 · 지도·목록·패널·찾기·카드)", rawReads.length === 0 && screens.length === 0 && !code("app/my-life/MyLifeView.tsx").includes("storyText"), { rawReads, screens });
+}
+
 const FAREWELL = /(들려주셔서|고마워요|고맙습니다|감사|잘 들었|즐거웠|다음에 또|안녕히)/;
 
 // 운영 test30 E2E 같은 문장 재현(실제 Haiku·Sonnet) — 두 번째 제안에 첫 이야기 미포함·중학교 시기 유지·장소 추출·작별 인사 없음·제목 표시.
@@ -817,7 +860,7 @@ async function liveE2EReplay() {
     }
     const map = await getMyLifeData(userId);
     const story = map.events.flatMap((e) => e.stories).find((x) => made?.ok && x.id === made.episodeId);
-    check("F 실제 — 고친 제목이 My Life 지도·목록 글자(2)", !!story && storyText(story) === title, story && { title: story.title, text: storyText(story) });
+    check("F 실제 — 고친 제목이 My Life 지도·목록 글자(2)", !!story && displayTitle(story) === title, story && { title: story.title, text: displayTitle(story) });
 
     // 두 번째 구간(같은 문장) — 첫 이야기 미포함·중학교 시기 유지(1·3).
     let r2: FreeChatReplyResult | null = null;
@@ -876,6 +919,7 @@ async function main() {
     await fallbackCountChecks(fx);
     await e2eFollowupChecks(fx);
     await placeMergeChecks(fx);
+    await titleChecks(fx);
     await liveBasic(fx);
     if (LIVE) await liveScenarios(fx);
     if (LIVE) await liveE2EReplay();

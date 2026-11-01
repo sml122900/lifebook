@@ -5,6 +5,7 @@
 // 순서: 이름 일치(0) > 본문·관계·주소 일치(1), 같은 순위는 시간 줄기 순서 → 인물록 → 장소록. 최대 30개.
 
 import type { MyLifeData } from "./my-life";
+import { displayTitle } from "./story-title";
 
 export type SearchKind = "event" | "story" | "person" | "place" | "group";
 
@@ -55,7 +56,7 @@ function snippetOf(text: string, m: { start: number; end: number }, around = 20)
   return { before: (a > 0 ? "…" : "") + t.slice(a, m.start), match: t.slice(m.start, m.end), after: t.slice(m.end, b) + (b < t.length ? "…" : "") };
 }
 
-export function searchMyLife(data: MyLifeData, query: string, lead: (content: string) => string): SearchResult[] {
+export function searchMyLife(data: MyLifeData, query: string): SearchResult[] {
   if (!normalizeForSearch(query)) return [];
   const out: (SearchResult & { order: number })[] = [];
   let order = 0;
@@ -76,7 +77,7 @@ export function searchMyLife(data: MyLifeData, query: string, lead: (content: st
       if (s.primaryEventId !== ev.id) continue; // 걸친 이야기는 주 소속 쪽 한 번만
       order++;
       // 제목(있으면) 일치 = 이름 일치와 같은 순위, 본문 일치는 그다음.
-      hit({ kind: "story", key: `st:${ev.id}:${s.id}`, eventId: ev.id, title: s.title ?? lead(s.content) }, [
+      hit({ kind: "story", key: `st:${ev.id}:${s.id}`, eventId: ev.id, title: displayTitle(s) }, [
         { text: s.title, rank: 0, snip: false },
         { text: s.content, rank: 1, snip: true },
       ]);

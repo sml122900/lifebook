@@ -13,6 +13,7 @@ import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { FREE_CHAT_COPY as C } from "@/lib/free-chat-copy";
 import type { ProposalView } from "@/lib/free-chat";
 import type { CardEdit, OverlapPlace, SameNamePerson } from "@/lib/node-proposal";
+import { displayTitle } from "@/lib/story-title";
 
 export type CreateOutcome =
   | { ok: true }
@@ -169,7 +170,7 @@ export function ProposalCard({
         <dl className="flex flex-col gap-3 text-lg">
           <div>
             <dt className="font-semibold text-ink-soft">{C.fieldTitle}</dt>
-            <dd className="m-0 text-xl font-bold text-ink">{edit.title}</dd>
+            <dd className="m-0 text-xl font-bold text-ink">{displayTitle({ title: edit.title, content: edit.summary })}</dd>
           </div>
           <div>
             <dt className="font-semibold text-ink-soft">{C.fieldCenter}</dt>
@@ -273,7 +274,13 @@ export function ProposalCard({
         <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-1 text-lg font-semibold text-ink-soft">
             {C.fieldTitle}
-            <input className={INPUT} value={edit.title} maxLength={40} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
+            <input
+              className={INPUT}
+              value={edit.title}
+              maxLength={40}
+              placeholder={C.titlePlaceholder}
+              onChange={(e) => setEdit({ ...edit, title: e.target.value })}
+            />
           </label>
 
           <div className="flex flex-col gap-1">

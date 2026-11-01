@@ -17,6 +17,7 @@ import { prisma } from "./db";
 import type { Prisma } from "./generated/prisma/client";
 import { saveNodeLink } from "./node-graph";
 import { findSameNamePeople } from "./person-chat";
+import { displayTitle } from "./story-title";
 
 const NAME_MAX = 50;
 const RELATION_MAX = 30;
@@ -53,6 +54,7 @@ export async function getPendingPeopleGroups(userId: string): Promise<PendingSto
       select: {
         id: true,
         year: true,
+        content: true,
         memory: { select: { title: true } },
         lifeEvent: { select: { year: true, correctedYear: true } },
       },
@@ -73,7 +75,7 @@ export async function getPendingPeopleGroups(userId: string): Promise<PendingSto
     if (!g) {
       g = {
         episodeId: ep.id,
-        title: ep.memory.title,
+        title: displayTitle({ title: ep.memory.title, content: ep.content }),
         year: ep.year ?? ep.lifeEvent.correctedYear ?? ep.lifeEvent.year,
         rows: [],
       };

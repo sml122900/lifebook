@@ -24,6 +24,7 @@ import { findCompatiblePerson, findSameNamePeople } from "./person-chat";
 import { isRelationCompatible, relationGroup } from "./person-relation";
 import { EPISODE_SUMMARY_NO_CONTENT } from "./prompts/episode-chat";
 import { buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "./prompts/free-chat";
+import { displayTitle } from "./story-title";
 
 const PROPOSAL_MODEL = process.env.LIFE_EVENT_CONFIRM_MODEL ?? "claude-sonnet-4-6";
 export const TITLE_MAX = 40;
@@ -388,6 +389,7 @@ export type CardEdit = {
   }[];
 };
 
+// ok 의 title = 화면 제목(제목을 비웠으면 본문 첫 문장 — lib/story-title displayTitle).
 export type CreateFromCardResult =
   | { ok: true; episodeId: string; eventId: string; title: string; created: { center: boolean; people: number; places: number } }
   | { ok: false; reason: "invalid"; message: string }
@@ -418,9 +420,10 @@ export async function createFromCard(
   edit: CardEdit,
 ): Promise<CreateFromCardResult> {
   const birthYear = await birthYearOf(userId);
+  // 제목은 비워도 된다 — 빈 문자열 = 제목 없음(화면은 본문 첫 문장, lib/story-title).
   const title = str(edit.title, TITLE_MAX);
   const summary = str(edit.summary, SUMMARY_MAX);
-  if (!title || !summary) return { ok: false, reason: "invalid", message: "제목과 내용이 필요해요." };
+  if (!summary) return { ok: false, reason: "invalid", message: "내용이 필요해요." };
 
   // 시기 — 고정 카드는 카드의 시기만.
   let centerId: string | null = null;
@@ -592,7 +595,7 @@ export async function createFromCard(
     ok: true,
     episodeId: saved.episodeId,
     eventId: center.id,
-    title,
+    title: displayTitle({ title, content: summary }),
     created: { center: createdCenter, people: linkedPeople, places: linkedPlaces },
   };
 }

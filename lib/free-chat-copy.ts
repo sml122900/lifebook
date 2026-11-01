@@ -22,6 +22,7 @@ export const FREE_CHAT_COPY = {
   // ── 제안 카드 ──
   cardTitle: "이 이야기를 남길까요?",
   fieldTitle: "제목",
+  titlePlaceholder: "비워 두면 내용 첫 문장이 제목이 돼요",
   fieldCenter: "시기",
   fieldPeople: "사람",
   fieldPlaces: "장소",
