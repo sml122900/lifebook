@@ -1,31 +1,43 @@
 // My Life 마인드맵 배치 — 순수 함수(DB·DOM·LLM 0). docs/phase/node-graph-self.md §6 2b.1 의 1·4.
 //
-// 세계 좌표(배율 1 = CSS px). 폭 342 = 390 − 좌우 여백 24×2.
-//   왼쪽 열 x 0~163(이야기·그때의 나) · 줄기 x 171 · 오른쪽 열 x 179~342(사람·모임·장소).
-// 띠(중심 1개)를 위에서 아래로 쌓기만 하고, 열 안의 노드도 세로로 쌓기만 하므로 노드끼리 겹치지 않는다
-// (그린 뒤 밀어내기가 아니라 구성으로 보장 — test-my-life 가 사각형 교차 0 을 확인).
+// 지도 = 고정 좌표계의 한 장(배율 1 = CSS px). 노드 크기·간격은 이 좌표로 고정 — 화면 크기·접힘·배율과
+// 무관하다(2026-11-01 운영 폰 피드백 후 자유 이동 캔버스로 바꿈 — 화면 폭에 맞춘 342 폭은 폐기).
+//   왼쪽 열 x 40~240(이야기·그때의 나) · 줄기 x 296 · 오른쪽 열 x 352~552(사람·모임·장소) · 폭 592.
+//   가지는 줄기에서 56px 떨어져 이음선으로 이어진다.
+// 띠(중심 1개)를 위에서 아래로 쌓고, 열 안의 노드도 세로로 쌓는다 — 중심 사이 간격은 그 사이 가지 높이만큼
+// 늘어난다. 배치가 끝나면 노드 사각형끼리 겹침을 검사하고, 겹치면 아래 것과 그 밑 전부를 내려 해소한다
+// (resolveOverlaps — 구성상 0 이어야 하지만 코드로 보장).
+// 중심 노드는 연도 모름·접힘·가지 없음과 무관하게 전부 같은 크기·같은 모양이다.
 // 글자 폭은 재지 않는다 — 노드 크기는 종류·작은 물방울 수로만 정하고, 글자는 CSS 줄 수 제한으로 맞춘다.
 // 작은 물방울만 이름 글자 수로 폭을 추정해 줄을 나눈다(줄 수가 높이를 정하므로 추정값으로 고정).
 // 클라이언트에서도 쓰므로 prisma 를 import 하지 않는다(타입만).
 
 import type { MyLifeData, MyLifeStory } from "./my-life";
 
+const PAD = 40;
+const COL_W = 200;
+const BRANCH_DX = 56; // 줄기 ↔ 가지 열 안쪽 가장자리
+const TRUNK_X = PAD + COL_W + BRANCH_DX;
+
 export const L = {
-  WORLD_W: 342,
-  COL_W: 163,
-  TRUNK_X: 171,
-  RIGHT_X: 179,
-  TOP_PAD: 24,
-  BOTTOM_PAD: 96, // 오른쪽 아래 떠 있는 비서 버튼(64px)에 마지막 노드가 가리지 않게
+  PAD,
+  COL_W,
+  BRANCH_DX,
+  TRUNK_X,
+  WORLD_W: TRUNK_X * 2,
+  LEFT_X: PAD,
+  RIGHT_X: TRUNK_X + BRANCH_DX,
+  TOP_PAD: 32,
+  BOTTOM_PAD: 120, // 오른쪽 아래 떠 있는 비서 버튼(64px)에 마지막 노드가 가리지 않게
   CENTER_W: 248,
   CENTER_H: 120,
-  AFTER_CENTER: 16,
-  BRANCH_GAP: 12,
-  BAND_GAP: 32,
+  AFTER_CENTER: 24,
+  BRANCH_GAP: 16,
+  BAND_GAP: 48,
   BRANCH_H: 64,
   FOLD_W: 220,
   FOLD_H: 56,
-  FOLD_GAP: 8,
+  FOLD_GAP: 12,
   YEAR_GAP_H: 40,
   YEAR_GAP_MIN: 10,
   STORY_PAD_X: 14,
@@ -36,28 +48,25 @@ export const L = {
   CHIP_GAP: 6,
   CHIP_TOP: 8,
   CHIP_MAX_ROWS: 2,
-  EDGE_DY: 20, // 가지 이음선이 노드 위에서 내려오는 높이(꼭지 자리)
-  OVERVIEW_SCALE: 0.6, // 이 배율 미만 = 전체 보기 상태(목차)
+  EDGE_DY: 22, // 가지 이음선이 노드 위에서 내려오는 높이(꼭지 자리)
+  OVERLAP_GAP: 12, // 겹침 해소 때 띄우는 간격
 } as const;
 
+type Box = { key: string; x: number; y: number; w: number; h: number };
+
 export type LayoutNode =
-  | { key: string; kind: "event"; eventId: string; x: number; y: number; w: number; h: number }
-  | {
-      key: string;
+  | (Box & { kind: "event"; eventId: string })
+  | (Box & {
       kind: "story";
       eventId: string;
       storyId: string;
-      x: number;
-      y: number;
-      w: number;
-      h: number;
       hasTag: boolean;
       chipRows: number[][]; // 이야기 chips 의 인덱스, 줄마다
       overflow: number; // 줄에 못 담은 작은 물방울 수("외 N")
-    }
-  | { key: string; kind: "branch"; eventId: string; branchIndex: number; x: number; y: number; w: number; h: number }
-  | { key: string; kind: "fold"; eventId: string; count: number; x: number; y: number; w: number; h: number }
-  | { key: string; kind: "gap"; years: number; x: number; y: number; w: number; h: number };
+    })
+  | (Box & { kind: "branch"; eventId: string; branchIndex: number })
+  | (Box & { kind: "fold"; eventId: string; count: number })
+  | (Box & { kind: "gap"; years: number });
 
 export type LayoutBand = { eventId: string; top: number; bottom: number; centerMidY: number };
 export type TrunkSegment = { y1: number; y2: number; decade: number | null };
@@ -70,6 +79,7 @@ export type MyLifeLayout = {
   edges: Edge[];
   trunk: TrunkSegment[];
   bands: LayoutBand[];
+  shifted: number; // 겹침 해소로 내린 횟수(정상 배치 = 0)
 };
 
 // 지도 노드 수(중심 + 가지, 작은 물방울 제외) — 접기 기본값(Q41)·성능 상한 기준.
@@ -158,6 +168,66 @@ export function decadeOf(year: number | null): number | null {
   return Math.min(2020, Math.max(1940, Math.floor(year / 10) * 10));
 }
 
+const intersects = (a: Box, b: Box, gap = 0) =>
+  a.x < b.x + b.w + gap && b.x < a.x + a.w + gap && a.y < b.y + b.h + gap && b.y < a.y + a.h + gap;
+
+// 노드 사각형끼리 겹치는 쌍(검사 — 회귀와 resolveOverlaps 가 같이 쓴다).
+export function findOverlaps(nodes: readonly Box[]): [string, string][] {
+  const out: [string, string][] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      if (intersects(nodes[i], nodes[j])) out.push([nodes[i].key, nodes[j].key]);
+    }
+  }
+  return out;
+}
+
+// 배치 후 겹침 해소 — 겹치는 쌍이 있으면 아래쪽 노드의 윗변 이하에 있는 모든 것(노드·이음선·줄기·띠)을
+// 위 노드 아랫변 + 간격까지 내린다. 위아래 순서·좌우 위치는 그대로라 구조가 깨지지 않는다.
+export function resolveOverlaps(layout: MyLifeLayout): MyLifeLayout {
+  const out: MyLifeLayout = {
+    ...layout,
+    nodes: layout.nodes.map((n) => ({ ...n })),
+    edges: layout.edges.map((e) => ({ ...e })),
+    trunk: layout.trunk.map((t) => ({ ...t })),
+    bands: layout.bands.map((b) => ({ ...b })),
+  };
+  for (let guard = 0; guard < 10_000; guard++) {
+    let pair: [LayoutNode, LayoutNode] | null = null;
+    for (let i = 0; i < out.nodes.length && !pair; i++) {
+      for (let j = i + 1; j < out.nodes.length; j++) {
+        if (intersects(out.nodes[i], out.nodes[j])) {
+          pair = out.nodes[i].y <= out.nodes[j].y ? [out.nodes[i], out.nodes[j]] : [out.nodes[j], out.nodes[i]];
+          break;
+        }
+      }
+    }
+    if (!pair) break;
+    const [upper, lower] = pair;
+    const from = lower.y;
+    const dy = upper.y + upper.h + L.OVERLAP_GAP - lower.y;
+    for (const n of out.nodes) if (n.y >= from) n.y += dy;
+    for (const e of out.edges) {
+      if (e.y1 >= from) e.y1 += dy;
+      if (e.y2 >= from) e.y2 += dy;
+    }
+    for (const t of out.trunk) {
+      if (t.y1 >= from) t.y1 += dy;
+      if (t.y2 >= from) t.y2 += dy;
+    }
+    for (const b of out.bands) {
+      if (b.top >= from) {
+        b.top += dy;
+        b.centerMidY += dy;
+      }
+      if (b.bottom >= from) b.bottom += dy;
+    }
+    out.height += dy;
+    out.shifted += 1;
+  }
+  return out;
+}
+
 export function layoutMyLife(data: MyLifeData, opts: { folded?: ReadonlySet<string> } = {}): MyLifeLayout {
   const folded = opts.folded ?? new Set<string>();
   const nodes: LayoutNode[] = [];
@@ -190,8 +260,8 @@ export function layoutMyLife(data: MyLifeData, opts: { folded?: ReadonlySet<stri
       let ly = start;
       for (const s of ev.stories) {
         const { h, rows, overflow } = storyHeight(s);
-        nodes.push({ key: `st:${ev.id}:${s.id}`, kind: "story", eventId: ev.id, storyId: s.id, x: 0, y: ly, w: L.COL_W, h, hasTag: storyHasTag(s), chipRows: rows, overflow });
-        edges.push({ x1: L.TRUNK_X, y1: ly + L.EDGE_DY, x2: L.COL_W, y2: ly + L.EDGE_DY });
+        nodes.push({ key: `st:${ev.id}:${s.id}`, kind: "story", eventId: ev.id, storyId: s.id, x: L.LEFT_X, y: ly, w: L.COL_W, h, hasTag: storyHasTag(s), chipRows: rows, overflow });
+        edges.push({ x1: L.TRUNK_X, y1: ly + L.EDGE_DY, x2: L.LEFT_X + L.COL_W, y2: ly + L.EDGE_DY });
         ly += h + L.BRANCH_GAP;
       }
       let ry = start;
@@ -210,10 +280,11 @@ export function layoutMyLife(data: MyLifeData, opts: { folded?: ReadonlySet<stri
 
   // 마지막 띠의 줄기는 그 띠 바닥에서 끝낸다.
   if (trunk.length > 0) trunk[trunk.length - 1].y2 = bands[bands.length - 1].bottom;
-  return { width: L.WORLD_W, height: y - L.BAND_GAP + L.BOTTOM_PAD, nodes, edges, trunk, bands };
+  const raw: MyLifeLayout = { width: L.WORLD_W, height: y - L.BAND_GAP + L.BOTTOM_PAD, nodes, edges, trunk, bands, shifted: 0 };
+  return resolveOverlaps(raw);
 }
 
-// 화면 가운데(세계 y)에 가장 가까운 띠 — "지금 보는 곳".
+// 화면 가운데(세계 y)에 가장 가까운 띠 — "지금 보는 곳"·중심 테두리 강조.
 export function bandAt(layout: MyLifeLayout, worldY: number): LayoutBand | null {
   let best: LayoutBand | null = null;
   let bestD = Infinity;

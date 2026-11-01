@@ -2,15 +2,16 @@
 
 // My Life 마인드맵(2b-3a, 보기 전용) — docs/phase/node-graph-self.md §6 2b.1.
 //
-// 이동 = 브라우저 기본 스크롤(관성·키보드·포커스 자동 스크롤 그대로), 확대 = 배율 값(Q42 — 직접 구현, 의존성 0).
-//   스크롤 상자 → 크기 상자(세계 × 배율) → 세계(transform: scale). 기본 배율에서 세계 폭(342)이 390 화면에
-//   맞아 가로 스크롤 0. 두 손가락 오므리기는 손가락 2개일 때만 touchmove 를 막고 직접 배율을 바꾼다.
+// 지도 = 자유 이동 캔버스(react-zoom-pan-pinch — 2026-11-01 운영 폰 피드백으로 Q42 교체 조건 충족). 끌기 = 이동,
+//   두 손가락·휠·더블탭 = 그 지점 확대, [+][−] = 화면 가운데 기준, [전체 보기] = 지도 전체, 키보드 화살표 = 이동.
+//   노드 크기·간격은 지도 좌표로 고정(lib/my-life-layout). 지도 화면에서는 페이지 스크롤을 잠근다.
 // 지도 DOM 자체가 시기 순 목록(ol > li)이라 스크린리더는 목록으로 읽는다(위치만 절대 좌표).
 // 노드를 누르면 아래 패널(<dialog> — 포커스 가두기·Esc·바깥 누르기). 이번 단계는 정보 보기만.
 
 import { MapPin, Minus, Plus, UserRound, Users } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 
 import { Button, ButtonLink, buttonClasses } from "@/components/ui/Button";
 import type { MyLifeBranch, MyLifeChip, MyLifeData, MyLifeEvent, MyLifeStory } from "@/lib/my-life";
@@ -28,22 +29,26 @@ import {
   type MyLifeLayout,
 } from "@/lib/my-life-layout";
 
-const MAX_SCALE = 2;
-const STEP = 1.25;
-const MIN_FIT = 0.15;
-const STORE_KEY = "mylife:v1";
+const MAX_SCALE = 3;
+const MIN_SCALE = 0.5; // 지도 전체가 이보다 작아야 들어가면 그 배율까지 내려간다
+const KEEP_VISIBLE = 120; // 움직임이 멈췄을 때 지도가 화면에 최소 이만큼(px) 남게 — 지도를 잃지 않게
+const DOUBLE_TAP_MS = 350; // 어르신 손 — 라이브러리 기본(200ms)보다 넉넉하게
+const DOUBLE_TAP_SCALE = 1.6;
+const ZOOM_STEP = 0.25;
+const TAP_SLOP = 8; // 이만큼(px) 넘게 움직이면 탭이 아니라 끌기
+const STORE_KEY = "mylife:v2";
 
 type PanelTarget =
   | { kind: "event"; eventId: string }
   | { kind: "story"; eventId: string; storyId: string }
   | { kind: "branch"; eventId: string; index: number };
 
-type Saved = { scale: number; top: number; left: number; folded: string[] };
+type Saved = { scale: number; x: number; y: number; folded: string[] };
 
 function readSaved(): Saved | null {
   try {
     const v = JSON.parse(sessionStorage.getItem(STORE_KEY) ?? "null");
-    if (v && typeof v.scale === "number" && typeof v.top === "number" && typeof v.left === "number" && Array.isArray(v.folded)) return v;
+    if (v && [v.scale, v.x, v.y].every((n) => typeof n === "number" && Number.isFinite(n)) && Array.isArray(v.folded)) return v;
   } catch {
     // 저장소 불가·형식 오류 — 저장값 없이 시작
   }
@@ -108,6 +113,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   );
   const [panel, setPanel] = useState<PanelTarget | null>(null);
   const lastKeyRef = useRef<string | null>(null);
+  const openedAtRef = useRef(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   const eventById = useMemo(() => new Map(data.events.map((e) => [e.id, e])), [data]);
@@ -120,14 +126,17 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   useEffect(() => {
     const d = dialogRef.current;
     if (!d) return;
-    if (panel && !d.open) d.showModal();
+    if (panel && !d.open) {
+      openedAtRef.current = Date.now();
+      d.showModal();
+    }
     if (!panel && d.open) d.close();
   }, [panel]);
 
   function onDialogClose() {
     setPanel(null);
     const key = lastKeyRef.current;
-    if (key) document.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(key)}"]`)?.focus();
+    if (key) document.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(key)}"]`)?.focus({ preventScroll: true });
   }
 
   function toggleView() {
@@ -152,7 +161,6 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
           setFolded={setFolded}
           toggleFold={toggleFold}
           openPanel={openPanel}
-          panelOpen={panel !== null}
           onToggleView={toggleView}
         />
       ) : (
@@ -164,7 +172,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
         aria-labelledby="mylife-panel-title"
         onClose={onDialogClose}
         onClick={(e) => {
-          if (e.target === dialogRef.current) dialogRef.current.close();
+          if (e.target === dialogRef.current && Date.now() - openedAtRef.current > 400) dialogRef.current.close();
         }}
         className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[75dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-ink/40"
       >
@@ -190,9 +198,12 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   );
 }
 
-// ── 지도 ────────────────────────────────────────────────────────────
+// ── 지도(자유 이동 캔버스) ──────────────────────────────────────────────
 
-type Pending = { kind: "anchor"; wx: number; wy: number; cx: number; cy: number } | { kind: "abs"; top: number; left: number };
+type Init = { scale: number; x: number; y: number };
+
+// 지도 전체가 영역에 들어오는 배율.
+const fitScaleOf = (w: number, h: number, layout: MyLifeLayout) => Math.min(w / layout.width, h / layout.height);
 
 function MapMode({
   data,
@@ -200,7 +211,6 @@ function MapMode({
   setFolded,
   toggleFold,
   openPanel,
-  panelOpen,
   onToggleView,
 }: {
   data: MyLifeData;
@@ -208,234 +218,161 @@ function MapMode({
   setFolded: (s: Set<string>) => void;
   toggleFold: (eventId: string) => void;
   openPanel: (t: PanelTarget, key: string) => void;
-  panelOpen: boolean;
   onToggleView: () => void;
 }) {
   const layout = useMemo(() => layoutMyLife(data, { folded }), [data, folded]);
   const regionRef = useRef<HTMLDivElement>(null);
-  const scrollerRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const apiRef = useRef<ReactZoomPanPinchRef | null>(null);
   const [regionTop, setRegionTop] = useState(0);
-  const [size, setSize] = useState({ w: 390, h: 600 });
-  const [scale, setScale] = useState(1);
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  const [init, setInit] = useState<Init | null>(null);
   const [ready, setReady] = useState(false);
-  const [now, setNow] = useState("");
+  const [current, setCurrent] = useState<string | null>(data.events[0]?.id ?? null);
+  const [scale, setScale] = useState(1);
   const [announce, setAnnounce] = useState("");
 
-  const [defaultScale, setDefaultScale] = useState(1);
-
-  // 콜백·네이티브 리스너가 읽는 최신 값(렌더 중에는 읽지도 쓰지도 않는다 — 아래 effect 가 맞춘다).
-  const scaleRef = useRef(1);
+  // 콜백이 읽는 최신 값(렌더 중에는 읽지도 쓰지도 않는다).
   const layoutRef = useRef(layout);
-  const defaultScaleRef = useRef(1);
-  const fitRef = useRef(1);
-  const pendingRef = useRef<Pending | null>(null);
+  const foldedRef = useRef(folded);
+  const stateRef = useRef({ scale: 1, positionX: 0, positionY: 0 });
+  const downRef = useRef<{ x: number; y: number } | null>(null);
+  const lastTapRef = useRef<{ t: number; x: number; y: number } | null>(null);
+  const rafRef = useRef(0);
+  const initDoneRef = useRef(false);
+  const restoreRef = useRef<Saved | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const offX = (s: number, w: number) => Math.max(8, (w - L.WORLD_W * s) / 2);
-  const fitScale = clamp(Math.min(size.w / (L.WORLD_W + 16), size.h / layout.height), MIN_FIT, defaultScale);
-  const overview = scale < L.OVERVIEW_SCALE;
-
   useLayoutEffect(() => {
     layoutRef.current = layout;
-    fitRef.current = fitScale;
-    defaultScaleRef.current = defaultScale;
-  }, [layout, fitScale, defaultScale]);
+    foldedRef.current = folded;
+  }, [layout, folded]);
 
-  const updateNow = useCallback(() => {
-    const sc = scrollerRef.current;
-    if (!sc) return;
-    const band = bandAt(layoutRef.current, (sc.scrollTop + sc.clientHeight / 2) / scaleRef.current);
-    const ev = band ? data.events.find((e) => e.id === band.eventId) : undefined;
-    setNow(ev ? C.nowViewing(ev.year === null ? `${ev.label}(${C.yearUnknown})` : `${yearText(ev)} ${ev.label}`) : C.nowViewingNone);
-  }, [data]);
-
-  const save = useCallback(() => {
-    const sc = scrollerRef.current;
-    if (!sc) return;
-    writeSaved({ scale: scaleRef.current, top: sc.scrollTop, left: sc.scrollLeft, folded: [...folded] });
-  }, [folded]);
-
-  // 영역 높이 = 화면 − 위쪽(머리) — 지도만 스크롤되게.
+  // 페이지 자체 스크롤을 잠근다 — 지도 영역의 끌기·확대가 페이지 스크롤·브라우저 확대와 다투지 않게.
+  // 머리·도구줄은 그대로 고정. 목록 보기로 바꾸거나 화면을 떠나면 원래대로.
   useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+    const html = document.documentElement;
+    const prev = html.style.overflow;
+    html.style.overflow = "hidden";
     const measure = () => {
       if (regionRef.current) setRegionTop(regionRef.current.getBoundingClientRect().top + window.scrollY);
-      const sc = scrollerRef.current;
-      if (sc) setSize({ w: sc.clientWidth, h: sc.clientHeight });
+      const b = boxRef.current;
+      if (!b) return;
+      const w = b.clientWidth;
+      const h = b.clientHeight;
+      setBox({ w, h });
+      // 처음 화면(1회) — 첫 중심이 위쪽 가운데, 배율 1(넓은 화면 1.25 — 중심 글씨 22px·가지 18px 이상).
+      // 같은 탭에서 돌아오면 마지막 위치·배율·접힘. 이후 data·접기가 바뀌어도 위치는 그대로.
+      if (initDoneRef.current || h < 50) return;
+      initDoneRef.current = true;
+      // 라이브러리의 "처음 값"(키 0 = 처음 화면)은 언제나 첫 중심 위쪽 가운데 — 복원은 초기화 직후 이동으로.
+      const base = w >= 768 ? 1.25 : 1;
+      const first = layoutRef.current.bands[0];
+      setInit({ scale: base, x: w / 2 - L.TRUNK_X * base, y: 16 - (first ? first.top : 0) * base });
+      const saved = readSaved();
+      if (saved) {
+        restoreRef.current = saved;
+        setFolded(new Set(saved.folded.filter((id) => data.events.some((e) => e.id === id))));
+      }
     };
     measure();
     const ro = new ResizeObserver(measure);
-    if (scrollerRef.current) ro.observe(scrollerRef.current);
+    if (boxRef.current) ro.observe(boxRef.current);
     window.addEventListener("resize", measure);
     return () => {
+      html.style.overflow = prev;
       ro.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, []);
-
-  // 첫 표시 — 기본 배율(데스크톱은 크게) + 같은 탭의 마지막 위치·배율·접힘 복원.
-  useLayoutEffect(() => {
-    const sc = scrollerRef.current;
-    if (!sc) return;
-    const w = sc.clientWidth;
-    const d = w >= 600 ? Math.min(1.5, w / 390) : 1;
-    defaultScaleRef.current = d;
-    setDefaultScale(d);
-    const saved = readSaved();
-    const valid = saved ? saved.folded.filter((id) => data.events.some((e) => e.id === id)) : null;
-    if (saved && valid) setFolded(new Set(valid));
-    const s = saved ? clamp(saved.scale, MIN_FIT, MAX_SCALE) : d;
-    scaleRef.current = s;
-    setScale(s);
-    pendingRef.current = saved ? { kind: "abs", top: saved.top, left: saved.left } : { kind: "abs", top: 0, left: 0 };
-    setReady(true);
-    // 마운트 1회 — data 가 바뀌면(서버 새로고침) 위치는 그대로 둔다.
+    // 마운트 1회(측정·초기 위치는 첫 데이터 기준).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 배율·배치가 바뀐 뒤 스크롤 위치 맞추기(확대 중심점 유지·복원).
-  useLayoutEffect(() => {
-    const sc = scrollerRef.current;
-    const p = pendingRef.current;
-    if (!sc || !p) return;
-    pendingRef.current = null;
-    if (p.kind === "anchor") {
-      sc.scrollLeft = p.wx * scale + offX(scale, sc.clientWidth) - p.cx;
-      sc.scrollTop = p.wy * scale - p.cy;
-    } else {
-      sc.scrollTop = p.top;
-      sc.scrollLeft = p.left;
-    }
-    updateNow();
-  }, [scale, layout, size, updateNow]);
+  const save = useCallback(() => {
+    const st = stateRef.current;
+    writeSaved({ scale: st.scale, x: st.positionX, y: st.positionY, folded: [...foldedRef.current] });
+  }, []);
+
+  // 자유 이동이라 경계 제한은 두지 않되, 움직임이 멈추면 지도가 화면에서 다 사라지지 않게 되돌린다.
+  const keepInView = useCallback(() => {
+    const api = apiRef.current;
+    const b = boxRef.current;
+    if (!api || !b) return;
+    const { scale: sc, positionX: x, positionY: y } = stateRef.current;
+    const cw = layoutRef.current.width * sc;
+    const ch = layoutRef.current.height * sc;
+    const kx = Math.min(KEEP_VISIBLE, cw);
+    const ky = Math.min(KEEP_VISIBLE, ch);
+    const nx = clamp(x, kx - cw, b.clientWidth - kx);
+    const ny = clamp(y, ky - ch, b.clientHeight - ky);
+    if (Math.abs(nx - x) > 0.5 || Math.abs(ny - y) > 0.5) api.setTransform(nx, ny, sc, 200);
+  }, []);
 
   useEffect(() => {
     if (ready) save();
   }, [ready, folded, save]);
 
-  // 전체 보기 상태가 되면 세계가 inert 가 돼 그 안의 포커스가 사라진다 — 지도 영역으로 옮겨
-  // 단축키(1 = 기본 배율)와 Tab(→ 목차 버튼)이 계속 되게 한다.
-  useEffect(() => {
-    if (!overview) return;
-    const sc = scrollerRef.current;
-    const a = document.activeElement;
-    if (sc && (!a || a === document.body || (a instanceof HTMLElement && a.closest("[inert]")))) sc.focus({ preventScroll: true });
-  }, [overview]);
-
-  const zoomTo = useCallback((target: number, anchor?: { cx: number; cy: number }, speak = false) => {
-    const sc = scrollerRef.current;
-    if (!sc) return;
-    const s = scaleRef.current;
-    const next = clamp(target, fitRef.current, MAX_SCALE);
-    if (Math.abs(next - s) < 0.001) return;
-    const a = anchor ?? { cx: sc.clientWidth / 2, cy: sc.clientHeight / 2 };
-    pendingRef.current = {
-      kind: "anchor",
-      wx: (sc.scrollLeft + a.cx - Math.max(8, (sc.clientWidth - L.WORLD_W * s) / 2)) / s,
-      wy: (sc.scrollTop + a.cy) / s,
-      cx: a.cx,
-      cy: a.cy,
-    };
-    scaleRef.current = next;
-    setScale(next);
-    if (speak) setAnnounce(C.zoomAnnounce(Math.round(next * 100)));
-  }, []);
+  // 매 프레임 — "지금 보는 곳"(화면 가운데에 가까운 띠)·배율 표시는 다음 프레임에 한 번만 갱신.
+  const onTransform = useCallback(
+    (_ref: ReactZoomPanPinchRef, st: { scale: number; positionX: number; positionY: number }) => {
+      stateRef.current = st;
+      if (rafRef.current) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = 0;
+        const h = boxRef.current?.clientHeight ?? 0;
+        const s = stateRef.current;
+        const band = bandAt(layoutRef.current, (h / 2 - s.positionY) / s.scale);
+        setCurrent(band?.eventId ?? null);
+        setScale(s.scale);
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => {
+          keepInView();
+          save();
+        }, 250);
+      });
+    },
+    [save, keepInView],
+  );
 
   const fitAll = useCallback(() => {
-    pendingRef.current = { kind: "abs", top: 0, left: 0 };
-    scaleRef.current = fitRef.current;
-    setScale(fitRef.current);
-    setAnnounce(C.zoomAnnounce(Math.round(fitRef.current * 100)));
+    const api = apiRef.current;
+    const b = boxRef.current;
+    if (!api || !b) return;
+    const s = Math.min(fitScaleOf(b.clientWidth, b.clientHeight, layoutRef.current), MAX_SCALE);
+    api.setTransform((b.clientWidth - layoutRef.current.width * s) / 2, Math.max(0, (b.clientHeight - layoutRef.current.height * s) / 2), s, 250);
+    setAnnounce(C.zoomAnnounce(Math.round(s * 100)));
   }, []);
 
-  // 전체 보기 상태에서 중심 이름 → 그 띠로 기본 배율.
-  const jumpTo = useCallback((eventId: string) => {
-    const sc = scrollerRef.current;
-    const band = layoutRef.current.bands.find((b) => b.eventId === eventId);
-    if (!sc || !band) return;
-    const d = defaultScaleRef.current;
-    pendingRef.current = { kind: "anchor", wx: L.TRUNK_X, wy: Math.max(0, band.top - 8), cx: sc.clientWidth / 2, cy: 0 };
-    scaleRef.current = d;
-    setScale(d);
-    setAnnounce(C.zoomAnnounce(Math.round(d * 100)));
-    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-node-key="ev:${CSS.escape(eventId)}"]`)?.focus({ preventScroll: true }));
-  }, []);
-
-  // 두 손가락 오므리기 · Ctrl+휠(트랙패드 오므리기) · Safari gesture 막기.
-  useEffect(() => {
-    const sc = scrollerRef.current;
-    if (!sc) return;
-    let pinch: { d0: number; s0: number } | null = null;
-    let raf = 0;
-    let want = { s: 1, cx: 0, cy: 0 };
-    const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-    const onStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) pinch = { d0: dist(e.touches), s0: scaleRef.current };
-    };
-    const onMove = (e: TouchEvent) => {
-      if (!pinch || e.touches.length !== 2) return;
-      e.preventDefault();
-      const r = sc.getBoundingClientRect();
-      want = {
-        s: (pinch.s0 * dist(e.touches)) / Math.max(1, pinch.d0),
-        cx: (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left,
-        cy: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top,
-      };
-      if (!raf) {
-        raf = requestAnimationFrame(() => {
-          raf = 0;
-          zoomTo(want.s, { cx: want.cx, cy: want.cy });
-        });
-      }
-    };
-    const onEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) pinch = null;
-    };
-    const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) return;
-      e.preventDefault();
-      const r = sc.getBoundingClientRect();
-      zoomTo(scaleRef.current * Math.exp(-e.deltaY * 0.01), { cx: e.clientX - r.left, cy: e.clientY - r.top });
-    };
-    const stop = (e: Event) => e.preventDefault();
-    sc.addEventListener("touchstart", onStart, { passive: true });
-    sc.addEventListener("touchmove", onMove, { passive: false });
-    sc.addEventListener("touchend", onEnd);
-    sc.addEventListener("touchcancel", onEnd);
-    sc.addEventListener("wheel", onWheel, { passive: false });
-    sc.addEventListener("gesturestart", stop);
-    sc.addEventListener("gesturechange", stop);
-    return () => {
-      cancelAnimationFrame(raf);
-      sc.removeEventListener("touchstart", onStart);
-      sc.removeEventListener("touchmove", onMove);
-      sc.removeEventListener("touchend", onEnd);
-      sc.removeEventListener("touchcancel", onEnd);
-      sc.removeEventListener("wheel", onWheel);
-      sc.removeEventListener("gesturestart", stop);
-      sc.removeEventListener("gesturechange", stop);
-    };
-  }, [zoomTo]);
-
-  function onScroll() {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      updateNow();
-      save();
-    }, 120);
+  // 노드 탭과 끌기 구분 — 누른 자리에서 8px 넘게 움직였으면 끌기(패널 안 염).
+  function onPointerDown(e: React.PointerEvent) {
+    downRef.current = { x: e.clientX, y: e.clientY };
   }
 
-  // 한 글자 단축키는 지도 안에 포커스가 있을 때만(WCAG 2.1.4).
-  function onKeyDown(e: React.KeyboardEvent) {
-    if (panelOpen || e.altKey || e.ctrlKey || e.metaKey) return;
-    if (e.key === "+" || e.key === "=") zoomTo(scaleRef.current * STEP, undefined, true);
-    else if (e.key === "-") zoomTo(scaleRef.current / STEP, undefined, true);
-    else if (e.key === "0") fitAll();
-    else if (e.key === "1") zoomTo(defaultScaleRef.current, undefined, true);
-    else return;
-    e.preventDefault();
+  // 빈 곳 더블탭(마우스 더블클릭 포함) = 그 지점 확대. 노드 위는 제외(노드 탭 = 패널).
+  function onPointerUp(e: React.PointerEvent) {
+    const d = downRef.current;
+    if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > TAP_SLOP) return;
+    if ((e.target as HTMLElement).closest("[data-node-key]")) {
+      lastTapRef.current = null;
+      return;
+    }
+    const now = performance.now();
+    const last = lastTapRef.current;
+    if (last && now - last.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 30) {
+      lastTapRef.current = null;
+      const next = Math.min(stateRef.current.scale * DOUBLE_TAP_SCALE, MAX_SCALE);
+      const { clientX, clientY } = e;
+      // 손을 뗄 때 라이브러리의 끌기 마무리가 애니메이션을 취소하므로, 그 뒤에 확대한다.
+      setTimeout(() => apiRef.current?.zoomToPoint(next, clientX, clientY, 200), 40);
+      setAnnounce(C.zoomAnnounce(Math.round(next * 100)));
+    } else {
+      lastTapRef.current = { t: now, x: e.clientX, y: e.clientY };
+    }
   }
 
   function onWorldClick(e: React.MouseEvent) {
+    const d = downRef.current;
+    if (e.detail > 0 && d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > TAP_SLOP) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-node-key]");
     if (!el) return;
     const { nodeKey, nodeKind, eventId, storyId, branchIndex } = el.dataset;
@@ -446,31 +383,33 @@ function MapMode({
     else if (nodeKind === "branch" && branchIndex) openPanel({ kind: "branch", eventId, index: Number(branchIndex) }, nodeKey);
   }
 
-  // 전체 보기 상태의 목차 — 겹치는 이름은 건너뛴다(가까이 보면 다 보임).
-  const overviewLabels = useMemo(() => {
-    if (!overview) return [];
-    const out: { eventId: string; top: number; label: string }[] = [];
-    let lastBottom = -Infinity;
-    for (const b of layout.bands) {
-      const top = Math.max(4, b.centerMidY * scale - 28); // 맨 위 띠도 화면 안에
-      if (top < lastBottom + 4) continue;
-      const ev = data.events.find((e) => e.id === b.eventId);
-      if (!ev) continue;
-      out.push({ eventId: b.eventId, top, label: `${ev.year === null ? C.yearUnknown : yearText(ev)} ${ev.label}` });
-      lastBottom = top + 56;
-    }
-    return out;
-  }, [overview, layout, scale, data]);
+  // Tab 으로 화면 밖 노드에 포커스가 가면 — 감싼 상자가 브라우저 기본 스크롤로 어긋나지 않게 되돌리고,
+  // 그 노드가 화면 안(여백 24)에 오도록 지도를 옮긴다.
+  function onFocusIn(e: React.FocusEvent<HTMLDivElement>) {
+    const el = e.target as HTMLElement;
+    if (!el.dataset.nodeKey) return;
+    const wrap = e.currentTarget;
+    requestAnimationFrame(() => {
+      wrap.scrollTop = 0;
+      wrap.scrollLeft = 0;
+      const r = el.getBoundingClientRect();
+      const w = wrap.getBoundingClientRect();
+      const m = 24;
+      const dx = r.left < w.left + m ? w.left + m - r.left : r.right > w.right - m ? Math.max(w.left + m - r.left, w.right - m - r.right) : 0;
+      const dy = r.top < w.top + m ? w.top + m - r.top : r.bottom > w.bottom - m ? Math.max(w.top + m - r.top, w.bottom - m - r.bottom) : 0;
+      if (dx || dy) apiRef.current?.panBy(dx, dy, 150);
+    });
+  }
 
-  const ox = offX(scale, size.w);
+  const minScale = box ? Math.min(MIN_SCALE, fitScaleOf(box.w, box.h, layout)) : MIN_SCALE;
   const anyFolded = folded.size > 0;
+  const currentEvent = data.events.find((e) => e.id === current);
+  const nowText = currentEvent
+    ? C.nowViewing(currentEvent.year === null ? `${currentEvent.label}(${C.yearUnknown})` : `${yearText(currentEvent)} ${currentEvent.label}`)
+    : C.nowViewingNone;
 
   return (
-    <div
-      ref={regionRef}
-      className="flex flex-col"
-      style={{ height: regionTop ? `calc(100dvh - ${regionTop}px)` : "calc(100dvh - 72px)", minHeight: 420 }}
-    >
+    <div ref={regionRef} className="flex flex-col" style={{ height: regionTop ? `calc(100dvh - ${regionTop}px)` : "calc(100dvh - 72px)", minHeight: 420 }}>
       <div className="flex items-center justify-between gap-3 px-6 pt-3">
         <h1 className="m-0">{C.pageTitle}</h1>
         <Button variant="secondary" size="lg" onClick={onToggleView}>
@@ -478,7 +417,7 @@ function MapMode({
         </Button>
       </div>
       <div className="flex min-h-[56px] items-center justify-between gap-3 px-6 py-1">
-        <p className="min-w-0 truncate text-lg text-ink-soft">{now}</p>
+        <p className="min-w-0 truncate text-lg text-ink-soft">{nowText}</p>
         {anyFolded && (
           <Button variant="secondary" size="lg" className="shrink-0" onClick={() => setFolded(new Set())}>
             {C.unfoldAll}
@@ -486,46 +425,72 @@ function MapMode({
         )}
       </div>
 
-      <div
-        ref={scrollerRef}
-        role="region"
-        aria-label={C.mapRegionLabel}
-        tabIndex={0}
-        data-ready={ready ? "1" : undefined}
-        onScroll={onScroll}
-        onKeyDown={onKeyDown}
-        className="relative min-h-0 flex-1 overflow-auto overscroll-contain border-y border-line bg-canvas focus:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-brand"
-        style={{ touchAction: "pan-x pan-y", visibility: ready ? "visible" : "hidden" }}
-      >
-        <div className="relative" style={{ width: L.WORLD_W * scale + 2 * ox, height: layout.height * scale }}>
-          <div
-            className="absolute top-0"
-            style={{ left: ox, width: L.WORLD_W, height: layout.height, transform: `scale(${scale})`, transformOrigin: "0 0" }}
-            inert={overview}
-            onClick={onWorldClick}
+      <div ref={boxRef} className="relative min-h-0 flex-1 overflow-hidden border-y border-line bg-canvas">
+        {init && (
+          <TransformWrapper
+            ref={apiRef}
+            initialScale={init.scale}
+            initialPositionX={init.x}
+            initialPositionY={init.y}
+            minScale={minScale}
+            maxScale={MAX_SCALE}
+            limitToBounds={false}
+            wheel={{ step: 0.002 }} // 라이브러리가 |deltaY| 를 곱한다 — 마우스 휠 한 칸(≈120) ≈ 0.24배
+            doubleClick={{ disabled: true }}
+            keyboard={{ disabled: false, panStep: 80, zoomStep: 0.25 }}
+            onTransform={onTransform}
+            onInit={(ref) => {
+              const r = restoreRef.current;
+              if (r) ref.setTransform(r.x, r.y, clamp(r.scale, 0.05, MAX_SCALE), 0);
+              setReady(true);
+            }}
           >
-            <MapWorld data={data} layout={layout} folded={folded} />
-          </div>
-          {overviewLabels.map((o) => (
-            <button
-              key={o.eventId}
-              type="button"
-              aria-label={C.overviewJump(o.label)}
-              onClick={() => jumpTo(o.eventId)}
-              className={`absolute flex h-14 max-w-[300px] -translate-x-1/2 items-center rounded-md border-2 border-action bg-surface px-4 text-lg font-semibold text-ink hover:bg-banner ${FOCUS}`}
-              style={{ top: o.top, left: ox + L.TRUNK_X * scale }}
+            <TransformComponent
+              wrapperStyle={{ width: "100%", height: "100%" }}
+              wrapperClass="focus:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-brand"
+              contentStyle={{ width: layout.width, height: layout.height }}
+              wrapperProps={{
+                role: "region",
+                "aria-label": C.mapRegionLabel,
+                "data-ready": ready ? "1" : undefined,
+                onPointerDown,
+                onPointerUp,
+                onFocus: onFocusIn,
+              } as React.HTMLAttributes<HTMLDivElement>}
             >
-              <span className="truncate">{o.label}</span>
-            </button>
-          ))}
-        </div>
+              <div className="relative" style={{ width: layout.width, height: layout.height }} onClick={onWorldClick}>
+                <MapWorld data={data} layout={layout} folded={folded} current={current} />
+              </div>
+            </TransformComponent>
+          </TransformWrapper>
+        )}
       </div>
 
       <div className="flex items-center gap-2 bg-surface py-2 pl-4 pr-[104px]">
-        <Button variant="secondary" size="lg" className="w-14 px-0!" aria-label={C.zoomOut} disabled={scale <= fitScale + 0.001} onClick={() => zoomTo(scale / STEP, undefined, true)}>
+        <Button
+          variant="secondary"
+          size="lg"
+          className="w-14 px-0!"
+          aria-label={C.zoomOut}
+          disabled={scale <= minScale + 0.001}
+          onClick={() => {
+            apiRef.current?.zoomOut(ZOOM_STEP, 200);
+            setAnnounce(C.zoomAnnounce(Math.round(Math.max(minScale, scale - ZOOM_STEP) * 100)));
+          }}
+        >
           <Minus aria-hidden size={24} className="shrink-0" />
         </Button>
-        <Button variant="secondary" size="lg" className="w-14 px-0!" aria-label={C.zoomIn} disabled={scale >= MAX_SCALE - 0.001} onClick={() => zoomTo(scale * STEP, undefined, true)}>
+        <Button
+          variant="secondary"
+          size="lg"
+          className="w-14 px-0!"
+          aria-label={C.zoomIn}
+          disabled={scale >= MAX_SCALE - 0.001}
+          onClick={() => {
+            apiRef.current?.zoomIn(ZOOM_STEP, 200);
+            setAnnounce(C.zoomAnnounce(Math.round(Math.min(MAX_SCALE, scale + ZOOM_STEP) * 100)));
+          }}
+        >
           <Plus aria-hidden size={24} className="shrink-0" />
         </Button>
         <Button variant="secondary" size="lg" onClick={fitAll}>
@@ -539,8 +504,18 @@ function MapMode({
   );
 }
 
-// 세계 안 내용 — 배율이 바뀌어도 다시 그리지 않게 memo(배율은 바깥 transform 만).
-const MapWorld = memo(function MapWorld({ data, layout, folded }: { data: MyLifeData; layout: MyLifeLayout; folded: Set<string> }) {
+// 지도 안 내용 — 확대·이동은 바깥 transform 만 바뀌어 다시 그리지 않는다(memo). 지금 보는 곳이 바뀔 때만 다시 그림.
+const MapWorld = memo(function MapWorld({
+  data,
+  layout,
+  folded,
+  current,
+}: {
+  data: MyLifeData;
+  layout: MyLifeLayout;
+  folded: Set<string>;
+  current: string | null;
+}) {
   const byKey = new Map<string, LayoutNode>(layout.nodes.map((n) => [n.key, n]));
   const pos = (n: LayoutNode) => ({ left: n.x, top: n.y, width: n.w, height: n.h });
   return (
@@ -582,7 +557,8 @@ const MapWorld = memo(function MapWorld({ data, layout, folded }: { data: MyLife
                 data-node-kind="event"
                 data-event-id={ev.id}
                 aria-label={eventAriaLabel(ev)}
-                className={`absolute flex flex-col items-center justify-center rounded-[50%] border-[3px] border-action bg-banner px-9 py-3.5 text-center hover:bg-surface ${FOCUS}`}
+                className={`absolute flex flex-col items-center justify-center rounded-[50%] border-[3px] bg-banner px-9 py-3.5 text-center hover:bg-surface ${current === ev.id ? "border-ink" : "border-action"} ${FOCUS}`}
+                aria-current={current === ev.id ? "location" : undefined}
                 style={pos(en)}
               >
                 <span className="text-lg leading-[26px] text-ink-soft">{yearText(ev)}</span>

@@ -65,5 +65,4 @@ export const MY_LIFE_COPY = {
   personName: (name: string) => `사람, ${name}`,
   groupName: (name: string) => `모임, ${name}`,
   placeName: (name: string) => `장소, ${name}`,
-  overviewJump: (where: string) => `${where} — 가까이 보기`,
 };

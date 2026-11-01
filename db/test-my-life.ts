@@ -5,8 +5,9 @@
 //      MemoryPlace·이름만 있는 옛 장소) · 오른쪽 가지(PersonLifeEvent·모임·장소) · Q38 이야기 안에 보이는 것은 가지에서
 //      뺌 · 그때의 나(SELF) · 초안 인물은 확인 대기로만 · 남의 데이터 0
 //   ② Prisma 호출 수 고정 — 기록을 크게 늘려도 같은 수(N+1 없음)
-//   ③ 배치(layoutMyLife, 순수 함수) — 실제 픽스처·합성 데이터(노드 0·1·36·60·100·800)에서 노드 사각형 교차 0 ·
-//      세계 안 · 같은 입력 같은 출력 · 접힌 띠엔 가지 없음(펼치기 버튼만) · 10년 이상 간격 표지 · 연도 없는 중심 줄기 색 없음
+//   ③ 배치(layoutMyLife, 순수 함수 — 고정 좌표 캔버스) — 실제 픽스처·합성 데이터(노드 0·1·36·60·100·800)에서 노드 사각형
+//      교차 0·세계 안·겹침 해소 0회 · 같은 입력 같은 출력 · 접힌 띠엔 가지 없음(펼치기 버튼만) · 10년 이상 간격 표지 ·
+//      연도 없는 중심 줄기 색 없음 · 지도 폭 592·가지는 줄기에서 56 · 중심 노드 전부 같은 크기 · 일부러 겹친 배치 해소
 //   ④ 순수 함수 — 작은 물방울 줄 나누기("외 N" 자리)·본문 첫 문장·지금 보는 곳(bandAt)·노드 수
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0).
@@ -26,9 +27,11 @@ import {
   bandAt,
   countMapNodes,
   estimateChipWidth,
+  findOverlaps,
   layoutMyLife,
   overflowLabel,
   packChips,
+  resolveOverlaps,
   storyLead,
   type MyLifeLayout,
 } from "../lib/my-life-layout";
@@ -240,7 +243,20 @@ async function main() {
       fl.bands[1].top === lay.bands[1].top && fl.bands[2].top < lay.bands[2].top);
     check("③ 누르는 노드 높이 56 이상(중심·이야기·가지·펼치기)",
       [...lay.nodes, ...fl.nodes].filter((n) => n.kind !== "gap").every((n) => n.h >= 56));
-    check("③ 세계 폭 342 — 390 화면 좌우 여백 24", lay.width === 342 && (390 - lay.width) / 2 === 24);
+    check("③ 지도 폭 592 고정 — 가지는 줄기에서 56 떨어짐(왼쪽 열 오른쪽 끝·오른쪽 열 왼쪽 끝)",
+      lay.width === 592 && lay.nodes.filter((n) => n.kind === "story").every((n) => n.x + n.w === L.TRUNK_X - L.BRANCH_DX) &&
+        lay.nodes.filter((n) => n.kind === "branch").every((n) => n.x === L.TRUNK_X + L.BRANCH_DX));
+    const evNodes = [...lay.nodes, ...fl.nodes].filter((n) => n.kind === "event");
+    check("③ 중심 노드 전부 같은 크기(연도 모름·접힘·가지 없음 포함) 248×120",
+      evNodes.length === 6 && evNodes.every((n) => n.w === L.CENTER_W && n.h === L.CENTER_H && n.x === L.TRUNK_X - L.CENTER_W / 2));
+    check("③ 정상 배치는 겹침 해소가 필요 없음(shifted 0)", lay.shifted === 0 && fl.shifted === 0);
+    // 일부러 겹치게 — 고등학교 띠 첫 가지를 출생 중심 위로 끌어올린 배치를 해소.
+    const broken = { ...lay, shifted: 0, nodes: lay.nodes.map((n) => (n.kind === "branch" && n.eventId === hs && n.branchIndex === 0 ? { ...n, y: lay.nodes[0].y + 10, x: lay.nodes[0].x } : n)) };
+    const fixedL = resolveOverlaps(broken);
+    check("③ 겹침 해소 — 일부러 겹친 배치도 교차 0, 위아래 순서 유지, 높이 늘어남",
+      findOverlaps(broken.nodes).length > 0 && findOverlaps(fixedL.nodes).length === 0 && fixedL.shifted > 0 && fixedL.height > broken.height &&
+        fixedL.bands.every((b, i) => i === 0 || b.top > fixedL.bands[i - 1].top),
+      { before: findOverlaps(broken.nodes).length, after: findOverlaps(fixedL.nodes) });
 
     for (const n of [0, 1, 36, 60, 100, 800]) {
       const syn = synthetic(n);
@@ -249,7 +265,7 @@ async function main() {
       const ms = performance.now() - t0;
       const lf = layoutMyLife(syn, { folded: new Set(syn.events.map((e) => e.id)) });
       check(`③ 합성 노드 ${n} — 교차 0·세계 안(펼침·전부 접힘), 노드 수 = ${countMapNodes(syn)}, 배치 ${ms.toFixed(1)}ms`,
-        countMapNodes(syn) === n && overlaps(ly).length === 0 && outOfWorld(ly).length === 0 && overlaps(lf).length === 0 && outOfWorld(lf).length === 0,
+        countMapNodes(syn) === n && ly.shifted === 0 && overlaps(ly).length === 0 && outOfWorld(ly).length === 0 && overlaps(lf).length === 0 && outOfWorld(lf).length === 0,
         { o: overlaps(ly).slice(0, 3), w: outOfWorld(ly).slice(0, 3) });
     }
     check("③ 접기 기본 기준 60", FOLD_ALL_ABOVE === 60);
