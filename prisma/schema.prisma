@@ -171,6 +171,9 @@ model User {
   onboardingProfile      OnboardingProfile?
   onboardingChatMessages OnboardingChatMessage[]
   chatV3PendingContext   ChatV3PendingContext?
+  // My Life 개편 2단계 — 자유 대화 구간(탈퇴 시 Cascade)·원가 원장(탈퇴 시 userId 비움).
+  chatV3Segment          ChatV3Segment?
+  chatV3Usages           ChatV3Usage[]
 
   // 기억 에이전트 연구 트랙(R1~) — 관계 필드만(User 테이블 DDL 0). 탈퇴 시
   // lab 파생 색인이 Cascade 로 함께 지워지게 하려는 역참조.
@@ -926,6 +929,8 @@ model Person {
 
   // P7-7 — 이 인물을 대상으로 한 미완료 person_episode 대기 대화(있다면 1개).
   pendingChatContexts ChatV3PendingContext[]
+  // My Life 개편 2단계 — 자유 대화 구간의 주제 힌트(인물 삭제 시 힌트만 SetNull).
+  chatV3SegmentTopics ChatV3Segment[]
 
   // 노드 그래프 — 인물 그룹 구성원(PersonGroupMember). 인물 삭제 시 Cascade.
   groupMemberships PersonGroupMember[]
@@ -1121,6 +1126,7 @@ model LifeEvent {
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   chatV3PendingContexts ChatV3PendingContext[]
+  chatV3SegmentTopics   ChatV3Segment[]
 
   @@index([userId, sequenceOrder])
 }
@@ -1253,6 +1259,48 @@ model ChatV3PendingContext {
 enum ChatV3PendingStage {
   EPISODE
   PERSON
+}
+
+// My Life 개편 2단계 — /chat-v3 자유 대화의 "지금 구간". docs/phase/my-life-restructure.md §3.5.
+// 사용자당 1행(ChatV3PendingContext 와 같은 싱글턴). 구간 = startedAt 이후의 채팅 로그
+// (OnboardingChatMessage — 로그 테이블은 role 이 user/assistant 뿐이라 구간 경계·카드를 못 담는다).
+// 노드를 만들거나 [안 만들기] 하면 startedAt 이 그 제안이 다룬 마지막 턴 뒤로 옮겨진다.
+model ChatV3Segment {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  startedAt DateTime @default(now())
+
+  // 주제 힌트(갭 칩·My Life [이야기 추가] 딥링크) — 제안 카드 시기 기본값. 대상이 지워지면 힌트만 사라진다.
+  topicEventId  String?
+  topicEvent    LifeEvent? @relation(fields: [topicEventId], references: [id], onDelete: SetNull)
+  topicPersonId String?
+  topicPerson   Person?    @relation(fields: [topicPersonId], references: [id], onDelete: SetNull)
+  topicGapType  String? // episode | period | person | person_episode
+
+  // 아직 결정 안 한 제안 카드(새로고침·재진입에도 카드 유지). null = 카드 없음.
+  proposal     Json?
+  // 모델 맥락용 — 방금 만든 노드 제목 최대 2개(새것 먼저).
+  recentTitles String[] @default([])
+
+  updatedAt DateTime @updatedAt
+}
+
+// My Life 개편 2단계 — 자유 대화·제안 호출 원가 원장(도그푸딩 동안 무료 — Q63) + 전역 하루 예산 가드.
+// 본문·대화 내용은 두지 않는다(모델·토큰·원가만). 탈퇴 시 userId 만 비운다(LabUsage 와 같음).
+model ChatV3Usage {
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  purpose      String // REPLY | PROPOSAL | INTERVIEW_PROPOSAL
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  costMicroUsd Int // 추정 원가(백만분의 1 달러)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1412,6 +1460,10 @@ model InterviewItem {
   aiInputTokens  Int     @default(0)
   aiOutputTokens Int     @default(0)
   aiModel        String?
+
+  // My Life 개편 2단계 — 이야기형 문항 마무리의 아직 결정 안 한 제안 카드(사람·장소 확인, 시기는 문항이 정함).
+  // 새로고침·재진입에도 카드 유지. null = 카드 없음.
+  proposal Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
