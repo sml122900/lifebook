@@ -1,0 +1,283 @@
+# 임시 문구 목록 (2026-11-02)
+
+> 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 뽑은 방법: 문구 파일 4개의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
+
+## 요약
+
+| 파일 | 임시 문구 | 화면에 안 나오는 키(쓰는 곳 없음) | 보이는 곳 |
+|---|---|---|---|
+| `lib/free-chat-copy.ts` | 54 (전부) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
+| `lib/my-life-copy.ts` | 86 (확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 7 | `/my-life` · 사이드 패널 메뉴 · `/story-review` |
+| `lib/node-confirm-copy.ts` | 32 (전부) | 0 | `/story-review/confirm` · `/story-review` "정리할 것이 있어요" 카드 · `/interview` 요약 |
+| `lib/interview/copy.ts` | 43 (전부) | 0 | `/interview` · `/story-review` "오늘의 인터뷰" 카드·"그때의 나" |
+| `lib/interview/question-pool.ts` | 문항 8개(18줄 — 구조 예시 5 + "관계별 나" 3) | — | `/interview` 질문·이야기 제목 |
+| 그 밖 | 1 | — | 아래 "그 밖" |
+
+- "쓰는 곳 없음" = 문구 파일에만 있고 화면 코드가 안 부른다(지금 화면에 안 나옴). 확정 대상에서 빼도 된다 — 지울지는 성민 결정.
+- `lib/free-chat.ts` 80~97줄의 쓰임은 앱 안내문 판정(`isAppNotice` — 구간 대화에서 안내문을 빼는 목록)이라 "보이는 곳"에 안 적었다. 이 문구를 바꾸면 판정도 저절로 따라간다.
+- 문구가 아닌 임시(참고): `lib/characters.ts` 말동무 캐릭터 그림(임시 도형 Lottie), `lib/constants/education-labels.ts` 국민학교/초등학교 명칭 기준(학제 연혁 받기 전 임시 규칙).
+
+### `lib/free-chat-copy.ts` (`FREE_CHAT_COPY`)
+
+| 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
+|---|---|---|---|---|
+| `greeting` | 8 | "편하게 아무 이야기나 들려주세요. 떠오르는 대로 말씀하시면 돼요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:423, lib/free-chat.ts:84 |
+| `setupDone` | 9 | "기본 칸은 다 채웠어요. 이제 편하게 이야기 나눠요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:275, lib/free-chat.ts:85 |
+| `resume` | 10 | "아까 하시던 이야기, 이어서 들려주세요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:423, app/chat-v3/ChatV3Client.tsx:447, lib/free-chat.ts:86 |
+| `staleNotice` | 11 | "지난번에 나누던 이야기를 남겨 둘까요?" | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:417, lib/free-chat.ts:87 |
+| `chipsTitle` | 12 | "이런 이야기는 어떠세요?" | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:732 |
+| `saveNow` | 13 | "지금 이야기 남기기" | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:758 |
+| `proposing` | 14 | "이야기를 정리하고 있어요…" | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:485 |
+| `budgetPaused` | 15 | "오늘은 이야기 친구가 쉬는 시간이에요. 내일 다시 이야기 나눠요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:449, app/chat-v3/ChatV3Client.tsx:465, app/chat-v3/ChatV3Client.tsx:492, lib/free-chat.ts:88 |
+| `topicGone` | 16 | "그 이야기는 지금 들을 수 없나봐요. 다른 이야기도 편하게 해 주세요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:451, lib/free-chat.ts:89 |
+| `cardFirst` | 17 | "먼저 위 카드를 정해 주세요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:445, lib/free-chat.ts:90 |
+| `confirmApplied` | 18 | "네, 반영했어요. 다른 이야기도 편하게 해 주세요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:294, lib/free-chat.ts:91 |
+| `confirmAlready` | 19 | "그 이야기는 이미 확인했나봐요. 다른 이야기도 편하게 해 주세요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:309, lib/free-chat.ts:92 |
+| `exitAfterCard` | 20 | "카드를 정하시면 오늘은 여기까지 할게요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:630, app/chat-v3/ChatV3Client.tsx:635, lib/free-chat.ts:93 |
+| `cardTitle` | 23 | "이 이야기를 남길까요?" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:166, app/components/ProposalCard.tsx:167 |
+| `fieldTitle` | 24 | "제목" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:172, app/components/ProposalCard.tsx:276 |
+| `titlePlaceholder` | 25 | "비워 두면 내용 첫 문장이 제목이 돼요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:281 |
+| `fieldCenter` | 26 | "시기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:176, app/components/ProposalCard.tsx:287, app/components/ProposalCard.tsx:294 |
+| `fieldPeople` | 27 | "사람" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:180, app/components/ProposalCard.tsx:339 |
+| `fieldPlaces` | 28 | "장소" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:220, app/components/ProposalCard.tsx:383 |
+| `fieldSummary` | 29 | "내용" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:260, app/components/ProposalCard.tsx:419, app/components/ProposalCard.tsx:420 |
+| `existingPerson` | 30 | "이미 계신 분" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:188 |
+| `newTag` | 31 | "새로" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:188, app/components/ProposalCard.tsx:228 |
+| `existingPlace` | 32 | "이미 있는 곳" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:228 |
+| `newCenter` | 33 | `` (label: string, year: number \| null) => `${year ? `${year} ` : ""}${label} (새 시기)` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:162 |
+| `centerText` | 34 | `` (label: string, year: number \| null) => `${year ? `${year} ` : ""}${label}` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:160, app/components/ProposalCard.tsx:306 |
+| `none` | 35 | "없음" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:182, app/components/ProposalCard.tsx:223 |
+| `showMore` | 36 | "내용 더 보기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:268 |
+| `showLess` | 37 | "내용 접기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:268 |
+| `create` | 38 | "만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:438 |
+| `edit` | 39 | "고치기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:448 |
+| `decline` | 40 | "안 만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:451 |
+| `cancelEdit` | 41 | "고치기 그만" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:448 |
+| `remove` | 42 | "빼기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:373, app/components/ProposalCard.tsx:409 |
+| `addPerson` | 43 | "사람 더하기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:378 |
+| `addPlace` | 44 | "장소 더하기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:414 |
+| `newCenterOption` | 45 | "새 시기 만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:309 |
+| `newCenterLabel` | 46 | "새 시기 이름" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:315, app/components/ProposalCard.tsx:316 |
+| `newCenterYear` | 47 | "연도 (모르면 비워 두세요)" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:323, app/components/ProposalCard.tsx:324 |
+| `personName` | 48 | "이름" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:344, app/components/ProposalCard.tsx:345 |
+| `personRelation` | 49 | "관계 (예: 친구)" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:359, app/components/ProposalCard.tsx:360 |
+| `placeName` | 50 | "장소 이름" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:388, app/components/ProposalCard.tsx:389 |
+| `sameNameQuestion` | 51 | `` (name: string, relation: string \| null) => `이미 계신 ${name}${relation ? `(${relation})` : ""} 님과 같은 분인가요?` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:194 |
+| `same` | 53 | "같은 분이에요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:201 |
+| `different` | 54 | "다른 분이에요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:211 |
+| `answerAskFirst` | 55 | "같은 분인지 먼저 골라 주세요." | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:112, app/components/ProposalCard.tsx:130 |
+| `samePlaceQuestion` | 56 | `` (name: string) => `이미 있는 장소 ${name}${withJosa(name, "과/와")} 같은 곳인가요?` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:234 |
+| `samePlace` | 57 | "같은 곳이에요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:241 |
+| `separatePlace` | 58 | "따로 만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:251 |
+| `answerPlaceAskFirst` | 59 | "같은 곳인지 먼저 골라 주세요." | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:112, app/components/ProposalCard.tsx:130 |
+| `createFailed` | 60 | "남기지 못했어요. 다시 해 주세요." | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:132, app/components/ProposalCard.tsx:137, app/components/ProposalCard.tsx:150 |
+| `created` | 61 | `` (title: string) => `'${title}' 이야기를 My Life 에 남겼어요.` `` | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:510, lib/free-chat.ts:96 |
+| `viewOnMap` | 62 | "My Life 에서 보기" | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:695 |
+| `declined` | 63 | "네, 남기지 않을게요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:528, lib/free-chat.ts:94 |
+| `saving` | 64 | "남기는 중이에요…" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:433 |
+
+### `lib/my-life-copy.ts` (`MY_LIFE_COPY`)
+
+| 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
+|---|---|---|---|---|
+| `menuHint` | 13 | "내 인생을 한 장의 지도로" | 사이드 패널 메뉴 | app/timemachine/SidePanel.tsx:274 |
+| `storyReviewEntry` | 14 | "My Life 로 보기" | /story-review | app/story-review/page.tsx:78 |
+| `mapListLabel` | 15 | "My Life — 시기 순서" | /my-life | app/my-life/MyLifeView.tsx:937, app/my-life/MyLifeView.tsx:1189 |
+| `mapRegionLabel` | 16 | "My Life 지도" | /my-life | app/my-life/MyLifeView.tsx:764 |
+| `listStories` | 17 | "이야기" | /my-life | app/my-life/MyLifeView.tsx:972, app/my-life/MyLifeView.tsx:1204 |
+| `listBranches` | 18 | "사람·모임·장소" | 쓰는 곳 없음(화면에 안 나옴) | — |
+| `nowViewing` | 19 | `` (where: string) => `지금 보는 곳: ${where}` `` | /my-life | app/my-life/MyLifeView.tsx:679, app/my-life/MyLifeView.tsx:681 |
+| `nowViewingNone` | 20 | "지금 보는 곳: 처음" | /my-life | app/my-life/MyLifeView.tsx:682 |
+| `fitAll` | 21 | "전체 보기" | /my-life | app/my-life/MyLifeView.tsx:823 |
+| `zoomIn` | 22 | "크게 보기" | /my-life | app/my-life/MyLifeView.tsx:813 |
+| `zoomOut` | 23 | "작게 보기" | /my-life | app/my-life/MyLifeView.tsx:800 |
+| `zoomAnnounce` | 24 | `` (percent: number) => `지금 ${percent}%` `` | /my-life | app/my-life/MyLifeView.tsx:574, app/my-life/MyLifeView.tsx:625, app/my-life/MyLifeView.tsx:804, app/my-life/MyLifeView.tsx:817 |
+| `toList` | 25 | "목록으로 보기" | /my-life | app/my-life/MyLifeView.tsx:698 |
+| `chatEntry` | 26 | "이야기 나누기" | /my-life | app/my-life/MyLifeView.tsx:691, app/my-life/MyLifeView.tsx:706, app/my-life/MyLifeView.tsx:1187 |
+| `toMap` | 27 | "지도로 보기" | /my-life | app/my-life/MyLifeView.tsx:1181 |
+| `unfold` | 28 | `` (n: number) => `가지 ${n}개 펼치기` `` | /my-life | app/my-life/MyLifeView.tsx:968, app/my-life/MyLifeView.tsx:1429 |
+| `fold` | 29 | "가지 접기" | /my-life | app/my-life/MyLifeView.tsx:1429 |
+| `unfoldAll` | 30 | "모두 펼치기" | /my-life | app/my-life/MyLifeView.tsx:731 |
+| `yearsLater` | 31 | `` (n: number) => `${n}년 뒤` `` | /my-life | app/my-life/MyLifeView.tsx:932 |
+| `yearUnknown` | 32 | "연도 모름" | /my-life | app/my-life/MyLifeView.tsx:79, app/my-life/MyLifeView.tsx:84, app/my-life/MyLifeView.tsx:681 |
+| `selfTag` | 33 | "그때의 나" | /my-life | app/my-life/MyLifeView.tsx:1102, app/my-life/MyLifeView.tsx:1585 |
+| `groupTag` | 34 | "모임" | 쓰는 곳 없음(화면에 안 나옴) | — |
+| `kindPerson` | 35 | "사람" | /my-life | app/my-life/MyLifeView.tsx:1316, app/my-life/MyLifeView.tsx:1450 |
+| `kindPlace` | 36 | "장소" | /my-life | app/my-life/MyLifeView.tsx:1317, app/my-life/MyLifeView.tsx:1513 |
+| `pendingTag` | 37 | "확인 전" | /my-life | app/my-life/MyLifeView.tsx:89, app/my-life/MyLifeView.tsx:1053, app/my-life/MyLifeView.tsx:1059, app/my-life/MyLifeView.tsx:1103, app/my-life/MyLifeView.tsx:1272, app/my-life/MyLifeView.tsx:1602 |
+| `alsoElsewhere` | 38 | "다른 시기에도 있어요" | 쓰는 곳 없음(화면에 안 나옴) | — |
+| `alsoElsewhereShort` | 39 | "여러 시기" | /my-life | app/my-life/MyLifeView.tsx:1104 |
+| `close` | 40 | "닫기" | /my-life | app/my-life/MyLifeView.tsx:322, app/my-life/MyLifeView.tsx:1368 |
+| `readBody` | 41 | "본문 보기" | /my-life | app/my-life/MyLifeView.tsx:1593 |
+| `hideBody` | 42 | "본문 접기" | /my-life | app/my-life/MyLifeView.tsx:1593 |
+| `goConfirm` | 43 | "확인하러 가기" | /my-life | app/my-life/MyLifeView.tsx:1473, app/my-life/MyLifeView.tsx:1627 |
+| `pendingNote` | 44 | "이 이야기에 아직 확인하지 않은 분이 있어요." | /my-life | app/my-life/MyLifeView.tsx:1625 |
+| `openPerson` | 45 | "인물록에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1499 |
+| `openMap` | 46 | "지도에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1543 |
+| `emptyTitle` | 47 | "아직 지도에 담을 이야기가 없어요" | /my-life | app/my-life/page.tsx:33 |
+| `emptyDesc` | 48 | "이야기를 나누면 인생의 시기들이 여기에 하나씩 생겨요." | /my-life | app/my-life/page.tsx:34 |
+| `emptyCta` | 49 | "이야기 나누기" | /my-life | app/my-life/page.tsx:34 |
+| `panelStories` | 51 | `` (n: number) => `이야기 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
+| `panelPeople` | 52 | `` (n: number) => `사람 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
+| `panelPlaces` | 53 | `` (n: number) => `장소 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
+| `panelWithPeople` | 54 | "함께 나온 분" | /my-life | app/my-life/MyLifeView.tsx:1597 |
+| `panelWithPlaces` | 55 | "나온 곳" | /my-life | app/my-life/MyLifeView.tsx:1610 |
+| `panelAlsoIn` | 56 | "같이 보이는 시기" | /my-life | app/my-life/MyLifeView.tsx:1620 |
+| `panelMembers` | 57 | "모임 사람들" | /my-life | app/my-life/MyLifeView.tsx:1562 |
+| `panelRelation` | 58 | "관계" | /my-life | app/my-life/MyLifeView.tsx:1456 |
+| `panelMetYear` | 59 | "만난 해" | /my-life | app/my-life/MyLifeView.tsx:1461 |
+| `panelAddress` | 60 | "주소" | /my-life | app/my-life/MyLifeView.tsx:1519 |
+| `eventName` | 62 | `` (yearText: string, label: string, stories: number, others: number) => `${yearText} ${label}, 이야기 ${stories}, 사람·장소 ${others}` `` | /my-life | app/my-life/MyLifeView.tsx:85 |
+| `storyName` | 64 | `` (lead: string, withNames: string[]) => withNames.length > 0 ? `이야기, ${lead}, 함께: ${withNames.join(", ")}` : `이야기, ${lead}` `` | /my-life | app/my-life/MyLifeView.tsx:90 |
+| `selfName` | 66 | `` (lead: string, withNames: string[]) => withNames.length > 0 ? `그때의 나, ${lead}, 함께: ${withNames.join(", ")}` : `그때의 나, ${lead}` `` | /my-life | app/my-life/MyLifeView.tsx:90 |
+| `personName` | 68 | `` (name: string) => `사람, ${name}` `` | 쓰는 곳 없음(화면에 안 나옴) | — |
+| `groupName` | 69 | `` (name: string) => `모임, ${name}` `` | 쓰는 곳 없음(화면에 안 나옴) | — |
+| `placeName` | 70 | `` (name: string) => `장소, ${name}` `` | 쓰는 곳 없음(화면에 안 나옴) | — |
+| `edgePersonOn` | 72 | "인물 간선 켜기" | /my-life | app/my-life/MyLifeView.tsx:719 |
+| `edgePlaceOn` | 73 | "장소 간선 켜기" | /my-life | app/my-life/MyLifeView.tsx:722 |
+| `peopleTitle` | 74 | "인물록" | /my-life | app/my-life/MyLifeView.tsx:679, app/my-life/MyLifeView.tsx:991, app/my-life/MyLifeView.tsx:1041, app/my-life/MyLifeView.tsx:1240 |
+| `placesTitle` | 75 | "장소록" | /my-life | app/my-life/MyLifeView.tsx:679, app/my-life/MyLifeView.tsx:1071, app/my-life/MyLifeView.tsx:1074, app/my-life/MyLifeView.tsx:1282, app/my-life/MyLifeView.tsx:1284 |
+| `noGroup` | 76 | "모임 없는 분" | /my-life | app/my-life/MyLifeView.tsx:1033, app/my-life/MyLifeView.tsx:1268, app/my-life/MyLifeView.tsx:1269 |
+| `noPlaceGroup` | 77 | "묶음 없는 곳" | 쓰는 곳 없음(화면에 안 나옴) | — |
+| `otherGroups` | 78 | `` (n: number) => `+${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1060 |
+| `otherGroupsLong` | 79 | `` (n: number) => `다른 모임 ${n}개` `` | /my-life | app/my-life/MyLifeView.tsx:1258 |
+| `groupChipShown` | 80 | "✓" | /my-life | app/my-life/MyLifeView.tsx:1009 |
+| `groupEmpty` | 81 | "아직 아무도 없어요" | /my-life | app/my-life/MyLifeView.tsx:1038, app/my-life/MyLifeView.tsx:1249, app/my-life/MyLifeView.tsx:1559 |
+| `selectedLine` | 82 | `` (name: string, n: number) => `선택 — ${name} · 연결 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:712 |
+| `clearSelection` | 83 | "선택 풀기" | /my-life | app/my-life/MyLifeView.tsx:714 |
+| `find` | 84 | "찾기" | /my-life | app/my-life/MyLifeView.tsx:695, app/my-life/MyLifeView.tsx:1178 |
+| `findTitle` | 85 | "기록 찾기" | /my-life | app/my-life/MyLifeView.tsx:1332, app/my-life/MyLifeView.tsx:1340 |
+| `findPlaceholder` | 86 | "이름이나 이야기 속 낱말" | /my-life | app/my-life/MyLifeView.tsx:1339 |
+| `findNone` | 87 | "찾는 기록이 없어요" | /my-life | app/my-life/MyLifeView.tsx:1345 |
+| `findCount` | 88 | `` (n: number) => `${n}개 찾았어요` `` | /my-life | app/my-life/MyLifeView.tsx:1345 |
+| `kindEvent` | 89 | "시기" | /my-life | app/my-life/MyLifeView.tsx:1314 |
+| `kindStory` | 90 | "이야기" | /my-life | app/my-life/MyLifeView.tsx:1315 |
+| `kindGroup` | 91 | "모임" | /my-life | app/my-life/MyLifeView.tsx:1318, app/my-life/MyLifeView.tsx:1554 |
+| `toPeople` | 92 | "인물록" | /my-life | app/my-life/MyLifeView.tsx:847 |
+| `toPlaces` | 93 | "장소록" | /my-life | app/my-life/MyLifeView.tsx:848 |
+| `toTimeline` | 94 | "시간 줄기" | /my-life | app/my-life/MyLifeView.tsx:849 |
+| `toRelated` | 95 | `` (n: number) => `연결된 곳 차례로 보기(${n})` `` | /my-life | app/my-life/MyLifeView.tsx:846 |
+| `panelStoriesWith` | 96 | "나온 이야기" | /my-life | app/my-life/MyLifeView.tsx:1479, app/my-life/MyLifeView.tsx:1524 |
+| `panelEventsWith` | 97 | "그 시기" | /my-life | app/my-life/MyLifeView.tsx:1489, app/my-life/MyLifeView.tsx:1534 |
+| `panelGroups` | 98 | "모임" | /my-life | app/my-life/MyLifeView.tsx:1466 |
+| `goThere` | 99 | "여기로 가기" | /my-life | app/my-life/MyLifeView.tsx:1384 |
+| `draftNote` | 100 | "이야기에서 찾은 분이에요. 아직 확인하지 않았어요." | /my-life | app/my-life/MyLifeView.tsx:1471 |
+| `personName2` | 101 | `` (name: string, groups: string[], stories: number) => `사람, ${name}${groups.length ? `, 모임 ${groups.join("·")}` : ""}, 이야기 ${stories}` `` | /my-life | app/my-life/MyLifeView.tsx:1053 |
+| `placeName2` | 103 | `` (name: string, stories: number) => `장소, ${name}, 이야기 ${stories}` `` | /my-life | app/my-life/MyLifeView.tsx:1084 |
+| `groupLabelName` | 104 | `` (name: string, n: number) => `모임, ${name}, ${n}명` `` | /my-life | app/my-life/MyLifeView.tsx:1022 |
+| `groupChipName` | 105 | `` (name: string, shown: boolean) => (shown ? `모임 ${name}, 지도에 보이는 중` : `모임 ${name}, 지도에 보이기`) `` | /my-life | app/my-life/MyLifeView.tsx:1004 |
+
+### `lib/node-confirm-copy.ts` (`CONFIRM_COPY`)
+
+| 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
+|---|---|---|---|---|
+| `title` | 7 | "이야기에 나온 분들" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:106 |
+| `desc` | 8 | "이야기 속에서 말씀하신 분들이에요. 맞는지 한 번만 봐 주세요." | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:107 |
+| `storyHeading` | 9 | `` (title: string) => `‘${title}’에 나온 분` `` | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:129 |
+| `registered` | 10 | "이미 등록된 분" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:145 |
+| `yes` | 11 | "맞아요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:283 |
+| `no` | 12 | "아니에요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:303 |
+| `edit` | 13 | "고칠게요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:295 |
+| `allYes` | 14 | "모두 맞아요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:115 |
+| `nameLabel` | 15 | "이름" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:222 |
+| `relationLabel` | 16 | "관계" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:236 |
+| `editSave` | 17 | "이렇게 고칠게요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:260 |
+| `editCancel` | 18 | "취소" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:271 |
+| `editInvalid` | 19 | "이름을 적어 주세요. 이름은 50자, 관계는 30자까지예요." | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:79 |
+| `sameNameAsk` | 21 | "같은 이름으로 이미 등록된 분이 있어요. 같은 분인가요?" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:156 |
+| `sameYes` | 22 | "같은 분이에요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:176 |
+| `sameYesLabel` | 23 | `` (name: string, relation: string \| null) => `${name}${relation ? `, ${relation}` : ""} — 같은 분이에요` `` | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:168 |
+| `sameNo` | 24 | "다른 분이에요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:195 |
+| `sameBack` | 25 | "돌아가기" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:215 |
+| `saving` | 26 | "담고 있어요…" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:115, app/story-review/confirm/ConfirmClient.tsx:260 |
+| `rowConfirmed` | 27 | "확인했어요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:151 |
+| `rowRejected` | 28 | "뺐어요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:151 |
+| `error` | 29 | "처리하지 못했어요. 다시 해 볼까요?" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:79, app/story-review/confirm/ConfirmClient.tsx:85 |
+| `allDone` | 30 | "다 확인했어요. 고맙습니다." | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:323 |
+| `finish` | 31 | "확인 마치기" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:327 |
+| `emptyTitle` | 32 | "확인할 분이 없어요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:94 |
+| `emptyDesc` | 33 | "이야기를 나누다 새로운 분이 나오면 여기서 확인해 드릴게요." | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:95 |
+| `emptyButton` | 34 | "지금까지 채운 이야기 보기" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:97 |
+| `reviewCardTitle` | 37 | "정리할 것이 있어요" | /story-review | app/story-review/page.tsx:176 |
+| `reviewCardDesc` | 38 | `` (n: number) => `이야기에 나온 분 ${n}명이 맞는지 확인해 주세요.` `` | /story-review | app/story-review/page.tsx:177 |
+| `reviewCardButton` | 39 | "확인하러 가기" | /story-review | app/story-review/page.tsx:179 |
+| `interviewCardDesc` | 42 | `` (n: number) => `이야기에 나온 분 ${n}명, 맞는지 확인해 주세요.` `` | /interview | app/interview/InterviewClient.tsx:105 |
+| `interviewCardButton` | 43 | "확인하러 가기" | /interview | app/interview/InterviewClient.tsx:107 |
+
+### `lib/interview/copy.ts` (`INTERVIEW_COPY`)
+
+| 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
+|---|---|---|---|---|
+| `cardTitle` | 9 | "오늘의 인터뷰" | /story-review | app/story-review/page.tsx:195 |
+| `cardBefore` | 10 | "짧은 질문 몇 가지를 여쭤볼게요." | /story-review | app/story-review/page.tsx:189 |
+| `cardInProgress` | 11 | `` (done: number, total: number) => `${total}개 중 ${done}개 답하셨어요.` `` | /story-review | app/story-review/page.tsx:191 |
+| `cardDone` | 12 | "오늘 인터뷰를 마쳤어요." | /story-review | app/story-review/page.tsx:192 |
+| `cardButtonStart` | 13 | "시작하기" | /story-review | app/story-review/page.tsx:189 |
+| `cardButtonContinue` | 14 | "이어서 하기" | /story-review | app/story-review/page.tsx:191 |
+| `cardButtonDone` | 15 | "오늘 답 보기" | /story-review | app/story-review/page.tsx:192 |
+| `startTitle` | 18 | "오늘의 인터뷰" | /interview | app/interview/InterviewClient.tsx:72 |
+| `startDesc` | 19 | `` (n: number) => `오늘은 질문 ${n}개를 여쭤볼게요. 짧게 답하셔도 괜찮아요.` `` | /interview | app/interview/InterviewClient.tsx:73 |
+| `startButton` | 20 | "시작할게요" | /interview | app/interview/InterviewClient.tsx:76 |
+| `progress` | 23 | `` (index: number, total: number) => `${index} / ${total}` `` | /interview | app/interview/InterviewClient.tsx:324, app/interview/InterviewClient.tsx:332 |
+| `resumeNotice` | 24 | "아까 하던 곳부터 이어서 여쭤볼게요." | /interview | app/interview/InterviewClient.tsx:44 |
+| `answerPlaceholder` | 25 | "여기에 말씀해 주세요" | /interview | app/interview/InterviewClient.tsx:345 |
+| `answerLabel` | 26 | "답" | /interview | app/interview/InterviewClient.tsx:346 |
+| `send` | 27 | "답하기" | /interview | app/interview/InterviewClient.tsx:365 |
+| `skip` | 28 | "이 질문은 건너뛸게요" | /interview | app/interview/InterviewClient.tsx:378 |
+| `pause` | 29 | "오늘은 그만할게요" | /interview | app/interview/InterviewClient.tsx:359, app/interview/InterviewClient.tsx:382 |
+| `storyEnough` | 30 | "이 이야기는 여기까지" | /interview | app/interview/InterviewClient.tsx:374 |
+| `thinking` | 31 | "잠깐만요, 생각하고 있어요…" | /interview | app/interview/InterviewClient.tsx:76, app/interview/InterviewClient.tsx:351 |
+| `saving` | 32 | "이야기를 담고 있어요…" | /interview | app/interview/InterviewClient.tsx:351 |
+| `storySaved` | 33 | "들려주신 이야기를 담아뒀어요." | /interview | app/interview/InterviewClient.tsx:238 |
+| `saveFailed` | 34 | "저장하지 못했어요. 다시 해 볼까요?" | /interview · /interview(서버가 만드는 말) | app/interview/InterviewClient.tsx:231, lib/interview/session.ts:390 |
+| `retry` | 35 | "다시 하기" | /interview | app/interview/InterviewClient.tsx:356 |
+| `errorGeneric` | 36 | "잠시 문제가 생겼어요. 다시 해 볼까요?" | /interview · /interview(서버가 만드는 말) | app/interview/InterviewClient.tsx:74, app/interview/InterviewClient.tsx:196, lib/interview/session.ts:331, lib/interview/session.ts:357 |
+| `yearQuestion` | 39 | `` (label: string) => `${label}${withJosa(label, "은/는")} 몇 년도였어요?` `` | /interview(서버가 만드는 말) | lib/interview/session.ts:114 |
+| `yearHint` | 40 | "기억나는 만큼만요. 나이로 말씀하셔도 돼요." | /interview(서버가 만드는 말) | lib/interview/session.ts:257 |
+| `yearUnknownButton` | 41 | "기억이 안 나요" | /interview | app/interview/InterviewClient.tsx:369 |
+| `yearSaved` | 42 | `` (label: string, year: number) => `${label}, ${year}년으로 담아뒀어요.` `` | /interview | app/interview/InterviewClient.tsx:298 |
+| `yearRetry` | 43 | "죄송해요, 잘 못 알아들었어요. 몇 년도쯤이었는지 다시 말씀해 주시겠어요?" | /interview | app/interview/InterviewClient.tsx:292 |
+| `yearUnknown` | 44 | "괜찮아요. 나중에 떠오르면 알려주세요." | /interview | app/interview/InterviewClient.tsx:300 |
+| `pausedTitle` | 47 | "오늘은 여기까지 할게요" | /interview | app/interview/InterviewClient.tsx:137 |
+| `pausedDesc` | 48 | "다음에 오시면 이어서 여쭤볼게요." | /interview | app/interview/InterviewClient.tsx:138 |
+| `pausedResume` | 49 | "이어서 하기" | /interview | app/interview/InterviewClient.tsx:147 |
+| `summaryTitle` | 52 | "오늘 인터뷰를 마쳤어요" | /interview | app/interview/InterviewClient.tsx:100 |
+| `summaryCounts` | 53 | `` (answered: number, skipped: number) => skipped > 0 ? `${answered}개 답해주셨고, ${skipped}개는 건너뛰었어요.` : `${answered}개 답해주셨어요.` `` | /interview | app/interview/InterviewClient.tsx:101 |
+| `summarySavedHeading` | 55 | "오늘 담긴 이야기" | /interview | app/interview/InterviewClient.tsx:113 |
+| `summaryYearItem` | 56 | `` (label: string, year: number) => `${label} — ${year}년` `` | /interview(서버가 만드는 말) | lib/interview/session.ts:220 |
+| `summaryNextDay` | 57 | "내일 또 새로운 질문을 준비해 둘게요." | /interview | app/interview/InterviewClient.tsx:123 |
+| `summaryReview` | 58 | "지금까지 채운 이야기 보기" | /interview | app/interview/InterviewClient.tsx:91, app/interview/InterviewClient.tsx:125, app/interview/InterviewClient.tsx:150 |
+| `summaryChat` | 59 | "더 이야기 나누기" | /interview | app/interview/InterviewClient.tsx:88, app/interview/InterviewClient.tsx:128 |
+| `emptyTitle` | 62 | "오늘은 여쭤볼 질문이 없어요" | /interview | app/interview/InterviewClient.tsx:85 |
+| `emptyDesc` | 63 | "하고 싶은 이야기가 있으시면 언제든 들려주세요." | /interview | app/interview/InterviewClient.tsx:86 |
+| `selfStoriesTitle` | 66 | "그때의 나" | /story-review | app/story-review/page.tsx:109 |
+
+### `lib/interview/question-pool.ts` (질문 풀 — 구조 예시 문항, 보이는 곳 = /interview 질문·이야기 제목)
+
+| 줄 | 현재 값 |
+|---|---|
+| 36 | `text: "{elemSchool} 다닐 때 친구들이랑 즐겨 하던 놀이가 있으세요?",` |
+| 37 | `topic: "{elemSchool} 시절 놀이",` |
+| 46 | `text: "중학교 때 도시락 반찬은 주로 뭐였어요?",` |
+| 47 | `topic: "중학교 도시락",` |
+| 56 | `text: "고등학교 때 즐겨 듣던 노래가 있으세요?",` |
+| 57 | `topic: "고등학교 시절 노래",` |
+| 66 | `text: "첫 월급 받으셨을 때 뭘 하셨는지 기억나세요?",` |
+| 67 | `topic: "첫 월급",` |
+| 76 | `text: "요즘 제일 좋아하시는 음식은 뭐예요?",` |
+| 77 | `topic: "좋아하는 음식",` |
+| 117 | `text: "고등학교 다니실 때, {who:과/와} 같이 있을 때는 어떤 사람이셨어요?",` |
+| 118 | `topic: "고등학교 때 {who:과/와} 있을 때의 나",` |
+| 127 | `text: "{elemSchool} 다니실 때, {who} 앞에서는 어떤 아이셨어요?",` |
+| 128 | `topic: "{elemSchool} 시절 {who} 앞의 나",` |
+| 130 | `relation: { kind: "category", label: "선생님" },` |
+| 137 | `text: "첫 직장 다니실 때, 집에서 {who}한테는 어떤 사람이셨어요?",` |
+| 138 | `topic: "첫 직장 시절 {who} 곁의 나",` |
+| 140 | `relation: { kind: "category", label: "가족" },` |
+
+### 그 밖
+
+| 파일 | 줄 | 현재 문구 | 보이는 곳 |
+|---|---|---|---|
+| `app/era/EraMemoryEditor.tsx` | 149 | "녹음 미리 듣기 (임시)" | 시대 사건 회상 입력에서 녹음한 뒤 미리 듣기 칸 — `/era` 펼친 사건 · `/life-timeline` 시대 배경 카드 · 첫 사건 카드 |
