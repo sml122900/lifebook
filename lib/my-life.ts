@@ -1,11 +1,11 @@
 // My Life 마인드맵 — 화면 데이터. 읽기 전용, auth 없음(회귀가 같은 함수를 부른다).
 // docs/phase/my-life-restructure.md §1(1단계 지도 개편) · node-graph-self.md §6 2b.1 의 1(포함 규칙).
 //
-// Prisma 호출 수는 기록 양과 무관하게 고정 6회(중심+이야기 1 · 중심↔인물 1 · NodeLink 1 · 인물·모임·장소 3).
+// Prisma 호출 수는 기록 양과 무관하게 고정 7회(중심+이야기 1 · 중심↔인물 1 · NodeLink 1 · 인물·모임·장소·장소 묶음 4).
 // 중심 = 확정(CONFIRMED·CORRECTED) LifeEvent, sequenceOrder·id 순(/story-review·갭·인터뷰와 같은 기준).
 //   왼쪽 가지 = 이야기(STORY)·그때의 나(SELF) — 주 소속 + NodeLink(LIFE_EVENT→EPISODE) 추가 소속.
 //   이야기 안 작은 물방울 = 대상 인물 + NodeLink(EPISODE→PERSON·PERSON_GROUP) + 브릿지 MemoryPlace.
-// 오른쪽 = 인물록(확정 인물 전부 + 확인 대기 초안 · 모임과 구성원)·장소록(사용자 Place 전부) — 한 번씩만.
+// 오른쪽 = 인물록(확정 인물 전부 + 확인 대기 초안 · 모임과 구성원)·장소록(사용자 Place 전부 · 장소 묶음과 구성원 — 3단계) — 한 번씩만.
 //   중심마다 붙던 오른쪽 가지(2b-3a)는 없앴다. 중심의 직접 연결(PersonLifeEvent·LIFE_EVENT→PLACE·
 //   LIFE_EVENT→PERSON_GROUP)은 중심을 선택했을 때의 간선으로만 쓴다(Q55).
 
@@ -31,6 +31,7 @@ export type MyLifeStory = {
   content: string;
   primaryEventId: string;
   otherEventIds: string[]; // 이 이야기가 같이 보이는 다른 중심(추가 소속·주 소속)
+  subjectPersonId: string | null; // 대상 인물(Episode.personId) — 빼기 대상 아님(3단계 패널)
   chips: MyLifeChip[];
   hasPending: boolean;
 };
@@ -57,6 +58,7 @@ export type MyLifePerson = {
   draft: boolean; // 확인 대기 초안(2b-2 잔여) — 인물록 맨 끝 점선
 };
 
+// 모임(memberIds = 사람 id)·장소 묶음(memberIds = 장소 id) 같은 모양.
 export type MyLifeGroup = { id: string; name: string; memberIds: string[] };
 
 export type MyLifePlace = {
@@ -66,6 +68,7 @@ export type MyLifePlace = {
   source: string | null;
   lat: number | null;
   lng: number | null;
+  groupIds: string[]; // 장소 묶음
 };
 
 export type MyLifeData = {
@@ -73,6 +76,7 @@ export type MyLifeData = {
   people: MyLifePerson[];
   groups: MyLifeGroup[];
   places: MyLifePlace[];
+  placeGroups: MyLifeGroup[];
 };
 
 type Db = typeof prisma;
@@ -122,7 +126,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
 
   // 확인 대기 초안 = 이야기→인물 PROPOSED 연결의 대상(그 밖의 초안 — 말동무 초안 검토 대기 — 은 안 보임).
   const proposedPersonIds = [...new Set(links.filter((l) => l.status === "PROPOSED" && l.toType === "PERSON").map((l) => l.toId))];
-  const [peopleRows, groupRows, placeRows] = await Promise.all([
+  const [peopleRows, groupRows, placeRows, placeGroupRows] = await Promise.all([
     db.person.findMany({
       where: { userId, subjectType: "person", OR: [{ isDraft: false }, { id: { in: proposedPersonIds } }] },
       select: { id: true, name: true, relation: true, metYear: true, isDraft: true },
@@ -132,6 +136,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
       select: { id: true, name: true, members: { select: { personId: true } } },
     }),
     db.place.findMany({ where: { userId }, select: { id: true, name: true, address: true, source: true, lat: true, lng: true } }),
+    db.placeGroup.findMany({ where: { userId }, select: { id: true, name: true, members: { select: { placeId: true } } } }),
   ]);
 
   const personById = new Map(peopleRows.map((p) => [p.id, p]));
@@ -196,6 +201,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
       content: ep.content,
       primaryEventId: ep.lifeEventId,
       otherEventIds: (storyEvents.get(epId) ?? []).filter((id) => id !== shownUnder),
+      subjectPersonId: ep.personId && personById.has(ep.personId) ? ep.personId : null,
       chips,
       hasPending: chips.some((c) => c.proposed),
     };
@@ -203,6 +209,8 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
 
   const memberGroups = new Map<string, string[]>();
   for (const g of groupRows) for (const m of g.members) if (personById.has(m.personId)) push(memberGroups, m.personId, g.id);
+  const placeGroupsOf = new Map<string, string[]>();
+  for (const g of placeGroupRows) for (const m of g.members) if (placeById.has(m.placeId)) push(placeGroupsOf, m.placeId, g.id);
 
   return {
     events: events.map((e) => ({
@@ -223,6 +231,9 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
       .map((p) => ({ id: p.id, name: p.name, relation: p.relation, metYear: p.metYear, groupIds: memberGroups.get(p.id) ?? [], draft: p.isDraft }))
       .sort(byName),
     groups: groupRows.map((g) => ({ id: g.id, name: g.name, memberIds: g.members.map((m) => m.personId).filter((id) => personById.has(id)) })).sort(byName),
-    places: placeRows.sort(byName),
+    places: placeRows.map((p) => ({ ...p, groupIds: placeGroupsOf.get(p.id) ?? [] })).sort(byName),
+    placeGroups: placeGroupRows
+      .map((g) => ({ id: g.id, name: g.name, memberIds: g.members.map((m) => m.placeId).filter((id) => placeById.has(id)) }))
+      .sort(byName),
   };
 }

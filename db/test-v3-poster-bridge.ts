@@ -1,4 +1,4 @@
-// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(36항목). 설계: docs/phase/v3-poster-bridge.md
+// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(39항목 — 마지막 1개 = My Life 3단계 "다른 시절로 옮기기" 뒤 브릿지 행). 설계: docs/phase/v3-poster-bridge.md
 // 실행: npx tsx db/test-v3-poster-bridge.ts
 //
 // 자체 픽스처 계정(fixture-bridge@lifebook.invalid)을 시작 시 만들고 끝에
@@ -20,6 +20,7 @@ import { deleteAccountTx } from "../lib/account-deletion";
 import { createPendingPosterOrder } from "../lib/commerce/poster-orders";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEpisodeBridge } from "../lib/episode";
+import { moveEpisodeToLifeEvent } from "../lib/episode-move";
 import { getLifeEvents } from "../lib/life-events";
 import { deleteCustomLifeEvent } from "../lib/life-event-delete";
 import { createRoom, listRoomMemories } from "../lib/rooms";
@@ -60,6 +61,7 @@ const STORY_A2 = "운동회 날 달리기에서 처음으로 일등을 했다.";
 const STORY_LONG =
   "결혼하고 처음 얻은 셋방은 부엌이 따로 없어서 마당 수돗가에서 밥을 지었다. 겨울이면 물이 얼어 아침마다 주전자로 녹였다.";
 const STORY_LONG2 = `${STORY_LONG} 그 방에서 큰애를 낳았다.`;
+const STORY_MOVE = "[fixture] 옮기는 이야기 — 장날마다 읍내까지 걸어갔다.";
 const SHIP = {
   recipientName: "[fixture]",
   recipientPhone: "010-0000-0000",
@@ -944,6 +946,7 @@ async function main() {
       data: { userId, birthYear: 1950, region: "대구", skeletonGeneratedAt: now },
     });
     await scenario(userId);
+    await moveScenario(userId);
   } finally {
     // 시나리오 도중 실패해도 이메일로 찾아 지운다.
     await removeFixture();
@@ -963,8 +966,25 @@ async function main() {
       failed += 1;
     }
   }
-  console.log(failed === 0 && count === 38 ? "\nALL PASS (38)" : `\n${failed} FAILED / ${count} 항목`);
-  process.exitCode = failed === 0 && count === 38 ? 0 : 1;
+  console.log(failed === 0 && count === 39 ? "\nALL PASS (39)" : `\n${failed} FAILED / ${count} 항목`);
+  process.exitCode = failed === 0 && count === 39 ? 0 : 1;
+}
+
+// My Life 3단계 — 이야기를 다른 시절로 옮기면(lib/episode-move) 온디맨드 브릿지 행(v3_<시기>)도 따라간다:
+// 옛 시기 행 본문에서 빠지고 새 시기 행에 들어감(브릿지 무수정 — 원본 Episode.lifeEventId 만 바뀜).
+async function moveScenario(userId: string) {
+  const mk = async (label: string, year: number, sequenceOrder: number) =>
+    (await prisma.lifeEvent.create({ data: { userId, type: "CUSTOM", label, year, status: "CONFIRMED", confirmedAt: new Date(), sequenceOrder }, select: { id: true } })).id;
+  const from = await mk("[fixture] 옮기기 전 시기", 1975, 90);
+  const to = await mk("[fixture] 옮길 시기", 1979, 91);
+  const saved = await createEpisodeBridge(userId, from, "", 1975, STORY_MOVE, "");
+  const before = await syncV3Bridge(userId);
+  const moved = saved ? await moveEpisodeToLifeEvent(userId, saved.episodeId, to) : null;
+  const after = await syncV3Bridge(userId);
+  const body = (rows: typeof after, id: string) => rows.find((r) => r.id === `v3_${id}`)?.content ?? null;
+  check("옮기기 — 다른 시절로 옮긴 이야기는 브릿지 행도 따라감(옛 시기 행 본문 빠짐 · 새 시기 행에 본문)",
+    !!moved?.ok && moved.moved && body(before, from) === STORY_MOVE && !(body(after, from) ?? "").includes("옮기는 이야기") && body(after, to) === STORY_MOVE,
+    { before: body(before, from), afterFrom: body(after, from), afterTo: body(after, to), moved });
 }
 
 main()

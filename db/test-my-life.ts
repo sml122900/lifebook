@@ -11,6 +11,7 @@
 //   ④ 간선 — 이야기·중심·인물·장소·모임 선택별 간선과 연결 노드 · 종류 끄기 · 접힌 띠 이야기 빠짐 · 곡선이 중심 노드를 안 지남
 //   ⑤ 검색 — 띄어쓰기 무시·이름 > 본문 순서·본문 앞뒤 조각·걸친 이야기 한 번·빈 질의
 //   ⑥ 순수 함수 — 작은 물방울 줄 나누기·본문 첫 문장·지금 보는 곳·노드 수
+//   ⑦ 3단계 — 장소 묶음(데이터·배치·간선·검색) · 영역 제목 옆 [+ 사람][+ 모임]/[+ 장소][+ 묶음] 자리
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0).
 // 실행: npx tsx db/test-my-life.ts
@@ -104,15 +105,20 @@ type PersonNode = Extract<LayoutNode, { kind: "person" }>;
 const insideCenter = (p: { x: number; y: number }, c: LayoutNode) => p.x > c.x + 1 && p.x < c.x + c.w - 1 && p.y > c.y + 1 && p.y < c.y + c.h - 1;
 
 // 모임 영역 소속 검사 — 영역에 보이는 모임 중 그 사람이 속한 영역 안에만, 나머지 영역 밖에.
+// 인물 = 모임 영역, 장소 = 장소 묶음 영역(3단계). 다른 영역의 도형과는 언제나 밖.
 function membershipErrors(data: MyLifeData, lay: MyLifeLayout): string[] {
   const errs: string[] = [];
   const personById = new Map(data.people.map((p) => [p.id, p]));
+  const placeById = new Map(data.places.map((p) => [p.id, p]));
   for (const n of lay.nodes) {
-    if (n.kind !== "person") continue;
-    const p = personById.get(n.personId)!;
+    if (n.kind !== "person" && n.kind !== "place") continue;
+    const name = n.kind === "person" ? personById.get(n.personId)!.name : placeById.get(n.placeId)!.name;
     for (const s of lay.shapes) {
-      const member = !p.draft && p.groupIds.includes(s.groupId);
-      if (member ? !rectInsideShape(s, n) : !rectOutsideShape(s, n)) errs.push(`${p.name}:${s.groupId}:${member ? "밖에있음" : "안에있음"}`);
+      const member =
+        n.kind === "person"
+          ? s.region === "people" && !personById.get(n.personId)!.draft && personById.get(n.personId)!.groupIds.includes(s.groupId)
+          : s.region === "places" && placeById.get(n.placeId)!.groupIds.includes(s.groupId);
+      if (member ? !rectInsideShape(s, n) : !rectOutsideShape(s, n)) errs.push(`${name}:${s.groupId}:${member ? "밖에있음" : "안에있음"}`);
     }
   }
   return errs;
@@ -134,7 +140,7 @@ function edgesHittingCenters(data: MyLifeData, lay: MyLifeLayout, selections: st
 }
 
 // 합성 데이터 — 중심 N, 이야기 S, 인물 P, 모임 G(구성 무작위·여러 모임 소속 포함), 장소 Q. 결정적 의사난수.
-function synthetic(o: { events: number; stories: number; people: number; groups: number; places: number; seed?: number }): MyLifeData {
+function synthetic(o: { events: number; stories: number; people: number; groups: number; places: number; placeGroups?: number; seed?: number }): MyLifeData {
   let x = o.seed ?? 7;
   const rnd = () => (x = (x * 1103515245 + 12345) % 2147483648) / 2147483648;
   const names = ["김민수", "박영수", "이순자", "정미숙", "한상철", "최영희", "강동원", "윤정아", "조성호", "임하늘", "송미란", "오세훈"];
@@ -151,7 +157,16 @@ function synthetic(o: { events: number; stories: number; people: number; groups:
       }
     }
   }
-  const places = Array.from({ length: o.places }, (_, i) => ({ id: `q${i}`, name: `장소${i}`, address: null, source: null, lat: null, lng: null }));
+  const places = Array.from({ length: o.places }, (_, i) => ({ id: `q${i}`, name: `장소${i}`, address: null, source: null, lat: null, lng: null, groupIds: [] as string[] }));
+  const placeGroups = Array.from({ length: o.placeGroups ?? 0 }, (_, g) => ({ id: `pg${g}`, name: `묶음${g}`, memberIds: [] as string[] }));
+  for (const q of places) {
+    for (const g of placeGroups) {
+      if (rnd() < 0.3) {
+        q.groupIds.push(g.id);
+        g.memberIds.push(q.id);
+      }
+    }
+  }
   const events: MyLifeEvent[] = Array.from({ length: o.events }, (_, i) => ({
     id: `e${i}`, type: "CUSTOM", label: `시기 ${i}`, year: i % 7 === 3 ? null : 1950 + i * (rnd() < 0.2 ? 12 : 3), endYear: null,
     stories: [], personIds: [], placeIds: [], groupIds: [],
@@ -162,11 +177,11 @@ function synthetic(o: { events: number; stories: number; people: number; groups:
       ...(people.length ? Array.from({ length: Math.floor(rnd() * 3) }, () => people[Math.floor(rnd() * people.length)]).map((p) => ({ kind: "person" as const, id: p.id, name: p.name, proposed: p.draft })) : []),
       ...(places.length && rnd() < 0.4 ? [places[Math.floor(rnd() * places.length)]].map((q) => ({ kind: "place" as const, id: q.id, name: q.name, proposed: false })) : []),
     ].filter((c, i, arr) => arr.findIndex((d) => d.id === c.id) === i);
-    ev.stories.push({ id: `s${k}`, kind: rnd() < 0.15 ? "SELF" : "STORY", title: null, content: "가".repeat(10 + Math.floor(rnd() * 80)) + ".", primaryEventId: ev.id, otherEventIds: [], chips, hasPending: chips.some((c) => c.proposed) });
+    ev.stories.push({ id: `s${k}`, kind: rnd() < 0.15 ? "SELF" : "STORY", title: null, content: "가".repeat(10 + Math.floor(rnd() * 80)) + ".", primaryEventId: ev.id, otherEventIds: [], subjectPersonId: null, chips, hasPending: chips.some((c) => c.proposed) });
   }
   for (const ev of events) if (people.length && rnd() < 0.5) ev.personIds.push(people[Math.floor(rnd() * people.length)].id);
   for (const ev of events) if (places.length && rnd() < 0.3) ev.placeIds.push(places[Math.floor(rnd() * places.length)].id);
-  return { events, people, groups, places };
+  return { events, people, groups, places, placeGroups };
 }
 
 async function main() {
@@ -264,7 +279,7 @@ async function main() {
     }
     ops = 0;
     const big = await getMyLifeData(a, counted);
-    check("② Prisma 호출 수 = 6 고정(기록 8건·인물 8명·연결 16건 늘려도)", opsSmall === 6 && ops === 6 && big.people.length === 14, { opsSmall, ops });
+    check("② Prisma 호출 수 = 7 고정(기록 8건·인물 8명·연결 16건 늘려도 — 3단계 장소 묶음 +1)", opsSmall === 7 && ops === 7 && big.people.length === 14, { opsSmall, ops });
 
     // ── ③ 배치 ───────────────────────────────────────────────────
     const lay = layoutMyLife(d);
@@ -377,6 +392,39 @@ async function main() {
     check("⑥ 지금 보는 곳", bandAt(lay, mid)?.eventId === hs && bandAt(lay, -100)?.eventId === birth);
     check("⑥ 노드 수 = 중심 + 이야기 + 인물 + 장소, 시간 줄기 수 = 중심 + 이야기, 접기 기준 60",
       countMapNodes(d) === 3 + 4 + 6 + 3 && countTimelineNodes(d) === 3 + 4 && FOLD_ALL_ABOVE === 60);
+
+    // ── ⑦ 3단계 — 장소 묶음 · 영역 제목 옆 만들기 자리 ─────────────────
+    const pgSea = (await prisma.placeGroup.create({ data: { userId: a, name: "[fixture] 바닷가 곳들" }, select: { id: true } })).id;
+    await saveNodeLink(a, { type: "PLACE_GROUP", id: pgSea }, { type: "PLACE", id: place1 });
+    await prisma.placeGroup.create({ data: { userId: b, name: "[fixture] B 묶음" } });
+    const d7 = await getMyLifeData(a);
+    const q1 = d7.places.find((x) => x.id === place1);
+    check("⑦ 데이터 — 장소 묶음·구성원(입구로 넣음), 장소의 묶음 id, 남의 묶음 0",
+      d7.placeGroups.length === 1 && d7.placeGroups[0].id === pgSea && d7.placeGroups[0].memberIds.join() === place1 && q1?.groupIds.join() === pgSea, d7.placeGroups);
+    const ly7 = layoutMyLife(d7);
+    const pgl = ly7.nodes.find((n) => n.key === `pgl:${pgSea}`);
+    check("⑦ 배치 — 장소록에 묶음 영역(장소 쪽 도형 1·이름 pgl:)·구성원은 그 안·나머지 장소는 밖·교차 0",
+      !!pgl && pgl.kind === "groupLabel" && pgl.region === "places" && ly7.shapes.filter((s) => s.region === "places").length === 1 &&
+        membershipErrors(d7, ly7).length === 0 && findOverlaps(ly7.nodes).length === 0 && ly7.shownPlaceGroupIds.join() === pgSea,
+      { m: membershipErrors(d7, ly7), o: findOverlaps(ly7.nodes) });
+    const add7 = ly7.nodes.filter((n) => n.kind === "regionAdd");
+    const title7 = (r: string) => ly7.nodes.find((n) => n.key === `title:${r}`)!;
+    check("⑦ 영역 만들기 자리 — 인물록·장소록 각 1(제목 바로 아래 줄·영역 왼쪽 맞춤·폭 300 — 390 화면 안·56px·겹침 0)",
+      add7.length === 2 && add7.every((n) => n.h === L.ADD_H && n.w <= 300 && n.x === L.REGION_X) &&
+        ["people", "places"].every((r) => add7.find((n) => n.key === `add:${r}`)!.y === title7(r).y + L.TITLE_H + L.ADD_GAP));
+    const e7 = selectionEdges(d7, ly7, `pgl:${pgSea}`, on);
+    check("⑦ 간선 — 장소 묶음 선택 = 간선 없이 구성원 장소 연결 표시", e7.edges.length === 0 && e7.related.has(`pl:${place1}`) && e7.related.size === 1, [...e7.related]);
+    check("⑦ 검색 — 장소 묶음 이름", searchMyLife(d7, "바닷가").some((r) => r.kind === "placeGroup" && r.key === `pgl:${pgSea}`));
+    for (const [g, pg] of [[0, 1], [2, 2], [3, 3], [1, 5]] as const) {
+      const syn = synthetic({ events: 11, stories: 23, people: 12, groups: g, places: 14, placeGroups: pg, seed: 21 + pg });
+      const ly = layoutMyLife(syn);
+      const placeShapes = ly.shapes.filter((s) => s.region === "places").length;
+      const placeChips = ly.nodes.filter((n) => n.kind === "groupChip" && n.region === "places").length;
+      check(`⑦ 합성 모임 ${g}·장소 묶음 ${pg} — 교차 0·소속 맞음(두 영역)·묶음 영역 ${Math.min(pg, 3)}${pg > 3 ? `·칩 ${pg}` : ""}`,
+        findOverlaps(ly.nodes).length === 0 && membershipErrors(syn, ly).length === 0 && placeShapes === Math.min(pg, 3) && placeChips === (pg > 3 ? pg : 0) &&
+          ly.nodes.filter((n) => n.kind === "place").length === 14 && ly.shifted === 0,
+        { o: findOverlaps(ly.nodes).slice(0, 3), m: membershipErrors(syn, ly).slice(0, 3), placeShapes, placeChips });
+    }
   } finally {
     await removeFixtures();
     console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B] } } }));

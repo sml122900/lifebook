@@ -1,6 +1,6 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 4개의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 ## 요약
@@ -8,13 +8,13 @@
 | 파일 | 임시 문구 | 화면에 안 나오는 키(쓰는 곳 없음) | 보이는 곳 |
 |---|---|---|---|
 | `lib/free-chat-copy.ts` | 60 (전부 — 카드 오류 6개는 2026-11-02 `lib/node-proposal.ts` 에서 옮겨 옴) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
-| `lib/my-life-copy.ts` | 79 (확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 | `/my-life` · 사이드 패널 메뉴 · `/story-review` |
+| `lib/my-life-copy.ts` | 189 (79 + 3단계 110 · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
 | `lib/node-confirm-copy.ts` | 32 (전부) | 0 | `/story-review/confirm` · `/story-review` "정리할 것이 있어요" 카드 · `/interview` 요약 |
 | `lib/interview/copy.ts` | 43 (전부) | 0 | `/interview` · `/story-review` "오늘의 인터뷰" 카드·"그때의 나" |
 | `lib/interview/question-pool.ts` | 문항 8개(18줄 — 구조 예시 5 + "관계별 나" 3) | — | `/interview` 질문·이야기 제목 |
 | 그 밖 | 1 | — | 아래 "그 밖" |
 
-- 화면 코드가 안 부르던 My Life 키 7개(`listBranches`·`groupTag`·`alsoElsewhere`·`personName`·`groupName`·`placeName`·`noPlaceGroup`)는 2026-11-02 삭제(성민 지시) — 지금 목록에 쓰는 곳 없는 키 0.
+- 화면 코드가 안 부르던 My Life 키 7개(`listBranches`·`groupTag`·`alsoElsewhere`·`personName`·`groupName`·`placeName`·`noPlaceGroup`)는 2026-11-02 삭제(성민 지시) — 지금 목록에 쓰는 곳 없는 키 0. (`noPlaceGroup` 은 3단계 장소 묶음 "묶음 없는 곳"으로 다시 씀.)
 - `lib/free-chat.ts` 80~97줄의 쓰임은 앱 안내문 판정(`isAppNotice` — 구간 대화에서 안내문을 빼는 목록)이라 "보이는 곳"에 안 적었다. 이 문구를 바꾸면 판정도 저절로 따라간다.
 - 문구가 아닌 임시(참고): `lib/characters.ts` 말동무 캐릭터 그림(임시 도형 Lottie), `lib/constants/education-labels.ts` 국민학교/초등학교 명칭 기준(학제 연혁 받기 전 임시 규칙).
 
@@ -166,6 +166,19 @@
 | `placeName2` | 96 | `` (name: string, stories: number) => `장소, ${name}, 이야기 ${stories}` `` | /my-life | app/my-life/MyLifeView.tsx:1084 |
 | `groupLabelName` | 97 | `` (name: string, n: number) => `모임, ${name}, ${n}명` `` | /my-life | app/my-life/MyLifeView.tsx:1022 |
 | `groupChipName` | 98 | `` (name: string, shown: boolean) => (shown ? `모임 ${name}, 지도에 보이는 중` : `모임 ${name}, 지도에 보이기`) `` | /my-life | app/my-life/MyLifeView.tsx:1004 |
+
+#### 3단계 추가(2026-11-02 — 지도에서 직접 만들기, 전부 `[임시 — 성민 확정 필요]`)
+
+위 표의 `app/my-life/MyLifeView.tsx` 줄 번호는 3단계 전 값이다(3단계에서 패널이 `app/my-life/EditUI.tsx` 로 나뉘며 바뀜).
+
+| 묶음 | 키 | 보이는 곳 |
+|---|---|---|
+| 장소 묶음(7) | `kindPlaceGroup` "장소 묶음" · `noPlaceGroup` "묶음 없는 곳" · `panelPlaceMembers` "묶음 안 장소" · `panelPlaceGroups` "장소 묶음" · `placeGroupEmpty` "아직 넣은 곳이 없어요" · `placeGroupLabelName`·`placeGroupChipName`(낭독용) | 장소록 영역·칩·목록 보기·패널·찾기 종류 |
+| `edit` 만들기 시트(20) | `create` "만들기" · `createTitle` "무엇을 만들까요?" · `kinds` 7(시기·이야기·그때의 나·사람·장소·모임·장소 묶음) · `kindHints` 7 · `regionAdd*` 4(사람·모임·장소·묶음) · `regionAddName` | 머리 줄·인물록/장소록 제목 아래·시트 |
+| `edit` 입력(23) | `fieldName`·`fieldYear`·`fieldEndYear`·`fieldPeriod`·`fieldTitle`·`fieldBody`·`fieldSelfBody`·`fieldRelation`·`fieldGroups`·`fieldPeople`·`fieldSelfPeople`·`fieldPlaces`·`fieldMembers`·`fieldPlaceMembers`·`placeByName`·`placeBySearch`·`save`·`saving`·`cancel`·`back`·`sameNameQuestion`·`samePerson`·`differentPerson` | 만들기 시트·패널 [새로 만들기]·[직접 쓰기] |
+| `edit` 알림(5) | `created`·`reused`·`linked`·`alreadyLinked`·`undo` "되돌리기"·`undone` | 패널 맨 위 알림 |
+| `edit` 패널 버튼·단계(29) | `addStory`·`talkStory`·`writeStory`·`addPerson`·`addPlace`·`addGroup`·`addToGroup`·`addToPlaceGroup`·`addMember`·`pickTitle`·`pickNone`·`pickSearch`·`pickNew`·`moveStory`·`moveTitle`·`hereNow`·`moveConfirm`·`moveDo`·`moved`·`remove`·`removeConfirm`·`removeDo` "뺄게요"·`removed`·`subjectNote`·`deleteNode` "이 노드 지우기"·`deleteTitle`·`deleteLinked`·`deleteNoLinks`·`linkStories`·`linkPeople`·`linkPlaces`·`deleteStoriesToo`·`deleteFamily`·`deleteIrreversible`·`deleteDo`·`deleted`·`deleteSkeletonNote`·`personDeleteNote`·`personDeleteLink` | 노드 패널 |
+| `edit` 오류(14) | `notFound`·`alreadyPrimary`·`cannotLink`·`cannotUnlink`·`cannotRemovePrimary`·`cannotRemoveSubject`·`needName`·`tooLong`·`badYear`·`badEndYear`·`needBody`·`pickPeriod`·`repickSame`·`failed` | 시트·패널 오류 줄(`lib/my-life-edit.ts` 가 돌려줌) |
 
 ### `lib/node-confirm-copy.ts` (`CONFIRM_COPY`)
 

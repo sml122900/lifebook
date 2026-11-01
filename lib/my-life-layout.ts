@@ -4,7 +4,8 @@
 // 지도 = 고정 좌표계의 한 장(배율 1 = CSS px). 노드 크기·간격은 화면 크기·접힘·배율과 무관하다.
 //   시간 줄기: 이야기·그때의 나 열 x 40~240 · 줄기 x 296 · 중심 노드 x 172~420(248×120, 전부 같은 크기).
 //   간선 통로: x 420~520(노드 없음 — 이야기 → 인물·장소 간선이 지나감).
-//   인물록: x 520~ (제목 → 모임 칩(4개 이상) → 모임 영역 1~3개 → 모임 없는 분), 장소록: 그 아래.
+//   인물록: x 520~ (제목 → [+ 사람][+ 모임] → 모임 칩(4개 이상) → 모임 영역 1~3개 → 모임 없는 분), 장소록: 그 아래 —
+//   같은 모양(제목 + [+ 장소][+ 묶음] → 장소 묶음 칩 → 묶음 영역 → 묶음 없는 곳, 3단계). 키: 모임 gl/gc · 장소 묶음 pgl/pgc.
 //   (2b-3a 의 "중심마다 오른쪽 사람·장소 가지"는 없앰 — 사람·장소는 인물록·장소록에 한 번씩만.)
 // 겹침: 시간 줄기는 띠를 쌓기만 하고 배치 뒤 resolveOverlaps 로 한 번 더 검사·해소. 인물록·장소록은 x 520
 //   오른쪽에만 놓여 시간 줄기와 가로로 만날 수 없고, 안쪽은 칸 격자(구성상 0). 모임 영역은 "각 칸이 자기 모임 영역
@@ -65,6 +66,9 @@ export const L = {
   GROUP_CHIP_H: 56,
   SECTION_GAP: 24,
   REGION_GAP: 64,
+  ADD_GAP: 12, // 영역 제목 아래 [+ 사람][+ 모임] 줄까지
+  ADD_W: 300,
+  ADD_H: 56,
   EMPTY_GROUP_W: 200, // 아무도 없는 모임도 영역이 보이게
   EMPTY_GROUP_H: 80,
   MAX_SHOWN_GROUPS: 3,
@@ -87,12 +91,13 @@ export type LayoutNode =
   | (Box & { kind: "gap"; years: number })
   | (Box & { kind: "person"; personId: string; hiddenGroups: number }) // hiddenGroups = 영역에 안 보이는 모임 수
   | (Box & { kind: "place"; placeId: string })
-  | (Box & { kind: "groupLabel"; groupId: string })
-  | (Box & { kind: "groupChip"; groupId: string; shown: boolean })
+  | (Box & { kind: "groupLabel"; groupId: string; region: "people" | "places" })
+  | (Box & { kind: "groupChip"; groupId: string; shown: boolean; region: "people" | "places" })
+  | (Box & { kind: "regionAdd"; region: "people" | "places" }) // 영역 제목 옆 [+ 사람][+ 모임] / [+ 장소][+ 묶음]
   | (Box & { kind: "title"; region: "people" | "places" })
   | (Box & { kind: "subtitle"; region: "people" | "places" });
 
-export type LayoutShape = GroupShape & { groupId: string; index: number }; // index = 영역 안 순서(테두리 무늬 구분)
+export type LayoutShape = GroupShape & { groupId: string; index: number; region: "people" | "places" }; // index = 영역 안 순서(테두리 무늬 구분)
 export type LayoutBand = { eventId: string; top: number; bottom: number; centerMidY: number };
 export type TrunkSegment = { y1: number; y2: number; decade: number | null };
 export type Edge = { x1: number; y1: number; x2: number; y2: number };
@@ -106,6 +111,7 @@ export type MyLifeLayout = {
   bands: LayoutBand[];
   shapes: LayoutShape[];
   shownGroupIds: string[];
+  shownPlaceGroupIds: string[];
   regions: { timeline: Rect; people: Rect; places: Rect };
   cellGap: number; // 모임 영역 칸 사이(소속 검사로 넓혀졌으면 56 보다 큼)
   shifted: number; // 시간 줄기 겹침 해소로 내린 횟수(정상 배치 = 0)
@@ -325,7 +331,8 @@ function labelWidth(name: string): number {
 }
 
 type Item = { id: string; groupIds: string[] };
-type VennOut = { pos: Map<string, Rect>; shapes: LayoutShape[]; gap: number };
+type VennShape = Omit<LayoutShape, "region">;
+type VennOut = { pos: Map<string, Rect>; shapes: VennShape[]; gap: number };
 
 // 모임 영역 배치(원점 0,0 기준 — 부르는 쪽이 옮긴다). 소속 검사가 어긋나면 칸 사이를 넓혀 다시.
 function placeVenn(items: Item[], shown: string[], kind: GroupShapeKind): VennOut {
@@ -374,7 +381,7 @@ function placeVenn(items: Item[], shown: string[], kind: GroupShapeKind): VennOu
         pos.set(id, { x: cr.x + (j % cols) * (L.ITEM_W + L.ITEM_GAP), y: cr.y + Math.floor(j / cols) * (L.ITEM_H + L.ITEM_GAP), w: L.ITEM_W, h: L.ITEM_H });
       });
     }
-    const shapes: LayoutShape[] = shown.map((groupId, i) => {
+    const shapes: VennShape[] = shown.map((groupId, i) => {
       const bit = 1 << i;
       const cells = [...cellRect.entries()].filter(([sig]) => sig & bit).map(([, r]) => r);
       return { ...shapeAround(bboxOf(cells), kind), groupId, index: i };
@@ -399,7 +406,7 @@ function placeVenn(items: Item[], shown: string[], kind: GroupShapeKind): VennOu
 type RegionOut = { nodes: LayoutNode[]; shapes: LayoutShape[]; rect: Rect };
 
 // 모임 이름 버튼 — 1번째 위 왼쪽, 2번째 위 오른쪽, 3번째 아래 가운데. 위 둘이 겹치면 2번째를 한 줄 위로.
-function placeLabels(shapes: LayoutShape[], names: Map<string, string>): { groupId: string; rect: Rect }[] {
+function placeLabels(shapes: VennShape[], names: Map<string, string>): { groupId: string; rect: Rect }[] {
   const out: { groupId: string; rect: Rect }[] = [];
   shapes.forEach((s, i) => {
     const w = labelWidth(names.get(s.groupId) ?? "");
@@ -427,7 +434,12 @@ function layoutRegion(
   const shapes: LayoutShape[] = [];
   let y = top;
   nodes.push({ key: `title:${region}`, kind: "title", region, x: x0, y, w: 240, h: L.TITLE_H });
-  y += L.TITLE_H + L.SECTION_GAP;
+  // [+ 사람][+ 모임] 은 제목 아래 줄 — 제목 오른쪽이면 390 화면에서 영역 왼쪽에 맞췄을 때 둘째 버튼이 화면 밖(실측).
+  y += L.TITLE_H + L.ADD_GAP;
+  nodes.push({ key: `add:${region}`, kind: "regionAdd", region, x: x0, y, w: L.ADD_W, h: L.ADD_H });
+  y += L.ADD_H + L.SECTION_GAP;
+  const gl = region === "people" ? "gl" : "pgl";
+  const gc = region === "people" ? "gc" : "pgc";
 
   // 영역에 보일 모임 — 고른 것(있으면) 우선, 모자라면 인원 많은 순, 최대 3개(Q52).
   const valid = new Set(groups.map((g) => g.id));
@@ -443,7 +455,7 @@ function layoutRegion(
         cx = x0;
         y += L.GROUP_CHIP_H + L.ITEM_GAP;
       }
-      nodes.push({ key: `gc:${g.id}`, kind: "groupChip", groupId: g.id, shown: shown.includes(g.id), x: cx, y, w, h: L.GROUP_CHIP_H });
+      nodes.push({ key: `${gc}:${g.id}`, kind: "groupChip", groupId: g.id, shown: shown.includes(g.id), region, x: cx, y, w, h: L.GROUP_CHIP_H });
       cx += w + L.ITEM_GAP;
     }
     y += L.GROUP_CHIP_H + L.SECTION_GAP;
@@ -460,8 +472,8 @@ function layoutRegion(
     const bb = bboxOf(all);
     const dx = x0 - bb.x;
     const dy = y - bb.y;
-    for (const s of v.shapes) shapes.push({ ...s, x: s.x + dx, y: s.y + dy });
-    for (const l of labels) nodes.push({ key: `gl:${l.groupId}`, kind: "groupLabel", groupId: l.groupId, x: l.rect.x + dx, y: l.rect.y + dy, w: l.rect.w, h: l.rect.h });
+    for (const s of v.shapes) shapes.push({ ...s, region, x: s.x + dx, y: s.y + dy });
+    for (const l of labels) nodes.push({ key: `${gl}:${l.groupId}`, kind: "groupLabel", groupId: l.groupId, region, x: l.rect.x + dx, y: l.rect.y + dy, w: l.rect.w, h: l.rect.h });
     for (const it of items) {
       const p = v.pos.get(it.id);
       if (!p) continue;
@@ -502,7 +514,7 @@ function layoutRegion(
 export function layoutMyLife(
   data: MyLifeData,
   // shapeKind — 회귀가 원 모양으로도 소속 검사를 돌릴 때만. 화면은 결정 지점(GROUP_SHAPE) 그대로.
-  opts: { folded?: ReadonlySet<string>; shownGroupIds?: readonly string[]; shapeKind?: GroupShapeKind } = {},
+  opts: { folded?: ReadonlySet<string>; shownGroupIds?: readonly string[]; shownPlaceGroupIds?: readonly string[]; shapeKind?: GroupShapeKind } = {},
 ): MyLifeLayout {
   const kind = opts.shapeKind ?? GROUP_SHAPE;
   const t = layoutTimeline(data, opts.folded ?? new Set<string>());
@@ -517,9 +529,9 @@ export function layoutMyLife(
   );
   const places = layoutRegion(
     "places",
-    data.places.map((p) => ({ id: p.id, groupIds: [], kind: "place" as const })),
-    [], // 장소 묶음은 3단계(PlaceGroup)
-    [],
+    data.places.map((p) => ({ id: p.id, groupIds: p.groupIds ?? [], kind: "place" as const })),
+    data.placeGroups ?? [],
+    opts.shownPlaceGroupIds ?? [],
     people.rect.y + people.rect.h + L.REGION_GAP,
     kind,
   );
@@ -536,6 +548,7 @@ export function layoutMyLife(
     bands: t.bands,
     shapes,
     shownGroupIds: people.shownGroupIds,
+    shownPlaceGroupIds: places.shownGroupIds,
     regions: { timeline: timelineRect, people: people.rect, places: places.rect },
     cellGap: people.cellGap,
     shifted: t.shifted,

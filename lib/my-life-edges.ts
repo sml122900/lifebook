@@ -96,8 +96,13 @@ export function selectionEdges(
       if ((kind === "person" ? ev.personIds : ev.placeIds).includes(id)) add(`ev:${ev.id}`, "event", sel.key, kind);
     }
   } else if (sel.kind === "groupLabel") {
-    const g = data.groups.find((x) => x.id === sel.groupId);
-    for (const id of g?.memberIds ?? []) if (node.has(`pe:${id}`)) related.add(`pe:${id}`);
+    // 모임 = 구성원 사람, 장소 묶음(3단계) = 구성원 장소 — 간선 없이 연결 표시만.
+    const places = sel.region === "places";
+    const g = (places ? data.placeGroups : data.groups).find((x) => x.id === sel.groupId);
+    for (const id of g?.memberIds ?? []) {
+      const k = `${places ? "pl" : "pe"}:${id}`;
+      if (node.has(k)) related.add(k);
+    }
   }
   return { edges, related };
 }

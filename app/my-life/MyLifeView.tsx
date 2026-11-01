@@ -10,9 +10,11 @@
 //   화면 밖 영역·연결 대상은 가장자리 버튼. 전체 보기 상태(배율 < 0.6)에서 노드를 누르면 패널 대신 그 노드로 확대.
 //   [찾기] = 브라우저 안 글자 검색(lib/my-life-search) — 결과를 누르면 접힌 띠를 펼치고 이동·선택.
 // 지도 DOM 은 시기 순 목록 → 인물록 → 장소록 순서(스크린리더·Tab). 모임 영역·간선은 aria-hidden.
+// 개편 3단계: 머리 줄 [+ 만들기](7종) · 인물록·장소록 제목 옆 [+ 사람][+ 모임]/[+ 장소][+ 묶음] · 장소 묶음 영역(장소록) ·
+//   패널의 넣기·빼기·되돌리기·옮기기·지우기(./EditUI). 만든 뒤 지도가 새 노드로 이동·선택·패널 + [되돌리기].
 
 import { MapPin, MessageCircle, Minus, Plus, Search, UserRound, Users } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 
@@ -35,6 +37,9 @@ import {
 import { searchMyLife, type SearchResult } from "@/lib/my-life-search";
 import { displayTitle, shortTitle } from "@/lib/story-title";
 
+import { undoCreateAction } from "./actions";
+import { CreateSheet, NodeEditor, type CreateKind, type Created, type Notice } from "./EditUI";
+
 const MAX_SCALE = 3;
 const MIN_SCALE = 0.5; // 지도 전체가 이보다 작아야 들어가면 그 배율까지 내려간다
 const ZOOM_STEP = 0.25;
@@ -45,7 +50,7 @@ const DOUBLE_TAP_SCALE = 1.6;
 const OVERVIEW_SCALE = 0.6; // 이 배율 미만 = 전체 보기 상태(노드 탭 = 그 노드로 확대 — Q60)
 const STORE_KEY = "mylife:v3";
 
-type Saved = { scale: number; x: number; y: number; folded: string[]; shownGroups: string[]; edges: EdgeToggles };
+type Saved = { scale: number; x: number; y: number; folded: string[]; shownGroups: string[]; shownPlaceGroups?: string[]; edges: EdgeToggles };
 
 function readSaved(): Saved | null {
   try {
@@ -115,6 +120,7 @@ type Index = {
   personById: Map<string, MyLifePerson>;
   placeById: Map<string, MyLifePlace>;
   groupById: Map<string, MyLifeGroup>;
+  placeGroupById: Map<string, MyLifeGroup>;
   storiesOfPerson: Map<string, { eventId: string; story: MyLifeStory }[]>;
   storiesOfPlace: Map<string, { eventId: string; story: MyLifeStory }[]>;
 };
@@ -139,6 +145,7 @@ function buildIndex(data: MyLifeData): Index {
     personById: new Map(data.people.map((p) => [p.id, p])),
     placeById: new Map(data.places.map((p) => [p.id, p])),
     groupById: new Map(data.groups.map((g) => [g.id, g])),
+    placeGroupById: new Map(data.placeGroups.map((g) => [g.id, g])),
     storiesOfPerson,
     storiesOfPlace,
   };
@@ -154,6 +161,7 @@ function nodeName(key: string, data: MyLifeData, idx: Index): string {
   if (kind === "pe") return idx.personById.get(a)?.name ?? "";
   if (kind === "pl") return idx.placeById.get(a)?.name ?? "";
   if (kind === "gl" || kind === "gc") return idx.groupById.get(a)?.name ?? "";
+  if (kind === "pgl" || kind === "pgc") return idx.placeGroupById.get(a)?.name ?? "";
   void data;
   return "";
 }
@@ -161,13 +169,14 @@ function nodeName(key: string, data: MyLifeData, idx: Index): string {
 // ── 화면 ────────────────────────────────────────────────────────────
 
 export function MyLifeView({ data }: { data: MyLifeData }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const view = searchParams.get("view") === "list" ? "list" : "map";
   // ?focus=<노드 키> — /chat-v3 에서 방금 만든 이야기로 바로 가기(My Life 개편 2단계). 처음 그릴 때 한 번 —
   // 그 띠는 펼치고, 선택 + 지도 이동(MapMode 의 focusRequest 이펙트가 준비된 뒤 옮긴다).
   const [initialFocus] = useState(() => {
     const key = searchParams.get("focus");
-    if (!key || !/^(ev|st|pe|pl|gl):/.test(key)) return null;
+    if (!key || !/^(ev|st|pe|pl|gl|pgl):/.test(key)) return null;
     const eventId = key.startsWith("st:") || key.startsWith("ev:") ? key.split(":")[1] : null;
     if (eventId && !data.events.some((e) => e.id === eventId)) return null;
     return { key, eventId };
@@ -182,6 +191,12 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
       ),
   );
   const [shownGroups, setShownGroups] = useState<string[]>([]);
+  const [shownPlaceGroups, setShownPlaceGroups] = useState<string[]>([]);
+  // 3단계 — 패널 맨 위 알림(넣었어요·만들었어요 + [되돌리기], 다음 동작 전까지) · 만들기 시트 · 만든 뒤 갈 노드.
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [createKind, setCreateKind] = useState<CreateKind | null | undefined>(undefined); // undefined = 닫힘, null = 종류 고르기부터
+  const [pendingOpen, setPendingOpen] = useState<Created | null>(null);
+  const createRef = useRef<HTMLDialogElement>(null);
   const [edgesOn, setEdgesOn] = useState<EdgeToggles>({ person: true, place: true });
   const [selected, setSelected] = useState<string | null>(initialFocus?.key ?? null);
   const [panel, setPanel] = useState<string | null>(null);
@@ -194,7 +209,10 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const findRef = useRef<HTMLDialogElement>(null);
 
-  const layout = useMemo(() => layoutMyLife(data, { folded, shownGroupIds: shownGroups }), [data, folded, shownGroups]);
+  const layout = useMemo(
+    () => layoutMyLife(data, { folded, shownGroupIds: shownGroups, shownPlaceGroupIds: shownPlaceGroups }),
+    [data, folded, shownGroups, shownPlaceGroups],
+  );
   const idx = useMemo(() => buildIndex(data), [data]);
 
   const openPanel = useCallback((key: string) => {
@@ -219,6 +237,13 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
     if (findOpen && !d.open) d.showModal();
     if (!findOpen && d.open) d.close();
   }, [findOpen]);
+
+  useEffect(() => {
+    const d = createRef.current;
+    if (!d) return;
+    if (createKind !== undefined && !d.open) d.showModal();
+    if (createKind === undefined && d.open) d.close();
+  }, [createKind]);
 
   function onDialogClose() {
     setPanel(null);
@@ -261,13 +286,60 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
           return next;
         });
       }
-      // 모임 이름이 영역에 없으면(4개 이상 — 숨은 모임) 칩으로
-      const target = key.startsWith("gl:") && !layout.nodes.some((n) => n.key === key) ? `gc:${key.slice(3)}` : key;
+      // 모임·장소 묶음 이름이 영역에 없으면(4개 이상 — 숨은 모임) 칩으로
+      const target =
+        key.startsWith("gl:") && !layout.nodes.some((n) => n.key === key)
+          ? `gc:${key.slice(3)}`
+          : key.startsWith("pgl:") && !layout.nodes.some((n) => n.key === key)
+          ? `pgc:${key.slice(4)}`
+          : key;
       setSelected(target);
       setFocusRequest((r) => ({ key: target, n: (r?.n ?? 0) + 1 }));
     },
     [view, layout],
   );
+
+  // 만든 뒤·옮긴 뒤 — 새 데이터(router.refresh)에 그 노드가 생기면 이동·선택·패널 + 알림.
+  useEffect(() => {
+    if (!pendingOpen) return;
+    const [k, x, y] = pendingOpen.key.split(":");
+    const has =
+      k === "ev" ? data.events.some((e) => e.id === x)
+      : k === "st" ? data.events.some((e) => e.id === x && e.stories.some((s) => s.id === y))
+      : k === "pe" ? data.people.some((p) => p.id === x)
+      : k === "pl" ? data.places.some((p) => p.id === x)
+      : k === "gl" ? data.groups.some((g) => g.id === x)
+      : k === "pgl" ? data.placeGroups.some((g) => g.id === x)
+      : false;
+    if (!has) return;
+    const done = pendingOpen;
+    // 다음 그림에서 — 새 노드가 지도에 그려진 뒤 옮긴다(효과 안에서 바로 상태를 바꾸지 않음).
+    const raf = requestAnimationFrame(() => {
+      setPendingOpen(null);
+      goTo(done.key, done.eventId);
+      const key = done.key.startsWith("pgl:") && !layout.nodes.some((n) => n.key === done.key) && view === "map" ? `pgc:${done.key.slice(4)}` : done.key;
+      openPanel(key);
+      const u = done.undo;
+      setNotice({
+        key,
+        text: done.text,
+        undo: u
+          ? async () => {
+              const r = await undoCreateAction(u);
+              router.refresh();
+              return r;
+            }
+          : undefined,
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [data, pendingOpen, goTo, openPanel, layout, view, router]);
+
+  function afterCreate(r: Created) {
+    setCreateKind(undefined);
+    setPendingOpen(r);
+    router.refresh();
+  }
 
   return (
     <>
@@ -288,10 +360,13 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
           openPanel={openPanel}
           onToggleView={toggleView}
           onOpenFind={() => setFindOpen(true)}
+          onCreate={(k) => setCreateKind(k)}
+          shownPlaceGroups={shownPlaceGroups}
+          setShownPlaceGroups={setShownPlaceGroups}
           focusRequest={focusRequest}
         />
       ) : (
-        <ListMode data={data} idx={idx} openPanel={openPanel} onToggleView={toggleView} onOpenFind={() => setFindOpen(true)} />
+        <ListMode data={data} idx={idx} openPanel={openPanel} onToggleView={toggleView} onOpenFind={() => setFindOpen(true)} onCreate={(k) => setCreateKind(k)} />
       )}
 
       <dialog
@@ -316,6 +391,16 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
                 dialogRef.current?.close();
               }}
               onGo={goTo}
+              notice={notice}
+              setNotice={setNotice}
+              onReopen={(r) => {
+                setPendingOpen(r);
+                router.refresh();
+              }}
+              onDeleted={() => {
+                setSelected(null);
+                dialogRef.current?.close();
+              }}
             />
           )}
           <Button variant="tertiary" size="lg" onClick={() => dialogRef.current?.close()}>
@@ -334,6 +419,15 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
         className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[75dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-ink/40"
       >
         {findOpen && <FindSheet data={data} onPick={(r) => goTo(r.key, r.eventId)} onClose={() => findRef.current?.close()} />}
+      </dialog>
+
+      <dialog
+        ref={createRef}
+        aria-labelledby="mylife-create-title"
+        onClose={() => setCreateKind(undefined)}
+        className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[85dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-ink/40"
+      >
+        {createKind !== undefined && <CreateSheet key={createKind ?? "pick"} data={data} initialKind={createKind} onDone={afterCreate} onClose={() => createRef.current?.close()} />}
       </dialog>
     </>
   );
@@ -372,6 +466,9 @@ function MapMode({
   openPanel,
   onToggleView,
   onOpenFind,
+  onCreate,
+  shownPlaceGroups,
+  setShownPlaceGroups,
   focusRequest,
 }: {
   data: MyLifeData;
@@ -389,6 +486,9 @@ function MapMode({
   openPanel: (key: string) => void;
   onToggleView: () => void;
   onOpenFind: () => void;
+  onCreate: (kind: CreateKind | null) => void;
+  shownPlaceGroups: string[];
+  setShownPlaceGroups: (g: string[]) => void;
   focusRequest: { key: string; n: number } | null;
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
@@ -409,7 +509,7 @@ function MapMode({
 
   // 콜백이 읽는 최신 값(렌더 중에는 읽지도 쓰지도 않는다).
   const layoutRef = useRef(layout);
-  const savedRef = useRef({ folded, shownGroups, edgesOn });
+  const savedRef = useRef({ folded, shownGroups, shownPlaceGroups, edgesOn });
   const relatedRef = useRef<{ selected: string | null; related: Set<string> }>({ selected, related });
   const stateRef = useRef({ scale: 1, positionX: 0, positionY: 0 });
   const downRef = useRef<{ x: number; y: number } | null>(null);
@@ -420,9 +520,9 @@ function MapMode({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useLayoutEffect(() => {
     layoutRef.current = layout;
-    savedRef.current = { folded, shownGroups, edgesOn };
+    savedRef.current = { folded, shownGroups, shownPlaceGroups, edgesOn };
     relatedRef.current = { selected, related };
-  }, [layout, folded, shownGroups, edgesOn, selected, related]);
+  }, [layout, folded, shownGroups, shownPlaceGroups, edgesOn, selected, related]);
 
   // 페이지 자체 스크롤을 잠근다 — 지도 영역의 끌기·확대가 페이지 스크롤·브라우저 확대와 다투지 않게.
   useLayoutEffect(() => {
@@ -451,6 +551,7 @@ function MapMode({
         const focusEvent = focusRequest?.key.startsWith("st:") ? focusRequest.key.split(":")[1] : null;
         setFolded(new Set(saved.folded.filter((id) => id !== focusEvent && data.events.some((e) => e.id === id))));
         setShownGroups(saved.shownGroups.filter((id) => data.groups.some((g) => g.id === id)));
+        setShownPlaceGroups((saved.shownPlaceGroups ?? []).filter((id) => data.placeGroups.some((g) => g.id === id)));
         setEdgesOn(saved.edges);
       }
     };
@@ -470,7 +571,7 @@ function MapMode({
   const save = useCallback(() => {
     const st = stateRef.current;
     const v = savedRef.current;
-    writeSaved({ scale: st.scale, x: st.positionX, y: st.positionY, folded: [...v.folded], shownGroups: v.shownGroups, edges: v.edgesOn });
+    writeSaved({ scale: st.scale, x: st.positionX, y: st.positionY, folded: [...v.folded], shownGroups: v.shownGroups, shownPlaceGroups: v.shownPlaceGroups, edges: v.edgesOn });
   }, []);
 
   // 자유 이동이라 경계 제한은 두지 않되, 움직임이 멈추면 지도가 화면에서 다 사라지지 않게 되돌린다.
@@ -521,7 +622,7 @@ function MapMode({
 
   useEffect(() => {
     if (ready) save();
-  }, [ready, folded, shownGroups, edgesOn, save]);
+  }, [ready, folded, shownGroups, shownPlaceGroups, edgesOn, save]);
 
   useEffect(() => {
     if (ready) requestAnimationFrame(updateOffscreen);
@@ -640,7 +741,7 @@ function MapMode({
     if (e.detail > 0 && d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > TAP_SLOP) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-node-key]");
     if (!el) return;
-    const { nodeKey, nodeKind, eventId, groupId } = el.dataset;
+    const { nodeKey, nodeKind, eventId, groupId, region, createKind } = el.dataset;
     if (!nodeKey) return;
     // 전체 보기 상태 — 패널 대신 그 노드로 확대(Q60).
     if (stateRef.current.scale < OVERVIEW_SCALE) {
@@ -648,9 +749,13 @@ function MapMode({
       return;
     }
     if (nodeKind === "fold" && eventId) toggleFold(eventId);
+    else if (nodeKind === "regionAdd" && createKind) onCreate(createKind as CreateKind);
     else if (nodeKind === "groupChip" && groupId) {
-      const shown = layoutRef.current.shownGroupIds;
-      setShownGroups(shown.includes(groupId) ? shown.filter((g) => g !== groupId) : [groupId, ...shown].slice(0, L.MAX_SHOWN_GROUPS));
+      const places = region === "places";
+      const shown = places ? layoutRef.current.shownPlaceGroupIds : layoutRef.current.shownGroupIds;
+      const next = shown.includes(groupId) ? shown.filter((g) => g !== groupId) : [groupId, ...shown].slice(0, L.MAX_SHOWN_GROUPS);
+      if (places) setShownPlaceGroups(next);
+      else setShownGroups(next);
     } else openPanel(nodeKey);
   }
 
@@ -690,6 +795,10 @@ function MapMode({
             <MessageCircle aria-hidden size={20} className="shrink-0" />
             {C.chatEntry}
           </ButtonLink>
+          <Button variant="secondary" size="lg" className="hidden! px-4! sm:inline-flex!" onClick={() => onCreate(null)}>
+            <Plus aria-hidden size={20} className="shrink-0" />
+            {C.edit.create}
+          </Button>
           <Button variant="secondary" size="lg" className="px-4!" onClick={onOpenFind}>
             <Search aria-hidden size={20} className="shrink-0" />
             {C.find}
@@ -700,11 +809,15 @@ function MapMode({
         </div>
       </div>
       {/* 기록 방법 1 — 채팅(My Life 개편 2단계). 390 에선 머리 줄에 자리가 없어 한 줄 아래 꽉 찬 버튼(sm 이상은 머리 줄 안). */}
-      <div className="px-6 pt-2 sm:hidden">
-        <ButtonLink href="/chat-v3" variant="primary" size="lg" className="w-full">
+      <div className="flex gap-2 px-6 pt-2 sm:hidden">
+        <ButtonLink href="/chat-v3" variant="primary" size="lg" className="min-w-0 flex-1 px-3!">
           <MessageCircle aria-hidden size={20} className="shrink-0" />
           {C.chatEntry}
         </ButtonLink>
+        <Button variant="secondary" size="lg" className="shrink-0 px-4!" onClick={() => onCreate(null)}>
+          <Plus aria-hidden size={20} className="shrink-0" />
+          {C.edit.create}
+        </Button>
       </div>
       {selected ? (
         <>
@@ -895,10 +1008,39 @@ const MapWorld = memo(function MapWorld({
   const mark = (key: string): React.CSSProperties => (key === selected ? SELECTED_OUTLINE : related.has(key) ? RELATED_OUTLINE : {});
   const people = layout.nodes.filter((n): n is Extract<LayoutNode, { kind: "person" }> => n.kind === "person");
   const places = layout.nodes.filter((n): n is Extract<LayoutNode, { kind: "place" }> => n.kind === "place");
-  const labels = layout.nodes.filter((n): n is Extract<LayoutNode, { kind: "groupLabel" }> => n.kind === "groupLabel");
-  const chips = layout.nodes.filter((n): n is Extract<LayoutNode, { kind: "groupChip" }> => n.kind === "groupChip");
+  const labelsOf = (r: "people" | "places") => layout.nodes.filter((n): n is Extract<LayoutNode, { kind: "groupLabel" }> => n.kind === "groupLabel" && n.region === r);
+  const chipsOf = (r: "people" | "places") => layout.nodes.filter((n): n is Extract<LayoutNode, { kind: "groupChip" }> => n.kind === "groupChip" && n.region === r);
+  const labels = labelsOf("people");
+  const chips = chipsOf("people");
   const titleOf = (r: "people" | "places") => byKey.get(`title:${r}`);
   const subOf = (r: "people" | "places") => byKey.get(`sub:${r}`);
+  const addOf = (r: "people" | "places") => byKey.get(`add:${r}`);
+  // 영역 제목 옆 [+ 사람][+ 모임] / [+ 장소][+ 묶음] — 지도 노드(data-node-key)라 끌기와 구분되고 전체 보기에선 확대.
+  const regionAdd = (r: "people" | "places") => {
+    const n = addOf(r);
+    if (!n) return null;
+    const items: [CreateKind, string][] = r === "people" ? [["person", C.edit.regionAddPerson], ["group", C.edit.regionAddGroup]] : [["place", C.edit.regionAddPlace], ["placeGroup", C.edit.regionAddPlaceGroup]];
+    return (
+      <div className="absolute flex gap-2" style={pos(n)}>
+        {items.map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            data-node-key={`add:${r}:${k}`}
+            data-node-kind="regionAdd"
+            data-create-kind={k}
+            aria-label={C.edit.regionAddName(label)}
+            className={buttonClasses("secondary", "lg", "flex-1 px-3!")}
+          >
+            <Plus aria-hidden size={20} className="shrink-0" />
+            {label}
+          </button>
+        ))}
+      </div>
+    );
+  };
+  const placeLabels = labelsOf("places");
+  const placeChips = chipsOf("places");
   return (
     <>
       {layout.shapes.map((s) => (
@@ -906,7 +1048,7 @@ const MapWorld = memo(function MapWorld({
           key={`shape:${s.groupId}`}
           aria-hidden
           data-group-id={s.groupId}
-          className="pointer-events-none absolute border-2 border-emerald-700 bg-emerald-700/5"
+          className={`pointer-events-none absolute border-2 ${s.region === "places" ? "border-sky-700 bg-sky-700/5" : "border-emerald-700 bg-emerald-700/5"}`}
           style={{ left: s.x, top: s.y, width: s.w, height: s.h, borderRadius: shapeRadiusCss(s), borderStyle: GROUP_BORDER[s.index % GROUP_BORDER.length] }}
         />
       ))}
@@ -991,6 +1133,7 @@ const MapWorld = memo(function MapWorld({
             {C.peopleTitle}
           </h2>
         )}
+        {regionAdd("people")}
         {chips.map((c) => {
           const g = idx.groupById.get(c.groupId);
           return (
@@ -1033,7 +1176,7 @@ const MapWorld = memo(function MapWorld({
             {C.noGroup}
           </p>
         )}
-        {layout.shapes.filter((s) => (idx.groupById.get(s.groupId)?.memberIds.length ?? 0) === 0).map((s) => (
+        {layout.shapes.filter((s) => s.region === "people" && (idx.groupById.get(s.groupId)?.memberIds.length ?? 0) === 0).map((s) => (
           <p key={`empty:${s.groupId}`} aria-hidden className="absolute m-0 flex items-center justify-center text-lg text-ink-soft" style={{ left: s.x, top: s.y, width: s.w, height: s.h }}>
             {C.groupEmpty}
           </p>
@@ -1071,6 +1214,56 @@ const MapWorld = memo(function MapWorld({
             {C.placesTitle}
           </h2>
         )}
+        {regionAdd("places")}
+        {placeChips.map((c) => {
+          const g = idx.placeGroupById.get(c.groupId);
+          return (
+            <button
+              key={c.key}
+              type="button"
+              data-node-key={c.key}
+              data-node-kind="groupChip"
+              data-group-id={c.groupId}
+              data-region="places"
+              aria-pressed={c.shown}
+              aria-label={C.placeGroupChipName(g?.name ?? "", c.shown)}
+              className={`absolute flex items-center justify-center gap-1 rounded-[10px] border-2 px-3 text-lg font-semibold ${c.shown ? "border-sky-700 bg-sky-50 text-ink" : "border-line bg-surface text-ink-soft"} ${FOCUS}`}
+              style={{ ...pos(c), ...mark(c.key) }}
+            >
+              <span className="truncate">{g?.name}</span>
+              {c.shown && <span aria-hidden>{C.groupChipShown}</span>}
+            </button>
+          );
+        })}
+        {placeLabels.map((l) => {
+          const g = idx.placeGroupById.get(l.groupId);
+          return (
+            <button
+              key={l.key}
+              type="button"
+              data-node-key={l.key}
+              data-node-kind="groupLabel"
+              data-group-id={l.groupId}
+              data-region="places"
+              aria-label={C.placeGroupLabelName(g?.name ?? "", g?.memberIds.length ?? 0)}
+              className={`absolute flex items-center gap-2 rounded-[10px] border-2 border-sky-700 bg-surface px-3 text-lg font-semibold text-ink hover:bg-banner ${FOCUS}`}
+              style={{ ...pos(l), ...mark(l.key) }}
+            >
+              <MapPin aria-hidden size={20} className="shrink-0 text-sky-700" />
+              <span className="truncate">{g?.name}</span>
+            </button>
+          );
+        })}
+        {subOf("places") && (
+          <p className="absolute m-0 flex items-center text-lg font-semibold text-ink-soft" style={pos(subOf("places")!)}>
+            {C.noPlaceGroup}
+          </p>
+        )}
+        {layout.shapes.filter((s) => s.region === "places" && (idx.placeGroupById.get(s.groupId)?.memberIds.length ?? 0) === 0).map((s) => (
+          <p key={`empty:${s.groupId}`} aria-hidden className="absolute m-0 flex items-center justify-center text-lg text-ink-soft" style={{ left: s.x, top: s.y, width: s.w, height: s.h }}>
+            {C.placeGroupEmpty}
+          </p>
+        ))}
         <ul aria-label={C.placesTitle}>
           {places.map((n) => {
             const p = idx.placeById.get(n.placeId);
@@ -1081,6 +1274,7 @@ const MapWorld = memo(function MapWorld({
                   type="button"
                   data-node-key={n.key}
                   data-node-kind="place"
+                  data-group-ids={p.groupIds.join(",")}
                   aria-label={C.placeName2(p.name, idx.storiesOfPlace.get(p.id)?.length ?? 0)}
                   className={`absolute flex items-center gap-2 border-2 border-sky-700 bg-surface px-3 text-left text-lg text-ink hover:bg-banner ${FOCUS}`}
                   style={{ ...pos(n), ...mark(n.key), borderRadius: "6px 28px 28px 28px" }}
@@ -1160,14 +1354,33 @@ function ListMode({
   openPanel,
   onToggleView,
   onOpenFind,
+  onCreate,
 }: {
   data: MyLifeData;
   idx: Index;
   openPanel: (key: string) => void;
   onToggleView: () => void;
   onOpenFind: () => void;
+  onCreate: (kind: CreateKind | null) => void;
 }) {
   const ungrouped = data.people.filter((p) => p.groupIds.length === 0);
+  const ungroupedPlaces = data.places.filter((p) => p.groupIds.length === 0);
+  const addRow = (items: [CreateKind, string][]) => (
+    <div className="flex gap-2">
+      {items.map(([k, label]) => (
+        <Button key={k} variant="secondary" size="lg" className="flex-1 px-3! sm:flex-none" aria-label={C.edit.regionAddName(label)} onClick={() => onCreate(k)}>
+          <Plus aria-hidden size={20} className="shrink-0" />
+          {label}
+        </Button>
+      ))}
+    </div>
+  );
+  const placeButton = (p: MyLifePlace, listKey: string) => (
+    <button type="button" data-list-key={listKey} data-node-key={`pl:${p.id}`} onClick={() => openPanel(`pl:${p.id}`)} className={`${LIST_ITEM} border-sky-700`}>
+      <MapPin aria-hidden size={20} className="shrink-0 text-sky-700" />
+      {p.name}
+    </button>
+  );
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-6">
       <div className="flex items-center justify-between gap-2">
@@ -1182,10 +1395,16 @@ function ListMode({
           </Button>
         </div>
       </div>
-      <ButtonLink href="/chat-v3" variant="primary" size="lg" className="w-full sm:w-auto sm:self-start">
-        <MessageCircle aria-hidden size={20} className="shrink-0" />
-        {C.chatEntry}
-      </ButtonLink>
+      <div className="flex gap-2">
+        <ButtonLink href="/chat-v3" variant="primary" size="lg" className="min-w-0 flex-1 px-3! sm:flex-none">
+          <MessageCircle aria-hidden size={20} className="shrink-0" />
+          {C.chatEntry}
+        </ButtonLink>
+        <Button variant="secondary" size="lg" className="shrink-0 px-4!" onClick={() => onCreate(null)}>
+          <Plus aria-hidden size={20} className="shrink-0" />
+          {C.edit.create}
+        </Button>
+      </div>
       <ol aria-label={C.mapListLabel} className="flex flex-col gap-6">
         {data.events.map((ev) => (
           <li key={ev.id} className="flex flex-col gap-3">
@@ -1239,6 +1458,7 @@ function ListMode({
         <h2 id="mylife-list-people" className="m-0">
           {C.peopleTitle}
         </h2>
+        {addRow([["person", C.edit.regionAddPerson], ["group", C.edit.regionAddGroup]])}
         {data.groups.map((g) => (
           <div key={g.id} className="flex flex-col gap-2">
             <button type="button" data-list-key={`gl:${g.id}`} data-node-key={`gl:${g.id}`} onClick={() => openPanel(`gl:${g.id}`)} className={`${LIST_ITEM} border-emerald-700 font-semibold`}>
@@ -1281,16 +1501,36 @@ function ListMode({
         <h2 id="mylife-list-places" className="m-0">
           {C.placesTitle}
         </h2>
-        <ul aria-label={C.placesTitle} className="flex flex-col gap-2">
-          {data.places.map((p) => (
-            <li key={p.id}>
-              <button type="button" data-list-key={`pl:${p.id}`} data-node-key={`pl:${p.id}`} onClick={() => openPanel(`pl:${p.id}`)} className={`${LIST_ITEM} border-sky-700`}>
-                <MapPin aria-hidden size={20} className="shrink-0 text-sky-700" />
-                {p.name}
-              </button>
-            </li>
-          ))}
-        </ul>
+        {addRow([["place", C.edit.regionAddPlace], ["placeGroup", C.edit.regionAddPlaceGroup]])}
+        {/* 장소 묶음(3단계) — 묶음별(여러 묶음인 곳은 각 묶음에), 묶음 없는 곳 */}
+        {data.placeGroups.map((g) => (
+          <div key={g.id} className="flex flex-col gap-2">
+            <button type="button" data-list-key={`pgl:${g.id}`} data-node-key={`pgl:${g.id}`} onClick={() => openPanel(`pgl:${g.id}`)} className={`${LIST_ITEM} border-sky-700 font-semibold`}>
+              <MapPin aria-hidden size={20} className="shrink-0 text-sky-700" />
+              {g.name}
+            </button>
+            {g.memberIds.length === 0 ? (
+              <p className="ml-6 text-lg text-ink-soft">{C.placeGroupEmpty}</p>
+            ) : (
+              <ul aria-label={g.name} className="ml-6 flex flex-col gap-2">
+                {g.memberIds.map((id) => {
+                  const p = idx.placeById.get(id);
+                  return p ? <li key={id}>{placeButton(p, `pl:${p.id}@${g.id}`)}</li> : null;
+                })}
+              </ul>
+            )}
+          </div>
+        ))}
+        {ungroupedPlaces.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {data.placeGroups.length > 0 && <h3 className="m-0 text-xl font-bold text-ink">{C.noPlaceGroup}</h3>}
+            <ul aria-label={data.placeGroups.length > 0 ? C.noPlaceGroup : C.placesTitle} className={`flex flex-col gap-2 ${data.placeGroups.length > 0 ? "ml-6" : ""}`}>
+              {ungroupedPlaces.map((p) => (
+                <li key={p.id}>{placeButton(p, `pl:${p.id}`)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
     </main>
   );
@@ -1316,6 +1556,7 @@ const KIND_LABEL: Record<SearchResult["kind"], string> = {
   person: C.kindPerson,
   place: C.kindPlace,
   group: C.kindGroup,
+  placeGroup: C.kindPlaceGroup,
 };
 
 function FindSheet({ data, onPick, onClose }: { data: MyLifeData; onPick: (r: SearchResult) => void; onClose: () => void }) {
@@ -1371,7 +1612,7 @@ function FindSheet({ data, onPick, onClose }: { data: MyLifeData; onPick: (r: Se
   );
 }
 
-// ── 패널(정보 보기만 — 넣기·빼기는 3단계) ──────────────────────────────
+// ── 패널 — 정보(이 파일) + 고치기(./EditUI NodeEditor — 넣기·빼기·되돌리기·옮기기·지우기, 3단계) ──────────────
 
 function GoRow({ label, sub, onClick }: { label: string; sub?: string; onClick: () => void }) {
   return (
@@ -1395,6 +1636,10 @@ function PanelBody({
   showFold,
   onToggleFold,
   onGo,
+  notice,
+  setNotice,
+  onReopen,
+  onDeleted,
 }: {
   nodeKey: string;
   data: MyLifeData;
@@ -1403,9 +1648,39 @@ function PanelBody({
   showFold: boolean;
   onToggleFold: (eventId: string) => void;
   onGo: (key: string, eventId: string | null) => void;
+  notice: Notice | null;
+  setNotice: (n: Notice | null) => void;
+  onReopen: (r: Created) => void;
+  onDeleted: () => void;
 }) {
+  const info = panelInfo(nodeKey, data, idx, folded, showFold, onToggleFold, onGo);
+  if (!info) return null;
+  return (
+    <NodeEditor
+      key={nodeKey}
+      nodeKey={nodeKey}
+      data={data}
+      info={info}
+      notice={notice}
+      setNotice={setNotice}
+      onGo={onGo}
+      onReopen={onReopen}
+      onDeleted={onDeleted}
+    />
+  );
+}
+
+// 노드 정보(제목·기간·본문·나온 이야기). 이어진 사람·장소·모임 목록과 [빼기]·[넣기]는 NodeEditor 가 그린다.
+function panelInfo(
+  nodeKey: string,
+  data: MyLifeData,
+  idx: Index,
+  folded: Set<string>,
+  showFold: boolean,
+  onToggleFold: (eventId: string) => void,
+  onGo: (key: string, eventId: string | null) => void,
+): React.ReactNode | null {
   const [kind, a, b] = nodeKey.split(":");
-  void data;
 
   if (kind === "ev") {
     const ev = idx.eventById.get(a);
@@ -1459,11 +1734,6 @@ function PanelBody({
         {p.metYear !== null && (
           <p className="text-lg text-ink">
             {C.panelMetYear}: {p.metYear}
-          </p>
-        )}
-        {p.groupIds.length > 0 && (
-          <p className="text-lg text-ink">
-            {C.panelGroups}: {p.groupIds.map((g) => idx.groupById.get(g)?.name).filter(Boolean).join(", ")}
           </p>
         )}
         {p.draft && (
@@ -1555,29 +1825,31 @@ function PanelBody({
         <h2 id="mylife-panel-title" className="m-0">
           {g.name}
         </h2>
-        {g.memberIds.length === 0 ? (
-          <p className="text-lg text-ink-soft">{C.groupEmpty}</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            <p className="text-lg font-semibold text-ink">{C.panelMembers}</p>
-            <ul className="flex flex-col gap-2">
-              {g.memberIds.map((id) => {
-                const p = idx.personById.get(id);
-                return p ? <GoRow key={id} label={p.name} sub={p.relation ?? undefined} onClick={() => onGo(`pe:${id}`, null)} /> : null;
-              })}
-            </ul>
-          </div>
-        )}
+        {g.memberIds.length === 0 && <p className="text-lg text-ink-soft">{C.groupEmpty}</p>}
+      </>
+    );
+  }
+
+  if (kind === "pgl" || kind === "pgc") {
+    const g = idx.placeGroupById.get(a);
+    if (!g) return null;
+    return (
+      <>
+        <p className="text-lg text-ink-soft">{C.kindPlaceGroup}</p>
+        <h2 id="mylife-panel-title" className="m-0">
+          {g.name}
+        </h2>
+        {g.memberIds.length === 0 && <p className="text-lg text-ink-soft">{C.placeGroupEmpty}</p>}
       </>
     );
   }
   return null;
 }
 
+// 이야기 정보 — 함께 나온 분·나온 곳 목록(과 [빼기])은 NodeEditor 가 그린다. 확인 대기 분은 여기(작은 물방울 + 확인하러 가기).
 function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; idx: Index }) {
   const [full, setFull] = useState(false);
-  const people = story.chips.filter((c) => c.kind !== "place");
-  const places = story.chips.filter((c) => c.kind === "place");
+  const pending = story.chips.filter((c) => c.proposed);
   const others = story.otherEventIds.map((id) => idx.eventById.get(id)).filter((e): e is MyLifeEvent => !!e);
   return (
     <>
@@ -1592,36 +1864,30 @@ function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; i
       <Button variant="secondary" size="lg" aria-expanded={full} onClick={() => setFull((v) => !v)}>
         {full ? C.hideBody : C.readBody}
       </Button>
-      {people.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-lg font-semibold text-ink">{C.panelWithPeople}</p>
-          <p className="flex flex-wrap gap-1.5">
-            {people.map((c, i) => (
-              <span key={i} className="inline-flex items-center gap-1">
-                <Chip chip={c} />
-                {c.proposed && <span className="text-lg text-ink-soft">({C.pendingTag})</span>}
-              </span>
-            ))}
-          </p>
-        </div>
-      )}
-      {places.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-lg font-semibold text-ink">{C.panelWithPlaces}</p>
-          <p className="flex flex-wrap gap-1.5">
-            {places.map((c, i) => (
-              <Chip key={i} chip={c} />
-            ))}
-          </p>
-        </div>
-      )}
       {others.length > 0 && (
         <p className="text-lg text-ink">
           {C.panelAlsoIn}: {others.map((o) => `${yearText(o)} ${o.label}`).join(", ")}
         </p>
       )}
+      {story.chips.some((c) => !c.id) && (
+        <p className="flex flex-wrap gap-1.5">
+          {story.chips
+            .filter((c) => !c.id)
+            .map((c, i) => (
+              <Chip key={i} chip={c} />
+            ))}
+        </p>
+      )}
       {story.hasPending && (
         <div className="flex flex-col gap-3 rounded-md border-2 border-brand bg-banner p-4">
+          <p className="flex flex-wrap gap-1.5">
+            {pending.map((c, i) => (
+              <span key={i} className="inline-flex items-center gap-1">
+                <Chip chip={c} />
+                <span className="text-lg text-ink-soft">({C.pendingTag})</span>
+              </span>
+            ))}
+          </p>
           <p className="text-lg text-ink">{C.pendingNote}</p>
           <ButtonLink href={`/story-review/confirm#${story.id}`} variant="secondary" size="lg">
             {C.goConfirm}

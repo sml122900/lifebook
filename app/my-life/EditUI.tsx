@@ -1,0 +1,852 @@
+"use client";
+
+// My Life 개편 3단계 — 지도에서 직접 만들기·넣기·빼기·되돌리기·옮기기·지우기 화면. docs/phase/my-life-restructure.md §4.
+//
+// CreateForm   — 노드 7종 입력(시기·이야기·그때의 나·사람·장소·모임·장소 묶음) + 같은 이름 되묻기. 만들기 시트·패널 공용.
+// NodeEditor   — 노드 패널의 고치기 부분: 이어진 것 목록([빼기] → 패널 안 확인), [넣기](고르기 목록 + 새로 만들기),
+//                이야기 [다른 시절로 옮기기], [이 노드 지우기](이어진 이야기·사람·장소 수를 보여 주는 확인 단계).
+//                한 패널 안에서 단계를 바꾸고 위에 [뒤로](node-graph-self.md §6 2b.1 의 5). 단계마다 primary 1개.
+// 되돌리기 = 넣기·만들기 직후 패널 맨 위 알림의 [되돌리기] — 다음 동작 전까지(부모가 알림을 들고 있다).
+// 저장은 전부 ./actions(서버 액션) → router.refresh() — 지도 위치·배율·접힘은 그대로(MapMode 상태 유지).
+
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
+
+import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
+import { VoiceTextarea } from "@/app/components/VoiceTextarea";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import type { MyLifeData, MyLifeEvent, MyLifeStory } from "@/lib/my-life";
+import { MY_LIFE_COPY } from "@/lib/my-life-copy";
+import type { CreatedLink, DeleteImpact, SameNamePerson } from "@/lib/my-life-edit";
+import type { NodeRef } from "@/lib/node-graph";
+import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
+import { displayTitle, shortTitle } from "@/lib/story-title";
+
+import {
+  addLinkAction,
+  createNodeAction,
+  deleteImpactAction,
+  deleteNodeAction,
+  moveStoryAction,
+  removeLinkAction,
+  undoCreateAction,
+  undoLinksAction,
+  type CreateInput,
+  type CreatedNode,
+} from "./actions";
+
+const C = MY_LIFE_COPY;
+const E = MY_LIFE_COPY.edit;
+
+export type CreateKind = "period" | "story" | "self" | "person" | "place" | "group" | "placeGroup";
+export const CREATE_KINDS: CreateKind[] = ["period", "story", "self", "person", "place", "group", "placeGroup"];
+
+// 패널 맨 위 알림(되돌리기는 다음 동작 전까지) — 부모(MyLifeView)가 들고 있다.
+export type Notice = { key: string; text: string; undo?: () => Promise<{ ok: boolean }> };
+// 만든 뒤 — 부모가 새 노드로 이동·선택·패널(+ 되돌리기 알림).
+export type Created = { key: string; eventId: string | null; text: string; undo: CreatedNode | null };
+
+const INPUT = "min-h-[56px] w-full rounded-md border-2 border-line bg-surface px-4 text-lg text-ink placeholder:text-ink-soft focus:border-brand focus:outline-none";
+const ROW = "flex min-h-[56px] w-full items-center gap-3 rounded-md border-2 bg-surface px-4 py-2 text-left text-lg text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2";
+
+function yearText(ev: Pick<MyLifeEvent, "year" | "endYear">): string {
+  if (ev.year === null) return C.yearUnknown;
+  return ev.endYear !== null && ev.endYear !== ev.year ? `${ev.year}~${ev.endYear}` : `${ev.year}`;
+}
+
+function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className="text-lg font-semibold text-ink">
+          {label}
+        </label>
+      ) : (
+        <p className="text-lg font-semibold text-ink">{label}</p>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function ErrorLine({ text }: { text: string | null }) {
+  return text ? (
+    <p role="alert" className="rounded-md border-2 border-line bg-canvas px-3 py-2 text-lg text-danger">
+      {text}
+    </p>
+  ) : null;
+}
+
+// 여러 개 고르기(체크) — 56px 행.
+function MultiPick({ items, value, onChange, label }: { items: { id: string; label: string; sub?: string }[]; value: string[]; onChange: (v: string[]) => void; label: string }) {
+  if (items.length === 0) return null;
+  return (
+    <Field label={label}>
+      <ul className="flex max-h-[40dvh] flex-col gap-2 overflow-y-auto">
+        {items.map((it) => {
+          const on = value.includes(it.id);
+          return (
+            <li key={it.id}>
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                onClick={() => onChange(on ? value.filter((x) => x !== it.id) : [...value, it.id])}
+                className={`${ROW} ${on ? "border-brand bg-banner" : "border-line"}`}
+              >
+                <span aria-hidden className={`flex h-7 w-7 shrink-0 items-center justify-center rounded border-2 ${on ? "border-brand bg-action text-white" : "border-line"}`}>
+                  {on ? "✓" : ""}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate">{it.label}</span>
+                  {it.sub && <span className="block truncate text-ink-soft">{it.sub}</span>}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </Field>
+  );
+}
+
+// ── 만들기 입력 ──────────────────────────────────────────────────
+
+export type CreatePreset = { eventId?: string; groupIds?: string[]; contextEventId?: string | null };
+
+export function CreateForm({
+  kind,
+  data,
+  preset,
+  onDone,
+  onBack,
+  backLabel,
+  titleId,
+}: {
+  kind: CreateKind;
+  data: MyLifeData;
+  preset?: CreatePreset;
+  onDone: (r: Created) => void;
+  onBack: () => void;
+  backLabel?: string;
+  titleId: string;
+}) {
+  const [name, setName] = useState("");
+  const [relation, setRelation] = useState("");
+  const [year, setYear] = useState("");
+  const [endYear, setEndYear] = useState("");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [eventId, setEventId] = useState(preset?.eventId ?? "");
+  const [personIds, setPersonIds] = useState<string[]>([]);
+  const [groupIds, setGroupIds] = useState<string[]>(preset?.groupIds ?? []);
+  const [placeIds, setPlaceIds] = useState<string[]>([]);
+  const [placeMode, setPlaceMode] = useState<"name" | "search">("name");
+  const [place, setPlace] = useState<PlaceInfo>(EMPTY_PLACE);
+  const [ask, setAsk] = useState<SameNamePerson[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  const confirmedPeople = data.people.filter((p) => !p.draft);
+  const kindLabel = E.kinds[kind];
+  const fixedEvent = preset?.eventId ? data.events.find((e) => e.id === preset.eventId) : undefined;
+
+  function input(decision?: "same" | "different", samePersonId?: string): CreateInput {
+    const num = (s: string) => (s.trim() === "" ? null : Number(s.trim()));
+    switch (kind) {
+      case "period":
+        return { kind, label: name, year: num(year), endYear: num(endYear) };
+      case "story":
+      case "self":
+        return { kind, lifeEventId: eventId, title, content: body, personIds, groupIds: kind === "self" ? groupIds : [], placeIds: kind === "story" ? placeIds : [] };
+      case "person":
+        return { kind, name, relation, groupIds, decision, samePersonId, contextEventId: preset?.contextEventId ?? null };
+      case "place":
+        return placeMode === "search" && place.placeName
+          ? { kind, name: place.placeName, address: place.placeAddress, lat: place.lat, lng: place.lng, source: place.placeSource }
+          : { kind, name, address: null, lat: null, lng: null, source: null };
+      case "group":
+        return { kind, name, memberIds: personIds };
+      case "placeGroup":
+        return { kind, name, placeIds };
+    }
+  }
+
+  function submit(decision?: "same" | "different", samePersonId?: string) {
+    setError(null);
+    start(async () => {
+      const r = await createNodeAction(input(decision, samePersonId));
+      if ("ask" in r) {
+        setAsk(r.ask);
+        return;
+      }
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      const shown = kind === "place" && placeMode === "search" && place.placeName ? place.placeName : kind === "story" || kind === "self" ? kindLabel : name || kindLabel;
+      onDone({ key: r.key, eventId: r.eventId, text: r.reused ? E.reused(shown) : E.created(kindLabel), undo: r.undo });
+    });
+  }
+
+  if (ask) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h2 id={titleId} className="m-0 text-2xl">
+          {E.sameNameQuestion(name.trim())}
+        </h2>
+        <ul className="flex flex-col gap-2">
+          {ask.map((p) => (
+            <li key={p.id}>
+              <button type="button" disabled={pending} onClick={() => submit("same", p.id)} className={`${ROW} border-line`}>
+                <span className="min-w-0">
+                  <span className="block">{p.name}</span>
+                  {p.relation && <span className="block text-ink-soft">{p.relation}</span>}
+                </span>
+                <span className="ml-auto shrink-0 text-action">{E.samePerson}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <Button variant="secondary" size="lg" disabled={pending} onClick={() => submit("different")}>
+          {E.differentPerson}
+        </Button>
+        <ErrorLine text={error} />
+        <Button variant="tertiary" size="lg" disabled={pending} onClick={() => setAsk(null)}>
+          {E.back}
+        </Button>
+      </div>
+    );
+  }
+
+  const id = (s: string) => `${titleId}-${s}`;
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      <h2 id={titleId} className="m-0 text-2xl">
+        {kindLabel}
+      </h2>
+
+      {(kind === "period" || kind === "person" || kind === "group" || kind === "placeGroup" || (kind === "place" && placeMode === "name")) && (
+        <Field label={E.fieldName} htmlFor={id("name")}>
+          <input id={id("name")} className={INPUT} value={name} onChange={(e) => setName(e.target.value)} maxLength={kind === "period" || kind === "group" || kind === "placeGroup" ? 30 : 50} autoComplete="off" />
+        </Field>
+      )}
+
+      {kind === "period" && (
+        <>
+          <Field label={E.fieldYear} htmlFor={id("year")}>
+            <input id={id("year")} className={INPUT} inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} />
+          </Field>
+          <Field label={E.fieldEndYear} htmlFor={id("end")}>
+            <input id={id("end")} className={INPUT} inputMode="numeric" value={endYear} onChange={(e) => setEndYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} />
+          </Field>
+        </>
+      )}
+
+      {(kind === "story" || kind === "self") && (
+        <>
+          {fixedEvent ? (
+            <p className="text-lg text-ink">
+              {yearText(fixedEvent)} {fixedEvent.label}
+            </p>
+          ) : (
+            <Field label={E.fieldPeriod}>
+              <ul className="flex max-h-[30dvh] flex-col gap-2 overflow-y-auto">
+                {data.events.map((ev) => (
+                  <li key={ev.id}>
+                    <button type="button" role="radio" aria-checked={eventId === ev.id} onClick={() => setEventId(ev.id)} className={`${ROW} ${eventId === ev.id ? "border-brand bg-banner" : "border-line"}`}>
+                      <span className="shrink-0 text-ink-soft">{yearText(ev)}</span>
+                      <span className="min-w-0 truncate">{ev.label}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Field>
+          )}
+          <Field label={E.fieldTitle} htmlFor={id("title")}>
+            <input id={id("title")} className={INPUT} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={40} autoComplete="off" />
+          </Field>
+          <Field label={kind === "self" ? E.fieldSelfBody : E.fieldBody}>
+            <VoiceTextarea value={body} onChange={setBody} rows={5} ariaLabel={kind === "self" ? E.fieldSelfBody : E.fieldBody} />
+          </Field>
+          <MultiPick
+            label={kind === "self" ? E.fieldSelfPeople : E.fieldPeople}
+            items={confirmedPeople.map((p) => ({ id: p.id, label: p.name, sub: p.relation ?? undefined }))}
+            value={personIds}
+            onChange={setPersonIds}
+          />
+          {kind === "self" && <MultiPick label={E.fieldGroups} items={data.groups.map((g) => ({ id: g.id, label: g.name }))} value={groupIds} onChange={setGroupIds} />}
+          {kind === "story" && <MultiPick label={E.fieldPlaces} items={data.places.map((p) => ({ id: p.id, label: p.name, sub: p.address ?? undefined }))} value={placeIds} onChange={setPlaceIds} />}
+        </>
+      )}
+
+      {kind === "person" && (
+        <>
+          <Field label={E.fieldRelation} htmlFor={id("rel")}>
+            <input id={id("rel")} className={INPUT} value={relation} onChange={(e) => setRelation(e.target.value)} maxLength={30} autoComplete="off" />
+          </Field>
+          <MultiPick label={E.fieldGroups} items={data.groups.map((g) => ({ id: g.id, label: g.name }))} value={groupIds} onChange={setGroupIds} />
+        </>
+      )}
+
+      {kind === "place" && (
+        <>
+          <div className="flex gap-2" role="radiogroup">
+            {(["name", "search"] as const).map((m) => (
+              <Button key={m} type="button" variant={placeMode === m ? "secondary" : "tertiary"} size="lg" className="flex-1 px-3!" aria-pressed={placeMode === m} onClick={() => setPlaceMode(m)}>
+                {m === "name" ? E.placeByName : E.placeBySearch}
+              </Button>
+            ))}
+          </div>
+          {placeMode === "search" && <PlaceSearchInput value={place} onChange={setPlace} />}
+        </>
+      )}
+
+      {kind === "group" && <MultiPick label={E.fieldMembers} items={confirmedPeople.map((p) => ({ id: p.id, label: p.name, sub: p.relation ?? undefined }))} value={personIds} onChange={setPersonIds} />}
+      {kind === "placeGroup" && <MultiPick label={E.fieldPlaceMembers} items={data.places.map((p) => ({ id: p.id, label: p.name, sub: p.address ?? undefined }))} value={placeIds} onChange={setPlaceIds} />}
+
+      <ErrorLine text={error} />
+      <Button type="submit" variant="primary" size="lg" disabled={pending}>
+        {pending ? E.saving : E.save}
+      </Button>
+      <Button type="button" variant="tertiary" size="lg" disabled={pending} onClick={onBack}>
+        {backLabel ?? E.back}
+      </Button>
+    </form>
+  );
+}
+
+// 만들기 시트 — 종류 고르기 → 입력.
+export function CreateSheet({ data, initialKind, onDone, onClose }: { data: MyLifeData; initialKind: CreateKind | null; onDone: (r: Created) => void; onClose: () => void }) {
+  const [kind, setKind] = useState<CreateKind | null>(initialKind);
+  return (
+    <div className="flex flex-col gap-4 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6">
+      {kind ? (
+        <CreateForm kind={kind} data={data} titleId="mylife-create-title" onDone={onDone} onBack={initialKind ? onClose : () => setKind(null)} backLabel={initialKind ? E.cancel : E.back} />
+      ) : (
+        <>
+          <h2 id="mylife-create-title" className="m-0">
+            {E.createTitle}
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {CREATE_KINDS.map((k) => (
+              <li key={k}>
+                <button type="button" onClick={() => setKind(k)} className={`${ROW} border-line`}>
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{E.kinds[k]}</span>
+                    <span className="block text-ink-soft">{E.kindHints[k]}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <Button variant="tertiary" size="lg" onClick={onClose}>
+            {C.close}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── 노드 패널의 고치기 부분 ──────────────────────────────────────────
+
+type PickWhat = "person" | "place" | "group" | "placeGroup" | "member" | "placeMember";
+type Mode =
+  | { t: "view" }
+  | { t: "addStory" }
+  | { t: "write"; kind: "story" | "self" }
+  | { t: "pick"; what: PickWhat }
+  | { t: "new"; what: PickWhat }
+  | { t: "remove"; other: NodeRef; name: string }
+  | { t: "move" }
+  | { t: "moveConfirm"; target: MyLifeEvent }
+  | { t: "delete"; impact: DeleteImpact | null; loading: boolean };
+
+type LinkItem = { ref: NodeRef; name: string; sub?: string; go?: { key: string; eventId: string | null }; removable: boolean; note?: string };
+
+// 지우기 확인 — 이어진 것 중 0 이 아닌 것만(시기는 함께 지워질 이야기를 따로 적으므로 이야기 수는 빼고).
+function deleteLinkedText(im: DeleteImpact): string {
+  const parts = [
+    ...(!im.storiesDeleted && im.stories > 0 ? [E.linkStories(im.stories)] : []),
+    ...(im.people > 0 ? [E.linkPeople(im.people)] : []),
+    ...(im.places > 0 ? [E.linkPlaces(im.places)] : []),
+  ];
+  return parts.length > 0 ? E.deleteLinked(parts) : E.deleteNoLinks;
+}
+
+const PICK_CREATE_KIND: Record<PickWhat, CreateKind> = { person: "person", member: "person", place: "place", placeMember: "place", group: "group", placeGroup: "placeGroup" };
+
+export function NodeEditor({
+  nodeKey,
+  data,
+  info,
+  notice,
+  setNotice,
+  onGo,
+  onReopen,
+  onDeleted,
+}: {
+  nodeKey: string;
+  data: MyLifeData;
+  info: ReactNode;
+  notice: Notice | null;
+  setNotice: (n: Notice | null) => void;
+  onGo: (key: string, eventId: string | null) => void;
+  onReopen: (r: Created) => void; // 새 노드(옮긴 이야기·직접 쓴 이야기)로 이동·패널
+  onDeleted: () => void;
+}) {
+  const router = useRouter();
+  const [mode, setMode] = useState<Mode>({ t: "view" });
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
+  const [pending, start] = useTransition();
+  const [kind, a, b] = nodeKey.split(":");
+
+  // 단계가 바뀌면 패널을 맨 위로(앞 단계 스크롤이 남아 새 단계 제목·첫 항목이 가려지던 것 — 390 실측) +
+  // 새 단계 제목으로 포커스(화면 낭독기가 바뀐 단계를 읽게). 기본 단계는 스크롤만.
+  useEffect(() => {
+    const d = document.querySelector<HTMLDialogElement>("dialog[open]");
+    if (!d) return;
+    d.scrollTop = 0;
+    if (mode.t === "view") return;
+    const h = d.querySelector<HTMLElement>("#mylife-panel-title");
+    if (h) {
+      h.tabIndex = -1;
+      h.focus({ preventScroll: true });
+    }
+  }, [mode]);
+
+  const look = useMemo(
+    () => ({
+      event: new Map(data.events.map((e) => [e.id, e])),
+      person: new Map(data.people.map((p) => [p.id, p])),
+      place: new Map(data.places.map((p) => [p.id, p])),
+      group: new Map(data.groups.map((g) => [g.id, g])),
+      placeGroup: new Map(data.placeGroups.map((g) => [g.id, g])),
+    }),
+    [data],
+  );
+
+  // 이 노드 = 연결의 한 끝.
+  const self: NodeRef | null =
+    kind === "ev" ? { type: "LIFE_EVENT", id: a } : kind === "st" ? { type: "EPISODE", id: b } : kind === "pe" ? { type: "PERSON", id: a } : kind === "pl" ? { type: "PLACE", id: a } : kind === "gl" || kind === "gc" ? { type: "PERSON_GROUP", id: a } : kind === "pgl" || kind === "pgc" ? { type: "PLACE_GROUP", id: a } : null;
+  const ev = kind === "ev" || kind === "st" ? look.event.get(a) : undefined;
+  const story: MyLifeStory | undefined = kind === "st" ? ev?.stories.find((s) => s.id === b) : undefined;
+  const person = kind === "pe" ? look.person.get(a) : undefined;
+  const place = kind === "pl" ? look.place.get(a) : undefined;
+  const group = kind === "gl" || kind === "gc" ? look.group.get(a) : undefined;
+  const placeGroup = kind === "pgl" || kind === "pgc" ? look.placeGroup.get(a) : undefined;
+  if (!self) return <>{info}</>;
+
+  const personItem = (id: string, removable = true, note?: string): LinkItem | null => {
+    const p = look.person.get(id);
+    return p ? { ref: { type: "PERSON", id }, name: p.name, sub: p.relation ?? undefined, go: { key: `pe:${id}`, eventId: null }, removable, note } : null;
+  };
+  const placeItem = (id: string): LinkItem | null => {
+    const p = look.place.get(id);
+    return p ? { ref: { type: "PLACE", id }, name: p.name, sub: p.address ?? undefined, go: { key: `pl:${id}`, eventId: null }, removable: true } : null;
+  };
+  const groupItem = (id: string): LinkItem | null => {
+    const g = look.group.get(id);
+    return g ? { ref: { type: "PERSON_GROUP", id }, name: g.name, go: { key: `gl:${id}`, eventId: null }, removable: true } : null;
+  };
+  const placeGroupItem = (id: string): LinkItem | null => {
+    const g = look.placeGroup.get(id);
+    return g ? { ref: { type: "PLACE_GROUP", id }, name: g.name, go: { key: `pgl:${id}`, eventId: null }, removable: true } : null;
+  };
+  const nn = <T,>(xs: (T | null)[]) => xs.filter((x): x is T => x !== null);
+
+  // 이어진 것(빼기 목록)과 넣기 버튼 — 노드 종류별.
+  const sections: { title: string; items: LinkItem[] }[] = [];
+  const adds: { what: PickWhat; label: string }[] = [];
+  if (ev && kind === "ev") {
+    sections.push({ title: C.panelWithPeople, items: nn(ev.personIds.map((id) => personItem(id))) });
+    sections.push({ title: C.panelWithPlaces, items: nn(ev.placeIds.map(placeItem)) });
+    sections.push({ title: C.panelGroups, items: nn(ev.groupIds.map(groupItem)) });
+    adds.push({ what: "person", label: E.addPerson }, { what: "place", label: E.addPlace });
+  } else if (story) {
+    const ppl = story.chips.filter((c) => c.kind === "person" && c.id && !c.proposed);
+    sections.push({
+      title: C.panelWithPeople,
+      items: nn(ppl.map((c) => (c.id === story.subjectPersonId ? personItem(c.id!, false, E.subjectNote) : personItem(c.id!)))),
+    });
+    sections.push({ title: C.panelGroups, items: nn(story.chips.filter((c) => c.kind === "group" && c.id).map((c) => groupItem(c.id!))) });
+    sections.push({ title: C.panelWithPlaces, items: nn(story.chips.filter((c) => c.kind === "place" && c.id).map((c) => placeItem(c.id!))) });
+    adds.push({ what: "person", label: E.addPerson }, { what: "place", label: E.addPlace }, { what: "group", label: E.addGroup });
+  } else if (person && !person.draft) {
+    sections.push({ title: C.panelGroups, items: nn(person.groupIds.map(groupItem)) });
+    adds.push({ what: "group", label: E.addToGroup });
+  } else if (place) {
+    sections.push({ title: C.panelPlaceGroups, items: nn(place.groupIds.map(placeGroupItem)) });
+    adds.push({ what: "placeGroup", label: E.addToPlaceGroup });
+  } else if (group) {
+    sections.push({ title: C.panelMembers, items: nn(group.memberIds.map((id) => personItem(id))) });
+    adds.push({ what: "member", label: E.addMember });
+  } else if (placeGroup) {
+    sections.push({ title: C.panelPlaceMembers, items: nn(placeGroup.memberIds.map(placeItem)) });
+    adds.push({ what: "placeMember", label: E.addPlace });
+  }
+
+  // 고르기 목록 — 아직 이어지지 않은 것만(확정 인물만).
+  function candidates(what: PickWhat): { id: string; label: string; sub?: string; ref: NodeRef }[] {
+    const linked = new Set(sections.flatMap((s) => s.items.map((i) => `${i.ref.type}:${i.ref.id}`)));
+    if (story?.subjectPersonId) linked.add(`PERSON:${story.subjectPersonId}`);
+    if (what === "person" || what === "member") {
+      return data.people.filter((p) => !p.draft && !linked.has(`PERSON:${p.id}`)).map((p) => ({ id: p.id, label: p.name, sub: p.relation ?? undefined, ref: { type: "PERSON", id: p.id } }));
+    }
+    if (what === "place" || what === "placeMember") {
+      return data.places.filter((p) => !linked.has(`PLACE:${p.id}`)).map((p) => ({ id: p.id, label: p.name, sub: p.address ?? undefined, ref: { type: "PLACE", id: p.id } }));
+    }
+    if (what === "group") return data.groups.filter((g) => !linked.has(`PERSON_GROUP:${g.id}`)).map((g) => ({ id: g.id, label: g.name, ref: { type: "PERSON_GROUP", id: g.id } }));
+    return data.placeGroups.filter((g) => !linked.has(`PLACE_GROUP:${g.id}`)).map((g) => ({ id: g.id, label: g.name, ref: { type: "PLACE_GROUP", id: g.id } }));
+  }
+
+  // 모든 저장 — 앞 알림(되돌리기)은 지운다(다음 동작 전까지).
+  function run(fn: () => Promise<void>) {
+    setError(null);
+    setNotice(null);
+    start(async () => {
+      try {
+        await fn();
+      } catch {
+        setError(E.failed);
+      }
+    });
+  }
+
+  function link(other: NodeRef, alsoUndoCreate: CreatedNode | null = null) {
+    run(async () => {
+      const r = await addLinkAction(self!, other);
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      const created: CreatedLink[] = r.created;
+      setMode({ t: "view" });
+      setFilter("");
+      router.refresh();
+      if (created.length === 0 && !alsoUndoCreate) {
+        setNotice({ key: nodeKey, text: E.alreadyLinked });
+        return;
+      }
+      setNotice({
+        key: nodeKey,
+        text: E.linked,
+        undo: async () => {
+          const u = await undoLinksAction(created);
+          if (u.ok && alsoUndoCreate) await undoCreateAction(alsoUndoCreate);
+          router.refresh();
+          return u;
+        },
+      });
+    });
+  }
+
+  function remove(other: NodeRef) {
+    run(async () => {
+      const r = await removeLinkAction(self!, other);
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      setMode({ t: "view" });
+      router.refresh();
+      setNotice({ key: nodeKey, text: E.removed });
+    });
+  }
+
+  function move(target: MyLifeEvent) {
+    run(async () => {
+      const r = await moveStoryAction(b, target.id);
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      setMode({ t: "view" });
+      router.refresh();
+      onReopen({ key: r.key, eventId: target.id, text: E.moved, undo: null });
+    });
+  }
+
+  function openDelete() {
+    setError(null);
+    setNotice(null);
+    setMode({ t: "delete", impact: null, loading: true });
+    start(async () => {
+      const impact = await deleteImpactAction(self!);
+      setMode({ t: "delete", impact, loading: false });
+    });
+  }
+
+  function doDelete() {
+    run(async () => {
+      const r = await deleteNodeAction(self!);
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      router.refresh();
+      onDeleted();
+    });
+  }
+
+  const back = (
+    <Button variant="tertiary" size="lg" disabled={pending} onClick={() => setMode({ t: "view" })}>
+      {E.back}
+    </Button>
+  );
+  const nodeName = ev && kind === "ev" ? ev.label : story ? shortTitle(displayTitle(story)) : person?.name ?? place?.name ?? group?.name ?? placeGroup?.name ?? "";
+
+  // ── 단계별 화면 ──
+  if (mode.t === "addStory" && ev) {
+    return (
+      <>
+        <h2 id="mylife-panel-title" className="m-0 text-2xl">
+          {E.addStory}
+        </h2>
+        <ButtonLink href={`/chat-v3?gapEventId=${encodeURIComponent(ev.id)}&gapType=episode`} variant="primary" size="lg">
+          {E.talkStory}
+        </ButtonLink>
+        <Button variant="secondary" size="lg" onClick={() => setMode({ t: "write", kind: "story" })}>
+          {E.writeStory} — {E.kinds.story}
+        </Button>
+        <Button variant="secondary" size="lg" onClick={() => setMode({ t: "write", kind: "self" })}>
+          {E.writeStory} — {E.kinds.self}
+        </Button>
+        {back}
+      </>
+    );
+  }
+  if (mode.t === "write" && ev) {
+    return <CreateForm kind={mode.kind} data={data} preset={{ eventId: ev.id }} titleId="mylife-panel-title" onDone={onReopen} onBack={() => setMode({ t: "addStory" })} />;
+  }
+  if (mode.t === "pick") {
+    const all = candidates(mode.what);
+    const q = filter.normalize("NFC").replace(/\s+/g, "").toLowerCase();
+    const list = q ? all.filter((c) => c.label.normalize("NFC").replace(/\s+/g, "").toLowerCase().includes(q)) : all;
+    const label = adds.find((x) => x.what === mode.what)?.label ?? "";
+    return (
+      <>
+        <h2 id="mylife-panel-title" className="m-0 text-2xl">
+          {E.pickTitle(label)}
+        </h2>
+        {all.length > 10 && <input className={INPUT} value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={E.pickSearch} aria-label={E.pickSearch} />}
+        {list.length === 0 ? (
+          <p className="text-lg text-ink-soft">{E.pickNone}</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {list.map((c) => (
+              <li key={c.id}>
+                <button type="button" disabled={pending} onClick={() => link(c.ref)} className={`${ROW} border-line`}>
+                  <span className="min-w-0">
+                    <span className="block truncate">{c.label}</span>
+                    {c.sub && <span className="block truncate text-ink-soft">{c.sub}</span>}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <ErrorLine text={error} />
+        <Button variant="secondary" size="lg" disabled={pending} onClick={() => setMode({ t: "new", what: mode.what })}>
+          {E.pickNew}
+        </Button>
+        {back}
+      </>
+    );
+  }
+  if (mode.t === "new") {
+    const ck = PICK_CREATE_KIND[mode.what];
+    const contextEventId = ev?.id ?? null;
+    return (
+      <CreateForm
+        kind={ck}
+        data={data}
+        preset={{ contextEventId, groupIds: group && ck === "person" ? [group.id] : undefined }}
+        titleId="mylife-panel-title"
+        onBack={() => setMode({ t: "pick", what: mode.what })}
+        onDone={(r) => {
+          // 새로 만든 노드를 이 노드에 잇는다(모임 [사람 넣기]의 새 분은 만들 때 이미 모임에 들어감).
+          const [k, id] = r.key.split(":");
+          const type = k === "pe" ? "PERSON" : k === "pl" ? "PLACE" : k === "gl" ? "PERSON_GROUP" : "PLACE_GROUP";
+          link({ type, id }, r.undo);
+        }}
+      />
+    );
+  }
+  if (mode.t === "remove") {
+    return (
+      <>
+        <h2 id="mylife-panel-title" className="m-0 text-2xl">
+          {E.remove}
+        </h2>
+        <p className="text-lg text-ink">{E.removeConfirm(mode.name)}</p>
+        <ErrorLine text={error} />
+        <Button variant="destructive" size="lg" disabled={pending} onClick={() => remove(mode.other)}>
+          {E.removeDo}
+        </Button>
+        {back}
+      </>
+    );
+  }
+  if (mode.t === "move" && story && ev) {
+    return (
+      <>
+        <h2 id="mylife-panel-title" className="m-0 text-2xl">
+          {E.moveTitle}
+        </h2>
+        <ul className="flex flex-col gap-2">
+          {data.events.map((t) => (
+            <li key={t.id}>
+              <button type="button" disabled={t.id === story.primaryEventId} onClick={() => setMode({ t: "moveConfirm", target: t })} className={`${ROW} border-line disabled:cursor-not-allowed disabled:opacity-60`}>
+                <span className="shrink-0 text-ink-soft">{yearText(t)}</span>
+                <span className="min-w-0 truncate">{t.label}</span>
+                {t.id === story.primaryEventId && <span className="ml-auto shrink-0 text-ink-soft">{E.hereNow}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+        {back}
+      </>
+    );
+  }
+  if (mode.t === "moveConfirm" && story) {
+    return (
+      <>
+        <h2 id="mylife-panel-title" className="m-0 text-2xl">
+          {E.moveStory}
+        </h2>
+        <p className="text-lg text-ink">{E.moveConfirm(shortTitle(displayTitle(story)), `${yearText(mode.target)} ${mode.target.label}`)}</p>
+        <ErrorLine text={error} />
+        <Button variant="primary" size="lg" disabled={pending} onClick={() => move(mode.target)}>
+          {E.moveDo}
+        </Button>
+        <Button variant="tertiary" size="lg" disabled={pending} onClick={() => setMode({ t: "move" })}>
+          {E.back}
+        </Button>
+      </>
+    );
+  }
+  if (mode.t === "delete") {
+    const im = mode.impact;
+    return (
+      <>
+        <h2 id="mylife-panel-title" className="m-0 text-2xl">
+          {E.deleteTitle(nodeName)}
+        </h2>
+        {mode.loading ? (
+          <p className="text-lg text-ink-soft">{E.saving}</p>
+        ) : im ? (
+          <>
+            {im.storiesDeleted && im.stories > 0 && <p className="text-lg font-semibold text-ink">{E.deleteStoriesToo(im.stories)}</p>}
+            <p className="text-lg text-ink">{deleteLinkedText(im)}</p>
+            {im.familyActivity > 0 && <p className="text-lg text-ink">{E.deleteFamily(im.familyActivity)}</p>}
+            <p className="text-lg text-ink-soft">{E.deleteIrreversible}</p>
+          </>
+        ) : (
+          <p className="text-lg text-ink">{E.deleteSkeletonNote}</p>
+        )}
+        <ErrorLine text={error} />
+        {im && (
+          <Button variant="destructive" size="lg" disabled={pending || mode.loading} onClick={doDelete}>
+            {E.deleteDo}
+          </Button>
+        )}
+        {back}
+      </>
+    );
+  }
+
+  // ── 기본(정보 + 고치기) ──
+  const canDelete = (kind === "ev" && ev?.type === "CUSTOM") || !!story || !!place || !!group || !!placeGroup;
+  return (
+    <>
+      {notice && notice.key === nodeKey && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-md border-2 border-brand bg-banner px-4 py-2">
+          <p className="text-lg text-ink">{notice.text}</p>
+          {notice.undo && (
+            <Button
+              variant="secondary"
+              size="lg"
+              disabled={pending}
+              onClick={() => {
+                const u = notice.undo!;
+                setNotice(null);
+                start(async () => {
+                  const r = await u();
+                  setNotice({ key: nodeKey, text: r.ok ? E.undone : E.cannotUnlink });
+                });
+              }}
+            >
+              {E.undo}
+            </Button>
+          )}
+        </div>
+      )}
+      {info}
+      {kind === "ev" && ev && (
+        <Button variant="primary" size="lg" onClick={() => setMode({ t: "addStory" })}>
+          {E.addStory}
+        </Button>
+      )}
+      {sections
+        .filter((s) => s.items.length > 0)
+        .map((s) => (
+          <div key={s.title} className="flex flex-col gap-2">
+            <p className="text-lg font-semibold text-ink">{s.title}</p>
+            <ul className="flex flex-col gap-2">
+              {s.items.map((it) => (
+                <li key={`${it.ref.type}:${it.ref.id}`} className="flex items-stretch gap-2">
+                  <button type="button" onClick={() => it.go && onGo(it.go.key, it.go.eventId)} className={`${ROW} min-w-0 flex-1 border-line`}>
+                    <span className="min-w-0">
+                      <span className="block truncate">{it.name}</span>
+                      {(it.note ?? it.sub) && <span className="block truncate text-ink-soft">{it.note ?? it.sub}</span>}
+                    </span>
+                    <span className="ml-auto shrink-0 text-action">{C.goThere}</span>
+                  </button>
+                  {it.removable && (
+                    <Button variant="tertiary" size="lg" className="shrink-0 px-4!" aria-label={`${it.name} ${E.remove}`} onClick={() => setMode({ t: "remove", other: it.ref, name: it.name })}>
+                      {E.remove}
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      {adds.map((x) => (
+        <Button key={x.what} variant="secondary" size="lg" onClick={() => setMode({ t: "pick", what: x.what })}>
+          {x.label}
+        </Button>
+      ))}
+      {story && (
+        <Button variant="secondary" size="lg" onClick={() => setMode({ t: "move" })}>
+          {E.moveStory}
+        </Button>
+      )}
+      <ErrorLine text={error} />
+      {person && !person.draft && (
+        <div className="flex flex-col gap-2 border-t border-line pt-4">
+          <p className="text-lg text-ink-soft">{E.personDeleteNote}</p>
+          <ButtonLink href={`/people/${person.id}`} variant="tertiary" size="lg">
+            {E.personDeleteLink}
+          </ButtonLink>
+        </div>
+      )}
+      {canDelete && (
+        <div className="border-t border-line pt-4">
+          <Button variant="destructive" size="lg" className="w-full" onClick={openDelete}>
+            {E.deleteNode}
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
