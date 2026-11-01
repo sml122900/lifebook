@@ -24,7 +24,9 @@ import {
   decideProposal,
   freeChatReply,
   getFreeChatState,
+  parseReplyOutput,
   proposeFromSegment,
+  replyResultFrom,
   startFreeTopic,
   substantiveUserTurns,
   type FreeChatReplyResult,
@@ -272,6 +274,13 @@ async function cardChecks(fx: Fixture) {
   check("② 모델 맞춤 + 관계 불일치 → 새 이름 + 되묻기 / 관계 일치 → 이미 계신 분 / 맞춤 없어도 이름·관계 호환 → 이미 계신 분",
     wrongMatch.personId === null && wrongMatch.sameName.some((s) => s.id === fx.uncleId) && rightMatch.personId === fx.uncleId && byName.personId === fx.friendId,
     { wrongMatch, rightMatch, byName });
+  // 모델이 다른 분의 id 를 붙인 경우(실측 결함 — "박영수"에 김민수(친구) id) → 그 id 는 버리고 이름으로 박영수.
+  const otherFriend = roster.find((r) => r.name === "김민수" && r.relation === "친구");
+  const wrongId = await personRow(userId, "박영수", "친구", otherFriend?.id ?? null, roster);
+  const shortName = await personRow(userId, "영수", "고등학교 친구", fx.friendId, roster);
+  check("② 모델 맞춤 + 이름 불일치 → 그 id 무시하고 이름으로(박영수) / \"영수\" ↔ 박영수는 같은 이름으로",
+    !!otherFriend && wrongId.personId === fx.friendId && shortName.personId === fx.friendId,
+    { otherFriend, wrongId, shortName });
 
   // 남의 것·없는 것은 믿지 않는다.
   const bad = await createFromCard(userId, card2, { ...cardToEdit(card2), center: { id: "c_not_mine" }, people: [] });
@@ -364,6 +373,81 @@ async function segmentChecks(fx: Fixture) {
     if (prev === undefined) delete process.env.CHAT_V3_DAILY_BUDGET_USD;
     else process.env.CHAT_V3_DAILY_BUDGET_USD = prev;
   }
+}
+
+// ─── 응답 폴백(말투 안전장치) — 잘린·깨진 모델 출력 ──────────────────────
+
+// (a) 화면에 내보내는 답에 JSON·코드 흔적이 절대 없어야 한다. LLM 0.
+function fallbackOutputChecks() {
+  const clean = (s: string | null) => s === null || (!/[{}[\]`]/.test(s) && !/"?\b(reply|segment)\b"?\s*:/i.test(s));
+  const cases: { label: string; raw: string; reply: string | null; segment?: string }[] = [
+    { label: "온전한 JSON", raw: '{"reply": "그 이야기 잘 들었어요.", "segment": "done"}', reply: "그 이야기 잘 들었어요.", segment: "done" },
+    { label: "코드 울타리 안 JSON", raw: '```json\n{"reply": "네, 그러셨군요.", "segment": "continue"}\n```', reply: "네, 그러셨군요.", segment: "continue" },
+    { label: "JSON 없이 문장만", raw: "그때 참 힘드셨겠어요.", reply: "그때 참 힘드셨겠어요.", segment: "continue" },
+    { label: "따옴표로 감싼 문장", raw: '"그 이야기 잘 들었어요."', reply: "그 이야기 잘 들었어요." },
+    { label: "잘린 JSON — 답 문자열은 온전", raw: '{"reply": "잘 들었어요. 고마워요.", "segm', reply: "잘 들었어요. 고마워요.", segment: "continue" },
+    { label: "잘린 JSON — 답 문자열도 잘림", raw: '{"reply": "잘 들었', reply: null },
+    { label: "중괄호로 시작한 깨진 출력", raw: "{ 잠시만요", reply: null },
+    { label: "중괄호 없는 키 조각(따옴표 키)", raw: '"reply": "잘 들었어요", "segment": "done"', reply: "잘 들었어요", segment: "continue" },
+    { label: "중괄호 없는 키 조각(맨 키)", raw: "reply: 잘 들었어요", reply: null },
+    { label: "코드 울타리만", raw: "```json", reply: null },
+    { label: "JSON 인데 답에 중괄호", raw: '{"reply": "{그때} 좋았네요", "segment": "continue"}', reply: null },
+  ];
+  for (const c of cases) {
+    const out = parseReplyOutput(c.raw);
+    check(
+      `⑧ 폴백(a) ${c.label} → ${c.reply === null ? "기본 문구" : "그 문장"}${c.segment ? `·${c.segment}` : ""}`,
+      out.reply === c.reply && (!c.segment || out.segment === c.segment) && clean(out.reply),
+      out,
+    );
+  }
+  const unreadable = replyResultFrom("{ 깨진", [], false);
+  check("⑧ 폴백(a) 못 읽으면 화면엔 기본 문구(JSON 흔적 0)", unreadable.reply === "네, 이야기 잘 듣고 있어요.", unreadable.reply);
+}
+
+// (b) 문장만 온 턴·못 읽은 턴도 6턴 강제 제안에 그대로 센다(본인 턴 수 = 로그) — 실제 DB 의 구간 로그로.
+async function fallbackCountChecks(fx: Fixture) {
+  const { userId } = fx;
+  await prisma.chatV3Segment.update({ where: { userId }, data: { startedAt: new Date(), proposal: Prisma.DbNull, topicEventId: null, topicGapType: null, topicPersonId: null } });
+  await sleep(5);
+  const lines = [
+    "첫 직장은 부산 국제시장 옆 신발 공장이었어요.",
+    "아침 일곱 시까지 출근했어요.",
+    "점심은 공장 식당에서 국수를 먹었지요.",
+    "월급날이면 동료들이랑 돼지국밥을 먹으러 갔어요.",
+    "공장장님이 엄하셨는데 정이 많은 분이었어요.",
+    "겨울엔 손이 많이 시렸어요.",
+  ];
+  const turnsOf = async () => {
+    const seg = await prisma.chatV3Segment.findUniqueOrThrow({ where: { userId }, select: { startedAt: true } });
+    const rows = await prisma.onboardingChatMessage.findMany({ where: { userId, createdAt: { gte: seg.startedAt } }, orderBy: { createdAt: "asc" }, select: { role: true, content: true, createdAt: true } });
+    return rows.map((r) => ({ role: r.role as string, content: r.content, createdAt: r.createdAt }));
+  };
+  for (let i = 0; i < lines.length; i++) {
+    await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "user", content: lines[i] } });
+    await sleep(5);
+    if (i === 4) {
+      const five = replyResultFrom("그때 참 고생하셨겠어요.", await turnsOf(), false);
+      check("⑧ 폴백(b) 문장만 온 5턴째 → 아직 제안 없음·실질 5턴", five.propose === null && five.segmentTurns === 5, five);
+    }
+    // 앞 턴들의 답은 문장만 온 것으로(폴백 경로) 로그에 남긴다. 6턴째는 본인 말로 끝(응답 직전 상태).
+    if (i < lines.length - 1) {
+      await prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role: "assistant", content: "그때 참 고생하셨겠어요." } });
+      await sleep(5);
+    }
+  }
+  const turns = await turnsOf();
+  const plainSix = replyResultFrom("그때 참 고생하셨겠어요.", turns, false);
+  const brokenSix = replyResultFrom('{"reply": "잘 들었', turns, false);
+  check("⑧ 폴백(b) 문장만 온 6턴째 → 6턴 강제 제안", JSON.stringify(plainSix.propose) === JSON.stringify({ until: null }) && plainSix.segmentTurns === 6, plainSix);
+  check("⑧ 폴백(b) 못 읽은 6턴째(기본 문구) → 그래도 6턴 강제 제안", brokenSix.reply === "네, 이야기 잘 듣고 있어요." && JSON.stringify(brokenSix.propose) === JSON.stringify({ until: null }), brokenSix);
+  check("⑧ 폴백(b) 카드가 떠 있으면 6턴이어도 새 제안 없음", replyResultFrom("그때 참 고생하셨겠어요.", turns, true).propose === null);
+  // 실제 응답(Haiku 1회) — 모델 출력이 무엇이든 6턴째면 제안.
+  const real = await freeChatReply(userId);
+  check("⑧ 폴백(b) 실제 응답 6턴째 → 제안 · 화면 답에 JSON 흔적 없음",
+    real.kind === "reply" && JSON.stringify(real.propose) === JSON.stringify({ until: null }) && real.segmentTurns === 6 && !/[{}`]|"?(reply|segment)"?s*:/.test(real.reply),
+    real);
+  return turns.length;
 }
 
 // ─── 실제 모델 ───────────────────────────────────────────────────────────
@@ -524,6 +608,8 @@ async function main() {
     await prisma.chatV3Segment.create({ data: { userId: fx.userId } });
     await cardChecks(fx);
     await segmentChecks(fx);
+    fallbackOutputChecks();
+    await fallbackCountChecks(fx);
     await liveBasic(fx);
     if (LIVE) await liveScenarios(fx);
     const total = await usageSince(fx.userId, new Date(0));

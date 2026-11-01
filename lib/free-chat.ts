@@ -339,8 +339,7 @@ export async function freeChatReply(userId: string): Promise<FreeChatReplyResult
   const [topic, birthYear, live] = await Promise.all([topicInfo(userId, seg), birthYearOf(userId), resolveLiveModel(userId)]);
 
   const { messages, opening } = toModelMessages(turns);
-  let reply = REPLY_FALLBACK;
-  let segment: "continue" | "done" | "topic_shift" = "continue";
+  let raw = "";
   if (messages.length > 0) {
     const system =
       buildFreeChatReplySystemPrompt({
@@ -351,26 +350,69 @@ export async function freeChatReply(userId: string): Promise<FreeChatReplyResult
     try {
       const res = await chat(messages, { system, model: live.model, maxTokens: 400, temperature: 0.6 });
       await recordChatUsage(userId, "REPLY", res);
-      const json = stripJsonFence(res.text).match(/\{[\s\S]*\}/)?.[0];
-      const plain = res.text.trim();
-      if (!json && plain && plain.length <= 300 && !/[{}]/.test(plain)) {
-        // 모델이 JSON 없이 답 문장만 낸 경우(실측 2/24 — 예시 문구를 따라 할 때) — 기본 문구 대신 그 문장, 판단은 continue.
-        reply = plain;
-      } else {
-        const parsed = JSON.parse(json ?? "") as { reply?: unknown; segment?: unknown };
-        if (typeof parsed.reply === "string" && parsed.reply.trim()) reply = parsed.reply.trim();
-        if (parsed.segment === "done" || parsed.segment === "topic_shift") segment = parsed.segment;
-      }
+      raw = res.text;
     } catch (e) {
       console.error("[free-chat] reply", e instanceof Error ? e.message : e);
     }
   }
+  return replyResultFrom(raw, turns, !!card);
+}
+
+export type ReplySegment = "continue" | "done" | "topic_shift";
+
+// 화면에 내보내도 되는 답인지 — JSON·코드 흔적(중괄호·대괄호·백틱·"reply":/"segment": 키)이 있으면 안 된다.
+function isCleanReply(s: string): boolean {
+  return !/[{}[\]`]/.test(s) && !/"?\b(reply|segment)\b"?\s*:/i.test(s);
+}
+
+// 응답 모델 출력 → (답, 구간 판정). 순수 — 회귀가 잘린·깨진 출력을 직접 넣어 본다.
+//   ① JSON 이 온전하면 그 값(답에 JSON 흔적이 있으면 버림)
+//   ② 잘린 JSON — "reply" 문자열이 따옴표까지 온전하면 그 문장만 살린다(판단은 continue)
+//   ③ JSON 흔적 없는 문장만 온 경우(실측 — 예시를 따라 할 때) 그 문장(판단은 continue)
+//   그 밖(중괄호로 시작해 잘린 출력·키만 있는 조각 등)은 null → 호출부가 기본 문구.
+// 판단을 못 읽어도 continue 일 뿐, 6턴 강제 제안은 본인 턴 수(로그)로 따로 센다(decideProposal).
+export function parseReplyOutput(raw: string): { reply: string | null; segment: ReplySegment } {
+  const text = stripJsonFence(raw);
+  const json = text.match(/\{[\s\S]*\}/)?.[0];
+  if (json) {
+    try {
+      const p = JSON.parse(json) as { reply?: unknown; segment?: unknown };
+      const reply = typeof p.reply === "string" ? p.reply.trim() : "";
+      const segment: ReplySegment = p.segment === "done" || p.segment === "topic_shift" ? p.segment : "continue";
+      if (reply && isCleanReply(reply)) return { reply, segment };
+    } catch {
+      // 아래 ②·③ 으로.
+    }
+  }
+  const quoted = text.match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (quoted) {
+    try {
+      const reply = (JSON.parse(`"${quoted[1]}"`) as string).trim();
+      if (reply && isCleanReply(reply)) return { reply, segment: "continue" };
+    } catch {
+      // 기본 문구로.
+    }
+    return { reply: null, segment: "continue" };
+  }
+  const plain = raw.trim().replace(/^"([\s\S]*)"$/, "$1").trim();
+  if (plain && plain.length <= 300 && isCleanReply(plain)) return { reply: plain, segment: "continue" };
+  return { reply: null, segment: "continue" };
+}
+
+// 응답 결과 조립(순수) — 답(못 읽으면 기본 문구) + 제안 시점(본인 턴 수 기준, 카드가 떠 있으면 없음).
+export function replyResultFrom(
+  raw: string,
+  turns: { role: string; content: string; createdAt: Date }[],
+  cardPending: boolean,
+): Extract<FreeChatReplyResult, { kind: "reply" }> {
+  const out = parseReplyOutput(raw);
+  if (raw && !out.reply) console.error("[free-chat] reply unreadable — fallback");
   return {
     kind: "reply",
-    reply,
-    propose: card ? null : decideProposal(segment, turns),
+    reply: out.reply ?? REPLY_FALLBACK,
+    propose: cardPending ? null : decideProposal(out.segment, turns),
     segmentTurns: substantiveUserTurns(turns),
-    cardPending: !!card,
+    cardPending,
   };
 }
 

@@ -150,10 +150,19 @@ export async function personRow(
   matchId: string | null,
   people: { id: string; name: string; relation: string | null }[],
 ): Promise<CardPerson> {
-  // 모델이 이미 계신 분이라고 해도 대화 속 관계가 그분 관계와 안 맞으면 믿지 않는다(실측: "동네 친구 정다운"을
-  // 확정 인물 정다운(외삼촌)으로 맞춤). 그때는 새 이름으로 보고 아래 규칙(관계 호환 → 같은 이름 되묻기)을 탄다.
+  // 모델이 이미 계신 분이라고 해도 믿기 전에 두 가지를 본다 — 그때는 새 이름으로 보고 아래 규칙(관계 호환 →
+  // 같은 이름 되묻기)을 탄다.
+  //   ① 관계: 대화 속 관계가 그분 관계와 안 맞으면 아님(실측: "동네 친구 정다운"을 정다운(외삼촌)으로 맞춤)
+  //   ② 이름: 모델이 쓴 이름이 그분 이름과 안 맞으면 아님(실측: "박영수"에 다른 분 김민수(친구)의 id 를 붙임).
+  //      "민수" ↔ "김민수"처럼 한쪽이 다른 쪽을 품으면 같은 이름으로 본다(호칭만 나온 분은 프롬프트가 그분
+  //      이름을 쓰게 한다).
   const matched = matchId ? people.find((p) => p.id === matchId) : undefined;
-  if (matched && isRelationCompatible(matched.relation, relation)) {
+  const nameAgrees = (a: string, b: string) => {
+    const x = norm(a);
+    const y = norm(b);
+    return x === y || (Math.min(x.length, y.length) >= 2 && (x.includes(y) || y.includes(x)));
+  };
+  if (matched && nameAgrees(matched.name, name) && isRelationCompatible(matched.relation, relation)) {
     return { name: matched.name, relation: matched.relation, personId: matched.id, sameName: [] };
   }
   const compatible = await findCompatiblePerson(prisma, userId, name, relation, false);
