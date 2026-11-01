@@ -24,7 +24,7 @@ import { findCompatiblePerson, findSameNamePeople } from "./person-chat";
 import { isRelationCompatible, relationGroup } from "./person-relation";
 import { EPISODE_SUMMARY_NO_CONTENT } from "./prompts/episode-chat";
 import { buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "./prompts/free-chat";
-import { displayTitle } from "./story-title";
+import { displayTitle, storedStoryTitle } from "./story-title";
 
 const PROPOSAL_MODEL = process.env.LIFE_EVENT_CONFIRM_MODEL ?? "claude-sonnet-4-6";
 export const TITLE_MAX = 40;
@@ -333,8 +333,12 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
     places.push(placeRow(owned, name));
   }
 
-  const title =
-    input.fixedTitle?.trim().slice(0, TITLE_MAX) || str(obj.title, TITLE_MAX) || input.titleHint?.slice(0, TITLE_MAX) || summary.slice(0, 20);
+  // 시기 이름 자리 표시 제목은 카드에서부터 비운다(저장 규칙과 같은 함수 — 카드에 보인 제목 = 저장될 제목).
+  const title = storedStoryTitle(
+    input.fixedTitle?.trim().slice(0, TITLE_MAX) || str(obj.title, TITLE_MAX) || input.titleHint?.slice(0, TITLE_MAX) || summary.slice(0, 20),
+    centers.map((c) => c.label),
+    false,
+  );
   const kind: EpisodeKind = input.kind ?? (obj.kind === "SELF" ? "SELF" : "STORY");
 
   return {
@@ -524,7 +528,9 @@ export async function createFromCard(
   const targetPersonId =
     card.targetPersonId && people.some((p) => p.personId === card.targetPersonId) ? card.targetPersonId : undefined;
 
-  let saved: { episodeId: string; memoryId: string } | null = null;
+  // 카드 제목과 다르면 사용자가 [고치기]로 직접 적은 제목 — 시기 이름이어도 그대로 둔다(저장 규칙의 예외).
+  const userSetTitle = norm(title) !== norm(card.title);
+  let saved: { episodeId: string; memoryId: string; title: string } | null = null;
   try {
     saved = await createEpisodeBridge(
       userId,
@@ -536,6 +542,7 @@ export async function createFromCard(
       targetPersonId,
       card.isPeriod,
       card.kind,
+      userSetTitle,
     );
   } catch (e) {
     console.error("[node-proposal] episode", e);
@@ -595,7 +602,7 @@ export async function createFromCard(
     ok: true,
     episodeId: saved.episodeId,
     eventId: center.id,
-    title: displayTitle({ title, content: summary }),
+    title: displayTitle({ title: saved.title, content: summary }),
     created: { center: createdCenter, people: linkedPeople, places: linkedPlaces },
   };
 }

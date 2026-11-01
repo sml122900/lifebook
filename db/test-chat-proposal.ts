@@ -7,6 +7,7 @@
 //                                                   F 운영 test30 E2E 같은 문장 재현 — 별도 픽스처 fixture-chat-e2e@)
 // ⑩(LLM 0) = 장소 이름 합쳐짐 되묻기 + 프롬프트 예시 소재가 픽스처·재현 대화와 겹치지 않는지.
 // ⑪(LLM 0) = 제목 없음(빈 문자열) — 공용 판정 displayTitle·[고치기]에서 제목 지움·제목을 읽는 곳.
+// ⑫(LLM 0) = 시기 이름 제목 재발 방지 — 저장 한 곳(createEpisodeBridge) 규칙·userSetTitle 예외·저장 경로 전수.
 // ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@·fixture-chat-e2e@lifebook.invalid)만 만들고 끝에 지운다.
 // 실고객·test30 접촉 0. 원가 원장(ChatV3Usage)은 실제 호출 원가라 남긴다(탈퇴처럼 userId 만 비워짐).
 
@@ -46,7 +47,7 @@ import { searchMyLife } from "../lib/my-life-search";
 import { cardToEdit, createFromCard, overlappingPlaces, personRow, placeRow, type CardEdit, type ProposalCard } from "../lib/node-proposal";
 import { periodMemoryId, syncV3Bridge } from "../lib/poster/v3-bridge";
 import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
-import { displayTitle } from "../lib/story-title";
+import { DEFAULT_PERIOD_LABELS, displayTitle, isPeriodNameTitle, storedStoryTitle } from "../lib/story-title";
 import { getStoryReviewData } from "../lib/story-review";
 
 const FIXTURE_EMAIL = "fixture-chat-proposal@lifebook.invalid";
@@ -664,13 +665,14 @@ async function e2eFollowupChecks(fx: Fixture) {
   // 2 — 제목: 지도·목록 글자 = 제목 칸 그대로, 비었으면 본문 첫 문장(displayTitle). 2026-11-02 "시기 이름이면 제목으로
   // 안 봄" 조건 제거 — 옛 제목(시기 이름)은 db/cleanup-legacy-story-titles.ts 가 빈 문자열로 비웠다(실고객 0편).
   const cleared = await createEpisodeBridge(userId, ev.HIGH_SCHOOL, "", 1968, "고등학교 강당에서 졸업식을 했다. 눈이 왔다.", "[본인] 졸업식");
-  const periodNamed = await createEpisodeBridge(userId, ev.HIGH_SCHOOL, "고등학교 입학", 1968, "교복을 처음 입었다.", "[본인] 교복");
+  // 사용자가 [고치기]로 직접 시기 이름을 제목으로 적은 경우(저장 규칙의 예외 — ⑫).
+  const periodNamed = await createEpisodeBridge(userId, ev.HIGH_SCHOOL, "고등학교 입학", 1968, "교복을 처음 입었다.", "[본인] 교복", undefined, false, "STORY", true);
   const data = await getMyLifeData(userId);
   const all = data.events.flatMap((e) => e.stories);
   const titled = all.find((x) => made.ok && x.id === made.episodeId);
   const old = all.find((x) => x.id === cleared?.episodeId);
   const named = all.find((x) => x.id === periodNamed?.episodeId);
-  check("⑨-2 지도·목록 글자 — 제목 있는 이야기 = 제목 / 제목을 비운 옛 이야기 = 본문 첫 문장 / 시기 이름도 제목 칸에 있으면 그대로(조건 제거)",
+  check("⑨-2 지도·목록 글자 — 제목 있는 이야기 = 제목 / 제목을 비운 옛 이야기 = 본문 첫 문장 / 사용자가 적은 시기 이름 제목은 그대로(조건 제거)",
     titled?.title === "[fixture] 소풍" && !!titled && displayTitle(titled) === "[fixture] 소풍" &&
       old?.title === "" && !!old && displayTitle(old) === "고등학교 강당에서 졸업식을 했다." &&
       !!named && displayTitle(named) === "고등학교 입학",
@@ -810,6 +812,56 @@ async function titleChecks(fx: Fixture) {
       (session.match(/topicIsTitle: true/g) ?? []).length === 2);
 }
 
+// ─── 시기 이름 제목 재발 방지 — 이야기 저장 한 곳(createEpisodeBridge)의 규칙(2026-11-02) — LLM 0 ────
+
+async function periodTitleGuardChecks(fx: Fixture) {
+  const { userId, ev } = fx;
+  const own = ["군 입대", null, "서울 상경", "고향 떠난 해"];
+  check("⑫ 판정 — 그 계정 시기 이름(고친 이름 포함)·기본 시기 이름 9개·\"… 이후\"(공백 무시) = 자리 표시 / 진짜 제목 = 아님",
+    isPeriodNameTitle("군 입대", own) && isPeriodNameTitle("고향 떠난 해", own) && isPeriodNameTitle(" 국민학교  입학 ", []) && isPeriodNameTitle("초등학교 입학", []) &&
+      isPeriodNameTitle("결혼 이후", []) && isPeriodNameTitle("서울 상경 이후", own) && !isPeriodNameTitle("결혼식 날 비가 왔다", own) &&
+      !isPeriodNameTitle("엿장수 따라가던 날", own) && !isPeriodNameTitle("", own));
+  check("⑫ 저장할 제목 — 자리 표시면 빈 문자열 / 사용자가 직접 적었으면 그대로 / 진짜 제목은 그대로(앞뒤 공백 정리)",
+    storedStoryTitle("중학교 입학", [], false) === "" && storedStoryTitle("중학교 입학", [], true) === "중학교 입학" && storedStoryTitle("  연 날리던 날 ", [], false) === "연 날리던 날");
+
+  // 기본 시기 이름 9개 = 앱 골격(app/actions/onboarding.ts)이 만드는 이름 — 골격에 시기가 늘면 여기서 걸린다.
+  const skeleton = read("app/actions/onboarding.ts");
+  const fixed = [...skeleton.matchAll(/label: "([^"]+)"/g)].map((m) => m[1]);
+  const elem = /label: `\$\{getElemSchoolLabel\([^)]*\)\} 입학`/.test(skeleton) ? ["국민학교 입학", "초등학교 입학"] : [];
+  const skeletonLabels = [...new Set([...fixed, ...elem])].sort();
+  check("⑫ 기본 시기 이름 9개 = 앱 골격 시기 이름", JSON.stringify(skeletonLabels) === JSON.stringify([...DEFAULT_PERIOD_LABELS].sort()), { skeletonLabels, DEFAULT_PERIOD_LABELS });
+
+  // 저장 한 곳 — createEpisodeBridge 가 규칙을 건다(시기 이름·기본 이름·"… 이후" → 빈 문자열, userSetTitle 이면 그대로).
+  const titleOf = async (r: { memoryId: string } | null) =>
+    r ? (await prisma.userMemory.findUnique({ where: { id: r.memoryId }, select: { title: true } }))?.title : undefined;
+  const a = await createEpisodeBridge(userId, ev.MILITARY, "군 입대", 1973, "훈련소 첫날 밤 별이 많았다.", "[본인] 별");
+  const b = await createEpisodeBridge(userId, ev.MILITARY, "군 입대 이후", 1973, "제대하고 고향에 돌아왔다.", "[본인] 제대", undefined, true);
+  const c = await createEpisodeBridge(userId, ev.MILITARY, "결혼", 1973, "휴가 때 선을 봤다.", "[본인] 선");
+  const d = await createEpisodeBridge(userId, ev.MILITARY, "군 입대", 1973, "내가 정한 제목이다.", "[본인] 제목", undefined, false, "STORY", true);
+  const e = await createEpisodeBridge(userId, ev.MILITARY, "훈련소 별 보던 밤", 1973, "별이 많았다.", "[본인] 별");
+  const titles = { a: await titleOf(a), b: await titleOf(b), c: await titleOf(c), d: await titleOf(d), e: await titleOf(e) };
+  check("⑫ 저장 — 계정 시기 이름·\"… 이후\"·기본 시기 이름 → 빈 문자열 / 사용자가 적은 시기 이름 → 그대로 / 진짜 제목 → 그대로 · 결과 title = 저장 값",
+    titles.a === "" && titles.b === "" && titles.c === "" && titles.d === "군 입대" && titles.e === "훈련소 별 보던 밤" && a?.title === "" && d?.title === "군 입대", titles);
+
+  // 카드 [만들기] — 카드 제목 그대로면 자동(규칙 적용), [고치기]로 바꾼 제목이면 사용자 제목(시기 이름이어도 그대로).
+  const card = baseCard({ title: "고등학교 입학", summary: "입학식 날 교복이 컸다. 어머니가 웃으셨다.", center: { id: ev.HIGH_SCHOOL, label: "고등학교 입학", year: 1968 } });
+  const auto = await createFromCard(userId, card, cardToEdit(card));
+  const user = await createFromCard(userId, card, { ...cardToEdit(card), title: "군 입대" });
+  const autoTitle = auto.ok ? await titleOf(await prisma.episode.findUnique({ where: { id: auto.episodeId }, select: { memoryId: true } })) : undefined;
+  const userTitle = user.ok ? await titleOf(await prisma.episode.findUnique({ where: { id: user.episodeId }, select: { memoryId: true } })) : undefined;
+  check("⑫ 카드 [만들기] — 카드 제목(시기 이름) 그대로 → 빈 문자열·안내 제목 = 본문 첫 문장 / [고치기]로 적은 시기 이름 → 그대로",
+    auto.ok && autoTitle === "" && auto.title === "입학식 날 교복이 컸다." && user.ok && userTitle === "군 입대" && user.title === "군 입대", { auto, autoTitle, user, userTitle });
+
+  // 이야기 저장 경로 전수 — 앱(app·lib)에서 Episode 를 만드는 곳은 lib/episode.ts 하나, 그 함수를 부르는 곳은 카드 저장·옛 대화 둘.
+  const files = [...walk(path.join(ROOT, "app")), ...walk(path.join(ROOT, "lib"))].map((f) => path.relative(ROOT, f).replace(/\\/g, "/"));
+  const creators = files.filter((f) => /\b(tx|prisma)\.episode\.(create|createMany|upsert)\(/.test(read(f)));
+  const callers = files.filter((f) => f !== "lib/episode.ts" && /\bcreateEpisodeBridge\(/.test(read(f))).sort();
+  check("⑫ 이야기 저장 경로 = createEpisodeBridge 하나(Episode 만드는 곳 lib/episode.ts 만 · 부르는 곳 = 카드 저장·옛 대화) · 카드 단계도 같은 규칙",
+    JSON.stringify(creators) === JSON.stringify(["lib/episode.ts"]) && JSON.stringify(callers) === JSON.stringify(["lib/episode-chat.ts", "lib/node-proposal.ts"]) &&
+      (read("lib/node-proposal.ts").match(/storedStoryTitle\(/g) ?? []).length === 1 && /userSetTitle,\n\s*\);/.test(read("lib/node-proposal.ts")),
+    { creators, callers });
+}
+
 const FAREWELL = /(들려주셔서|고마워요|고맙습니다|감사|잘 들었|즐거웠|다음에 또|안녕히)/;
 
 // 운영 test30 E2E 같은 문장 재현(실제 Haiku·Sonnet) — 두 번째 제안에 첫 이야기 미포함·중학교 시기 유지·장소 추출·작별 인사 없음·제목 표시.
@@ -928,6 +980,7 @@ async function main() {
     await e2eFollowupChecks(fx);
     await placeMergeChecks(fx);
     await titleChecks(fx);
+    await periodTitleGuardChecks(fx);
     await liveBasic(fx);
     if (LIVE) await liveScenarios(fx);
     if (LIVE) await liveE2EReplay();

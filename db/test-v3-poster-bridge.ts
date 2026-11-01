@@ -44,6 +44,7 @@ import {
   periodMemoryId,
   syncV3Bridge,
 } from "../lib/poster/v3-bridge";
+import { storyLead } from "../lib/story-title";
 
 const FIXTURE_EMAIL = "fixture-bridge@lifebook.invalid";
 const STORY_A = "국민학교 운동장에서 처음 자전거를 배웠다. 아버지가 뒤에서 잡아 주셨다.";
@@ -190,14 +191,16 @@ async function scenario(userId: string) {
     if (!(await createEpisodeBridge(userId, ev, label, year, body, "raw"))) throw new Error("episode 생성 실패");
   }
   // 구간 이야기(isPeriod) — 국민학교 이후: 실질 1 + 안내문 1 / 군 입대 이후: 실질 1
-  const period = async (ev: string, label: string, year: number, body: string) => {
-    const r = await createEpisodeBridge(userId, ev, label, year, body, "raw", undefined, true);
+  // 제목: 국민학교 이후 = 자동("… 이후" 자리 표시 → 저장 규칙이 빈 문자열로 → 포스터 행 제목 = 본문 첫 문장),
+  //       군 입대 이후 = 사용자가 [고치기]로 적은 제목(userSetTitle — 그대로). lib/episode createEpisodeBridge 2026-11-02.
+  const period = async (ev: string, label: string, year: number, body: string, userSetTitle = false) => {
+    const r = await createEpisodeBridge(userId, ev, label, year, body, "raw", undefined, true, "STORY", userSetTitle);
     if (!r) throw new Error("구간 episode 생성 실패");
     return r.episodeId;
   };
   const epElemP = await period(elem.id, "대구 국민학교 입학 이후", 1958, STORY_EP);
   const epElemPGuide = await period(elem.id, "대구 국민학교 입학 이후", 1958, GUIDANCE);
-  const epMilP = await period(military.id, "군 입대 이후", 1970, STORY_MP);
+  const epMilP = await period(military.id, "군 입대 이후", 1970, STORY_MP, true);
 
   const ids = {
     birth: bridgeMemoryId(birth.id),
@@ -292,8 +295,8 @@ async function scenario(userId: string) {
     rows1,
   );
   check(
-    "구간 분리 — Episode 마다 별도 행(id v3p_·제목=Episode 제목·본문=Episode 본문·연도=앵커), 안내문뿐인 구간은 행 없음, 기본 memo 후보(저장된 node 선택은 유지)",
-    elemP?.isPeriod === true && elemP.title === "대구 국민학교 입학 이후" && elemP.content === STORY_EP && elemP.year === 1958 &&
+    "구간 분리 — Episode 마다 별도 행(id v3p_·제목=Episode 화면 제목(자동 \"… 이후\"는 비워져 본문 첫 문장, 사용자가 적은 제목은 그대로)·본문=Episode 본문·연도=앵커), 안내문뿐인 구간은 행 없음, 기본 memo 후보(저장된 node 선택은 유지)",
+    elemP?.isPeriod === true && elemP.title === storyLead(STORY_EP) && elemP.content === STORY_EP && elemP.year === 1958 &&
       milP?.title === "군 입대 이후" && milP.content === STORY_MP && milP.year === 1970 &&
       !byId1.has(ids.elemPGuide) &&
       periodRuled.candidates[0].suggestedType === "memo" && periodRuled.savedSelections[0].type === "node",

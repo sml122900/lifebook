@@ -14,6 +14,7 @@ import { prisma } from "./db";
 import { isSubstantiveEpisodeContent } from "./episode-text";
 import type { EpisodeKind } from "./generated/prisma/enums";
 import type { PlaceInfo } from "./place-types";
+import { storedStoryTitle } from "./story-title";
 
 export const CREATED_VIA_EPISODE = "episode";
 
@@ -38,6 +39,10 @@ function resolveMemoryYear(year: number | null): number {
 //
 // kind(optional, 기본 STORY) — "그때의 나"(SELF, 오늘의 인터뷰 "관계별 나")는 일반 이야기가
 // 아니라 hasEpisode("이야기 있음" 배지·/chat-v3 심화 대화 대상 판정)를 켜지 않는다.
+//
+// 제목(label) — 이야기 저장은 모두 이 함수를 거친다(2026-11-02). 사용자가 직접 적은 제목(userSetTitle — 카드 [고치기])이
+// 아니면, 그 계정의 시기 이름(고친 이름 포함)·기본 시기 이름·"… 이후" 자리 표시는 빈 문자열(= 제목 없음 — 화면은 본문
+// 첫 문장)로 저장한다(lib/story-title storedStoryTitle).
 export async function createEpisodeBridge(
   userId: string,
   lifeEventId: string,
@@ -48,7 +53,8 @@ export async function createEpisodeBridge(
   personId?: string,
   isPeriod?: boolean,
   kind?: EpisodeKind,
-): Promise<{ episodeId: string; memoryId: string } | null> {
+  userSetTitle = false,
+): Promise<{ episodeId: string; memoryId: string; title: string } | null> {
   // 2026-09-01 — CORRECTED 도 허용(app/actions/episode.ts requireConfirmedEvent
   // 와 같은 이유). 저 함수가 이미 CORRECTED 이벤트를 통과시키는데 여기서 다시
   // CONFIRMED 만 보면 finishEpisodeChat 저장이 "이야기를 찾을 수 없어요" 로 깨진다.
@@ -57,13 +63,18 @@ export async function createEpisodeBridge(
     select: { id: true },
   });
   if (!event) return null;
+  const accountLabels =
+    userSetTitle || !label.trim()
+      ? []
+      : (await prisma.lifeEvent.findMany({ where: { userId }, select: { label: true, correctedLabel: true } })).flatMap((e) => [e.label, e.correctedLabel]);
+  const title = storedStoryTitle(label, accountLabels, userSetTitle);
 
   return prisma.$transaction(async (tx) => {
     const memory = await tx.userMemory.create({
       data: {
         userId,
         year: resolveMemoryYear(year),
-        title: label,
+        title,
         content,
         createdVia: CREATED_VIA_EPISODE,
       },
@@ -87,7 +98,7 @@ export async function createEpisodeBridge(
         data: { hasEpisode: true },
       });
     }
-    return { episodeId: episode.id, memoryId: memory.id };
+    return { episodeId: episode.id, memoryId: memory.id, title };
   });
 }
 
