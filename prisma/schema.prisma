@@ -703,8 +703,11 @@ model UserMemory {
   // Phase 10 Phase 2 — 통녹음 분할. 원본 free_recording 이 부모, 세그먼트
   // (life_event) 가 자식. SetNull: 원본 삭제 시 세그먼트 parentMemoryId 만
   // null 로 남고 세그먼트 자체는 생존 (사용자 이야기 보존 우선).
+  // onUpdate: NoAction — 관례(CASCADE)와 다른 예외, DB 기준. 손으로 쓴 마이그(20260622000000_parent_memory_id)가
+  // ON UPDATE 를 적지 않아 DB 는 NO ACTION 이다. id 를 바꾸는 코드가 없어 동작 차이는 없다 — 스키마를 DB 에 맞춰
+  // migrate diff 드리프트를 없앴다(2026-11-01, My Life 개편 2단계 후속 — docs/phase/my-life-restructure.md §10.4).
   parentMemoryId String?
-  parentMemory   UserMemory?  @relation("SegmentSource", fields: [parentMemoryId], references: [id], onDelete: SetNull)
+  parentMemory   UserMemory?  @relation("SegmentSource", fields: [parentMemoryId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   childMemories  UserMemory[] @relation("SegmentSource")
 
   // Phase P1 — 이 이벤트에 연결된 인물 링크. life_event 행에만 만들어지지만
@@ -744,6 +747,8 @@ model UserMemory {
   // Phase L1 — 인생 연혁 화면(L3)에서 사용자별 life_event 시간순 정렬용.
   @@index([userId, eventYear, eventMonth])
   @@index([parentMemoryId])
+  // 동반자 초안(isDraft) 검토·제외 조회용 — 마이그 20260622000001_companion_session 이 만든 DB 인덱스를 선언만(2026-11-01).
+  @@index([userId, isDraft])
 }
 
 // Phase T1 (타임머신) — 월별 사건 + 차트 음악.
@@ -937,6 +942,8 @@ model Person {
 
   @@index([userId])
   @@index([userId, subjectType])
+  // 확인 전 초안 인물(isDraft) 조회용 — 마이그 20260622000001_companion_session 이 만든 DB 인덱스를 선언만(2026-11-01).
+  @@index([userId, isDraft])
 }
 
 // Phase P1 — Person ↔ UserMemory 다대다 조인 테이블.
@@ -1056,7 +1063,8 @@ model CompanionSession {
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   transcriptJson String   @default("[]")
-  audioPaths     String[]
+  // DB 기본값(빈 배열 — 마이그 20260622000001)을 선언만(2026-11-01). 저장하는 곳은 늘 값을 넘긴다.
+  audioPaths     String[] @default([])
   createdAt      DateTime @default(now())
 
   memories    UserMemory[]

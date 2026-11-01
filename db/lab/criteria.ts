@@ -30,9 +30,9 @@ export const LAB_CRITERIA = {
     llmCardQuoteVerbatimRate: 1.0,
     // 검색 전용 모드: NO_RECORD 를 제외한 24문항, expected 그룹 기준 top-8 recall 평균.
     retrievalRecallAt8: 0.85,
-    // 배포 후 migrate diff 결과가 알려진 drift 문장 "만" 남은 개수
-    // (parentMemoryId FK 1 · isDraft 인덱스 2 · audioPaths 기본값 1).
-    postDeployDriftStatements: 4,
+    // 배포 후 migrate diff(--from-config-datasource) 결과 문장 수. 예전 알려진 drift 4건(parentMemoryId FK ·
+    // isDraft 인덱스 2 · audioPaths 기본값)은 2026-11-01 스키마를 DB 에 맞춰 정리(DB 변경 0) → 0.
+    postDeployDriftStatements: 0,
   },
 
   // R2 — L3 에이전트(인용 필수 질의응답).
