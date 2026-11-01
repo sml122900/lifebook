@@ -190,6 +190,8 @@ model User {
   personGroups PersonGroup[]
   nodeLinks    NodeLink[]
   nodeBodies   NodeBody[]
+  // My Life 개편 3단계(docs/phase/my-life-restructure.md §2) — 장소 묶음. 탈퇴 시 Cascade.
+  placeGroups  PlaceGroup[]
 }
 
 // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
@@ -1505,8 +1507,40 @@ model Place {
   updatedAt DateTime @updatedAt
 
   memoryPlaces MemoryPlace[]
+  groupMembers PlaceGroupMember[]
 
   @@index([userId])
+}
+
+// 장소 묶음("부산 시절의 곳들" 등) + 구성원 — PersonGroup·PersonGroupMember 와 같은 패턴
+// (My Life 개편 3단계, docs/phase/my-life-restructure.md §2 안 A). 묶음 삭제 시 연결 정리는
+// DB 트리거 PlaceGroup_node_graph_cleanup(마이그 20261102000000_place_group).
+model PlaceGroup {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  memo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members PlaceGroupMember[]
+
+  @@index([userId])
+}
+
+// userId 는 권한 확인용(group·place 의 userId 와 일치) — PersonGroupMember 와 같다.
+model PlaceGroupMember {
+  id        String     @id @default(cuid())
+  groupId   String
+  group     PlaceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  placeId   String
+  place     Place      @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime   @default(now())
+
+  @@unique([groupId, placeId])
+  @@index([placeId])
 }
 
 // 인물 그룹("고등학교 친구들" 등) + 구성원.
@@ -1541,11 +1575,14 @@ model PersonGroupMember {
 // 선언 순서 = NodeLink 방향 순위(위가 상위). DB CHECK(NodeLink_direction_check)가 enum 비교
 // (선언 순서)로 방향을 강제하므로, 값을 추가할 때는 ALTER TYPE ... ADD VALUE ... BEFORE/AFTER 로
 // 순위 자리에 넣고 lib 순위표도 같이 고친다. 자아 항목(SELF_ASPECT)은 3단계에서 추가.
+// PLACE_GROUP 은 마이그 20261102000000_place_group 에서 ADD VALUE ... BEFORE 'PLACE' 로 넣었다
+// (migrate diff 는 맨 뒤에 붙이는 SQL 을 내므로 손으로 고침 — 묶음이 구성원 위, PERSON_GROUP > PERSON 과 같은 결).
 enum NodeType {
   LIFE_EVENT
   EPISODE
   PERSON_GROUP
   PERSON
+  PLACE_GROUP
   PLACE
 }
 

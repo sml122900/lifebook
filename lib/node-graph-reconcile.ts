@@ -7,6 +7,7 @@
 //   3 방향 위반·허용 안 된 쌍 — 보고만             8 고아 초안 인물                → 정리 대상
 //   4 한 쌍 두 곳(주 소속·대상 인물) — 보고만      9 확인 대기 연결 수·가장 오래된 대기 일수 — 지표
 //   5 본문 정합(노드 없음 → 정리 대상 / 주인 불일치·남의 메모리 — 보고만)   10 장소형 인물 수 — 지표
+//   11 모임·장소 묶음 구성원 행의 주인 ≠ 묶음·구성원 주인 — 보고만(My Life 개편 3단계)
 // 정리(applyNodeGraphCleanup)는 1·5(노드 없음)·8 만, 점검과 같은 조건의 DELETE 한 문장씩.
 
 import { prisma } from "./db";
@@ -32,6 +33,7 @@ export type NodeGraphIssues = {
   pendingPeopleLinks: number; // 9 — 그중 이야기→인물(확인 화면 대상)
   oldestPendingDays: number | null; // 9
   locationPeople: number; // 10
+  memberOwnerMismatch: number; // 11 — PersonGroupMember·PlaceGroupMember
 };
 
 function scope(col: string, s: NodeGraphScope): Prisma.Sql {
@@ -50,6 +52,7 @@ function ownerOf(typeCol: string, idCol: string): Prisma.Sql {
     WHEN 'EPISODE' THEN (SELECT le."userId" FROM "Episode" ep JOIN "LifeEvent" le ON le.id = ep."lifeEventId" WHERE ep.id = ${id})
     WHEN 'PERSON_GROUP' THEN (SELECT x."userId" FROM "PersonGroup" x WHERE x.id = ${id})
     WHEN 'PERSON' THEN (SELECT x."userId" FROM "Person" x WHERE x.id = ${id})
+    WHEN 'PLACE_GROUP' THEN (SELECT x."userId" FROM "PlaceGroup" x WHERE x.id = ${id})
     WHEN 'PLACE' THEN (SELECT x."userId" FROM "Place" x WHERE x.id = ${id})
   END`;
 }
@@ -66,7 +69,7 @@ const n = (v: unknown) => Number(v ?? 0);
 
 export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<NodeGraphIssues> {
   const linkScope = scope(`nl."userId"`, s);
-  const [ends, [dir], [dup], [body], [stale], [photo], [orphan], [pend], [loc]] = await Promise.all([
+  const [ends, [dir], [dup], [body], [stale], [photo], [orphan], [pend], [loc], [mem]] = await Promise.all([
     // 1·2 — 문제 있는 끝만 돌려받는다(정상이면 0행).
     prisma.$queryRaw<{ id: string; t: string; missing: boolean }[]>`
       SELECT nl.id, e.t::text AS t, (e.owner IS NULL) AS missing
@@ -115,6 +118,12 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
       FROM "NodeLink" nl WHERE ${linkScope} AND nl.status = 'PROPOSED'`,
     prisma.$queryRaw<{ n: number }[]>`
       SELECT count(*)::int AS n FROM "Person" p WHERE ${scope(`p."userId"`, s)} AND p."subjectType" = 'location'`,
+    prisma.$queryRaw<{ n: number }[]>`
+      SELECT
+        (SELECT count(*)::int FROM "PersonGroupMember" m JOIN "PersonGroup" g ON g.id = m."groupId" JOIN "Person" x ON x.id = m."personId"
+          WHERE ${scope(`m."userId"`, s)} AND (g."userId" <> m."userId" OR x."userId" <> m."userId"))
+        + (SELECT count(*)::int FROM "PlaceGroupMember" m JOIN "PlaceGroup" g ON g.id = m."groupId" JOIN "Place" x ON x.id = m."placeId"
+          WHERE ${scope(`m."userId"`, s)} AND (g."userId" <> m."userId" OR x."userId" <> m."userId")) AS n`,
   ]);
 
   const danglingByType: Record<string, number> = {};
@@ -136,6 +145,7 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
     pendingPeopleLinks: n(pend.people),
     oldestPendingDays: pend.oldest ? Math.floor((Date.now() - new Date(pend.oldest).getTime()) / 86_400_000) : null,
     locationPeople: n(loc.n),
+    memberOwnerMismatch: n(mem.n),
   };
 }
 

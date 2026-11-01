@@ -28,6 +28,7 @@ function print(i: NodeGraphIssues) {
   console.log(`8  고아 초안 인물              ${i.orphanDrafts}  [정리 대상]`);
   console.log(`9  확인 대기 연결              ${i.pendingLinks} (이야기→인물 ${i.pendingPeopleLinks}) · 가장 오래된 대기 ${i.oldestPendingDays ?? "-"}일  [지표]`);
   console.log(`10 장소형 인물                 ${i.locationPeople}  [지표]`);
+  console.log(`11 구성원 행 주인 불일치       ${i.memberOwnerMismatch}  [보고만]`);
 }
 
 async function main() {

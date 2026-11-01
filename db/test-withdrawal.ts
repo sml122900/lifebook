@@ -9,7 +9,8 @@
 // 5) UserMemory cascade. 그에 달린 고아 룸 댓글은 사전 정리.
 // (scenario 4) v3 모델 cascade. (scenario 5) 탈퇴 시 Storage 파일 삭제 — 실제 Storage 에
 // 작은 테스트 파일을 올렸다가 지운다(이웃 폴더는 테스트 끝에 직접 정리).
-// (scenario 6) 노드 그래프 테이블 cascade + 노드 삭제 트리거가 함께 도는 탈퇴.
+// (scenario 6) 노드 그래프 테이블 cascade + 노드 삭제 트리거가 함께 도는 탈퇴(+ My Life 개편 3단계 장소 묶음
+// PlaceGroup·PlaceGroupMember, 구성원은 saveNodeLink 입구로).
 // (scenario 7) My Life 개편 2단계 — ChatV3Segment 삭제(Cascade) · ChatV3Usage 는 userId 만 비움(SetNull) ·
 // InterviewItem(제안 카드 포함) 삭제.
 
@@ -412,10 +413,14 @@ async function scenario6_nodeGraph() {
   const place = await prisma.place.create({ data: { userId: hana.id, name: "[fixture] 학교 강당" } });
   const group = await prisma.personGroup.create({ data: { userId: hana.id, name: "[fixture] 합창부" } });
   await prisma.personGroupMember.create({ data: { groupId: group.id, personId: person.id, userId: hana.id } });
+  const person2 = await prisma.person.create({ data: { userId: hana.id, name: "[fixture] 친구 2", relation: "고교 친구" } });
+  const placeGroup = await prisma.placeGroup.create({ data: { userId: hana.id, name: "[fixture] 학교 근처" } });
   const links = await Promise.all([
     saveNodeLink(hana.id, { type: "PLACE", id: place.id }, { type: "LIFE_EVENT", id: ev.id }),
     saveNodeLink(hana.id, { type: "EPISODE", id: bridge.episodeId }, { type: "PERSON", id: person.id }),
     saveNodeLink(hana.id, { type: "EPISODE", id: bridge.episodeId }, { type: "PERSON_GROUP", id: group.id }),
+    saveNodeLink(hana.id, { type: "PERSON_GROUP", id: group.id }, { type: "PERSON", id: person2.id }),
+    saveNodeLink(hana.id, { type: "PLACE_GROUP", id: placeGroup.id }, { type: "PLACE", id: place.id }),
   ]);
   if (!links.every((l) => l.ok)) throw new Error(`saveNodeLink failed in setup: ${JSON.stringify(links)}`);
   const bodyMemory = await prisma.userMemory.create({
@@ -424,11 +429,16 @@ async function scenario6_nodeGraph() {
   await prisma.nodeBody.create({
     data: { userId: hana.id, nodeType: "PLACE", nodeId: place.id, doc: { v: 1, blocks: [] }, plainText: "", memoryId: bodyMemory.id },
   });
+  await prisma.nodeBody.create({
+    data: { userId: hana.id, nodeType: "PLACE_GROUP", nodeId: placeGroup.id, doc: { v: 1, blocks: [] }, plainText: "" },
+  });
 
   const count = async () => ({
     places: await prisma.place.count({ where: { userId: hana.id } }),
     groups: await prisma.personGroup.count({ where: { userId: hana.id } }),
     members: await prisma.personGroupMember.count({ where: { userId: hana.id } }),
+    placeGroups: await prisma.placeGroup.count({ where: { userId: hana.id } }),
+    placeGroupMembers: await prisma.placeGroupMember.count({ where: { userId: hana.id } }),
     links: await prisma.nodeLink.count({ where: { userId: hana.id } }),
     bodies: await prisma.nodeBody.count({ where: { userId: hana.id } }),
     bodyMemory: await prisma.userMemory.count({ where: { id: bodyMemory.id } }),

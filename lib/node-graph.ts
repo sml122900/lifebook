@@ -2,7 +2,9 @@
 //
 // NodeLink 행은 이 파일의 saveNodeLink 로만 만든다(다른 곳에서 nodeLink.create 금지).
 // saveNodeLink 는 노드 연결의 유일한 입구다(My Life Q44, 2026-11-01) — 이미 다른 칸에 저장하는 쌍 중
-// 중심↔인물은 PersonLifeEvent, 이야기↔장소는 MemoryPlace 로 넘겨 저장한다(NodeLink 에 같은 쌍을 또 두지 않음).
+// 중심↔인물은 PersonLifeEvent, 이야기↔장소는 MemoryPlace, 모임↔사람은 PersonGroupMember, 장소 묶음↔장소는
+// PlaceGroupMember 로 넘겨 저장한다(NodeLink 에 같은 쌍을 또 두지 않음). 빼기는 removeNodeLink 하나(Q50 —
+// 같은 정규화·소유 확인 뒤 쌍에 따라 그 칸의 행을 지움, 노드는 지우지 않음).
 //   1) 방향 정규화 — 노드 종류 순위(NODE_RANK)에서 상위가 from, 같은 종류는 id 바이트 순으로
 //      앞선 쪽이 from. A→B 와 B→A 요청이 같은 행이 된다. DB 의 NodeLink_direction_check 가
 //      같은 규칙(enum 선언 순서 + COLLATE "C")으로 어긋난 행을 거부한다.
@@ -18,7 +20,8 @@ import type { Prisma } from "./generated/prisma/client";
 import type { LinkStatus, NodeType } from "./generated/prisma/enums";
 
 // 순위 — prisma/schema.prisma 의 NodeType 선언 순서와 같아야 한다(DB CHECK 가 그 순서를 쓴다).
-export const NODE_RANK: readonly NodeType[] = ["LIFE_EVENT", "EPISODE", "PERSON_GROUP", "PERSON", "PLACE"];
+// PLACE_GROUP 은 마이그 20261102000000_place_group 에서 PLACE 바로 위에 넣었다.
+export const NODE_RANK: readonly NodeType[] = ["LIFE_EVENT", "EPISODE", "PERSON_GROUP", "PERSON", "PLACE_GROUP", "PLACE"];
 
 export type NodeRef = { type: NodeType; id: string };
 
@@ -37,6 +40,8 @@ export const ALLOWED_PAIRS: ReadonlySet<string> = new Set<string>([
 export const ROUTED_PAIRS: ReadonlySet<string> = new Set<string>([
   "LIFE_EVENT>PERSON", // → PersonLifeEvent
   "EPISODE>PLACE", // → 이야기 브릿지 메모리의 MemoryPlace(placeId + 이름·주소·좌표 복사)
+  "PERSON_GROUP>PERSON", // → PersonGroupMember(My Life 개편 3단계)
+  "PLACE_GROUP>PLACE", // → PlaceGroupMember(My Life 개편 3단계)
 ]);
 
 // 순수 함수 — 방향 정규화. 같은 노드끼리면 null.
@@ -60,16 +65,19 @@ async function ownsNode(db: Prisma.TransactionClient, userId: string, n: NodeRef
       return (await db.personGroup.count({ where })) > 0;
     case "PERSON":
       return (await db.person.count({ where })) > 0;
+    case "PLACE_GROUP":
+      return (await db.placeGroup.count({ where })) > 0;
     case "PLACE":
       return (await db.place.count({ where })) > 0;
   }
 }
 
-// store — 실제로 저장한 칸. linkId 는 그 칸의 행 id(NodeLink·PersonLifeEvent·MemoryPlace).
-export type LinkStore = "NODE_LINK" | "PERSON_LIFE_EVENT" | "MEMORY_PLACE";
+// store — 실제로 저장한 칸. linkId 는 그 칸의 행 id(NodeLink·PersonLifeEvent·MemoryPlace·구성원 행).
+export type LinkStore = "NODE_LINK" | "PERSON_LIFE_EVENT" | "MEMORY_PLACE" | "PERSON_GROUP_MEMBER" | "PLACE_GROUP_MEMBER";
 
+// created — 이번 요청으로 새 행이 생겼는지(이미 있던 연결이면 false — 되돌리기는 created 인 것만 지운다).
 export type SaveNodeLinkResult =
-  | { ok: true; linkId: string; status: LinkStatus; store: LinkStore }
+  | { ok: true; linkId: string; status: LinkStatus; store: LinkStore; created: boolean }
   | {
       ok: false;
       // unsupported_option — 기존 칸으로 넘기는 쌍에 PROPOSED·role 요청(그 칸들엔 상태·역할이 없다)
@@ -97,14 +105,28 @@ export async function saveNodeLink(
   const [fromOwned, toOwned] = await Promise.all([ownsNode(db, userId, from), ownsNode(db, userId, to)]);
   if (!fromOwned || !toOwned) return { ok: false, reason: "not_found" };
 
+  const made = (linkId: string, store: LinkStore, created: boolean): SaveNodeLinkResult => ({ ok: true, linkId, status: "CONFIRMED", store, created });
+
   if (key === "LIFE_EVENT>PERSON") {
-    const row = await db.personLifeEvent.upsert({
-      where: { personId_lifeEventId: { personId: to.id, lifeEventId: from.id } },
-      create: { personId: to.id, lifeEventId: from.id, userId },
-      update: {},
-      select: { id: true },
-    });
-    return { ok: true, linkId: row.id, status: "CONFIRMED", store: "PERSON_LIFE_EVENT" };
+    const where = { personId_lifeEventId: { personId: to.id, lifeEventId: from.id } };
+    const had = await db.personLifeEvent.findUnique({ where, select: { id: true } });
+    if (had) return made(had.id, "PERSON_LIFE_EVENT", false);
+    const row = await db.personLifeEvent.upsert({ where, create: { personId: to.id, lifeEventId: from.id, userId }, update: {}, select: { id: true } });
+    return made(row.id, "PERSON_LIFE_EVENT", true);
+  }
+  if (key === "PERSON_GROUP>PERSON") {
+    const where = { groupId_personId: { groupId: from.id, personId: to.id } };
+    const had = await db.personGroupMember.findUnique({ where, select: { id: true } });
+    if (had) return made(had.id, "PERSON_GROUP_MEMBER", false);
+    const row = await db.personGroupMember.upsert({ where, create: { groupId: from.id, personId: to.id, userId }, update: {}, select: { id: true } });
+    return made(row.id, "PERSON_GROUP_MEMBER", true);
+  }
+  if (key === "PLACE_GROUP>PLACE") {
+    const where = { groupId_placeId: { groupId: from.id, placeId: to.id } };
+    const had = await db.placeGroupMember.findUnique({ where, select: { id: true } });
+    if (had) return made(had.id, "PLACE_GROUP_MEMBER", false);
+    const row = await db.placeGroupMember.upsert({ where, create: { groupId: from.id, placeId: to.id, userId }, update: {}, select: { id: true } });
+    return made(row.id, "PLACE_GROUP_MEMBER", true);
   }
   if (key === "EPISODE>PLACE") {
     // 소유는 위에서 확인 — 이야기의 브릿지 메모리에 같은 장소 행이 있으면 그 행(멱등).
@@ -113,7 +135,7 @@ export async function saveNodeLink(
       db.place.findUniqueOrThrow({ where: { id: to.id }, select: { name: true, address: true, lat: true, lng: true, source: true } }),
     ]);
     const existing = await db.memoryPlace.findFirst({ where: { memoryId: ep.memoryId, placeId: to.id }, select: { id: true } });
-    if (existing) return { ok: true, linkId: existing.id, status: "CONFIRMED", store: "MEMORY_PLACE" };
+    if (existing) return made(existing.id, "MEMORY_PLACE", false);
     const last = await db.memoryPlace.aggregate({ where: { memoryId: ep.memoryId }, _max: { sortOrder: true } });
     const row = await db.memoryPlace.create({
       data: {
@@ -128,7 +150,7 @@ export async function saveNodeLink(
       },
       select: { id: true },
     });
-    return { ok: true, linkId: row.id, status: "CONFIRMED", store: "MEMORY_PLACE" };
+    return made(row.id, "MEMORY_PLACE", true);
   }
 
   // 이야기의 주 소속 시기를 추가 소속으로 또 적지 않는다(한 쌍 = 한 곳).
@@ -139,23 +161,13 @@ export async function saveNodeLink(
 
   const role = opts.role ?? "";
   const status = opts.status ?? "CONFIRMED";
+  const unique = { fromType: from.type, fromId: from.id, toType: to.type, toId: to.id, role };
+  const had = await db.nodeLink.findUnique({ where: { fromType_fromId_toType_toId_role: unique }, select: { id: true } });
   const link = await db.nodeLink.upsert({
-    where: {
-      fromType_fromId_toType_toId_role: {
-        fromType: from.type,
-        fromId: from.id,
-        toType: to.type,
-        toId: to.id,
-        role,
-      },
-    },
+    where: { fromType_fromId_toType_toId_role: unique },
     create: {
       userId,
-      fromType: from.type,
-      fromId: from.id,
-      toType: to.type,
-      toId: to.id,
-      role,
+      ...unique,
       status,
       source: opts.source ?? "USER",
       confirmedAt: status === "CONFIRMED" ? new Date() : null,
@@ -168,7 +180,63 @@ export async function saveNodeLink(
       where: { id: link.id },
       data: { status: "CONFIRMED", confirmedAt: new Date() },
     });
-    return { ok: true, linkId: link.id, status: "CONFIRMED", store: "NODE_LINK" };
+    return { ok: true, linkId: link.id, status: "CONFIRMED", store: "NODE_LINK", created: false };
   }
-  return { ok: true, linkId: link.id, status: link.status, store: "NODE_LINK" };
+  return { ok: true, linkId: link.id, status: link.status, store: "NODE_LINK", created: !had };
+}
+
+// ── 빼기 — 연결만 끊는다(노드 삭제 아님). My Life Q50 · docs/phase/my-life-restructure.md §4.3 ──
+//
+// saveNodeLink 와 같은 입구 규칙: 방향 정규화 → 허용 쌍 → 양 끝 소유 확인 → 쌍에 따라 그 칸의 행을 지운다.
+//   NodeLink 쌍 = 그 두 노드 사이 행(role 지정 시 그 role 만, 상태 무관) / 중심↔인물 = PersonLifeEvent /
+//   이야기↔장소 = 그 이야기 브릿지 메모리의 그 placeId MemoryPlace 행 / 모임·묶음 ↔ 구성원 = 구성원 행.
+// 빼기 대상이 아닌 것: 이야기의 주 소속 시기(Episode.lifeEventId — 옮기기로)·대상 인물(Episode.personId).
+// 없는 연결을 빼면 removed 0 으로 통과(멱등 — 되돌리기를 두 번 눌러도 안전).
+export type RemoveNodeLinkResult =
+  | { ok: true; removed: number; store: LinkStore }
+  | { ok: false; reason: "self_link" | "pair_not_allowed" | "not_found" | "primary_membership" | "subject_person" };
+
+export async function removeNodeLink(
+  userId: string,
+  a: NodeRef,
+  b: NodeRef,
+  opts: { role?: string; db?: Prisma.TransactionClient } = {},
+): Promise<RemoveNodeLinkResult> {
+  const db = opts.db ?? prisma;
+  const pair = normalizeNodePair(a, b);
+  if (!pair) return { ok: false, reason: "self_link" };
+  const { from, to } = pair;
+  const key = `${from.type}>${to.type}`;
+  if (!ROUTED_PAIRS.has(key) && !ALLOWED_PAIRS.has(key)) return { ok: false, reason: "pair_not_allowed" };
+
+  const [fromOwned, toOwned] = await Promise.all([ownsNode(db, userId, from), ownsNode(db, userId, to)]);
+  if (!fromOwned || !toOwned) return { ok: false, reason: "not_found" };
+
+  if (key === "LIFE_EVENT>PERSON") {
+    const r = await db.personLifeEvent.deleteMany({ where: { personId: to.id, lifeEventId: from.id, userId } });
+    return { ok: true, removed: r.count, store: "PERSON_LIFE_EVENT" };
+  }
+  if (key === "PERSON_GROUP>PERSON") {
+    const r = await db.personGroupMember.deleteMany({ where: { groupId: from.id, personId: to.id } });
+    return { ok: true, removed: r.count, store: "PERSON_GROUP_MEMBER" };
+  }
+  if (key === "PLACE_GROUP>PLACE") {
+    const r = await db.placeGroupMember.deleteMany({ where: { groupId: from.id, placeId: to.id } });
+    return { ok: true, removed: r.count, store: "PLACE_GROUP_MEMBER" };
+  }
+  if (key === "EPISODE>PLACE") {
+    const ep = await db.episode.findUniqueOrThrow({ where: { id: from.id }, select: { memoryId: true } });
+    const r = await db.memoryPlace.deleteMany({ where: { memoryId: ep.memoryId, placeId: to.id } });
+    return { ok: true, removed: r.count, store: "MEMORY_PLACE" };
+  }
+  if (key === "LIFE_EVENT>EPISODE" && (await db.episode.count({ where: { id: to.id, lifeEventId: from.id } })) > 0) {
+    return { ok: false, reason: "primary_membership" };
+  }
+  if (key === "EPISODE>PERSON" && (await db.episode.count({ where: { id: from.id, personId: to.id } })) > 0) {
+    return { ok: false, reason: "subject_person" };
+  }
+  const r = await db.nodeLink.deleteMany({
+    where: { userId, fromType: from.type, fromId: from.id, toType: to.type, toId: to.id, ...(opts.role !== undefined ? { role: opts.role } : {}) },
+  });
+  return { ok: true, removed: r.count, store: "NODE_LINK" };
 }
