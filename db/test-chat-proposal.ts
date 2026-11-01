@@ -9,6 +9,7 @@
 // ⑪(LLM 0) = 제목 없음(빈 문자열) — 공용 판정 displayTitle·[고치기]에서 제목 지움·제목을 읽는 곳.
 // ⑫(LLM 0) = 시기 이름 제목 재발 방지 — 저장 한 곳(createEpisodeBridge) 규칙·userSetTitle 예외·저장 경로 전수.
 // ⑬(LLM 0) = 이름 뒤 조사 — 받침으로 고름(같은 곳·같은 분 되묻기), 문구 파일에 조사 하드코딩 0.
+// ⑮(LLM 0) = 남은 구간 처리 — 6시간 넘은 구간 입장 때 닫음(짧으면 조용히·실질 내용은 카드부터)·주제 바뀜/다른 주제 + 짧으면 카드 없음(E2E 같은 문장·시각 조작).
 // ⑭(LLM 0) = 긴 제목 표시 — 20자 안팎 어절 경계 줄임(저장 안내·지도 노드·목록)·카드 제목 2줄·머리말 scroll-padding.
 // ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@·fixture-chat-e2e@lifebook.invalid)만 만들고 끝에 지운다.
 // 실고객·test30 접촉 0. 원가 원장(ChatV3Usage)은 실제 호출 원가라 남긴다(탈퇴처럼 userId 만 비워짐).
@@ -16,6 +17,7 @@
 import "dotenv/config";
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import ts from "typescript";
 
@@ -26,6 +28,8 @@ import { prisma } from "../lib/db";
 import { createEpisodeBridge } from "../lib/episode";
 import {
   adoptLegacyPending,
+  applyLeftoverRule,
+  closeIdleSegment,
   createFromFreeChatProposal,
   declineFreeChatProposal,
   decideProposal,
@@ -34,9 +38,13 @@ import {
   recentSavedStories,
   getFreeChatTopic,
   isAppNotice,
+  isShortLeftover,
+  LEFTOVER_SHORT_MAX_CHARS,
+  LEFTOVER_SHORT_MAX_TURNS,
   parseReplyOutput,
   proposeFromSegment,
   replyResultFrom,
+  SEGMENT_IDLE_CLOSE_MS,
   startFreeTopic,
   substantiveUserTurns,
   type FreeChatReplyResult,
@@ -46,7 +54,7 @@ import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { Prisma } from "../lib/generated/prisma/client";
 import { getMyLifeData } from "../lib/my-life";
 import { searchMyLife } from "../lib/my-life-search";
-import { cardToEdit, createFromCard, overlappingPlaces, personRow, placeRow, type CardEdit, type ProposalCard } from "../lib/node-proposal";
+import { cardToEdit, createFromCard, overlappingPlaces, parseCard, personRow, placeRow, type CardEdit, type ProposalCard } from "../lib/node-proposal";
 import { periodMemoryId, syncV3Bridge } from "../lib/poster/v3-bridge";
 import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
 import { DEFAULT_PERIOD_LABELS, displayTitle, isPeriodNameTitle, SHORT_TITLE_MAX, shortTitle, storedStoryTitle } from "../lib/story-title";
@@ -906,6 +914,113 @@ async function periodTitleGuardChecks(fx: Fixture) {
     { creators, callers });
 }
 
+// ─── 남은 구간 처리(2026-11-02) — 운영 test30 E2E 재현(같은 문장·시각 조작) — LLM 0 ──────────
+
+async function leftoverChecks(fx: Fixture) {
+  const { userId, ev } = fx;
+  const now = new Date();
+  const ago = (hours: number, sec = 0) => new Date(now.getTime() - hours * 3_600_000 + sec * 1000);
+  const LEFT = "정우가 물고기를 더 많이 잡았어요";
+  const LEFT_REPLY = "정우가 더 많이 잡았군요. 그때 물고기를 잡으면서 뭐가 제일 재미있었어요?";
+  const NEW = "고등학교 때 여름방학에 삼촌네 과수원에서 사과 따는 걸 도왔어요";
+  const LONG = [
+    "스물두 살에 처음 서울에 올라와서 영등포 철공소에 들어갔는데 첫날부터 쇠 냄새가 코를 찔렀어요.",
+    "공장장님이 무섭기는 했지만 점심때마다 국밥을 사 주시면서 기술을 하나씩 가르쳐 주셨지요.",
+    "그때 배운 용접 기술로 나중에 작은 가게를 차릴 수 있었으니 그 시절이 제 밑천이었어요.",
+  ];
+  const u = (content: string) => ({ role: "user", content });
+  check("⑮ 짧은 남은 구간 판정 — 본인 실질 발화 2개 이하 + 공백 뺀 글자 40자 이하 = 짧음 / 3개·긴 1줄 = 실질 내용 / 마무리 말은 안 셈",
+    isShortLeftover([u(LEFT)]) && isShortLeftover([u("개울에 갔어요"), u("물이 찼어요")]) && isShortLeftover([u(LEFT), u("그 정도예요")]) &&
+      !isShortLeftover([u("하나"), u("둘이요"), u("셋이에요")]) && !isShortLeftover([u(LONG[0])]) &&
+      SEGMENT_IDLE_CLOSE_MS === 6 * 3_600_000 && LEFTOVER_SHORT_MAX_TURNS === 2 && LEFTOVER_SHORT_MAX_CHARS === 40);
+
+  const msg = (role: "user" | "assistant", content: string, createdAt: Date) =>
+    prisma.onboardingChatMessage.create({ data: { userId, sessionId: SESSION, role, content, createdAt }, select: { createdAt: true } });
+  const fresh = async (startedAt: Date) => {
+    await prisma.onboardingChatMessage.deleteMany({ where: { userId } });
+    await prisma.chatV3Segment.update({
+      where: { userId },
+      data: { startedAt, proposal: Prisma.DbNull, topicEventId: ev.HIGH_SCHOOL, topicGapType: "carry", topicPersonId: null },
+    });
+  };
+  const segNow = () => prisma.chatV3Segment.findUniqueOrThrow({ where: { userId } });
+  const usage = () => prisma.chatV3Usage.count({ where: { userId } });
+  const logSince = async (from: Date) =>
+    (await prisma.onboardingChatMessage.findMany({ where: { userId, createdAt: { gte: from } }, orderBy: { createdAt: "asc" }, select: { role: true, content: true, createdAt: true } }))
+      .map((r) => ({ role: r.role as string, content: r.content, createdAt: r.createdAt }));
+
+  // ① 입장 — 마지막 활동 6시간 넘음 + 짧음(어제 남은 한 줄) → 카드 없이 조용히 닫힘.
+  await fresh(ago(9));
+  await msg("user", LEFT, ago(7));
+  const lastA = await msg("assistant", LEFT_REPLY, ago(7, 1));
+  const u0 = await usage();
+  const rA = await closeIdleSegment(userId, now);
+  const segA = await segNow();
+  const stA = await getFreeChatState(userId, now);
+  check("⑮ 입장 — 6시간 넘게 지난 짧은 남은 구간 → 조용히 닫힘(구간 = 마지막 메시지 뒤·시기 힌트 끝·카드 0·모델 0)",
+    rA === "closed" && segA.startedAt.getTime() === lastA.createdAt.getTime() + 1 && segA.topicEventId === null && segA.proposal === null &&
+      stA.segmentTurns === 0 && !stA.stale && stA.proposal === null && (await usage()) === u0,
+    { rA, segA: { startedAt: segA.startedAt, topic: segA.topicGapType }, stA });
+
+  // ② 입장 — 6시간 넘음 + 실질 내용 → 그대로 두고 stale(화면이 첫 메시지 전에 "지난번 이야기 남길까요?" 카드).
+  await fresh(ago(9));
+  for (const [i, line] of LONG.entries()) {
+    await msg("user", line, ago(7, i * 20));
+    await msg("assistant", "그러셨군요.", ago(7, i * 20 + 1));
+  }
+  const rB = await closeIdleSegment(userId, now);
+  const stB = await getFreeChatState(userId, now);
+  check("⑮ 입장 — 6시간 넘게 지난 실질 내용(3턴) → 닫지 않고 stale = 첫 메시지 전에 카드부터",
+    rB === "stale" && stB.stale && stB.segmentTurns === 3 && (await segNow()).startedAt.getTime() === ago(9).getTime(), { rB, stB });
+
+  // ③ 6시간 안 — 짧아도 그대로 이어서(같은 날 재진입).
+  await fresh(ago(4));
+  await msg("user", LEFT, ago(3));
+  const rC = await closeIdleSegment(userId, now);
+  const stC = await getFreeChatState(userId, now);
+  check("⑮ 6시간 안 재진입 — 짧아도 닫지 않음(이어서)", rC === "open" && !stC.stale && stC.segmentTurns === 1, { rC, stC });
+
+  // ④ 같은 날 주제 바뀜 + 짧은 남은 구간 — test30 E2E 그대로(남은 한 줄 3시간 33분 뒤 새 주제 첫 말) → 카드 없이 닫고 새 턴부터.
+  await fresh(ago(4));
+  await msg("user", LEFT, ago(3, -33 * 60));
+  await msg("assistant", LEFT_REPLY, ago(3, -33 * 60 + 1));
+  const newTurn = await msg("user", NEW, now);
+  const turnsD = await logSince(ago(4));
+  const shifted = replyResultFrom('{"reply": "과수원에서 사과를 땄군요. 그때 사과 따는 일이 어땠어요?", "segment": "topic_shift"}', turnsD, false);
+  const u1 = await usage();
+  const afterD = await applyLeftoverRule(userId, shifted, turnsD);
+  const segD = await segNow();
+  const stD = await getFreeChatState(userId, now);
+  check("⑮ 주제 바뀜 + 짧은 남은 구간(E2E 같은 문장) → 지난 카드 없음 · 새 구간 = 새 주제 첫 턴부터(실질 1턴) · 모델 0",
+    shifted.propose?.until === newTurn.createdAt.toISOString() && afterD.propose === null && afterD.segmentTurns === 1 &&
+      segD.startedAt.getTime() === newTurn.createdAt.getTime() && segD.proposal === null && segD.topicEventId === null &&
+      stD.segmentTurns === 1 && stD.proposal === null && (await usage()) === u1,
+    { shifted: shifted.propose, afterD: afterD.propose, startedAt: segD.startedAt, stD });
+
+  // ⑤ 주제 바뀜 + 실질 내용 → 기존대로 앞 이야기를 카드로(닫지 않음).
+  await fresh(ago(2));
+  for (const [i, line] of LONG.entries()) await msg("user", line, ago(1, i * 20));
+  const newE = await msg("user", NEW, now);
+  const turnsE = await logSince(ago(2));
+  const afterE = await applyLeftoverRule(userId, replyResultFrom('{"reply": "그러셨군요.", "segment": "topic_shift"}', turnsE, false), turnsE);
+  check("⑮ 주제 바뀜 + 실질 내용 → 앞 이야기를 새 턴 직전까지 카드로(구간 그대로)",
+    afterE.propose?.until === newE.createdAt.toISOString() && (await segNow()).startedAt.getTime() === ago(2).getTime(), afterE.propose);
+
+  // ⑥ 갭 칩으로 다른 주제 + 짧은 남은 구간 → 지난 카드 없이 새 주제 오프닝(모델 0).
+  await fresh(ago(2));
+  await msg("user", LEFT, ago(1));
+  const u2 = await usage();
+  const startF = await startFreeTopic(userId, { eventId: ev.MILITARY, kind: "episode" }, SESSION);
+  const segF = await segNow();
+  check("⑮ 다른 주제(갭 칩) + 짧은 남은 구간 → 지난 카드 없이 새 주제 오프닝 · 모델 0",
+    startF.kind === "opening" && segF.topicEventId === ev.MILITARY && segF.topicGapType === "episode" && segF.proposal === null && (await usage()) === u2, startF);
+
+  // 입구 — 입장 때(initFreeChatAction) 오래된 구간을 먼저 닫고 나서 옛 대기 대화를 이어받는다.
+  const action = read("app/actions/free-chat.ts");
+  check("⑮ 입장 액션 = 오래된 구간 닫기 → 옛 대기 대화 이어받기 → 상태",
+    /await closeIdleSegment\(userId\);\n\s*await adoptLegacyPending\(userId\);\n\s*return getFreeChatState\(userId\);/.test(action));
+}
+
 const FAREWELL = /(들려주셔서|고마워요|고맙습니다|감사|잘 들었|즐거웠|다음에 또|안녕히)/;
 
 // 운영 test30 E2E 같은 문장 재현(실제 Haiku·Sonnet) — 두 번째 제안에 첫 이야기 미포함·중학교 시기 유지·장소 추출·작별 인사 없음·제목 표시.
@@ -996,6 +1111,20 @@ async function liveE2EReplay() {
     await sleep(5);
     const r3 = await say1("정우가 물고기를 더 많이 잡았어요");
     check("F 실제 — [안 만들기] 뒤 계속: 새 구간 실질 1턴(안 만든 두 턴·안내문 제외)", r3.kind === "reply" && r3.segmentTurns === 1, r3);
+    // 제목 추론 금지(2026-11-02 — 운영 test30: 이 한 줄로 만든 카드 제목이 "정우보다 적게 잡은 물고기") — [지금 이야기 남기기]와
+    // 같은 호출로 카드를 만들어 제목에 원문에 없는 비교·추론이 없는지. 실패하면 입력(구간 대화)·출력(카드)을 파일로 남긴다.
+    const p3 = await proposeFromSegment(userId);
+    const stored3 = parseCard((await prisma.chatV3Segment.findUnique({ where: { userId }, select: { proposal: true } }))?.proposal);
+    const title3 = stored3?.title ?? "";
+    const titleOk = p3.kind === "card" && !!stored3 && !/(보다|적게|적은|덜|못|졌|아쉬|부러|이긴|지고)/.test(title3) && /(정우|물고기)/.test(title3);
+    console.log("   남은 한 줄 카드 제목:", JSON.stringify(title3));
+    if (!titleOk) {
+      const file = path.join(os.tmpdir(), `lifebook-title-inference-${Date.now()}.json`);
+      fs.writeFileSync(file, JSON.stringify({ input: stored3?.transcript ?? null, output: stored3 ?? p3 }, null, 1));
+      console.log("   제목 검사 실패 — 입출력:", file);
+    }
+    check("F 실제 — 남은 한 줄(\"정우가 물고기를 더 많이 잡았어요\") 카드 제목에 원문에 없는 비교·추론 없음", titleOk, title3);
+    if (p3.kind === "card") await declineFreeChatProposal(userId);
     const u = await usageSince(userId, new Date(0));
     console.log("   E2E 재현 원가:", JSON.stringify(u));
   } finally {
@@ -1027,6 +1156,7 @@ async function main() {
     await placeMergeChecks(fx);
     await titleChecks(fx);
     await periodTitleGuardChecks(fx);
+    await leftoverChecks(fx);
     await liveBasic(fx);
     if (LIVE) await liveScenarios(fx);
     if (LIVE) await liveE2EReplay();

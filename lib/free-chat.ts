@@ -6,11 +6,13 @@
 // 읽기만). 응답 호출 1회가 답 + 구간 판정(continue/done/topic_shift)을 함께 돌려주고(사용자 전역 모델 —
 // Q62), 코드가 하한·상한으로 제안 시점을 정한다:
 //   - topic_shift: 앞 이야기(본인 실질 1턴 이상)를 방금 턴 직전까지로 제안, 방금 턴은 새 구간의 첫 턴
+//     (앞 이야기가 짧으면 — isShortLeftover — 제안 없이 구간만 닫는다)
 //   - 본인 실질 6턴: 무조건 제안(Q64)
 //   - 마무리 말("그 정도예요"): 실질 1턴 이상이면 제안
 //   - done: 실질 2턴 이상이면 제안(인사·맞장구로 카드가 뜨지 않게)
 // 카드가 떠 있는 동안에는 새 제안을 만들지 않는다(대화는 계속). 결정하면 구간이 카드가 다룬 마지막 턴
-// 뒤로 옮겨져 그 뒤 대화가 다음 구간이 된다. 자유 발화로 중심을 바로 만드는 동작은 없다(§3.1 — 중심은
+// 뒤로 옮겨져 그 뒤 대화가 다음 구간이 된다. 남은 구간(입장 때 오래된 구간·주제 바뀜·다른 주제 고름)은 짧으면
+// 카드 없이 버리고 실질 내용이 있으면 카드로 묻는다 — 기준값은 아래 SEGMENT_IDLE_CLOSE_MS·LEFTOVER_SHORT_*. 자유 발화로 중심을 바로 만드는 동작은 없다(§3.1 — 중심은
 // [만들기] 때만).
 
 import { chat } from "./ai";
@@ -38,8 +40,15 @@ import { displayTitle } from "./story-title";
 import { resolveLiveModel } from "./user-ai-model";
 
 export const SEGMENT_MAX_USER_TURNS = 6;
-// 마지막 활동 7일이 지난 구간은 재진입 때 바로 제안으로 마무리 권유(Q66).
-export const STALE_SEGMENT_MS = 7 * 24 * 60 * 60 * 1000;
+
+// ─── 남은 구간 처리 기준(2026-11-02 성민 지시 — 운영 test30 E2E: 지난 대화의 남은 한 줄이 새 주제 첫 턴에 카드로 뜸) ───
+// 구간이 닫히는 때: ① 대화에 다시 들어올 때 마지막 활동이 SEGMENT_IDLE_CLOSE_MS 넘게 지났으면(입장 시점)
+// ② 같은 날이라도 응답 모델이 "주제 바뀜"(topic_shift)으로 판단하면 ③ 갭 칩·딥링크로 다른 주제를 고르면.
+// 닫힌 구간이 짧으면(본인 실질 발화 LEFTOVER_SHORT_MAX_TURNS 개 이하이고 그 글자 수(공백 제외) LEFTOVER_SHORT_MAX_CHARS
+// 이하) 카드 없이 조용히 버리고, 실질 내용이 있으면 카드로 묻는다(① 은 첫 메시지 전에 "지난번 이야기 남길까요?").
+export const SEGMENT_IDLE_CLOSE_MS = 6 * 60 * 60 * 1000;
+export const LEFTOVER_SHORT_MAX_TURNS = 2;
+export const LEFTOVER_SHORT_MAX_CHARS = 40;
 const RECENT_TITLES_MAX = 2;
 // 방금 남긴 이야기 찾기 — 최근 이야기 몇 편 안에서 화면 제목으로 맞춘다(제목을 비운 이야기도 찾게).
 const RECENT_SCAN = 10;
@@ -116,6 +125,43 @@ async function logTurns(userId: string, from: Date, until?: Date): Promise<LogTu
 // 본인 실질 턴 — 마무리 말·종료 말뿐인 턴은 세지 않는다.
 export function substantiveUserTurns(turns: { role: string; content: string }[]): number {
   return turns.filter((t) => t.role === "user" && !isExitIntent(t.content) && stripEpisodeDoneSignal(t.content)).length;
+}
+
+// 닫히는 구간이 짧은지(순수) — 본인 실질 발화가 LEFTOVER_SHORT_MAX_TURNS 개 이하이고 그 글자 수(마무리 말 뗀 뒤,
+// 공백 제외) 합이 LEFTOVER_SHORT_MAX_CHARS 이하. 짧으면 카드 없이 버린다.
+export function isShortLeftover(turns: { role: string; content: string }[]): boolean {
+  const texts = turns
+    .filter((t) => t.role === "user" && !isExitIntent(t.content))
+    .map((t) => stripEpisodeDoneSignal(t.content))
+    .filter(Boolean);
+  return texts.length <= LEFTOVER_SHORT_MAX_TURNS && texts.join("").replace(/\s+/g, "").length <= LEFTOVER_SHORT_MAX_CHARS;
+}
+
+// 구간을 닫고 at 부터 새 구간(카드 없이 — 남은 내용은 버린다). 주제·시기 힌트도 끝.
+async function closeSegment(userId: string, at: Date): Promise<void> {
+  await prisma.chatV3Segment.update({
+    where: { userId },
+    data: { startedAt: at, proposal: Prisma.DbNull, topicEventId: null, topicPersonId: null, topicGapType: null },
+  });
+}
+
+// 입장 때(initFreeChatAction) — 카드가 없고 마지막 활동이 SEGMENT_IDLE_CLOSE_MS 넘게 지난 구간: 짧으면 조용히 닫는다
+// (경계 = 구간 마지막 메시지 바로 뒤 — 메시지 시각 기준). 실질 내용이 있으면 그대로 두고 getFreeChatState 의 stale 로
+// 화면이 첫 메시지 전에 카드("지난번에 나누던 이야기를 남겨 둘까요?")를 띄운다.
+export async function closeIdleSegment(userId: string, now: Date = new Date()): Promise<"open" | "closed" | "stale"> {
+  const seg = await getSegment(userId);
+  if (parseCard(seg.proposal)) return "open";
+  const turns = await logTurns(userId, seg.startedAt);
+  if (substantiveUserTurns(turns) === 0) return "open";
+  if (now.getTime() - turns[turns.length - 1].createdAt.getTime() <= SEGMENT_IDLE_CLOSE_MS) return "open";
+  if (!isShortLeftover(turns)) return "stale";
+  const lastAny = await prisma.onboardingChatMessage.findFirst({
+    where: { userId, createdAt: { gte: seg.startedAt } },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+  await closeSegment(userId, lastAny ? new Date(lastAny.createdAt.getTime() + 1) : now);
+  return "closed";
 }
 
 export type ProposeAt = { until: string | null } | null;
@@ -217,7 +263,8 @@ export type FreeChatState = {
   proposal: ProposalView | null;
   // 지금 구간의 본인 실질 턴 수(갭 칩·[지금 이야기 남기기] 표시용).
   segmentTurns: number;
-  // 마지막 활동 7일이 지난 구간(카드 없음, 내용 있음) — 화면이 바로 제안을 부른다(Q66).
+  // 마지막 활동이 SEGMENT_IDLE_CLOSE_MS 넘게 지난 구간(카드 없음, 실질 내용 있음 — 짧은 건 입장 때 이미 닫힘) —
+  // 화면이 첫 메시지 전에 바로 제안을 부른다(Q66, 2026-11-02 7일 → 6시간).
   stale: boolean;
 };
 
@@ -230,7 +277,7 @@ export async function getFreeChatState(userId: string, now: Date = new Date()): 
   return {
     proposal: card ? await toView(userId, card) : null,
     segmentTurns,
-    stale: !card && segmentTurns > 0 && now.getTime() - last.getTime() > STALE_SEGMENT_MS,
+    stale: !card && segmentTurns > 0 && now.getTime() - last.getTime() > SEGMENT_IDLE_CLOSE_MS && !isShortLeftover(turns),
   };
 }
 
@@ -295,8 +342,9 @@ export type StartTopicResult =
 // 주제로 새 구간 시작. 오프닝 질문은 기존 템플릿.
 // 주제 고른 말(본인 버블)과 오프닝을 여기서 순서대로 로그에 저장한다(화면은 보여 주기만): 고른 말 → 구간 시작
 // → 오프닝. 그래서 "~ 이야기도 해볼게요"는 구간 밖(본인 실질 턴·제안 입력에 안 섞임), 오프닝부터 구간.
-// 지금 구간에 아직 카드로 안 만든 이야기가 있으면 버리지 않는다: 같은 주제면 이어서, 다른 주제면 그 이야기를
-// 먼저 카드로(/story-review 다른 갭 카드로 다시 들어온 경우 — 이전엔 구간을 새로 시작해 앞 이야기가 제안에서 빠졌다).
+// 지금 구간에 아직 카드로 안 만든 이야기가 있으면: 같은 주제면 이어서, 다른 주제면 그 이야기를 먼저 카드로
+// (/story-review 다른 갭 카드로 다시 들어온 경우 — 이전엔 구간을 새로 시작해 앞 이야기가 제안에서 빠졌다).
+// 단 앞 이야기가 짧으면(남은 구간 규칙 — isShortLeftover) 카드 없이 버리고 새 주제로(아래 새 구간 시작이 덮는다).
 export async function startFreeTopic(
   userId: string,
   topic: FreeTopicInput,
@@ -305,11 +353,14 @@ export async function startFreeTopic(
   const seg = await getSegment(userId);
   const card = parseCard(seg.proposal);
   if (card) return { kind: "pending", view: await toView(userId, card) };
-  if (substantiveUserTurns(await logTurns(userId, seg.startedAt)) > 0) {
+  const prev = await logTurns(userId, seg.startedAt);
+  if (substantiveUserTurns(prev) > 0) {
     if (sameTopic(seg, topic)) return { kind: "resume" };
-    const p = await proposeFromSegment(userId);
-    if (p.kind === "card") return { kind: "pending", view: p.view };
-    if (p.kind === "budget") return { kind: "budget" };
+    if (!isShortLeftover(prev)) {
+      const p = await proposeFromSegment(userId);
+      if (p.kind === "card") return { kind: "pending", view: p.view };
+      if (p.kind === "budget") return { kind: "budget" };
+    }
   }
   const ev = await prisma.lifeEvent.findFirst({
     where: { id: topic.eventId, userId, status: { in: ["CONFIRMED", "CORRECTED"] } },
@@ -386,7 +437,21 @@ export async function freeChatReply(userId: string): Promise<FreeChatReplyResult
       console.error("[free-chat] reply", e instanceof Error ? e.message : e);
     }
   }
-  return replyResultFrom(raw, turns, !!card);
+  return applyLeftoverRule(userId, replyResultFrom(raw, turns, !!card), turns);
+}
+
+// 주제가 바뀌었는데(topic_shift — 앞 구간을 방금 턴 직전까지로 제안) 앞 구간이 짧으면 카드 없이 조용히 닫고 방금
+// 턴부터 새 구간(운영 test30 E2E — 지난 대화의 남은 한 줄이 새 주제 첫 턴 바로 아래 카드로 떴다). 회귀가 직접 부른다.
+export async function applyLeftoverRule(
+  userId: string,
+  result: Extract<FreeChatReplyResult, { kind: "reply" }>,
+  turns: { role: string; content: string; createdAt: Date }[],
+): Promise<Extract<FreeChatReplyResult, { kind: "reply" }>> {
+  if (!result.propose?.until) return result;
+  const until = new Date(result.propose.until);
+  if (!isShortLeftover(turns.filter((t) => t.createdAt < until))) return result;
+  await closeSegment(userId, until);
+  return { ...result, propose: null, segmentTurns: substantiveUserTurns(turns.filter((t) => t.createdAt >= until)) };
 }
 
 export type ReplySegment = "continue" | "done" | "topic_shift";

@@ -420,7 +420,8 @@ export function ChatV3Client({
   // ─── 자유 대화 ────────────────────────────────────────────────────────
 
   // 자유 대화 진입·재진입 — 구간 상태(카드·실질 턴)와 갭 칩을 불러오고, 인사를 붙인다.
-  // 카드가 있으면 카드부터, 7일 지난 구간이면 바로 제안(Q66).
+  // 카드가 있으면 카드부터, 마지막 활동 6시간 넘게 지난 구간(실질 내용 있음 — 짧으면 서버가 입장 때 이미 버림)이면
+  // 첫 메시지 전에 바로 제안(Q66, lib/free-chat SEGMENT_IDLE_CLOSE_MS).
   async function enterFree(opts: { intro?: string; dedupeAgainst?: ChatLogTurn[] } = {}) {
     setStage("free");
     setStatus("loading");
