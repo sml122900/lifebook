@@ -1,7 +1,7 @@
 # 라이프북 — 버튼·링크 이동 지도 (Navigation Map)
 
 > 서비스의 모든 버튼/링크가 **어디로 이동하는지** 한눈에 보는 문서.
-> 작성: 2026-06-26 · 최신화: 2026-11-01(My Life 개편 2단계 — `/enter` V3 설정 완료 → `/my-life`(Q68), `/chat-v3` 설정 뒤 자유 대화 + 제안 카드(대화창 확인 카드·종료 시 확인 화면 이동 제거, 종료 → `/my-life`), 만든 뒤 [My Life 에서 보기] → `/my-life?focus=`, My Life [이야기 나누기], 오늘의 인터뷰 마무리 카드 · My Life 개편 1단계 — 인물록·장소록·간선 선택·[찾기]·가장자리 버튼·전체 보기 탭 = 확대·패널 [여기로 가기] · My Life 자유 이동 캔버스 — 끌기·지점 확대·키보드 화살표, 목차 버튼 제거 · My Life 2b-3a — 새 화면 `/my-life`(마인드맵, 보기 전용), 사이드 패널 [My Life](V3)·`/story-review` [My Life 로 보기] 진입 · 노드 그래프 2b-2 — 이야기에 나온 인물 확인 `/story-review/confirm`, `/chat-v3` 종료 시 대기 있으면 그리로 · 같은 날 E2E 후속 — `/chat-v3` 이야기 저장 직후 대화창 확인 카드 · 종료 문구 문장 전체 일치 — 온보딩 이야기 대화 종료 문구 → `/onboarding-episode?after=`) · 2026-10-30(proxy 동의 버전 검사 — 이전 버전 동의자 전 화면 → `/consent`, `/lab` proxy 404) · 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드, 같은 날 허용 목록 게이트 제거 — V3 전원) · 코드 기준 정리.
+> 작성: 2026-06-26 · 최신화: 2026-11-02(`/onboarding-episode-chat/[eventId]` 닫음 → `/chat-v3?gapEventId=<eventId>&gapType=episode` — 앱 안 진입로 0, 시기 이름을 제목으로 넣던 마지막 옛 저장 경로) · 2026-11-01(My Life 개편 2단계 — `/enter` V3 설정 완료 → `/my-life`(Q68), `/chat-v3` 설정 뒤 자유 대화 + 제안 카드(대화창 확인 카드·종료 시 확인 화면 이동 제거, 종료 → `/my-life`), 만든 뒤 [My Life 에서 보기] → `/my-life?focus=`, My Life [이야기 나누기], 오늘의 인터뷰 마무리 카드 · My Life 개편 1단계 — 인물록·장소록·간선 선택·[찾기]·가장자리 버튼·전체 보기 탭 = 확대·패널 [여기로 가기] · My Life 자유 이동 캔버스 — 끌기·지점 확대·키보드 화살표, 목차 버튼 제거 · My Life 2b-3a — 새 화면 `/my-life`(마인드맵, 보기 전용), 사이드 패널 [My Life](V3)·`/story-review` [My Life 로 보기] 진입 · 노드 그래프 2b-2 — 이야기에 나온 인물 확인 `/story-review/confirm`, `/chat-v3` 종료 시 대기 있으면 그리로 · 같은 날 E2E 후속 — `/chat-v3` 이야기 저장 직후 대화창 확인 카드 · 종료 문구 문장 전체 일치 — 온보딩 이야기 대화 종료 문구 → `/onboarding-episode?after=`) · 2026-10-30(proxy 동의 버전 검사 — 이전 버전 동의자 전 화면 → `/consent`, `/lab` proxy 404) · 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드, 같은 날 허용 목록 게이트 제거 — V3 전원) · 코드 기준 정리.
 > 표기: `→ /경로` 내부 이동, `↗ https://…` 외부 새 탭, `⚙ 액션` 서버액션(페이지 전환 없음/새로고침).
 
 ---
@@ -141,7 +141,7 @@
 |---|---|---|
 | `/onboarding-chat` | 진행/넘어가기·인물 정리 완료·나중에 | 최종 → `/life-timeline` |
 | `/onboarding` (레거시, archive 스텁) | — | → `/onboarding-chat` 로 redirect (본문 `_OnboardingPageArchived` 보존) |
-| `/onboarding-episode-chat/[eventId]` (STAGE4 — `/onboarding-confirm` → `/onboarding-episode` 에서 진입) | 종료 문구로 끝냄(저장할 내용 없음, 2026-11-01) · 사진·장소 [다음에 할게요] · 장소 저장 뒤 | → `/onboarding-episode?after=<eventId>` |
+| `/onboarding-episode-chat/[eventId]` (archive 스텁, 2026-11-02 — 앱 안 진입로 0: `/onboarding-v2` → `/onboarding-confirm` → `/onboarding-episode` 사슬에만 이어지고 그 첫 화면으로 오는 링크 0) | — | → `/chat-v3?gapEventId=<eventId>&gapType=episode` 로 redirect(본문 `_OnboardingEpisodeChatPageArchived`·`EpisodeChatClient` 보존). `/onboarding-episode` [이야기하기]도 여기로 흡수 |
 
 ### v3 통합 채팅 — `/start` · `/chat-v3` · `/story-review` (v3 P17)
 | 화면 | 버튼 | 이동 |
@@ -427,6 +427,7 @@
 | `/timemachine/[year]/[month]` | → `/life-timeline` (월 화면 비활성, 코드 보존) |
 | `/timeline` | → `/life-timeline` (레거시 Phase 5 타임라인 비활성, archive 스텁 — `_TimelinePageArchived` + RAG 체인 보존) |
 | `/onboarding` | → `/onboarding-chat` (레거시 위저드 온보딩 비활성, archive 스텁 — 코드 보존) |
+| `/onboarding-episode-chat/[eventId]` | → `/chat-v3?gapEventId=<eventId>&gapType=episode` (옛 STAGE4 이야기 대화 비활성 — 이야기 제목 칸에 시기 이름을 넣던 옛 저장 경로, archive 스텁 — 코드 보존, 2026-11-02) |
 | `/lab`·`/lab/memory` 이하 | 허용 목록 밖 로그인 사용자 → 404 (proxy 가 없는 경로로 rewrite + 화면 `notFound()`, 리다이렉트 아님 — 존재를 드러내지 않음) |
 | `/interview` | 비로그인 → `/login` · V2 → `/enter` · 재동의 필요 → `/consent` · 골격 미완성 → `/chat-v3` |
 | 로그인 필요한 모든 화면 | 비로그인 시 → `/login` |
