@@ -1,7 +1,7 @@
 # 라이프북 — 버튼·링크 이동 지도 (Navigation Map)
 
 > 서비스의 모든 버튼/링크가 **어디로 이동하는지** 한눈에 보는 문서.
-> 작성: 2026-06-26 · 최신화: 2026-11-01(노드 그래프 2b-2 — 이야기에 나온 인물 확인 `/story-review/confirm`, `/chat-v3` 종료 시 대기 있으면 그리로 · 같은 날 E2E 후속 — `/chat-v3` 이야기 저장 직후 대화창 확인 카드 · 종료 문구 문장 전체 일치 — 온보딩 이야기 대화 종료 문구 → `/onboarding-episode?after=`) · 2026-10-30(proxy 동의 버전 검사 — 이전 버전 동의자 전 화면 → `/consent`, `/lab` proxy 404) · 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드, 같은 날 허용 목록 게이트 제거 — V3 전원) · 코드 기준 정리.
+> 작성: 2026-06-26 · 최신화: 2026-11-01(My Life 2b-3a — 새 화면 `/my-life`(마인드맵, 보기 전용), 사이드 패널 [My Life](V3)·`/story-review` [My Life 로 보기] 진입 · 노드 그래프 2b-2 — 이야기에 나온 인물 확인 `/story-review/confirm`, `/chat-v3` 종료 시 대기 있으면 그리로 · 같은 날 E2E 후속 — `/chat-v3` 이야기 저장 직후 대화창 확인 카드 · 종료 문구 문장 전체 일치 — 온보딩 이야기 대화 종료 문구 → `/onboarding-episode?after=`) · 2026-10-30(proxy 동의 버전 검사 — 이전 버전 동의자 전 화면 → `/consent`, `/lab` proxy 404) · 2026-10-25(오늘의 인터뷰 `/interview` + `/story-review` 진입 카드, 같은 날 허용 목록 게이트 제거 — V3 전원) · 코드 기준 정리.
 > 표기: `→ /경로` 내부 이동, `↗ https://…` 외부 새 탭, `⚙ 액션` 서버액션(페이지 전환 없음/새로고침).
 
 ---
@@ -27,6 +27,7 @@
 
 /story-review (v3 메인) ── [이야기하기] 갭 카드 ──▶ /chat-v3(?gapEventId=…) ──▶ (완료) /story-review
                                                                               └ 인물 확인 대기 있으면 /story-review/confirm ──[확인 마치기]──▶ /story-review
+/story-review ──[My Life 로 보기]──▶ /my-life (마인드맵 — 같은 기록, 두 보기 공존)
 ```
 
 ---
@@ -54,6 +55,7 @@
 |---|---|---|---|
 | 📖 내 이야기 | 이야기 나누기 | → `/chat-v3` | V3 트랙 |
 | | 내 이야기 | → `/story-review` | V3 트랙 |
+| | My Life | → `/my-life` | V3 트랙 (prefetch 끔) |
 | 📖 내 이야기 | 내 인생 연혁 | → `/life-timeline` | V2 트랙 |
 | | 이야기 나누기 | → `/life-timeline/companion` | V2 트랙 |
 | | 인물록 | → `/people` | 공용 |
@@ -126,6 +128,7 @@
 | `/chat-v3` | V2 트랙으로 직접 진입 시 → `/enter` |
 | `/story-review` | V2 트랙으로 직접 진입 시 → `/enter` |
 | `/story-review/confirm` | 비로그인 → `/login` · V2 트랙으로 직접 진입 시 → `/enter` |
+| `/my-life` | 비로그인 → `/login` · V2 트랙으로 직접 진입 시 → `/enter` |
 | `/interview` | 비로그인 → `/login` · V2 트랙 → `/enter` · 동의 버전 < 현재 → `/consent` · 골격 미완성·확인대기 있음 → `/chat-v3` |
 | `/onboarding-chat` (v2 파이프라인) | V3 트랙으로 직접 진입 시 → `/enter` |
 | `/life-timeline` (P20-2b) | V3 트랙으로 직접 진입 시 → `/story-review` |
@@ -142,6 +145,7 @@
 | 화면 | 버튼 | 이동 |
 |---|---|---|
 | `/start` | 시작하기 | → `/chat-v3` |
+| `/story-review` | 머리 아래 [My Life 로 보기] | → `/my-life` |
 | `/story-review` | 갭 카드 [이야기하기] | → `/chat-v3?gapEventId=…&gapType=…` |
 | `/story-review` | 오늘의 인터뷰 카드 [시작하기 / 이어서 하기 / 오늘 답 보기] (항상 표시) | → `/interview` |
 | `/story-review` | 정리할 것 카드 [확인하러 가기] (인물 확인 대기 ≥1 일 때만, 인터뷰 카드 위) | → `/story-review/confirm` |
@@ -150,6 +154,23 @@
 | `/story-review/confirm` | 행마다 [맞아요 / 고칠게요 / 아니에요] · 화면 위 [모두 맞아요](남은 행 2개 이상) · 고칠게요 열림 [이렇게 고칠게요 / 취소] · 같은 이름 확정 인물이 있으면 그 행에 [같은 분이에요(후보마다) / 다른 분이에요 / 돌아가기] | ⚙ 확인 처리(페이지 전환 없음) |
 | `/story-review/confirm` | 확인 마치기 · (대기 0 으로 들어오면) 지금까지 채운 이야기 보기 | → `/story-review` |
 | `/life-timeline` (V2) | [새 방식으로 이야기해보기] 배너 → 확인 모달 [예, 새 방식으로] | ⚙ `onboardingTrack=V3` → `/start` |
+
+### My Life `/my-life` (V3 — 노드 그래프 2b-3a 보기 전용, `docs/phase/node-graph-self.md` §6 2b.1)
+마인드맵 하나 — 가운데 줄기에 확정 중심, 왼쪽 이야기·그때의 나, 오른쪽 사람·모임·장소. 문구는 `lib/my-life-copy.ts`(메뉴 이름 "My Life" 외 임시).
+| 화면 | 버튼 | 이동 |
+|---|---|---|
+| 지도 | 도구줄 [−]·[+]·[전체 보기] · 키보드(지도 안 포커스) `+`·`-`·`0`·`1` · 두 손가락 오므리기·Ctrl+휠 | ⚙ 화면 안 배율(전환 없음) |
+| 지도 | 노드(중심·이야기·그때의 나·사람·모임·장소) 누르기 | ⚙ 아래 패널 열기(전환 없음) |
+| 지도 | 접힌 띠 [가지 N개 펼치기] · 위 [모두 펼치기](접힌 띠 있을 때) | ⚙ 화면 안(전환 없음) |
+| 지도(전체 보기 상태) | 중심 이름 버튼 | ⚙ 그 띠로 기본 배율(전환 없음) |
+| 지도 | [목록으로 보기] | → `/my-life?view=list`(같은 화면 들여쓴 목록, 뒤로 가기로 지도) |
+| 목록 보기 | [지도로 보기] | → `/my-life` |
+| 패널(중심) | [가지 접기 / 가지 N개 펼치기] (지도에서만) · [닫기] | ⚙ 화면 안 |
+| 패널(이야기) | [본문 보기 / 본문 접기] · [닫기] | ⚙ 패널 안 펼침 |
+| 패널(이야기) | [확인하러 가기] (확인 대기 인물이 있을 때만) | → `/story-review/confirm#<episodeId>` |
+| 패널(사람) | [인물록에서 보기] | → `/people/[id]` |
+| 패널(장소) | [지도에서 보기] | ↗ `https://map.naver.com/p/search/…`(네이버 장소) · `https://maps.google.com/?q=…`(그 밖) |
+| 빈 상태(확정 중심 0) | [이야기 나누기] | → `/chat-v3` |
 
 ### 오늘의 인터뷰 `/interview` (로그인한 V3 사용자 전원 — `docs/phase/today-interview.md`)
 진입은 `/story-review` 카드뿐(사이드 패널 미노출 — 2차). 한 화면 한 질문, 버튼 문구는 `lib/interview/copy.ts`(임시).

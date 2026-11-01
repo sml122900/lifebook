@@ -7,6 +7,7 @@ import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
 import { INTERVIEW_COPY } from "@/lib/interview/copy";
 import { getInterviewCardState, type InterviewCardState } from "@/lib/interview/session";
 import { countPendingPeople } from "@/lib/node-confirm";
+import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { CONFIRM_COPY } from "@/lib/node-confirm-copy";
 import { getOnboardingTrack } from "@/lib/onboarding-track";
 import { getStoryReviewData, type EpisodeSummary } from "@/lib/story-review";
@@ -89,6 +90,10 @@ export default async function StoryReviewPage() {
         <p className="mt-2 text-lg text-ink-soft">
           채워진 인생 이야기를 한눈에 보여드릴게요.
         </p>
+        {/* 노드 그래프 2b-3a — 같은 기록을 마인드맵으로(두 보기 공존). primary 는 맨 아래 "계속 이야기하기". */}
+        <ButtonLink href="/my-life" variant="secondary" size="lg" className="mt-4">
+          {MY_LIFE_COPY.storyReviewEntry}
+        </ButtonLink>
       </header>
 
       {pendingPeople > 0 && <PendingPeopleCard count={pendingPeople} />}

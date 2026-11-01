@@ -11,6 +11,7 @@ import {
   DAILY_CREDIT,
 } from "@/lib/attendance-policy";
 import type { OnboardingTrack } from "@/lib/generated/prisma/enums";
+import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { SIDE_PANEL_EVENT, START_TOUR_EVENT } from "@/lib/tours";
 
 import { checkInAction } from "./attendance-actions";
@@ -264,6 +265,13 @@ function SidePanel({
                   href="/story-review"
                   label="내 이야기"
                   hint="지금까지 채운 이야기 모아보기"
+                  prefetch={false}
+                />
+                {/* 노드 그래프 2b-3a — My Life 마인드맵(V3 만). 완전 동적 화면이라 prefetch 끔(P22-2). */}
+                <MenuItem
+                  href="/my-life"
+                  label={MY_LIFE_COPY.menuLabel}
+                  hint={MY_LIFE_COPY.menuHint}
                   prefetch={false}
                 />
               </>
