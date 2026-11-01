@@ -23,6 +23,7 @@ export const MY_LIFE_COPY = {
   zoomOut: "작게 보기",
   zoomAnnounce: (percent: number) => `지금 ${percent}%`,
   toList: "목록으로 보기",
+  chatEntry: "이야기 나누기", // My Life 개편 2단계 — 채팅 진입
   toMap: "지도로 보기",
   unfold: (n: number) => `가지 ${n}개 펼치기`,
   fold: "가지 접기",

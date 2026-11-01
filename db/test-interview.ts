@@ -49,6 +49,7 @@ import { syncV3Bridge } from "../lib/poster/v3-bridge";
 import { getStoryReviewData } from "../lib/story-review";
 import {
   answerInterviewYear,
+  decideInterviewProposal,
   finishInterviewStory,
   getInitialInterviewState,
   getInterviewCardState,
@@ -164,7 +165,7 @@ function staticChecks() {
   // ① 액션 비로그인 거부 — 모든 export 액션 첫 줄이 requireUserId(), 그 함수는 auth() 후 userId 없으면 throw.
   const actionsSrc = read("app/interview/actions.ts");
   const actions = exportedFirstStatements("app/interview/actions.ts");
-  check("① 서버 액션 5개 존재", actions.length === 5, actions.map((a) => a.name));
+  check("① 서버 액션 6개 존재", actions.length === 6, actions.map((a) => a.name));
   for (const a of actions) {
     check(`① 액션 ${a.name} 첫 줄 = requireUserId()`, /^const userId = await requireUserId\(\);$/.test(a.first), a.first);
   }
@@ -385,15 +386,26 @@ async function main() {
       { role: "assistant" as const, text: turn.ok ? turn.reply : "" },
       { role: "user" as const, text: a2 },
     ];
+    // My Life 개편 2단계(Q67) — 마무리 = 제안 카드(문항에 저장), [만들기] 때 저장.
     const fin = await finishInterviewStory(userId, rows[2].id, transcript, now);
+    const cardItem = await prisma.interviewItem.findUnique({ where: { id: rows[2].id } });
+    check("⑤ 마무리 = 카드(시기 고정·제목 = 문항 주제)·문항은 아직 PLANNED·카드 저장",
+      fin.ok && !!fin.proposal && fin.proposal.card.centerFixed && "id" in fin.proposal.card.center && fin.proposal.card.center.id === ev.ELEM_SCHOOL &&
+        fin.proposal.card.title === "국민학교 시절 놀이" && cardItem?.status === "PLANNED" && cardItem.proposal !== null,
+      fin.ok ? fin.proposal?.card : fin);
+    const resumed = await nextInterviewState(userId, now);
+    check("⑤ 새로고침해도 같은 문항 + 카드부터", itemOf(resumed)?.id === rows[2].id && itemOf(resumed)?.proposal !== null, itemOf(resumed)?.proposal?.card.title);
+    const made = await decideInterviewProposal(userId, rows[2].id, { kind: "create" }, now);
     const storyItem = await prisma.interviewItem.findUnique({ where: { id: rows[2].id } });
     const episode = storyItem?.refId
       ? await prisma.episode.findUnique({ where: { id: storyItem.refId }, include: { memory: { select: { title: true, createdVia: true } } } })
       : null;
-    check("⑤ 저장 성공·문항 ANSWERED", fin.ok && storyItem?.status === "ANSWERED", fin);
+    check("⑤ [만들기] 저장 성공·문항 ANSWERED·카드 비움", made.ok && storyItem?.status === "ANSWERED" && storyItem.proposal === null, made);
+    check("⑤ 확인 대기 0(PROPOSED 연결·초안 인물 없음)",
+      (await prisma.nodeLink.count({ where: { userId, status: "PROPOSED" } })) === 0 && (await prisma.person.count({ where: { userId, isDraft: true } })) === 0);
     check("⑤ Episode = 대상 시기 사건·구간 아님·풀 제목", episode?.lifeEventId === ev.ELEM_SCHOOL && episode.isPeriod === false && episode.memory.title === "국민학교 시절 놀이" && episode.memory.createdVia === "episode" && episode.content.trim().length > 0, episode && { lifeEventId: episode.lifeEventId, isPeriod: episode.isPeriod, title: episode.memory.title });
     check("⑤ 답 턴·글자 수", storyItem?.turns === 2 && storyItem.answerChars === [...a1].length + [...a2].length, storyItem && { turns: storyItem.turns, answerChars: storyItem.answerChars });
-    check("⑤ AI 사용량 기록(후속 1 + 요약 ≥1 + 인물 추출 1 ≥ 3회)", (storyItem?.aiCalls ?? 0) >= 3 && (storyItem?.aiInputTokens ?? 0) > 0 && !!storyItem?.aiModel, storyItem && { aiCalls: storyItem.aiCalls, in: storyItem.aiInputTokens, out: storyItem.aiOutputTokens, model: storyItem.aiModel });
+    check("⑤ AI 사용량 기록(후속 1 + 제안 ≥1 ≥ 2회)", (storyItem?.aiCalls ?? 0) >= 2 && (storyItem?.aiInputTokens ?? 0) > 0 && !!storyItem?.aiModel, storyItem && { aiCalls: storyItem.aiCalls, in: storyItem.aiInputTokens, out: storyItem.aiOutputTokens, model: storyItem.aiModel });
 
     // ⑥ 문항 4(출생 이야기)를 낸 뒤 다른 경로로 채워지면 → 다시 들어올 때 DROPPED.
     const at4 = await nextInterviewState(userId, now);
@@ -407,10 +419,12 @@ async function main() {
     const selfQ = itemOf(at5);
     check("⑩ 관계별 나 문항 = 대상 시기(고교)·관계 대상 이름·조사 치환", selfQ?.kind === "story" && selfQ.question === "고등학교 다니실 때, 박영수와 같이 있을 때는 어떤 사람이셨어요?", selfQ);
     const selfAnswer = "그 친구랑 있으면 제가 말이 많아졌어요. 평소엔 조용한 편이었는데 그 친구 앞에서는 장난도 잘 치고 많이 웃었지요.";
-    const selfFin = await finishInterviewStory(userId, rows[4].id, [
+    const selfCard = await finishInterviewStory(userId, rows[4].id, [
       { role: "assistant", text: selfQ?.question ?? "" },
       { role: "user", text: selfAnswer },
     ], now);
+    check("⑩ 마무리 = 카드(그때의 나·시기 고정)", selfCard.ok && selfCard.proposal?.card.kind === "SELF" && selfCard.proposal.card.centerFixed, selfCard.ok ? selfCard.proposal?.card : selfCard);
+    const selfFin = await decideInterviewProposal(userId, rows[4].id, { kind: "create" }, now);
     const selfItem = await prisma.interviewItem.findUnique({ where: { id: rows[4].id } });
     const selfEp = selfItem?.refId
       ? await prisma.episode.findUnique({ where: { id: selfItem.refId }, include: { memory: { select: { title: true, createdVia: true } } } })

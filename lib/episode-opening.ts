@@ -35,3 +35,27 @@ export function buildEpisodeOpeningPrompt(type: LifeEventType, label: string): s
       return `${label}, 이때 기억나는 거 있으세요?`;
   }
 }
+
+// v3 P6 — 인물 모드 진입 질문. 에피소드 오프닝과 짝을 이루되 "무슨 일"이 아닌 "누구"에 초점.
+// (2026-11-01 My Life 개편 2단계 — ChatV3Client 에서 옮김, 본문 무변. 자유 대화 주제 오프닝이 서버에서 쓴다.)
+export function buildPersonAskPrompt(type: LifeEventType, label: string): string {
+  switch (type) {
+    case "ELEM_SCHOOL":
+      return `${schoolPhaseName(label, "학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
+    case "MIDDLE_SCHOOL":
+      return `${schoolPhaseName(label, "중학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
+    case "HIGH_SCHOOL":
+      return `${schoolPhaseName(label, "고등학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
+    case "UNIVERSITY":
+      return `${schoolPhaseName(label, "대학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
+    case "MILITARY":
+      return "군대에서 가깝게 지낸 전우 있으세요?";
+    case "FIRST_JOB":
+      return "그때 가깝게 지낸 동료 있으세요?";
+    case "BIRTH":
+    case "MARRIAGE":
+    case "CUSTOM":
+    default:
+      return "그 시절 가까이 지내신 분 있으세요?";
+  }
+}

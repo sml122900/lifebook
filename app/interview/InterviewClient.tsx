@@ -7,11 +7,16 @@
 // 마무리 때 한 번에 저장, 후속 질문 최대 2개(capped 응답이 질문이면 그 답 1번 더 받음),
 // 완곡 종료("그걸로 됐어요")는 저장 후 다음 문항, 명시 종료("그만할래요")는 저장 후 중단.
 // 이야기 도중 브라우저를 닫으면 그 문항의 이전 턴은 사라지고 질문부터 다시 한다(P7-7 과 같은 정책).
+// My Life 개편 2단계(Q67) — 이야기 마무리는 바로 저장하지 않고 제안 카드(사람·장소 확인, 시기는 문항이 정함)를
+// 띄운다. 카드는 문항에 저장돼 새로고침해도 카드부터 다시 보인다.
 
 import { useState } from "react";
 
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { ProposalCard, type CreateOutcome } from "@/app/components/ProposalCard";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
+import type { ProposalView } from "@/lib/free-chat";
+import type { CardEdit } from "@/lib/node-proposal";
 import type { EpisodeTurn } from "@/lib/episode-chat";
 import {
   isAskingQuestion,
@@ -25,6 +30,7 @@ import { CONFIRM_COPY } from "@/lib/node-confirm-copy";
 
 import {
   answerInterviewYearAction,
+  decideInterviewProposalAction,
   finishInterviewStoryAction,
   interviewStoryTurnAction,
   skipInterviewItemAction,
@@ -180,6 +186,9 @@ function ItemCard({
   const [busy, setBusy] = useState<Busy>(null);
   const [message, setMessage] = useState<string | null>(notice);
   const [failed, setFailed] = useState<null | (() => Promise<void>)>(null);
+  // 마무리 뒤 결정 전 제안 카드 · 카드를 정한 뒤 중단 화면으로 갈지("오늘은 그만"으로 마무리한 경우).
+  const [proposal, setProposal] = useState<ProposalView | null>(item.proposal);
+  const [pauseAfterCard, setPauseAfterCard] = useState(false);
 
   const hasAnswered = transcript.some((t) => t.role === "user");
 
@@ -211,10 +220,32 @@ function ItemCard({
       async () => {
         const res = await finishInterviewStoryAction(item.id, turns);
         if (!res.ok) throw new Error(res.error);
-        onNext(res.next, C.storySaved, pause);
+        if (res.proposal) {
+          setProposal(res.proposal);
+          setPauseAfterCard(pause);
+          return;
+        }
+        // 이야기 내용이 없었음 — 건너뛰기와 같다.
+        onNext(res.next, null, pause);
       },
       C.saveFailed,
     );
+  }
+
+  async function createFromCard(edit: CardEdit): Promise<CreateOutcome> {
+    const r = await decideInterviewProposalAction(item.id, { kind: "create", edit });
+    if (r.ok) {
+      onNext(r.next, C.storySaved, pauseAfterCard);
+      return { ok: true };
+    }
+    if (r.reason === "ask") return { ok: false, ask: r.ask };
+    if (r.reason === "invalid") return { ok: false, message: r.message };
+    return { ok: false };
+  }
+
+  async function declineCard(): Promise<void> {
+    const r = await decideInterviewProposalAction(item.id, { kind: "decline" });
+    if (r.ok) onNext(r.next, null, pauseAfterCard);
   }
 
   async function skip() {
@@ -285,6 +316,15 @@ function ItemCard({
     if (busy) return;
     if (item.kind === "story" && hasAnswered) void finishStory(transcript, true);
     else onPause();
+  }
+
+  if (proposal) {
+    return (
+      <section className="flex flex-col gap-6">
+        <p className="text-lg font-semibold text-ink-soft">{C.progress(item.ordinal, item.total)}</p>
+        <ProposalCard view={proposal} onCreate={createFromCard} onDecline={declineCard} />
+      </section>
+    );
   }
 
   return (

@@ -9,9 +9,13 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import type { ContinueEpisodeResult, EpisodeTurn } from "@/lib/episode-chat";
+import type { ProposalView } from "@/lib/free-chat";
+import type { CardEdit } from "@/lib/node-proposal";
 import {
   answerInterviewYear,
+  decideInterviewProposal,
   finishInterviewStory,
+  type DecideInterviewResult,
   interviewStoryTurn,
   nextInterviewState,
   skipInterviewItem,
@@ -46,16 +50,29 @@ export async function interviewStoryTurnAction(
   return interviewStoryTurn(userId, itemId, history, followUpCount);
 }
 
+// 이야기형 문항 마무리 — 제안 카드(My Life 개편 2단계, Q67). 내용이 없으면 건너뛰기처럼 다음 상태.
 export async function finishInterviewStoryAction(
   itemId: string,
   transcript: EpisodeTurn[],
-): Promise<{ ok: true; next: InterviewState } | { ok: false; error: string }> {
+): Promise<{ ok: true; proposal: ProposalView } | { ok: true; proposal: null; next: InterviewState } | { ok: false; error: string }> {
   const userId = await requireUserId();
-  const result = await finishInterviewStory(userId, itemId, transcript);
-  if (!result.ok) return result;
-  // app/actions/episode.ts 의 P23-2 와 같은 이유 — 새 Episode 가 인물 상세에 보일 수 있다.
-  revalidatePath("/people/[personId]", "page");
-  return { ok: true, next: await nextInterviewState(userId) };
+  return finishInterviewStory(userId, itemId, transcript);
+}
+
+// 카드 결정 — 만들기(고친 값) / 안 만들기.
+export async function decideInterviewProposalAction(
+  itemId: string,
+  decision: { kind: "create"; edit?: CardEdit } | { kind: "decline" },
+): Promise<DecideInterviewResult> {
+  const userId = await requireUserId();
+  const result = await decideInterviewProposal(userId, itemId, decision);
+  if (result.ok && result.title !== null) {
+    // 새 이야기·사람·장소가 My Life·인물 상세·정리 화면에 보이게.
+    revalidatePath("/my-life");
+    revalidatePath("/story-review");
+    revalidatePath("/people/[personId]", "page");
+  }
+  return result;
 }
 
 export async function answerInterviewYearAction(

@@ -8,12 +8,12 @@ import { hasAnyUserMemory } from "@/lib/user-entry";
 
 // Phase L7 / B1 — 로그인/동의 직후 도착하는 canonical 분기 페이지.
 // v3 P17 — onboardingTrack 이 최우선 분기. V3 사용자는 아래 v2 결정 규칙을
-// 전혀 안 거치고 /start·/story-review 로만 간다(사이드 메뉴에서 v2 화면이
+// 전혀 안 거치고 /start·/my-life 로만 간다(사이드 메뉴에서 v2 화면이
 // 숨겨지는 것과 대칭).
 //
 // V3 결정 규칙:
 //   1) OnboardingProfile.skeletonGeneratedAt 있고 UNCONFIRMED 이벤트 0건
-//        → /story-review (지금까지 채운 이야기)
+//        → /my-life (My Life 개편 2단계 Q68 — 이전엔 /story-review)
 //   2) 그 외(뼈대 미완성 또는 확인 대기 이벤트 있음) → /start
 //
 // V2 결정 규칙 (기존 그대로):
@@ -58,7 +58,7 @@ export default async function EnterPage() {
         where: { userId, status: "UNCONFIRMED" },
       });
       if (unconfirmed === 0) {
-        redirect("/story-review");
+        redirect("/my-life");
       }
     }
     redirect("/start");

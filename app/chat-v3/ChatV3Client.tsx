@@ -1,21 +1,16 @@
 "use client";
 
-// v3 통합 채팅(P1~P3) — 신상 수집(뼈대모드) + STAGE2 확인질문 + 갭 기반 열린
-// 대화가 하나의 채팅 흐름으로 이어진다. 내부 stage 는 UI 에 안 보인다.
+// v3 통합 채팅 — 설정(신상 + 골격 확인질문) 뒤 자유 대화 하나. My Life 개편 2단계
+// (docs/phase/my-life-restructure.md §3): 이야기·인물 단계와 자유 발화 즉시 중심 생성(promoteOpenTurn)을
+// 없애고, 자유 대화가 일단락되면 "이 이야기를 남길까요?" 제안 카드([만들기]·[고치기]·[안 만들기])가
+// 요약·인물 추출·인물 확인(2b-2)을 대신한다. 구간·카드는 서버(lib/free-chat.ts, ChatV3Segment)가 기억한다.
 //
-// 대화 로그를 DB(OnboardingChatMessage)에 저장/복원한다. P3-1 — addBot/
-// addUser 를 반드시 await 한다(호출부도 전부 await). 이전엔 fire-and-forget
-// 이라 골격 진행 중간에 다른 페이지로 이동하면 방금 턴들의 저장이 씹히는
-// 사고가 있었다(골격 "완료" 후에는 왜인지 안 씹혔다 — 그 시점 이후엔 다시
-// 들어와도 loadNextConfirmQuestion 류 후속 await 체인이 충분히 길어 저장이
-// 이미 끝나 있었을 가능성; 근본 원인을 프로덕션에서 정확히 특정 못 했지만,
-// 저장을 "다음 상호작용을 열어주기 전에 반드시 끝난 상태"로 만들면 어떤
-// 메커니즘이었든 씹힐 여지 자체가 없어진다).
+// 대화 로그를 DB(OnboardingChatMessage)에 저장/복원한다. P3-1 — addBot/addUser 를 반드시 await 한다
+// (저장을 "다음 상호작용을 열어주기 전에 반드시 끝난 상태"로 — 다른 페이지로 이동해도 씹히지 않게).
+// 자유 대화 서버는 이 로그를 읽어 구간을 만든다 — 그래서 본인 말 저장이 끝난 뒤에 응답을 부른다.
 //
-// 재사용 엔진: completeOnboarding(onboarding.ts), getNextConfirmQuestion/
-// submitConfirmAnswer/getConfirmQuestionForEvent(life-event.ts),
-// continueEpisodeChat/finishEpisodeChat(episode.ts, STAGE4 그대로) — 전부
-// 무수정 또는 순수 추가.
+// 재사용 엔진: completeOnboarding(onboarding.ts), getNextConfirmQuestion/submitConfirmAnswer/
+// getConfirmQuestionForEvent(life-event.ts) — 설정 단계는 무수정.
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -23,7 +18,7 @@ import Link from "next/link";
 
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { CharacterStage } from "@/app/components/CharacterStage";
-import { CONFIRM_COPY } from "@/lib/node-confirm-copy";
+import { ProposalCard, type CreateOutcome } from "@/app/components/ProposalCard";
 import type { CharacterState } from "@/lib/characters";
 
 import { completeOnboarding } from "@/app/actions/onboarding";
@@ -33,82 +28,45 @@ import {
   parseProfileRegion,
 } from "@/app/actions/onboarding-v3";
 import {
-  getConfirmedLifeEvent,
   getConfirmQuestionForEvent,
   getNextConfirmQuestion,
   submitConfirmAnswer,
 } from "@/app/actions/life-event";
 import {
-  continueEpisodeChat,
-  finishEpisodeChat,
-  type EpisodeTopic,
-  type EpisodeTurn,
-} from "@/app/actions/episode";
-import { getPeriodPromptByEventId, getTopGaps } from "@/app/actions/gaps";
-import { countPendingPeopleAction } from "@/app/actions/node-confirm";
-import { respondToOpenChat } from "@/app/actions/open-chat";
-import { submitPersonAnswer, getPersonEpisodeTarget } from "@/app/actions/person-chat";
+  createProposalAction,
+  declineProposalAction,
+  freeChatReplyAction,
+  initFreeChatAction,
+  proposeAction,
+  startFreeTopicAction,
+} from "@/app/actions/free-chat";
+import { getTopGaps } from "@/app/actions/gaps";
 import {
   listRecentChatMessages,
   saveChatMessage,
   type ChatLogTurn,
 } from "@/app/actions/chat-v3-log";
-import {
-  setPendingChatContext,
-  clearPendingChatContext,
-  getPendingChatContext,
-  type PendingChatContext,
-} from "@/app/actions/chat-v3-pending";
 import type { Gap } from "@/lib/gap-detector";
-import type { LifeEventType } from "@/lib/generated/prisma/enums";
-import { buildPersonAddress, buildPersonLabel } from "@/lib/person-honorific";
-import { buildEpisodeOpeningPrompt, schoolPhaseName } from "@/lib/episode-opening";
-import {
-  buildPersonEpisodeTranscript,
-  buildResumeAnnouncement,
-  EPISODE_CLOSINGS,
-  isAskingQuestion,
-  isEpisodeDoneIntent,
-  isExitIntent,
-  lastNonResumeAssistantText,
-  nextClosingIndexFromLog,
-  stripEpisodeDoneSignal,
-} from "@/lib/episode-text";
+import type { FreeTopicInput, ProposalView } from "@/lib/free-chat";
+import { FREE_CHAT_COPY as FC } from "@/lib/free-chat-copy";
+import type { CardEdit } from "@/lib/node-proposal";
+import { isExitIntent } from "@/lib/episode-text";
 
 type Msg = { role: "a" | "u"; text: string };
-type Stage = "profile_year" | "profile_region" | "confirm" | "episode" | "open" | "person";
+type Stage = "profile_year" | "profile_region" | "confirm" | "free";
 type Status = "loading" | "idle" | "submitting" | "finished" | "error";
-type FinishReason = "done" | "capped" | "exited";
+type FinishReason = "capped" | "exited";
 
 export type InitialGap =
   | { eventId: string; kind: "confirm" | "episode" | "period" | "person" }
   | { eventId: string; kind: "person_episode"; personId: string }
   | null;
 
-// 피로도 제어 — 신상(생년·출생지) + 확인질문 합쳐 한 세션 상한. 갭 카드로
-// 되돌아와 특정 이벤트를 다시 다루는 것(targeted confirm)·에피소드 대화·
-// open 자유 대화는 이 상한에 안 걸린다(온보딩 피로도와는 다른 맥락).
+// 피로도 제어 — 신상(생년·출생지) + 확인질문 합쳐 한 세션 상한. 자유 대화는 이 상한에 안 걸린다.
 const MAX_SESSION_QUESTIONS = 12;
 
-// P8-3 — app/actions/episode.ts 의 MAX_FOLLOWUPS 와 반드시 같은 값이어야
-// 한다("use server" 파일은 async 함수만 export 할 수 있어(프로젝트 규칙)
-// 상수를 직접 공유 못 함). 그쪽 값이 바뀌면 이 값도 함께 바꿀 것.
-const EPISODE_MAX_FOLLOWUPS = 2;
-
-// 종료 의사 키워드(EXIT_PHRASES/EPISODE_DONE_PHRASES)와 판정·분리 함수는
-// P14-1 에서 순수 모듈 lib/episode-text.ts 로 옮겼다(서버 액션·검증
-// 스크립트와 공유).
-
-const OPEN_GREETING = "하고 싶은 이야기 있으세요?";
-
-// P14-4 마무리 멘트 4종은 lib/episode-text.ts EPISODE_CLOSINGS 로 이동
-// (P15-1 — 순환 인덱스를 로그에서 복원하는 순수 함수와 함께).
-
-// finishSession 이 마지막으로 남기는 문구들. P13-1 후속 — 재진입 dedupe
-// (loadNextConfirmQuestion 의 alreadyPending, enterOpenStage 의 alreadyShown,
-// init 의 alreadyAsked)는 "마지막 메시지가 봇 발화 = 이미 뭔가 물어본 채로
-// 끝나 있다"로 판단하는데, 세션 마무리 문구는 질문이 아니다. 종료 직후
-// 다시 들어오면 새 질문/인사가 안 붙어 입력창만 덩그러니 남던 것을 막는다.
+// finishSession 이 마지막으로 남기는 문구들. 재진입 dedupe(마지막 메시지가 봇 발화 = 이미 뭔가 물어본
+// 채로 끝나 있다)에서 이 문구는 질문이 아니라 제외한다.
 const SESSION_END_MESSAGES = new Set([
   "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요.",
   "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요.",
@@ -116,19 +74,12 @@ const SESSION_END_MESSAGES = new Set([
   "뼈대가 다 채워졌어요! 지금까지 채운 이야기를 보여드릴게요.",
 ]);
 
-// P16-2 — buildResumeAnnouncement/lastNonResumeAssistantText 는
-// lib/episode-text.ts 로 옮겼다(P14/P15 와 같은 패턴 — 순수 함수는 검증
-// 스크립트가 직접 import 할 수 있게 클라 밖에 둔다).
-
-// 복원된 로그가 "봇이 뭔가 물어본 채로" 끝나 있는지(세션 마무리 문구 제외).
 function endsWithPendingBotTurn(loaded: ChatLogTurn[] | undefined): boolean {
   const last = loaded?.[loaded.length - 1];
   return last?.role === "assistant" && !SESSION_END_MESSAGES.has(last.content);
 }
 
-// P13-3 — "무한 로딩 절대 금지". 서버 액션이 응답을 영영 안 주면(네트워크
-// 끊김, 배포 중 액션 ID 불일치 등) 로딩 점만 남는다 — 이 시간을 넘기면
-// 거절해 호출부의 catch → enterError(다시 시도 버튼)로 떨어뜨린다.
+// P13-3 — "무한 로딩 절대 금지". 서버 액션이 응답을 영영 안 주면 이 시간을 넘겨 거절 → enterError.
 const ACTION_TIMEOUT_MS = 45_000;
 const EMPTY_REPLY_FALLBACK = "잠시 문제가 있었어요. 다시 말씀해주세요.";
 
@@ -148,14 +99,9 @@ function withTimeout<T>(p: Promise<T>): Promise<T> {
   });
 }
 
-// P13-1 — 딥링크 소비 표식. 딥링크(?gapEventId=…)로 들어온 뒤 채팅 안 갭
-// 칩으로 *다른* 대화를 시작하면 주소창은 옛 딥링크 그대로다(주소를 고치면
-// Next 라우터가 페이지를 리마운트해 사고가 난다 — init 주석). 그 상태에서
-// 새로고침하면 옛 딥링크가 다시 발화해 진행 중이던 대화를 밀어냈다(P12-6).
-// 칩 클릭 시 "현재 딥링크는 소비됨"을 sessionStorage 에 남기고, init 이
-// 같은 키를 보면 딥링크를 무시한다. 클라이언트 라우팅으로 이 화면을 떠날 때
-// (언마운트) 지운다 — /story-review 에서 같은 카드를 다시 고르는 건 새 의도.
-// 새로고침은 언마운트 정리를 안 타므로 표식이 살아남는다(의도).
+// P13-1 — 딥링크 소비 표식. 딥링크(?gapEventId=…)로 들어온 뒤 갭 칩으로 다른 대화를 시작하면 주소창은
+// 옛 딥링크 그대로다(주소를 고치면 Next 라우터가 페이지를 리마운트한다). 새로고침 때 옛 딥링크가 다시
+// 발화하지 않게 sessionStorage 에 표식을 남긴다. 클라이언트 라우팅으로 떠날 때(언마운트) 지운다.
 const DEEP_LINK_CONSUMED_KEY = "chat-v3:deep-link-consumed";
 
 function deepLinkKey(gap: NonNullable<InitialGap>): string {
@@ -175,7 +121,7 @@ function markDeepLinkConsumed(gap: InitialGap): void {
   try {
     sessionStorage.setItem(DEEP_LINK_CONSUMED_KEY, deepLinkKey(gap));
   } catch {
-    // storage 불가 환경 — 표식 없이 진행(기존 동작).
+    // storage 불가 환경 — 표식 없이 진행.
   }
 }
 
@@ -187,28 +133,15 @@ function clearDeepLinkConsumed(): void {
   }
 }
 
-// v3 P6 — 인물 모드 진입 질문. 에피소드 오프닝과 짝을 이루되 "무슨 일"이 아닌
-// "누구"에 초점.
-function buildPersonAskPrompt(type: LifeEventType, label: string): string {
-  switch (type) {
-    case "ELEM_SCHOOL":
-      return `${schoolPhaseName(label, "학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
-    case "MIDDLE_SCHOOL":
-      return `${schoolPhaseName(label, "중학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
-    case "HIGH_SCHOOL":
-      return `${schoolPhaseName(label, "고등학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
-    case "UNIVERSITY":
-      return `${schoolPhaseName(label, "대학교")} 다닐 때 친하게 지낸 사람 있으세요?`;
-    case "MILITARY":
-      return "군대에서 가깝게 지낸 전우 있으세요?";
-    case "FIRST_JOB":
-      return "그때 가깝게 지낸 동료 있으세요?";
-    case "BIRTH":
-    case "MARRIAGE":
-    case "CUSTOM":
-    default:
-      return "그 시절 가까이 지내신 분 있으세요?";
+function gapToTopic(gap: Gap): FreeTopicInput | null {
+  if (!gap.targetEventId) return null;
+  if (gap.type === "episode") return { eventId: gap.targetEventId, kind: "episode" };
+  if (gap.type === "time_gap") return { eventId: gap.targetEventId, kind: "period" };
+  if (gap.type === "person") return { eventId: gap.targetEventId, kind: "person" };
+  if (gap.type === "person_episode" && gap.targetPersonId) {
+    return { eventId: gap.targetEventId, kind: "person_episode", personId: gap.targetPersonId };
   }
+  return null;
 }
 
 export function ChatV3Client({
@@ -233,11 +166,11 @@ export function ChatV3Client({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loadingHint, setLoadingHint] = useState<string | null>(null);
   const [gapSuggestions, setGapSuggestions] = useState<Gap[]>([]);
-  // 노드 그래프 2b-2 후속(Q25 갱신) — 이야기 저장 직후 확인 대기 인물 수. 1명 이상이면 대화창에
-  // 확인 카드(대화는 계속). 세션이 끝나면 finishSession 이 지금처럼 확인 화면으로 보낸다.
-  const [pendingPeople, setPendingPeople] = useState(0);
-  // 캐릭터 리액션 — 확인질문 통과·에피소드 저장 시 잠깐 happy 로 덮어씀
-  // (그 외엔 status/입력 포커스로 idle·listening·thinking 자동 계산).
+  // 자유 대화 — 결정 전 제안 카드 · 지금 구간 본인 실질 턴 수 · 방금 만든 노드(지도로 가는 버튼).
+  const [proposal, setProposal] = useState<ProposalView | null>(null);
+  const [segTurns, setSegTurns] = useState(0);
+  const [lastCreated, setLastCreated] = useState<string | null>(null);
+  // 캐릭터 리액션 — 확인질문 통과·노드 만들기 때 잠깐 happy.
   const [reaction, setReaction] = useState<CharacterState | null>(null);
   const reactionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -249,7 +182,6 @@ export function ChatV3Client({
   useEffect(() => {
     return () => {
       if (reactionTimeoutRef.current) clearTimeout(reactionTimeoutRef.current);
-      // P13-1 — 클라이언트 라우팅으로 떠날 때 딥링크 소비 표식 정리.
       clearDeepLinkConsumed();
     };
   }, []);
@@ -266,41 +198,27 @@ export function ChatV3Client({
   const activeEventIdRef = useRef<string | null>(null);
   const questionCountRef = useRef(0);
   const isTargetedConfirmRef = useRef(false);
-  const episodeFollowUpCountRef = useRef(0);
-  const episodeTranscriptRef = useRef<EpisodeTurn[]>([]);
   const retryActionRef = useRef<(() => Promise<void>) | null>(null);
-  // v3 P6 — 지금 진행 중인 "episode" 단계가 특정 인물과의 이야기인지(null 이면
-  // 일반 사건 회고). startEpisodeStage(일반 진입)는 항상 이 값을 지운다.
-  const activePersonRef = useRef<{ id: string; name: string } | null>(null);
-  // v3 P6 — "person" 단계에서 방금 던진 질문 문구(추출 시 맥락으로 필요).
-  const personQuestionRef = useRef("");
-  // P8-1 — 지금 진행 중인 "episode" 단계가 period(구간) 대화인지(null 이면
-  // 일반 사건/인물 회고). 앵커 LifeEvent 자신의 label/year 대신 이 topic 을
-  // 시스템 프롬프트·저장 제목에 쓴다. startEpisodeStage/enterPersonEpisode
-  // 는 항상 이 값을 지운다(activePersonRef 와 같은 자리).
-  const periodTopicRef = useRef<EpisodeTopic | null>(null);
-  // P10-2 — capped(강제 마감) 턴의 응답이 규칙을 어기고 질문으로 끝나면,
-  // 그 답을 받기 전엔 마무리하지 않고 한 턴 더 기다린다는 표시.
-  const awaitingFinalAnswerRef = useRef(false);
-  // P10-1 — 마지막으로 표시된 메시지(역할+본문). 폴백 문구처럼 같은 문구가
-  // 재진입마다 반복 적재되는 것을 막는 데 쓴다(로그 재조회 없이 즉시 판단).
+  // "그만할래요" 때 카드가 떠 있거나 새로 떴으면, 카드를 정한 뒤 세션을 마친다.
+  const exitAfterCardRef = useRef(false);
   const lastMessageRef = useRef<Msg | null>(null);
-
   const bottomRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, status]);
+  // 카드가 뜨면 카드 맨 위(제목)부터 — 맨 아래로 내리면 긴 카드의 제목이 고정 머리 줄 뒤에 가린다(390 실측).
+  // 위 이펙트보다 뒤에 둬서 같은 그림에서는 이쪽이 이긴다.
+  const cardKey = proposal ? (proposal.card.until ?? proposal.card.title) : null;
+  useEffect(() => {
+    if (cardKey) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [cardKey]);
 
-  // P3-1 — 반드시 await. DB 기록이 끝난 뒤에야 이 턴을 "완료된 것"으로
-  // 치고 다음 상호작용(다른 페이지 이동 포함)을 허용한다.
-  // P10-1 — 직전 메시지와 역할·본문이 완전히 같으면 건너뛴다(폴백 문구가
-  // 재진입마다 쌓이던 문제).
+  // P3-1 — 반드시 await. P10-1 — 직전 메시지와 역할·본문이 완전히 같으면 건너뛴다.
   async function addBot(text: string): Promise<void> {
     if (lastMessageRef.current?.role === "a" && lastMessageRef.current.text === text) return;
-    const msg: Msg = { role: "a", text };
-    lastMessageRef.current = msg;
-    setMessages((prev) => [...prev, msg]);
+    showMsg({ role: "a", text });
     try {
       await saveChatMessage(userId, sessionId, "assistant", text);
     } catch (e) {
@@ -308,39 +226,17 @@ export function ChatV3Client({
     }
   }
   async function addUser(text: string): Promise<void> {
-    const msg: Msg = { role: "u", text };
-    lastMessageRef.current = msg;
-    setMessages((prev) => [...prev, msg]);
+    showMsg({ role: "u", text });
     try {
       await saveChatMessage(userId, sessionId, "user", text);
     } catch (e) {
       console.error("[chat-v3-log]", e);
     }
   }
-
-  // P7-7 — episode/person 단계 진입/이탈을 대기 컨텍스트 테이블에 반영.
-  // best-effort(실패해도 대화 자체는 막지 않음) — addBot/addUser 와 같은
-  // 방어 패턴.
-  async function markPendingEpisode(eventId: string, personId: string | null): Promise<void> {
-    try {
-      await setPendingChatContext(userId, "EPISODE", eventId, personId);
-    } catch (e) {
-      console.error("[chat-v3-pending]", e);
-    }
-  }
-  async function markPendingPerson(eventId: string): Promise<void> {
-    try {
-      await setPendingChatContext(userId, "PERSON", eventId, null);
-    } catch (e) {
-      console.error("[chat-v3-pending]", e);
-    }
-  }
-  async function clearPending(): Promise<void> {
-    try {
-      await clearPendingChatContext(userId);
-    } catch (e) {
-      console.error("[chat-v3-pending]", e);
-    }
+  // 서버가 이미 로그에 저장한 말(주제 고른 말·오프닝) — 보여 주기만.
+  function showMsg(msg: Msg) {
+    lastMessageRef.current = msg;
+    setMessages((prev) => [...prev, msg]);
   }
 
   function enterError(message: string, retryAction: () => Promise<void>) {
@@ -349,90 +245,37 @@ export function ChatV3Client({
     setStatus("error");
   }
 
-  // canReview — /story-review 로 넘어갈 만한 상태인지(신상 단계에서 종료한
-  // 경우엔 아직 아무 골격도 없어 보여줄 게 없다). "done"/"capped" 는 항상
-  // confirm 루프(골격 존재) 안에서만 발생하므로 호출부가 true 로 고정.
-  // P12-1 — savedEpisode: 명시적 종료("그만할래요") 직전에 진행 중이던
-  // 이야기를 저장하고 나왔는지(문구에 반영).
-  async function finishSession(reason: FinishReason, canReview: boolean, savedEpisode = false) {
+  // 세션 마침 — 마무리 말 뒤 My Life 로(Q68). canReview = 보여 줄 골격이 있는지(신상 단계 종료면 없음).
+  async function finishSession(reason: FinishReason, canReview: boolean, savedStory = false) {
     const msg =
       reason === "capped"
         ? "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요."
-        : reason === "exited"
-          ? savedEpisode
-            ? "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요."
-            : "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요."
-          : "뼈대가 다 채워졌어요! 지금까지 채운 이야기를 보여드릴게요.";
-    if (reason === "done") triggerReaction("happy", 3500);
-    // P13-3 — 입력창은 마무리 멘트 저장(await)이 끝나기 전에 먼저 닫는다.
-    // 전환 중 입력이 새 턴을 만들 틈을 없앤다.
+        : savedStory
+          ? "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요."
+          : "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요.";
     setStatus("finished");
     await addBot(msg);
-    if (canReview) {
-      // 노드 그래프 2b-2(Q25) — 이야기에 나온 인물 확인 대기가 있으면 확인 화면으로. 수를 못
-      // 읽으면 지금처럼 정리 화면(그곳 상단 카드가 대기를 다시 알려 준다).
-      const pendingPeople = await countPendingPeopleAction().catch(() => 0);
-      const next = pendingPeople > 0 ? "/story-review/confirm" : "/story-review";
-      setTimeout(() => router.push(next), 1200);
-    }
+    if (canReview) setTimeout(() => router.push("/my-life"), 1200);
   }
 
-  // "open" 단계 진입/재진입 — 갭을 새로 계산해 보여주고, 인사말을 붙인다.
-  // P3-6 — dedupeAgainst 의 마지막 메시지가 이미 "assistant" 발화면(어떤
-  // 문구였든) 또 새 프롬프트를 안 붙인다. 이 화면은 항상 봇이 마지막으로
-  // 말하고 끝나므로("~있으세요?" 류), 텍스트를 정확히 맞출 필요 없이
-  // "이미 봇이 뭔가 물어본 채로 끝나 있다"만 확인하면 충분하다(예전엔
-  // OPEN_GREETING 문자열과의 완전 일치만 봐서 다른 마무리 멘트 뒤엔 매번
-  // 새 인사말이 계속 쌓였다).
-  async function enterOpenStage(promptText: string, dedupeAgainst?: ChatLogTurn[]) {
-    setStage("open");
-    setStatus("loading");
-    try {
-      // P7-7 — episode/person 대기 컨텍스트를 벗어나는 모든 경로가 결국
-      // 여기로 모인다(finishEpisodeStage·submitPersonTurn 의 "없어요" 분기
-      // 등) — 한 곳에서 정리하면 충분하다.
-      await clearPending();
-      const gaps = await withTimeout(getTopGaps(userId, 3));
-      setGapSuggestions(gaps);
-      const alreadyShown = endsWithPendingBotTurn(dedupeAgainst);
-      if (!alreadyShown) await addBot(promptText);
-      setStatus("idle");
-    } catch (e) {
-      console.error("[chat-v3]", e);
-      enterError("이야기를 불러오지 못했어요.", () => enterOpenStage(promptText, dedupeAgainst));
-    }
-  }
+  // ─── 설정 단계(신상·골격 확인) ────────────────────────────────────────
 
-  async function loadNextConfirmQuestion(
-    opts: { fromInit?: boolean; dedupeAgainst?: ChatLogTurn[] } = {},
-  ) {
+  async function loadNextConfirmQuestion(opts: { fromInit?: boolean; dedupeAgainst?: ChatLogTurn[] } = {}) {
     const { fromInit = false, dedupeAgainst } = opts;
     setStage("confirm");
     setStatus("loading");
     try {
-      // P7-7 — confirm 루프로 들어오면 episode/person 대기 컨텍스트는 더
-      // 이상 유효하지 않다(존재해도 no-op).
-      await clearPending();
       if (questionCountRef.current >= MAX_SESSION_QUESTIONS) {
         await finishSession("capped", true);
         return;
       }
       const res = await withTimeout(getNextConfirmQuestion(userId));
       if (res.done) {
-        if (fromInit) {
-          // 마운트 직후 만난 done:true 는 "지금 막 끝난" 게 아니라 "이미 다
-          // 끝나 있었다" — 축하 멘트+리뷰 이동 대신 open 단계로.
-          await enterOpenStage(OPEN_GREETING, dedupeAgainst);
-        } else {
-          await finishSession("done", true);
-        }
+        // 설정 끝 — 자유 대화로 합친다(Q65). 처음부터 끝나 있었으면 인사만.
+        await enterFree(fromInit ? { dedupeAgainst } : { intro: FC.setupDone });
         return;
       }
       activeEventIdRef.current = res.eventId;
-      // 재진입 시 복원된 로그가 이미 "질문 대기 중"(마지막 메시지가
-      // assistant)으로 끝나 있으면 같은 이벤트를 새로 재생성해 또 물어보지
-      // 않는다 — 안 그러면 방금 복원한 마지막 질문 바로 아래 같은(또는
-      // 재생성돼 살짝 다른) 질문이 한 번 더 붙는다.
       const alreadyPending = fromInit && endsWithPendingBotTurn(dedupeAgainst);
       if (!alreadyPending) {
         questionCountRef.current += 1;
@@ -441,32 +284,29 @@ export function ChatV3Client({
       setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
-      enterError("질문을 불러오지 못했어요.", () =>
-        loadNextConfirmQuestion({ fromInit, dedupeAgainst }),
-      );
+      enterError("질문을 불러오지 못했어요.", () => loadNextConfirmQuestion({ fromInit, dedupeAgainst }));
     }
   }
 
   async function afterConfirmResolved() {
     if (isTargetedConfirmRef.current) {
       isTargetedConfirmRef.current = false;
-      await enterOpenStage("네, 반영했어요. 다른 이야기도 있으세요?");
+      await enterFree({ intro: "네, 반영했어요. 다른 이야기도 편하게 해 주세요." });
     } else {
       await loadNextConfirmQuestion();
     }
   }
 
-  // 갭 카드에서 특정(needsReview 포함) 이벤트를 골라 다시 묻는 경로.
+  // 갭 칩·딥링크에서 특정(needsReview 포함) 이벤트를 다시 묻는 경로.
   async function startTargetedConfirm(eventId: string) {
     isTargetedConfirmRef.current = true;
     setStage("confirm");
     setStatus("loading");
     try {
-      await clearPending();
       const res = await getConfirmQuestionForEvent(userId, eventId);
       if (res.done) {
         isTargetedConfirmRef.current = false;
-        await enterOpenStage("그 이야기는 이미 확인했나봐요. 다른 이야기 있으세요?");
+        await enterFree({ intro: "그 이야기는 이미 확인했나봐요. 다른 이야기도 편하게 해 주세요." });
         return;
       }
       activeEventIdRef.current = res.eventId;
@@ -476,399 +316,6 @@ export function ChatV3Client({
       console.error("[chat-v3]", e);
       enterError("질문을 불러오지 못했어요.", () => startTargetedConfirm(eventId));
     }
-  }
-
-  // 갭 카드에서 confirmed 인데 hasEpisode=false 인 이벤트를 골라 심화 대화
-  // 시작. P4-1 — handleGapClick 은 이미 최상단에서 gap.announceText 를
-  // addUser 했으므로(skipAnnounce=true) 여기서 또 남기지 않는다. 반면
-  // init() 의 initialGap(/story-review "이야기하기" 딥링크) 경로는 그
-  // addUser 를 거치지 않고 곧장 여기로 오므로(skipAnnounce 기본 false)
-  // 직접 사용자 발화 버블을 남긴다 — 이전엔 이 경로만 버블이 안 남고 내부
-  // 골격 라벨("1963년 출생")이 그대로 오프닝에 노출되던 버그가 있었다.
-  async function startEpisodeStage(eventId: string, opts: { skipAnnounce?: boolean } = {}) {
-    setStage("episode");
-    setStatus("loading");
-    try {
-      const item = await getConfirmedLifeEvent(userId, eventId);
-      if (!item) {
-        await enterOpenStage("그 이야기는 지금 들을 수 없나봐요. 다른 이야기 있으세요?");
-        return;
-      }
-      if (!opts.skipAnnounce) {
-        // P9-5 — person/period 는 "~시절 이야기도 해볼게요"(조사 "도")인데
-        // 여기만 "도" 가 빠져 있었다. 통일.
-        await addUser(`${item.label} 이야기도 해볼게요`);
-      }
-      activeEventIdRef.current = item.id;
-      activePersonRef.current = null;
-      periodTopicRef.current = null;
-      episodeFollowUpCountRef.current = 0;
-      awaitingFinalAnswerRef.current = false;
-      await markPendingEpisode(item.id, null);
-      const opening = buildEpisodeOpeningPrompt(item.type, item.label);
-      episodeTranscriptRef.current = [{ role: "assistant", text: opening }];
-      await addBot(opening);
-      setStatus("idle");
-    } catch (e) {
-      console.error("[chat-v3]", e);
-      enterError("이야기를 준비하지 못했어요.", () => startEpisodeStage(eventId, opts));
-    }
-  }
-
-  // v3 P6 — 갭 카드(person)에서, 또는 인물 수집 직후 자동으로 들어오는
-  // "그 시절 주변 사람" 질문. 인물이 이미 저장돼 있으면(그래서 다시 사람을
-  // 물을 필요가 없으면) enterPersonEpisode 로 바로 넘어가지 않는 이유는,
-  // 이 단계는 "새 인물을 더 들어볼까" 이지 이미 아는 인물과의 에피소드가
-  // 아니기 때문 — person_episode 갭은 별도 진입점(startPersonEpisodeStage).
-  async function startPersonStage(eventId: string, opts: { skipAnnounce?: boolean } = {}) {
-    setStage("person");
-    setStatus("loading");
-    try {
-      const item = await getConfirmedLifeEvent(userId, eventId);
-      if (!item) {
-        await enterOpenStage("그 이야기는 지금 들을 수 없나봐요. 다른 이야기 있으세요?");
-        return;
-      }
-      if (!opts.skipAnnounce) {
-        await addUser(`${item.label} 시절 이야기도 해볼게요`);
-      }
-      activeEventIdRef.current = item.id;
-      await markPendingPerson(item.id);
-      const question = buildPersonAskPrompt(item.type, item.label);
-      personQuestionRef.current = question;
-      await addBot(question);
-      setStatus("idle");
-    } catch (e) {
-      console.error("[chat-v3]", e);
-      enterError("이야기를 준비하지 못했어요.", () => startPersonStage(eventId, opts));
-    }
-  }
-
-  // 인물 답변 처리. 저장된 인물이 있으면 바로 그 사람과의 에피소드 대화로
-  // 이어간다(존엄 원칙 — "없어요"/"기억 안 나요" 는 캐묻지 않고 open 으로).
-  //
-  // v3 P23-1 — pending person 질문이 재개된 자리에 전혀 무관한 실질 이야기가
-  // 오면(예: "스물다섯 살 때 부산에서 배를 탔어요") 이름 후보가 0개라
-  // 예전엔 "네, 알겠어요"로 그대로 버려졌다(/story-review 에 아무것도 안
-  // 남음). submitPersonAnswer 가 그 경우 open 모드 분류기로 다시 판단해
-  // promoted 를 함께 돌려준다 — 있으면 person 흐름을 접고 그 이야기로
-  // 곧장 전환한다(submitOpenChat 의 promoted 분기와 같은 패턴).
-  async function submitPersonTurn(text: string) {
-    const eventId = activeEventIdRef.current;
-    if (!eventId) {
-      setStatus("idle");
-      return;
-    }
-    setStatus("submitting");
-    try {
-      const result = await withTimeout(
-        submitPersonAnswer(userId, eventId, personQuestionRef.current, text),
-      );
-      if (result.promoted) {
-        const { eventId: promotedEventId } = result.promoted;
-        setStage("episode");
-        activeEventIdRef.current = promotedEventId;
-        activePersonRef.current = null;
-        periodTopicRef.current = null;
-        episodeFollowUpCountRef.current = 0;
-        awaitingFinalAnswerRef.current = false;
-        await markPendingEpisode(promotedEventId, null);
-        const opening = "그 이야기 먼저 들을게요.";
-        await addBot(opening);
-        const historyBefore: EpisodeTurn[] = [{ role: "assistant", text: opening }];
-        await submitEpisodeTurnToModel(promotedEventId, text, historyBefore);
-        return;
-      }
-      if (result.savedCount === 0 || !result.firstPersonId || !result.firstPersonName) {
-        await enterOpenStage("네, 알겠어요. 다른 이야기도 있으세요?");
-        return;
-      }
-      triggerReaction("happy");
-      // E2E 후속 — 이 답(이야기가 담긴 경우가 많다)을 이야기 대화 기록의 첫 본인 턴으로 넘긴다.
-      await enterPersonEpisode(eventId, result.firstPersonId, result.firstPersonName, result.firstPersonRelation, {
-        question: personQuestionRef.current,
-        answer: text,
-      });
-    } catch (e) {
-      console.error("[chat-v3]", e);
-      enterError("답변을 처리하지 못했어요.", () => submitPersonTurn(text));
-    }
-  }
-
-  // 인물 저장 직후 자동 진입, 또는 person_episode 갭에서 진입 — 둘 다 여기로
-  // 모인다. "episode" 단계 기존 엔진(submitEpisodeTurn/finishEpisodeStage)을
-  // personId 태그만 붙여 그대로 탄다. personAnswer — 인물 질문에서 바로 넘어온 경우 그 질문과 답
-  // (기록이 [인물 질문, 본인 답, 이야기 오프닝]으로 시작, lib/episode-text buildPersonEpisodeTranscript).
-  async function enterPersonEpisode(
-    eventId: string,
-    personId: string,
-    personName: string,
-    personRelation: string | null,
-    personAnswer?: { question: string; answer: string },
-  ) {
-    setStage("episode");
-    setStatus("loading");
-    try {
-      activeEventIdRef.current = eventId;
-      activePersonRef.current = { id: personId, name: personName };
-      periodTopicRef.current = null;
-      episodeFollowUpCountRef.current = 0;
-      awaitingFinalAnswerRef.current = false;
-      await markPendingEpisode(eventId, personId);
-      // P10-4 — 윗사람(가족·은사)이면 호칭을 살려 격식 조사로 부른다.
-      const opening = `${buildPersonAddress(personName, personRelation)} 기억나는 일 있으세요?`;
-      episodeTranscriptRef.current = personAnswer
-        ? buildPersonEpisodeTranscript(personAnswer.question, personAnswer.answer, opening)
-        : [{ role: "assistant", text: opening }];
-      await addBot(opening);
-      setStatus("idle");
-    } catch (e) {
-      console.error("[chat-v3]", e);
-      enterError("이야기를 준비하지 못했어요.", () =>
-        enterPersonEpisode(eventId, personId, personName, personRelation, personAnswer),
-      );
-    }
-  }
-
-  // person_episode 갭 카드/딥링크 진입 — "이미 아는 그 인물"과의 이야기를
-  // 새로 시작. getPersonEpisodeTarget 이 두 ID 의 소유·연결을 다시 확인한다.
-  async function startPersonEpisodeStage(
-    eventId: string,
-    personId: string,
-    opts: { skipAnnounce?: boolean } = {},
-  ) {
-    setStage("episode");
-    setStatus("loading");
-    try {
-      const target = await getPersonEpisodeTarget(userId, eventId, personId);
-      if (!target) {
-        await enterOpenStage("그 이야기는 지금 들을 수 없나봐요. 다른 이야기 있으세요?");
-        return;
-      }
-      if (!opts.skipAnnounce) {
-        await addUser(`${buildPersonAddress(target.personName, target.personRelation)} 있었던 이야기 해볼게요`);
-      }
-      await enterPersonEpisode(eventId, personId, target.personName, target.personRelation);
-    } catch (e) {
-      console.error("[chat-v3]", e);
-      enterError("이야기를 준비하지 못했어요.", () => startPersonEpisodeStage(eventId, personId, opts));
-    }
-  }
-
-  // P3-2/P8-1 — /story-review 의 time_gap 카드(또는 갭 칩)에서 anchor
-  // eventId 를 지정해 돌아온 경우. 그 구간의 문구를 다시 찾아 userPrompt 를
-  // 던진다. P8-1 이전엔 stage="open"(저장 없는 1회성 잡담)으로 빠져 이 구간
-  // 이야기가 통째로 저장 안 됐다 — episode 엔진(STAGE4)을 그대로 타되,
-  // 앵커 이벤트 자신이 아니라 "그 이벤트 이후"가 주제이므로 periodTopicRef
-  // 로 topic 을 덮어씌운다. Episode 는 lifeEventId 에 여러 개 붙을 수 있어
-  // (스키마 1:N) 앵커에 붙이는 것이 자연스럽다.
-  // P10-1 — getPeriodPromptByEventId 를 쓴다(getGapByEventId 대신). 그 갭이
-  // 이미 해소돼(그 앵커에 period Episode 가 이미 있어) 갭 카드 목록에서는
-  // 사라졌어도, 딥링크로 직접(또는 재)진입하면 이 구간 대화를 이어갈 수
-  // 있어야 한다 — 그렇지 않으면 매번 폴백만 뜨고 대화가 시작조차 안 된다.
-  async function startPeriodPrompt(eventId: string, opts: { skipAnnounce?: boolean } = {}) {
-    setStage("episode");
-    setStatus("loading");
-    try {
-      await clearPending();
-      const [prompt, item] = await Promise.all([
-        getPeriodPromptByEventId(userId, eventId),
-        getConfirmedLifeEvent(userId, eventId),
-      ]);
-      if (!prompt || !item) {
-        await enterOpenStage("그 이야기는 지금 들을 수 없나봐요. 다른 이야기 있으세요?");
-        return;
-      }
-      if (!opts.skipAnnounce) {
-        await addUser(prompt.announceText);
-      }
-      activeEventIdRef.current = item.id;
-      activePersonRef.current = null;
-      periodTopicRef.current = { label: `${item.label} 이후`, year: item.year };
-      episodeFollowUpCountRef.current = 0;
-      awaitingFinalAnswerRef.current = false;
-      await markPendingEpisode(item.id, null);
-      episodeTranscriptRef.current = [{ role: "assistant", text: prompt.userPrompt }];
-      await addBot(prompt.userPrompt);
-      setStatus("idle");
-    } catch (e) {
-      console.error("[chat-v3]", e);
-      enterError("이야기를 불러오지 못했어요.", () => startPeriodPrompt(eventId, opts));
-    }
-  }
-
-  function submitEpisodeTurn(text: string): Promise<void> {
-    const eventId = activeEventIdRef.current;
-    if (!eventId) {
-      setStatus("idle");
-      return Promise.resolve();
-    }
-    setStatus("submitting");
-    const historyBefore = episodeTranscriptRef.current;
-
-    // P8-2 — 완곡한 종료 의사는 AI 판단(오독 위험) 없이 먼저 거른다.
-    // P10-3 — "그걸로 된 것 같아요" 같은 종료 신호 자체는 이야기 내용이
-    // 아니라 신호일 뿐이라 요약 입력에서 뺀다(넣으면 "그것으로 충분했다"
-    // 처럼 이야기 내용으로 잘못 흡수된다). 화면·DB 로그(addUser)에는 이미
-    // 남았으니 여기선 episodeTranscriptRef 에만 안 넣는다.
-    // P14-1(3) — 같은 메시지에 내용+종료가 섞여 있으면("~해주셨어요. 그걸로
-    // 된 것 같아요") 종료 문장만 빼고 내용은 마지막 본인 턴으로 살린다.
-    // 통째로 빼면 1턴 대화가 "내용 없음"이 돼 안내문이 저장되던 원인.
-    if (isEpisodeDoneIntent(text)) {
-      awaitingFinalAnswerRef.current = false;
-      const kept = stripEpisodeDoneSignal(text);
-      episodeTranscriptRef.current = kept
-        ? [...historyBefore, { role: "user", text: kept }]
-        : historyBefore;
-      return finishEpisodeStage();
-    }
-
-    // P10-2 — 직전 assistant 응답이 강제 마감(capped) 턴이었고 질문으로
-    // 끝났다면, 이 턴은 그 질문에 대한 답이다 — 모델을 다시 부르지 않고
-    // (더 물으면 안 되는 차례) 곧장 이 답을 담아 마무리한다.
-    if (awaitingFinalAnswerRef.current) {
-      awaitingFinalAnswerRef.current = false;
-      episodeTranscriptRef.current = [...historyBefore, { role: "user", text }];
-      return finishEpisodeStage();
-    }
-
-    return submitEpisodeTurnToModel(eventId, text, historyBefore);
-  }
-
-  async function submitEpisodeTurnToModel(
-    eventId: string,
-    text: string,
-    historyBefore: EpisodeTurn[],
-  ): Promise<void> {
-    const apiHistory: EpisodeTurn[] = [...historyBefore.slice(1), { role: "user", text }];
-    try {
-      const result = await withTimeout(
-        continueEpisodeChat(
-          eventId,
-          apiHistory,
-          episodeFollowUpCountRef.current,
-          periodTopicRef.current ?? undefined,
-        ),
-      );
-      if (!result.ok) {
-        enterError(result.error, () => {
-          setStatus("idle");
-          return Promise.resolve();
-        });
-        return;
-      }
-      // P13-3 — 빈 응답은 화면에 아무것도 안 남기지 말고 폴백 문구로.
-      // 서버가 이미 기본 문구를 채우지만(continueEpisodeChat), 어떤 경로로든
-      // 빈 문자열이 오면 사용자에게 뭔가는 보여야 한다.
-      if (!result.reply.trim()) {
-        await addBot(EMPTY_REPLY_FALLBACK);
-        setStatus("idle");
-        return;
-      }
-      episodeTranscriptRef.current = [
-        ...historyBefore,
-        { role: "user", text },
-        { role: "assistant", text: result.reply },
-      ];
-      await addBot(result.reply);
-      episodeFollowUpCountRef.current += 1;
-      if (result.end) {
-        // P10-2 — capped(강제 마감) 응답이 규칙을 어기고 질문으로 끝나면,
-        // 그 답을 받기 전에 마무리하면 방금 그 답이 유실된다("open" 단계로
-        // 넘어가 저장 안 되는 채로 흘러간다). 질문 형태가 아니면(잘 지켜진
-        // 마무리 말) 기존처럼 바로 저장.
-        if (result.capped && isAskingQuestion(result.reply)) {
-          awaitingFinalAnswerRef.current = true;
-          setStatus("idle");
-          return;
-        }
-        await finishEpisodeStage({ afterModelClosing: true });
-        return;
-      }
-      setStatus("idle");
-    } catch (e) {
-      console.error("[chat-v3]", e);
-      enterError("답변을 처리하지 못했어요.", () => {
-        setStatus("idle");
-        return Promise.resolve();
-      });
-    }
-  }
-
-  // 지금까지의 에피소드 대화를 저장하고 episode 컨텍스트(인물·period)를
-  // 비운다. P12-1 — 마무리(finishEpisodeStage)와 명시적 종료(handleSend 의
-  // exit 경로) 양쪽이 공유한다. 반환값 = 저장 성공 여부.
-  async function saveEpisode(): Promise<boolean> {
-    const eventId = activeEventIdRef.current;
-    const personId = activePersonRef.current?.id;
-    const topicOverride = periodTopicRef.current ?? undefined;
-    setStatus("loading");
-    let ok = false;
-    try {
-      const result = eventId
-        ? await withTimeout(
-            finishEpisodeChat(eventId, episodeTranscriptRef.current, personId, topicOverride),
-          )
-        : { ok: false as const, error: "" };
-      if (!result.ok) {
-        // empty = 마무리 말뿐이라 저장할 내용이 없음 — 실패가 아니라 오류 문구를 안 띄운다.
-        if (!("empty" in result && result.empty)) {
-          await addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
-        }
-      } else {
-        ok = true;
-        triggerReaction("happy");
-        // Q25 갱신 — 확인 대기 인물이 있으면 대화창에 확인 카드(수를 못 읽으면 카드 없이 그대로).
-        setPendingPeople(await countPendingPeopleAction().catch(() => 0));
-      }
-    } catch (e) {
-      console.error("[chat-v3]", e);
-      await addBot("저장하지 못했어요. 그래도 이야기 나눠주셔서 고마워요.");
-    }
-    activePersonRef.current = null;
-    periodTopicRef.current = null;
-    return ok;
-  }
-
-  // P12-7 — afterModelClosing: 직전 봇 발화가 이미 모델의 마무리 말("잘
-  // 들었어요. 소중한 이야기 들려주셔서 고마워요.")이면 시스템 마무리 문구를
-  // 또 붙이지 않고 다음 이야기 초대만 한다(같은 뜻의 두 문장이 연달아 뜨던
-  // 중복). 사용자가 "그걸로 됐어요" 로 끝낸 경우(모델 마무리 없음)엔 기존
-  // 전체 문구.
-  // P14-1 — 본인 발화가 한 턴도 없으면(오프닝만 보고 "됐어요") 저장할 게
-  // 없다 — saveEpisode 를 타면 "저장하지 못했어요" 가 떠서 어르신이 뭔가
-  // 잘못한 것처럼 보인다. 컨텍스트만 비우고 다음 이야기로.
-  // P14-4 — 마무리 멘트를 몇 가지로 돌려 쓴다(같은 문구 연속 반복 완화).
-  // E2E 후속 — 마무리 말뿐인 본인 턴("네 그 정도예요")은 본인 발화로 치지 않는다(서버도 같은 기준으로
-  // 떼고 저장 안 함). 저장이 안 됐으면 "잘 담아뒀어요" 류 마무리 문구도 쓰지 않는다.
-  async function finishEpisodeStage(opts: { afterModelClosing?: boolean } = {}) {
-    const hasUserTurn = hasEpisodeUserContent();
-    let saved = false;
-    if (hasUserTurn) {
-      saved = await saveEpisode();
-    } else {
-      activePersonRef.current = null;
-      periodTopicRef.current = null;
-    }
-    await enterOpenStage(
-      opts.afterModelClosing || !saved ? "다른 이야기도 있으세요?" : nextEpisodeClosing(),
-    );
-  }
-
-  function hasEpisodeUserContent(): boolean {
-    return episodeTranscriptRef.current.some((t) => t.role === "user" && stripEpisodeDoneSignal(t.text));
-  }
-
-  // P15-1 — useRef 는 리마운트마다 0 으로 돌아간다. 실측(test20) 에서 이야기
-  // 하나마다 /chat-v3 를 새로 들어와(메시지 sessionId 가 매번 달랐다) 항상
-  // 첫 문구만 나왔다. init 이 복원한 로그에서 마지막으로 쓴 문구를 찾아
-  // 그 다음부터 잇는다(nextClosingIndexFromLog) — 저장소 추가 없이 리마운트·
-  // 재진입에도 순환이 이어진다.
-  const closingIdxRef = useRef(0);
-  function nextEpisodeClosing(): string {
-    const msg = EPISODE_CLOSINGS[closingIdxRef.current % EPISODE_CLOSINGS.length];
-    closingIdxRef.current += 1;
-    return msg;
   }
 
   async function submitBirthYear(text: string) {
@@ -902,25 +349,14 @@ export function ChatV3Client({
       }
       const birthYear = birthYearRef.current;
       if (birthYear === null) {
-        // 순서상 항상 birthYear 가 먼저 채워지므로 이론상 도달하지 않는다.
         setStage("profile_year");
         await addBot("죄송해요, 처음부터 다시 여쭤볼게요. 언제 태어나셨어요?");
         setStatus("idle");
         return;
       }
-
       // 골격 생성 + 첫 확인질문 생성이 AI 호출 2연쇄로 이어져 몇 초 걸린다.
       setLoadingHint("잠깐만요, 이야기 칸을 정리하고 있어요…");
-      await withTimeout(
-        completeOnboarding(userId, {
-          birthYear,
-          birthMonth: null,
-          gender: null,
-          region: res.region,
-        }),
-      );
-      // 직전 턴이 이미 "OO년에 태어나셨군요"였으니 여기서 연도를 또
-      // 반복하지 않는다.
+      await withTimeout(completeOnboarding(userId, { birthYear, birthMonth: null, gender: null, region: res.region }));
       await addBot("네, 그럼 몇 가지 확인해볼게요.");
       await loadNextConfirmQuestion();
     } catch (e) {
@@ -940,7 +376,6 @@ export function ChatV3Client({
     setStatus("submitting");
     try {
       const result = await withTimeout(submitConfirmAnswer(eventId, text));
-
       if (result.status === "UNCLEAR") {
         if (result.needsReview) {
           await addBot("네, 그건 나중에 다시 여쭤볼게요.");
@@ -951,12 +386,10 @@ export function ChatV3Client({
         }
         return;
       }
-
       if (result.status === "CONFIRMED") await addBot("네, 확인했어요.");
       else if (result.status === "SKIPPED") await addBot("알겠어요, 넘어갈게요.");
       else if (result.status === "CORRECTED") await addBot("그렇게 고쳐서 담아둘게요.");
       triggerReaction("happy");
-
       await afterConfirmResolved();
     } catch (e) {
       console.error("[chat-v3]", e);
@@ -964,237 +397,181 @@ export function ChatV3Client({
     }
   }
 
-  // P13-4(b) — open 발화가 실질 이야기면 서버가 CUSTOM LifeEvent 를 만들어
-  // "promoted" 로 돌려준다 → 그 이벤트로 에피소드 단계를 열고, 방금 발화를
-  // 첫 본인 턴으로 삼아 곧장 후속 질문을 받는다(오프닝을 다시 묻지 않는다 —
-  // 이미 "하고 싶은 이야기 있으세요?" 에 답한 것이므로). 이후 마무리·저장·
-  // 인물 추출은 기존 STAGE4 경로 그대로. 인사·짧은 반응은 예전처럼 반응만.
-  async function submitOpenChat(text: string) {
-    setStatus("submitting");
+  // ─── 자유 대화 ────────────────────────────────────────────────────────
+
+  // 자유 대화 진입·재진입 — 구간 상태(카드·실질 턴)와 갭 칩을 불러오고, 인사를 붙인다.
+  // 카드가 있으면 카드부터, 7일 지난 구간이면 바로 제안(Q66).
+  async function enterFree(opts: { intro?: string; dedupeAgainst?: ChatLogTurn[] } = {}) {
+    setStage("free");
+    setStatus("loading");
     try {
-      const result = await withTimeout(respondToOpenChat(userId, text));
-      if (result.kind === "promoted") {
-        setStage("episode");
-        activeEventIdRef.current = result.eventId;
-        activePersonRef.current = null;
-        periodTopicRef.current = null;
-        episodeFollowUpCountRef.current = 0;
-        awaitingFinalAnswerRef.current = false;
-        // 딥링크로 들어온 뒤 여기서 새 대화가 시작된 것 — 새로고침 시 옛
-        // 딥링크가 이 대화를 밀어내지 않게(P13-1, handleGapClick 과 동일).
-        markDeepLinkConsumed(initialGap);
-        await markPendingEpisode(result.eventId, null);
-        const opening =
-          lastMessageRef.current?.role === "a" ? lastMessageRef.current.text : OPEN_GREETING;
-        const historyBefore: EpisodeTurn[] = [{ role: "assistant", text: opening }];
-        await submitEpisodeTurnToModel(result.eventId, text, historyBefore);
+      const [state, gaps] = await Promise.all([withTimeout(initFreeChatAction()), withTimeout(getTopGaps(userId, 3))]);
+      setGapSuggestions(gaps);
+      setSegTurns(state.segmentTurns);
+      if (state.proposal) {
+        setProposal(state.proposal);
+        setStatus("idle");
         return;
       }
-      await addBot(result.reply.trim() || EMPTY_REPLY_FALLBACK);
+      if (state.stale) {
+        await addBot(FC.staleNotice);
+        await requestProposal(null);
+        return;
+      }
+      if (opts.intro) await addBot(opts.intro);
+      else if (!endsWithPendingBotTurn(opts.dedupeAgainst)) {
+        await addBot(state.segmentTurns > 0 ? FC.resume : FC.greeting);
+      }
       setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
-      enterError("답변을 처리하지 못했어요.", () => submitOpenChat(text));
+      enterError("이야기를 불러오지 못했어요.", () => enterFree(opts));
     }
   }
 
-  // P7-7 — 딥링크 없이 재진입했을 때, episode/person 단계에서 못 끝낸
-  // 대화가 있으면 이어받는다. confirm/profile 은 항상 LifeEvent/
-  // OnboardingProfile 실제 상태에서 재계산하므로(기존 그대로) 대상이 아니다.
-  // 이전 turn 히스토리는 복원하지 않는다 — 로그의 마지막 assistant
-  // 메시지(대기 중이던 질문) 하나만 이어받는다(lib/chat-v3-pending.ts 상단
-  // 주석 참조). 대상이 더 이상 유효하지 않으면(이벤트/링크가 사라짐 등)
-  // 조용히 정리하고 false — 호출부가 기존 정상 분기로 이어간다.
-  async function tryResumePendingContext(
-    loaded: ChatLogTurn[],
-    pending: PendingChatContext | null,
-  ): Promise<boolean> {
-    if (!pending) return false;
-
-    // P16-2 — 재진입 안내 문구("아까 ~ 이야기 이어서 들을게요.")도 addBot
-    // 으로 로그에 저장되므로, 답 없이 다시 새로고침하면 로그 끝이 그
-    // 안내문 자신이 된다. "실제로 대답을 기다리던 마지막 질문"을 찾을 때는
-    // 이 안내문들을 건너뛴다 — 아니면 재이어받기의 앵커 텍스트가 원래
-    // 질문 대신 안내문 자신으로 바뀌어 버린다.
-    const lastAssistantText = lastNonResumeAssistantText(loaded);
-    // P15-2 — 마지막 봇 발화가 세션 마무리 문구면 이 pending 은 종료 직전에
-    // 못 지운 잔재다(구버전 exit 경로). 이어받지 않고 버린다 — 이어받으면
-    // 재진입 후 첫 발화가 옛 이벤트·인물 컨텍스트로 흡수된다.
-    const item = await getConfirmedLifeEvent(userId, pending.targetEventId);
-    if (!item || !lastAssistantText || SESSION_END_MESSAGES.has(lastAssistantText)) {
-      await clearPending();
-      return false;
-    }
-
-    if (pending.stage === "PERSON") {
-      activeEventIdRef.current = item.id;
-      personQuestionRef.current = lastAssistantText;
-      setStage("person");
-      setStatus("idle");
-      // P16-2 — "조용한 이어받기"가 P15-2 오염(엉뚱한 갭이 새 자유 발화를
-      // 흡수)을 사용자가 못 알아채게 만든 원인이었다 — 한 줄 안내로 "아니,
-      // 그거 말고" 정정 기회를 준다. addBot 자체가 직전 메시지와 텍스트가
-      // 같으면 저장을 건너뛰므로(연속 중복 방지) 답 없이 재진입을 반복해도
-      // 안내문이 쌓이지 않는다.
-      await addBot(buildResumeAnnouncement(item.label));
-      return true;
-    }
-
-    // EPISODE — targetPersonId 가 있으면 그 인물과의 이야기(연결이 끊겼으면
-    // getPersonEpisodeTarget 이 null 을 줘 일반 사건 회고로 자연히 강등).
-    let personName: string | null = null;
-    let personRelation: string | null = null;
-    if (pending.targetPersonId) {
-      const target = await getPersonEpisodeTarget(userId, pending.targetEventId, pending.targetPersonId);
-      personName = target?.personName ?? null;
-      personRelation = target?.personRelation ?? null;
-    }
-    activeEventIdRef.current = item.id;
-    activePersonRef.current =
-      pending.targetPersonId && personName ? { id: pending.targetPersonId, name: personName } : null;
-    // P8-3 — 이전 턴 히스토리를 복원하지 않으므로(위 주석) 실제 진행된
-    // 턴 수를 알 수 없다. 0 으로 리셋하면 최대 MAX_FOLLOWUPS 만큼 더
-    // 늘어질 수 있어 "재진입 후 안 끝난다"는 체감으로 이어진다 — 대신
-    // 재진입 후 다음 한 번의 답변으로 강제 마무리되게 한다(오탐이 미탐보다
-    // 안전하다는 P8-2 와 같은 원칙).
-    episodeFollowUpCountRef.current = EPISODE_MAX_FOLLOWUPS - 1;
-    // P10-2 — 새로 이어받는 대화이므로 "직전 답을 기다리는 중" 상태는 아니다.
-    awaitingFinalAnswerRef.current = false;
-    // P11-5 — period 대화였는지 복원. ChatV3PendingContext 엔 period 표식이
-    // 없어(스키마 무변) 로그로 판정한다: 오프닝 문구는 전부 결정적 템플릿
-    // 이라, 로그에서 마지막으로 등장한 오프닝이 period 질문(getPeriodPrompt-
-    // ByEventId 의 userPrompt — 아직 저장 전이므로 시작 당시와 같은 회차
-    // 문구)이면 period, 이벤트 자체 오프닝이면 일반 회고. 이전엔 무조건
-    // null 로 떨어져 재진입 후 저장분이 "결혼"(이후 누락) 제목 + isPeriod=
-    // false 로 남았다(1회차 "결혼 이후"와 제목 불일치).
-    periodTopicRef.current = null;
-    if (!activePersonRef.current) {
-      const periodPrompt = await getPeriodPromptByEventId(userId, item.id);
-      if (periodPrompt) {
-        const lastIndexOf = (text: string) => {
-          for (let i = loaded.length - 1; i >= 0; i--) {
-            if (loaded[i].role === "assistant" && loaded[i].content === text) return i;
-          }
-          return -1;
-        };
-        const episodeOpening = buildEpisodeOpeningPrompt(item.type, item.label);
-        if (lastIndexOf(periodPrompt.userPrompt) > lastIndexOf(episodeOpening)) {
-          periodTopicRef.current = { label: `${item.label} 이후`, year: item.year };
-        }
+  // 주제(갭 칩·딥링크)로 새 구간 — 서버가 고른 말·오프닝을 로그에 저장하고 돌려준다.
+  async function startTopic(topic: FreeTopicInput) {
+    setStage("free");
+    setStatus("loading");
+    try {
+      const r = await withTimeout(startFreeTopicAction(topic, sessionId));
+      if (r.kind === "opening") {
+        showMsg({ role: "u", text: r.announce });
+        showMsg({ role: "a", text: r.opening });
+        setSegTurns(0);
+      } else if (r.kind === "pending") {
+        await addBot(FC.cardFirst);
+      } else {
+        await addBot(FC.topicGone);
       }
+      setStatus("idle");
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      enterError("이야기를 준비하지 못했어요.", () => startTopic(topic));
     }
-    episodeTranscriptRef.current = [{ role: "assistant", text: lastAssistantText }];
-    setStage("episode");
-    setStatus("idle");
-    // P16-2 — 안내 라벨: 인물이 확정돼 있으면(person_episode 재진입) 그
-    // 인물 호칭, period 대화였으면 "~이후" 문구, 아니면 이벤트 라벨.
-    const resumeLabel = activePersonRef.current
-      ? buildPersonLabel(activePersonRef.current.name, personRelation)
-      : (periodTopicRef.current?.label ?? item.label);
-    await addBot(buildResumeAnnouncement(resumeLabel));
-    return true;
   }
 
-  // P9-2 — initialGap(딥링크)이 가리키는 대상이 이미 진행 중인 대기 대화
-  // (ChatV3PendingContext)와 같은 것인지 판정. 가장 흔한 트리거: /story-review
-  // 에서 아직 안 끝난 갭 카드를 다시 클릭 — 이전엔 initialGap 이 항상 우선이라
-  // 진행 중이던 대화를 무시하고 연결 멘트+오프닝 질문을 통째로 재주입했다
-  // (재진입 2회 시 같은 쌍이 3번 쌓이던 원인). tryResumePendingContext 를
-  // 아예 안 타서 P8-3 의 "재진입 후 강제 마무리" 도 함께 못 탔던 것도 이
-  // 우회 경로 때문 — pending 을 우선하면 둘 다 자연히 해결된다. "confirm"
-  // 은 대상 아님(ChatV3PendingContext 는 EPISODE/PERSON 만 다룸).
-  function pendingMatchesInitialGap(
-    pending: PendingChatContext,
-    gap: NonNullable<InitialGap>,
-  ): boolean {
-    if (pending.targetEventId !== gap.eventId) return false;
-    if (gap.kind === "person") return pending.stage === "PERSON";
-    if (gap.kind === "episode" || gap.kind === "period") {
-      return pending.stage === "EPISODE" && !pending.targetPersonId;
+  async function submitFree() {
+    setStatus("submitting");
+    try {
+      const r = await withTimeout(freeChatReplyAction());
+      if (r.kind === "budget") {
+        await addBot(FC.budgetPaused);
+        setStatus("idle");
+        return;
+      }
+      await addBot(r.reply.trim() || EMPTY_REPLY_FALLBACK);
+      setSegTurns(r.segmentTurns);
+      if (r.propose) {
+        await requestProposal(r.propose.until);
+        return;
+      }
+      setStatus("idle");
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      enterError("답변을 처리하지 못했어요.", () => submitFree());
     }
-    if (gap.kind === "person_episode") {
-      return pending.stage === "EPISODE" && pending.targetPersonId === gap.personId;
-    }
-    return false;
   }
+
+  // 지금 구간을 카드로. 카드가 안 생기면(내용 없음) 그대로 대화. 반환 = 카드가 떴는지.
+  async function requestProposal(until: string | null): Promise<boolean> {
+    setStatus("loading");
+    setLoadingHint(FC.proposing);
+    try {
+      const r = await withTimeout(proposeAction(until));
+      if (r.kind === "card") {
+        setProposal(r.view);
+        return true;
+      }
+      if (r.kind === "budget") await addBot(FC.budgetPaused);
+      else setSegTurns(r.segmentTurns);
+      return false;
+    } catch (e) {
+      console.error("[chat-v3]", e);
+      return false;
+    } finally {
+      setLoadingHint(null);
+      setStatus((s) => (s === "loading" ? "idle" : s));
+    }
+  }
+
+  async function handleCreate(edit: CardEdit): Promise<CreateOutcome> {
+    const r = await withTimeout(createProposalAction(edit));
+    if (r.ok) {
+      setProposal(null);
+      setSegTurns(r.segmentTurns);
+      triggerReaction("happy", 3000);
+      await addBot(FC.created(r.title));
+      setLastCreated(`/my-life?focus=${encodeURIComponent(`st:${r.eventId}:${r.episodeId}`)}`);
+      if (exitAfterCardRef.current) {
+        exitAfterCardRef.current = false;
+        await finishSession("exited", true, true);
+      }
+      return { ok: true };
+    }
+    if (r.reason === "ask") return { ok: false, ask: r.ask };
+    if (r.reason === "invalid") return { ok: false, message: r.message };
+    if (r.reason === "no_card") setProposal(null);
+    return { ok: false };
+  }
+
+  async function handleDecline(): Promise<void> {
+    const r = await withTimeout(declineProposalAction());
+    setProposal(null);
+    setSegTurns(r.segmentTurns);
+    await addBot(FC.declined);
+    if (exitAfterCardRef.current) {
+      exitAfterCardRef.current = false;
+      await finishSession("exited", true);
+    }
+  }
+
+  async function handleSaveNow() {
+    if (status !== "idle" || proposal) return;
+    await requestProposal(null);
+  }
+
+  // ─── 진입 ─────────────────────────────────────────────────────────────
 
   async function init() {
     setStatus("loading");
     try {
       const loaded = await listRecentChatMessages(userId);
-      closingIdxRef.current = nextClosingIndexFromLog(loaded);
       if (loaded.length > 0) {
-        const mapped: Msg[] = loaded.map((m) => ({
-          role: m.role === "assistant" ? "a" : "u",
-          text: m.content,
-        }));
+        const mapped: Msg[] = loaded.map((m) => ({ role: m.role === "assistant" ? "a" : "u", text: m.content }));
         setMessages(mapped);
         lastMessageRef.current = mapped[mapped.length - 1];
       }
 
-      let pending: PendingChatContext | null = null;
-      try {
-        pending = await getPendingChatContext(userId);
-      } catch (e) {
-        console.error("[chat-v3-pending]", e);
-      }
-
-      // P13-1 — P12-6 에서 여기서 window.history.replaceState("/chat-v3") 로
-      // 주소를 정리했다가 사고가 났다: Next 16 앱 라우터가 replaceState 를
-      // 가로채 ACTION_RESTORE 를 dispatch 하고, restoreReducer 가 세그먼트
-      // 캐시로 startPPRNavigation + spawnDynamicRequests 를 돌린다. 페이지
-      // 세그먼트 키에 searchParams 가 들어가므로(`__PAGE__?{gapEventId…}` →
-      // `__PAGE__`) 페이지 서브트리가 통째로 리마운트됐고 — 새 인스턴스는
-      // initialGap=null 로 다시 init, 첫 인스턴스의 init 체인은 고아가 돼
-      // 오프닝도 안 남고 stage 가 초기값(profile_year)에 머문 채 입력만 열려
-      // "딥링크 진입 후 빈 응답/엉뚱한 폴백" 으로 나타났다(open 모드는 주소
-      // 변경이 없어 정상이던 이유). 주소는 절대 건드리지 않는다 — 대신
-      // "이 딥링크는 이미 소비됐다" 표식을 sessionStorage 에 남겨(아래
-      // isStaleDeepLink) 새로고침 시 stale 딥링크를 무시한다.
-      const deepLinkStale = initialGap !== null && isStaleDeepLink(initialGap);
-
-      // P9-2 — 진행 중이던 대화와 같은 대상이면 새로 시작하지 않고 이어받는다.
-      if (initialGap && pending && pendingMatchesInitialGap(pending, initialGap)) {
-        if (await tryResumePendingContext(loaded, pending)) return;
-      }
-
-      // 갭 카드에서 특정 이벤트를 지정해 돌아온 경우 — 자연 분기보다 우선.
-      // P13-2 — pending 과 다른 대상이면 딥링크가 이긴다(위 P9-2 는 "같을
-      // 때"만). 이전 pending 은 여기서 명시적으로 버린다 — 재진입은 마지막
-      // 질문 하나만 이어받는 구조라(lib/chat-v3-pending.ts) 저장할 턴이
-      // 클라에 남아 있지 않다. start* 가 각자 덮어쓰기/정리를 하지만, 어느
-      // 경로든 옛 컨텍스트가 살아남지 않도록 한 곳에서 먼저 지운다.
-      // P13-1 — 단, 새로고침으로 다시 들어온 stale 딥링크(이미 이 탭에서
-      // 소비했고 그 뒤 다른 대화로 옮겨간)는 무시하고 pending/자연 분기로.
-      if (initialGap && !deepLinkStale) {
-        if (pending) await clearPending();
-        if (initialGap.kind === "episode") {
-          await startEpisodeStage(initialGap.eventId);
-        } else if (initialGap.kind === "period") {
-          await startPeriodPrompt(initialGap.eventId);
-        } else if (initialGap.kind === "person") {
-          await startPersonStage(initialGap.eventId);
-        } else if (initialGap.kind === "person_episode") {
-          await startPersonEpisodeStage(initialGap.eventId, initialGap.personId);
-        } else {
+      // 갭 카드·My Life 에서 특정 이벤트를 지정해 들어온 경우(새로고침으로 다시 온 옛 딥링크는 무시 — P13-1).
+      if (initialGap && !isStaleDeepLink(initialGap)) {
+        markDeepLinkConsumed(initialGap);
+        if (initialGap.kind === "confirm") {
           await startTargetedConfirm(initialGap.eventId);
+          return;
         }
+        const [state, gaps] = await Promise.all([initFreeChatAction(), getTopGaps(userId, 3)]);
+        setGapSuggestions(gaps);
+        setSegTurns(state.segmentTurns);
+        if (state.proposal) {
+          // 결정 전 카드가 있으면 카드부터(주제는 카드를 정한 뒤 갭 칩으로).
+          setStage("free");
+          setProposal(state.proposal);
+          setStatus("idle");
+          return;
+        }
+        await startTopic(
+          initialGap.kind === "person_episode"
+            ? { eventId: initialGap.eventId, kind: "person_episode", personId: initialGap.personId }
+            : { eventId: initialGap.eventId, kind: initialGap.kind },
+        );
         return;
       }
-
-      if (await tryResumePendingContext(loaded, pending)) return;
 
       const hasProfile = await hasOnboardingProfile(userId);
       if (!hasProfile) {
         setStage("profile_year");
-        // P9-3 — 다른 진입점들(loadNextConfirmQuestion 의 alreadyPending,
-        // enterOpenStage 의 alreadyShown)과 같은 dedup: 복원된 로그의
-        // 마지막 메시지가 이미 봇 발화(= 이미 뭔가 물어본 채로 끝나 있음)면
-        // 또 새 질문을 안 붙인다. 이 가드가 없으면 OnboardingProfile 이
-        // 아직 안 생긴 상태(프로필 단계 완료 전)에서 새로고침할 때마다
-        // "먼저 몇 가지만 여쭤볼게요" 가 매번 새 행으로 재적재됐다.
-        const alreadyAsked = endsWithPendingBotTurn(loaded);
-        if (!alreadyAsked) {
+        if (!endsWithPendingBotTurn(loaded)) {
           await addBot("먼저 몇 가지만 여쭤볼게요. 언제 태어나셨어요?");
           questionCountRef.current += 1;
         }
@@ -1211,88 +588,57 @@ export function ChatV3Client({
 
   const didInitRef = useRef(false);
   useEffect(() => {
-    // dev StrictMode 가 마운트 이펙트를 두 번 실행 — 첫 질문이 중복 표시되는
-    // 것을 막는다.
+    // dev StrictMode 가 마운트 이펙트를 두 번 실행 — 첫 질문이 중복 표시되는 것을 막는다.
     if (didInitRef.current) return;
     didInitRef.current = true;
     void init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // P3-3 — 칩 클릭도 "사용자가 이 주제를 골랐다"는 발화 버블을 남긴다(이전엔
-  // time_gap 클릭 시 사용자 버블 없이 봇이 내부 진단 문구를 그대로 말하는
-  // 것처럼 보였다). P7-5 — cardLabel 은 시스템이 사용자에게 건네는 질문형
-  // ("~들어볼까요?")이라 그대로 addUser 하면 사용자가 하지 않은 말이 버블에
-  // 뜬다 — 1인칭 진술체인 gap.announceText 를 대신 쓴다.
   async function handleGapClick(gap: Gap) {
-    if (status !== "idle") return;
-    // P13-1 — 이 탭의 딥링크는 이제 소비됐다(새로고침 시 다시 발화 금지).
+    if (status !== "idle" || proposal) return;
     markDeepLinkConsumed(initialGap);
-    await addUser(gap.announceText);
-    if (gap.type === "episode" && gap.targetEventId) {
-      await startEpisodeStage(gap.targetEventId, { skipAnnounce: true });
-    } else if (gap.type === "person" && gap.targetEventId) {
-      await startPersonStage(gap.targetEventId, { skipAnnounce: true });
-    } else if (gap.type === "person_episode" && gap.targetEventId && gap.targetPersonId) {
-      await startPersonEpisodeStage(gap.targetEventId, gap.targetPersonId, { skipAnnounce: true });
-    } else if ((gap.type === "unconfirmed" || gap.type === "needs_review") && gap.targetEventId) {
+    setLastCreated(null);
+    if ((gap.type === "unconfirmed" || gap.type === "needs_review") && gap.targetEventId) {
+      await addUser(gap.announceText);
       await startTargetedConfirm(gap.targetEventId);
-    } else if (gap.type === "time_gap" && gap.targetEventId) {
-      // P8-1 — episode 엔진을 타고 앵커 이벤트에 저장(startPeriodPrompt 참고).
-      await startPeriodPrompt(gap.targetEventId, { skipAnnounce: true });
-    } else {
-      setStatus("idle");
+      return;
     }
+    const topic = gapToTopic(gap);
+    if (topic) await startTopic(topic);
   }
 
   async function handleSend() {
     const text = inputVal.trim();
     if (!text || status !== "idle") return;
+    setInputVal("");
+    setLastCreated(null);
 
     if (isExitIntent(text)) {
       await addUser(text);
-      setInputVal("");
       const canReview = stage !== "profile_year" && stage !== "profile_region";
-      // P12-1 — 명시적 종료도 이탈 전에 쌓인 이야기를 저장한다. 이전엔 완곡
-      // 종료("그걸로 된 것 같아요")만 마무리+저장 경로를 타고, 명시적 종료
-      // ("그만할래요")는 곧장 세션을 닫아 1~2턴 이야기가 통째로 버려졌다.
-      // 종료 문구 자체는 이야기 내용이 아니라 transcript 에 안 넣는다(P10-3
-      // 과 같은 원칙). 본인 발화가 한 턴도 없으면 저장할 게 없다.
-      let savedEpisode = false;
-      if (stage === "episode") {
-        // P14-1(3) — "~했어요. 그만할래요" 처럼 내용이 함께 온 경우 내용은 살린다.
-        const kept = stripEpisodeDoneSignal(text);
-        if (kept) {
-          episodeTranscriptRef.current = [...episodeTranscriptRef.current, { role: "user", text: kept }];
+      // 자유 대화 — 남길 이야기가 있으면 카드를 먼저(정한 뒤 마침), 없으면 바로 마침.
+      if (stage === "free") {
+        if (proposal) {
+          exitAfterCardRef.current = true;
+          await addBot(FC.exitAfterCard);
+          return;
         }
-        if (hasEpisodeUserContent()) {
-          awaitingFinalAnswerRef.current = false;
-          savedEpisode = await saveEpisode();
+        if (await requestProposal(null)) {
+          exitAfterCardRef.current = true;
+          await addBot(FC.exitAfterCard);
+          return;
         }
       }
-      // P15-2 — 명시적 종료는 저장 여부와 무관하게 대기 컨텍스트를 비운다.
-      // 이전엔 본인 턴 0 으로 나가면(오프닝만 보고 "그만할래요") pending
-      // (EPISODE, 국민학교, 김영수)이 남아, 다음 진입이 그 컨텍스트를 소리
-      // 없이 이어받았다 — 그 뒤 친 "고등학교 다닐 때 이야기…" 가 국민학교·
-      // 김영수 에피소드로 흡수돼 엉뚱한 앵커에 저장됐다(실측 test20).
-      // "다음에 오시면 이어서 여쭤볼게요" 는 갭 카드로 다시 묻는다는 뜻이지
-      // 이 컨텍스트를 몰래 이어간다는 뜻이 아니다.
-      if (stage === "episode" || stage === "person") {
-        await clearPending();
-      }
-      await finishSession("exited", canReview, savedEpisode);
+      await finishSession("exited", canReview);
       return;
     }
 
-    setInputVal("");
     await addUser(text);
-
     if (stage === "profile_year") await submitBirthYear(text);
     else if (stage === "profile_region") await submitRegion(text);
     else if (stage === "confirm") await submitConfirmTurn(text);
-    else if (stage === "person") await submitPersonTurn(text);
-    else if (stage === "episode") await submitEpisodeTurn(text);
-    else await submitOpenChat(text);
+    else await submitFree();
   }
 
   function handleRetry() {
@@ -1303,27 +649,20 @@ export function ChatV3Client({
 
   const isIdle = status === "idle";
   const showInput = status !== "error" && status !== "finished";
-  const showGaps = stage === "open" && isIdle && gapSuggestions.length > 0;
+  const showGaps = stage === "free" && isIdle && !proposal && segTurns === 0 && gapSuggestions.length > 0;
+  const showSaveNow = stage === "free" && isIdle && !proposal && segTurns > 0;
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      {/* P5-4 — 캐릭터가 대화 리액션 용도라 스크롤해도 계속 보여야 의미가
-          있다. 헤더 전체를 sticky top-0 으로 고정(대화 내내 노출).
-          작은 화면(sm 미만)에서는 캐릭터를 제목 "아래 줄"로 내린다 —
-          사이드 패널 "내 정보" 버튼(fixed right-4 top-4)이 차지하는
-          가로 폭을 픽셀 단위로 계산해 여백을 맞추는 대신, 세로로 겹칠
-          공간 자체를 없애는 방식이라 화면 폭이 달라져도 안전하다. */}
+      {/* P5-4 — 캐릭터가 대화 리액션 용도라 헤더 전체를 sticky 로 고정. 작은 화면에서는 캐릭터를 제목
+          아래 줄로 — 사이드 패널 "내 정보" 버튼(fixed right-4 top-4)과 세로로 겹칠 공간 자체를 없앤다. */}
       <header className="sticky top-0 z-20 flex flex-col gap-3 border-b border-line bg-canvas py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ink">이야기 나누기</h1>
           <p className="mt-1 text-base text-ink-soft">편하게 대답만 해주세요.</p>
         </div>
         <div className="flex items-center gap-2 self-start sm:flex-col sm:items-center sm:gap-1 sm:self-auto">
-          <CharacterStage
-            characterId={characterId}
-            motionEnabled={characterMotionEnabled}
-            state={characterState}
-          />
+          <CharacterStage characterId={characterId} motionEnabled={characterMotionEnabled} state={characterState} />
           <Link href="/account/settings" className="text-sm text-ink-faint underline">
             바꾸기
           </Link>
@@ -1332,16 +671,11 @@ export function ChatV3Client({
 
       <div className="space-y-4 pb-2">
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={["flex", msg.role === "u" ? "justify-end" : "justify-start"].join(" ")}
-          >
+          <div key={i} className={["flex", msg.role === "u" ? "justify-end" : "justify-start"].join(" ")}>
             <div
               className={[
                 "max-w-[82%] rounded-2xl px-5 py-4 text-lg leading-relaxed whitespace-pre-wrap",
-                msg.role === "u"
-                  ? "bg-action text-white rounded-br-sm"
-                  : "bg-surface border border-line text-ink rounded-bl-sm",
+                msg.role === "u" ? "bg-action text-white rounded-br-sm" : "bg-surface border border-line text-ink rounded-bl-sm",
               ].join(" ")}
             >
               {msg.text}
@@ -1349,13 +683,19 @@ export function ChatV3Client({
           </div>
         ))}
 
-        {pendingPeople > 0 && status !== "finished" && (
-          <section className="flex flex-col gap-3 rounded-2xl border-2 border-brand bg-banner p-5">
-            <p className="text-lg text-ink">{CONFIRM_COPY.chatCardDesc}</p>
-            <ButtonLink href="/story-review/confirm" variant="secondary" size="lg">
-              {CONFIRM_COPY.chatCardButton(pendingPeople)}
+        {lastCreated && !proposal && (
+          <div className="flex justify-start">
+            <ButtonLink href={lastCreated} variant="secondary" size="lg">
+              {FC.viewOnMap}
             </ButtonLink>
-          </section>
+          </div>
+        )}
+
+        {proposal && status !== "finished" && (
+          // 고정 머리 줄 높이만큼 띄워 멈춘다(좁은 화면은 캐릭터 줄까지 두 줄).
+          <div ref={cardRef} className="scroll-mt-44 sm:scroll-mt-32">
+            <ProposalCard key={cardKey ?? ""} view={proposal} onCreate={handleCreate} onDecline={handleDecline} />
+          </div>
         )}
 
         {(status === "loading" || status === "submitting") && (
@@ -1383,6 +723,7 @@ export function ChatV3Client({
 
       {showGaps && (
         <div className="flex flex-col gap-2">
+          <p className="text-lg font-semibold text-ink-soft">{FC.chipsTitle}</p>
           {gapSuggestions.map((gap, i) => (
             <button
               key={i}
@@ -1405,7 +746,12 @@ export function ChatV3Client({
       )}
 
       {showInput && (
-        <div className="border-t border-line pt-3">
+        <div className="flex flex-col gap-2 border-t border-line pt-3">
+          {showSaveNow && (
+            <Button variant="secondary" size="lg" onClick={() => void handleSaveNow()}>
+              {FC.saveNow}
+            </Button>
+          )}
           <div className="flex items-end gap-2">
             <textarea
               value={inputVal}

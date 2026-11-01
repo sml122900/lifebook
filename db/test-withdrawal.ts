@@ -10,6 +10,8 @@
 // (scenario 4) v3 모델 cascade. (scenario 5) 탈퇴 시 Storage 파일 삭제 — 실제 Storage 에
 // 작은 테스트 파일을 올렸다가 지운다(이웃 폴더는 테스트 끝에 직접 정리).
 // (scenario 6) 노드 그래프 테이블 cascade + 노드 삭제 트리거가 함께 도는 탈퇴.
+// (scenario 7) My Life 개편 2단계 — ChatV3Segment 삭제(Cascade) · ChatV3Usage 는 userId 만 비움(SetNull) ·
+// InterviewItem(제안 카드 포함) 삭제.
 
 import "dotenv/config";
 
@@ -519,6 +521,64 @@ async function scenario5_storagePurge() {
   }
 }
 
+async function scenario7_chatV3() {
+  console.log("\n=== scenario 7: ChatV3Segment·ChatV3Usage·InterviewItem.proposal (2026-11-01) ===");
+  const mina = await prisma.user.create({
+    data: { email: "withdrawal-test-chatv3-mina@test", name: "mina", birthYear: 1955 },
+  });
+  const ev = await prisma.lifeEvent.create({
+    data: { userId: mina.id, type: "HIGH_SCHOOL", label: "고등학교 입학", year: 1971, status: "CONFIRMED", confirmedAt: new Date(), sequenceOrder: 0 },
+  });
+  const card = { v: 1, title: "[fixture] 카드", summary: "수학여행을 갔다.", transcript: "[본인] 수학여행을 갔다." };
+  await prisma.chatV3Segment.create({
+    data: { userId: mina.id, topicEventId: ev.id, topicGapType: "episode", proposal: card, recentTitles: ["[fixture] 앞 이야기"] },
+  });
+  const usage = await Promise.all(
+    ["REPLY", "PROPOSAL"].map((purpose) =>
+      prisma.chatV3Usage.create({
+        data: { userId: mina.id, purpose, model: "claude-haiku-4-5-20251001", inputTokens: 10, outputTokens: 5, costMicroUsd: 35 },
+        select: { id: true },
+      }),
+    ),
+  );
+  await prisma.interviewItem.create({
+    data: { userId: mina.id, day: "2026-11-01", ordinal: 1, itemKey: `gap:episode:${ev.id}`, source: "GAP_EPISODE", proposal: card },
+  });
+  const ids = usage.map((u) => u.id);
+  const count = async () => ({
+    segments: await prisma.chatV3Segment.count({ where: { userId: mina.id } }),
+    usageOwned: await prisma.chatV3Usage.count({ where: { userId: mina.id } }),
+    interviewItems: await prisma.interviewItem.count({ where: { userId: mina.id } }),
+  });
+  const before = await count();
+  console.log("before deletion:", before);
+  if (before.segments !== 1 || before.usageOwned !== 2 || before.interviewItems !== 1) throw new Error("scenario7 setup failed");
+
+  try {
+    await deleteAccountTx(mina.id);
+    const userAfter = await prisma.user.findUnique({ where: { id: mina.id } });
+    const after = await count();
+    const usageAfter = await prisma.chatV3Usage.findMany({ where: { id: { in: ids } }, select: { userId: true, costMicroUsd: true } });
+    console.log("user deleted:", userAfter === null);
+    console.log("after deletion (expect segments 0 · usageOwned 0 · interviewItems 0):", after);
+    console.log("usage rows kept with userId null (expect 2 true):", usageAfter.length, usageAfter.every((u) => u.userId === null));
+    if (
+      userAfter !== null ||
+      after.segments !== 0 ||
+      after.usageOwned !== 0 ||
+      after.interviewItems !== 0 ||
+      usageAfter.length !== 2 ||
+      !usageAfter.every((u) => u.userId === null && u.costMicroUsd === 35)
+    ) {
+      throw new Error("scenario7 FAILED — ChatV3Segment remains or ChatV3Usage not anonymized");
+    }
+  } finally {
+    // 익명화된 원장 행은 이 테스트가 만든 것 — 지운다(전역 하루 예산 합계에 남지 않게).
+    await prisma.chatV3Usage.deleteMany({ where: { id: { in: ids } } });
+    await prisma.user.deleteMany({ where: { id: mina.id } });
+  }
+}
+
 async function main() {
   await cleanup();
   await scenario1_transfer();
@@ -527,6 +587,7 @@ async function main() {
   await scenario4_v3Models();
   await scenario5_storagePurge();
   await scenario6_nodeGraph();
+  await scenario7_chatV3();
   await cleanup();
   console.log("\n✓ done");
 }

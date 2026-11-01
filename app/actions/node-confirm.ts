@@ -7,7 +7,6 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import {
-  countPendingPeople,
   decidePeople,
   type DecideResult,
   type PersonDecision,
@@ -20,11 +19,6 @@ async function requireUserId(): Promise<string> {
   const userId = session?.user?.id;
   if (!userId) throw new Error("Unauthorized");
   return userId;
-}
-
-// /chat-v3 대화 종료 때 확인 화면으로 보낼지(대기 ≥1) 판단용.
-export async function countPendingPeopleAction(): Promise<number> {
-  return countPendingPeople(await requireUserId());
 }
 
 // 행별 [맞아요]·[아니에요]·[고칠게요]와 화면 전체 [모두 맞아요] 공용 — 연결 id 목록을 받는다.

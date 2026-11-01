@@ -11,7 +11,7 @@
 //   [찾기] = 브라우저 안 글자 검색(lib/my-life-search) — 결과를 누르면 접힌 띠를 펼치고 이동·선택.
 // 지도 DOM 은 시기 순 목록 → 인물록 → 장소록 순서(스크린리더·Tab). 모임 영역·간선은 aria-hidden.
 
-import { MapPin, Minus, Plus, Search, UserRound, Users } from "lucide-react";
+import { MapPin, MessageCircle, Minus, Plus, Search, UserRound, Users } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
@@ -160,16 +160,32 @@ function nodeName(key: string, data: MyLifeData, idx: Index): string {
 export function MyLifeView({ data }: { data: MyLifeData }) {
   const searchParams = useSearchParams();
   const view = searchParams.get("view") === "list" ? "list" : "map";
+  // ?focus=<노드 키> — /chat-v3 에서 방금 만든 이야기로 바로 가기(My Life 개편 2단계). 처음 그릴 때 한 번 —
+  // 그 띠는 펼치고, 선택 + 지도 이동(MapMode 의 focusRequest 이펙트가 준비된 뒤 옮긴다).
+  const [initialFocus] = useState(() => {
+    const key = searchParams.get("focus");
+    if (!key || !/^(ev|st|pe|pl|gl):/.test(key)) return null;
+    const eventId = key.startsWith("st:") || key.startsWith("ev:") ? key.split(":")[1] : null;
+    if (eventId && !data.events.some((e) => e.id === eventId)) return null;
+    return { key, eventId };
+  });
   // 접기 기본값(Q41) — 시간 줄기 노드가 많으면 전부 접힘. 같은 탭의 저장값은 지도가 열릴 때 덮는다.
   const [folded, setFolded] = useState<Set<string>>(
-    () => new Set(countTimelineNodes(data) > FOLD_ALL_ABOVE ? data.events.filter((e) => e.stories.length > 0).map((e) => e.id) : []),
+    () =>
+      new Set(
+        countTimelineNodes(data) > FOLD_ALL_ABOVE
+          ? data.events.filter((e) => e.stories.length > 0 && e.id !== initialFocus?.eventId).map((e) => e.id)
+          : [],
+      ),
   );
   const [shownGroups, setShownGroups] = useState<string[]>([]);
   const [edgesOn, setEdgesOn] = useState<EdgeToggles>({ person: true, place: true });
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialFocus?.key ?? null);
   const [panel, setPanel] = useState<string | null>(null);
   const [findOpen, setFindOpen] = useState(false);
-  const [focusRequest, setFocusRequest] = useState<{ key: string; n: number } | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{ key: string; n: number } | null>(
+    initialFocus ? { key: initialFocus.key, n: 1 } : null,
+  );
   const lastKeyRef = useRef<string | null>(null);
   const openedAtRef = useRef(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -428,7 +444,9 @@ function MapMode({
       const saved = readSaved();
       if (saved) {
         restoreRef.current = saved;
-        setFolded(new Set(saved.folded.filter((id) => data.events.some((e) => e.id === id))));
+        // ?focus= 로 온 이야기의 띠는 접어 두지 않는다(그 노드로 가야 하므로).
+        const focusEvent = focusRequest?.key.startsWith("st:") ? focusRequest.key.split(":")[1] : null;
+        setFolded(new Set(saved.folded.filter((id) => id !== focusEvent && data.events.some((e) => e.id === id))));
         setShownGroups(saved.shownGroups.filter((id) => data.groups.some((g) => g.id === id)));
         setEdgesOn(saved.edges);
       }
@@ -665,6 +683,10 @@ function MapMode({
       <div className="flex items-center justify-between gap-2 px-6 pt-3">
         <h1 className="m-0 text-[28px]">{C.pageTitle}</h1>
         <div className="flex shrink-0 gap-2">
+          <ButtonLink href="/chat-v3" variant="primary" size="lg" className="hidden! px-4! sm:inline-flex!">
+            <MessageCircle aria-hidden size={20} className="shrink-0" />
+            {C.chatEntry}
+          </ButtonLink>
           <Button variant="secondary" size="lg" className="px-4!" onClick={onOpenFind}>
             <Search aria-hidden size={20} className="shrink-0" />
             {C.find}
@@ -673,6 +695,13 @@ function MapMode({
             {C.toList}
           </Button>
         </div>
+      </div>
+      {/* 기록 방법 1 — 채팅(My Life 개편 2단계). 390 에선 머리 줄에 자리가 없어 한 줄 아래 꽉 찬 버튼(sm 이상은 머리 줄 안). */}
+      <div className="px-6 pt-2 sm:hidden">
+        <ButtonLink href="/chat-v3" variant="primary" size="lg" className="w-full">
+          <MessageCircle aria-hidden size={20} className="shrink-0" />
+          {C.chatEntry}
+        </ButtonLink>
       </div>
       {selected ? (
         <>
@@ -1150,6 +1179,10 @@ function ListMode({
           </Button>
         </div>
       </div>
+      <ButtonLink href="/chat-v3" variant="primary" size="lg" className="w-full sm:w-auto sm:self-start">
+        <MessageCircle aria-hidden size={20} className="shrink-0" />
+        {C.chatEntry}
+      </ButtonLink>
       <ol aria-label={C.mapListLabel} className="flex flex-col gap-6">
         {data.events.map((ev) => (
           <li key={ev.id} className="flex flex-col gap-3">

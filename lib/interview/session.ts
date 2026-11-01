@@ -5,25 +5,27 @@
 // (계획 고정 — 재진입해도 같은 순서), 문항을 낼 때마다 아직 유효한지 다시 확인한다
 // (그사이 /chat-v3 등에서 채워졌으면 DROPPED 로 넘김).
 //
-// 답 저장은 기존 경로만 쓴다(§6.1): 이야기형 = finishEpisodeChatCore(Episode + 브릿지 +
-// 인물 추출), 연도 = LifeEvent.year(원래 null 인 확정 사건만, status 등 다른 값 무변).
+// 답 저장: 이야기형 = My Life 개편 2단계(Q67)부터 제안 카드 — 마무리 때 카드를 만들어 문항에 두고
+// (InterviewItem.proposal), [만들기] 때 lib/node-proposal createFromCard(Episode + 브릿지 + 확인한 사람·장소,
+// 초안·확인 대기 0). 시기는 문항이 정한다. 연도 = LifeEvent.year(원래 null 인 확정 사건만, status 등 다른 값 무변).
 // "관계별 나"(SELF) 는 같은 경로에 kind=SELF 로 저장하고, 관계 대상이 실제 인물·그룹이면
 // 이야기 ↔ 인물·그룹 연결을 saveNodeLink 로 만든다(노드 그래프 2a).
 // ⚠️ LifeEvent.status 는 절대 쓰지 않는다 — "SKIPPED"(해당 없음)는 인터뷰의
 // "건너뛰기"(InterviewItem.status)와 다른 뜻이다.
 
 import { prisma } from "../db";
+import { Prisma as PrismaNs } from "../generated/prisma/client";
 import { newAiUsage, trackAiUsage, type AiUsage } from "../ai";
 import { isSubstantiveEpisodeContent } from "../episode-text";
 import { buildEpisodeOpeningPrompt } from "../episode-opening";
 import {
   continueEpisodeChatCore,
-  finishEpisodeChatCore,
   type ContinueEpisodeResult,
   type EpisodeTopic,
   type EpisodeTurn,
-  type FinishEpisodeResult,
 } from "../episode-chat";
+import { toView, type ProposalView } from "../free-chat";
+import { buildProposal, cardToEdit, createFromCard, parseCard, type CardEdit, type CreateFromCardResult } from "../node-proposal";
 import { getPeriodPromptForEvent } from "../gap-detector";
 import type { InterviewItem } from "../generated/prisma/client";
 import type { EpisodeKind } from "../generated/prisma/enums";
@@ -45,6 +47,8 @@ export type InterviewItemView = {
   question: string;
   hint: string | null;
   followUp: boolean;
+  // 마무리 뒤 아직 결정 안 한 제안 카드(새로고침·재진입에도 카드부터).
+  proposal: ProposalView | null;
 };
 
 export type InterviewState =
@@ -246,6 +250,7 @@ export async function nextInterviewState(userId: string, now: Date = new Date())
         question: target.question,
         hint: target.kind === "year" ? INTERVIEW_COPY.yearHint : null,
         followUp: target.followUp,
+        proposal: target.kind === "story" && parseCard(row.proposal) ? await toView(userId, parseCard(row.proposal)!) : null,
       },
       resumed: false,
     };
@@ -328,9 +333,13 @@ export async function interviewStoryTurn(
   }
 }
 
-export type FinishInterviewStoryResult = { ok: true } | { ok: false; error: string };
+export type FinishInterviewStoryResult =
+  | { ok: true; proposal: ProposalView }
+  // 본인 이야기 내용이 없음 — 건너뛰기와 같다(호출부가 다음 문항으로).
+  | { ok: true; proposal: null; next: InterviewState }
+  | { ok: false; error: string };
 
-// 이야기형 문항 마무리 — transcript(오프닝 질문 포함)를 기존 경로로 저장하고 ANSWERED.
+// 이야기형 문항 마무리 — 대화로 제안 카드를 만들어 문항에 둔다(아직 저장 안 함, Q67). 시기는 문항의 사건.
 export async function finishInterviewStory(
   userId: string,
   itemId: string,
@@ -340,41 +349,81 @@ export async function finishInterviewStory(
   const row = await ownedPlannedItem(userId, itemId);
   const target = row ? await resolveTarget(userId, row.itemKey, false) : null;
   if (!row || !target || target.kind !== "story") return { ok: false, error: INTERVIEW_COPY.errorGeneric };
+  const existing = parseCard(row.proposal);
+  if (existing) return { ok: true, proposal: await toView(userId, existing) };
   const usage = newAiUsage();
-  let result: FinishEpisodeResult;
+  let built: Awaited<ReturnType<typeof buildProposal>>;
   try {
-    result = await trackAiUsage(usage, () =>
-      finishEpisodeChatCore(
-        userId,
-        target.eventId,
-        transcript,
-        undefined,
-        target.topicOverride,
-        target.isPeriodOverride,
-        target.episodeKind,
-      ),
+    built = await trackAiUsage(usage, () =>
+      buildProposal(userId, {
+        turns: transcript,
+        topic: target.topicOverride ? target.topicOverride.label : target.label,
+        centerId: target.eventId,
+        centerFixed: true,
+        targetPersonId: null,
+        kind: target.episodeKind ?? "STORY",
+        isPeriod: target.isPeriodOverride ?? target.topicOverride !== undefined,
+        titleHint: target.topicOverride?.label ?? target.label,
+        fixedTitle: target.topicOverride?.label ?? target.label,
+        until: null,
+        purpose: "INTERVIEW_PROPOSAL",
+      }),
     );
   } finally {
     await addUsage(row.id, usage);
   }
-  if (!result.ok) return { ok: false, error: INTERVIEW_COPY.saveFailed };
-  // 질문이 이미 상대를 정했으므로 확인 없이 확정 연결. best-effort — 실패해도 이야기는 남는다.
-  if (target.relation) {
+  const answers = transcript.filter((t) => t.role === "user");
+  const stats = { turns: answers.length, answerChars: answers.reduce((n, t) => n + [...t.text].length, 0) };
+  if (built.kind === "empty") {
+    await prisma.interviewItem.updateMany({
+      where: { id: row.id, status: "PLANNED" },
+      data: { status: "SKIPPED", doneAt: now, ...stats },
+    });
+    return { ok: true, proposal: null, next: await nextInterviewState(userId, now) };
+  }
+  if (built.kind !== "card") return { ok: false, error: INTERVIEW_COPY.saveFailed };
+  await prisma.interviewItem.update({
+    where: { id: row.id },
+    data: { proposal: built.card as unknown as PrismaNs.InputJsonValue, ...stats },
+  });
+  return { ok: true, proposal: await toView(userId, built.card) };
+}
+
+export type DecideInterviewResult =
+  | { ok: true; next: InterviewState; title: string | null }
+  | Exclude<CreateFromCardResult, { ok: true }>
+  | { ok: false; reason: "no_card" };
+
+// 카드 결정 — create(edit 없으면 카드 그대로) = 저장 후 ANSWERED, decline = 아무것도 저장 안 하고 SKIPPED.
+export async function decideInterviewProposal(
+  userId: string,
+  itemId: string,
+  decision: { kind: "create"; edit?: CardEdit } | { kind: "decline" },
+  now: Date = new Date(),
+): Promise<DecideInterviewResult> {
+  const row = await ownedPlannedItem(userId, itemId);
+  const card = row ? parseCard(row.proposal) : null;
+  if (!row || !card) return { ok: false, reason: "no_card" };
+  if (decision.kind === "decline") {
+    await prisma.interviewItem.updateMany({
+      where: { id: row.id, status: "PLANNED" },
+      data: { status: "SKIPPED", doneAt: now, proposal: PrismaNs.DbNull },
+    });
+    return { ok: true, next: await nextInterviewState(userId, now), title: null };
+  }
+  const result = await createFromCard(userId, card, decision.edit ?? cardToEdit(card));
+  if (!result.ok) return result;
+  // 질문이 이미 상대를 정했으므로("관계별 나") 확인 없이 확정 연결. best-effort — 실패해도 이야기는 남는다.
+  const target = await resolveTarget(userId, row.itemKey, false);
+  if (target?.relation) {
     const link = await saveNodeLink(userId, { type: "EPISODE", id: result.episodeId }, target.relation);
     if (!link.ok) console.error("[interview] self relation link failed", { itemId: row.id, reason: link.reason });
   }
-  const answers = transcript.filter((t) => t.role === "user");
   await prisma.interviewItem.updateMany({
     where: { id: row.id, status: "PLANNED" },
-    data: {
-      status: "ANSWERED",
-      doneAt: now,
-      turns: answers.length,
-      answerChars: answers.reduce((n, t) => n + [...t.text].length, 0),
-      refId: result.episodeId,
-    },
+    data: { status: "ANSWERED", doneAt: now, refId: result.episodeId, proposal: PrismaNs.DbNull },
   });
-  return { ok: true };
+  return { ok: true, next: await nextInterviewState(userId, now), title: result.title };
 }
 
 export type YearAnswerResult =
