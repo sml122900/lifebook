@@ -531,12 +531,42 @@
 
 - 셋(인덱스 2·기본값)은 스키마만 고치면 드리프트가 사라지고 DB 는 그대로. FK 1건만 DB(또는 스키마 표기) 결정이 필요.
 - 고치면 `db/lab/criteria.ts` `postDeployDriftStatements: 4`(연구 트랙 완료 기준이 이 드리프트 수를 셈)도 함께 바꿔야 한다.
+- → §11.4 에서 스키마만 고쳐 정리(성민 결정 — FK 는 스키마에 `onUpdate: NoAction`).
 
 ### 10.5 남은 것
 
-- 2단계 때 놓친 안 쓰는 함수(이번에 찾음) — `lib/episode-text.ts` `buildPersonEpisodeTranscript`·`buildResumeAnnouncement`·`lastNonResumeAssistantText`·`nextClosingIndexFromLog`·`EPISODE_CLOSINGS`(옛 /chat-v3 이어받기 안내·마무리 문구 순환). 회귀 `test-p15`(이 함수들만 검사)·`test-p14`·`test-p16`·`test-person-mode` 11 일부가 직접 부른다 — 지우려면 `test-p15` 퇴역(회귀 19 → 18) 결정 필요.
+- ~~2단계 때 놓친 안 쓰는 함수·`test-p15`~~ → §11.5 에서 삭제(회귀 18종).
 - 임시 문구 확정(`lib/free-chat-copy.ts`·My Life 버튼) — 성민 확정 문구 대기(그때까지 유지).
 - 실기기 확인·test30 E2E(별도 진행).
+
+## 11. 2단계 후속 2(2026-11-01)
+
+### 11.1 푸시 규칙(재발 방지)
+
+푸시 전에 `git status` 로 스테이징을 확인하고 빌드 통과 뒤 푸시한다. 커밋을 나눌 때는 `&&` 로 이어 실패하면 다음 커밋·푸시가 진행되지 않게 한다. main 의 깨진 두 커밋(66d4564·a5a5a05)은 강제 푸시로 고치지 않고 그대로 둔다(bb142e5 로 복구됨).
+
+### 11.2 응답 폴백(말투 안전장치) 점검·보강
+
+- 모델 출력 해석을 순수 함수 `parseReplyOutput`·`replyResultFrom`(lib/free-chat.ts)으로 분리 — `freeChatReply` 가 이 경로만 쓴다.
+- (a) 화면 노출: 직전 폴백은 중괄호만 봤다. 그래서 중괄호 없는 키 조각(`"reply": "…", "segment": "done"`, `reply: …`)과 코드 울타리만 온 경우(`` ```json ``)를 그대로 화면에 냈다 → 고침. 지금은 ① 온전한 JSON ② 잘린 JSON 이라도 `"reply"` 문자열이 따옴표까지 온전하면 그 문장만 ③ JSON 흔적(중괄호·대괄호·백틱·`reply:`/`segment:` 키) 없는 문장만 화면에 내고, 그 밖은 기본 문구.
+- (b) 6턴 강제 제안: 제안 시점은 본인 턴 수(로그)로 세므로, 문장만 온 턴·못 읽은 턴도 그대로 센다(판단은 continue). 확인: 픽스처 DB 의 구간 로그로 5턴째 제안 없음 → 6턴째 제안(문장만 온 경우·못 읽어 기본 문구인 경우 둘 다), 카드가 떠 있으면 없음, 실제 Haiku 6턴째 응답도 제안 + 답에 JSON 흔적 없음.
+- 회귀: `test-chat-proposal` ⑧ — 깨진 출력 11가지(LLM 0) + 6턴 세기 + 실제 1회.
+
+### 11.3 모델의 "이미 계신 분" id — 이름 확인 추가(실측 결함)
+
+`test-chat-proposal` 실제 실행에서 Sonnet 이 "박영수"에 다른 분 김민수(친구)의 id 를 붙였다. 관계("친구")가 맞아 그대로 믿을 뻔했다(엉뚱한 분에 연결). 이제 모델이 맞춘 id 도 이름이 맞아야 믿는다(공백 무시 같음, 또는 한쪽이 다른 쪽을 품음 — "영수" ↔ "박영수"). 안 맞으면 그 id 는 버리고 이름으로 판단(관계 호환 → 같은 이름 되묻기). 회귀에 LLM 0 검사 추가.
+
+### 11.4 드리프트 정리 — 스키마만(DB 변경 0)
+
+`Person`·`UserMemory` 에 `@@index([userId, isDraft])` 선언, `CompanionSession.audioPaths` 에 `@default([])`, parentMemory 관계에 `onUpdate: NoAction` + "관례(CASCADE)와 다른 예외, DB 기준" 주석. `prisma migrate diff --from-config-datasource prisma.config.ts --to-schema prisma/schema.prisma --script` = `-- This is an empty migration.`(드리프트 0). `db/lab/criteria.ts` `postDeployDriftStatements: 0`. 마이그 파일 없음(이 인덱스·기본값·FK 는 이미 옛 마이그 SQL 이 만들었다).
+
+### 11.5 옛 채팅 함수 삭제
+
+`lib/episode-text.ts` `buildPersonEpisodeTranscript`·`buildResumeAnnouncement`·`lastNonResumeAssistantText`·`nextClosingIndexFromLog`·`EPISODE_CLOSINGS` 삭제, `test-p15`(이 함수들만 검사) 퇴역 → 회귀 18종. `test-p14`·`test-p16` 의 해당 검사 삭제, `test-person-mode` 11 은 같은 기록 모양을 직접 만든다(V2 마무리 경로 검사는 그대로).
+
+### 11.6 검증
+
+회귀 18종 전부 exit 0 + `test-chat-proposal --live`(실제 모델 시나리오 5종) 통과. `npm run build` 통과. 임시 문구는 그대로(성민 확정 대기).
 
 ## 결정 로그
 
@@ -557,3 +587,4 @@
   - 마이그 `20261101000000_chat_v3_segment` SQL 승인(`ChatV3Segment`·`ChatV3Usage`·`InterviewItem.proposal`), 오늘의 인터뷰 포함(Q67 추천안).
 - 2026-11-01 — 2단계(채팅 → 노드 제안) 구현 완료(§9). 새 의존성 0 · `proxy.ts` 무접촉.
 - 2026-11-01 — **2단계 후속(성민 지시)**: 안 쓰는 함수 정리(회귀를 지금 경로로 옮긴 뒤 삭제)·비서 버튼 숨김·응답 말투 예시·드리프트 조사(수정 없음)·임시 문구 유지(§10). 마이그 0.
+- 2026-11-01 — **2단계 후속 2(성민 지시)**: 푸시 전 스테이징·빌드 확인 규칙, 응답 폴백 보강, 모델 id 이름 확인, 드리프트 스키마만 정리(0), 옛 채팅 함수·`test-p15` 삭제(§11). 마이그 0.
