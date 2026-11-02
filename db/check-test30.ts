@@ -47,11 +47,6 @@ async function main() {
       }
     }
 
-    const pending = await prisma.chatV3PendingContext.findUnique({
-      where: { userId: u.id },
-    });
-    console.log("pending context row:", pending);
-
     const msgCount = await prisma.onboardingChatMessage.count({ where: { userId: u.id } });
     const lastMsgs = await prisma.onboardingChatMessage.findMany({
       where: { userId: u.id },

@@ -8,7 +8,7 @@
 //   ⑤ 이야기(실제 Sonnet 후속 1 + 요약 1~2 + 인물 추출 1) — Episode(구간 아님·풀 제목) + AI 사용량
 //   ⑥ 그사이 채워진 문항은 DROPPED, 종료 요약·진입 카드
 //   ⑦ 중복 질문 미출제 — 다음 날·8일 뒤 계획, 재노출 규칙(Q4·Q5) 순수 함수, 풀 대상 시기
-//   ⑧ LifeEvent.status SKIPPED 값 미사용 — DB 스냅샷 전후 동일 + 정적 검사
+//   ⑧ LifeEvent.status SKIPPED 값 미사용 + 인터뷰가 쓰는 칸 = 연도뿐 — DB 스냅샷 전후 비교(2026-11-03 정적 검사 대신)
 //   ⑨ 풀 문구 {elemSchool} — 출생연도 기준 국민학교/초등학교 치환(+ 조사), 1960년생 픽스처 제목
 //   ⑩ 관계별 나(노드 그래프 2a, 실제 Sonnet 요약 1~2 + 인물 추출 1) — 출제(최대 1개·관계 대상 이름
 //      치환), Episode(kind=SELF) 저장, 이야기 ↔ 인물 확정 연결, 이야기 갭·배지 미충족, 포스터 브릿지
@@ -170,7 +170,8 @@ function staticChecks() {
   // ① 액션 비로그인 거부 — 모든 export 액션 첫 줄이 requireUserId(), 그 함수는 auth() 후 userId 없으면 throw.
   const actionsSrc = read("app/interview/actions.ts");
   const actions = exportedFirstStatements("app/interview/actions.ts");
-  check("① 서버 액션 6개 존재", actions.length === 6, actions.map((a) => a.name));
+  // 개수는 안 본다(액션을 늘리거나 줄여도 안 깨지게, 2026-11-03) — 아래 반복이 빈 목록이 아닌지만.
+  check("① 서버 액션 있음(아래에서 전부 첫 줄 확인)", actions.length >= 1, actions.map((a) => a.name));
   for (const a of actions) {
     check(`① 액션 ${a.name} 첫 줄 = requireUserId()`, /^const userId = await requireUserId\(\);$/.test(a.first), a.first);
   }
@@ -209,12 +210,7 @@ function staticChecks() {
   );
   check("① proxy.ts 에 /interview 언급 없음(무접촉)", !read("proxy.ts").includes("interview"));
 
-  // ⑧ 인터뷰 코드의 LifeEvent 쓰기는 연도 1곳뿐이고 data 는 { year } 만.
-  const files = ["lib/interview/session.ts", "lib/interview/plan.ts", "lib/interview/year.ts", "app/interview/actions.ts", "app/interview/page.tsx"];
-  const src = files.map(read).join("\n");
-  const writes = src.match(/lifeEvent\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\(/g) ?? [];
-  check("⑧ 인터뷰 코드의 LifeEvent 쓰기 = 1곳", writes.length === 1, writes);
-  check("⑧ 그 쓰기의 data = { year } 만", /lifeEvent\.updateMany\(\{[\s\S]{0,200}data:\s*\{\s*year\s*\}/.test(src));
+  // ⑧ 인터뷰가 LifeEvent 에 쓰는 것은 연도뿐 — 아래 실제 흐름 전후 스냅샷으로 본다(2026-11-03, 파일 안 쓰기 호출 수를 세던 정적 검사 대신).
 
   // ⑩ My Life(Q69 — /story-review 에서 옮김) — 그때의 나는 시기 아래 꼬리표로만(Q69 후속 — 별도 묶음은 중복이라 뺌, 성민 결정).
   check("⑩ My Life 그때의 나 = 시기 아래 꼬리표(SELF → \"그때의 나\") · 별도 묶음 없음",
@@ -343,6 +339,15 @@ async function main() {
     const now = new Date();
     const today = kstDay(now);
     const statusBefore = await prisma.lifeEvent.findMany({ where: { userId }, select: { id: true, status: true }, orderBy: { sequenceOrder: "asc" } });
+    // ⑧ 전체 칸 스냅샷 — 이야기 저장이 켜는 hasEpisode·갱신 시각만 빼고 비교한다.
+    const snapshot = async () =>
+      (await prisma.lifeEvent.findMany({ where: { userId: seeded.userId }, orderBy: { id: "asc" } })).map((r) => {
+        const o: Record<string, unknown> = { ...r };
+        delete o.hasEpisode;
+        delete o.updatedAt;
+        return o;
+      });
+    const rowsBefore = await snapshot();
 
     // ② 세션 생성.
     const initial = await getInitialInterviewState(userId, now);
@@ -505,6 +510,15 @@ async function main() {
     check("⑧ LifeEvent.status 전후 동일(SKIPPED 는 원래 대학 1건뿐)",
       JSON.stringify(statusBefore) === JSON.stringify(statusAfter) && statusAfter.filter((s) => s.status === "SKIPPED").length === 1,
       statusAfter);
+    // ⑧ 인터뷰 흐름 전체(연도·건너뛰기·이야기·관계별 나·DROPPED·다음 날 계획) 전후 — 바뀐 칸 = 연도 답한 첫 직장의 year 하나, 행 수 같음.
+    const rowsAfter = await snapshot();
+    const changed = rowsAfter.flatMap((r) => {
+      const b = rowsBefore.find((x) => x.id === r.id);
+      if (!b) return [`${String(r.id)}:새 행`];
+      return Object.keys(r).filter((k) => JSON.stringify(r[k]) !== JSON.stringify(b[k])).map((k) => `${r.id === ev.FIRST_JOB ? "FIRST_JOB" : String(r.id)}:${k}`);
+    });
+    check("⑧ 인터뷰가 LifeEvent 에 쓴 것 = 연도뿐(첫 직장 year 1칸 · 행 수 같음)",
+      rowsAfter.length === rowsBefore.length && JSON.stringify(changed) === JSON.stringify(["FIRST_JOB:year"]), changed);
   } finally {
     await removeFixture();
     const id = userId ?? "";

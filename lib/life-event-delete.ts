@@ -36,8 +36,7 @@ export async function deleteCustomLifeEvent(
       // 남는다 — 반드시 이 순서로 먼저 지운다.
       await tx.userMemory.deleteMany({ where: { id: { in: memoryIds } } });
     }
-    // PersonLifeEvent(lifeEventId FK cascade)·ChatV3PendingContext
-    // (targetEventId FK cascade)는 LifeEvent 삭제 시 자동 정리.
+    // PersonLifeEvent(lifeEventId FK cascade)는 LifeEvent 삭제 시 자동 정리.
     await tx.lifeEvent.delete({ where: { id: event.id } });
   });
 

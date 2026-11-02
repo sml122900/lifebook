@@ -7,7 +7,6 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import {
-  adoptLegacyPending,
   closeIdleSegment,
   createFromFreeChatProposal,
   declineFreeChatProposal,
@@ -31,12 +30,11 @@ async function requireUserId(): Promise<string> {
   return userId;
 }
 
-// 자유 대화에 들어올 때 — 오래된 구간은 닫고(짧으면 조용히 버림, 실질 내용이 있으면 stale 로 카드부터), 개편 전
-// 대기 대화가 있으면 주제로 이어받고, 지금 구간 상태(카드·실질 턴)를 돌려준다.
+// 자유 대화에 들어올 때 — 오래된 구간은 닫고(짧으면 조용히 버림, 실질 내용이 있으면 stale 로 카드부터), 지금 구간
+// 상태(카드·실질 턴)를 돌려준다. (개편 전 대기 대화 이어받기 adoptLegacyPending 은 2026-11-03 테이블과 함께 삭제.)
 export async function initFreeChatAction(): Promise<FreeChatState> {
   const userId = await requireUserId();
   await closeIdleSegment(userId);
-  await adoptLegacyPending(userId);
   return getFreeChatState(userId);
 }
 

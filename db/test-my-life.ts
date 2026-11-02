@@ -587,7 +587,7 @@ async function main() {
         sug.includes("{g.inProgress ? C.gapContinue : C.gapStart}") && sug.includes('href="/story-review/confirm"') && sug.includes('href="/interview"') && sug.includes("href={g.href}"));
     check("⑫ 이야기 패널 [이야기 고치기] — 같은 서버 액션(updateEpisodeContentAction) · 저장 뒤 바로 보임 + 지도 다시 읽기 · 응답 실패도 다시 읽기",
       view.includes("const r = await updateEpisodeContentAction(story.id, text);") && view.includes("setBody(text);") &&
-        (view.slice(view.indexOf("function StoryPanel(")).match(/router\.refresh\(\);/g) ?? []).length === 2 && view.includes("{C.editBody}") &&
+        /setDraft\(null\);\s*router\.refresh\(\);/.test(view) && /setError\(C\.editBodyRetry\);\s*router\.refresh\(\);/.test(view) && view.includes("{C.editBody}") &&
         view.includes("aria-label={C.bodyLabel}"));
 
     for (const [g, pg] of [[0, 1], [2, 2], [3, 3], [1, 5]] as const) {

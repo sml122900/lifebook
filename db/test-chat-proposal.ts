@@ -6,8 +6,9 @@
 //                                                   고치기 후 만들기 / 동명이인 + 이야기 1편 원가 /
 //                                                   F 운영 test30 E2E 같은 문장 재현 — 별도 픽스처 fixture-chat-e2e@)
 // ⑩(LLM 0) = 장소 이름 합쳐짐 되묻기 + 프롬프트 예시 소재가 픽스처·재현 대화와 겹치지 않는지.
-// ⑪(LLM 0) = 제목 없음(빈 문자열) — 공용 판정 displayTitle·[고치기]에서 제목 지움·제목을 읽는 곳.
-// ⑫(LLM 0) = 시기 이름 제목 재발 방지 — 저장 한 곳(createEpisodeBridge) 규칙·userSetTitle 예외·저장 경로 전수.
+// ⑪(LLM 0) = 제목 없음(빈 문자열) — 공용 판정 displayTitle·[고치기]에서 제목 지움·제목을 읽는 곳(서버는 실제 결과로).
+// ⑫(LLM 0) = 시기 이름 제목 재발 방지 — 저장 한 곳(createEpisodeBridge) 규칙·userSetTitle 예외·저장 경로마다 실제 저장 제목.
+// 호출 위치·개수를 세던 정적 검사는 2026-11-03 실제 결과 검사로 바꿈 — 화면 렌더가 필요한 것만 정적 확인(개수 대신 있는지·자리).
 // ⑬(LLM 0) = 이름 뒤 조사 — 받침으로 고름(같은 곳·같은 분 되묻기), 문구 파일에 조사 하드코딩 0.
 // ⑯(LLM 0) = 전역 하루 예산 — 테스트 계정(.invalid·.test) 사용분 제외(TEST_ 표시)·테스트 한도(CHAT_V3_TEST_BUDGET_USD).
 // 실제 모델 항목 실패는 db/test-logs/live-failures/ 에 입출력, 시나리오 A 4턴 이내 제안 비율은 db/test-logs/live-stats.jsonl.
@@ -46,7 +47,6 @@ import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { prisma } from "../lib/db";
 import { createEpisodeBridge } from "../lib/episode";
 import {
-  adoptLegacyPending,
   applyLeftoverRule,
   closeIdleSegment,
   createFromFreeChatProposal,
@@ -72,6 +72,8 @@ import {
 import { FREE_CHAT_COPY } from "../lib/free-chat-copy";
 import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { Prisma } from "../lib/generated/prisma/client";
+import { kstDay } from "../lib/interview/keys";
+import { nextInterviewState } from "../lib/interview/session";
 import { getMyLifeData } from "../lib/my-life";
 import { searchMyLife } from "../lib/my-life-search";
 import {
@@ -91,6 +93,8 @@ import {
   type CardEdit,
   type ProposalCard,
 } from "../lib/node-proposal";
+import { getPendingPeopleGroups } from "../lib/node-confirm";
+import { saveProposedPeople } from "../lib/person-chat";
 import { periodMemoryId, syncV3Bridge } from "../lib/poster/v3-bridge";
 import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
 import { DEFAULT_PERIOD_LABELS, displayTitle, isPeriodNameTitle, SHORT_TITLE_MAX, shortTitle, storedStoryTitle } from "../lib/story-title";
@@ -243,23 +247,17 @@ function pureChecks() {
 
 function staticChecks() {
   const actions = exportedFirstStatements("app/actions/free-chat.ts");
-  check("⑦ 자유 대화 서버 액션 6개 · 첫 줄 = requireUserId()", actions.length === 6 && actions.every((a) => /^const userId = await requireUserId\(\);$/.test(a.first)), actions);
+  check("⑦ 자유 대화 서버 액션 전부 첫 줄 = requireUserId()(개수는 안 봄)", actions.length >= 1 && actions.every((a) => /^const userId = await requireUserId\(\);$/.test(a.first)), actions);
   const appFiles = walk(path.join(ROOT, "app"));
   const uses = (re: RegExp) => appFiles.filter((f) => re.test(fs.readFileSync(f, "utf8"))).map((f) => path.relative(ROOT, f));
   // 호출·import 만 본다(주석의 이름은 제외).
   const promote = /(promoteOpenTurn|respondToOpenChat|submitPersonAnswer)\s*\(|from\s+["'][^"']*(open-chat|actions\/person-chat)["']/;
   check("⑦ 자유 발화 즉시 중심 생성 0 — app 에서 promoteOpenTurn·respondToOpenChat·submitPersonAnswer 호출 없음", uses(promote).length === 0, uses(promote));
-  const proposedPath = /(savePeopleMentionedInEpisode|saveProposedPeople|finishEpisodeChatCore)\s*\(/;
-  const chatFiles = [
-    ...walk(path.join(ROOT, "app/chat-v3")),
-    ...walk(path.join(ROOT, "app/interview")),
-    path.join(ROOT, "lib/interview/session.ts"),
-    path.join(ROOT, "lib/free-chat.ts"),
-  ];
-  check("⑦ /chat-v3·인터뷰가 확인 대기를 만드는 경로 0 — 인물 추출 저장 호출 없음", chatFiles.every((f) => !proposedPath.test(fs.readFileSync(f, "utf8"))));
+  // "확인 대기를 만드는 경로 0" 은 파일 검색 대신 이 실행의 모든 저장 뒤 DB 로 본다(noPendingChecks — 2026-11-03).
   check("⑦ /chat-v3 대화창 확인 카드 제거", !read("app/chat-v3/ChatV3Client.tsx").includes("CONFIRM_COPY"));
   check("⑦ /enter V3 설정 완료 → /my-life(Q68)", /if \(unconfirmed === 0\) \{\s*redirect\("\/my-life"\);/.test(read("app/enter/page.tsx")));
-  check("⑦ /my-life 채팅 진입 버튼(→ /chat-v3)", (read("app/my-life/MyLifeView.tsx").match(/href="\/chat-v3"/g) ?? []).length >= 3);
+  // 화면 렌더 확인은 브라우저가 필요해 정적 확인 — 개수는 안 본다(버튼 자리를 옮기거나 늘려도 안 깨지게, 2026-11-03).
+  check("⑦ /my-life 채팅 진입 버튼(→ /chat-v3) 있음", read("app/my-life/MyLifeView.tsx").includes('href="/chat-v3"'));
   check("⑦ proxy.ts 무접촉(자유 대화 언급 없음)", !/free-chat|chat-v3/.test(read("proxy.ts")));
   // Q70 — 장소 후보 목록은 처리방침 v1.2(3항 Anthropic 이전 항목 "장소 이름") 이후에만(2026-11-02 반영). 이름만, 주소·좌표 없음.
   check("⑦ 제안 호출 장소 후보(Q70) — 처리방침 3항 Anthropic 항목에 장소 이름이 있을 때만 · 보내는 칸은 id·이름뿐",
@@ -424,14 +422,6 @@ async function segmentChecks(fx: Fixture) {
     made);
   const again = await createFromFreeChatProposal(userId);
   check("③ 카드 없이 [만들기] → no_card(두 번 눌러도 1개)", !again.ok && again.reason === "no_card");
-
-  // 개편 전 대기 대화 → 자유 대화 주제로 이어받고 지움.
-  await prisma.chatV3PendingContext.create({ data: { userId, stage: "EPISODE", targetEventId: ev.HIGH_SCHOOL, targetPersonId: friendId } });
-  const adopted = await adoptLegacyPending(userId);
-  const segA = await prisma.chatV3Segment.findUniqueOrThrow({ where: { userId } });
-  check("③ 옛 대기 대화(인물 이야기) → 주제(person_episode)로 이어받고 대기 행 삭제",
-    adopted && segA.topicEventId === ev.HIGH_SCHOOL && segA.topicGapType === "person_episode" && segA.topicPersonId === friendId &&
-      (await prisma.chatV3PendingContext.count({ where: { userId } })) === 0);
 
   // 하루 예산 — 넘으면 응답·제안 모델을 부르지 않는다.
   const prev = process.env.CHAT_V3_DAILY_BUDGET_USD;
@@ -1171,22 +1161,36 @@ async function titleChecks(fx: Fixture) {
     label === lead && posterRow?.title === "훈련소에서 첫 편지를 썼다." && saved.length === 1 && saved[0].title === lead && saved[0].summary === card.summary,
     { label, posterRow, saved });
 
-  // 이야기 제목(브릿지 메모리 title)을 읽는 서버 코드 — 전부 displayTitle 을 거친다(주석 제외). 화면도 displayTitle.
+  // 나머지 읽는 곳도 실제 결과로 — 찾기 결과 · 인물 확인 묶음 제목 · 오늘의 인터뷰 요약(2026-11-03, 파일마다 title 읽는 횟수를
+  // 세던 정적 검사 대신). 인물 확인 대기는 회귀만 쓰는 saveProposedPeople 로 잠깐 만들고 바로 지운다(아래 noPendingChecks 전에).
+  const found = searchMyLife(await getMyLifeData(userId), "앞마당").find((r) => r.kind === "story" && made.ok && r.key.endsWith(`:${made.episodeId}`));
+  let confirmTitle: string | undefined;
+  let summarySaved: string[] | undefined;
+  if (made.ok) {
+    await saveProposedPeople(userId, ev.ELEM_SCHOOL, made.episodeId, [{ name: "[fixture] 확인 대기 분", relation: "친구" }]);
+    confirmTitle = (await getPendingPeopleGroups(userId)).find((g) => g.episodeId === made.episodeId)?.title;
+    await prisma.person.deleteMany({ where: { userId, name: "[fixture] 확인 대기 분" } }); // 연결은 DB 트리거가 같이 지움
+    const now = new Date();
+    const item = await prisma.interviewItem.create({
+      data: { userId, day: kstDay(now), ordinal: 1, itemKey: "fixture:title", source: "POOL", status: "ANSWERED", doneAt: now, refId: made.episodeId },
+    });
+    const state = await nextInterviewState(userId, now);
+    summarySaved = state.kind === "summary" ? state.saved : undefined;
+    await prisma.interviewItem.delete({ where: { id: item.id } });
+  }
+  check("⑪ 제목 없는 이야기 — 찾기 결과 · 인물 확인 묶음 제목 · 오늘의 인터뷰 요약 = 본문 첫 문장",
+    found?.title === lead && confirmTitle === lead && JSON.stringify(summarySaved) === JSON.stringify([lead]), { found, confirmTitle, summarySaved });
+  // 화면 컴포넌트(지도·목록·패널·카드)는 브라우저 렌더가 필요해 정적 확인으로 남긴다 — displayTitle 을 거치는지(있는지)만.
   const code = (rel: string) => read(rel).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
-  // lib/story-review.ts 는 2026-11-03 삭제(Q69 뒤 옛 /story-review 본문) — 이야기 이름은 My Life(화면 displayTitle).
-  const servers = ["lib/node-confirm.ts", "lib/poster/v3-bridge.ts", "lib/interview/session.ts", "lib/free-chat.ts"];
-  const rawReads = servers.filter((rel) => {
-    const c = code(rel);
-    return (c.match(/memory\??\.title/g) ?? []).length !== (c.match(/displayTitle\(\{ title: \w+\.memory\.title/g) ?? []).length;
-  });
-  const screens = ["lib/my-life-search.ts", "app/my-life/MyLifeView.tsx", "app/components/ProposalCard.tsx"].filter((rel) => !code(rel).includes("displayTitle("));
-  check("⑪ 제목 읽는 곳 = displayTitle(서버 5곳 · 지도·목록·패널·찾기·카드)", rawReads.length === 0 && screens.length === 0 && !code("app/my-life/MyLifeView.tsx").includes("storyText"), { rawReads, screens });
+  const screens = ["app/my-life/MyLifeView.tsx", "app/components/ProposalCard.tsx"].filter((rel) => !code(rel).includes("displayTitle("));
+  check("⑪ 화면 컴포넌트(지도·목록·패널·카드)도 displayTitle", screens.length === 0 && !code("app/my-life/MyLifeView.tsx").includes("storyText"), screens);
 
   // 제목 칸에 시기 이름을 넣는 경로 0 — 오늘의 인터뷰 카드 제목은 문항 주제(질문 풀·"관계별 나")만, 갭 문항(주제 = 시기 이름)은 모델 제목.
   const session = code("lib/interview/session.ts");
+  // 풀·관계별 나 문항 제목 = 문항 주제는 test-interview ⑤·⑩ 이 실제 카드·저장 제목으로 본다. 갭 문항은 실제 모델 호출이
+  // 더 필요해(그 회귀의 다음 날 계획 기대값도 바뀜) 정적 확인으로 남긴다 — topicIsTitle 개수는 안 본다(2026-11-03).
   check("⑪ 오늘의 인터뷰 카드 제목 — 문항 주제만 고정, 갭 문항은 시기 이름을 제목으로 안 씀",
-    /fixedTitle: target\.topicIsTitle \? target\.topicOverride\?\.label : null/.test(session) && !/(fixedTitle|titleHint): target\.topicOverride\?\.label \?\? target\.label/.test(session) &&
-      (session.match(/topicIsTitle: true/g) ?? []).length === 2);
+    /fixedTitle: target\.topicIsTitle \? target\.topicOverride\?\.label : null/.test(session) && !/(fixedTitle|titleHint): target\.topicOverride\?\.label \?\? target\.label/.test(session));
 }
 
 // ─── 긴 제목 표시 — 20자 안팎 어절 경계 줄임·카드 제목 2줄·머리말 스크롤 여백(2026-11-02) — LLM 0 ─────
@@ -1202,9 +1206,11 @@ function longTitleChecks() {
     { long: shortTitle(long) });
   const chat = read("app/chat-v3/ChatV3Client.tsx");
   const map = read("app/my-life/MyLifeView.tsx");
-  // 줄인 제목 3곳 = 지도 노드 · 목록 보기 · 제목 없는 이야기 패널의 화면 낭독용 제목 줄(Q69 의 그때의 나 묶음은 Q69 후속에 뺌).
+  // 줄인 제목 = 지도 노드 · 목록 보기 · 제목 없는 이야기 패널의 화면 낭독용 제목 줄. 화면 렌더는 브라우저가 필요해 정적 확인 —
+  // 쓰는 곳 개수 대신 자리마다 본다(다른 곳에 더 써도 안 깨지게, 2026-11-03).
   check("⑭ 쓰는 곳 — 저장 안내 = 줄인 이름 · 지도 노드·목록 보기·(제목 없는 이야기 패널의 화면 낭독용 제목 줄) = 줄인 제목 · 카드 제목 = 2줄 말줄임(본문은 그대로)",
-    chat.includes("FC.created(shortTitle(r.title))") && (map.match(/shortTitle\(displayTitle\(/g) ?? []).length === 3 &&
+    chat.includes("FC.created(shortTitle(r.title))") && map.includes('text-ink">{shortTitle(displayTitle(story))}</span>') &&
+      map.includes('<span className="text-lg text-ink">{shortTitle(displayTitle(s))}</span>') &&
       map.includes("{hasOwnTitle(story) ? displayTitle(story) : shortTitle(displayTitle(story))}") &&
       /<dd className="m-0 line-clamp-2 text-xl font-bold text-ink">\{displayTitle\(\{ title: edit\.title, content: edit\.summary \}\)\}<\/dd>/.test(read("app/components/ProposalCard.tsx")));
   check("⑭ 카드가 고정 머리말에 안 가림 — 머리말 높이만큼 문서 scroll-padding-top(크기 바뀌면 다시 잼)",
@@ -1273,17 +1279,12 @@ async function periodTitleGuardChecks(fx: Fixture) {
   check("⑫ 카드 [만들기] — 카드 제목(시기 이름) 그대로 → 빈 문자열·안내 제목 = 본문 첫 문장 / [고치기]로 적은 시기 이름 → 그대로",
     auto.ok && autoTitle === "" && auto.title === "입학식 날 교복이 컸다." && user.ok && userTitle === "군 입대" && user.title === "군 입대", { auto, autoTitle, user, userTitle });
 
-  // 이야기 저장 경로 전수 — 앱(app·lib)에서 Episode 를 만드는 곳은 lib/episode.ts 하나, 그 함수를 부르는 곳은 카드 저장·
-  // 지도 직접 쓰기(My Life 개편 3단계 — lib/my-life-edit createStoryNode, 적은 제목만 사용자 제목) 둘. 옛 대화 마무리
-  // (lib/episode-chat finishEpisodeChatCore)는 2026-11-03 옛 온보딩 이야기 화면과 함께 삭제(설계 §15.4).
+  // 저장 경로마다 실제 결과 — 카드 [만들기]·[고치기] = 위 검사, 지도 직접 쓰기(빈 제목 → 빈 문자열 · 적은 시기 이름 → 그대로)
+  // = test-my-life-edit ①(2026-11-03, 부르는 곳 목록·호출 개수를 세던 정적 검사 대신). 남기는 정적 확인 하나 — Episode 를
+  // 만드는 곳이 lib/episode.ts 하나(아직 없는 새 저장 경로가 규칙을 건너뛰는 것은 동작 검사로 잡을 수 없어서).
   const files = [...walk(path.join(ROOT, "app")), ...walk(path.join(ROOT, "lib"))].map((f) => path.relative(ROOT, f).replace(/\\/g, "/"));
   const creators = files.filter((f) => /\b(tx|prisma)\.episode\.(create|createMany|upsert)\(/.test(read(f)));
-  const callers = files.filter((f) => f !== "lib/episode.ts" && /\bcreateEpisodeBridge\(/.test(read(f))).sort();
-  check("⑫ 이야기 저장 경로 = createEpisodeBridge 하나(Episode 만드는 곳 lib/episode.ts 만 · 부르는 곳 = 카드 저장·지도 직접 쓰기) · 카드 단계도 같은 규칙",
-    JSON.stringify(creators) === JSON.stringify(["lib/episode.ts"]) && JSON.stringify(callers) === JSON.stringify(["lib/my-life-edit.ts", "lib/node-proposal.ts"]) &&
-      /createEpisodeBridge\(userId, ev\.id, title, ev\.correctedYear \?\? ev\.year, content, "", undefined, false, kind, title !== ""\)/.test(read("lib/my-life-edit.ts")) &&
-      (read("lib/node-proposal.ts").match(/storedStoryTitle\(/g) ?? []).length === 1 && /userSetTitle,\n\s*\);/.test(read("lib/node-proposal.ts")),
-    { creators, callers });
+  check("⑫ Episode 를 만드는 곳 = lib/episode.ts 하나(createEpisodeBridge — 저장 규칙이 걸리는 곳)", JSON.stringify(creators) === JSON.stringify(["lib/episode.ts"]), creators);
 }
 
 // ─── 전역 하루 예산 — 테스트 계정 사용분 제외 + 테스트 한도(2026-11-02) — LLM 0 ─────────────────
@@ -1512,10 +1513,10 @@ async function leftoverChecks(fx: Fixture) {
   check("⑮ 다른 주제(갭 칩) + 짧은 남은 구간 → 지난 카드 없이 새 주제 오프닝 · 모델 0",
     startF.kind === "opening" && segF.topicEventId === ev.MILITARY && segF.topicGapType === "episode" && segF.proposal === null && (await usage()) === u2, startF);
 
-  // 입구 — 입장 때(initFreeChatAction) 오래된 구간을 먼저 닫고 나서 옛 대기 대화를 이어받는다.
+  // 입구 — 입장 때(initFreeChatAction) 오래된 구간을 먼저 닫고 상태를 돌려준다(옛 대기 대화 이어받기는 2026-11-03 테이블과 함께 삭제).
   const action = read("app/actions/free-chat.ts");
-  check("⑮ 입장 액션 = 오래된 구간 닫기 → 옛 대기 대화 이어받기 → 상태",
-    /await closeIdleSegment\(userId\);\n\s*await adoptLegacyPending\(userId\);\n\s*return getFreeChatState\(userId\);/.test(action));
+  check("⑮ 입장 액션 = 오래된 구간 닫기 → 상태",
+    /await closeIdleSegment\(userId\);\n\s*return getFreeChatState\(userId\);/.test(action) && !action.includes("adoptLegacyPending("));
 }
 
 const FAREWELL = /(들려주셔서|고마워요|고맙습니다|감사|잘 들었|즐거웠|다음에 또|안녕히)/;
@@ -1636,6 +1637,16 @@ async function liveE2EReplay() {
   }
 }
 
+// ⑦ 확인 대기를 만드는 경로 0 — 이 실행에서 카드 [만들기]·[고치기]·되묻기·자유 대화(실제 모델 포함)·직접 저장을 다 거친 뒤
+// 이 계정에 확인 대기 연결(PROPOSED)·초안 인물이 없다(2026-11-03, 파일 안 호출 검색 대신 실제 DB). ⑪ 이 잠깐 만든 것은 지웠다.
+async function noPendingChecks(fx: Fixture) {
+  const [proposed, drafts] = await Promise.all([
+    prisma.nodeLink.count({ where: { userId: fx.userId, status: "PROPOSED" } }),
+    prisma.person.count({ where: { userId: fx.userId, isDraft: true } }),
+  ]);
+  check("⑦ 확인 대기를 만드는 경로 0 — 모든 저장 뒤 확인 대기 연결·초안 인물 0", proposed === 0 && drafts === 0, { proposed, drafts });
+}
+
 async function main() {
   pureChecks();
   staticChecks();
@@ -1668,6 +1679,7 @@ async function main() {
       await liveMaterialAndPlaces();
       await liveReferences();
     }
+    await noPendingChecks(fx);
     const total = await usageSince(fx.userId, new Date(0));
     console.log(`\n원가 합계(이 실행, 픽스처): 호출 ${total.calls} · $${total.usd.toFixed(4)}`);
   } finally {

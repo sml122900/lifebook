@@ -170,7 +170,6 @@ model User {
   lifeEvents             LifeEvent[]
   onboardingProfile      OnboardingProfile?
   onboardingChatMessages OnboardingChatMessage[]
-  chatV3PendingContext   ChatV3PendingContext?
   // My Life 개편 2단계 — 자유 대화 구간(탈퇴 시 Cascade)·원가 원장(탈퇴 시 userId 비움).
   chatV3Segment          ChatV3Segment?
   chatV3Usages           ChatV3Usage[]
@@ -935,7 +934,6 @@ model Person {
   episodes   Episode[]
 
   // P7-7 — 이 인물을 대상으로 한 미완료 person_episode 대기 대화(있다면 1개).
-  pendingChatContexts ChatV3PendingContext[]
   // My Life 개편 2단계 — 자유 대화 구간의 주제 힌트(인물 삭제 시 힌트만 SetNull).
   chatV3SegmentTopics ChatV3Segment[]
 
@@ -1135,7 +1133,6 @@ model LifeEvent {
 
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
-  chatV3PendingContexts ChatV3PendingContext[]
   chatV3SegmentTopics   ChatV3Segment[]
 
   @@index([userId, sequenceOrder])
@@ -1243,40 +1240,8 @@ model OnboardingChatMessage {
   @@index([userId, createdAt])
 }
 
-// P7-7 — /chat-v3 재진입 시 "지금 episode/person 단계 중 어떤 이벤트·인물을
-// 다루던 중이었는지" 복원용. 사용자당 1행(FamilyFeedSeen 과 같은 싱글턴
-// 패턴) — 행의 존재 자체가 "미완료 대기 대화가 있다"는 신호다. confirm/
-// profile 단계는 항상 LifeEvent/OnboardingProfile 실제 상태에서 재계산하므로
-// (기존 설계 그대로) 이 테이블이 필요 없다 — episode/person 만 DB에 재계산할
-// 근거가 없어 별도로 기억해야 한다.
-//
-// 이전 turn 히스토리는 의도적으로 저장하지 않는다 — 이탈은 대부분 "봇 질문
-// 직후"라 잃을 턴이 없고, 여러 턴 중 끊긴 경우도 직전 질문 하나만 이어받는
-// 게 지금(답이 사라지는 것)보다 낫다는 판단(2026-09-02 합의).
-model ChatV3PendingContext {
-  id     String @id @default(cuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  stage           ChatV3PendingStage
-  targetEventId   String
-  targetLifeEvent LifeEvent          @relation(fields: [targetEventId], references: [id], onDelete: Cascade)
-
-  // person_episode(= EPISODE + personId 존재)만 채워짐. 대상 인물이 개별
-  // 삭제되면 SetNull — 재진입 시 "일반 사건 회고"로 안전하게 강등된다.
-  targetPersonId String?
-  targetPerson   Person? @relation(fields: [targetPersonId], references: [id], onDelete: SetNull)
-
-  updatedAt DateTime @updatedAt
-}
-
-enum ChatV3PendingStage {
-  EPISODE
-  PERSON
-}
-
 // My Life 개편 2단계 — /chat-v3 자유 대화의 "지금 구간". docs/phase/my-life-restructure.md §3.5.
-// 사용자당 1행(ChatV3PendingContext 와 같은 싱글턴). 구간 = startedAt 이후의 채팅 로그
+// 사용자당 1행(싱글턴). 구간 = startedAt 이후의 채팅 로그
 // (OnboardingChatMessage — 로그 테이블은 role 이 user/assistant 뿐이라 구간 경계·카드를 못 담는다).
 // 노드를 만들거나 [안 만들기] 하면 startedAt 이 그 제안이 다룬 마지막 턴 뒤로 옮겨진다.
 model ChatV3Segment {

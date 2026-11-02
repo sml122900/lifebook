@@ -660,27 +660,3 @@ export async function declineFreeChatProposal(userId: string): Promise<{ segment
   });
   return { segmentTurns: substantiveUserTurns(await logTurns(userId, until)) };
 }
-
-// 옛 대기 대화(ChatV3PendingContext — 개편 전 이야기·인물 단계)는 자유 대화 주제로 이어받고 지운다(§3.5).
-export async function adoptLegacyPending(userId: string): Promise<boolean> {
-  const pending = await prisma.chatV3PendingContext.findUnique({
-    where: { userId },
-    select: { stage: true, targetEventId: true, targetPersonId: true },
-  });
-  if (!pending) return false;
-  await prisma.chatV3PendingContext.deleteMany({ where: { userId } });
-  const seg = await getSegment(userId);
-  // 직전 이야기 시기 힌트(carry)는 주제가 아니다 — 옛 대기 대화가 이긴다(갭 칩·딥링크와 같다).
-  if (parseCard(seg.proposal) || (seg.topicEventId && seg.topicGapType !== "carry")) return false;
-  const kind: FreeTopicKind =
-    pending.stage === "PERSON" ? "person" : pending.targetPersonId ? "person_episode" : "episode";
-  await prisma.chatV3Segment.update({
-    where: { userId },
-    data: {
-      topicEventId: pending.targetEventId,
-      topicGapType: kind,
-      topicPersonId: kind === "person_episode" ? pending.targetPersonId : null,
-    },
-  });
-  return true;
-}

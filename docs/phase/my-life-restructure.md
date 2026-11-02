@@ -1077,6 +1077,28 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
 - **비용 스크립트 안전장치(작업 규칙 10)**: `db/run-guard.ts` `requireRun` — `--run` 이 없으면 계획(무엇을 몇 번·예상 원가·DB 쓰기)만 출력하고 끝. `db/replay-proposals.ts` 는 비교 계획(입력 수·프롬프트 판(git 에 있는지)·예상 호출 수·예상 원가 $0.021/회·오늘 테스트 원가). 실제 모델·유료 API 를 부르는 다른 단독 스크립트 전수(키워드 + lib import 두 번 훑음): 이미 `--live` 로 같은 원칙 2(`test-lab-agent`·`test-lab-llm`) · 호출 0 5(`dogfood-report` 읽기만·`lab-seed-persona` 키 지움·`test-lab-search`·`test-lab-sync` 가짜 추출기·`test-trigger-failure` 키 비움) · **원칙 없던 14 → 적용**(`lab-sync`·`lab-ask`·`lab-eval`·`seed-music-triggers`·`test-ai`·`test-assistant`·`test-assistant-depth`·`test-assistant-v3`·`test-h1-h2-fixes`·`test-memory-usage`·`test-rag`·`test-refine-lv2`(위치 인자에서 `--run` 뺌)·`test-voice-cleanup`·`test-voyage`).
 - 검증(2026-11-03): 회귀 19종 exit 0(`test-chat-proposal --live` 1차 = ⑫ 정적 1건 — `createEpisodeBridge` 부르는 곳이 옛 대화 삭제로 3 → 2, 기대 목록 갱신 뒤 다시 돌려 통과 · 실제 모델 항목은 1차에 전부 통과) · `test-my-life` 104(⑫ 10) · 빌드 exit 0(옛 온보딩 라우트 4개 사라짐) · 운영 빌드에서 `/onboarding-v2`·`-confirm`·`-episode`·`-episode-chat/<id>` → 307 `/enter` · 계획 모드(`--run` 없음) 호출 0 확인(원장 그대로). 테스트 원가(11-03 누적) 원장 $4.72.
 
+### 15.5 `ChatV3PendingContext` 제거 · 인물 확인 대기 조사 · 회귀 개수 검사 → 실제 결과(2026-11-03, 성민 지시)
+
+- **테이블 제거(성민 승인 — `20261103000000_drop_chat_v3_pending_context`)**: 같은 커밋에서 스키마 모델·enum `ChatV3PendingStage`·relation 3곳(User·LifeEvent·Person)·`lib/free-chat.ts` `adoptLegacyPending`(+ `initFreeChatAction` 호출)·회귀 이어받기 검사(`test-p18-1` · `test-chat-proposal` ③·⑮ 조건)·`db/check-test30.ts` 조회 삭제. **순서 = 코드 먼저 배포 → `migrate deploy`**: 지금 운영 코드가 `/chat-v3` 들어올 때마다 이 테이블을 읽어(`adoptLegacyPending`), 테이블을 먼저 지우면 새 코드가 배포될 때까지 `/chat-v3` 입장이 실패한다. 스키마 = 마이그 SQL 과 같음(`migrate diff` 빈 결과).
+- **인물 확인(`/story-review/confirm`) 대기 조사(조사만, 코드 변경 0)**: 운영 확인 대기 = **0** — 이야기→인물 PROPOSED 연결 0 · 대기 초안 인물(말동무 초안 = `companionSessionId` 있음 제외) 0 · 남은 계정 0명(실고객 2명 계정도 0 — 집계에서 빼고 수만 확인). 만드는 경로 = **0** — PROPOSED 연결을 쓰는 곳은 `lib/person-chat.ts` `saveProposedPeople` 하나, 앱(app·lib) 안 호출 0(회귀 `test-node-confirm`·`test-chat-proposal` 만 부름). 초안 인물을 만드는 다른 곳은 말동무(`app/life-timeline/companion/actions.ts` — 세션 id 가 있어 인물 확인 화면은 안 봄, 검토는 `/life-timeline/manage`). 진입 카드(My Life 정리할 것·인터뷰 요약·이야기 패널 링크)는 대기 0이면 안 보여 지금 화면에 안 나온다 → **다음 정리 후보**(CLAUDE.md 열린 항목).
+- **회귀 — 호출 위치·개수를 세던 정적 검사 → 실제 결과(5개 스크립트에만 있었음 — 나머지 14개는 소스를 안 읽음)**:
+
+| 스크립트 · 검사 | 세던 것 | 바꾼 것 |
+| --- | --- | --- |
+| `test-chat-proposal` ⑦ 확인 대기를 만드는 경로 0 | /chat-v3·인터뷰 파일 안 인물 추출 저장 호출 | 실제 DB — 이 실행의 모든 저장(카드·되묻기·제목·직접 저장, 실제 모델 포함) 뒤 그 계정 PROPOSED 연결·초안 인물 0(`noPendingChecks`) |
+| `test-chat-proposal` ⑪ 제목 읽는 곳 = displayTitle(서버) | 파일마다 `memory.title` 수 = `displayTitle(` 수 | 실제 결과 — 제목 없는 이야기의 찾기 결과·인물 확인 묶음 제목·오늘의 인터뷰 요약 = 본문 첫 문장(My Life·포스터 구간 행·방금 남긴 이야기는 원래 실제 결과) |
+| `test-chat-proposal` ⑫ 이야기 저장 경로 | `createEpisodeBridge` 부르는 파일 목록 · `storedStoryTitle` 1곳 · 호출 인자 모양 | 경로마다 실제 저장 제목 — 카드 [만들기]·[고치기](⑫ 기존) · 지도 직접 쓰기(빈 제목 → 빈 문자열, 적은 시기 이름 → 그대로 = `test-my-life-edit` ①) |
+| `test-interview` ⑧ 인터뷰의 LifeEvent 쓰기 | 인터뷰 파일 안 쓰기 호출 = 1곳 · data = `{ year }` | 실제 흐름(연도·건너뛰기·이야기·관계별 나·DROPPED·다음 날 계획) 전후 전체 칸 스냅샷 — 바뀐 칸 = 첫 직장 `year` 하나, 행 수 같음(이야기 저장이 켜는 `hasEpisode` 만 뺌) |
+| `test-chat-proposal` ⑪ 인터뷰 카드 제목 | `topicIsTitle: true` 2곳 | 개수 뺌 — 풀·관계별 나 제목 = 문항 주제는 `test-interview` ⑤·⑩ 이 실제 카드·저장 제목으로 봄 |
+
+  **바꾸기 어려워 남긴 것(이유)**:
+  - 서버 액션 첫 줄 = 로그인 확인(`test-chat-proposal` ⑦ · `test-interview` ① · `test-my-life-edit` ⑦): 액션을 부르면 `auth()` 가 요청 헤더를 읽어 스크립트에서는 "비로그인 거부"와 "요청 밖 호출"을 구별 못 함 — 실제 결과는 빌드한 서버에 액션 id 로 쿠키 없이 보내야 봄. **개수(6·6·≥8)만 뺌**, 전부 첫 줄 확인은 유지.
+  - 화면 컴포넌트(`MyLifeView`·`ProposalCard`·`ChatV3Client`): 채팅 진입 버튼(⑦ 3개 이상), 줄인 제목 쓰는 곳(⑭ 3곳), 이야기 고치기 뒤 다시 읽기(`test-my-life` ⑫ `router.refresh` 2곳) — 화면에 실제로 보이는지는 브라우저 렌더가 필요(스크립트에서 렌더하면 `useRouter` 등 앱 라우터가 없어 실패). **개수 대신 있는지·자리별로**(버튼 있음 / 지도 노드·목록 자리 / 저장 성공 뒤·응답 실패 뒤) 바꿈. 실제 화면은 390 실측(E2E)으로 봄.
+  - 쓰는 곳 하나 지킴(`test-chat-proposal` ⑫ Episode 만드는 곳 = `lib/episode.ts` · `test-my-life-edit` ⑩ 시기↔사람 쓰기 = `lib/node-graph.ts`): 아직 없는 새 저장 경로가 규칙(제목 규칙·출처 칸)을 건너뛰는 것은 동작 검사로 잡을 수 없다(아는 경로만 부를 수 있음). 목록이 바뀌는 때 = 새 경로를 만드는 때라 사람이 봐야 하는 때 — 그대로.
+  - 표기 검사(`test-interview` ⑩ 관계별 나 예시 `[임시 — 성민 확정 필요]` 8개): 호출 위치가 아니라 임시 문구 표시 — 문구를 확정하면 같이 바뀌어야 하는 의도된 알림이라 그대로.
+  - 부재 검사(0곳 — 지운 함수 이름·옛 경로 링크 등): 개수가 바뀌는 검사가 아니라(늘 0) 그대로.
+- 검증(2026-11-03, 마이그 적용 전 · 코드·스키마 삭제 후): 회귀 19종 exit 0(`test-chat-proposal` 158 · `test-interview` 95 · `test-my-life` 104 · `test-my-life-edit` 62 · `test-node-confirm` 46 · `test-node-graph` 69 · `test-v3-poster-bridge` 39 · `test-p18-1` 11) · 바꾼 검사 전부 PASS · `tsc` 0 · 빌드 exit 0. 테스트 원가(11-03 누적) 원장 $4.92(이번 19종 ≈ $0.20).
+
 ## 결정 로그
 
 - 2026-11-01 — 설계 작성(성민 결정 — §0, 구현 전·코드 변경 0). 운영 집계(개수·평균만, 실고객 제외): 인물 사용자당 최대 12·장소 최대 14·모임 0·이야기 최대 23(본인 턴 평균 2.1)·채팅 본인 메시지 평균 18자. 결정 질문 Q51~Q72(§7.3).
@@ -1121,3 +1143,4 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
 - 2026-11-02 — **Q69 후속(제안 리뷰 채팅, 결정 성민 — §15.3)**: 목록 보기 "그때의 나" 별도 묶음 제거(시기 아래 꼬리표로만 — 중복 제거) · `SidePanel.tsx` 린트 오류(effect 안 setState) 동작 변화 없이 수정 · 오늘 기대값 불일치 실패 기록 1건에 원인 메모(코드 결함 아님).
 - 2026-11-03 — **제안 시기 프롬프트 안 (a)(성민 결정, 제안: Claude Code 조사 — §13.13)**: 모델이 시기 이름을 먼저 쓰고 그 이름이 적힌 줄의 id 를 씀, `pickCenter` 교정 유지. 11-02 "같은 줄" 지시 회귀(F 0/10) 수정. 재생 세트(`db/test-fixtures/proposal-replay/` + `db/replay-proposals.ts`) 신설, CLAUDE.md 작업 규칙 9(프롬프트 변경은 재생 세트로 전후 각 10회 비교 후 커밋, 새 실패 사례는 세트에 추가). 커밋 조건 = 안 (a)가 모든 입력에서 옛 프롬프트 이상 — 충족(F 10/10 vs 9/10, ⑤·A 10/10).
 - 2026-11-03 — **옛 화면 정리 + 비용 스크립트 안전장치(성민 지시 — §15.4)**: 옛 온보딩 화면 4개·`/story-review` 보존 본문 삭제(주소 → `/enter`·`/my-life?view=list`), 그것만 쓰던 액션·lib·문구 키 정리. `ChatV3PendingContext` 죽은 행 4 삭제 → 테이블 제거 추천, 마이그 SQL 만 만들고 승인 대기. 유료 단독 스크립트는 `--run` 있을 때만 호출(작업 규칙 10).
+- 2026-11-03 — **`ChatV3PendingContext` 제거 승인(성민) + 조사·회귀 개선(성민 지시 — §15.5)**: 마이그 `20261103000000_drop_chat_v3_pending_context` 승인 — 코드·스키마 삭제를 마이그와 같은 커밋에, 운영 적용은 그 코드 배포 뒤(순서만 바꿈 — 지금 운영 코드가 테이블을 읽음). 인물 확인 대기 = 운영 0·만드는 경로 0 → 화면 정리는 다음 후보(CLAUDE.md, 결정 대기). 회귀의 호출 위치·개수 정적 검사 → 실제 결과 검사, 화면 렌더·요청 문맥이 필요한 것과 "쓰는 곳 하나" 지킴은 이유와 함께 남김.

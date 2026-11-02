@@ -15,7 +15,6 @@ import path from "node:path";
 
 import { detectGaps, gapChatHref, pickTopGaps } from "../lib/gap-detector";
 import {
-  adoptLegacyPending,
   declineFreeChatProposal,
   gapMatchesTopic,
   getFreeChatTopic,
@@ -128,17 +127,6 @@ async function main() {
     check("[안 만들기] 뒤 → 주제 없음·진행 중 0",
       afterDecline === null && topGaps.filter((g) => gapMatchesTopic(g, afterDecline)).length === 0);
 
-    // 개편 전 대기 대화(옛 행)는 자유 대화에 들어올 때 주제로 이어받는다 → 그 뒤엔 진행 중으로 보인다.
-    await prisma.chatV3PendingContext.create({ data: { userId, stage: "EPISODE", targetEventId: fx.birth } });
-    const adopted = await adoptLegacyPending(userId);
-    const adoptedTopic = await getFreeChatTopic(userId);
-    check("옛 대기 대화(출생 이야기) 이어받음 → 진행 중 = 출생 episode 하나 · 대기 행 삭제",
-      adopted &&
-        JSON.stringify(topGaps.filter((g) => gapMatchesTopic(g, adoptedTopic)).map((g) => `${g.type}:${g.targetEventId}`)) ===
-          JSON.stringify([`episode:${fx.birth}`]) &&
-        (await prisma.chatV3PendingContext.count({ where: { userId } })) === 0,
-      adoptedTopic);
-
     // 화면 경로(정적) — My Life 페이지가 같은 함수로 카드 데이터를 만든다(최대 3 · 진행 중 · 딥링크).
     const page = fs.readFileSync(path.resolve(__dirname, "../app/my-life/page.tsx"), "utf8");
     check("My Life 페이지 = detectGaps · getFreeChatTopic · pickTopGaps(…, 3) · gapMatchesTopic · gapChatHref",
@@ -148,14 +136,13 @@ async function main() {
     // 시드 도중 실패해도 이메일로 찾아 지운다.
     await removeFixture();
     const id = userId ?? "";
-    const [user, events, profile, pending, segment] = await Promise.all([
+    const [user, events, profile, segment] = await Promise.all([
       prisma.user.count({ where: { email: FIXTURE_EMAIL } }),
       prisma.lifeEvent.count({ where: { userId: id } }),
       prisma.onboardingProfile.count({ where: { userId: id } }),
-      prisma.chatV3PendingContext.count({ where: { userId: id } }),
       prisma.chatV3Segment.count({ where: { userId: id } }),
     ]);
-    check("정리 — 픽스처 계정·하위 데이터 삭제", user + events + profile + pending + segment === 0, { user, events, profile, pending, segment });
+    check("정리 — 픽스처 계정·하위 데이터 삭제", user + events + profile + segment === 0, { user, events, profile, segment });
   }
   console.log(failed === 0 ? "\nALL PASS" : `\n${failed} FAILED`);
   if (failed > 0) process.exitCode = 1;

@@ -595,7 +595,7 @@ async function main() {
     // 함수 머리 줄(한 줄) 바로 다음 줄이 auth 확인.
     const exported = [...actions.matchAll(/export async function (\w+)[^\n]*\{\n\s*const userId = await requireUserId\(\);/g)].map((m) => m[1]);
     const allExported = [...actions.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
-    check("⑦ 서버 액션 전부 첫 줄 auth(requireUserId)", allExported.length >= 8 && exported.length === allExported.length, { allExported, exported });
+    check("⑦ 서버 액션 전부 첫 줄 auth(requireUserId)(개수는 안 봄)", allExported.length >= 1 && exported.length === allExported.length, { allExported, exported });
     const walkDir = (d: string): string[] =>
       fs.readdirSync(path.join(ROOT, d), { withFileTypes: true }).flatMap((x) =>
         x.name === "generated" ? [] : x.isDirectory() ? walkDir(`${d}/${x.name}`) : /\.(ts|tsx)$/.test(x.name) ? [`${d}/${x.name}`] : [],
