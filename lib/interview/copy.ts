@@ -5,7 +5,7 @@
 import { withJosa } from "../josa";
 
 export const INTERVIEW_COPY = {
-  // ── /story-review 진입 카드 ──
+  // ── My Life 진입 카드(목록 보기 맨 위·지도 [이야기 거리] — Q69 전 /story-review) ──
   cardTitle: "오늘의 인터뷰", // [임시 — 성민 확정 필요]
   cardBefore: "짧은 질문 몇 가지를 여쭤볼게요.", // [임시 — 성민 확정 필요]
   cardInProgress: (done: number, total: number) => `${total}개 중 ${done}개 답하셨어요.`, // [임시 — 성민 확정 필요]
@@ -62,6 +62,6 @@ export const INTERVIEW_COPY = {
   emptyTitle: "오늘은 여쭤볼 질문이 없어요", // [임시 — 성민 확정 필요]
   emptyDesc: "하고 싶은 이야기가 있으시면 언제든 들려주세요.", // [임시 — 성민 확정 필요]
 
-  // ── /story-review "관계별 나"(그때의 나) 묶음 제목 — [문구 필요: 그때의 나 묶음 제목] ──
+  // ── My Life 목록 보기 "관계별 나"(그때의 나) 묶음 제목(Q69 전 /story-review) — [문구 필요: 그때의 나 묶음 제목] ──
   selfStoriesTitle: "그때의 나", // [임시 — 성민 확정 필요]
 } as const;

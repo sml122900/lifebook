@@ -12,13 +12,17 @@
 // 지도 DOM 은 시기 순 목록 → 인물록 → 장소록 순서(스크린리더·Tab). 모임 영역·간선은 aria-hidden.
 // 개편 3단계: 머리 줄 [+ 만들기](7종) · 인물록·장소록 제목 옆 [+ 사람][+ 모임]/[+ 장소][+ 묶음] · 장소 묶음 영역(장소록) ·
 //   패널의 넣기·빼기·되돌리기·옮기기·지우기(./EditUI). 만든 뒤 지도가 새 노드로 이동·선택·패널 + [되돌리기].
+// Q69(/story-review 합치기, 2026-11-02): 목록 보기 = 정리할 것·오늘의 인터뷰(맨 위)·그때의 나 묶음·더 들어볼까요?(시간 줄기 아래),
+//   지도 보기 = "지금 보는 곳" 줄 [이야기 거리] → 같은 카드 시트(./Suggestions). 이야기 패널 [이야기 고치기](본문).
 
 import { MapPin, MessageCircle, Minus, Plus, Search, UserRound, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 
+import { updateEpisodeContentAction } from "@/app/actions/episode";
 import { Button, ButtonLink, buttonClasses } from "@/components/ui/Button";
+import { INTERVIEW_COPY } from "@/lib/interview/copy";
 import type { MyLifeChip, MyLifeData, MyLifeEvent, MyLifeGroup, MyLifePerson, MyLifePlace, MyLifeStory } from "@/lib/my-life";
 import { MY_LIFE_COPY as C } from "@/lib/my-life-copy";
 import { selectionEdges, type EdgeToggles } from "@/lib/my-life-edges";
@@ -40,6 +44,7 @@ import { displayTitle, hasOwnTitle, shortTitle } from "@/lib/story-title";
 
 import { undoCreateAction, undoMoveAction } from "./actions";
 import { CreateSheet, NodeEditor, type CreateKind, type Created, type Notice } from "./EditUI";
+import { GapCards, InterviewEntryCard, PendingPeopleCard, type MyLifeSuggest } from "./Suggestions";
 
 const MAX_SCALE = 3;
 const MIN_SCALE = 0.5; // 지도 전체가 이보다 작아야 들어가면 그 배율까지 내려간다
@@ -170,7 +175,7 @@ function nodeName(key: string, data: MyLifeData, idx: Index): string {
 
 // ── 화면 ────────────────────────────────────────────────────────────
 
-export function MyLifeView({ data }: { data: MyLifeData }) {
+export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLifeSuggest }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const view = searchParams.get("view") === "list" ? "list" : "map";
@@ -210,6 +215,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   const [selected, setSelected] = useState<string | null>(initialFocus?.key ?? null);
   const [panel, setPanel] = useState<string | null>(null);
   const [findOpen, setFindOpen] = useState(false);
+  const [suggestOpen, setSuggestOpen] = useState(false); // 지도 보기 [이야기 거리] 시트(Q69)
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(
     initialFocus ? { key: initialFocus.key, n: 1 } : null,
   );
@@ -217,6 +223,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   const openedAtRef = useRef(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const findRef = useRef<HTMLDialogElement>(null);
+  const suggestRef = useRef<HTMLDialogElement>(null);
 
   const layout = useMemo(
     () => layoutMyLife(data, { folded, shownGroupIds: shownGroups, shownPlaceGroupIds: shownPlaceGroups }),
@@ -251,6 +258,13 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
     if (findOpen && !d.open) d.showModal();
     if (!findOpen && d.open) d.close();
   }, [findOpen]);
+
+  useEffect(() => {
+    const d = suggestRef.current;
+    if (!d) return;
+    if (suggestOpen && !d.open) d.showModal();
+    if (!suggestOpen && d.open) d.close();
+  }, [suggestOpen]);
 
   useEffect(() => {
     const d = createRef.current;
@@ -372,6 +386,11 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
     setFindOpen(true);
   }
 
+  function openSuggest() {
+    setMapNotice(null);
+    setSuggestOpen(true);
+  }
+
   function openCreate(k: CreateKind | null) {
     setMapNotice(null);
     setCreateKind(k);
@@ -402,6 +421,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
           openPanel={openPanel}
           onToggleView={toggleView}
           onOpenFind={openFind}
+          onOpenSuggest={openSuggest}
           onCreate={openCreate}
           shownPlaceGroups={shownPlaceGroups}
           setShownPlaceGroups={setShownPlaceGroups}
@@ -411,7 +431,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
           setTour={setTour}
         />
       ) : (
-        <ListMode data={data} idx={idx} openPanel={openPanel} onToggleView={toggleView} onOpenFind={openFind} onCreate={openCreate} status={mapNotice} />
+        <ListMode data={data} idx={idx} suggest={suggest} openPanel={openPanel} onToggleView={toggleView} onOpenFind={openFind} onCreate={openCreate} status={mapNotice} />
       )}
 
       <p className="sr-only" aria-live="polite">
@@ -484,6 +504,30 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
       </dialog>
 
       <dialog
+        ref={suggestRef}
+        aria-labelledby="mylife-suggest-title"
+        onClose={() => setSuggestOpen(false)}
+        onClick={(e) => {
+          if (e.target === suggestRef.current) suggestRef.current.close();
+        }}
+        className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[75dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-ink/40"
+      >
+        {suggestOpen && (
+          <div className="flex flex-col gap-4 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6">
+            <h2 id="mylife-suggest-title" className="m-0">
+              {C.suggest}
+            </h2>
+            <PendingPeopleCard count={suggest.pendingPeople} as="h3" />
+            <InterviewEntryCard state={suggest.interview} as="h3" />
+            <GapCards gaps={suggest.gaps} as="h3" />
+            <Button variant="tertiary" size="lg" onClick={() => suggestRef.current?.close()}>
+              {C.close}
+            </Button>
+          </div>
+        )}
+      </dialog>
+
+      <dialog
         ref={createRef}
         aria-labelledby="mylife-create-title"
         onClose={() => setCreateKind(undefined)}
@@ -521,6 +565,7 @@ function MapMode({
   openPanel,
   onToggleView,
   onOpenFind,
+  onOpenSuggest,
   onCreate,
   shownPlaceGroups,
   setShownPlaceGroups,
@@ -544,6 +589,7 @@ function MapMode({
   openPanel: (key: string) => void;
   onToggleView: () => void;
   onOpenFind: () => void;
+  onOpenSuggest: () => void; // [이야기 거리] 시트(Q69 — 정리할 것·오늘의 인터뷰·더 들어볼까요?)
   onCreate: (kind: CreateKind | null) => void;
   shownPlaceGroups: string[];
   setShownPlaceGroups: (g: string[]) => void;
@@ -963,11 +1009,17 @@ function MapMode({
       ) : (
         <div className="flex min-h-[56px] items-center justify-between gap-3 px-6 py-1">
           {status ? <p className="min-w-0 truncate text-lg text-ink">{status}</p> : <p className="min-w-0 truncate text-lg text-ink-soft">{nowText}</p>}
-          {anyFolded && (
-            <Button variant="secondary" size="lg" className="shrink-0" onClick={() => setFolded(new Set())}>
-              {C.unfoldAll}
+          {/* Q69 — /story-review 의 카드 셋을 지도 보기에서도(390 머리 줄 두 줄엔 자리가 없어 이 줄 오른쪽). */}
+          <div className="flex shrink-0 gap-2">
+            {anyFolded && (
+              <Button variant="secondary" size="lg" className="px-4!" onClick={() => setFolded(new Set())}>
+                {C.unfoldAll}
+              </Button>
+            )}
+            <Button variant="secondary" size="lg" className="px-4!" onClick={onOpenSuggest}>
+              {C.suggest}
             </Button>
-          )}
+          </div>
         </div>
       )}
 
@@ -1448,6 +1500,7 @@ const LIST_ITEM = `flex min-h-[56px] w-full items-center gap-2 rounded-md border
 function ListMode({
   data,
   idx,
+  suggest,
   openPanel,
   onToggleView,
   onOpenFind,
@@ -1456,12 +1509,15 @@ function ListMode({
 }: {
   data: MyLifeData;
   idx: Index;
+  suggest: MyLifeSuggest;
   openPanel: (key: string) => void;
   onToggleView: () => void;
   onOpenFind: () => void;
   onCreate: (kind: CreateKind | null) => void;
   status: string | null;
 }) {
+  // 그때의 나(SELF) — 시기 아래에도 그대로 나오고, 여기 따로 한 번 더 묶는다(옮기기 전 /story-review 묶음, Q69).
+  const selfStories = data.events.flatMap((ev) => ev.stories.filter((s) => s.kind === "SELF").map((s) => ({ ev, s })));
   const ungrouped = data.people.filter((p) => p.groupIds.length === 0);
   const ungroupedPlaces = data.places.filter((p) => p.groupIds.length === 0);
   const addRow = (items: [CreateKind, string][]) => (
@@ -1505,6 +1561,9 @@ function ListMode({
           {C.edit.create}
         </Button>
       </div>
+      {/* Q69 — /story-review 에서 옮긴 카드: 정리할 것(대기 있을 때만)·오늘의 인터뷰(항상) */}
+      <PendingPeopleCard count={suggest.pendingPeople} />
+      <InterviewEntryCard state={suggest.interview} />
       <ol aria-label={C.mapListLabel} className="flex flex-col gap-6">
         {data.events.map((ev) => (
           <li key={ev.id} className="flex flex-col gap-3">
@@ -1552,6 +1611,34 @@ function ListMode({
           </li>
         ))}
       </ol>
+
+      {selfStories.length > 0 && (
+        <section aria-labelledby="mylife-list-self" className="flex flex-col gap-4">
+          <h2 id="mylife-list-self" className="m-0">
+            {INTERVIEW_COPY.selfStoriesTitle}
+          </h2>
+          <ul aria-label={INTERVIEW_COPY.selfStoriesTitle} className="flex flex-col gap-2">
+            {selfStories.map(({ ev, s }) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  data-list-key={`st:${ev.id}:${s.id}@self`}
+                  aria-label={storyAriaLabel(s)}
+                  onClick={() => openPanel(`st:${ev.id}:${s.id}`)}
+                  className={`flex min-h-[56px] w-full flex-col gap-1 rounded-md border-2 border-sage bg-surface px-4 py-3 text-left hover:bg-banner ${FOCUS}`}
+                >
+                  <span className="text-lg text-ink-soft">
+                    {yearText(ev)} {ev.label}
+                  </span>
+                  <span className="text-lg text-ink">{shortTitle(displayTitle(s))}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <GapCards gaps={suggest.gaps} />
 
       {/* 인물록 — 모임별 묶음(여러 모임인 분은 각 모임에 나오고 꼬리표), 모임 없는 분 묶음. 간선 대신 패널의 "나온 이야기". */}
       <section aria-labelledby="mylife-list-people" className="flex flex-col gap-4">
@@ -1956,8 +2043,35 @@ function panelInfo(
 }
 
 // 이야기 정보 — 함께 나온 분·나온 곳 목록(과 [빼기])은 NodeEditor 가 그린다. 확인 대기 분은 여기(작은 물방울 + 확인하러 가기).
+// [이야기 고치기](Q69 — /story-review 이야기 카드에서 옮김): 본문 칸 + [저장]/[취소], 같은 서버 액션(updateEpisodeContentAction —
+// 다듬은 글 초기화·제목은 그대로). 저장하면 바로 보이고(로컬) 지도 데이터는 router.refresh 로 다시 읽는다.
 function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; idx: Index }) {
+  const router = useRouter();
   const [full, setFull] = useState(false);
+  const [body, setBody] = useState(story.content);
+  const [draft, setDraft] = useState<string | null>(null); // null = 보기, 문자열 = 고치는 중
+  const [error, setError] = useState<string | null>(null);
+  const [saving, startSave] = useTransition();
+  function save(text: string) {
+    setError(null);
+    startSave(async () => {
+      try {
+        const r = await updateEpisodeContentAction(story.id, text);
+        if (!r.ok) {
+          setError(r.error ?? C.editBodyFailed);
+          return;
+        }
+        setBody(text);
+        setDraft(null);
+        router.refresh();
+      } catch (e) {
+        // 응답만 실패하고 저장은 끝났을 수 있다(P20-1) — 화면을 서버 상태로 맞춘다.
+        console.error("[mylife-body]", e);
+        setError(C.editBodyRetry);
+        router.refresh();
+      }
+    });
+  }
   const pending = story.chips.filter((c) => c.proposed);
   const others = story.otherEventIds.map((id) => idx.eventById.get(id)).filter((e): e is MyLifeEvent => !!e);
   return (
@@ -1970,10 +2084,51 @@ function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; i
       <h2 id="mylife-panel-title" className={hasOwnTitle(story) ? "m-0 text-2xl" : "sr-only"}>
         {hasOwnTitle(story) ? displayTitle(story) : shortTitle(displayTitle(story))}
       </h2>
-      <p className={`whitespace-pre-line text-lg text-ink ${full ? "" : "line-clamp-3"}`}>{story.content}</p>
-      <Button variant="secondary" size="lg" aria-expanded={full} onClick={() => setFull((v) => !v)}>
-        {full ? C.hideBody : C.readBody}
-      </Button>
+      {draft === null ? (
+        <>
+          <p className={`whitespace-pre-line text-lg text-ink ${full ? "" : "line-clamp-3"}`}>{body}</p>
+          <Button variant="secondary" size="lg" aria-expanded={full} onClick={() => setFull((v) => !v)}>
+            {full ? C.hideBody : C.readBody}
+          </Button>
+          <Button variant="secondary" size="lg" onClick={() => setDraft(body)}>
+            {C.editBody}
+          </Button>
+        </>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <textarea
+            aria-label={C.bodyLabel}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={6}
+            autoComplete="off"
+            data-lpignore="true"
+            data-1p-ignore
+            data-form-type="other"
+            disabled={saving}
+            className="w-full rounded-md border-2 border-line bg-canvas px-4 py-3 text-lg leading-relaxed text-ink focus:border-brand focus:outline-none disabled:opacity-50"
+          />
+          {error && (
+            <p role="alert" className="m-0 text-lg text-danger">
+              {error}
+            </p>
+          )}
+          <Button variant="primary" size="lg" disabled={saving || !draft.trim()} onClick={() => save(draft)}>
+            {saving ? C.savingBody : C.saveBody}
+          </Button>
+          <Button
+            variant="tertiary"
+            size="lg"
+            disabled={saving}
+            onClick={() => {
+              setDraft(null);
+              setError(null);
+            }}
+          >
+            {C.edit.cancel}
+          </Button>
+        </div>
+      )}
       {others.length > 0 && (
         <p className="text-lg text-ink">
           {C.panelAlsoIn}: {others.map((o) => `${yearText(o)} ${o.label}`).join(", ")}

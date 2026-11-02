@@ -16,6 +16,8 @@
 //   ⑨ 2026-11-02 3단계 E2E — 연결 수·차례로 보기(시기 수와 같은 기준) · 지도 이동 요청 한 번만·패널 작업 뒤 지도 유지 · 한 번 탭 = 패널
 //   ⑩ 2026-11-02 3단계 E2E 후속 2 — 지도 위 떠 있던 가장자리 버튼을 도구줄(이동 줄)·머리 줄(연결된 곳)로
 //   ⑪ 2026-11-02 3단계 최종 E2E — 차례 보기 [다음 연결](연결 n/N, 마지막 다음 = 처음으로) · 시기 패널 사람·장소 목록 = 수와 같은 기준(이야기에 나온 곳 포함)
+//   ⑫ 2026-11-02 Q69 — /story-review 합치기: redirect·archived · 앱 안 링크 0 · 사이드 패널 · 목록 보기 카드 자리·그때의 나 묶음 ·
+//      지도 [이야기 거리] 시트 · 이야기 패널 [이야기 고치기]
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0).
 // 실행: npx tsx db/test-my-life.ts
@@ -532,6 +534,51 @@ async function main() {
         edit.includes("const it = r.id ? make(r.id, false, note) : { name: r.name, go: { key: `st:${ev.id}:${r.storyId}`, eventId: ev.id }, removable: false, note };") &&
         edit.includes("s.items.filter((i) => i.ref && !i.fromStory)") && edit.includes("{it.removable && it.ref && (") &&
         !edit.includes("ev.placeIds.map(placeItem)"));
+
+    // ── ⑫ Q69(2026-11-02) — /story-review 를 My Life 로 합침 ──
+    const src = (rel: string) => fs.readFileSync(path.resolve(__dirname, "..", rel), "utf8");
+    const review = src("app/story-review/page.tsx");
+    check("⑫ /story-review = /my-life?view=list redirect · 원본은 archived 로 보존(되살리기 = default export 한 줄)",
+      /export default function StoryReviewPage\(\) \{\s*redirect\("\/my-life\?view=list"\);\s*\}/.test(review) &&
+        review.includes("async function _StoryReviewPageArchived()") && review.includes("_StoryReviewPageArchived,\n};"));
+    const walkFiles = (dir: string): string[] =>
+      fs.readdirSync(path.resolve(__dirname, "..", dir), { withFileTypes: true }).flatMap((d) =>
+        d.isDirectory() ? (d.name === "generated" ? [] : walkFiles(`${dir}/${d.name}`)) : /\.(ts|tsx)$/.test(d.name) ? [`${dir}/${d.name}`] : []);
+    // 주석 줄은 빼고 — 링크·redirect·push·revalidatePath 로 쓰인 "/story-review"(뒤에 /confirm 이 아닌 것)
+    const toReview = ["app", "lib", "components"].flatMap(walkFiles)
+      .filter((f) => f !== "app/story-review/page.tsx")
+      .filter((f) => src(f).split("\n").some((line) => !/^\s*(\/\/|\*|\{\/\*)/.test(line) && /["'`]\/story-review(["'`?#])/.test(line)));
+    check("⑫ 앱 안 /story-review 링크·redirect·revalidatePath 0(인물 확인 /story-review/confirm 은 그대로)", toReview.length === 0, toReview);
+    const side = src("app/timemachine/SidePanel.tsx");
+    check("⑫ 사이드 패널 \"내 이야기\" 빠짐 · My Life 메뉴 그대로", !side.includes('href="/story-review"') && side.includes('href="/my-life"'));
+    const page = src("app/my-life/page.tsx");
+    check("⑫ My Life 페이지가 카드 데이터를 만든다(인물 확인 대기·오늘의 인터뷰·갭 3·진행 중) — 옮기기 전과 같은 함수",
+      ["countPendingPeople(userId),", "getInterviewCardState(userId),", "detectGaps(userId),", "getFreeChatTopic(userId),", "pickTopGaps(gaps, 3)", "<MyLifeView data={data} suggest={suggest} />"].every((x) => page.includes(x)));
+    const listStart = view.indexOf("function ListMode(");
+    const list = view.slice(listStart, view.indexOf("function PersonRow("));
+    const at = (x: string) => list.indexOf(x);
+    check("⑫ 목록 보기 — 정리할 것·오늘의 인터뷰가 시간 줄기 위, 그때의 나 묶음·더 들어볼까요?가 시간 줄기 아래·인물록 위",
+      at("<PendingPeopleCard count={suggest.pendingPeople} />") > 0 &&
+        at("<PendingPeopleCard count={suggest.pendingPeople} />") < at("<InterviewEntryCard state={suggest.interview} />") &&
+        at("<InterviewEntryCard state={suggest.interview} />") < at("<ol aria-label={C.mapListLabel}") &&
+        at("</ol>") < at('aria-labelledby="mylife-list-self"') && at('aria-labelledby="mylife-list-self"') < at("<GapCards gaps={suggest.gaps} />") &&
+        at("<GapCards gaps={suggest.gaps} />") < at('aria-labelledby="mylife-list-people"'));
+    check("⑫ 그때의 나 묶음 — SELF 이야기만 · 누르면 같은 이야기 패널 · 목록 키는 따로(@self — 시기 아래 항목과 안 겹침)",
+      list.includes('ev.stories.filter((s) => s.kind === "SELF")') && list.includes("onClick={() => openPanel(`st:${ev.id}:${s.id}`)}") &&
+        list.includes("data-list-key={`st:${ev.id}:${s.id}@self`}"));
+    const mapPart = view.slice(view.indexOf("function MapMode("), listStart);
+    check("⑫ 지도 보기 — 노드 안 골랐을 때 \"지금 보는 곳\" 줄에 [이야기 거리] · 시트 = 같은 카드 셋(제목 h3)",
+      mapPart.includes("onClick={onOpenSuggest}") && mapPart.indexOf("onClick={onOpenSuggest}") > mapPart.indexOf("{nowText}") &&
+        view.includes('<PendingPeopleCard count={suggest.pendingPeople} as="h3" />') && view.includes('<InterviewEntryCard state={suggest.interview} as="h3" />') &&
+        view.includes('<GapCards gaps={suggest.gaps} as="h3" />') && view.includes('aria-labelledby="mylife-suggest-title"'));
+    const sug = src("app/my-life/Suggestions.tsx");
+    check("⑫ 카드 — 정리할 것은 대기 있을 때만 · 갭은 있을 때만(진행 중 = [이어서 이야기하기]) · 링크 = 인물 확인·인터뷰·/chat-v3 딥링크",
+      sug.includes("if (count <= 0) return null;") && sug.includes("if (gaps.length === 0) return null;") &&
+        sug.includes("{g.inProgress ? C.gapContinue : C.gapStart}") && sug.includes('href="/story-review/confirm"') && sug.includes('href="/interview"') && sug.includes("href={g.href}"));
+    check("⑫ 이야기 패널 [이야기 고치기] — 같은 서버 액션(updateEpisodeContentAction) · 저장 뒤 바로 보임 + 지도 다시 읽기 · 응답 실패도 다시 읽기",
+      view.includes("const r = await updateEpisodeContentAction(story.id, text);") && view.includes("setBody(text);") &&
+        (view.slice(view.indexOf("function StoryPanel(")).match(/router\.refresh\(\);/g) ?? []).length === 2 && view.includes("{C.editBody}") &&
+        view.includes("aria-label={C.bodyLabel}"));
 
     for (const [g, pg] of [[0, 1], [2, 2], [3, 3], [1, 5]] as const) {
       const syn = synthetic({ events: 11, stories: 23, people: 12, groups: g, places: 14, placeGroups: pg, seed: 21 + pg });

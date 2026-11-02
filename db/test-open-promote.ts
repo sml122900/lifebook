@@ -11,14 +11,14 @@
 // 2) 실질 이야기 + 나이 표현("스무 살 때…", 1950년생) → 카드 시기 = 새 시기, 연도 ≈ 1970.
 // 3) CUSTOM 자리 — 연도 있음은 1963(중학교) 과 1985(결혼) 사이, 연도 없음은 맨 뒤.
 // 4) CUSTOM CONFIRMED 시기가 person 갭 대상 + 이야기와 함께 만들어져 episode 갭 없음(hasEpisode).
-// 5) /story-review 타임라인에 연도순 자리로 보이는지.
+// 5) My Life 시간 줄기(Q69 전 /story-review 타임라인)에 연도순 자리로 보이는지.
 
 import "dotenv/config";
 
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
 import { detectGaps } from "../lib/gap-detector";
-import { getStoryReviewData } from "../lib/story-review";
+import { getMyLifeData } from "../lib/my-life";
 import { createCustomLifeEvent } from "../lib/open-chat-promote";
 import { createFromFreeChatProposal, freeChatReply, getFreeChatState, proposeFromSegment } from "../lib/free-chat";
 import { requireTestBudget, saveLiveFailure } from "./live-log";
@@ -116,10 +116,10 @@ async function main() {
     if (!hasPersonGap || hasEpisodeGap) fail("gap state wrong for CUSTOM with story");
     if (!story.hasEpisode) fail("hasEpisode should be true");
 
-    // --- 5) story-review 타임라인
-    const review = await getStoryReviewData(user.id);
-    console.log("timeline:", review.timeline.map((t) => `${t.year ?? "?"} ${t.label}${t.hasEpisode ? "*" : ""}`).join(" | "));
-    if (review.timeline[2]?.id !== story.id || review.timeline[4]?.id !== nullYear.id) fail("story-review timeline order wrong");
+    // --- 5) My Life 시간 줄기(Q69 전 /story-review 타임라인)
+    const timeline = (await getMyLifeData(user.id)).events;
+    console.log("timeline:", timeline.map((t) => `${t.year ?? "?"} ${t.label}${t.stories.length > 0 ? "*" : ""}`).join(" | "));
+    if (timeline[2]?.id !== story.id || timeline[4]?.id !== nullYear.id) fail("my-life timeline order wrong");
   } finally {
     await deleteAccountTx(user.id);
   }

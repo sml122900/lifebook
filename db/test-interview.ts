@@ -12,7 +12,7 @@
 //   ⑨ 풀 문구 {elemSchool} — 출생연도 기준 국민학교/초등학교 치환(+ 조사), 1960년생 픽스처 제목
 //   ⑩ 관계별 나(노드 그래프 2a, 실제 Sonnet 요약 1~2 + 인물 추출 1) — 출제(최대 1개·관계 대상 이름
 //      치환), Episode(kind=SELF) 저장, 이야기 ↔ 인물 확정 연결, 이야기 갭·배지 미충족, 포스터 브릿지
-//      제외, /story-review 별도 묶음, 순수 함수(키·후보·재노출·최대 1개·{who} 치환)
+//      제외, My Life 목록 보기 별도 묶음(Q69 전 /story-review), 순수 함수(키·후보·재노출·최대 1개·{who} 치환)
 //
 // 자체 픽스처 계정(fixture-interview@lifebook.invalid)을 시작 시 만들고 끝에(성공·실패
 // 모두) deleteAccountTx 로 하위 데이터째 삭제한다. test30·실고객 계정 읽기·쓰기 0.
@@ -46,7 +46,8 @@ import {
   type InterviewSelfQuestion,
 } from "../lib/interview/question-pool";
 import { syncV3Bridge } from "../lib/poster/v3-bridge";
-import { getStoryReviewData } from "../lib/story-review";
+import { getMyLifeData } from "../lib/my-life";
+import { displayTitle } from "../lib/story-title";
 import {
   answerInterviewYear,
   decideInterviewProposal,
@@ -185,11 +186,17 @@ function staticChecks() {
     "① page.tsx 분기(/login·/enter·/consent·/chat-v3)",
     ["/login", "/enter", "/consent", "/chat-v3"].every((p) => pageSrc.includes(`redirect("${p}")`)),
   );
-  const reviewSrc = read("app/story-review/page.tsx");
+  // Q69(2026-11-02) — 진입 카드는 /story-review 에서 My Life 로(목록 보기 맨 위 · 지도 [이야기 거리] 시트).
+  const myLifePage = read("app/my-life/page.tsx");
+  const myLifeView = read("app/my-life/MyLifeView.tsx");
+  const suggestSrc = read("app/my-life/Suggestions.tsx");
+  const entryCard = suggestSrc.slice(suggestSrc.indexOf("export function InterviewEntryCard"), suggestSrc.indexOf("export function GapCards"));
   check(
-    "① /story-review 진입 카드 항상 조회·표시(조건 없음)",
-    /getFreeChatTopic\(userId\),\s*getInterviewCardState\(userId\),\s*\]\)/.test(reviewSrc) &&
-      reviewSrc.includes("<InterviewCard state={interviewCard} />"),
+    "① My Life 진입 카드 항상 조회·표시(조건 없음) — 목록 보기 맨 위 + 지도 [이야기 거리] 시트",
+    /getInterviewCardState\(userId\),/.test(myLifePage) && /\n    interview,\n/.test(myLifePage) &&
+      myLifeView.includes("<InterviewEntryCard state={suggest.interview} />") &&
+      myLifeView.includes('<InterviewEntryCard state={suggest.interview} as="h3" />') &&
+      entryCard.length > 0 && !entryCard.includes("return null"),
   );
   const gateLeft = ["app", "lib"]
     .flatMap((dir) => walk(path.join(ROOT, dir)))
@@ -209,8 +216,9 @@ function staticChecks() {
   check("⑧ 인터뷰 코드의 LifeEvent 쓰기 = 1곳", writes.length === 1, writes);
   check("⑧ 그 쓰기의 data = { year } 만", /lifeEvent\.updateMany\(\{[\s\S]{0,200}data:\s*\{\s*year\s*\}/.test(src));
 
-  // ⑩ /story-review — 그때의 나 묶음을 따로 그리고 제목은 문구 파일에서.
-  check("⑩ /story-review 그때의 나 묶음 = selfEpisodes + 문구 파일 제목", reviewSrc.includes("selfEpisodes.length > 0") && reviewSrc.includes("INTERVIEW_COPY.selfStoriesTitle"));
+  // ⑩ My Life 목록 보기(Q69 — /story-review 에서 옮김) — 그때의 나 묶음을 따로 그리고 제목은 문구 파일에서.
+  check("⑩ My Life 목록 보기 그때의 나 묶음 = SELF 이야기 + 문구 파일 제목",
+    myLifeView.includes('ev.stories.filter((s) => s.kind === "SELF")') && myLifeView.includes("{INTERVIEW_COPY.selfStoriesTitle}"));
 }
 
 function pureChecks() {
@@ -459,12 +467,15 @@ async function main() {
       highRow !== undefined && highRow.content === null &&
         !bridgeRows.some((r) => r.id === `v3p_${selfEpId}` || (!!selfEp && (r.content ?? "").includes(selfEp.content.trim()))),
       highRow);
-    const review = await getStoryReviewData(userId);
-    check("⑩ /story-review — 그때의 나는 별도 묶음, 일반 이야기 목록엔 없음",
-      JSON.stringify(review.selfEpisodes.map((e) => e.id)) === JSON.stringify([selfEpId]) &&
-        review.selfEpisodes[0]?.label === "고등학교 때 박영수와 있을 때의 나" &&
-        !review.episodes.some((e) => e.id === selfEpId) && review.episodes.length === 2,
-      { self: review.selfEpisodes.map((e) => e.label), stories: review.episodes.map((e) => e.label) });
+    // Q69 — 보이는 곳이 /story-review 에서 My Life 로(목록 보기 그때의 나 묶음 = kind SELF).
+    const lifeStories = (await getMyLifeData(userId)).events.flatMap((e) => e.stories);
+    const selfs = lifeStories.filter((x) => x.kind === "SELF");
+    const plain = lifeStories.filter((x) => x.kind === "STORY");
+    check("⑩ My Life — 그때의 나는 SELF(목록 보기 묶음), 일반 이야기는 STORY",
+      JSON.stringify(selfs.map((x) => x.id)) === JSON.stringify([selfEpId]) &&
+        !!selfs[0] && displayTitle(selfs[0]) === "고등학교 때 박영수와 있을 때의 나" &&
+        !plain.some((x) => x.id === selfEpId) && plain.length === 2,
+      { self: selfs.map((x) => displayTitle(x)), stories: plain.map((x) => displayTitle(x)) });
 
     const summary = await skipInterviewItem(userId, rows[5].id, now);
     check("⑥ 마지막 뒤 = 종료 요약(답 3·건너뜀 2)", summary.kind === "summary" && summary.answered === 3 && summary.skipped === 2, summary);

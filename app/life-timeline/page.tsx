@@ -56,12 +56,12 @@ export default async function LifeTimelinePage() {
   const userId = session.user.id;
 
   // v3 P20-2b — V3 사용자가 이 v2 전용 화면에 직접 URL 등으로 들어오면
-  // /story-review 로 돌려보낸다(P17-2·P20-2b companion 가드와 같은 패턴).
+  // /my-life 로 돌려보낸다(Q69 전엔 /story-review — P17-2·P20-2b companion 가드와 같은 패턴).
   // 무거운 데이터 fetch 전에 가볍게 먼저 확인 — V3 사용자는 아래 어떤 쿼리도
   // 안 태운다.
   const track = await getOnboardingTrack(userId);
   if (track === "V3") {
-    redirect("/story-review");
+    redirect("/my-life"); // Q69 — /story-review 합침
   }
 
   // 네 fetch 모두 독립 — 병렬. (출석은 /account/tokens 로 이전했고

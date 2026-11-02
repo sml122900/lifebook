@@ -41,6 +41,18 @@ export const MY_LIFE_COPY = {
   hideBody: "본문 접기",
   goConfirm: "확인하러 가기",
   pendingNote: "이 이야기에 아직 확인하지 않은 분이 있어요.",
+  // Q69(2026-11-02) — /story-review 에서 옮긴 것. 갭 카드·이야기 고치기 글자는 옮기기 전 /story-review 문구 그대로.
+  suggest: "이야기 거리", // 지도 보기 [이야기 거리] 버튼·시트 제목(정리할 것·오늘의 인터뷰·더 들어볼까요?)
+  gapsTitle: "더 들어볼까요?",
+  gapInProgress: "진행 중",
+  gapStart: "이야기하기",
+  gapContinue: "이어서 이야기하기",
+  editBody: "이야기 고치기",
+  bodyLabel: "이야기 내용",
+  saveBody: "저장",
+  savingBody: "저장 중…",
+  editBodyFailed: "고치지 못했어요.",
+  editBodyRetry: "처리 중 문제가 있었어요. 화면을 새로고침할게요.",
   openPerson: "인물록에서 보기",
   openMap: "지도에서 보기",
   emptyTitle: "아직 지도에 담을 이야기가 없어요",

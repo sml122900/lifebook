@@ -312,3 +312,22 @@ export function pickTopGaps(gaps: Gap[], limit: number): Gap[] {
 
   return picked.sort((a, b) => a.priority - b.priority);
 }
+
+// 갭 카드 [이야기하기] → /chat-v3 딥링크(주제로 자유 대화 시작). My Life(목록 보기·지도 [이야기 거리])가 쓴다 —
+// Q69(2026-11-02)에 /story-review 화면에서 옮김.
+export function gapChatHref(gap: Gap): string {
+  if (!gap.targetEventId) return "/chat-v3";
+  if (gap.type === "episode") {
+    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=episode`;
+  }
+  if (gap.type === "time_gap") {
+    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=period`;
+  }
+  if (gap.type === "person") {
+    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=person`;
+  }
+  if (gap.type === "person_episode" && gap.targetPersonId) {
+    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=person_episode&gapPersonId=${gap.targetPersonId}`;
+  }
+  return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=confirm`;
+}

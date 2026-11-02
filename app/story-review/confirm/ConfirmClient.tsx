@@ -93,7 +93,7 @@ export function ConfirmClient({ initialGroups }: { initialGroups: PendingStoryGr
       <section className="flex flex-col gap-6">
         <h1 className="text-3xl font-bold text-ink">{C.emptyTitle}</h1>
         <p className="text-lg text-ink-soft">{C.emptyDesc}</p>
-        <ButtonLink href="/story-review" variant="primary" size="lg">
+        <ButtonLink href="/my-life" variant="primary" size="lg">
           {C.emptyButton}
         </ButtonLink>
       </section>
@@ -323,7 +323,7 @@ export function ConfirmClient({ initialGroups }: { initialGroups: PendingStoryGr
             {C.allDone}
           </p>
         )}
-        <ButtonLink href="/story-review" variant={openIds.length === 0 ? "primary" : "secondary"} size="lg">
+        <ButtonLink href="/my-life" variant={openIds.length === 0 ? "primary" : "secondary"} size="lg">
           {C.finish}
         </ButtonLink>
       </div>

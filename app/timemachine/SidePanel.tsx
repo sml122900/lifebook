@@ -261,13 +261,8 @@ function SidePanel({
                   dataTour="companion"
                   prefetch={false}
                 />
-                <MenuItem
-                  href="/story-review"
-                  label="내 이야기"
-                  hint="지금까지 채운 이야기 모아보기"
-                  prefetch={false}
-                />
-                {/* 노드 그래프 2b-3a — My Life 마인드맵(V3 만). 완전 동적 화면이라 prefetch 끔(P22-2). */}
+                {/* 노드 그래프 2b-3a — My Life 마인드맵(V3 만). 완전 동적 화면이라 prefetch 끔(P22-2).
+                    Q69(2026-11-02) — "내 이야기"(/story-review)는 My Life 목록 보기로 합쳐 메뉴에서 뺌(같은 화면이 두 번). */}
                 <MenuItem
                   href="/my-life"
                   label={MY_LIFE_COPY.menuLabel}

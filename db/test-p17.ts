@@ -39,7 +39,7 @@ async function main() {
   });
   assert(profileNone === null, "V3 신규 — OnboardingProfile 없음 → /start 분기");
 
-  // 4) V3 + 뼈대 완성 + UNCONFIRMED 0건 → /story-review 분기 조건
+  // 4) V3 + 뼈대 완성 + UNCONFIRMED 0건 → /my-life 분기 조건(Q68 — 이전 /story-review)
   const v3Ready = await prisma.user.create({
     data: { email: `${EMAIL_PREFIX}v3ready@test.local`, name: "V3완료", onboardingTrack: "V3" },
   });
@@ -64,7 +64,7 @@ async function main() {
     where: { userId: v3Ready.id, status: "UNCONFIRMED" },
   });
   assert(profileReady?.skeletonGeneratedAt != null, "V3 완료 — skeletonGeneratedAt 있음");
-  assert(unconfirmedReady === 0, "V3 완료 — UNCONFIRMED 0건 → /story-review 분기");
+  assert(unconfirmedReady === 0, "V3 완료 — UNCONFIRMED 0건 → /my-life 분기");
 
   // 5) V3 + 뼈대 완성 + UNCONFIRMED 있음 → /start 분기 유지
   await prisma.lifeEvent.create({

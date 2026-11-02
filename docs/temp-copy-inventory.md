@@ -1,6 +1,6 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰·그때의 나 문구의 보이는 곳 → My Life). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 4개의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 ## 요약
@@ -8,9 +8,9 @@
 | 파일 | 임시 문구 | 화면에 안 나오는 키(쓰는 곳 없음) | 보이는 곳 |
 |---|---|---|---|
 | `lib/free-chat-copy.ts` | 62 (전부 — 카드 오류 6개는 2026-11-02 `lib/node-proposal.ts` 에서 옮겨 옴 · 시기 미지정 2개 `centerUnset`·`centerPick` 2026-11-02 추가) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
-| `lib/my-life-copy.ts` | 194 (79 + 3단계 115 · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
-| `lib/node-confirm-copy.ts` | 32 (전부) | 0 | `/story-review/confirm` · `/story-review` "정리할 것이 있어요" 카드 · `/interview` 요약 |
-| `lib/interview/copy.ts` | 43 (전부) | 0 | `/interview` · `/story-review` "오늘의 인터뷰" 카드·"그때의 나" |
+| `lib/my-life-copy.ts` | 205 (79 + 3단계 115 + Q69 11 · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 1 (`storyReviewEntry` — Q69 뒤 `/story-review` 보존 본문에만) | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
+| `lib/node-confirm-copy.ts` | 32 (전부) | 0 | `/story-review/confirm` · My Life "정리할 것이 있어요" 카드(목록 보기 맨 위·지도 [이야기 거리] — Q69 전 `/story-review`) · `/interview` 요약 |
+| `lib/interview/copy.ts` | 43 (전부) | 0 | `/interview` · My Life "오늘의 인터뷰" 카드·"그때의 나" 묶음(Q69 전 `/story-review`) |
 | `lib/interview/question-pool.ts` | 문항 8개(18줄 — 구조 예시 5 + "관계별 나" 3) | — | `/interview` 질문·이야기 제목 |
 | 그 밖 | 1 | — | 아래 "그 밖" |
 
@@ -90,7 +90,7 @@
 | 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
 |---|---|---|---|---|
 | `menuHint` | 13 | "내 인생을 한 장의 지도로" | 사이드 패널 메뉴 | app/timemachine/SidePanel.tsx:274 |
-| `storyReviewEntry` | 14 | "My Life 로 보기" | /story-review | app/story-review/page.tsx:78 |
+| `storyReviewEntry` | 14 | "My Life 로 보기" | 쓰는 곳 없음 — `/story-review` 보존 본문(archived)에만, 화면에 안 나옴(Q69) | app/story-review/page.tsx(_StoryReviewPageArchived) |
 | `mapListLabel` | 15 | "My Life — 시기 순서" | /my-life | app/my-life/MyLifeView.tsx:937, app/my-life/MyLifeView.tsx:1189 |
 | `mapRegionLabel` | 16 | "My Life 지도" | /my-life | app/my-life/MyLifeView.tsx:764 |
 | `listStories` | 17 | "이야기" | /my-life | app/my-life/MyLifeView.tsx:972, app/my-life/MyLifeView.tsx:1204 |
@@ -184,6 +184,24 @@
 | 3단계 최종 E2E(5 — 2026-11-02) | `tourLine` "연결 n/N · 이름"(차례 보기 중 선택 줄) · `tourNext` "다음 연결" · `tourBack` "처음으로" · `tourBackLabel` "처음 노드로 돌아가기 — 이름"(화면 낭독용) · `inStory` "‘제목’ 이야기에 나와요"(시기 패널 — 이야기에서만 나온 분·곳의 아래 줄) | /my-life |
 | `edit` 오류(15) | `notFound`·`alreadyPrimary`·`cannotLink`·`cannotUnlink`·`cannotUndo` "되돌리지 못했어요. 다시 해 주세요."(빼기 되돌리기 실패 — 3단계 E2E 후속 2026-11-02)·`cannotRemovePrimary`·`cannotRemoveSubject`·`needName`·`tooLong`·`badYear`·`badEndYear`·`needBody`·`pickPeriod`·`repickSame`·`failed` | 시트·패널 오류 줄(`lib/my-life-edit.ts` 가 돌려줌) |
 
+#### Q69 추가(2026-11-02 — `/story-review` 를 My Life 로 합치기, 전부 `[임시 — 성민 확정 필요]`)
+
+갭 카드·이야기 고치기 글자는 옮기기 전 `/story-review` 화면 문구 그대로(그 화면은 문구 파일 없이 코드에 적혀 있었다).
+
+| 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
+|---|---|---|---|---|
+| `suggest` | 45 | "이야기 거리" | 지도 보기 "지금 보는 곳" 줄 버튼 · 시트 제목 | app/my-life/MyLifeView.tsx:1020, app/my-life/MyLifeView.tsx:518 |
+| `gapsTitle` | 46 | "더 들어볼까요?" | 목록 보기 시간 줄기 아래 · [이야기 거리] 시트 | app/my-life/Suggestions.tsx:58 |
+| `gapInProgress` | 47 | "진행 중" | 갭 카드(지금 자유 대화 주제와 같을 때) | app/my-life/Suggestions.tsx:64 |
+| `gapStart` | 48 | "이야기하기" | 갭 카드 버튼 | app/my-life/Suggestions.tsx:67 |
+| `gapContinue` | 49 | "이어서 이야기하기" | 갭 카드 버튼(진행 중) | app/my-life/Suggestions.tsx:67 |
+| `editBody` | 50 | "이야기 고치기" | 이야기 패널 | app/my-life/MyLifeView.tsx:2094 |
+| `bodyLabel` | 51 | "이야기 내용" | 이야기 패널 본문 칸(화면 낭독) | app/my-life/MyLifeView.tsx:2100 |
+| `saveBody` | 52 | "저장" | 이야기 패널 고치기 | app/my-life/MyLifeView.tsx:2117 |
+| `savingBody` | 53 | "저장 중…" | 이야기 패널 고치기 | app/my-life/MyLifeView.tsx:2117 |
+| `editBodyFailed` | 54 | "고치지 못했어요." | 이야기 패널 고치기 오류(서버 문구가 없을 때) | app/my-life/MyLifeView.tsx:2061 |
+| `editBodyRetry` | 55 | "처리 중 문제가 있었어요. 화면을 새로고침할게요." | 이야기 패널 고치기 — 응답 실패 | app/my-life/MyLifeView.tsx:2070 |
+
 ### `lib/node-confirm-copy.ts` (`CONFIRM_COPY`)
 
 | 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
@@ -215,9 +233,9 @@
 | `emptyTitle` | 32 | "확인할 분이 없어요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:94 |
 | `emptyDesc` | 33 | "이야기를 나누다 새로운 분이 나오면 여기서 확인해 드릴게요." | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:95 |
 | `emptyButton` | 34 | "지금까지 채운 이야기 보기" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:97 |
-| `reviewCardTitle` | 37 | "정리할 것이 있어요" | /story-review | app/story-review/page.tsx:176 |
-| `reviewCardDesc` | 38 | `` (n: number) => `이야기에 나온 분 ${n}명이 맞는지 확인해 주세요.` `` | /story-review | app/story-review/page.tsx:177 |
-| `reviewCardButton` | 39 | "확인하러 가기" | /story-review | app/story-review/page.tsx:179 |
+| `reviewCardTitle` | 37 | "정리할 것이 있어요" | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:24 |
+| `reviewCardDesc` | 38 | `` (n: number) => `이야기에 나온 분 ${n}명이 맞는지 확인해 주세요.` `` | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:25 |
+| `reviewCardButton` | 39 | "확인하러 가기" | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:27 |
 | `interviewCardDesc` | 42 | `` (n: number) => `이야기에 나온 분 ${n}명, 맞는지 확인해 주세요.` `` | /interview | app/interview/InterviewClient.tsx:105 |
 | `interviewCardButton` | 43 | "확인하러 가기" | /interview | app/interview/InterviewClient.tsx:107 |
 
@@ -225,13 +243,13 @@
 
 | 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
 |---|---|---|---|---|
-| `cardTitle` | 9 | "오늘의 인터뷰" | /story-review | app/story-review/page.tsx:195 |
-| `cardBefore` | 10 | "짧은 질문 몇 가지를 여쭤볼게요." | /story-review | app/story-review/page.tsx:189 |
-| `cardInProgress` | 11 | `` (done: number, total: number) => `${total}개 중 ${done}개 답하셨어요.` `` | /story-review | app/story-review/page.tsx:191 |
-| `cardDone` | 12 | "오늘 인터뷰를 마쳤어요." | /story-review | app/story-review/page.tsx:192 |
-| `cardButtonStart` | 13 | "시작하기" | /story-review | app/story-review/page.tsx:189 |
-| `cardButtonContinue` | 14 | "이어서 하기" | /story-review | app/story-review/page.tsx:191 |
-| `cardButtonDone` | 15 | "오늘 답 보기" | /story-review | app/story-review/page.tsx:192 |
+| `cardTitle` | 9 | "오늘의 인터뷰" | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:44 |
+| `cardBefore` | 10 | "짧은 질문 몇 가지를 여쭤볼게요." | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:38 |
+| `cardInProgress` | 11 | `` (done: number, total: number) => `${total}개 중 ${done}개 답하셨어요.` `` | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:40 |
+| `cardDone` | 12 | "오늘 인터뷰를 마쳤어요." | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:41 |
+| `cardButtonStart` | 13 | "시작하기" | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:38 |
+| `cardButtonContinue` | 14 | "이어서 하기" | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:40 |
+| `cardButtonDone` | 15 | "오늘 답 보기" | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:41 |
 | `startTitle` | 18 | "오늘의 인터뷰" | /interview | app/interview/InterviewClient.tsx:72 |
 | `startDesc` | 19 | `` (n: number) => `오늘은 질문 ${n}개를 여쭤볼게요. 짧게 답하셔도 괜찮아요.` `` | /interview | app/interview/InterviewClient.tsx:73 |
 | `startButton` | 20 | "시작할게요" | /interview | app/interview/InterviewClient.tsx:76 |
@@ -267,7 +285,7 @@
 | `summaryChat` | 59 | "더 이야기 나누기" | /interview | app/interview/InterviewClient.tsx:88, app/interview/InterviewClient.tsx:128 |
 | `emptyTitle` | 62 | "오늘은 여쭤볼 질문이 없어요" | /interview | app/interview/InterviewClient.tsx:85 |
 | `emptyDesc` | 63 | "하고 싶은 이야기가 있으시면 언제든 들려주세요." | /interview | app/interview/InterviewClient.tsx:86 |
-| `selfStoriesTitle` | 66 | "그때의 나" | /story-review | app/story-review/page.tsx:109 |
+| `selfStoriesTitle` | 66 | "그때의 나" | My Life 목록 보기 "그때의 나" 묶음 제목(Q69 전 /story-review) | app/my-life/MyLifeView.tsx:1618 |
 
 ### `lib/interview/question-pool.ts` (질문 풀 — 구조 예시 문항, 보이는 곳 = /interview 질문·이야기 제목)
 

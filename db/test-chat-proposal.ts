@@ -93,7 +93,6 @@ import {
 import { periodMemoryId, syncV3Bridge } from "../lib/poster/v3-bridge";
 import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
 import { DEFAULT_PERIOD_LABELS, displayTitle, isPeriodNameTitle, SHORT_TITLE_MAX, shortTitle, storedStoryTitle } from "../lib/story-title";
-import { getStoryReviewData } from "../lib/story-review";
 import { appendLiveStat, requireTestBudget, saveLiveFailure } from "./live-log";
 
 const FIXTURE_EMAIL = "fixture-chat-proposal@lifebook.invalid";
@@ -1158,14 +1157,14 @@ async function titleChecks(fx: Fixture) {
   check("⑪ [고치기]에서 제목을 지움 → 저장 = 빈 문자열 · 지도 제목 없음 · 지도 글자·결과 제목 = 본문 첫 문장",
     made.ok && ep?.memory.title === "" && story?.title === "" && !!story && displayTitle(story) === lead && made.title === lead, { made, ep, story });
 
-  // 읽는 곳 — /story-review 이름 · 포스터 구간 행 제목 · 방금 남긴 이야기(화면 제목으로 찾음).
+  // 읽는 곳 — My Life 이야기 이름(Q69 전 /story-review) · 포스터 구간 행 제목 · 방금 남긴 이야기(화면 제목으로 찾음).
   const period = await createEpisodeBridge(userId, ev.MILITARY, "", 1973, "훈련소에서 첫 편지를 썼다. 손이 떨렸다.", "[본인] 편지", undefined, true);
-  const review = await getStoryReviewData(userId);
-  const label = review.episodes.find((e) => made.ok && e.id === made.episodeId)?.label;
+  const lifeStory = (await getMyLifeData(userId)).events.flatMap((e) => e.stories).find((s) => made.ok && s.id === made.episodeId);
+  const label = lifeStory ? displayTitle(lifeStory) : undefined;
   const rows = await syncV3Bridge(userId);
   const posterRow = rows.find((r) => !!period && r.id === periodMemoryId(period.episodeId));
   const saved = await recentSavedStories(userId, [lead]);
-  check("⑪ 제목 없는 이야기 — /story-review 이름 · 포스터 구간 행 제목 = 본문 첫 문장 · 방금 남긴 이야기로 찾음",
+  check("⑪ 제목 없는 이야기 — My Life 이야기 이름 · 포스터 구간 행 제목 = 본문 첫 문장 · 방금 남긴 이야기로 찾음",
     label === lead && posterRow?.title === "훈련소에서 첫 편지를 썼다." && saved.length === 1 && saved[0].title === lead && saved[0].summary === card.summary,
     { label, posterRow, saved });
 
@@ -1199,8 +1198,9 @@ function longTitleChecks() {
     { long: shortTitle(long) });
   const chat = read("app/chat-v3/ChatV3Client.tsx");
   const map = read("app/my-life/MyLifeView.tsx");
-  check("⑭ 쓰는 곳 — 저장 안내 = 줄인 이름 · 지도 노드·목록 보기·(제목 없는 이야기 패널의 화면 낭독용 제목 줄) = 줄인 제목 · 카드 제목 = 2줄 말줄임(본문은 그대로)",
-    chat.includes("FC.created(shortTitle(r.title))") && (map.match(/shortTitle\(displayTitle\(/g) ?? []).length === 3 &&
+  // 줄인 제목 4곳 = 지도 노드 · 목록 보기 · 목록 보기 그때의 나 묶음(Q69) · 제목 없는 이야기 패널의 화면 낭독용 제목 줄.
+  check("⑭ 쓰는 곳 — 저장 안내 = 줄인 이름 · 지도 노드·목록 보기·그때의 나 묶음·(제목 없는 이야기 패널의 화면 낭독용 제목 줄) = 줄인 제목 · 카드 제목 = 2줄 말줄임(본문은 그대로)",
+    chat.includes("FC.created(shortTitle(r.title))") && (map.match(/shortTitle\(displayTitle\(/g) ?? []).length === 4 &&
       map.includes("{hasOwnTitle(story) ? displayTitle(story) : shortTitle(displayTitle(story))}") &&
       /<dd className="m-0 line-clamp-2 text-xl font-bold text-ink">\{displayTitle\(\{ title: edit\.title, content: edit\.summary \}\)\}<\/dd>/.test(read("app/components/ProposalCard.tsx")));
   check("⑭ 카드가 고정 머리말에 안 가림 — 머리말 높이만큼 문서 scroll-padding-top(크기 바뀌면 다시 잼)",

@@ -33,7 +33,7 @@ export const CONFIRM_COPY = {
   emptyDesc: "이야기를 나누다 새로운 분이 나오면 여기서 확인해 드릴게요.", // [임시 — 성민 확정 필요]
   emptyButton: "지금까지 채운 이야기 보기", // [임시 — 성민 확정 필요]
 
-  // ── /story-review 상단 카드(정리할 것 N개) ──
+  // ── My Life 정리할 것 카드(N개 — 목록 보기 맨 위·지도 [이야기 거리], Q69 전 /story-review 상단) ──
   reviewCardTitle: "정리할 것이 있어요", // [임시 — 성민 확정 필요]
   reviewCardDesc: (n: number) => `이야기에 나온 분 ${n}명이 맞는지 확인해 주세요.`, // [임시 — 성민 확정 필요]
   reviewCardButton: "확인하러 가기", // [임시 — 성민 확정 필요]

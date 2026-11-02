@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
 import { gapMatchesTopic, getFreeChatTopic } from "@/lib/free-chat";
-import { detectGaps, pickTopGaps, type Gap } from "@/lib/gap-detector";
+import { detectGaps, gapChatHref, pickTopGaps } from "@/lib/gap-detector";
 import { INTERVIEW_COPY } from "@/lib/interview/copy";
 import { getInterviewCardState, type InterviewCardState } from "@/lib/interview/session";
 import { countPendingPeople } from "@/lib/node-confirm";
@@ -22,24 +22,19 @@ import { TimelineRow } from "./TimelineRow";
 // v3 P17 — /enter 가 이제 이 경로를 가리킨다(V3 트랙, 온보딩 완료 시). V2
 // 사용자 직접 URL 진입은 /enter 로 돌려보낸다(자동 전환 금지).
 
-function gapHref(gap: Gap): string {
-  if (!gap.targetEventId) return "/chat-v3";
-  if (gap.type === "episode") {
-    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=episode`;
-  }
-  if (gap.type === "time_gap") {
-    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=period`;
-  }
-  if (gap.type === "person") {
-    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=person`;
-  }
-  if (gap.type === "person_episode" && gap.targetPersonId) {
-    return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=person_episode&gapPersonId=${gap.targetPersonId}`;
-  }
-  return `/chat-v3?gapEventId=${gap.targetEventId}&gapType=confirm`;
+// Q69(2026-11-02, docs/phase/my-life-restructure.md §15) — My Life 목록 보기로 합침. 이 화면의 카드(정리할 것·오늘의
+// 인터뷰·더 들어볼까요?)·그때의 나 묶음·이야기 고치기는 /my-life 로 옮겼다. 옛 링크·북마크는 목록 보기로.
+// 코드 보존(archived 패턴 — app/timeline/page.tsx 와 같음): 아래 _StoryReviewPageArchived 와 의존(EpisodeCard·
+// TimelineRow·lib/story-review) 그대로. 되살리기 = default export 를 이 함수로 다시 가리키기.
+// 인물 확인(/story-review/confirm)은 경로 그대로.
+export default function StoryReviewPage() {
+  redirect("/my-life?view=list");
 }
 
-export default async function StoryReviewPage() {
+// ─────────────────────────────────────────────────────────────────────────
+// 이하 보존 — Q69 전 /story-review 원본. 사용 0(default export 가 위 redirect 로 교체됨).
+// ─────────────────────────────────────────────────────────────────────────
+async function _StoryReviewPageArchived() {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
@@ -131,7 +126,7 @@ export default async function StoryReviewPage() {
                     )}
                   </div>
                   <ButtonLink
-                    href={gapHref(gap)}
+                    href={gapChatHref(gap)}
                     variant="secondary"
                     size="lg"
                     className="shrink-0"
@@ -200,3 +195,9 @@ function InterviewCard({ state }: { state: InterviewCardState }) {
     </section>
   );
 }
+
+// 보존된 함수에 대한 unused-vars 경고 억제(app/timeline/page.tsx 와 같은 방식).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const __preserve_archived_exports = {
+  _StoryReviewPageArchived,
+};

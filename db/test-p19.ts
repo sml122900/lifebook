@@ -5,7 +5,7 @@ import "dotenv/config";
 import { prisma } from "../lib/db";
 import { createEpisodeBridge, deleteEpisode, updateEpisodeContent } from "../lib/episode";
 import { deleteCustomLifeEvent } from "../lib/life-event-delete";
-import { getStoryReviewData } from "../lib/story-review";
+import { deleteImpact } from "../lib/my-life-edit";
 import { detectGaps } from "../lib/gap-detector";
 
 const EMAIL_PREFIX = "p19-test-";
@@ -85,9 +85,9 @@ async function main() {
     },
   });
 
-  const beforeDelete = await getStoryReviewData(user.id);
-  const birthEpisodeSummary = beforeDelete.episodes.find((e) => e.id === birthBridge!.episodeId);
-  assert(birthEpisodeSummary?.familyActivityCount === 2, "삭제 전 familyActivityCount = 2 (댓글1+반응1)");
+  // 지우기 확인 단계의 가족 댓글·반응 수 — My Life 이야기 패널(Q69 전 /story-review 이야기 카드 경고).
+  const impact = await deleteImpact(user.id, { type: "EPISODE", id: birthBridge!.episodeId });
+  assert(impact?.familyActivity === 2, "삭제 전 가족 댓글·반응 수 = 2 (댓글1+반응1) — My Life 지우기 확인");
 
   const gapsBefore = await detectGaps(user.id);
   assert(

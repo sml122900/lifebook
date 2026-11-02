@@ -29,7 +29,7 @@ import { countPendingPeople, decidePeople, getPendingPeopleGroups } from "../lib
 import { countNodeGraphIssues } from "../lib/node-graph-reconcile";
 import { listPeople } from "../lib/people";
 import { saveProposedPeople } from "../lib/person-chat";
-import { getStoryReviewData } from "../lib/story-review";
+import { getMyLifeData } from "../lib/my-life";
 
 const EMAIL_A = "fixture-nodeconfirm-a@lifebook.invalid";
 const EMAIL_B = "fixture-nodeconfirm-b@lifebook.invalid";
@@ -145,8 +145,8 @@ async function main() {
     // ── ② 확인 전 미노출 ─────────────────────────────────────────
     const people0 = await listPeople(a);
     check("② /people 목록에 초안 없음", !people0.some((p) => p.id === leeId || p.id === kimId));
-    const review0 = await getStoryReviewData(a);
-    const hsChips0 = review0.timeline.find((t) => t.id === hs)?.people.map((p) => p.id) ?? [];
+    // 시기에 이은 분 — My Life 시기(Q69 전 /story-review 타임라인 인물 칩).
+    const hsChips0 = (await getMyLifeData(a)).events.find((t) => t.id === hs)?.personIds ?? [];
     check("② 타임라인 인물 칩 = 확정 인물만(박영수·최담임)", hsChips0.length === 2 && hsChips0.includes(park) && hsChips0.includes(teacher), hsChips0);
     const gaps0 = await detectGaps(a);
     check("② 인물 이야기 갭에 초안 없음", !gaps0.some((g) => g.targetPersonId === leeId || g.targetPersonId === kimId));
@@ -314,8 +314,7 @@ async function main() {
 
     // ── ⑧ 확인 후 노출 + 정합 점검 ────────────────────────────────
     const people1 = await listPeople(a);
-    const review1 = await getStoryReviewData(a);
-    const hsChips1 = review1.timeline.find((t) => t.id === hs)?.people.map((p) => p.id) ?? [];
+    const hsChips1 = (await getMyLifeData(a)).events.find((t) => t.id === hs)?.personIds ?? [];
     check("⑧ 확인 후 /people 목록·타임라인 칩에 보임(이순자)", people1.some((p) => p.id === leeId) && hsChips1.includes(leeId));
     const issues = await countNodeGraphIssues({ userId: a });
     check("⑧ 정합 점검 — 고아 초안·끝 없는 연결·한 쌍 두 곳·주인 불일치 0, 확인 대기 0",

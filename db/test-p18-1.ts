@@ -1,4 +1,5 @@
-// P18-1 — /story-review 갭 카드 "진행 중" 표시 검증.
+// P18-1 — 갭 카드 "진행 중" 표시 검증. 보이는 곳 = My Life 목록 보기·지도 [이야기 거리] 시트(Q69, 2026-11-02 —
+// 이전엔 /story-review). 화면 데이터는 app/my-life/page.tsx 가 아래 함수 그대로 만든다(정적 검사 포함).
 // My Life 개편 2단계부터 진행 중 = 자유 대화에서 주제로 시작해 아직 결정(만들기·안 만들기)하지 않은 대화
 // (ChatV3Segment 주제). 페이지가 쓰는 함수 그대로(lib/free-chat getFreeChatTopic·gapMatchesTopic)를,
 // 주제는 앱 경로 그대로(startFreeTopic — 갭 칩·딥링크) 만들어 확인한다. 이전엔 옛 대기 대화
@@ -9,7 +10,10 @@
 // 실행: npx tsx db/test-p18-1.ts
 import "dotenv/config";
 
-import { detectGaps, pickTopGaps } from "../lib/gap-detector";
+import fs from "node:fs";
+import path from "node:path";
+
+import { detectGaps, gapChatHref, pickTopGaps } from "../lib/gap-detector";
 import {
   adoptLegacyPending,
   declineFreeChatProposal,
@@ -93,7 +97,10 @@ async function main() {
       topGaps.map((g) => `${g.type}:${g.targetEventId}`));
     check("주제 없음 → 진행 중 0", topGaps.filter((g) => gapMatchesTopic(g, null)).length === 0);
 
-    // 앱 경로 — /story-review "군 입대 이후" 카드(딥링크 gapType=period) → /chat-v3 가 주제를 연다.
+    // 앱 경로 — My Life "군 입대 이후" 카드(딥링크 gapType=period) → /chat-v3 가 주제를 연다.
+    const militaryGap = topGaps.find((g) => g.type === "time_gap" && g.targetEventId === fx.military);
+    check("갭 카드 딥링크 = /chat-v3?gapEventId=…&gapType=period",
+      !!militaryGap && gapChatHref(militaryGap) === `/chat-v3?gapEventId=${fx.military}&gapType=period`);
     const st = await startFreeTopic(userId, { eventId: fx.military, kind: "period" }, "test-p18-1");
     check("군 입대 이후 주제 시작(오프닝)", st.kind === "opening", st);
     const topic = await getFreeChatTopic(userId);
@@ -131,6 +138,12 @@ async function main() {
           JSON.stringify([`episode:${fx.birth}`]) &&
         (await prisma.chatV3PendingContext.count({ where: { userId } })) === 0,
       adoptedTopic);
+
+    // 화면 경로(정적) — My Life 페이지가 같은 함수로 카드 데이터를 만든다(최대 3 · 진행 중 · 딥링크).
+    const page = fs.readFileSync(path.resolve(__dirname, "../app/my-life/page.tsx"), "utf8");
+    check("My Life 페이지 = detectGaps · getFreeChatTopic · pickTopGaps(…, 3) · gapMatchesTopic · gapChatHref",
+      page.includes("detectGaps(userId),") && page.includes("getFreeChatTopic(userId),") && page.includes("pickTopGaps(gaps, 3)") &&
+        page.includes("inProgress: gapMatchesTopic(g, chatTopic)") && page.includes("href: gapChatHref(g)"));
   } finally {
     // 시드 도중 실패해도 이메일로 찾아 지운다.
     await removeFixture();

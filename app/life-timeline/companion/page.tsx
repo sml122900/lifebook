@@ -17,7 +17,7 @@ import { StoryTimelinePanel } from "./StoryTimelinePanel";
 export const metadata = { title: "말동무 | 라이프북" };
 
 // v3 P20-2b — V3 사용자가 이 v2 전용 화면에 (플로팅 위젯 인터셉트를 우회한
-// 직접 URL 등으로) 들어오면 /story-review 로 돌려보낸다. P17-2 의 /start·
+// 직접 URL 등으로) 들어오면 /my-life 로 돌려보낸다(Q69 전엔 /story-review). P17-2 의 /start·
 // /chat-v3 대칭 가드와 같은 패턴 — 페이지 상단 가드만 추가, 아래 v2 로직은
 // 무수정.
 export default async function CompanionPage() {
@@ -25,7 +25,7 @@ export default async function CompanionPage() {
   if (!session?.user?.id) redirect("/login");
   if ((session.consentVersion ?? 0) < CURRENT_CONSENT_VERSION) redirect("/consent");
   const track = await getOnboardingTrack(session.user.id);
-  if (track === "V3") redirect("/story-review");
+  if (track === "V3") redirect("/my-life"); // Q69 — /story-review 합침
 
   const [aiModel, storyItems, userRow] = await Promise.all([
     getUserAiModel(session.user.id),

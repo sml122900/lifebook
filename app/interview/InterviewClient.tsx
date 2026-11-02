@@ -87,7 +87,7 @@ export function InterviewClient({ initial }: { initial: InterviewState }) {
         <ButtonLink href="/chat-v3" variant="primary" size="lg">
           {C.summaryChat}
         </ButtonLink>
-        <ButtonLink href="/story-review" variant="secondary" size="lg">
+        <ButtonLink href="/my-life" variant="secondary" size="lg">
           {C.summaryReview}
         </ButtonLink>
       </section>
@@ -121,7 +121,7 @@ export function InterviewClient({ initial }: { initial: InterviewState }) {
           </div>
         )}
         <p className="text-lg text-ink-soft">{C.summaryNextDay}</p>
-        <ButtonLink href="/story-review" variant="primary" size="lg">
+        <ButtonLink href="/my-life" variant="primary" size="lg">
           {C.summaryReview}
         </ButtonLink>
         <ButtonLink href="/chat-v3" variant="secondary" size="lg">
@@ -146,7 +146,7 @@ export function InterviewClient({ initial }: { initial: InterviewState }) {
         >
           {C.pausedResume}
         </Button>
-        <ButtonLink href="/story-review" variant="secondary" size="lg">
+        <ButtonLink href="/my-life" variant="secondary" size="lg">
           {C.summaryReview}
         </ButtonLink>
       </section>
