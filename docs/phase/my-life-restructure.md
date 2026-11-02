@@ -1023,7 +1023,7 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
 | 오늘의 인터뷰 진입 카드(항상) | 없음 | 목록 보기 맨 위 + 지도 [이야기 거리] 시트 |
 | 갭 카드 "더 들어볼까요?"(최대 3·"진행 중"·[이어서 이야기하기]) | 없음 | 목록 보기 시간 줄기 아래 + 지도 [이야기 거리] 시트 |
 | 이야기 고치기(본문) | 없음 | 이야기 패널 [이야기 고치기] → 본문 칸 [저장]/[취소] |
-| 그때의 나 묶음 | 시기 아래 꼬리표·sage 테두리만 | 목록 보기 "그때의 나" 묶음(있을 때만, 시기 아래 꼬리표도 그대로) |
+| 그때의 나 묶음 | 시기 아래 꼬리표·sage 테두리 | 처음엔 목록 보기 "그때의 나" 묶음을 더함 → Q69 후속에 뺌(같은 이야기가 두 번 — §15.3), 시기 아래 꼬리표로만 |
 | 타임라인(시기·연도·이야기 있음·함께한 분) | 목록 보기 시간 줄기 · 함께한 분 = 시기 패널 | 그대로 |
 | 직접 추가 시기 지우기 · 이야기 지우기(가족 댓글·반응 N 경고) | 패널 [이 노드 지우기](가족 댓글·반응 수 포함) | 그대로 |
 | [계속 이야기하기] · [My Life 로 보기] | [이야기 나누기] · — | 그대로 · 없앰 |
@@ -1034,12 +1034,20 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
 - **데이터**: `app/my-life/page.tsx` 가 옮기기 전과 같은 함수(`countPendingPeople`·`getInterviewCardState`·`detectGaps`·`getFreeChatTopic` + `pickTopGaps(…, 3)`·`gapMatchesTopic`)를 `getMyLifeData` 와 병렬로. `getMyLifeData` 의 Prisma 호출 수(고정, `test-my-life` ②)는 그대로 — 페이지 전체로는 옮기기 전 `/story-review` 가 하던 만큼 늘어남. 갭 딥링크는 `lib/gap-detector.ts` `gapChatHref`(옮김).
 - **카드**: `app/my-life/Suggestions.tsx`(`PendingPeopleCard`·`InterviewEntryCard`·`GapCards` — 목록 보기·시트 공용, 제목 단계만 다름).
 - **이야기 고치기**: `StoryPanel` — 같은 서버 액션 `updateEpisodeContentAction`(본문이 바뀌면 다듬은 글 초기화 — 노드 그래프 Q9), 저장 뒤 패널에 바로 보이고 `router.refresh`, 응답 실패도 `router.refresh`(P20-1).
-- **그때의 나 묶음**: 목록 보기 시간 줄기 아래 SELF 이야기(시기·제목), 누르면 같은 이야기 패널, 목록 키 `@self`(시기 아래 항목과 안 겹침).
+- **그때의 나**: (처음) 목록 보기 시간 줄기 아래 SELF 묶음 → Q69 후속에 뺌 — 시기 아래 "그때의 나" 꼬리표·sage 테두리로만(§15.3).
 - **`/story-review`**: default export = `redirect("/my-life?view=list")`, 원본 `_StoryReviewPageArchived` 보존(archived 패턴 — `app/timeline/page.tsx` 와 같음, 되살리기 = default export 한 줄). `EpisodeCard`·`TimelineRow`·`DeleteCustomEventButton`·`lib/story-review`·`loading.tsx` 그대로(보존 본문이 씀). 인물 확인 `/story-review/confirm` 경로 그대로.
 - **링크**: 오늘의 인터뷰 중단·종료 요약·빈 계획 "지금까지 채운 이야기 보기" 3곳·인물 확인 [확인 마치기]·(대기 0) [지금까지 채운 이야기 보기] → `/my-life` · V3 가드(`/life-timeline`·`/life-timeline/companion`) → `/my-life` · 사이드 패널 "내 이야기" 삭제(My Life 메뉴와 같은 화면) · `revalidatePath("/story-review")` 2곳 삭제(`/my-life` 는 이미). `/enter`·`/chat-v3` 종료는 이미 `/my-life`. `docs/navigation-map.md` 갱신. proxy 무접촉·마이그 0·새 의존성 0.
 - **문구**: `lib/my-life-copy.ts` 11키(임시 — 갭 카드·이야기 고치기 글자는 옮기기 전 `/story-review` 문구 그대로), 인터뷰·인물 확인 카드는 기존 키(보이는 곳만 바뀜), `storyReviewEntry` 는 보존 본문에만(`docs/temp-copy-inventory.md` "Q69 추가").
 - **회귀**: `test-my-life` ⑫(9항목 — redirect·archived, 앱 안 `/story-review` 링크 0, 사이드 패널, 카드 데이터 함수, 목록 보기 카드 자리, 그때의 나 묶음, 지도 시트, 카드 조건·링크, 이야기 고치기), `test-interview` ①⑩(진입 카드·그때의 나 → My Life), `test-p18-1`(갭 딥링크 + My Life 페이지 정적), `test-chat-proposal` ⑪·`test-open-promote`·`test-node-confirm`(화면 데이터 `getStoryReviewData` → `getMyLifeData`), `test-p19`(가족 댓글·반응 수 → `deleteImpact` — My Life 지우기 확인), `test-p17` 라벨.
-- **검증(2026-11-02)**: 회귀 19종 exit 0(`test-chat-proposal --live` 1차 = ⑭ 정적 1건 실패 — 줄인 제목 쓰는 곳이 그때의 나 묶음으로 3 → 4, 기대값 갱신 뒤 다시 155 PASS · 실제 모델 항목은 1차에 전부 통과) · `test-my-life` 103(⑫ 9) · 빌드 exit 0 · 390 실측 12항목(운영 빌드 `next start` + 픽스처 — 옛 경로 redirect·목록 보기 카드 순서·그때의 나 → 패널·가로 넘침 0·이야기 고치기 저장(화면·DB)·선택 중 선택 줄·[이야기 거리] 48px·시트 내용·닫기·사이드 패널 메뉴). 테스트 원가 $0.57(이 회귀만 한도 $15).
+- **검증(2026-11-02, Q69)**: 회귀 19종 exit 0(`test-chat-proposal --live` 1차 = ⑭ 정적 1건 실패 — 줄인 제목 쓰는 곳이 그때의 나 묶음으로 3 → 4, 기대값 갱신 뒤 다시 155 PASS · 실제 모델 항목은 1차에 전부 통과) · `test-my-life` 103(⑫ 9) · 빌드 exit 0 · 390 실측 12항목(운영 빌드 `next start` + 픽스처 — 옛 경로 redirect·목록 보기 카드 순서·그때의 나 → 패널·가로 넘침 0·이야기 고치기 저장(화면·DB)·선택 중 선택 줄·[이야기 거리] 48px·시트 내용·닫기·사이드 패널 메뉴). 테스트 원가 $0.57(이 회귀만 한도 $15).
+
+### 15.3 Q69 후속(2026-11-02 — 제안 리뷰 채팅, 결정 성민)
+
+- **그때의 나 별도 묶음 제거**: 목록 보기에서 같은 이야기가 시기 아래와 묶음에 두 번 나옴 → 묶음을 빼고 시기 아래 꼬리표("그때의 나", `storyTag`)·sage 테두리로만. `INTERVIEW_COPY.selfStoriesTitle` 은 `/story-review` 보존 본문에만 남음.
+- **사이드 패널 린트**(`app/timemachine/SidePanel.tsx` — react-hooks/set-state-in-effect): 마운트 effect 안 `setOpen`·`setMounted` → `mounted` = `useSyncExternalStore`(서버·하이드레이션 false → 그 뒤 true), 저장값("closed")은 마운트 때 한 번 읽음(`useState` 초기화 — 전과 같음), 사용자 토글·둘러보기 값(`choice`)이 우선. 하이드레이션 화면 = 열림 → 그 뒤 저장값(전과 같음). 다른 화면에서 새로 마운트될 때는 첫 그림부터 저장값(전엔 한 번 열렸다 닫힘 — 깜빡임만 없어짐).
+- **실패 기록 정리**: `db/test-logs/live-failures/test-chat-proposal-2026-11-02T14-25-18-665Z-1.json`(⑭ 정적 — 그때의 나 묶음으로 줄인 제목 쓰는 곳 3 → 4, 기대값 그대로) 에 원인 메모(`triage` — 기대값 불일치, 코드 결함 아님) 붙임. 묶음을 빼 ⑭ 기대값 3 으로 되돌림.
+- 회귀: `test-my-life` ⑫ 2항목 갱신(목록 순서 · 그때의 나 = 꼬리표로만), `test-interview` ⑩ 정적·데이터 라벨, `test-chat-proposal` ⑭ 3곳. 실제 모델 회귀는 오늘 테스트 한도 초과라 다음 날.
+- 검증(2026-11-02): 모델 없는 회귀 13종 exit 0(`test-my-life` 103 — ⑫ 9) · `test-chat-proposal` 모델 없는 검사 150 PASS·실패 0 뒤 테스트 한도($11.28 ≥ $10)에서 모델 호출 전 멈춤(의도대로) · `test-interview` ①⑩ 정적 조건은 소스에 직접 대어 통과(스크립트는 시작 때 한도에서 멈춤) · 빌드 exit 0 · 390 실측 9항목(운영 빌드 + 픽스처 — 묶음 제목 없음·그때의 나 목록에 한 번·꼬리표 "그때의 나"·시간 줄기 다음 = 더 들어볼까요?·가로 넘침 0·사이드 패널 저장값 closed → 닫힘·첫 방문 → 열림·[닫기] → closed 저장 후 다시 들어와도 닫힘·하이드레이션 오류 0). 실제 모델 회귀(`test-interview`·`test-chat-proposal --live` 등)는 다음 날.
 
 ## 결정 로그
 
@@ -1082,3 +1090,4 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
 - 2026-11-02 — **3단계 최종 E2E 잔여 3건(성민 지시, 운영 test30)**: ① 차례 보기 진행 중 선택 줄 [다음 연결](연결 n/N) — **마지막 다음 = [처음으로](추천안 — 고른 노드로 돌아가고 끝, 버튼 사라짐)**, 문구 임시. ② 시기 패널 사람·장소 목록 = 머리 수와 같은 함수(`eventPeoplePlaceList` — 이야기에서만 나온 분·곳·옛 장소 이름 포함, 바로 이은 것만 [빼기]). ③ 시기 노드 JS click 미열림 = 같은 스크립트에서 패널 닫기 + 클릭(늦게 오는 close 이벤트)만 재현 — 실제 입력 4종(JS click 단독·Enter/Space·터치·마우스)은 전부 한 번에 열려 **수정 없음**(§14.9). 마이그 0.
 - 2026-11-02 — **제안 카드 시기 id·이름 확인(성민 결정, 제안: Claude Code 조사)**: 제안 모델이 시기 id 와 함께 시기 이름도 출력 — 둘이 안 맞으면 이름 쪽을 믿고 id 를 다시 찾음, 이름으로도 못 찾으면 시기를 비워 두고 카드에서 사용자가 고름(§13.12 — 원인 = 모델 흔들림(아랫줄 id), 테스트 간 데이터 간섭 아님). 진행 = 자정 `--live` 결과 보고 뒤. 실제 모델 확인은 원래 "다음 `--live`"(테스트 한도 공유) → 같은 날 성민이 테스트 한도 상향 허락("큰 금액 아니잖아") — 이 실행들만 `CHAT_V3_TEST_BUDGET_USD=15`(코드·`.env` 기본 $10 무변).
 - 2026-11-02 — **Q69 `/story-review` 합치기(성민 지시 — 구현 전 기능 표 보고 후 추천안으로 진행, §15)**: 정리할 것·오늘의 인터뷰 = 목록 보기 맨 위, 더 들어볼까요? = 시간 줄기 아래, 그때의 나 = 목록 보기 묶음 추가(시기 아래 꼬리표 유지), 이야기 고치기 = 이야기 패널, 지도 보기 = "지금 보는 곳" 줄 [이야기 거리] 시트(390 자리 실측 — 노드를 고른 동안은 [선택 풀기] 뒤), 사이드 패널 "내 이야기" 삭제(My Life 메뉴와 같은 화면). 앱 안 링크 = `/my-life`, 옛 경로 redirect 만 `?view=list`. 테스트 원가 한도 — 이 회귀만 `CHAT_V3_TEST_BUDGET_USD=15`(같은 날 성민 허락).
+- 2026-11-02 — **Q69 후속(제안 리뷰 채팅, 결정 성민 — §15.3)**: 목록 보기 "그때의 나" 별도 묶음 제거(시기 아래 꼬리표로만 — 중복 제거) · `SidePanel.tsx` 린트 오류(effect 안 setState) 동작 변화 없이 수정 · 오늘 기대값 불일치 실패 기록 1건에 원인 메모(코드 결함 아님).

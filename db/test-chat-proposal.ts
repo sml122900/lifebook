@@ -1198,9 +1198,9 @@ function longTitleChecks() {
     { long: shortTitle(long) });
   const chat = read("app/chat-v3/ChatV3Client.tsx");
   const map = read("app/my-life/MyLifeView.tsx");
-  // 줄인 제목 4곳 = 지도 노드 · 목록 보기 · 목록 보기 그때의 나 묶음(Q69) · 제목 없는 이야기 패널의 화면 낭독용 제목 줄.
-  check("⑭ 쓰는 곳 — 저장 안내 = 줄인 이름 · 지도 노드·목록 보기·그때의 나 묶음·(제목 없는 이야기 패널의 화면 낭독용 제목 줄) = 줄인 제목 · 카드 제목 = 2줄 말줄임(본문은 그대로)",
-    chat.includes("FC.created(shortTitle(r.title))") && (map.match(/shortTitle\(displayTitle\(/g) ?? []).length === 4 &&
+  // 줄인 제목 3곳 = 지도 노드 · 목록 보기 · 제목 없는 이야기 패널의 화면 낭독용 제목 줄(Q69 의 그때의 나 묶음은 Q69 후속에 뺌).
+  check("⑭ 쓰는 곳 — 저장 안내 = 줄인 이름 · 지도 노드·목록 보기·(제목 없는 이야기 패널의 화면 낭독용 제목 줄) = 줄인 제목 · 카드 제목 = 2줄 말줄임(본문은 그대로)",
+    chat.includes("FC.created(shortTitle(r.title))") && (map.match(/shortTitle\(displayTitle\(/g) ?? []).length === 3 &&
       map.includes("{hasOwnTitle(story) ? displayTitle(story) : shortTitle(displayTitle(story))}") &&
       /<dd className="m-0 line-clamp-2 text-xl font-bold text-ink">\{displayTitle\(\{ title: edit\.title, content: edit\.summary \}\)\}<\/dd>/.test(read("app/components/ProposalCard.tsx")));
   check("⑭ 카드가 고정 머리말에 안 가림 — 머리말 높이만큼 문서 scroll-padding-top(크기 바뀌면 다시 잼)",

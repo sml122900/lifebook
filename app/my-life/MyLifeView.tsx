@@ -12,7 +12,8 @@
 // 지도 DOM 은 시기 순 목록 → 인물록 → 장소록 순서(스크린리더·Tab). 모임 영역·간선은 aria-hidden.
 // 개편 3단계: 머리 줄 [+ 만들기](7종) · 인물록·장소록 제목 옆 [+ 사람][+ 모임]/[+ 장소][+ 묶음] · 장소 묶음 영역(장소록) ·
 //   패널의 넣기·빼기·되돌리기·옮기기·지우기(./EditUI). 만든 뒤 지도가 새 노드로 이동·선택·패널 + [되돌리기].
-// Q69(/story-review 합치기, 2026-11-02): 목록 보기 = 정리할 것·오늘의 인터뷰(맨 위)·그때의 나 묶음·더 들어볼까요?(시간 줄기 아래),
+// Q69(/story-review 합치기, 2026-11-02): 목록 보기 = 정리할 것·오늘의 인터뷰(맨 위)·더 들어볼까요?(시간 줄기 아래) — 그때의 나는
+//   시기 아래 꼬리표로만(별도 묶음은 중복이라 뺌, Q69 후속),
 //   지도 보기 = "지금 보는 곳" 줄 [이야기 거리] → 같은 카드 시트(./Suggestions). 이야기 패널 [이야기 고치기](본문).
 
 import { MapPin, MessageCircle, Minus, Plus, Search, UserRound, Users } from "lucide-react";
@@ -22,7 +23,6 @@ import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from 
 
 import { updateEpisodeContentAction } from "@/app/actions/episode";
 import { Button, ButtonLink, buttonClasses } from "@/components/ui/Button";
-import { INTERVIEW_COPY } from "@/lib/interview/copy";
 import type { MyLifeChip, MyLifeData, MyLifeEvent, MyLifeGroup, MyLifePerson, MyLifePlace, MyLifeStory } from "@/lib/my-life";
 import { MY_LIFE_COPY as C } from "@/lib/my-life-copy";
 import { selectionEdges, type EdgeToggles } from "@/lib/my-life-edges";
@@ -1516,8 +1516,6 @@ function ListMode({
   onCreate: (kind: CreateKind | null) => void;
   status: string | null;
 }) {
-  // 그때의 나(SELF) — 시기 아래에도 그대로 나오고, 여기 따로 한 번 더 묶는다(옮기기 전 /story-review 묶음, Q69).
-  const selfStories = data.events.flatMap((ev) => ev.stories.filter((s) => s.kind === "SELF").map((s) => ({ ev, s })));
   const ungrouped = data.people.filter((p) => p.groupIds.length === 0);
   const ungroupedPlaces = data.places.filter((p) => p.groupIds.length === 0);
   const addRow = (items: [CreateKind, string][]) => (
@@ -1611,32 +1609,6 @@ function ListMode({
           </li>
         ))}
       </ol>
-
-      {selfStories.length > 0 && (
-        <section aria-labelledby="mylife-list-self" className="flex flex-col gap-4">
-          <h2 id="mylife-list-self" className="m-0">
-            {INTERVIEW_COPY.selfStoriesTitle}
-          </h2>
-          <ul aria-label={INTERVIEW_COPY.selfStoriesTitle} className="flex flex-col gap-2">
-            {selfStories.map(({ ev, s }) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  data-list-key={`st:${ev.id}:${s.id}@self`}
-                  aria-label={storyAriaLabel(s)}
-                  onClick={() => openPanel(`st:${ev.id}:${s.id}`)}
-                  className={`flex min-h-[56px] w-full flex-col gap-1 rounded-md border-2 border-sage bg-surface px-4 py-3 text-left hover:bg-banner ${FOCUS}`}
-                >
-                  <span className="text-lg text-ink-soft">
-                    {yearText(ev)} {ev.label}
-                  </span>
-                  <span className="text-lg text-ink">{shortTitle(displayTitle(s))}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       <GapCards gaps={suggest.gaps} />
 

@@ -216,9 +216,9 @@ function staticChecks() {
   check("⑧ 인터뷰 코드의 LifeEvent 쓰기 = 1곳", writes.length === 1, writes);
   check("⑧ 그 쓰기의 data = { year } 만", /lifeEvent\.updateMany\(\{[\s\S]{0,200}data:\s*\{\s*year\s*\}/.test(src));
 
-  // ⑩ My Life 목록 보기(Q69 — /story-review 에서 옮김) — 그때의 나 묶음을 따로 그리고 제목은 문구 파일에서.
-  check("⑩ My Life 목록 보기 그때의 나 묶음 = SELF 이야기 + 문구 파일 제목",
-    myLifeView.includes('ev.stories.filter((s) => s.kind === "SELF")') && myLifeView.includes("{INTERVIEW_COPY.selfStoriesTitle}"));
+  // ⑩ My Life(Q69 — /story-review 에서 옮김) — 그때의 나는 시기 아래 꼬리표로만(Q69 후속 — 별도 묶음은 중복이라 뺌, 성민 결정).
+  check("⑩ My Life 그때의 나 = 시기 아래 꼬리표(SELF → \"그때의 나\") · 별도 묶음 없음",
+    myLifeView.includes('if (t === "self") return C.selfTag;') && !myLifeView.includes("selfStoriesTitle"));
 }
 
 function pureChecks() {
@@ -467,11 +467,11 @@ async function main() {
       highRow !== undefined && highRow.content === null &&
         !bridgeRows.some((r) => r.id === `v3p_${selfEpId}` || (!!selfEp && (r.content ?? "").includes(selfEp.content.trim()))),
       highRow);
-    // Q69 — 보이는 곳이 /story-review 에서 My Life 로(목록 보기 그때의 나 묶음 = kind SELF).
+    // Q69 — 보이는 곳이 /story-review 에서 My Life 로(kind SELF = 시기 아래 "그때의 나" 꼬리표).
     const lifeStories = (await getMyLifeData(userId)).events.flatMap((e) => e.stories);
     const selfs = lifeStories.filter((x) => x.kind === "SELF");
     const plain = lifeStories.filter((x) => x.kind === "STORY");
-    check("⑩ My Life — 그때의 나는 SELF(목록 보기 묶음), 일반 이야기는 STORY",
+    check("⑩ My Life — 그때의 나는 SELF(시기 아래 꼬리표), 일반 이야기는 STORY",
       JSON.stringify(selfs.map((x) => x.id)) === JSON.stringify([selfEpId]) &&
         !!selfs[0] && displayTitle(selfs[0]) === "고등학교 때 박영수와 있을 때의 나" &&
         !plain.some((x) => x.id === selfEpId) && plain.length === 2,

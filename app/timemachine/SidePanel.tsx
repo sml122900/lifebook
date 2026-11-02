@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Compass, Frame, LifeBuoy, Mic, ShoppingBag } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 
 import {
   attendanceCyclePosition,
@@ -32,6 +32,8 @@ import { logoutAction } from "./logout-action";
 // 데이터는 모두 RSC layout 이 props 로 내림 — 새 API/모델 없음.
 
 const STORAGE_KEY = "timemachine-sidebar";
+// 하이드레이션 여부만 보는 useSyncExternalStore 용 — 바뀌는 외부 값이 없어 구독할 것도 없다.
+const noopSubscribe = () => () => {};
 
 export type SidePanelData = {
   userName: string;
@@ -53,32 +55,30 @@ export function SidePanelLayout({
   children: React.ReactNode;
 }) {
   // 첫 방문 = 열림. localStorage "closed" 일 때만 닫힘.
-  // SSR 은 항상 true 로 그림 → mount 후 보정. 깜빡임 최소화 위해
-  // transition 도 mount 후에만 활성.
-  const [open, setOpen] = useState(true);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const stored = typeof window !== "undefined"
-      ? window.localStorage.getItem(STORAGE_KEY)
-      : null;
-    if (stored === "closed") setOpen(false);
-    setMounted(true);
-  }, []);
+  // SSR·하이드레이션은 항상 열림으로 그림 → 하이드레이션 뒤 저장값으로 보정. 깜빡임 최소화 위해
+  // transition 도 하이드레이션 뒤에만 활성(mounted).
+  // 2026-11-02 — effect 안 setState(린트 react-hooks/set-state-in-effect) 대신: mounted = useSyncExternalStore
+  // (서버·하이드레이션 false → 그 뒤 true), 저장값은 마운트 때 한 번 읽음(전과 같음), 이번 화면에서 정한 값(choice)이 우선.
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  const [storedClosed] = useState(
+    () => typeof window !== "undefined" && window.localStorage.getItem(STORAGE_KEY) === "closed",
+  );
+  const [choice, setChoice] = useState<boolean | null>(null); // 사용자 토글·둘러보기가 정한 값(null = 아직 없음)
+  const open = choice ?? (mounted ? !storedClosed : true);
 
   // 코치마크 둘러보기가 단계별로 패널을 여닫게 하는 브리지. 투어 전용이라
-  // setOpen 만 호출(사용자 localStorage 선호는 건드리지 않음).
+  // setChoice 만 호출(사용자 localStorage 선호는 건드리지 않음).
   useEffect(() => {
     const onTour = (e: Event) => {
       const detail = (e as CustomEvent<{ open?: boolean }>).detail;
-      if (typeof detail?.open === "boolean") setOpen(detail.open);
+      if (typeof detail?.open === "boolean") setChoice(detail.open);
     };
     window.addEventListener(SIDE_PANEL_EVENT, onTour);
     return () => window.removeEventListener(SIDE_PANEL_EVENT, onTour);
   }, []);
 
   function toggle(next: boolean) {
-    setOpen(next);
+    setChoice(next);
     if (typeof window !== "undefined") {
       window.localStorage.setItem(STORAGE_KEY, next ? "open" : "closed");
     }

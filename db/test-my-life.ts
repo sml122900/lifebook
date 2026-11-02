@@ -16,7 +16,7 @@
 //   ⑨ 2026-11-02 3단계 E2E — 연결 수·차례로 보기(시기 수와 같은 기준) · 지도 이동 요청 한 번만·패널 작업 뒤 지도 유지 · 한 번 탭 = 패널
 //   ⑩ 2026-11-02 3단계 E2E 후속 2 — 지도 위 떠 있던 가장자리 버튼을 도구줄(이동 줄)·머리 줄(연결된 곳)로
 //   ⑪ 2026-11-02 3단계 최종 E2E — 차례 보기 [다음 연결](연결 n/N, 마지막 다음 = 처음으로) · 시기 패널 사람·장소 목록 = 수와 같은 기준(이야기에 나온 곳 포함)
-//   ⑫ 2026-11-02 Q69 — /story-review 합치기: redirect·archived · 앱 안 링크 0 · 사이드 패널 · 목록 보기 카드 자리·그때의 나 묶음 ·
+//   ⑫ 2026-11-02 Q69 — /story-review 합치기: redirect·archived · 앱 안 링크 0 · 사이드 패널 · 목록 보기 카드 자리·그때의 나 = 시기 아래 꼬리표로만 ·
 //      지도 [이야기 거리] 시트 · 이야기 패널 [이야기 고치기]
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0).
@@ -557,15 +557,17 @@ async function main() {
     const listStart = view.indexOf("function ListMode(");
     const list = view.slice(listStart, view.indexOf("function PersonRow("));
     const at = (x: string) => list.indexOf(x);
-    check("⑫ 목록 보기 — 정리할 것·오늘의 인터뷰가 시간 줄기 위, 그때의 나 묶음·더 들어볼까요?가 시간 줄기 아래·인물록 위",
+    check("⑫ 목록 보기 — 정리할 것·오늘의 인터뷰가 시간 줄기 위, 더 들어볼까요?가 시간 줄기 바로 아래·인물록 위",
       at("<PendingPeopleCard count={suggest.pendingPeople} />") > 0 &&
         at("<PendingPeopleCard count={suggest.pendingPeople} />") < at("<InterviewEntryCard state={suggest.interview} />") &&
         at("<InterviewEntryCard state={suggest.interview} />") < at("<ol aria-label={C.mapListLabel}") &&
-        at("</ol>") < at('aria-labelledby="mylife-list-self"') && at('aria-labelledby="mylife-list-self"') < at("<GapCards gaps={suggest.gaps} />") &&
+        /<\/ol>\s*<GapCards gaps=\{suggest\.gaps\} \/>/.test(list) &&
         at("<GapCards gaps={suggest.gaps} />") < at('aria-labelledby="mylife-list-people"'));
-    check("⑫ 그때의 나 묶음 — SELF 이야기만 · 누르면 같은 이야기 패널 · 목록 키는 따로(@self — 시기 아래 항목과 안 겹침)",
-      list.includes('ev.stories.filter((s) => s.kind === "SELF")') && list.includes("onClick={() => openPanel(`st:${ev.id}:${s.id}`)}") &&
-        list.includes("data-list-key={`st:${ev.id}:${s.id}@self`}"));
+    // Q69 후속(2026-11-02, 성민 결정) — 그때의 나 별도 묶음은 시기 아래와 같은 이야기를 두 번 보여 뺌. 시기 아래 꼬리표 + sage 테두리로만.
+    check("⑫ 그때의 나 = 시기 아래 꼬리표로만 — 별도 묶음 없음 · 목록 이야기 꼬리표 \"그때의 나\" · sage 테두리",
+      !view.includes("mylife-list-self") && !view.includes("@self") && !view.includes("selfStoriesTitle") &&
+        view.includes('if (t === "self") return C.selfTag;') && list.includes("{tag && <span className=\"text-lg text-ink-soft\">{tag}</span>}") &&
+        list.includes('${s.kind === "SELF" ? "border-sage" : "border-ink-soft"}') && C.selfTag === "그때의 나");
     const mapPart = view.slice(view.indexOf("function MapMode("), listStart);
     check("⑫ 지도 보기 — 노드 안 골랐을 때 \"지금 보는 곳\" 줄에 [이야기 거리] · 시트 = 같은 카드 셋(제목 h3)",
       mapPart.includes("onClick={onOpenSuggest}") && mapPart.indexOf("onClick={onOpenSuggest}") > mapPart.indexOf("{nowText}") &&
