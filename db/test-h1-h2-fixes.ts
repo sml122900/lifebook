@@ -13,6 +13,7 @@ import {
 } from "../lib/timemachine-memories";
 import { chargeOneShot } from "../lib/tokens/charge";
 import { cleanupVoiceText } from "../lib/voice-cleanup";
+import { requireRun } from "./run-guard";
 
 async function h1() {
   console.log("\n=== H1: 시드 재실행 시 추억 보존 ===");
@@ -136,6 +137,7 @@ async function h2() {
 }
 
 async function main() {
+  requireRun(["H1: db/seed-timemachine.ts 재실행(운영 DB 쓰기) + 테스트 계정","H2: 다듬기(cleanupVoiceText) Claude 호출"]);
   await h1();
   await h2();
 }

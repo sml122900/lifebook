@@ -11,6 +11,7 @@ import {
   summarizeAnswer,
   type MemoryEventContext,
 } from "../lib/memory-chat";
+import { requireRun } from "./run-guard";
 
 const events: MemoryEventContext[] = [
   {
@@ -46,6 +47,7 @@ const answers = [
 ];
 
 async function main() {
+  requireRun(["대표 사건 3개 × (가이드 질문 + 제목 요약) Claude 호출 ≈ 6회 — 환산 상수 실측"]);
   let totalIn = 0;
   let totalOut = 0;
   const cycles: Array<{ event: string; gIn: number; gOut: number; sIn: number; sOut: number; cycleTotal: number }> = [];

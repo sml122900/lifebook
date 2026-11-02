@@ -1,11 +1,7 @@
-// STAGE4 — 에피소드 심화 대화 + 저장 본체. 순수 모듈(auth 없음) — app/actions/
-// episode.ts 가 auth 게이트(+ revalidate)만 씌워 재노출하고, 오늘의 인터뷰
-// (lib/interview/session.ts)·검증 스크립트가 같은 함수를 userId 로 직접 부른다
-// (lib/person-chat.ts·lib/life-event-query.ts 와 같은 패턴, 2026-10-25 분리 — 본문 무변).
-//
-// 대화 자체는 턴마다 DB 에 쓰지 않는다 — 클라가 history 배열을 들고 있다가
-// 끝날 때(finishEpisodeChatCore) 한 번에 요약 + 저장한다. continueEpisodeChatCore 는
-// 순수 대화 진행(질문/마무리 판단)만 담당.
+// STAGE4 — 에피소드 심화 대화(질문/마무리 판단). 순수 모듈(auth 없음) — 오늘의 인터뷰(lib/interview/session.ts)가
+// userId 로 직접 부른다. 대화 자체는 턴마다 DB 에 쓰지 않는다(클라가 history 배열을 들고 있음).
+// 2026-11-03 — 옛 온보딩 이야기 대화(/onboarding-episode-chat)의 마무리 저장 finishEpisodeChatCore(요약 + 인물 추출)
+// 삭제. 지금 이야기 저장은 제안 카드(lib/node-proposal createFromCard → lib/episode createEpisodeBridge).
 //
 // 존엄 원칙은 프롬프트(lib/prompts/episode-chat)에 규칙으로 박혀 있고,
 // 여기서는 MAX_FOLLOWUPS 하드캡으로 한 번 더 지킨다 — 모델이 스스로
@@ -13,21 +9,11 @@
 
 import { prisma } from "./db";
 import { chat } from "./ai";
-import {
-  buildEpisodeChatSystemPrompt,
-  EPISODE_SUMMARY_NO_CONTENT,
-  EPISODE_SUMMARY_SYSTEM_PROMPT,
-} from "./prompts/episode-chat";
-import { createEpisodeBridge } from "./episode";
-import { isSummaryGuidance, stripEpisodeDoneSignal } from "./episode-text";
-import type { EpisodeKind } from "./generated/prisma/enums";
-import { savePeopleMentionedInEpisode } from "./person-chat";
+import { buildEpisodeChatSystemPrompt } from "./prompts/episode-chat";
 
 // 추출/분류와 같은 이유로 Sonnet 고정 — 전역 aiModel(라이브 응답)과 무관.
 const CHAT_MODEL = process.env.LIFE_EVENT_CONFIRM_MODEL ?? "claude-sonnet-4-6";
 const MAX_FOLLOWUPS = 2;
-// 요약 모델의 "내용 없음" 표식을 믿는 본인 발화 길이 상한(공백 제외) — "네 맞아요"·"그냥 그랬죠" 길이.
-const NO_CONTENT_MAX_CHARS = 12;
 
 // 2026-09-01 — CORRECTED 도 허용(확인은 됐고 값만 정정된 상태 — 미확인이
 // 아니다). getConfirmedLifeEvent(life-event.ts) 와 같은 이유로 함께 넓힘 —
@@ -110,176 +96,4 @@ export async function continueEpisodeChatCore(
   }
 
   return { ok: true, reply, end, capped: isLastTurn };
-}
-
-export type FinishEpisodeResult =
-  | { ok: true; memoryId: string; episodeId: string }
-  // empty — 마무리 말을 빼면 이야기 내용이 없어 저장하지 않음(실패가 아니다 — 호출부는 오류 문구를 안 띄운다).
-  | { ok: false; error: string; empty?: true };
-
-// 대화 전체(오프닝 포함, transcriptHistory)를 요약해 Episode.content +
-// UserMemory 를 함께 만들고 LifeEvent.hasEpisode=true 로 갱신.
-//
-// isPeriodOverride — 오늘의 인터뷰 풀 질문처럼 제목(topicOverride)만 바꾸고 구간
-// 이야기는 아닌 경우 false 를 넘긴다. 안 넘기면 기존 추론(topicOverride 유무) 그대로.
-// kind — 기본 STORY. 오늘의 인터뷰 "관계별 나"만 SELF("그때의 나", 노드 그래프 2a).
-export async function finishEpisodeChatCore(
-  userId: string,
-  lifeEventId: string,
-  transcriptHistory: EpisodeTurn[],
-  personId?: string,
-  topicOverride?: EpisodeTopic,
-  isPeriodOverride?: boolean,
-  kind?: EpisodeKind,
-): Promise<FinishEpisodeResult> {
-  const event = await requireConfirmedEvent(userId, lifeEventId);
-  if (!event) return { ok: false, error: "이야기를 찾을 수 없어요." };
-
-  const label = topicOverride?.label ?? event.correctedLabel ?? event.label;
-  const year = topicOverride ? topicOverride.year : (event.correctedYear ?? event.year);
-
-  // v3 P6 — personId 는 클라가 넘긴 값이라 소유 검증 후에만 신뢰(남의 Person
-  // 을 태깅하는 것 방지). 소유가 아니면 조용히 무시(일반 에피소드로 저장).
-  // P11-2 — 이름·관계도 함께 읽어 요약 입력 머리에 붙인다. 인물 모드
-  // 답변("정영식이라는 선임이…")은 에피소드 대화 밖이라 요약 모델이 관계를
-  // 모른 채 이름만 반말로 쓰던 원인.
-  let ownedPersonId: string | undefined;
-  let personLine = "";
-  if (personId) {
-    const person = await prisma.person.findFirst({
-      where: { id: personId, userId },
-      select: { id: true, name: true, relation: true },
-    });
-    if (person) {
-      ownedPersonId = person.id;
-      personLine = `[이 이야기의 인물] ${person.name}${person.relation ? ` (관계: ${person.relation})` : ""}\n`;
-    }
-  }
-
-  // E2E 후속(2026-11-01) — 본인 턴마다 마무리 말뿐인 문장("네 그 정도예요")을 뗀다. 클라는 종료 신호
-  // 키워드로 끝낸 경우만 떼서, AI 가 끝내기로 판단한 경우(후속 상한 포함)엔 마지막 마무리 말이 본문이
-  // 됐다. 여기서 한 번 더 하면 /chat-v3·오늘의 인터뷰·온보딩 이야기 대화가 모두 같다(이미 뗀 턴엔 무변).
-  const turns = transcriptHistory.flatMap((t): EpisodeTurn[] => {
-    if (t.role !== "user") return [t];
-    const kept = stripEpisodeDoneSignal(t.text);
-    return kept ? [{ role: "user", text: kept }] : [];
-  });
-
-  const transcript =
-    personLine +
-    turns
-      .map((t) => `[${t.role === "assistant" ? "동반자" : "본인"}] ${t.text}`)
-      .join("\n");
-
-  // 요약 실패 폴백 — 본인 발화만 이어붙여서라도 저장은 막지 않는다.
-  const rawUserText = turns
-    .filter((t) => t.role === "user")
-    .map((t) => t.text)
-    .join(" ")
-    .trim();
-
-  // P14-1 — 본인 발화가 한 턴도 없으면 요약 모델을 부르지 않는다. 부르면
-  // "이 대화에는 실제 이야기 내용이 없어…" 같은 판정문이 그대로 저장된다.
-  if (!rawUserText) {
-    return { ok: false, error: "저장할 이야기가 없어요.", empty: true };
-  }
-
-  // P14-1(2) — 요약 결과가 2인칭 안내문("더 들려주세요", "정리해
-  // 드리겠습니다")이면 저장을 거부한다. 1회 재시도(더 강한 지시) 후에도
-  // 안내문이면 본인 발화 원문 폴백으로 저장 — 어떤 경우에도 안내문이
-  // Episode.content 에 들어가면 안 된다.
-  let content = rawUserText;
-  const attempts = [
-    transcript,
-    `${transcript}\n\n[지시] 위 대화의 본인 발화를 "-다"체 서술문으로만 바꿔 출력하세요(맞장구·마무리 말은 빼고). 사용자에게 말을 걸거나 내용이 부족하다고 쓰지 마세요.`,
-  ];
-  for (const input of attempts) {
-    try {
-      const res = await chat(
-        [{ role: "user", content: input }],
-        {
-          system: EPISODE_SUMMARY_SYSTEM_PROMPT,
-          model: CHAT_MODEL,
-          maxTokens: 500,
-          temperature: 0.35,
-        },
-      );
-      const cleaned = res.text.trim();
-      if (!cleaned) continue;
-      // 요약 모델이 "이야기 내용 없음" 이라고 판단. 본인 발화가 짧을 때(맞장구 길이)만 믿고 저장하지
-      // 않는다. 길면 내용이 있는데 잘못 판단한 것으로 보고(실측 — 사람을 소개하는 답) 다시 요청,
-      // 그래도 표식이면 원문 폴백으로 저장한다(내용 유실 > 군말 한 줄).
-      if (cleaned.includes(EPISODE_SUMMARY_NO_CONTENT)) {
-        if (rawUserText.replace(/\s+/g, "").length <= NO_CONTENT_MAX_CHARS) {
-          return { ok: false, error: "저장할 이야기가 없어요.", empty: true };
-        }
-        console.warn("[episode-finish] NO_CONTENT on long user text — retry");
-        continue;
-      }
-      if (isSummaryGuidance(cleaned)) {
-        console.warn("[episode-finish] summary guidance rejected:", cleaned.slice(0, 80));
-        continue;
-      }
-      content = cleaned;
-      break;
-    } catch {
-      // 폴백 content 유지.
-    }
-  }
-
-  // P9-1 — topicOverride 는 period(구간) 대화에서만 넘어온다(ChatV3Client
-  // periodTopicRef). 그 존재 여부로 isPeriod 를 판단 — 별도 플래그를 클라
-  // 에서 다시 스레딩할 필요가 없다.
-  const isPeriod = isPeriodOverride ?? topicOverride !== undefined;
-
-  try {
-    const result = await createEpisodeBridge(
-      userId,
-      lifeEventId,
-      label,
-      year,
-      content,
-      transcript,
-      ownedPersonId,
-      isPeriod,
-      kind,
-    );
-    if (!result) {
-      // v3 P22-1 — "화면엔 성공 멘트가 떴는데 DB 엔 없다"는 실측(test30)의
-      // 원인을 Vercel 함수 로그로 사후 추적할 수 있도록 최소 로그. 이 분기는
-      // requireConfirmedEvent 를 이미 통과한 뒤라 거의 도달 안 하지만(방어적
-      // 재확인), 도달하면 반드시 흔적을 남긴다.
-      console.error("[episode-finish] createEpisodeBridge returned null", { userId, lifeEventId });
-      return { ok: false, error: "이야기를 찾을 수 없어요." };
-    }
-    console.log("[episode-finish] saved", {
-      userId,
-      lifeEventId,
-      episodeId: result.episodeId,
-      memoryId: result.memoryId,
-      isPeriod,
-      kind: kind ?? "STORY",
-    });
-    // P12-2 — 대화 중 언급된 새 인물(이름 있는 사람만)을 함께 저장·연결.
-    // 저장이 성공한 뒤에만(이야기 없이 인물만 남지 않게), best-effort —
-    // 추출이 실패해도 방금 저장한 이야기 결과는 그대로 돌려준다.
-    // 노드 그래프 2b-2 — 방금 저장한 이야기와의 확인 대기 연결로 남는다(확인 화면에서 확정).
-    try {
-      const question =
-        turns[0]?.role === "assistant"
-          ? turns[0].text
-          : `${label} 이야기`;
-      const userText = turns
-        .filter((t) => t.role === "user")
-        .map((t) => t.text)
-        .join("\n");
-      await savePeopleMentionedInEpisode(userId, lifeEventId, result.episodeId, question, userText);
-    } catch (e) {
-      console.error("[episode-finish] people", e);
-    }
-    return { ok: true, memoryId: result.memoryId, episodeId: result.episodeId };
-  } catch (e) {
-    console.error("[episode-finish] failed", { userId, lifeEventId }, e);
-    return { ok: false, error: "저장에 실패했어요. 잠시 후 다시 시도해 주세요." };
-  }
 }

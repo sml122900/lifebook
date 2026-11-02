@@ -11,6 +11,7 @@ import "dotenv/config";
 import { prisma } from "../lib/db";
 import { runAgent } from "../lib/lab/agent";
 import { isLabUser, LAB_PERSONA_PREFIX } from "../lib/lab/gate";
+import { requireRun } from "./run-guard";
 
 function args(name: string): string[] {
   const out: string[] = [];
@@ -21,6 +22,7 @@ function args(name: string): string[] {
 }
 
 async function main() {
+  requireRun(["질문(--q)마다 질의응답 에이전트 1회 실행(LAB_ANTHROPIC_API_KEY, 라운드 상한) — 질문당 원가는 실행 뒤 출력","DB 쓰기: LabAgentRun 1행/질문"]);
   const userId = args("--user")[0];
   const questions = args("--q");
   if (!userId || questions.length === 0)

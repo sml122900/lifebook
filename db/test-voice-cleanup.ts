@@ -10,8 +10,10 @@ import "dotenv/config";
 import { prisma } from "../lib/db";
 import { chargeOneShot } from "../lib/tokens/charge";
 import { cleanupVoiceText } from "../lib/voice-cleanup";
+import { requireRun } from "./run-guard";
 
 async function main() {
+  requireRun(["음성 다듬기 Claude 1회 + 토큰 차감(chargeOneShot)","DB 쓰기: 테스트 지갑·원장"]);
   const user = await prisma.user.create({
     data: {
       email: `voice-${Date.now()}@test`,

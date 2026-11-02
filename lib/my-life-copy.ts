@@ -13,7 +13,6 @@ export const MY_LIFE_COPY = {
 
   // ── 아래는 전부 [임시 — 성민 확정 필요] ──
   menuHint: "내 인생을 한 장의 지도로",
-  storyReviewEntry: "My Life 로 보기",
   mapListLabel: "My Life — 시기 순서",
   mapRegionLabel: "My Life 지도",
   listStories: "이야기",

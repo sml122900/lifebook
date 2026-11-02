@@ -6,8 +6,10 @@
 import "dotenv/config";
 
 import { chat } from "../lib/ai";
+import { requireRun } from "./run-guard";
 
 async function main() {
+  requireRun(["Claude 1회(짧은 한국어 프롬프트 — 키·래퍼 점검)"]);
   const t0 = Date.now();
   const res = await chat(
     [

@@ -538,9 +538,17 @@ async function main() {
     // ── ⑫ Q69(2026-11-02) — /story-review 를 My Life 로 합침 ──
     const src = (rel: string) => fs.readFileSync(path.resolve(__dirname, "..", rel), "utf8");
     const review = src("app/story-review/page.tsx");
-    check("⑫ /story-review = /my-life?view=list redirect · 원본은 archived 로 보존(되살리기 = default export 한 줄)",
-      /export default function StoryReviewPage\(\) \{\s*redirect\("\/my-life\?view=list"\);\s*\}/.test(review) &&
-        review.includes("async function _StoryReviewPageArchived()") && review.includes("_StoryReviewPageArchived,\n};"));
+    // 2026-11-03 — 보존해 둔 옛 화면 본문·카드 컴포넌트·lib/story-review 삭제(리다이렉트만 남김, 설계 §15.4).
+    const gone = ["app/story-review/EpisodeCard.tsx", "app/story-review/TimelineRow.tsx", "app/story-review/DeleteCustomEventButton.tsx", "app/story-review/loading.tsx", "lib/story-review.ts"];
+    check("⑫ /story-review = /my-life?view=list redirect 만(옛 본문·카드·lib 삭제) · 인물 확인 /story-review/confirm 은 그대로",
+      /export default function StoryReviewPage\(\) \{\s*redirect\("\/my-life\?view=list"\);\s*\}/.test(review) && !review.includes("_StoryReviewPageArchived") &&
+        gone.every((f) => !fs.existsSync(path.resolve(__dirname, "..", f))) && fs.existsSync(path.resolve(__dirname, "../app/story-review/confirm/page.tsx")));
+    // 옛 온보딩 화면 4개(2026-11-03 삭제 — 진입 링크 0) — 라우트 폴더 없음 · 주소로 오면 /enter(next.config redirects).
+    const nextConfig = src("next.config.ts");
+    check("⑫ 옛 온보딩 화면(/onboarding-v2·-confirm·-episode·-episode-chat) 라우트 없음 · 주소 → /enter",
+      ["app/onboarding-v2", "app/onboarding-confirm", "app/onboarding-episode", "app/onboarding-episode-chat"].every((d) => !fs.existsSync(path.resolve(__dirname, "..", d))) &&
+        ['"/onboarding-v2"', '"/onboarding-confirm"', '"/onboarding-episode"', '"/onboarding-episode-chat/:eventId"'].every((x) => nextConfig.includes(x)) &&
+        nextConfig.includes('destination: "/enter"'));
     const walkFiles = (dir: string): string[] =>
       fs.readdirSync(path.resolve(__dirname, "..", dir), { withFileTypes: true }).flatMap((d) =>
         d.isDirectory() ? (d.name === "generated" ? [] : walkFiles(`${dir}/${d.name}`)) : /\.(ts|tsx)$/.test(d.name) ? [`${dir}/${d.name}`] : []);

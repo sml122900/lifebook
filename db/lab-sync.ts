@@ -11,6 +11,7 @@ import "dotenv/config";
 import { prisma } from "../lib/db";
 import { isLabUser, LAB_PERSONA_PREFIX } from "../lib/lab/gate";
 import { syncSubject, verifyStoredQuotes } from "../lib/lab/sync";
+import { requireRun } from "./run-guard";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -18,6 +19,7 @@ function arg(name: string): string | undefined {
 }
 
 async function main() {
+  requireRun(["대상 1명 원본 동기화 — 바뀐 원본 단위마다 추출 모델 호출(LAB_ANTHROPIC_API_KEY) + 카드 임베딩(Voyage)","호출 수 = 해시가 바뀐 원본 수, 원가는 LabUsage 원장 · 월 예산 가드(lib/lab/llm)","DB 쓰기: lab 색인 테이블"]);
   const userId = arg("--user");
   if (!userId) throw new Error("--user <userId> 필요");
   if (!isLabUser(userId))

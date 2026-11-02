@@ -30,6 +30,7 @@ import {
   personaSourceKeys,
   type LabPersonaEntry,
 } from "./lab/personas/registry";
+import { requireRun } from "./run-guard";
 
 const K = 8;
 
@@ -625,6 +626,7 @@ async function answerMode(
 }
 
 async function main() {
+  requireRun(["--mode retrieval: 골든셋 24문항 질문 임베딩(Voyage) 24회","--mode answer: 24문항 × --repeat 회 에이전트 실행(LAB_ANTHROPIC_API_KEY) + 채점","리포트 db/lab/reports/ 에 JSON"]);
   const entry = labPersona(arg("--persona"));
   const mode = arg("--mode");
   if (mode !== "retrieval" && mode !== "answer")

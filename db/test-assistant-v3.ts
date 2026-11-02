@@ -22,6 +22,7 @@ import {
   deleteAssistantAnswer,
 } from "../lib/timemachine-assistant-saved";
 import { saveTimemachineMonth } from "../lib/timemachine-memories";
+import { requireRun } from "./run-guard";
 
 const DIVIDER = "─".repeat(64);
 
@@ -47,6 +48,7 @@ async function balance(userId: string): Promise<number> {
 }
 
 async function main() {
+  requireRun(["비서 멀티턴·저장 — Claude + 웹 검색, 토큰 차감","DB 쓰기: 테스트 계정·저장 답"]);
   const user = await prisma.user.create({
     data: {
       email: `assistant-v3-${Date.now()}@test`,

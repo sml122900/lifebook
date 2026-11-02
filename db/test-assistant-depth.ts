@@ -16,6 +16,7 @@ import {
   type AssistantDepth,
   type AssistantResult,
 } from "../lib/timemachine-assistant";
+import { requireRun } from "./run-guard";
 
 const DIVIDER = "─".repeat(64);
 
@@ -40,6 +41,7 @@ async function balance(userId: string): Promise<number> {
 }
 
 async function main() {
+  requireRun(["답의 깊이 3단 — Haiku·Sonnet·Opus 각 호출 + 웹 검색, 토큰 차감(Opus 포함 — 가장 비쌈)","DB 쓰기: 테스트 지갑·원장"]);
   const user = await prisma.user.create({
     data: {
       email: `assistant-depth-${Date.now()}@test`,

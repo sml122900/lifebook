@@ -1,5 +1,5 @@
 // 다듬기 Lv2 일회성 검증 — 회상 1건을 실제 모델로 다듬어 결과 + 차감 확인.
-// 실행: npx tsx db/test-refine-lv2.ts ["문장"] [haiku|sonnet|opus]
+// 실행: npx tsx db/test-refine-lv2.ts --run ["문장"] [haiku|sonnet|opus]   (--run 없으면 계획만 — db/run-guard)
 //   (실 API 호출 1건, 잔액 100 지갑 생성, 종료 시 테스트 행 정리)
 
 import "dotenv/config";
@@ -7,17 +7,20 @@ import "dotenv/config";
 import { prisma } from "../lib/db";
 import { refineMemorySpelling } from "../lib/memory-refine";
 import type { ModelTier } from "../lib/tokens/policy";
+import { requireRun } from "./run-guard";
 
-// 인자로 문장을 넘기면 그걸로, 없으면 기본(군말 많은 회상)으로 측정.
+// 인자로 문장을 넘기면 그걸로, 없으면 기본(군말 많은 회상)으로 측정. --run 은 위치 인자에서 뺀다.
+const ARGS = process.argv.slice(2).filter((a) => a !== "--run");
 const SAMPLE =
-  process.argv[2] ??
+  ARGS[0] ??
   "어 그때가 그니까 인제 1988년이었는데 어 내가 인제 회사를 처음 들어갔거든. " +
     "근데 그니까 첫 월급을 타가지고 어 부모님한테 인제 내복을 사드렸지. 사드렸지 " +
     "그때는 다 그랬어. 음 그래가 어머이가 억수로 좋아하시더라고.";
-const TIER = (process.argv[3] as ModelTier) ?? "haiku";
+const TIER = (ARGS[1] as ModelTier) ?? "haiku";
 const START_BALANCE = 100;
 
 async function main() {
+  requireRun(["회상 1건 다듬기 — 고른 tier 모델(기본 haiku, opus 면 가장 비쌈) 1회","DB 쓰기: 잔액 100 테스트 지갑(끝에 정리)"]);
   const user = await prisma.user.create({
     data: { email: `refine-lv2-${Date.now()}@test`, name: "refine-test" },
     select: { id: true },

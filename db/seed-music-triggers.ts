@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { embedTexts } from "../lib/embeddings";
 import { prisma } from "../lib/db";
 import { embeddingTextFor, type MusicEventSeed } from "./seed/musicEvents";
+import { requireRun } from "./run-guard";
 
 type EnrichedRow = MusicEventSeed & {
   mbid: string | null;
@@ -28,6 +29,7 @@ function buildDescription(r: EnrichedRow): string {
 }
 
 async function main() {
+  requireRun(["음악 트리거 Event 행을 지우고 다시 적재(운영 DB 쓰기)","곡마다 Voyage 임베딩 1회(카탈로그 곡 수만큼)"]);
   const rows: EnrichedRow[] = JSON.parse(
     readFileSync(
       join(process.cwd(), "db", "seed", "musicEvents.enriched.json"),

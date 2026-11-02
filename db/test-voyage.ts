@@ -6,8 +6,10 @@
 import "dotenv/config";
 
 import { EMBEDDING_DIM, EMBEDDING_MODEL, embedTexts } from "../lib/embeddings";
+import { requireRun } from "./run-guard";
 
 async function main() {
+  requireRun(["Voyage 임베딩 1회(문장 2개)"]);
   const samples = ["광화문 연가 - 이문세 (1987)", "Bohemian Rhapsody - Queen (1975)"];
   const vectors = await embedTexts(samples, "document");
 

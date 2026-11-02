@@ -17,6 +17,7 @@ import {
   askAssistant,
   type AssistantResult,
 } from "../lib/timemachine-assistant";
+import { requireRun } from "./run-guard";
 
 const DIVIDER = "─".repeat(64);
 
@@ -38,6 +39,7 @@ function check(label: string, ok: boolean) {
 }
 
 async function main() {
+  requireRun(["타임머신 비서 4케이스 — Claude + 웹 검색(TASTE·폴백), 토큰 차감","DB 쓰기: 테스트 지갑·원장"]);
   const user = await prisma.user.create({
     data: {
       email: `assistant-${Date.now()}@test`,

@@ -19,16 +19,6 @@ import {
   CORRECTION_PARSE_SYSTEM_PROMPT,
 } from "@/lib/prompts/life-event-confirm";
 import { withJosa } from "@/lib/josa";
-import {
-  listConfirmedLifeEvents as listConfirmedLifeEventsCore,
-  getConfirmedLifeEvent as getConfirmedLifeEventCore,
-  type ConfirmedEpisodeItem,
-} from "@/lib/life-event-query";
-import {
-  deleteCustomLifeEvent as deleteCustomLifeEventCore,
-  type DeleteCustomLifeEventResult,
-} from "@/lib/life-event-delete";
-export type { ConfirmedEpisodeItem } from "@/lib/life-event-query";
 
 // 추출/분류는 항상 Sonnet 고정 — 전역 aiModel(라이브 응답)과 무관.
 const CONFIRM_MODEL =
@@ -269,36 +259,6 @@ export async function submitConfirmAnswer(
   return { status: "UNCLEAR", needsReview };
 }
 
-// STAGE3/STAGE4 — 실제 로직은 lib/life-event-query.ts(순수, auth 없음).
-// 검증 스크립트가 재현본 아닌 이 함수를 그대로 호출할 수 있도록 분리했다
-// (lib/account-deletion.ts·lib/person-chat.ts 와 같은 패턴, 2026-09-01).
-// v2(/onboarding-episode, /onboarding-episode-chat)도 이 액션을 그대로
-// 쓰므로, lib 쪽에서 CONFIRMED 뿐 아니라 CORRECTED 도 포함하게 넓힌 효과가
-// v2 화면에도 그대로 적용된다(의도된 것 — CORRECTED 는 확인은 됐고 값만
-// 정정된 상태라 미확인이 아니다).
-export async function listConfirmedLifeEvents(
-  userId: string,
-): Promise<ConfirmedEpisodeItem[]> {
-  await requireUserId(userId);
-  return listConfirmedLifeEventsCore(userId);
-}
-
-export async function getConfirmedLifeEvent(
-  userId: string,
-  eventId: string,
-): Promise<ConfirmedEpisodeItem | null> {
-  await requireUserId(userId);
-  return getConfirmedLifeEventCore(userId, eventId);
-}
-
-// v3 P19-2 — /story-review 타임라인에서 CUSTOM(자유 승격) 이벤트 지우기.
-// 골격 이벤트(BIRTH~MARRIAGE)는 lib/life-event-delete.ts 의 type:"CUSTOM"
-// 가드가 막는다. P20-1 이유로 revalidatePath 없음(app/actions/episode.ts
-// deleteEpisodeAction 주석 참조) — 호출자(DeleteCustomEventButton)가
-// router.refresh() 로 갱신한다.
-export async function deleteCustomLifeEventAction(
-  lifeEventId: string,
-): Promise<DeleteCustomLifeEventResult> {
-  const userId = await requireUserId();
-  return deleteCustomLifeEventCore(userId, lifeEventId);
-}
+// 2026-11-03 — 옛 온보딩 이야기 화면(/onboarding-episode·/onboarding-episode-chat)이 쓰던 확정 시기 목록·한 건 조회
+// 액션과 옛 /story-review 타임라인의 직접 추가 시기 지우기 액션 삭제(앱 안 호출 0 — docs/phase/my-life-restructure.md
+// §15.4). 본체 lib/life-event-query.ts getConfirmedLifeEvent(오늘의 인터뷰)·lib/life-event-delete.ts(My Life 지우기)는 그대로.

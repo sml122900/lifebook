@@ -10,6 +10,7 @@ import "dotenv/config";
 
 import { getMusicTriggersForUser, type UserMusicProfile } from "../lib/triggers";
 import { prisma } from "../lib/db";
+import { requireRun } from "./run-guard";
 
 const personas: Array<{ label: string; profile: UserMusicProfile }> = [
   {
@@ -35,6 +36,7 @@ function fmt(n: number, digits = 3): string {
 }
 
 async function main() {
+  requireRun(["음악 트리거 검색 — 페르소나 2명 질의 임베딩(Voyage)"]);
   for (const { label, profile } of personas) {
     console.log("");
     console.log("─".repeat(78));

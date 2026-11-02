@@ -4,21 +4,12 @@
 // (재현본으로 갈라지면 검증 의미가 없어짐).
 
 import { prisma } from "./db";
-import { chat } from "./ai";
 import type { Prisma } from "./generated/prisma/client";
 import { saveNodeLink } from "./node-graph";
 import { isRelationCompatible } from "./person-relation";
-import {
-  PERSON_EXTRACT_SYSTEM_PROMPT,
-  buildPersonExtractUserMessage,
-} from "./prompts/person-extract";
 
-// 추출/분류는 항상 Sonnet 고정 — life-event-confirm.ts 와 같은 이유(전역
-// aiModel 라이브 응답과 무관).
-const PARSE_MODEL = process.env.LIFE_EVENT_CONFIRM_MODEL ?? "claude-sonnet-4-6";
 const NAME_MAX = 50;
 const RELATION_MAX = 30;
-const MAX_CANDIDATES = 3;
 
 export type PersonCandidate = { name: string | null; relation: string };
 
@@ -63,65 +54,12 @@ export async function findSameNamePeople(
   return rows.filter((r) => normalizeName(r.name) === norm);
 }
 
-function stripJsonFence(raw: string): string {
-  return raw
-    .trim()
-    .replace(/^```json\s*|^```\s*/i, "")
-    .replace(/\s*```$/, "");
-}
+// 2026-11-03 — 옛 온보딩 이야기 대화 마무리가 쓰던 인물 추출(extractPersonCandidates — 모델 호출)·저장
+// (savePeopleMentionedInEpisode) 삭제(앱 안 호출 0 — docs/phase/my-life-restructure.md §15.4). 지금 이야기 속 인물은
+// 제안 카드(lib/node-proposal)가 확정 인물로 저장한다. 아래 saveProposedPeople 은 남은 확인 대기 데이터가 있는
+// 인물 확인 화면(/story-review/confirm) 회귀가 확인 대기 데이터를 만들 때 쓴다(앱 안 호출 0).
 
-export async function extractPersonCandidates(
-  question: string,
-  answer: string,
-): Promise<PersonCandidate[]> {
-  try {
-    const res = await chat(
-      [{ role: "user", content: buildPersonExtractUserMessage(question, answer) }],
-      { system: PERSON_EXTRACT_SYSTEM_PROMPT, model: PARSE_MODEL, maxTokens: 300, temperature: 0.1 },
-    );
-    const match = stripJsonFence(res.text).match(/\[[\s\S]*\]/);
-    if (!match) return [];
-    const arr = JSON.parse(match[0]) as unknown[];
-    return arr
-      .filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null)
-      .filter((x) => typeof x.relation === "string" && String(x.relation).trim())
-      .map((x) => ({
-        relation: String(x.relation).trim(),
-        name: typeof x.name === "string" && x.name.trim() ? x.name.trim() : null,
-      }))
-      .slice(0, MAX_CANDIDATES);
-  } catch (e) {
-    console.error("[person-chat]", e instanceof Error ? e.message : e);
-    return [];
-  }
-}
-
-// P12-2 — 에피소드 대화(STAGE4) 본인 발화에서 언급된 인물을 마무리(저장)
-// 시점에 함께 저장한다. 이전엔 인물 모드(submitPersonAnswer) 답변에서만
-// 추출해, 에피소드 대화 중 "국어 선생님 이순자 씨가 기억나요" 처럼 새로
-// 나온 사람은 후속 질문엔 반영되면서 /people·칩에는 영영 안 남았다.
-// 인물 모드와 달리 이름이 있는 후보만 저장한다 — 이야기 도중 스치는
-// "친구들"·"어머니" 류 호칭만으로 Person 을 만들면 과생성이 된다(인물
-// 모드는 "누구랑 지냈어요?" 라고 직접 물은 답이라 호칭만이어도 저장).
-//
-// 노드 그래프 2b-2(Q6) — 이제 확인 없이 확정하지 않는다. 후보는 이 이야기와의
-// 확인 대기 연결(NodeLink EPISODE→PERSON, PROPOSED)로만 남고, 새 이름은 초안
-// 인물(isDraft)로 만든다. PersonLifeEvent(중심과의 연결)는 /story-review/confirm
-// 에서 확인할 때 만든다(lib/node-confirm.ts) — 그래서 확정 인물만 보는 기존 화면
-// (타임라인 칩·갭·인터뷰 후보·/people)에 확인 전 초안이 안 보인다.
-export async function savePeopleMentionedInEpisode(
-  userId: string,
-  lifeEventId: string,
-  episodeId: string,
-  question: string,
-  userText: string,
-): Promise<number> {
-  if (!userText.trim()) return 0;
-  const candidates = (await extractPersonCandidates(question, userText)).filter((c) => c.name);
-  return saveProposedPeople(userId, lifeEventId, episodeId, candidates);
-}
-
-// 추출 뒤 저장 본체(LLM 0 — 회귀가 후보를 직접 넣어 부른다). 후보마다 대상 인물:
+// 확인 대기 인물 저장 본체(LLM 0 — 회귀가 후보를 직접 넣어 부른다). 후보마다 대상 인물:
 //   1) 확정 인물 중 같은 사람 → 그 인물  2) 확인 대기 초안 중 같은 사람 → 그 초안
 //   (두 이야기에 같은 새 이름이 나와도 초안은 1명)  3) 없으면 새 초안.
 // 대상이 이 이야기의 대상 인물(Episode.personId)이면 연결을 만들지 않는다(한 쌍 = 한 곳).

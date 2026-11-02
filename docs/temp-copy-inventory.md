@@ -1,6 +1,6 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 4개의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 ## 요약
@@ -8,9 +8,9 @@
 | 파일 | 임시 문구 | 화면에 안 나오는 키(쓰는 곳 없음) | 보이는 곳 |
 |---|---|---|---|
 | `lib/free-chat-copy.ts` | 62 (전부 — 카드 오류 6개는 2026-11-02 `lib/node-proposal.ts` 에서 옮겨 옴 · 시기 미지정 2개 `centerUnset`·`centerPick` 2026-11-02 추가) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
-| `lib/my-life-copy.ts` | 205 (79 + 3단계 115 + Q69 11 · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 1 (`storyReviewEntry` — Q69 뒤 `/story-review` 보존 본문에만) | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
+| `lib/my-life-copy.ts` | 204 (78 + 3단계 115 + Q69 11 · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 (`storyReviewEntry` 는 2026-11-03 옛 `/story-review` 본문과 함께 삭제) | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
 | `lib/node-confirm-copy.ts` | 32 (전부) | 0 | `/story-review/confirm` · My Life "정리할 것이 있어요" 카드(목록 보기 맨 위·지도 [이야기 거리] — Q69 전 `/story-review`) · `/interview` 요약 |
-| `lib/interview/copy.ts` | 43 (전부) | 1 (`selfStoriesTitle` — Q69 후속 뒤 `/story-review` 보존 본문에만) | `/interview` · My Life "오늘의 인터뷰" 카드(Q69 전 `/story-review`) |
+| `lib/interview/copy.ts` | 42 (전부 — `selfStoriesTitle` 2026-11-03 삭제) | 0 | `/interview` · My Life "오늘의 인터뷰" 카드(Q69 전 `/story-review`) |
 | `lib/interview/question-pool.ts` | 문항 8개(18줄 — 구조 예시 5 + "관계별 나" 3) | — | `/interview` 질문·이야기 제목 |
 | 그 밖 | 1 | — | 아래 "그 밖" |
 
@@ -90,7 +90,6 @@
 | 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
 |---|---|---|---|---|
 | `menuHint` | 13 | "내 인생을 한 장의 지도로" | 사이드 패널 메뉴 | app/timemachine/SidePanel.tsx:274 |
-| `storyReviewEntry` | 14 | "My Life 로 보기" | 쓰는 곳 없음 — `/story-review` 보존 본문(archived)에만, 화면에 안 나옴(Q69) | app/story-review/page.tsx(_StoryReviewPageArchived) |
 | `mapListLabel` | 15 | "My Life — 시기 순서" | /my-life | app/my-life/MyLifeView.tsx:937, app/my-life/MyLifeView.tsx:1189 |
 | `mapRegionLabel` | 16 | "My Life 지도" | /my-life | app/my-life/MyLifeView.tsx:764 |
 | `listStories` | 17 | "이야기" | /my-life | app/my-life/MyLifeView.tsx:972, app/my-life/MyLifeView.tsx:1204 |
@@ -285,7 +284,6 @@
 | `summaryChat` | 59 | "더 이야기 나누기" | /interview | app/interview/InterviewClient.tsx:88, app/interview/InterviewClient.tsx:128 |
 | `emptyTitle` | 62 | "오늘은 여쭤볼 질문이 없어요" | /interview | app/interview/InterviewClient.tsx:85 |
 | `emptyDesc` | 63 | "하고 싶은 이야기가 있으시면 언제든 들려주세요." | /interview | app/interview/InterviewClient.tsx:86 |
-| `selfStoriesTitle` | 66 | "그때의 나" | 쓰는 곳 없음 — `/story-review` 보존 본문(archived)에만(Q69 후속에 My Life 묶음을 뺌 — 그때의 나는 시기 아래 꼬리표 `MY_LIFE_COPY.selfTag`) | app/story-review/page.tsx(_StoryReviewPageArchived) |
 
 ### `lib/interview/question-pool.ts` (질문 풀 — 구조 예시 문항, 보이는 곳 = /interview 질문·이야기 제목)
 

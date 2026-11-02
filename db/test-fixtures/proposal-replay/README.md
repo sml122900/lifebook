@@ -3,7 +3,7 @@
 자유 대화 제안 카드(`lib/prompts/free-chat.ts` `PROPOSAL_SYSTEM_PROMPT`) 입력을 그대로 담은 실패·회귀 사례. 프롬프트를 바꾸면 변경 전·후를 각 10회 돌려 비교한 뒤 커밋한다(CLAUDE.md 작업 규칙 9).
 
 ```
-npx tsx db/replay-proposals.ts --prompt work,HEAD --n 10
+npx tsx db/replay-proposals.ts --prompt HEAD,work --n 10 --run
 ```
 
 - 파일 하나 = 사례 하나: `name` · `source`(어디서 왔나 — 실제 입력 그대로 / 재구성) · `expectCenter`(기대 시기 이름) · `fallbackCenter`(주제 시기, 없으면 null) · `birthYear` · `input`(제안 호출 사용자 메시지 그대로).

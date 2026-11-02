@@ -61,7 +61,4 @@ export const INTERVIEW_COPY = {
   // ── 빈 계획 ──
   emptyTitle: "오늘은 여쭤볼 질문이 없어요", // [임시 — 성민 확정 필요]
   emptyDesc: "하고 싶은 이야기가 있으시면 언제든 들려주세요.", // [임시 — 성민 확정 필요]
-
-  // ── My Life 목록 보기 "관계별 나"(그때의 나) 묶음 제목(Q69 전 /story-review) — [문구 필요: 그때의 나 묶음 제목] ──
-  selfStoriesTitle: "그때의 나", // [임시 — 성민 확정 필요]
 } as const;

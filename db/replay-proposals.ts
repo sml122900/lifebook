@@ -2,7 +2,8 @@
 // 프롬프트별로 N회 다시 돌려 기대 시기 적중률을 낸다. CLAUDE.md 작업 규칙 9: 제안·요약 등 모델 프롬프트를 바꾸면
 // 변경 전(git ref)·후(작업 트리)를 각 10회 비교한 뒤 커밋하고, 새 실패 사례는 이 세트에 더한다.
 //
-// 실행: npx tsx db/replay-proposals.ts [--prompt work,HEAD,<git ref>...] [--n 10] [--case <파일 이름 일부>]
+// 실행: npx tsx db/replay-proposals.ts [--prompt work,HEAD,<git ref>...] [--n 10] [--case <파일 이름 일부>] [--run]
+//   --run 이 없으면 비교 계획(입력 수·프롬프트 판·예상 호출 수·예상 원가·오늘 테스트 원가)만 출력하고 끝(호출 0).
 //   work = 작업 트리 lib/prompts/free-chat.ts · 그 밖 = 그 git ref 의 같은 파일(상대 import 를 그 폴더 기준으로 바꿔
 //   db/test-logs/replay-prompts/ 에 임시로 씀 — git 무시 폴더).
 // 판정 = 앱과 같은 pickCenter(모델 응답, 입력의 [시기 후보], 주제 시기) 결과 시기 이름이 expectCenter 인지. 괄호 = 모델이
@@ -19,10 +20,11 @@ import { pathToFileURL } from "node:url";
 
 import { deleteAccountTx } from "../lib/account-deletion";
 import { chat } from "../lib/ai";
-import { costMicroUsd, recordChatUsage } from "../lib/chat-v3-usage";
+import { costMicroUsd, recordChatUsage, testBudgetMicroUsd, testSpentTodayMicroUsd } from "../lib/chat-v3-usage";
 import { prisma } from "../lib/db";
 import { pickCenter, PROPOSAL_CALL } from "../lib/node-proposal";
 import { requireTestBudget } from "./live-log";
+import { requireRun } from "./run-guard";
 
 type Case = { name: string; source: string; expectCenter: string; fallbackCenter: string | null; birthYear: number | null; input: string };
 type Center = { id: string; label: string; year: number | null };
@@ -31,6 +33,7 @@ const ROOT = path.resolve(__dirname, "..").replace(/\\/g, "/");
 const CASE_DIR = path.join(__dirname, "test-fixtures", "proposal-replay");
 const FIXTURE_EMAIL = "fixture-proposal-replay@lifebook.invalid";
 const CONCURRENCY = 5;
+const EST_USD_PER_CALL = 0.021; // 계획 출력용 예상 원가(11-03 실측 90회 $1.8339 → $0.0204/회, 반올림 위로)
 
 function arg(name: string, def: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -69,7 +72,23 @@ async function main() {
     .filter((f) => f.endsWith(".json") && f.includes(only))
     .sort()
     .map((f) => ({ file: f, ...(JSON.parse(fs.readFileSync(path.join(CASE_DIR, f), "utf8")) as Case) }));
-  console.log(`재생 세트 ${cases.length}건 × 프롬프트 ${refs.length}개 × ${n}회 = 호출 ${cases.length * refs.length * n}회`);
+  // --run 이 없으면 비교 계획만(2026-11-03 — 옵션 없이 부른 실행이 기본 비교 60회를 돌린 사고 뒤).
+  const calls = cases.length * refs.length * n;
+  const refExists = (r: string) => {
+    try {
+      execFileSync("git", ["cat-file", "-e", `${r}:lib/prompts/free-chat.ts`], { cwd: ROOT, stdio: "ignore" });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  requireRun([
+    `재생 세트 ${cases.length}건: ${cases.map((c) => c.file).join(", ")}`,
+    `프롬프트 판 ${refs.length}개: ${refs.map((r) => (r === "work" ? "work(작업 트리)" : refExists(r) ? r : `${r}(git 에 없음!)`)).join(", ")}`,
+    `호출 ${calls}회(${n}회 × 입력 × 판 — 앱 제안과 같은 모델·설정) · 예상 원가 약 $${(calls * EST_USD_PER_CALL).toFixed(2)}(2026-11-03 실측 평균 $0.0204/회)`,
+    `오늘 테스트 원가 $${((await testSpentTodayMicroUsd()) / 1e6).toFixed(4)} / 한도 $${(testBudgetMicroUsd() / 1e6).toFixed(2)}`,
+  ]);
+  console.log(`재생 세트 ${cases.length}건 × 프롬프트 ${refs.length}개 × ${n}회 = 호출 ${calls}회`);
 
   await requireTestBudget("replay-proposals");
   const prompts = new Map<string, string>();

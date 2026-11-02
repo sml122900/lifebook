@@ -3,7 +3,7 @@
 // My Life 개편 3단계 — 지도에서 직접 만들기·넣기·빼기·되돌리기·옮기기·지우기. docs/phase/my-life-restructure.md §4.
 // 첫 줄 auth 확인 + 본체는 순수 모듈(lib/my-life-edit·lib/episode-move·lib/episode·lib/life-event-delete).
 // revalidatePath 없음 — /my-life 는 auth() 로 늘 동적 렌더, 화면이 router.refresh() 로 다시 그린다
-// (/story-review 지우기와 같은 이유 — app/actions/episode.ts deleteEpisodeAction 주석).
+// (옛 /story-review 지우기 P20-1 과 같은 이유 — 액션 응답에 무거운 화면 재계산을 싣지 않는다).
 // 지도 노드 키: 시기 ev:<id> · 이야기 st:<시기>:<이야기> · 사람 pe: · 장소 pl: · 모임 gl: · 장소 묶음 pgl:.
 
 import { auth } from "@/auth";

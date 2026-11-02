@@ -1173,7 +1173,8 @@ async function titleChecks(fx: Fixture) {
 
   // 이야기 제목(브릿지 메모리 title)을 읽는 서버 코드 — 전부 displayTitle 을 거친다(주석 제외). 화면도 displayTitle.
   const code = (rel: string) => read(rel).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
-  const servers = ["lib/story-review.ts", "lib/node-confirm.ts", "lib/poster/v3-bridge.ts", "lib/interview/session.ts", "lib/free-chat.ts"];
+  // lib/story-review.ts 는 2026-11-03 삭제(Q69 뒤 옛 /story-review 본문) — 이야기 이름은 My Life(화면 displayTitle).
+  const servers = ["lib/node-confirm.ts", "lib/poster/v3-bridge.ts", "lib/interview/session.ts", "lib/free-chat.ts"];
   const rawReads = servers.filter((rel) => {
     const c = code(rel);
     return (c.match(/memory\??\.title/g) ?? []).length !== (c.match(/displayTitle\(\{ title: \w+\.memory\.title/g) ?? []).length;
@@ -1272,13 +1273,14 @@ async function periodTitleGuardChecks(fx: Fixture) {
   check("⑫ 카드 [만들기] — 카드 제목(시기 이름) 그대로 → 빈 문자열·안내 제목 = 본문 첫 문장 / [고치기]로 적은 시기 이름 → 그대로",
     auto.ok && autoTitle === "" && auto.title === "입학식 날 교복이 컸다." && user.ok && userTitle === "군 입대" && user.title === "군 입대", { auto, autoTitle, user, userTitle });
 
-  // 이야기 저장 경로 전수 — 앱(app·lib)에서 Episode 를 만드는 곳은 lib/episode.ts 하나, 그 함수를 부르는 곳은 카드 저장·옛 대화·
-  // 지도 직접 쓰기(My Life 개편 3단계 — lib/my-life-edit createStoryNode, 적은 제목만 사용자 제목) 셋.
+  // 이야기 저장 경로 전수 — 앱(app·lib)에서 Episode 를 만드는 곳은 lib/episode.ts 하나, 그 함수를 부르는 곳은 카드 저장·
+  // 지도 직접 쓰기(My Life 개편 3단계 — lib/my-life-edit createStoryNode, 적은 제목만 사용자 제목) 둘. 옛 대화 마무리
+  // (lib/episode-chat finishEpisodeChatCore)는 2026-11-03 옛 온보딩 이야기 화면과 함께 삭제(설계 §15.4).
   const files = [...walk(path.join(ROOT, "app")), ...walk(path.join(ROOT, "lib"))].map((f) => path.relative(ROOT, f).replace(/\\/g, "/"));
   const creators = files.filter((f) => /\b(tx|prisma)\.episode\.(create|createMany|upsert)\(/.test(read(f)));
   const callers = files.filter((f) => f !== "lib/episode.ts" && /\bcreateEpisodeBridge\(/.test(read(f))).sort();
-  check("⑫ 이야기 저장 경로 = createEpisodeBridge 하나(Episode 만드는 곳 lib/episode.ts 만 · 부르는 곳 = 카드 저장·옛 대화·지도 직접 쓰기) · 카드 단계도 같은 규칙",
-    JSON.stringify(creators) === JSON.stringify(["lib/episode.ts"]) && JSON.stringify(callers) === JSON.stringify(["lib/episode-chat.ts", "lib/my-life-edit.ts", "lib/node-proposal.ts"]) &&
+  check("⑫ 이야기 저장 경로 = createEpisodeBridge 하나(Episode 만드는 곳 lib/episode.ts 만 · 부르는 곳 = 카드 저장·지도 직접 쓰기) · 카드 단계도 같은 규칙",
+    JSON.stringify(creators) === JSON.stringify(["lib/episode.ts"]) && JSON.stringify(callers) === JSON.stringify(["lib/my-life-edit.ts", "lib/node-proposal.ts"]) &&
       /createEpisodeBridge\(userId, ev\.id, title, ev\.correctedYear \?\? ev\.year, content, "", undefined, false, kind, title !== ""\)/.test(read("lib/my-life-edit.ts")) &&
       (read("lib/node-proposal.ts").match(/storedStoryTitle\(/g) ?? []).length === 1 && /userSetTitle,\n\s*\);/.test(read("lib/node-proposal.ts")),
     { creators, callers });
