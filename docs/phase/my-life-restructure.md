@@ -1098,6 +1098,7 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
   - 표기 검사(`test-interview` ⑩ 관계별 나 예시 `[임시 — 성민 확정 필요]` 8개): 호출 위치가 아니라 임시 문구 표시 — 문구를 확정하면 같이 바뀌어야 하는 의도된 알림이라 그대로.
   - 부재 검사(0곳 — 지운 함수 이름·옛 경로 링크 등): 개수가 바뀌는 검사가 아니라(늘 0) 그대로.
 - 검증(2026-11-03, 마이그 적용 전 · 코드·스키마 삭제 후): 회귀 19종 exit 0(`test-chat-proposal` 158 · `test-interview` 95 · `test-my-life` 104 · `test-my-life-edit` 62 · `test-node-confirm` 46 · `test-node-graph` 69 · `test-v3-poster-bridge` 39 · `test-p18-1` 11) · 바꾼 검사 전부 PASS · `tsc` 0 · 빌드 exit 0. 테스트 원가(11-03 누적) 원장 $4.92(이번 19종 ≈ $0.20).
+- 운영 적용(2026-11-03): 코드 커밋 `818cc6a` 푸시 → Vercel 배포 성공(GitHub 상태 `Vercel = success`, 18:46:04Z) 확인 → `prisma migrate deploy` 적용 1건 → `migrate status` 최신 · `migrate diff --from-config-datasource` 빈 결과(드리프트 0) · 운영 DB 에 `ChatV3PendingContext` 테이블·`ChatV3PendingStage` 타입 0 · 적용 뒤 `test-p18-1`·`test-my-life` 다시 exit 0.
 
 ## 결정 로그
 
