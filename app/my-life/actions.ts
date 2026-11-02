@@ -26,8 +26,10 @@ import {
   deletePlaceNode,
   removeLink,
   undoLinks,
+  undoRemove,
   type CreatedLink,
   type DeleteImpact,
+  type RemovedLink,
   type SameNamePerson,
 } from "@/lib/my-life-edit";
 import { NODE_RANK, type NodeRef } from "@/lib/node-graph";
@@ -139,12 +141,21 @@ export async function undoLinksAction(links: CreatedLink[]): Promise<{ ok: true 
   return undoLinks(userId, clean);
 }
 
-export async function removeLinkAction(a: NodeRef, b: NodeRef): Promise<{ ok: true; removed: number } | { ok: false; error: string }> {
+export async function removeLinkAction(a: NodeRef, b: NodeRef): Promise<{ ok: true; removed: number; undo: RemovedLink | null } | { ok: false; error: string }> {
   const userId = await requireUserId();
   const ra = ref(a);
   const rb = ref(b);
   if (!ra || !rb) return { ok: false, error: E.notFound };
   return removeLink(userId, ra, rb);
+}
+
+// 빼기 되돌리기 — 화면이 돌려준 값은 쌍·소유·형식을 lib/node-graph restoreNodeLink 가 다시 검사한다.
+export async function undoRemoveAction(u: RemovedLink): Promise<{ ok: true; restored: number } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const a = ref(u?.a);
+  const b = ref(u?.b);
+  if (!a || !b) return { ok: false, error: E.notFound };
+  return undoRemove(userId, { a, b, rows: Array.isArray(u?.rows) ? u.rows : [] });
 }
 
 export async function moveStoryAction(episodeId: string, targetEventId: string): Promise<{ ok: true; key: string } | { ok: false; error: string }> {

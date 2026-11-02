@@ -213,6 +213,7 @@ export const MY_LIFE_COPY = {
     alreadyPrimary: "이 이야기가 이미 속한 시기예요.",
     cannotLink: "이 둘은 이을 수 없어요.",
     cannotUnlink: "빼지 못했어요. 다시 해 주세요.",
+    cannotUndo: "되돌리지 못했어요. 다시 해 주세요.",
     cannotRemovePrimary: "이 이야기가 속한 시기는 뺄 수 없어요. [다른 시절로 옮기기]를 써 주세요.",
     cannotRemoveSubject: "이 이야기의 주인공이라 뺄 수 없어요.",
     needName: "이름을 적어 주세요.",

@@ -192,8 +192,18 @@ export async function saveNodeLink(
 //   이야기↔장소 = 그 이야기 브릿지 메모리의 그 placeId MemoryPlace 행 / 모임·묶음 ↔ 구성원 = 구성원 행.
 // 빼기 대상이 아닌 것: 이야기의 주 소속 시기(Episode.lifeEventId — 옮기기로)·대상 인물(Episode.personId).
 // 없는 연결을 빼면 removed 0 으로 통과(멱등 — 되돌리기를 두 번 눌러도 안전).
+// rows = 지운 행의 되살림 값(빼기 되돌리기 — Q50 보완 2026-11-02, restoreNodeLink). 행 id 는 다시 쓰지 않는다(다른 곳이
+//   이 행 id 를 참조하지 않음) — 화면 순서를 정하는 값(만든 때·정렬 순서)과 NodeLink 의 역할·상태·출처·확인 때만.
+export type RemovedLinkRow = {
+  createdAt: string;
+  role?: string;
+  status?: LinkStatus;
+  source?: "USER" | "AI" | "MIGRATION";
+  confirmedAt?: string | null;
+  sortOrder?: number;
+};
 export type RemoveNodeLinkResult =
-  | { ok: true; removed: number; store: LinkStore }
+  | { ok: true; removed: number; store: LinkStore; rows: RemovedLinkRow[] }
   | { ok: false; reason: "self_link" | "pair_not_allowed" | "not_found" | "primary_membership" | "subject_person" };
 
 export async function removeNodeLink(
@@ -212,22 +222,28 @@ export async function removeNodeLink(
   const [fromOwned, toOwned] = await Promise.all([ownsNode(db, userId, from), ownsNode(db, userId, to)]);
   if (!fromOwned || !toOwned) return { ok: false, reason: "not_found" };
 
+  // 지울 행을 먼저 읽어 되살림 값을 남기고, 그 id 들만 지운다.
+  const at = (d: Date) => d.toISOString();
   if (key === "LIFE_EVENT>PERSON") {
-    const r = await db.personLifeEvent.deleteMany({ where: { personId: to.id, lifeEventId: from.id, userId } });
-    return { ok: true, removed: r.count, store: "PERSON_LIFE_EVENT" };
+    const rows = await db.personLifeEvent.findMany({ where: { personId: to.id, lifeEventId: from.id, userId }, select: { id: true, createdAt: true } });
+    const r = await db.personLifeEvent.deleteMany({ where: { id: { in: rows.map((x) => x.id) } } });
+    return { ok: true, removed: r.count, store: "PERSON_LIFE_EVENT", rows: rows.map((x) => ({ createdAt: at(x.createdAt) })) };
   }
   if (key === "PERSON_GROUP>PERSON") {
-    const r = await db.personGroupMember.deleteMany({ where: { groupId: from.id, personId: to.id } });
-    return { ok: true, removed: r.count, store: "PERSON_GROUP_MEMBER" };
+    const rows = await db.personGroupMember.findMany({ where: { groupId: from.id, personId: to.id }, select: { id: true, createdAt: true } });
+    const r = await db.personGroupMember.deleteMany({ where: { id: { in: rows.map((x) => x.id) } } });
+    return { ok: true, removed: r.count, store: "PERSON_GROUP_MEMBER", rows: rows.map((x) => ({ createdAt: at(x.createdAt) })) };
   }
   if (key === "PLACE_GROUP>PLACE") {
-    const r = await db.placeGroupMember.deleteMany({ where: { groupId: from.id, placeId: to.id } });
-    return { ok: true, removed: r.count, store: "PLACE_GROUP_MEMBER" };
+    const rows = await db.placeGroupMember.findMany({ where: { groupId: from.id, placeId: to.id }, select: { id: true, createdAt: true } });
+    const r = await db.placeGroupMember.deleteMany({ where: { id: { in: rows.map((x) => x.id) } } });
+    return { ok: true, removed: r.count, store: "PLACE_GROUP_MEMBER", rows: rows.map((x) => ({ createdAt: at(x.createdAt) })) };
   }
   if (key === "EPISODE>PLACE") {
     const ep = await db.episode.findUniqueOrThrow({ where: { id: from.id }, select: { memoryId: true } });
-    const r = await db.memoryPlace.deleteMany({ where: { memoryId: ep.memoryId, placeId: to.id } });
-    return { ok: true, removed: r.count, store: "MEMORY_PLACE" };
+    const rows = await db.memoryPlace.findMany({ where: { memoryId: ep.memoryId, placeId: to.id }, select: { id: true, createdAt: true, sortOrder: true } });
+    const r = await db.memoryPlace.deleteMany({ where: { id: { in: rows.map((x) => x.id) } } });
+    return { ok: true, removed: r.count, store: "MEMORY_PLACE", rows: rows.map((x) => ({ createdAt: at(x.createdAt), sortOrder: x.sortOrder })) };
   }
   if (key === "LIFE_EVENT>EPISODE" && (await db.episode.count({ where: { id: to.id, lifeEventId: from.id } })) > 0) {
     return { ok: false, reason: "primary_membership" };
@@ -235,8 +251,72 @@ export async function removeNodeLink(
   if (key === "EPISODE>PERSON" && (await db.episode.count({ where: { id: from.id, personId: to.id } })) > 0) {
     return { ok: false, reason: "subject_person" };
   }
-  const r = await db.nodeLink.deleteMany({
+  const rows = await db.nodeLink.findMany({
     where: { userId, fromType: from.type, fromId: from.id, toType: to.type, toId: to.id, ...(opts.role !== undefined ? { role: opts.role } : {}) },
+    select: { id: true, role: true, status: true, source: true, createdAt: true, confirmedAt: true },
   });
-  return { ok: true, removed: r.count, store: "NODE_LINK" };
+  const r = await db.nodeLink.deleteMany({ where: { id: { in: rows.map((x) => x.id) } } });
+  return {
+    ok: true,
+    removed: r.count,
+    store: "NODE_LINK",
+    rows: rows.map((x) => ({
+      createdAt: at(x.createdAt),
+      role: x.role,
+      status: x.status,
+      source: x.source === "AI" || x.source === "MIGRATION" ? x.source : "USER",
+      confirmedAt: x.confirmedAt ? at(x.confirmedAt) : null,
+    })),
+  };
+}
+
+// ── 빼기 되돌리기(Q50 보완 2026-11-02) — removeNodeLink 가 돌려준 rows 를 같은 입구(saveNodeLink)로 다시 잇고,
+// 화면 순서를 정하는 값(만든 때·정렬 순서·확인 때)만 되살린다. rows 는 화면을 거쳐 돌아오므로 다시 검사한다 —
+// 쌍·양 끝 소유는 saveNodeLink 가, 값은 형식만(자기 기록의 순서 값이라 다른 사람 데이터에 닿지 않음).
+// 그사이 같은 연결이 다시 생겼으면 그 행은 그대로 둔다(created false — 멱등).
+export type RestoreNodeLinkResult =
+  | { ok: true; restored: number }
+  | { ok: false; reason: "bad_rows" | "self_link" | "pair_not_allowed" | "not_found" | "primary_membership" | "unsupported_option" };
+
+function parseRemovedRow(v: unknown): RemovedLinkRow | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const date = (x: unknown) => (typeof x === "string" && !Number.isNaN(Date.parse(x)) ? x : null);
+  const createdAt = date(o.createdAt);
+  if (!createdAt) return null;
+  const row: RemovedLinkRow = { createdAt };
+  if (o.role !== undefined) {
+    if (typeof o.role !== "string" || o.role.length > 50) return null;
+    if (o.status !== "CONFIRMED" && o.status !== "PROPOSED") return null;
+    if (o.source !== "USER" && o.source !== "AI" && o.source !== "MIGRATION") return null;
+    if (o.confirmedAt !== null && date(o.confirmedAt) === null) return null;
+    Object.assign(row, { role: o.role, status: o.status, source: o.source, confirmedAt: o.confirmedAt });
+  }
+  if (o.sortOrder !== undefined) {
+    if (!Number.isInteger(o.sortOrder) || (o.sortOrder as number) < 0 || (o.sortOrder as number) > 100_000) return null;
+    row.sortOrder = o.sortOrder as number;
+  }
+  return row;
+}
+
+export async function restoreNodeLink(userId: string, a: NodeRef, b: NodeRef, rows: unknown): Promise<RestoreNodeLinkResult> {
+  const list = (Array.isArray(rows) ? rows.slice(0, 10) : []).map(parseRemovedRow);
+  if (list.length === 0 || list.some((r) => r === null)) return { ok: false, reason: "bad_rows" };
+  let restored = 0;
+  for (const row of list as RemovedLinkRow[]) {
+    const r = await prisma.$transaction(async (tx) => {
+      const s = await saveNodeLink(userId, a, b, row.role !== undefined ? { role: row.role, status: row.status, source: row.source, db: tx } : { db: tx });
+      if (!s.ok || !s.created) return s;
+      const createdAt = new Date(row.createdAt);
+      if (s.store === "PERSON_LIFE_EVENT") await tx.personLifeEvent.update({ where: { id: s.linkId }, data: { createdAt } });
+      else if (s.store === "PERSON_GROUP_MEMBER") await tx.personGroupMember.update({ where: { id: s.linkId }, data: { createdAt } });
+      else if (s.store === "PLACE_GROUP_MEMBER") await tx.placeGroupMember.update({ where: { id: s.linkId }, data: { createdAt } });
+      else if (s.store === "MEMORY_PLACE") await tx.memoryPlace.update({ where: { id: s.linkId }, data: { createdAt, ...(row.sortOrder !== undefined ? { sortOrder: row.sortOrder } : {}) } });
+      else await tx.nodeLink.update({ where: { id: s.linkId }, data: { createdAt, ...(row.role !== undefined ? { confirmedAt: row.confirmedAt ? new Date(row.confirmedAt) : null } : {}) } });
+      return s;
+    });
+    if (!r.ok) return { ok: false, reason: r.reason };
+    if (r.created) restored++;
+  }
+  return { ok: true, restored };
 }

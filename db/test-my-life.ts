@@ -13,6 +13,7 @@
 //   ⑥ 순수 함수 — 작은 물방울 줄 나누기·본문 첫 문장·지금 보는 곳·노드 수
 //   ⑦ 3단계 — 장소 묶음(데이터·배치·간선·검색) · 영역 제목 옆 [+ 사람][+ 모임]/[+ 장소][+ 묶음] 자리
 //   ⑧ 2026-11-02 E2E 재검증 — 시기 노드 사람·장소 수(버튼 이름·패널 같은 함수, 이야기로만 이은 곳 포함) · 제목 없는 이야기 패널
+//   ⑨ 2026-11-02 3단계 E2E — 연결 수·차례로 보기(시기 수와 같은 기준) · 지도 이동 요청 한 번만·패널 작업 뒤 지도 유지 · 한 번 탭 = 패널
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0).
 // 실행: npx tsx db/test-my-life.ts
@@ -31,6 +32,7 @@ import {
   FOLD_ALL_ABOVE,
   L,
   bandAt,
+  eventPeoplePlaceRefs,
   eventPeoplePlaces,
   countMapNodes,
   countTimelineNodes,
@@ -446,6 +448,33 @@ async function main() {
       !hasOwnTitle(s8) && !hasOwnTitle({ title: "  " }) && !hasOwnTitle({ title: null }) && hasOwnTitle({ title: "분식집 떡볶이" }));
     check("⑧ 이야기 패널 — 제목이 없으면 제목 줄은 화면에서 생략(화면 낭독용 sr-only, 본문은 그대로) · 있으면 보임",
       /<h2 id="mylife-panel-title" className=\{hasOwnTitle\(story\) \? "m-0 text-2xl" : "sr-only"\}>/.test(view));
+
+    // ── ⑨ 3단계 E2E(2026-11-02) — 연결 수·차례로 보기 = 시기 노드 사람·장소 수와 같은 기준 · 패널 작업 뒤 지도 유지 · 한 번 탭 = 패널 ──
+    const s1d = d.events.find((e) => e.id === birth)!.stories.find((s) => s.id === s1.episodeId)!;
+    const idRefs = (r: { people: Set<string>; places: Set<string> }) => [...[...r.people].filter((x) => x.startsWith("id:")).map((x) => `pe:${x.slice(3)}`), ...[...r.places].filter((x) => x.startsWith("id:")).map((x) => `pl:${x.slice(3)}`)].sort();
+    check("⑨ 이야기 연결 — 확정 사람·장소만(확인 대기·옛 장소 이름은 안 셈 — 노드 없음), 시기 수와 같은 함수(eventPeoplePlaceRefs)",
+      JSON.stringify([...e1.connected].sort()) === JSON.stringify([`pe:${mom}`, `pe:${mate}`, `pl:${place1}`].sort()) &&
+        JSON.stringify([...e1.connected].sort()) === JSON.stringify(idRefs(eventPeoplePlaceRefs({ personIds: [], placeIds: [], stories: [s1d] }))),
+      e1.connected);
+    const hsEv = d.events.find((e) => e.id === hs)!;
+    check("⑨ 시기 연결 — 바로 이은 분·곳 + 그 시기 이야기의 분·곳(eventPeoplePlaces 와 같은 기준), 전부 윤곽 · 간선은 바로 이은 것만",
+      JSON.stringify([...e3.connected].sort()) === JSON.stringify(idRefs(eventPeoplePlaceRefs(hsEv)).filter((k) => lay.nodes.some((n) => n.key === k))) &&
+        e3.connected.every((k) => e3.related.has(k)) && e3.edges.filter((e) => e.kind === "person").length === 3 && e3.edges.filter((e) => e.kind === "place").length === 1,
+      { connected: e3.connected, refs: idRefs(eventPeoplePlaceRefs(hsEv)) });
+    check("⑨ 인물 간선 끄기 — 연결 수도 장소만 · 모임 선택 = 구성원(related 그대로)",
+      JSON.stringify(e1p.connected) === JSON.stringify([`pl:${place1}`]) && JSON.stringify([...e4.connected].sort()) === JSON.stringify([...e4.related].sort()), { e1p: e1p.connected, e4: e4.connected });
+    check("⑨ 머리 줄 \"연결 N\"·[연결된 곳 차례로 보기(N)] = 연결 전체 수(화면 밖 것만 세던 것 고침) · 차례로 보기는 그 노드들",
+      view.includes("C.selectedLine(nodeName(selected, data, idx), connected.length)") && view.includes("count: r.connected.length") &&
+        /const on = new Set\(connected\);\n\s*const keys = \[selected, \.\.\.layoutRef\.current\.nodes\.map\(\(n\) => n\.key\)\.filter\(\(k\) => on\.has\(k\)\)\]/.test(view));
+    check("⑨ 지도 이동 요청은 한 번만(넣기·빼기로 레이아웃이 바뀌어도 처음 목표로 다시 안 감) · 패널 작업 뒤 = 고른 노드 자리가 바뀌어 보이는 곳 밖일 때만 이동",
+      view.includes("focusDoneRef.current === focusRequest.n) return;") && view.includes("focusDoneRef.current = focusRequest.n;") &&
+        view.includes("if (!now || (was && was.x === now.x && was.y === now.y)) return;") && view.includes("setPendingOpen({ ...r, keep: true });"));
+    check("⑨ 한 번 탭 = 패널 — 전체 보기 배율에서도(확대와 같이, 일찍 끝내지 않음) · 칩 = 그 모임 패널 + 영역으로 · 탭·패널 닫기 포커스로는 지도 안 움직임(키보드만)",
+      view.includes("if (stateRef.current.scale < OVERVIEW_SCALE) zoomAbovePanel(el);\n    if (nodeKind === \"fold\"") &&
+        view.includes("const key = `${places ? \"pgl\" : \"gl\"}:${groupId}`;\n      openPanel(key);") &&
+        view.includes("if (stateRef.current.scale >= OVERVIEW_SCALE) requestAnimationFrame(() => requestAnimationFrame(() => ensureVisible(key)));") &&
+        !/aria-pressed=\{c\.shown\}/.test(view) &&
+        view.includes('if (!el.matches(":focus-visible")) return;'));
 
     for (const [g, pg] of [[0, 1], [2, 2], [3, 3], [1, 5]] as const) {
       const syn = synthetic({ events: 11, stories: 23, people: 12, groups: g, places: 14, placeGroups: pg, seed: 21 + pg });

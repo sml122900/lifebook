@@ -6,13 +6,14 @@
 // 넣기 = saveNodeLink. 이야기↔사람은 그 이야기의 주 소속 시기↔사람(PersonLifeEvent)도 같이(2b-2 [맞아요]와 같은 결과).
 //   돌려주는 created = 이번에 새로 생긴 연결만 — 되돌리기(undoLinks)는 그것만 removeNodeLink 로 지운다(넣기 전 상태).
 // 빼기 = removeNodeLink(연결만 — 노드는 그대로). 주 소속 시기·대상 인물은 빼기 대상이 아니다(옮기기·인물 고치기로).
+//   돌려주는 undo = 지운 행의 되살림 값 — 빼기 되돌리기(undoRemove)가 restoreNodeLink 로 빼기 전 그대로 잇는다(Q50 보완).
 // 지우기 = 장소·모임·장소 묶음은 여기, 이야기는 lib/episode deleteEpisode, 직접 추가 시기는 lib/life-event-delete,
 //   사람은 /people 기존 삭제(지도는 안내만). 연결 정리는 DB 트리거·FK(마이그 20261030000000·20261102000000).
 
 import { prisma } from "./db";
 import { createEpisodeBridge } from "./episode";
 import { MY_LIFE_COPY } from "./my-life-copy";
-import { removeNodeLink, saveNodeLink, type NodeRef } from "./node-graph";
+import { removeNodeLink, restoreNodeLink, saveNodeLink, type NodeRef, type RemovedLinkRow } from "./node-graph";
 import { createCustomLifeEvent } from "./open-chat-promote";
 import { createPerson } from "./people";
 import { findSameNamePeople } from "./person-chat";
@@ -37,6 +38,7 @@ const FAMILY_GROUPS = new Set(["parent", "grandparent", "sibling", "relative", "
 
 export type Fail = { ok: false; error: string };
 export type CreatedLink = { a: NodeRef; b: NodeRef };
+export type RemovedLink = { a: NodeRef; b: NodeRef; rows: RemovedLinkRow[] };
 export type SameNamePerson = { id: string; name: string; relation: string | null };
 
 const norm = (s: string) => s.normalize("NFC").replace(/\s+/g, "");
@@ -94,13 +96,20 @@ export async function undoLinks(userId: string, links: CreatedLink[]): Promise<{
   return { ok: true };
 }
 
-export async function removeLink(userId: string, a: NodeRef, b: NodeRef): Promise<{ ok: true; removed: number } | Fail> {
+// 빼기 — undo 는 실제로 지운 행이 있을 때만(없는 연결을 빼면 되돌릴 것도 없음).
+export async function removeLink(userId: string, a: NodeRef, b: NodeRef): Promise<{ ok: true; removed: number; undo: RemovedLink | null } | Fail> {
   const r = await removeNodeLink(userId, a, b);
-  if (r.ok) return { ok: true, removed: r.removed };
+  if (r.ok) return { ok: true, removed: r.removed, undo: r.rows.length > 0 ? { a, b, rows: r.rows } : null };
   if (r.reason === "primary_membership") return { ok: false, error: E.cannotRemovePrimary };
   if (r.reason === "subject_person") return { ok: false, error: E.cannotRemoveSubject };
   if (r.reason === "not_found") return { ok: false, error: E.notFound };
   return { ok: false, error: E.cannotUnlink };
+}
+
+// 빼기 되돌리기(Q50 보완 2026-11-02) — 빼기 직후 [되돌리기]. 같은 쌍을 saveNodeLink 입구로 다시 잇고 순서 값을 되살린다.
+export async function undoRemove(userId: string, u: RemovedLink): Promise<{ ok: true; restored: number } | Fail> {
+  const r = await restoreNodeLink(userId, u.a, u.b, u.rows);
+  return r.ok ? { ok: true, restored: r.restored } : { ok: false, error: r.reason === "not_found" ? E.notFound : E.cannotUndo };
 }
 
 // ── 만들기 ─────────────────────────────────────────────────────────

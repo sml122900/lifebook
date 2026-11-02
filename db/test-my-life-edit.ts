@@ -11,6 +11,8 @@
 //      같은 시기 = 무변 · 남의 시기·미확정 시기 거부
 //   ⑥ 지우기 — 확인창 수(deleteImpact: 이야기·사람·장소·가족 반응) · 장소(이야기 안 장소 행 삭제·옛 연혁 행 이름만 남음·
 //      연결 트리거·묶음 구성원) · 모임 · 장소 묶음 · 직접 추가 시기(이야기 함께) · 처음 정한 시기 거부 · 남의 노드 거부
+//   ⑧ 빼기 되돌리기(Q50 보완 2026-11-02) — 다섯 칸 모두 빼기 전 값 그대로(만든 때·정렬 순서·NodeLink 역할·상태·출처·확인 때) ·
+//      두 번 눌러도 그대로 · 없는 연결은 되돌릴 것 없음 · 화면이 돌려준 값 다시 검사(남의 계정·남의 노드·이상한 값 거부) · 화면 [되돌리기]
 //   ⑦ 정적 — 서버 액션 전부 첫 줄 auth · NodeLink 쓰기는 lib/node-graph 만 · proxy.ts 무접촉 · 문구 임시 표기
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0). 실행: npx tsx db/test-my-life-edit.ts
@@ -43,8 +45,9 @@ import {
   deletePlaceNode,
   removeLink,
   undoLinks,
+  undoRemove,
 } from "../lib/my-life-edit";
-import { saveNodeLink } from "../lib/node-graph";
+import { saveNodeLink, type NodeRef } from "../lib/node-graph";
 
 const EMAIL_A = "fixture-mylife-edit-a@lifebook.invalid";
 const EMAIL_B = "fixture-mylife-edit-b@lifebook.invalid";
@@ -356,6 +359,78 @@ async function main() {
       delPeriod.ok && (await prisma.episode.count({ where: { id: inPeriod.ok ? inPeriod.episodeId : "" } })) === 0 && (await prisma.memoryReaction.count({ where: { targetId: inMem } })) === 0 && (await prisma.comment.count({ where: { targetId: inMem } })) === 0 &&
         !delSkeleton.ok && delOther.every((r) => !r.ok) && (await prisma.place.count({ where: { id: place1Id } })) === 1 && (await prisma.episode.count({ where: { id: stRef.id } })) === 1,
       { delPeriod, delSkeleton, delOther });
+
+    // ── ⑧ 빼기 되돌리기(Q50 보완 2026-11-02 — 3단계 E2E) ─────────────────
+    // 쌍마다 그 칸 — 빼기 전 행과 같은 값(만든 때·정렬 순서·NodeLink 역할·상태·출처·확인 때)으로 다시 잇는다.
+    const uP = await createPersonNode(a, { name: "[fixture] 되돌리기 분", relation: "친구" });
+    const uPid = uP.ok ? uP.personId : "";
+    const uPl1 = (await prisma.place.create({ data: { userId: a, name: "[fixture] 되돌리기 첫 장소" }, select: { id: true } })).id;
+    const uPl2 = (await prisma.place.create({ data: { userId: a, name: "[fixture] 되돌리기 둘째 장소" }, select: { id: true } })).id;
+    const uSt = await createStoryNode(a, { lifeEventId: job, kind: "STORY", title: "", content: "[fixture] 되돌리기 확인용 이야기.", personIds: [uPid], placeIds: [uPl1, uPl2] });
+    const uStRef: NodeRef = { type: "EPISODE", id: uSt.ok ? uSt.episodeId : "" };
+    const uG = await createGroupNode(a, { name: "[fixture] 되돌리기 모임", memberIds: [uPid] });
+    const uPg = await createPlaceGroupNode(a, { name: "[fixture] 되돌리기 묶음", placeIds: [uPl1] });
+    const uGid = uG.ok ? uG.groupId : "";
+    const uPgid = uPg.ok ? uPg.groupId : "";
+    // 만든 때를 일부러 옛날로 — 되돌리기가 지금 시각으로 새로 만들지 않는지(순서가 바뀌지 않는지) 보려고.
+    const OLD = new Date("2020-01-02T03:04:05.000Z");
+    await prisma.nodeLink.updateMany({ where: { fromType: "EPISODE", fromId: uStRef.id, toType: "PERSON", toId: uPid }, data: { createdAt: OLD, confirmedAt: OLD, source: "AI" } });
+    await prisma.personLifeEvent.updateMany({ where: { personId: uPid, lifeEventId: job }, data: { createdAt: OLD } });
+    await prisma.memoryPlace.updateMany({ where: { placeId: uPl1, memory: { episode: { id: uStRef.id } } }, data: { createdAt: OLD } });
+    await prisma.personGroupMember.updateMany({ where: { groupId: uGid, personId: uPid }, data: { createdAt: OLD } });
+    await prisma.placeGroupMember.updateMany({ where: { groupId: uPgid, placeId: uPl1 }, data: { createdAt: OLD } });
+    const rowsOf = async () =>
+      JSON.stringify({
+        nl: await prisma.nodeLink.findMany({ where: { fromType: "EPISODE", fromId: uStRef.id, toType: "PERSON", toId: uPid }, select: { role: true, status: true, source: true, createdAt: true, confirmedAt: true } }),
+        ple: await prisma.personLifeEvent.findMany({ where: { personId: uPid, lifeEventId: job }, select: { createdAt: true } }),
+        mp: await prisma.memoryPlace.findMany({ where: { memory: { episode: { id: uStRef.id } } }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { placeId: true, sortOrder: true, createdAt: true, placeName: true } }),
+        pgm: await prisma.personGroupMember.findMany({ where: { groupId: uGid, personId: uPid }, select: { createdAt: true } }),
+        plm: await prisma.placeGroupMember.findMany({ where: { groupId: uPgid, placeId: uPl1 }, select: { createdAt: true } }),
+      });
+    const s0 = await rowsOf();
+    const pairs: [string, NodeRef, NodeRef][] = [
+      ["이야기↔사람(NodeLink — 출처 AI·옛 확인 때)", uStRef, { type: "PERSON", id: uPid }],
+      ["시기↔사람(PersonLifeEvent)", { type: "LIFE_EVENT", id: job }, { type: "PERSON", id: uPid }],
+      ["이야기↔첫 장소(MemoryPlace — 첫째 자리)", uStRef, { type: "PLACE", id: uPl1 }],
+      ["모임↔사람(PersonGroupMember)", { type: "PERSON", id: uPid }, { type: "PERSON_GROUP", id: uGid }],
+      ["묶음↔장소(PlaceGroupMember)", { type: "PLACE_GROUP", id: uPgid }, { type: "PLACE", id: uPl1 }],
+    ];
+    for (const [label, x, y] of pairs) {
+      const was = await rowsOf();
+      const rm = await removeLink(a, x, y);
+      const gone = (await rowsOf()) !== was;
+      const un = rm.ok && rm.undo ? await undoRemove(a, rm.undo) : null;
+      check(`⑧ 빼기 되돌리기 — ${label}: 빼면 행 빠짐 → 되돌리면 빼기 전과 같은 값`,
+        rm.ok && rm.removed === 1 && !!rm.undo && gone && !!un?.ok && un.restored === 1 && (await rowsOf()) === was, { rm, un });
+    }
+    check("⑧ 다섯 칸 다 되돌린 뒤 = 처음과 같음(첫 장소가 첫째 자리 그대로 — 정렬 순서·만든 때)", (await rowsOf()) === s0 && uSt.ok && uG.ok && uPg.ok, JSON.parse(s0));
+    const rmAgain = await removeLink(a, uStRef, { type: "PERSON", id: uPid });
+    const un1 = rmAgain.ok && rmAgain.undo ? await undoRemove(a, rmAgain.undo) : null;
+    const un2 = rmAgain.ok && rmAgain.undo ? await undoRemove(a, rmAgain.undo) : null;
+    const rmNone = await removeLink(a, { type: "LIFE_EVENT", id: elem }, { type: "PLACE", id: uPl2 });
+    check("⑧ 같은 되돌리기 두 번 = 두 번째는 0행(그대로) · 없는 연결 빼기 = 되돌릴 것 없음(undo 없음)",
+      !!un1?.ok && un1.restored === 1 && !!un2?.ok && un2.restored === 0 && (await rowsOf()) === s0 && rmNone.ok && rmNone.removed === 0 && rmNone.undo === null, { un1, un2, rmNone });
+    // 화면이 돌려준 값은 다시 검사 — 남의 계정·남의 노드로 바꿔치기·이상한 값은 거부, 저장 0.
+    const rmT = await removeLink(a, uStRef, { type: "PLACE", id: uPl2 });
+    const tok = rmT.ok ? rmT.undo : null;
+    const forged = tok
+      ? [
+          await undoRemove(b, tok),
+          await undoRemove(a, { ...tok, b: { type: "PLACE", id: placeB } }),
+          await undoRemove(a, { ...tok, rows: [{ createdAt: "어제" }] }),
+          await undoRemove(a, { ...tok, rows: [{ ...tok.rows[0], sortOrder: -5 }] }),
+          await undoRemove(a, { ...tok, rows: [] }),
+        ]
+      : [];
+    check("⑧ 되돌리기 값 다시 검사 — 남의 계정·남의 장소 = 찾을 수 없음 · 날짜·정렬 순서 이상·빈 값 = 되돌리지 못함 · 저장 0",
+      forged.map((r) => (r.ok ? "ok" : r.error)).join("|") === [E.notFound, E.notFound, E.cannotUndo, E.cannotUndo, E.cannotUndo].join("|") &&
+        (await prisma.memoryPlace.count({ where: { placeId: { in: [uPl2, placeB] }, memory: { episode: { id: uStRef.id } } } })) === 0,
+      forged);
+    const unT = tok ? await undoRemove(a, tok) : null;
+    check("⑧ … 그 뒤 제 값으로 되돌리기는 됨(처음과 같음)", !!unT?.ok && unT.restored === 1 && (await rowsOf()) === s0, unT);
+    const editUi = read("app/my-life/EditUI.tsx");
+    check("⑧ 화면 — 빼기 직후 알림에 [되돌리기](undoRemoveAction) · 확인 단계(뺄게요)는 그대로",
+      /text: E\.removed,\n\s*undo: u\n\s*\? async \(\) => \{\n\s*const x = await undoRemoveAction\(u\);/.test(editUi) && editUi.includes("onClick={() => remove(mode.other)}"));
 
     // ── ⑦ 정적 ───────────────────────────────────────────────────
     const actions = read("app/my-life/actions.ts");

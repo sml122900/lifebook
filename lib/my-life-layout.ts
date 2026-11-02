@@ -173,10 +173,11 @@ export function packChips(names: string[], rowWidth: number = L.COL_W - 2 * L.ST
   return { rows, overflow };
 }
 
-// 시기 노드의 사람·장소 수 — 시기에 바로 이은 분·곳 + 이 시기 이야기에 나온 분·곳(확정만, 모임 제외), 같은 분·곳은 한 번.
-// 노드 버튼 이름("사람·장소 N")과 패널("사람 N · 장소 N")이 같은 수를 쓴다(2026-11-02 E2E — 버튼 이름이 바로 이은 것만 세어
-// 이야기로만 이어진 곳(카드로 만든 이야기의 장소)이 빠져 1 적던 것).
-export function eventPeoplePlaces(ev: Pick<MyLifeEvent, "personIds" | "placeIds" | "stories">): { people: number; places: number } {
+// 시기 노드의 사람·장소 — 시기에 바로 이은 분·곳 + 이 시기 이야기에 나온 분·곳(확정만, 모임 제외), 같은 분·곳은 한 번.
+// 값 = "id:<id>" 또는 이름만 남은 옛 장소 "name:<이름>"(지도 노드 없음). 이야기 하나는 { personIds: [], placeIds: [], stories: [그 이야기] }.
+// 노드 버튼 이름("사람·장소 N")·패널("사람 N · 장소 N")의 수(eventPeoplePlaces)와 지도 선택의 연결 표시·[연결된 곳 차례로 보기]
+// (lib/my-life-edges connected)가 같이 쓴다(2026-11-02 E2E — 버튼 이름이 바로 이은 것만 세어 1 적던 것 · 3단계 E2E — 차례로 보기 수).
+export function eventPeoplePlaceRefs(ev: Pick<MyLifeEvent, "personIds" | "placeIds" | "stories">): { people: Set<string>; places: Set<string> } {
   const people = new Set(ev.personIds.map((id) => `id:${id}`));
   const places = new Set(ev.placeIds.map((id) => `id:${id}`));
   for (const s of ev.stories) {
@@ -185,7 +186,12 @@ export function eventPeoplePlaces(ev: Pick<MyLifeEvent, "personIds" | "placeIds"
       (c.kind === "place" ? places : people).add(c.id ? `id:${c.id}` : `name:${c.name}`);
     }
   }
-  return { people: people.size, places: places.size };
+  return { people, places };
+}
+
+export function eventPeoplePlaces(ev: Pick<MyLifeEvent, "personIds" | "placeIds" | "stories">): { people: number; places: number } {
+  const r = eventPeoplePlaceRefs(ev);
+  return { people: r.people.size, places: r.places.size };
 }
 
 // 꼬리표 줄(한 줄, 18px) — 그때의 나 > 확인 전 > 여러 시기 순으로 하나만 보인다(나머지는 패널·버튼 이름에).

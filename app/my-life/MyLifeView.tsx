@@ -197,13 +197,14 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   // 3단계 — 패널 맨 위 알림(넣었어요·만들었어요 + [되돌리기], 다음 동작 전까지) · 만들기 시트 · 만든 뒤 갈 노드.
   const [notice, setNotice] = useState<Notice | null>(null);
   const [createKind, setCreateKind] = useState<CreateKind | null | undefined>(undefined); // undefined = 닫힘, null = 종류 고르기부터
-  const [pendingOpen, setPendingOpen] = useState<Created | null>(null);
+  // keep — 패널 안 작업(옮기기·직접 쓰기)으로 생긴 노드: 지도 위치·배율은 그대로, 보이는 곳 밖일 때만 옮김(3단계 E2E 2026-11-02).
+  const [pendingOpen, setPendingOpen] = useState<(Created & { keep?: boolean }) | null>(null);
   const createRef = useRef<HTMLDialogElement>(null);
   const [edgesOn, setEdgesOn] = useState<EdgeToggles>({ person: true, place: true });
   const [selected, setSelected] = useState<string | null>(initialFocus?.key ?? null);
   const [panel, setPanel] = useState<string | null>(null);
   const [findOpen, setFindOpen] = useState(false);
-  const [focusRequest, setFocusRequest] = useState<{ key: string; n: number } | null>(
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(
     initialFocus ? { key: initialFocus.key, n: 1 } : null,
   );
   const lastKeyRef = useRef<string | null>(null);
@@ -268,8 +269,9 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   }, []);
 
   // 노드로 가기(검색 결과·패널의 "여기로 가기") — 접힌 띠면 펼치고, 지도는 이동·확대 + 선택, 목록은 스크롤.
+  // keep = 확대·가운데 맞춤 없이, 그 노드가 보이는 곳 밖일 때만 옮김(패널 안 작업으로 생긴 노드).
   const goTo = useCallback(
-    (key: string, eventId: string | null) => {
+    (key: string, eventId: string | null, keep = false) => {
       setPanel(null);
       setFindOpen(false);
       if (view === "list") {
@@ -296,7 +298,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
           ? `pgc:${key.slice(4)}`
           : key;
       setSelected(target);
-      setFocusRequest((r) => ({ key: target, n: (r?.n ?? 0) + 1 }));
+      setFocusRequest((r) => ({ key: target, n: (r?.n ?? 0) + 1, keep }));
     },
     [view, layout],
   );
@@ -318,7 +320,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
     // 다음 그림에서 — 새 노드가 지도에 그려진 뒤 옮긴다(효과 안에서 바로 상태를 바꾸지 않음).
     const raf = requestAnimationFrame(() => {
       setPendingOpen(null);
-      goTo(done.key, done.eventId);
+      goTo(done.key, done.eventId, done.keep);
       const key = done.key.startsWith("pgl:") && !layout.nodes.some((n) => n.key === done.key) && view === "map" ? `pgc:${done.key.slice(4)}` : done.key;
       openPanel(key);
       const u = done.undo;
@@ -396,7 +398,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
               notice={notice}
               setNotice={setNotice}
               onReopen={(r) => {
-                setPendingOpen(r);
+                setPendingOpen({ ...r, keep: true });
                 router.refresh();
               }}
               onDeleted={() => {
@@ -438,6 +440,8 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
 // ── 지도(자유 이동 캔버스) ──────────────────────────────────────────────
 
 type Init = { scale: number; x: number; y: number };
+// 지도에서 노드로 가기 요청 — n 이 바뀔 때 한 번만 처리(레이아웃이 바뀔 때마다 다시 그 노드로 가던 것 — 3단계 E2E 2026-11-02).
+type FocusRequest = { key: string; n: number; keep?: boolean };
 type Dir = "left" | "right" | "up" | "down";
 type Offscreen = { people: Dir | null; places: Dir | null; timeline: Dir | null; related: { dir: Dir; count: number } | null };
 
@@ -491,7 +495,7 @@ function MapMode({
   onCreate: (kind: CreateKind | null) => void;
   shownPlaceGroups: string[];
   setShownPlaceGroups: (g: string[]) => void;
-  focusRequest: { key: string; n: number } | null;
+  focusRequest: FocusRequest | null;
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -507,12 +511,12 @@ function MapMode({
   const [announce, setAnnounce] = useState("");
   const [offscreen, setOffscreen] = useState<Offscreen>({ people: null, places: null, timeline: null, related: null });
 
-  const { edges, related } = useMemo(() => selectionEdges(data, layout, selected, edgesOn), [data, layout, selected, edgesOn]);
+  const { edges, related, connected } = useMemo(() => selectionEdges(data, layout, selected, edgesOn), [data, layout, selected, edgesOn]);
 
   // 콜백이 읽는 최신 값(렌더 중에는 읽지도 쓰지도 않는다).
   const layoutRef = useRef(layout);
   const savedRef = useRef({ folded, shownGroups, shownPlaceGroups, edgesOn });
-  const relatedRef = useRef<{ selected: string | null; related: Set<string> }>({ selected, related });
+  const relatedRef = useRef<{ selected: string | null; connected: string[] }>({ selected, connected });
   const stateRef = useRef({ scale: 1, positionX: 0, positionY: 0 });
   const downRef = useRef<{ x: number; y: number } | null>(null);
   const lastTapRef = useRef<{ t: number; x: number; y: number } | null>(null);
@@ -523,8 +527,8 @@ function MapMode({
   useLayoutEffect(() => {
     layoutRef.current = layout;
     savedRef.current = { folded, shownGroups, shownPlaceGroups, edgesOn };
-    relatedRef.current = { selected, related };
-  }, [layout, folded, shownGroups, shownPlaceGroups, edgesOn, selected, related]);
+    relatedRef.current = { selected, connected };
+  }, [layout, folded, shownGroups, shownPlaceGroups, edgesOn, selected, connected]);
 
   // 페이지 자체 스크롤을 잠근다 — 지도 영역의 끌기·확대가 페이지 스크롤·브라우저 확대와 다투지 않게.
   useLayoutEffect(() => {
@@ -600,10 +604,11 @@ function MapMode({
     const view = { x: -s.positionX / s.scale, y: -s.positionY / s.scale, w: b.clientWidth / s.scale, h: b.clientHeight / s.scale };
     const r = relatedRef.current;
     let rel: Offscreen["related"] = null;
-    if (r.selected && r.related.size > 0) {
+    // 버튼은 연결 노드가 하나라도 화면 밖이면 보이고, 수는 연결 전체(머리 줄 "연결 N"과 같은 수 — 3단계 E2E 2026-11-02).
+    if (r.selected && r.connected.length > 0) {
       const counts: Record<Dir, number> = { left: 0, right: 0, up: 0, down: 0 };
       let n = 0;
-      for (const k of r.related) {
+      for (const k of r.connected) {
         const node = lay.nodes.find((x) => x.key === k);
         const d = node ? dirOf(view, node) : null;
         if (d) {
@@ -611,7 +616,7 @@ function MapMode({
           n++;
         }
       }
-      if (n > 0) rel = { dir: (Object.keys(counts) as Dir[]).sort((a, c) => counts[c] - counts[a])[0], count: n };
+      if (n > 0) rel = { dir: (Object.keys(counts) as Dir[]).sort((a, c) => counts[c] - counts[a])[0], count: r.connected.length };
     }
     const next: Offscreen = {
       people: lay.regions.people.h > 0 ? dirOf(view, lay.regions.people) : null,
@@ -628,7 +633,7 @@ function MapMode({
 
   useEffect(() => {
     if (ready) requestAnimationFrame(updateOffscreen);
-  }, [ready, layout, selected, related, updateOffscreen]);
+  }, [ready, layout, selected, connected, updateOffscreen]);
 
   // 매 프레임 — "지금 보는 곳"·배율 표시·화면 밖 버튼은 다음 프레임에 한 번만 갱신.
   const onTransform = useCallback(
@@ -657,16 +662,56 @@ function MapMode({
     [save, keepInView, updateOffscreen],
   );
 
+  // 노드가 지도에서 보이는 곳(패널이 열려 있으면 패널 위까지) 밖에 있으면 — 배율은 그대로, 보이는 곳 안(여백 24)으로만 옮긴다.
+  // 일부라도 보이면 그대로(3단계 E2E 2026-11-02 — 패널 작업 뒤 지도 위치·배율 유지, 밀려난 경우만 이동).
+  const ensureVisible = useCallback((key: string) => {
+    const b = boxRef.current;
+    const el = b?.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(key)}"]`);
+    if (!b || !el) return;
+    const r = el.getBoundingClientRect();
+    const w = b.getBoundingClientRect();
+    const panel = document.querySelector("dialog[open]");
+    const bottom = Math.min(w.bottom, panel ? panel.getBoundingClientRect().top : w.bottom);
+    if (!(r.right <= w.left || r.left >= w.right || r.bottom <= w.top || r.top >= bottom)) return;
+    const m = 24;
+    const dx = r.left < w.left + m ? w.left + m - r.left : r.right > w.right - m ? Math.max(w.left + m - r.left, w.right - m - r.right) : 0;
+    const dy = r.top < w.top + m ? w.top + m - r.top : r.bottom > bottom - m ? Math.max(w.top + m - r.top, bottom - m - r.bottom) : 0;
+    if (dx || dy) apiRef.current?.panBy(dx, dy, 200);
+  }, []);
+
   // 검색 결과·"여기로 가기" — 노드를 화면 가운데·배율 1 이상으로(접힌 띠는 부모가 이미 펼침 → 다음 그림에서).
+  // 요청 하나(n)는 한 번만 — 처리한 뒤 넣기·빼기로 레이아웃이 바뀌어도 그 노드로 다시 가지 않는다(3단계 E2E 2026-11-02).
+  // keep = 확대 없이 보이는 곳 밖일 때만 옮김(패널이 열린 뒤 — 다음 그림에서).
+  const focusDoneRef = useRef(0);
   useEffect(() => {
-    if (!focusRequest || !ready) return;
+    if (!focusRequest || !ready || focusDoneRef.current === focusRequest.n) return;
     const el = boxRef.current?.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(focusRequest.key)}"]`);
     if (!el) return;
-    apiRef.current?.zoomToElement(el, Math.max(stateRef.current.scale, 1), 300);
+    focusDoneRef.current = focusRequest.n;
+    const key = focusRequest.key;
+    if (focusRequest.keep) requestAnimationFrame(() => ensureVisible(key));
+    else apiRef.current?.zoomToElement(el, Math.max(stateRef.current.scale, 1), 300);
     // 검색 시트·패널(<dialog>)이 닫히며 포커스를 연 버튼으로 되돌리므로, 그 뒤에 노드로 옮긴다.
-    const t = setTimeout(() => el.focus({ preventScroll: true }), 60);
-    return () => clearTimeout(t);
-  }, [focusRequest, layout, ready]);
+    setTimeout(() => el.focus({ preventScroll: true }), 60);
+  }, [focusRequest, layout, ready, ensureVisible]);
+
+  // 패널 작업 뒤(넣기·빼기·되돌리기 → router.refresh 로 데이터가 바뀜) — 지도 위치·배율은 그대로.
+  // 고른 노드가 밀려(지도 위 자리가 바뀌어) 보이는 곳 밖으로 나갔을 때만 그 노드로. 제자리면 원래 패널에 가려 있었어도 그대로
+  // (3단계 E2E 2026-11-02).
+  const dataRef = useRef(data);
+  const prevLayoutRef = useRef(layout);
+  useEffect(() => {
+    const prevLayout = prevLayoutRef.current;
+    prevLayoutRef.current = layout;
+    if (dataRef.current === data) return;
+    dataRef.current = data;
+    if (!ready || !selected) return;
+    const was = prevLayout.nodes.find((n) => n.key === selected);
+    const now = layout.nodes.find((n) => n.key === selected);
+    if (!now || (was && was.x === now.x && was.y === now.y)) return;
+    const raf = requestAnimationFrame(() => ensureVisible(selected));
+    return () => cancelAnimationFrame(raf);
+  }, [data, layout, ready, selected, ensureVisible]);
 
   const fitAll = useCallback(() => {
     const api = apiRef.current;
@@ -696,7 +741,8 @@ function MapMode({
   // 그래서 선택 노드 → 연결 노드를 지도 순서대로 하나씩, 배율 1 이상으로(누를 때마다 다음 곳).
   const relCursor = useRef(0);
   function goRelated() {
-    const keys = [selected, ...layoutRef.current.nodes.map((n) => n.key).filter((k) => related.has(k))].filter((k): k is string => !!k);
+    const on = new Set(connected);
+    const keys = [selected, ...layoutRef.current.nodes.map((n) => n.key).filter((k) => on.has(k))].filter((k): k is string => !!k);
     if (keys.length === 0) return;
     relCursor.current = (relCursor.current + 1) % keys.length;
     const el = boxRef.current?.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(keys[relCursor.current])}"]`);
@@ -745,24 +791,53 @@ function MapMode({
     if (!el) return;
     const { nodeKey, nodeKind, eventId, groupId, region, createKind } = el.dataset;
     if (!nodeKey) return;
-    // 전체 보기 상태 — 패널 대신 그 노드로 확대(Q60).
-    if (stateRef.current.scale < OVERVIEW_SCALE) {
-      apiRef.current?.zoomToElement(el, 1, 300);
-      return;
-    }
+    // 한 번 탭 = 그 노드의 동작(패널 열기) — 노드 종류·배율과 무관(3단계 E2E 2026-11-02, Q60 보완).
+    // 전체 보기 상태면 그 노드로 확대도 같이(패널에 가리지 않게 지도 위쪽에).
+    if (stateRef.current.scale < OVERVIEW_SCALE) zoomAbovePanel(el);
     if (nodeKind === "fold" && eventId) toggleFold(eventId);
     else if (nodeKind === "regionAdd" && createKind) onCreate(createKind as CreateKind);
     else if (nodeKind === "groupChip" && groupId) {
+      // 칩(모임·장소 묶음 4개 이상 — 영역은 늘 3개) — 안 보이던 모임이면 영역으로 바꿔 넣고 + 그 모임 패널.
+      // (예전 칩 탭 = 보이기·끄기였지만 끄면 레이아웃이 다른 모임으로 다시 3개를 채워 실제로는 바꾸기였다.)
       const places = region === "places";
       const shown = places ? layoutRef.current.shownPlaceGroupIds : layoutRef.current.shownGroupIds;
-      const next = shown.includes(groupId) ? shown.filter((g) => g !== groupId) : [groupId, ...shown].slice(0, L.MAX_SHOWN_GROUPS);
-      if (places) setShownPlaceGroups(next);
-      else setShownGroups(next);
+      if (!shown.includes(groupId)) {
+        const next = [groupId, ...shown].slice(0, L.MAX_SHOWN_GROUPS);
+        if (places) setShownPlaceGroups(next);
+        else setShownGroups(next);
+      }
+      const key = `${places ? "pgl" : "gl"}:${groupId}`;
+      openPanel(key);
+      // 새로 들어온 영역 이름표가 보이는 곳(패널 위) 밖이면 그만큼만 — 영역이 다시 그려지고 패널이 열린 다음 그림에서.
+      if (stateRef.current.scale >= OVERVIEW_SCALE) requestAnimationFrame(() => requestAnimationFrame(() => ensureVisible(key)));
     } else openPanel(nodeKey);
   }
 
+  // 전체 보기에서 누른 노드 — 배율 1, 패널 위 보이는 띠 안에(들어가면 가운데, 크면 위쪽 맞춤).
+  // 탭하면 선택 줄이 생겨 지도 상자가 내려가고 패널이 열리므로, 그 다음 그림에서 잰다.
+  function zoomAbovePanel(el: HTMLElement) {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const b = boxRef.current;
+        const api = apiRef.current;
+        if (!b || !api || !el.isConnected) return;
+        const st = stateRef.current;
+        const r = el.getBoundingClientRect();
+        const w = b.getBoundingClientRect();
+        const panel = document.querySelector("dialog[open]");
+        const bottom = Math.min(w.bottom, panel ? panel.getBoundingClientRect().top : w.bottom);
+        const cx = (r.left + r.width / 2 - w.left - st.positionX) / st.scale;
+        const cy = (r.top + r.height / 2 - w.top - st.positionY) / st.scale;
+        const h = r.height / st.scale;
+        const y = h <= bottom - w.top - 16 ? (w.top + bottom) / 2 : w.top + 8 + h / 2;
+        api.setTransform(w.width / 2 - cx, y - w.top - cy, 1, 300);
+      }),
+    );
+  }
+
   // Tab 으로 화면 밖 노드에 포커스가 가면 — 감싼 상자가 브라우저 기본 스크롤로 어긋나지 않게 되돌리고,
-  // 그 노드가 화면 안(여백 24)에 오도록 지도를 옮긴다.
+  // 그 노드가 화면 안(여백 24)에 오도록 지도를 옮긴다. 지도 이동은 키보드 포커스(:focus-visible)일 때만 — 탭·패널 닫기로
+  // 포커스가 노드에 갈 때 지도가 움직이지 않게(3단계 E2E 2026-11-02 — 전체 보기 탭의 확대와 겹치던 것 · 패널 작업 뒤 지도 유지).
   function onFocusIn(e: React.FocusEvent<HTMLDivElement>) {
     const el = e.target as HTMLElement;
     if (!el.dataset.nodeKey) return;
@@ -770,6 +845,7 @@ function MapMode({
     requestAnimationFrame(() => {
       wrap.scrollTop = 0;
       wrap.scrollLeft = 0;
+      if (!el.matches(":focus-visible")) return;
       const r = el.getBoundingClientRect();
       const w = wrap.getBoundingClientRect();
       const m = 24;
@@ -824,7 +900,7 @@ function MapMode({
       {selected ? (
         <>
           <div className="flex min-h-[56px] items-center justify-between gap-3 px-6 py-1">
-            <p className="min-w-0 truncate text-lg text-ink">{C.selectedLine(nodeName(selected, data, idx), related.size)}</p>
+            <p className="min-w-0 truncate text-lg text-ink">{C.selectedLine(nodeName(selected, data, idx), connected.length)}</p>
             <Button variant="secondary" size="lg" className="shrink-0 px-4!" onClick={() => setSelected(null)}>
               {C.clearSelection}
             </Button>
@@ -1145,7 +1221,6 @@ const MapWorld = memo(function MapWorld({
               data-node-key={c.key}
               data-node-kind="groupChip"
               data-group-id={c.groupId}
-              aria-pressed={c.shown}
               aria-label={C.groupChipName(g?.name ?? "", c.shown)}
               className={`absolute flex items-center justify-center gap-1 rounded-[10px] border-2 px-3 text-lg font-semibold ${c.shown ? "border-emerald-700 bg-emerald-50 text-ink" : "border-line bg-surface text-ink-soft"} ${FOCUS}`}
               style={{ ...pos(c), ...mark(c.key) }}
@@ -1227,7 +1302,6 @@ const MapWorld = memo(function MapWorld({
               data-node-kind="groupChip"
               data-group-id={c.groupId}
               data-region="places"
-              aria-pressed={c.shown}
               aria-label={C.placeGroupChipName(g?.name ?? "", c.shown)}
               className={`absolute flex items-center justify-center gap-1 rounded-[10px] border-2 px-3 text-lg font-semibold ${c.shown ? "border-sky-700 bg-sky-50 text-ink" : "border-line bg-surface text-ink-soft"} ${FOCUS}`}
               style={{ ...pos(c), ...mark(c.key) }}

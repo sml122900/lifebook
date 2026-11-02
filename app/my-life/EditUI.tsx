@@ -31,6 +31,7 @@ import {
   removeLinkAction,
   undoCreateAction,
   undoLinksAction,
+  undoRemoveAction,
   type CreateInput,
   type CreatedNode,
 } from "./actions";
@@ -42,7 +43,8 @@ export type CreateKind = "period" | "story" | "self" | "person" | "place" | "gro
 export const CREATE_KINDS: CreateKind[] = ["period", "story", "self", "person", "place", "group", "placeGroup"];
 
 // 패널 맨 위 알림(되돌리기는 다음 동작 전까지) — 부모(MyLifeView)가 들고 있다.
-export type Notice = { key: string; text: string; undo?: () => Promise<{ ok: boolean }> };
+// undoFail — 되돌리기가 안 됐을 때 문구(없으면 넣기·만들기 되돌리기 문구 cannotUnlink).
+export type Notice = { key: string; text: string; undo?: () => Promise<{ ok: boolean }>; undoFail?: string };
 // 만든 뒤 — 부모가 새 노드로 이동·선택·패널(+ 되돌리기 알림).
 export type Created = { key: string; eventId: string | null; text: string; undo: CreatedNode | null };
 
@@ -558,7 +560,20 @@ export function NodeEditor({
       }
       setMode({ t: "view" });
       router.refresh();
-      setNotice({ key: nodeKey, text: E.removed });
+      // 빼기 직후에도 [되돌리기](만들기·넣기와 같은 방식, 다음 동작 전까지 — Q50 보완 2026-11-02). 확인 단계는 그대로.
+      const u = r.undo;
+      setNotice({
+        key: nodeKey,
+        text: E.removed,
+        undo: u
+          ? async () => {
+              const x = await undoRemoveAction(u);
+              router.refresh();
+              return x;
+            }
+          : undefined,
+        undoFail: E.cannotUndo,
+      });
     });
   }
 
@@ -778,10 +793,11 @@ export function NodeEditor({
               disabled={pending}
               onClick={() => {
                 const u = notice.undo!;
+                const fail = notice.undoFail ?? E.cannotUnlink;
                 setNotice(null);
                 start(async () => {
                   const r = await u();
-                  setNotice({ key: nodeKey, text: r.ok ? E.undone : E.cannotUnlink });
+                  setNotice({ key: nodeKey, text: r.ok ? E.undone : fail });
                 });
               }}
             >

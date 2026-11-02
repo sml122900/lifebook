@@ -1,6 +1,6 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 4개의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 ## 요약
@@ -178,7 +178,7 @@
 | `edit` 입력(23) | `fieldName`·`fieldYear`·`fieldEndYear`·`fieldPeriod`·`fieldTitle`·`fieldBody`·`fieldSelfBody`·`fieldRelation`·`fieldGroups`·`fieldPeople`·`fieldSelfPeople`·`fieldPlaces`·`fieldMembers`·`fieldPlaceMembers`·`placeByName`·`placeBySearch`·`save`·`saving`·`cancel`·`back`·`sameNameQuestion`·`samePerson`·`differentPerson` | 만들기 시트·패널 [새로 만들기]·[직접 쓰기] |
 | `edit` 알림(5) | `created`·`reused`·`linked`·`alreadyLinked`·`undo` "되돌리기"·`undone` | 패널 맨 위 알림 |
 | `edit` 패널 버튼·단계(29) | `addStory`·`talkStory`·`writeStory`·`addPerson`·`addPlace`·`addGroup`·`addToGroup`·`addToPlaceGroup`·`addMember`·`pickTitle`·`pickNone`·`pickSearch`·`pickNew`·`moveStory`·`moveTitle`·`hereNow`·`moveConfirm`·`moveDo`·`moved`·`remove`·`removeConfirm`·`removeDo` "뺄게요"·`removed`·`subjectNote`·`deleteNode` "이 노드 지우기"·`deleteTitle`·`deleteLinked`·`deleteNoLinks`·`linkStories`·`linkPeople`·`linkPlaces`·`deleteStoriesToo`·`deleteFamily`·`deleteIrreversible`·`deleteDo`·`deleted`·`deleteSkeletonNote`·`personDeleteNote`·`personDeleteLink` | 노드 패널 |
-| `edit` 오류(14) | `notFound`·`alreadyPrimary`·`cannotLink`·`cannotUnlink`·`cannotRemovePrimary`·`cannotRemoveSubject`·`needName`·`tooLong`·`badYear`·`badEndYear`·`needBody`·`pickPeriod`·`repickSame`·`failed` | 시트·패널 오류 줄(`lib/my-life-edit.ts` 가 돌려줌) |
+| `edit` 오류(15) | `notFound`·`alreadyPrimary`·`cannotLink`·`cannotUnlink`·`cannotUndo` "되돌리지 못했어요. 다시 해 주세요."(빼기 되돌리기 실패 — 3단계 E2E 후속 2026-11-02)·`cannotRemovePrimary`·`cannotRemoveSubject`·`needName`·`tooLong`·`badYear`·`badEndYear`·`needBody`·`pickPeriod`·`repickSame`·`failed` | 시트·패널 오류 줄(`lib/my-life-edit.ts` 가 돌려줌) |
 
 ### `lib/node-confirm-copy.ts` (`CONFIRM_COPY`)
 

@@ -6,7 +6,7 @@
 //   지나지 않는다. 제어점 x 를 통로~끝점 사이에 두어 곡선이 시간 줄기 쪽(x < 440)으로 돌아가지 않는다.
 
 import type { MyLifeData } from "./my-life";
-import { L, type LayoutNode, type MyLifeLayout } from "./my-life-layout";
+import { eventPeoplePlaceRefs, L, type LayoutNode, type MyLifeLayout } from "./my-life-layout";
 import type { Rect } from "./my-life-group-shape";
 
 export type EdgeKind = "person" | "place";
@@ -51,18 +51,28 @@ export function edgeSamples(from: Rect, fromKind: "story" | "event", to: Rect, n
 }
 
 // 선택한 노드의 간선과 그 반대쪽 노드(연결된 노드 — 윤곽 강조). 접힌 띠의 이야기처럼 지도에 없는 노드는 빠진다.
+// connected = 머리 줄 "연결 N"·[연결된 곳 차례로 보기(N)]의 수이자 차례로 보기가 도는 노드(2026-11-02 3단계 E2E — 화면 밖 것만
+//   세어 연결 2개인 이야기가 (1)로 보이던 것). 시기·이야기 = 시기 노드 사람·장소 수와 같은 기준(eventPeoplePlaceRefs — 확정만·
+//   모임 제외·같은 분·곳 한 번, 시기는 그 시기 이야기에 나온 분·곳까지 — 그것들도 윤곽, 간선은 바로 이은 것만) 중 지도에 노드가
+//   있고 그 종류 간선을 켠 것. 사람·장소·모임·장소 묶음 = related 그대로.
 export function selectionEdges(
   data: MyLifeData,
   layout: Pick<MyLifeLayout, "nodes">,
   selected: string | null,
   show: EdgeToggles,
-): { edges: MapEdge[]; related: Set<string> } {
+): { edges: MapEdge[]; related: Set<string>; connected: string[] } {
   const edges: MapEdge[] = [];
   const related = new Set<string>();
-  if (!selected) return { edges, related };
+  if (!selected) return { edges, related, connected: [] };
   const node = new Map<string, LayoutNode>(layout.nodes.map((n) => [n.key, n]));
   const sel = node.get(selected);
-  if (!sel) return { edges, related };
+  if (!sel) return { edges, related, connected: [] };
+  const refKeys = (r: { people: Set<string>; places: Set<string> }) =>
+    [
+      ...(show.person ? [...r.people].filter((x) => x.startsWith("id:")).map((x) => `pe:${x.slice(3)}`) : []),
+      ...(show.place ? [...r.places].filter((x) => x.startsWith("id:")).map((x) => `pl:${x.slice(3)}`) : []),
+    ].filter((k) => node.has(k));
+  let connected: string[] | null = null;
 
   const add = (fromKey: string, fromKind: "story" | "event", toKey: string, kind: EdgeKind) => {
     const a = node.get(fromKey);
@@ -76,16 +86,20 @@ export function selectionEdges(
     data.events.find((e) => e.id === n.eventId)?.stories.find((s) => s.id === n.storyId);
 
   if (sel.kind === "story") {
-    for (const c of storyOf(sel)?.chips ?? []) {
+    const story = storyOf(sel);
+    for (const c of story?.chips ?? []) {
       if (c.id && c.kind === "person") add(sel.key, "story", `pe:${c.id}`, "person");
       if (c.id && c.kind === "place") add(sel.key, "story", `pl:${c.id}`, "place");
       if (c.id && c.kind === "group" && node.has(`gl:${c.id}`)) related.add(`gl:${c.id}`);
     }
+    connected = refKeys(eventPeoplePlaceRefs({ personIds: [], placeIds: [], stories: story ? [story] : [] }));
   } else if (sel.kind === "event") {
     const ev = data.events.find((e) => e.id === sel.eventId);
     for (const id of ev?.personIds ?? []) add(sel.key, "event", `pe:${id}`, "person");
     for (const id of ev?.placeIds ?? []) add(sel.key, "event", `pl:${id}`, "place");
     for (const id of ev?.groupIds ?? []) if (node.has(`gl:${id}`)) related.add(`gl:${id}`);
+    connected = ev ? refKeys(eventPeoplePlaceRefs(ev)) : [];
+    for (const k of connected) related.add(k); // 그 시기 이야기에 나온 분·곳 — 윤곽만(간선은 그 이야기를 고를 때)
   } else if (sel.kind === "person" || sel.kind === "place") {
     const kind: EdgeKind = sel.kind;
     const id = sel.kind === "person" ? sel.personId : sel.placeId;
@@ -104,5 +118,5 @@ export function selectionEdges(
       if (node.has(k)) related.add(k);
     }
   }
-  return { edges, related };
+  return { edges, related, connected: connected ?? [...related] };
 }
