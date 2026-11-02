@@ -198,6 +198,8 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   const [notice, setNotice] = useState<Notice | null>(null);
   // 지운 뒤 알림("○○을 지웠어요") — 패널이 닫혀서 지도 머리 줄·목록 위에. 다음 동작(패널·찾기·만들기·보기 바꾸기) 전까지.
   const [mapNotice, setMapNotice] = useState<string | null>(null);
+  // 패널의 [연결된 곳 차례로 보기(N)] — 누르면 패널을 닫고 지도가 다음 연결 노드로(2026-11-02 머리 줄에서 옮김).
+  const [relatedRequest, setRelatedRequest] = useState(0);
   const [createKind, setCreateKind] = useState<CreateKind | null | undefined>(undefined); // undefined = 닫힘, null = 종류 고르기부터
   // keep — 패널 안 작업(옮기기·직접 쓰기)으로 생긴 노드: 지도 위치·배율은 그대로, 보이는 곳 밖일 때만 옮김(3단계 E2E 2026-11-02).
   const [pendingOpen, setPendingOpen] = useState<(Created & { keep?: boolean }) | null>(null);
@@ -219,6 +221,10 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
     [data, folded, shownGroups, shownPlaceGroups],
   );
   const idx = useMemo(() => buildIndex(data), [data]);
+  const relatedCount = useMemo(
+    () => (view === "map" && selected ? selectionEdges(data, layout, selected, edgesOn).connected.length : 0),
+    [view, selected, data, layout, edgesOn],
+  );
 
   const openPanel = useCallback((key: string) => {
     setMapNotice(null);
@@ -394,6 +400,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
           setShownPlaceGroups={setShownPlaceGroups}
           focusRequest={focusRequest}
           status={mapNotice}
+          relatedRequest={relatedRequest}
         />
       ) : (
         <ListMode data={data} idx={idx} openPanel={openPanel} onToggleView={toggleView} onOpenFind={openFind} onCreate={openCreate} status={mapNotice} />
@@ -431,6 +438,17 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
                 setPendingOpen({ ...r, keep: true });
                 router.refresh();
               }}
+              related={
+                relatedCount > 0 && panel === selected
+                  ? {
+                      count: relatedCount,
+                      go: () => {
+                        dialogRef.current?.close();
+                        setRelatedRequest((n) => n + 1);
+                      },
+                    }
+                  : null
+              }
               onDeleted={(name) => {
                 setSelected(null);
                 setMapNotice(C.edit.deletedName(name));
@@ -497,6 +515,7 @@ function MapMode({
   setShownPlaceGroups,
   focusRequest,
   status,
+  relatedRequest,
 }: {
   data: MyLifeData;
   idx: Index;
@@ -518,6 +537,7 @@ function MapMode({
   setShownPlaceGroups: (g: string[]) => void;
   focusRequest: FocusRequest | null;
   status: string | null; // 지운 뒤 알림 — "지금 보는 곳" 자리에(다음 동작 전까지)
+  relatedRequest: number; // 패널의 [연결된 곳 차례로 보기] 누름 수 — 바뀔 때마다 다음 연결 노드로
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -721,15 +741,22 @@ function MapMode({
   }
   // 연결된 곳 — 한꺼번에 맞추면 멀리 떨어진 이야기·인물록 때문에 배율이 너무 작아져(실측 0.09) 글씨를 못 읽는다.
   // 그래서 선택 노드 → 연결 노드를 지도 순서대로 하나씩, 배율 1 이상으로(누를 때마다 다음 곳).
+  // 버튼은 패널 안([연결된 곳 차례로 보기(N)] — 누르면 패널을 닫고 다음 곳으로, 2026-11-02 머리 줄에서 옮김). 요청 번호 하나는 한 번만.
   const relCursor = useRef(0);
-  function goRelated() {
+  const goRelated = useCallback(() => {
     const on = new Set(connected);
     const keys = [selected, ...layoutRef.current.nodes.map((n) => n.key).filter((k) => on.has(k))].filter((k): k is string => !!k);
     if (keys.length === 0) return;
     relCursor.current = (relCursor.current + 1) % keys.length;
     const el = boxRef.current?.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(keys[relCursor.current])}"]`);
     if (el) apiRef.current?.zoomToElement(el, Math.max(stateRef.current.scale, 1), 300);
-  }
+  }, [connected, selected]);
+  const relatedDoneRef = useRef(0);
+  useEffect(() => {
+    if (!relatedRequest || relatedRequest === relatedDoneRef.current) return;
+    relatedDoneRef.current = relatedRequest;
+    goRelated();
+  }, [relatedRequest, goRelated]);
 
   // 노드 탭과 끌기 구분 — 누른 자리에서 8px 넘게 움직였으면 끌기(패널 안 염).
   function onPointerDown(e: React.PointerEvent) {
@@ -894,12 +921,6 @@ function MapMode({
             <Button variant="tertiary" size="lg" className="px-4!" aria-pressed={!edgesOn.place} onClick={() => setEdgesOn({ ...edgesOn, place: !edgesOn.place })}>
               {edgesOn.place ? C.edgePlaceOff : C.edgePlaceOn}
             </Button>
-            {/* 연결된 곳 차례로 보기 — 지도 위에 떠 있던 버튼을 머리 줄로(노드를 가리지 않게 — 3단계 E2E 2026-11-02, §8.4). */}
-            {connected.length > 0 && (
-              <Button variant="secondary" size="lg" className="px-4!" onClick={goRelated}>
-                {C.toRelated(connected.length)}
-              </Button>
-            )}
           </div>
         </>
       ) : (
@@ -1682,6 +1703,7 @@ function PanelBody({
   setNotice,
   onReopen,
   onDeleted,
+  related,
 }: {
   nodeKey: string;
   data: MyLifeData;
@@ -1694,6 +1716,7 @@ function PanelBody({
   setNotice: (n: Notice | null) => void;
   onReopen: (r: Created) => void;
   onDeleted: (name: string) => void;
+  related: { count: number; go: () => void } | null;
 }) {
   const info = panelInfo(nodeKey, data, idx, folded, showFold, onToggleFold, onGo);
   if (!info) return null;
@@ -1702,7 +1725,18 @@ function PanelBody({
       key={nodeKey}
       nodeKey={nodeKey}
       data={data}
-      info={info}
+      info={
+        related ? (
+          <>
+            {info}
+            <Button variant="secondary" size="lg" onClick={related.go}>
+              {C.toRelated(related.count)}
+            </Button>
+          </>
+        ) : (
+          info
+        )
+      }
       notice={notice}
       setNotice={setNotice}
       onGo={onGo}

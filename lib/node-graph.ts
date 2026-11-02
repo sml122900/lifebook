@@ -76,8 +76,9 @@ async function ownsNode(db: Prisma.TransactionClient, userId: string, n: NodeRef
 export type LinkStore = "NODE_LINK" | "PERSON_LIFE_EVENT" | "MEMORY_PLACE" | "PERSON_GROUP_MEMBER" | "PLACE_GROUP_MEMBER";
 
 // created — 이번 요청으로 새 행이 생겼는지(이미 있던 연결이면 false — 되돌리기는 created 인 것만 지운다).
+// upgraded — 시기↔사람이 이야기 따라(STORY) 있던 쌍을 직접(DIRECT) 넣어 DIRECT 로 올렸음(되돌리기는 다시 STORY 로).
 export type SaveNodeLinkResult =
-  | { ok: true; linkId: string; status: LinkStatus; store: LinkStore; created: boolean }
+  | { ok: true; linkId: string; status: LinkStatus; store: LinkStore; created: boolean; upgraded?: true }
   | {
       ok: false;
       // unsupported_option — 기존 칸으로 넘기는 쌍에 PROPOSED·role 요청(그 칸들엔 상태·역할이 없다)
@@ -89,7 +90,9 @@ export async function saveNodeLink(
   a: NodeRef,
   b: NodeRef,
   // db — 트랜잭션 안에서 부를 때 그 클라이언트(2b-2 확인 화면). 없으면 기본 클라이언트.
-  opts: { role?: string; status?: LinkStatus; source?: "USER" | "AI" | "MIGRATION"; db?: Prisma.TransactionClient } = {},
+  // origin — 시기↔사람(PersonLifeEvent)의 출처. 기본 DIRECT(직접 — 시기 패널·인물 질문 답·/people·그 밖 경로), STORY = 이야기 따라
+  // (이야기에 사람 넣기·제안 카드·인물 확인 [맞아요]·옮기기). 같은 쌍이 STORY 로 있으면 DIRECT 넣기가 DIRECT 로 올린다(내리지 않음).
+  opts: { role?: string; status?: LinkStatus; source?: "USER" | "AI" | "MIGRATION"; origin?: PeriodPersonOrigin; db?: Prisma.TransactionClient } = {},
 ): Promise<SaveNodeLinkResult> {
   const db = opts.db ?? prisma;
   const pair = normalizeNodePair(a, b);
@@ -101,6 +104,7 @@ export async function saveNodeLink(
   if (routed && ((opts.status ?? "CONFIRMED") !== "CONFIRMED" || (opts.role ?? "") !== "")) {
     return { ok: false, reason: "unsupported_option" };
   }
+  if (opts.origin !== undefined && key !== "LIFE_EVENT>PERSON") return { ok: false, reason: "unsupported_option" };
 
   const [fromOwned, toOwned] = await Promise.all([ownsNode(db, userId, from), ownsNode(db, userId, to)]);
   if (!fromOwned || !toOwned) return { ok: false, reason: "not_found" };
@@ -108,10 +112,17 @@ export async function saveNodeLink(
   const made = (linkId: string, store: LinkStore, created: boolean): SaveNodeLinkResult => ({ ok: true, linkId, status: "CONFIRMED", store, created });
 
   if (key === "LIFE_EVENT>PERSON") {
+    const origin = opts.origin ?? "DIRECT";
     const where = { personId_lifeEventId: { personId: to.id, lifeEventId: from.id } };
-    const had = await db.personLifeEvent.findUnique({ where, select: { id: true } });
-    if (had) return made(had.id, "PERSON_LIFE_EVENT", false);
-    const row = await db.personLifeEvent.upsert({ where, create: { personId: to.id, lifeEventId: from.id, userId }, update: {}, select: { id: true } });
+    const had = await db.personLifeEvent.findUnique({ where, select: { id: true, origin: true } });
+    if (had) {
+      if (origin === "DIRECT" && had.origin === "STORY") {
+        await db.personLifeEvent.update({ where: { id: had.id }, data: { origin: "DIRECT" } });
+        return { ...made(had.id, "PERSON_LIFE_EVENT", false), upgraded: true } as SaveNodeLinkResult;
+      }
+      return made(had.id, "PERSON_LIFE_EVENT", false);
+    }
+    const row = await db.personLifeEvent.upsert({ where, create: { personId: to.id, lifeEventId: from.id, userId, origin }, update: {}, select: { id: true } });
     return made(row.id, "PERSON_LIFE_EVENT", true);
   }
   if (key === "PERSON_GROUP>PERSON") {
@@ -194,8 +205,10 @@ export async function saveNodeLink(
 // 없는 연결을 빼면 removed 0 으로 통과(멱등 — 되돌리기를 두 번 눌러도 안전).
 // rows = 지운 행의 되살림 값(빼기 되돌리기 — Q50 보완 2026-11-02, restoreNodeLink). 행 id 는 다시 쓰지 않는다(다른 곳이
 //   이 행 id 를 참조하지 않음) — 화면 순서를 정하는 값(만든 때·정렬 순서)과 NodeLink 의 역할·상태·출처·확인 때만.
+export type PeriodPersonOrigin = "DIRECT" | "STORY";
 export type RemovedLinkRow = {
   createdAt: string;
+  origin?: PeriodPersonOrigin; // 시기↔사람(PersonLifeEvent) 행만
   role?: string;
   status?: LinkStatus;
   source?: "USER" | "AI" | "MIGRATION";
@@ -227,9 +240,14 @@ export async function removeNodeLink(
   // 지울 행을 먼저 읽어 되살림 값을 남기고, 그 id 들만 지운다.
   const at = (d: Date) => d.toISOString();
   if (key === "LIFE_EVENT>PERSON") {
-    const rows = await db.personLifeEvent.findMany({ where: { personId: to.id, lifeEventId: from.id, userId }, select: { id: true, createdAt: true } });
+    const rows = await db.personLifeEvent.findMany({ where: { personId: to.id, lifeEventId: from.id, userId }, select: { id: true, createdAt: true, origin: true } });
     const r = await db.personLifeEvent.deleteMany({ where: { id: { in: rows.map((x) => x.id) } } });
-    return { ok: true, removed: r.count, store: "PERSON_LIFE_EVENT", rows: rows.map((x) => ({ createdAt: at(x.createdAt) })) };
+    return {
+      ok: true,
+      removed: r.count,
+      store: "PERSON_LIFE_EVENT",
+      rows: rows.map((x) => ({ createdAt: at(x.createdAt), origin: x.origin === "STORY" ? ("STORY" as const) : ("DIRECT" as const) })),
+    };
   }
   if (key === "PERSON_GROUP>PERSON") {
     const rows = await db.personGroupMember.findMany({ where: { groupId: from.id, personId: to.id }, select: { id: true, createdAt: true } });
@@ -298,6 +316,10 @@ function parseRemovedRow(v: unknown): RemovedLinkRow | null {
     if (!Number.isInteger(o.sortOrder) || (o.sortOrder as number) < 0 || (o.sortOrder as number) > 100_000) return null;
     row.sortOrder = o.sortOrder as number;
   }
+  if (o.origin !== undefined) {
+    if (o.origin !== "DIRECT" && o.origin !== "STORY") return null;
+    row.origin = o.origin;
+  }
   return row;
 }
 
@@ -307,7 +329,12 @@ export async function restoreNodeLink(userId: string, a: NodeRef, b: NodeRef, ro
   let restored = 0;
   for (const row of list as RemovedLinkRow[]) {
     const r = await prisma.$transaction(async (tx) => {
-      const s = await saveNodeLink(userId, a, b, row.role !== undefined ? { role: row.role, status: row.status, source: row.source, db: tx } : { db: tx });
+      const s = await saveNodeLink(
+        userId,
+        a,
+        b,
+        row.role !== undefined ? { role: row.role, status: row.status, source: row.source, db: tx } : row.origin !== undefined ? { origin: row.origin, db: tx } : { db: tx },
+      );
       if (!s.ok || !s.created) return s;
       const createdAt = new Date(row.createdAt);
       if (s.store === "PERSON_LIFE_EVENT") await tx.personLifeEvent.update({ where: { id: s.linkId }, data: { createdAt } });
@@ -321,4 +348,68 @@ export async function restoreNodeLink(userId: string, a: NodeRef, b: NodeRef, ro
     if (r.created) restored++;
   }
   return { ok: true, restored };
+}
+
+// ── 시기↔사람 출처 — 이야기 따라 생긴 연결(STORY) 정리(2026-11-02 3단계 E2E, docs/phase/my-life-restructure.md §14.8) ──
+//
+// 그 시기 이야기 = 주 소속(Episode.lifeEventId) + 추가 소속(NodeLink LIFE_EVENT→EPISODE).
+// 그 분이 나옴 = 대상 인물(Episode.personId) 또는 확정 연결(EPISODE→PERSON CONFIRMED). 확인 대기 연결만으로는 안 나옴.
+export async function personAppearsInPeriod(db: Prisma.TransactionClient | typeof prisma, userId: string, lifeEventId: string, personId: string): Promise<boolean> {
+  const extra = await db.nodeLink.findMany({ where: { userId, fromType: "LIFE_EVENT", fromId: lifeEventId, toType: "EPISODE" }, select: { toId: true } });
+  const eps = await db.episode.findMany({
+    where: { lifeEvent: { userId }, OR: [{ lifeEventId }, { id: { in: extra.map((x) => x.toId) } }] },
+    select: { id: true, personId: true },
+  });
+  if (eps.some((e) => e.personId === personId)) return true;
+  if (eps.length === 0) return false;
+  return (
+    (await db.nodeLink.count({
+      where: { userId, fromType: "EPISODE", fromId: { in: eps.map((e) => e.id) }, toType: "PERSON", toId: personId, status: "CONFIRMED" },
+    })) > 0
+  );
+}
+
+// 이야기 하나가 걸친 (시기, 사람) 쌍 — 시기 = 주 소속 + 추가 소속, 사람 = 대상 인물 + 확정 연결. 정리 대상 고르기용.
+export async function periodPeoplePairsOfEpisode(
+  db: Prisma.TransactionClient | typeof prisma,
+  userId: string,
+  episodeId: string,
+): Promise<{ lifeEventId: string; personId: string }[]> {
+  const ep = await db.episode.findFirst({ where: { id: episodeId, lifeEvent: { userId } }, select: { lifeEventId: true, personId: true } });
+  if (!ep) return [];
+  const [extra, linked] = await Promise.all([
+    db.nodeLink.findMany({ where: { userId, fromType: "LIFE_EVENT", toType: "EPISODE", toId: episodeId }, select: { fromId: true } }),
+    db.nodeLink.findMany({ where: { userId, fromType: "EPISODE", fromId: episodeId, toType: "PERSON", status: "CONFIRMED" }, select: { toId: true } }),
+  ]);
+  const events = [ep.lifeEventId, ...extra.map((x) => x.fromId)];
+  const people = [...new Set([...(ep.personId ? [ep.personId] : []), ...linked.map((l) => l.toId)])];
+  return events.flatMap((lifeEventId) => people.map((personId) => ({ lifeEventId, personId })));
+}
+
+// 빼기·옮기기·이야기 지우기 뒤 — 그 쌍의 STORY 연결이 그 시기 이야기에 그 분이 하나도 안 나오면 지운다. DIRECT 는 그대로.
+// 지운 행의 되살림 값을 돌려준다(되돌리기 — restoreNodeLink 로 출처까지 그대로).
+export async function cleanupStoryPeriodPeople(
+  userId: string,
+  pairs: { lifeEventId: string; personId: string }[],
+  db: Prisma.TransactionClient | typeof prisma = prisma,
+): Promise<RemovedLink[]> {
+  const out: RemovedLink[] = [];
+  const seen = new Set<string>();
+  for (const p of pairs) {
+    const k = `${p.lifeEventId}:${p.personId}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const story = await db.personLifeEvent.count({ where: { lifeEventId: p.lifeEventId, personId: p.personId, userId, origin: "STORY" } });
+    if (story === 0 || (await personAppearsInPeriod(db, userId, p.lifeEventId, p.personId))) continue;
+    const a: NodeRef = { type: "LIFE_EVENT", id: p.lifeEventId };
+    const b: NodeRef = { type: "PERSON", id: p.personId };
+    const r = await removeNodeLink(userId, a, b, { db: db as Prisma.TransactionClient });
+    if (r.ok && r.rows.length > 0) out.push({ a, b, rows: r.rows });
+  }
+  return out;
+}
+
+// 직접 넣기로 STORY → DIRECT 올린 것의 되돌리기 — 다시 STORY(그 쌍이 지금 DIRECT 일 때만).
+export async function revertPeriodPersonUpgrade(userId: string, lifeEventId: string, personId: string): Promise<void> {
+  await prisma.personLifeEvent.updateMany({ where: { userId, lifeEventId, personId, origin: "DIRECT" }, data: { origin: "STORY" } });
 }

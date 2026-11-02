@@ -35,7 +35,7 @@ import { itemKeyOf, kstDay } from "../lib/interview/keys";
 import { startInterviewSession } from "../lib/interview/session";
 import { deleteCustomLifeEvent } from "../lib/life-event-delete";
 import { refineMemorySpelling } from "../lib/memory-refine";
-import { NODE_RANK, normalizeNodePair, removeNodeLink, saveNodeLink } from "../lib/node-graph";
+import { cleanupStoryPeriodPeople, NODE_RANK, normalizeNodePair, removeNodeLink, restoreNodeLink, saveNodeLink, type NodeRef } from "../lib/node-graph";
 import { applyNodeGraphCleanup, countNodeGraphIssues } from "../lib/node-graph-reconcile";
 import { syncV3Bridge } from "../lib/poster/v3-bridge";
 
@@ -439,15 +439,49 @@ async function main() {
     // 12 이야기 없는 시기↔사람 연결(3단계 E2E 2026-11-02) — 시기에만 이으면 +1, 그 시기 이야기에 그 분이 나오면(확정 연결) 다시 그대로.
     const p12 = (await prisma.person.create({ data: { userId: a, name: "[fixture] 시기에만 이은 분", relation: "친구" }, select: { id: true } })).id;
     await saveNodeLink(a, { type: "LIFE_EVENT", id: mil }, { type: "PERSON", id: p12 });
-    const with12 = (await countNodeGraphIssues({ userId: a })).periodPeopleWithoutStory;
+    const with12 = (await countNodeGraphIssues({ userId: a })).directPeriodPeopleWithoutStory;
     const st12 = await makeStory(a, mil, "군 입대", "[fixture] 훈련소 동기와 같은 내무반을 썼다.");
     await saveNodeLink(a, { type: "EPISODE", id: st12.episodeId }, { type: "PERSON", id: p12 }, { status: "PROPOSED", source: "AI" });
-    const proposed12 = (await countNodeGraphIssues({ userId: a })).periodPeopleWithoutStory;
+    const proposed12 = (await countNodeGraphIssues({ userId: a })).directPeriodPeopleWithoutStory;
     await saveNodeLink(a, { type: "EPISODE", id: st12.episodeId }, { type: "PERSON", id: p12 }, { status: "CONFIRMED" });
-    const told12 = (await countNodeGraphIssues({ userId: a })).periodPeopleWithoutStory;
-    check("⑨ 12 이야기 없는 시기↔사람 — 시기에만 이음 = +1 · 확인 대기 연결만으론 그대로 +1 · 확정 연결이면 다시 처음 수",
-      with12 === clean0.periodPeopleWithoutStory + 1 && proposed12 === with12 && told12 === clean0.periodPeopleWithoutStory,
-      { before: clean0.periodPeopleWithoutStory, with12, proposed12, told12 });
+    const told12 = (await countNodeGraphIssues({ userId: a })).directPeriodPeopleWithoutStory;
+    check("⑨ 12 이야기 없는 시기↔사람(DIRECT — 보고만) — 시기에만 이음 = +1 · 확인 대기 연결만으론 그대로 +1 · 확정 연결이면 다시 처음 수",
+      with12 === clean0.directPeriodPeopleWithoutStory + 1 && proposed12 === with12 && told12 === clean0.directPeriodPeopleWithoutStory,
+      { before: clean0.directPeriodPeopleWithoutStory, with12, proposed12, told12 });
+    // 출처(2026-11-02 마이그 20261102200000) — 입구가 출처를 적고, STORY 쌍을 직접 넣으면 DIRECT 로 올리고(내리지 않음), 다른 쌍엔 출처 거부.
+    const po = (await prisma.person.create({ data: { userId: a, name: "[fixture] 출처 확인 분", relation: "친구" }, select: { id: true } })).id;
+    const poEv: NodeRef = { type: "LIFE_EVENT", id: mil };
+    const poP: NodeRef = { type: "PERSON", id: po };
+    const originOf = async () => (await prisma.personLifeEvent.findFirst({ where: { personId: po, lifeEventId: mil }, select: { origin: true } }))?.origin;
+    const po1 = await saveNodeLink(a, poEv, poP, { origin: "STORY" });
+    const po1v = await originOf();
+    const po2 = await saveNodeLink(a, poP, poEv);
+    const po2v = await originOf();
+    const po3 = await saveNodeLink(a, poEv, poP, { origin: "STORY" });
+    const po3v = await originOf();
+    const po4 = await saveNodeLink(a, { type: "EPISODE", id: st12.episodeId }, poP, { origin: "STORY" });
+    check("⑨ 출처 — STORY 로 생김 · 같은 쌍 직접 넣기 = DIRECT 로 올림(upgraded, 새 행 아님) · 다시 STORY 넣기 = 그대로 DIRECT · 시기↔사람 아닌 쌍에 출처 = 거부",
+      po1.ok && po1.created && po1v === "STORY" && po2.ok && !po2.created && po2.upgraded === true && po2v === "DIRECT" &&
+        po3.ok && !po3.created && !po3.upgraded && po3v === "DIRECT" && !po4.ok && po4.reason === "unsupported_option",
+      { po1, po1v, po2, po2v, po3, po3v, po4 });
+    await prisma.personLifeEvent.updateMany({ where: { personId: po, lifeEventId: mil }, data: { origin: "STORY" } });
+    const rmO = await removeNodeLink(a, poEv, poP);
+    const rsO = rmO.ok ? await restoreNodeLink(a, poEv, poP, rmO.rows) : null;
+    check("⑨ 출처 — 빼기 되살림 값에 출처, 되돌리기 = 같은 출처(STORY)", rmO.ok && rmO.rows[0]?.origin === "STORY" && !!rsO?.ok && (await originOf()) === "STORY", { rmO, rsO });
+    // 정리 함수 — STORY 는 그 시기에 그 분이 안 나오면 지움(되살림 값), DIRECT 는 그대로.
+    const cl1 = await cleanupStoryPeriodPeople(a, [{ lifeEventId: mil, personId: po }, { lifeEventId: mil, personId: p12 }]);
+    const pd = (await prisma.person.create({ data: { userId: a, name: "[fixture] 직접 고아 분", relation: "친구" }, select: { id: true } })).id;
+    await saveNodeLink(a, poEv, { type: "PERSON", id: pd });
+    const cl2 = await cleanupStoryPeriodPeople(a, [{ lifeEventId: mil, personId: pd }]);
+    check("⑨ 정리 함수 — 이야기에 안 나오는 STORY 1 지움(되살림 값 1) · 나오는 분(확정 연결)·DIRECT 는 그대로",
+      cl1.length === 1 && cl1[0].b.id === po && cl1[0].rows[0]?.origin === "STORY" && (await originOf()) === undefined &&
+        cl2.length === 0 && (await prisma.personLifeEvent.count({ where: { personId: pd, lifeEventId: mil } })) === 1,
+      { cl1, cl2 });
+    // 정리 대상 STORY 고아 하나를 남겨 둔다(아래 --apply 확인).
+    const ps = (await prisma.person.create({ data: { userId: a, name: "[fixture] 이야기 따라 고아 분", relation: "친구" }, select: { id: true } })).id;
+    await saveNodeLink(a, poEv, { type: "PERSON", id: ps }, { origin: "STORY" });
+    const storyCount = (await countNodeGraphIssues({ userId: a })).storyPeriodPeopleWithoutStory;
+    check("⑨ 12 출처 STORY 고아 = 정리 대상으로 셈(1)", storyCount === clean0.storyPeriodPeopleWithoutStory + 1, { storyCount, before: clean0.storyPeriodPeopleWithoutStory });
     // 이상 행을 일부러 만든다(저장 함수를 거치지 않는 직접 삽입 — 트리거·저장 함수가 막는 상황의 흉내).
     const ghost = await prisma.nodeLink.create({ data: { userId: a, fromType: "EPISODE", fromId: story1.episodeId, toType: "PERSON", toId: "ghost-person" } });
     const ghostBody = await prisma.nodeBody.create({ data: { userId: a, nodeType: "PERSON", nodeId: "ghost-node", doc: { v: 1, blocks: [] }, plainText: "" } });
@@ -479,9 +513,13 @@ async function main() {
     const linksBefore = await prisma.nodeLink.count({ where: { userId: a } });
     const applied = await applyNodeGraphCleanup({ userId: a });
     const after = await countNodeGraphIssues({ userId: a });
-    check("⑨ 정리 = 3종 각 1건 → 다시 세면 0", applied.danglingLinks === 1 && applied.bodiesMissingNode === 1 && applied.orphanDrafts === 1 &&
-      after.danglingLinks === 0 && after.bodyMissingNode === 0 && after.orphanDrafts === 0, { applied, after });
-    check("⑨ 정리는 그 3종만 — 정상 연결·대기 초안·보고 전용 항목(한 쌍 두 곳·낡은 본문·사진 블록·장소형 인물) 무변",
+    check("⑨ 정리 = 4종(끝 없는 연결·노드 없는 본문·고아 초안·이야기 없는 STORY 시기↔사람) 각 1건 → 다시 세면 0",
+      applied.danglingLinks === 1 && applied.bodiesMissingNode === 1 && applied.orphanDrafts === 1 && applied.storyPeriodPeople === 1 + clean0.storyPeriodPeopleWithoutStory &&
+        after.danglingLinks === 0 && after.bodyMissingNode === 0 && after.orphanDrafts === 0 && after.storyPeriodPeopleWithoutStory === 0 &&
+        (await prisma.personLifeEvent.count({ where: { personId: ps } })) === 0,
+      { applied, after });
+    check("⑨ 정리는 그 4종만 — 직접 넣은 시기↔사람(DIRECT)·정상 연결·대기 초안·보고 전용 항목(한 쌍 두 곳·낡은 본문·사진 블록·장소형 인물) 무변",
+      (await prisma.personLifeEvent.count({ where: { personId: pd, lifeEventId: mil } })) === 1 &&
       (await prisma.nodeLink.count({ where: { userId: a } })) === linksBefore - 1 &&
         (await prisma.nodeLink.count({ where: { id: ghost.id } })) === 0 && (await prisma.nodeBody.count({ where: { id: ghostBody.id } })) === 0 &&
         (await prisma.person.count({ where: { id: orphan.id } })) === 0 && (await prisma.person.count({ where: { id: pendingDraft.id } })) === 1 &&

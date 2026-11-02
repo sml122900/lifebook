@@ -8,9 +8,9 @@
 //   4 한 쌍 두 곳(주 소속·대상 인물) — 보고만      9 확인 대기 연결 수·가장 오래된 대기 일수 — 지표
 //   5 본문 정합(노드 없음 → 정리 대상 / 주인 불일치·남의 메모리 — 보고만)   10 장소형 인물 수 — 지표
 //   11 모임·장소 묶음 구성원 행의 주인 ≠ 묶음·구성원 주인 — 보고만(My Life 개편 3단계)
-//   12 이야기 없는 시기↔사람 연결 — 그 시기 이야기(주 소속·추가 소속)에 그 분이 하나도 안 나옴(대상 인물·확정 연결) — 보고만
-//      (2026-11-02 3단계 E2E — 이야기를 지우거나 옮겨도 남던 것. 출처 칸 전이라 직접 넣은 연결과 구별 못 함 — §14.7)
-// 정리(applyNodeGraphCleanup)는 1·5(노드 없음)·8 만, 점검과 같은 조건의 DELETE 한 문장씩.
+//   12 이야기 없는 시기↔사람 연결 — 그 시기 이야기(주 소속·추가 소속)에 그 분이 하나도 안 나옴(대상 인물·확정 연결)
+//      출처 STORY(이야기 따라) → 정리 대상 · DIRECT(직접·칸 전 기존 행) → 보고만(2026-11-02 3단계 E2E — §14.7·§14.8)
+// 정리(applyNodeGraphCleanup)는 1·5(노드 없음)·8·12(STORY) 만, 점검과 같은 조건의 DELETE 한 문장씩.
 
 import { prisma } from "./db";
 import { Prisma } from "./generated/prisma/client";
@@ -36,7 +36,8 @@ export type NodeGraphIssues = {
   oldestPendingDays: number | null; // 9
   locationPeople: number; // 10
   memberOwnerMismatch: number; // 11 — PersonGroupMember·PlaceGroupMember
-  periodPeopleWithoutStory: number; // 12 — PersonLifeEvent 중 그 시기 이야기에 그 분이 안 나오는 행
+  storyPeriodPeopleWithoutStory: number; // 12 — 그 시기 이야기에 그 분이 안 나오는 시기↔사람 중 출처 STORY(정리 대상)
+  directPeriodPeopleWithoutStory: number; // 12 — 같은 조건, 출처 DIRECT(보고만)
 };
 
 function scope(col: string, s: NodeGraphScope): Prisma.Sql {
@@ -136,8 +137,9 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
           WHERE ${scope(`m."userId"`, s)} AND (g."userId" <> m."userId" OR x."userId" <> m."userId"))
         + (SELECT count(*)::int FROM "PlaceGroupMember" m JOIN "PlaceGroup" g ON g.id = m."groupId" JOIN "Place" x ON x.id = m."placeId"
           WHERE ${scope(`m."userId"`, s)} AND (g."userId" <> m."userId" OR x."userId" <> m."userId")) AS n`,
-    prisma.$queryRaw<{ n: number }[]>`
-      SELECT count(*)::int AS n FROM "PersonLifeEvent" x WHERE ${scope(`x."userId"`, s)} AND ${PERIOD_PERSON_WITHOUT_STORY}`,
+    prisma.$queryRaw<{ story: number; direct: number }[]>`
+      SELECT count(*) FILTER (WHERE x.origin = 'STORY')::int AS story, count(*) FILTER (WHERE x.origin <> 'STORY')::int AS direct
+      FROM "PersonLifeEvent" x WHERE ${scope(`x."userId"`, s)} AND ${PERIOD_PERSON_WITHOUT_STORY}`,
   ]);
 
   const danglingByType: Record<string, number> = {};
@@ -160,11 +162,12 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
     oldestPendingDays: pend.oldest ? Math.floor((Date.now() - new Date(pend.oldest).getTime()) / 86_400_000) : null,
     locationPeople: n(loc.n),
     memberOwnerMismatch: n(mem.n),
-    periodPeopleWithoutStory: n(ple.n),
+    storyPeriodPeopleWithoutStory: n(ple.story),
+    directPeriodPeopleWithoutStory: n(ple.direct),
   };
 }
 
-export type NodeGraphCleanup = { danglingLinks: number; bodiesMissingNode: number; orphanDrafts: number };
+export type NodeGraphCleanup = { danglingLinks: number; bodiesMissingNode: number; orphanDrafts: number; storyPeriodPeople: number };
 
 // 정리 — 점검 1·5(노드 없음)·8 과 같은 조건으로만 지운다. 본문 삭제는 트리거가 그 본문 전용
 // 사진 메모리(createdVia="node_body")를 같이 지운다.
@@ -176,5 +179,7 @@ export async function applyNodeGraphCleanup(s: NodeGraphScope = {}): Promise<Nod
     DELETE FROM "NodeBody" nb WHERE ${scope(`nb."userId"`, s)} AND ${ownerOf(`nb."nodeType"`, `nb."nodeId"`)} IS NULL`;
   const orphanDrafts = await prisma.$executeRaw`
     DELETE FROM "Person" p WHERE ${scope(`p."userId"`, s)} AND ${ORPHAN_DRAFT}`;
-  return { danglingLinks, bodiesMissingNode, orphanDrafts };
+  const storyPeriodPeople = await prisma.$executeRaw`
+    DELETE FROM "PersonLifeEvent" x WHERE ${scope(`x."userId"`, s)} AND x.origin = 'STORY' AND ${PERIOD_PERSON_WITHOUT_STORY}`;
+  return { danglingLinks, bodiesMissingNode, orphanDrafts, storyPeriodPeople };
 }

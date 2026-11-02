@@ -590,6 +590,8 @@ export async function proposeFromSegment(
     centerFixed: false,
     targetPersonId: topic.targetPersonId,
     isPeriod: topic.isPeriod,
+    // 인물 질문 주제("그 시절 가까이 지낸 분") — 답으로 나온 분은 그 시기에 직접 이은 분(§14.8).
+    personQuestion: seg.topicGapType === "person",
     titleHint: null,
     until: until.toISOString(),
     purpose: "PROPOSAL",

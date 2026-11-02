@@ -4,7 +4,7 @@
 //
 // 확인 대기 = NodeLink(EPISODE→PERSON, PROPOSED). 만드는 곳은 lib/person-chat.ts saveProposedPeople
 // (이야기 마무리 추출). 새 이름은 초안 인물(isDraft, companionSessionId null)로 만들어져 있다.
-//   맞아요   — 초안이면 확정 · 연결 CONFIRMED · PersonLifeEvent(인물, 이야기의 주 소속 중심) 추가.
+//   맞아요   — 초안이면 확정 · 연결 CONFIRMED · PersonLifeEvent(인물, 이야기의 주 소속 중심, 출처 STORY — saveNodeLink 입구) 추가.
 //              단 이름이 같은 확정 인물이 있으면(관계 무관) 합치지 않고 되묻는다(ask, 상태 무변) →
 //              같은 분이에요(same) = 그 인물로 합침(초안의 다른 대기 연결도 옮기고 초안 삭제) /
 //              다른 분이에요(different) = 초안을 새 인물로 확정
@@ -203,11 +203,9 @@ async function decideOne(userId: string, d: PersonDecision): Promise<Outcome> {
     if (targetId !== person.id || targetId === episode.personId) {
       await tx.nodeLink.deleteMany({ where: { id: link.id } });
     }
-    await tx.personLifeEvent.upsert({
-      where: { personId_lifeEventId: { personId: targetId, lifeEventId: episode.lifeEventId } },
-      create: { personId: targetId, lifeEventId: episode.lifeEventId, userId },
-      update: {},
-    });
+    // 시기↔사람 — 연결 입구로(2026-11-02 — 전에는 직접 upsert), 출처 STORY(이야기 따라: 그 시기 이야기에 그 분이 안 나오게 되면 정리).
+    const ple = await saveNodeLink(userId, { type: "LIFE_EVENT", id: episode.lifeEventId }, { type: "PERSON", id: targetId }, { origin: "STORY", db: tx });
+    if (!ple.ok) throw new Error(`확인 시기 연결 실패: ${ple.reason}`);
     if (targetId !== person.id) await deleteDraftIfOrphan(tx, userId, person.id);
     return "done";
   });

@@ -1201,6 +1201,10 @@ model PersonLifeEvent {
   lifeEvent   LifeEvent @relation(fields: [lifeEventId], references: [id], onDelete: Cascade)
   userId      String // 권한 체크용 (반드시 person.userId 와 일치)
   createdAt   DateTime  @default(now())
+  // 출처 — DIRECT(직접: 시기 패널 [인물 넣기]·인물 질문 답·/people·그 밖 경로 · 이 칸 전 기존 행) / STORY(이야기 따라: 이야기에 사람 넣기·
+  // 제안 카드 [만들기]·인물 확인 [맞아요]·다른 시절로 옮기기). STORY 는 그 시기 이야기에 그 분이 안 나오게 되면 자동 정리(lib/node-graph
+  // cleanupStoryPeriodPeople). 같은 쌍을 직접 넣으면 DIRECT 로 올림. 마이그 20261102200000 — docs/phase/my-life-restructure.md §14.7·§14.8.
+  origin      String    @default("DIRECT")
 
   @@unique([personId, lifeEventId])
   @@index([userId])

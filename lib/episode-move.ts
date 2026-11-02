@@ -8,8 +8,9 @@
 //   3 브릿지 UserMemory 연도 = 대상 시기 연도(createEpisodeBridge 와 같은 규칙 — 연도 없으면 올해 자리 표시).
 //     제목은 그대로(이야기 제목 — 시기 이름 자리 표시는 저장 규칙이 이미 비움).
 //   4 두 시기의 hasEpisode 다시 계산(일반 이야기 STORY 의 실질 본문만 — deleteEpisode 와 같은 규칙).
-//   5 이 이야기의 확정 인물(대상 인물 + 확정 NodeLink EPISODE→PERSON): 대상 시기에 PersonLifeEvent(saveNodeLink 입구).
-//     옛 시기의 PersonLifeEvent 는 지우지 않는다 — 출처 칸이 없어 직접 넣은 연결과 구별할 수 없다(Q48).
+//   5 이 이야기의 확정 인물(대상 인물 + 확정 NodeLink EPISODE→PERSON): 대상 시기에 PersonLifeEvent(saveNodeLink 입구, 출처 STORY).
+//     옛 시기는 이야기 따라 생긴 연결(STORY)만, 그 시기 이야기에 그 분이 더 안 나오면 지운다(cleanupStoryPeriodPeople —
+//     2026-11-02 출처 칸, Q48 대체). 직접 넣은 연결(DIRECT)은 그대로.
 //     만난 해 규칙 3: 그 인물이 이 이야기로만 이어져 있고 만난 해 = 옛 시기 연도면 새 시기 연도로(출생 시기 + 비가족이면 비움 — Q33).
 //   6 확인 대기(PROPOSED) 연결은 이야기에 붙어 있어 그대로 따라간다(할 일 없음).
 //
@@ -21,7 +22,7 @@
 import { prisma } from "./db";
 import { isSubstantiveEpisodeContent } from "./episode-text";
 import type { Prisma } from "./generated/prisma/client";
-import { removeNodeLink, restoreNodeLink, saveNodeLink, type RemovedLink, type RemovedLinkRow } from "./node-graph";
+import { cleanupStoryPeriodPeople, removeNodeLink, restoreNodeLink, saveNodeLink, type RemovedLink, type RemovedLinkRow } from "./node-graph";
 import { relationGroup } from "./person-relation";
 
 // lib/node-proposal 의 만난 해 규칙과 같은 가족 관계(출생 시기에 만난 비가족은 연도를 비운다 — Q33).
@@ -33,7 +34,8 @@ export type MoveUndo = {
   toEventId: string;
   memoryYear: number; // 옮기기 전 브릿지 UserMemory 연도
   createdPersonIds: string[]; // 이번 옮기기로 대상 시기에 새로 생긴 시기↔사람
-  removed: RemovedLink[]; // 이번 옮기기로 지운 연결(대상 시기의 추가 소속) — restoreNodeLink 로 되살림
+  removed: RemovedLink[]; // 이번 옮기기로 지운 연결(대상 시기의 추가 소속) — 옛 시기로 다시 옮긴 뒤 restoreNodeLink 로 되살림
+  cleaned: RemovedLink[]; // 옛 시기에서 정리한 이야기 따라 생긴 시기↔사람 — 다시 옮기기 전에 되살림(만든 때·출처 그대로)
   metYears: { personId: string; before: number | null }[]; // 이 이야기 확정 인물의 옮기기 전 만난 해
 };
 
@@ -62,7 +64,7 @@ export async function moveEpisodeToLifeEvent(userId: string, episodeId: string, 
   const fromId = ep.lifeEventId;
   const oldYear = ep.lifeEvent.correctedYear ?? ep.lifeEvent.year;
   const newYear = target.correctedYear ?? target.year;
-  const undo: MoveUndo = { episodeId: ep.id, fromEventId: fromId, toEventId: target.id, memoryYear: ep.memory.year, createdPersonIds: [], removed: [], metYears: [] };
+  const undo: MoveUndo = { episodeId: ep.id, fromEventId: fromId, toEventId: target.id, memoryYear: ep.memory.year, createdPersonIds: [], removed: [], cleaned: [], metYears: [] };
 
   await prisma.$transaction(async (tx) => {
     await tx.episode.update({ where: { id: ep.id }, data: { lifeEventId: target.id } });
@@ -97,7 +99,7 @@ export async function moveEpisodeToLifeEvent(userId: string, episodeId: string, 
     });
     for (const p of people) {
       undo.metYears.push({ personId: p.id, before: p.metYear });
-      const r = await saveNodeLink(userId, { type: "LIFE_EVENT", id: target.id }, { type: "PERSON", id: p.id }, { db: tx });
+      const r = await saveNodeLink(userId, { type: "LIFE_EVENT", id: target.id }, { type: "PERSON", id: p.id }, { origin: "STORY", db: tx });
       if (!r.ok) throw new Error(`move: person link ${r.reason}`);
       if (r.created) undo.createdPersonIds.push(p.id);
       // 만난 해 규칙 3 — 이 이야기로만 이어진 분이고 만난 해가 옛 시기 연도일 때만.
@@ -110,6 +112,8 @@ export async function moveEpisodeToLifeEvent(userId: string, episodeId: string, 
       const family = FAMILY_GROUPS.has(relationGroup(p.relation) ?? "");
       await tx.person.update({ where: { id: p.id }, data: { metYear: target.type === "BIRTH" && !family ? null : newYear } });
     }
+    // 옛 시기 — 이 이야기를 따라 생긴 연결은 그 시기에 그 분이 더 안 나오면 정리.
+    undo.cleaned = await cleanupStoryPeriodPeople(userId, people.map((p) => ({ lifeEventId: fromId, personId: p.id })), tx);
   });
   return { ok: true, moved: true, fromEventId: fromId, toEventId: target.id, undo };
 }
@@ -121,10 +125,17 @@ export async function undoMoveEpisode(userId: string, u: MoveUndo): Promise<{ ok
   if (
     !u || !str(u.episodeId) || !str(u.fromEventId) || !str(u.toEventId) || u.memoryYear === null || !yearOk(u.memoryYear) ||
     !Array.isArray(u.createdPersonIds) || !u.createdPersonIds.every(str) || u.createdPersonIds.length > 50 ||
-    !Array.isArray(u.removed) || u.removed.length > 5 ||
+    !Array.isArray(u.removed) || u.removed.length > 5 || !Array.isArray(u.cleaned) || u.cleaned.length > 50 ||
     !Array.isArray(u.metYears) || u.metYears.length > 50 || !u.metYears.every((m) => m && str(m.personId) && yearOk(m.before))
   ) {
     return { ok: false, reason: "bad_undo" };
+  }
+  // 옛 시기에서 정리한 연결을 먼저 되살린다(다시 옮기기가 새로 만들면 만든 때·출처가 달라짐).
+  if (!(await prisma.episode.count({ where: { id: u.episodeId, lifeEvent: { userId } } }))) return { ok: false, reason: "not_found" };
+  for (const l of u.cleaned) {
+    if (l?.a?.type !== "LIFE_EVENT" || l.a.id !== u.fromEventId || l?.b?.type !== "PERSON") return { ok: false, reason: "bad_undo" };
+    const r = await restoreNodeLink(userId, l.a, l.b, l.rows);
+    if (!r.ok) return { ok: false, reason: r.reason === "not_found" ? "not_found" : "bad_undo" };
   }
   const back = await moveEpisodeToLifeEvent(userId, u.episodeId, u.fromEventId);
   if (!back.ok) return { ok: false, reason: "not_found" };

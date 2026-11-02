@@ -13,6 +13,7 @@
 import { prisma } from "./db";
 import { isSubstantiveEpisodeContent } from "./episode-text";
 import type { EpisodeKind } from "./generated/prisma/enums";
+import { cleanupStoryPeriodPeople, periodPeoplePairsOfEpisode } from "./node-graph";
 import type { PlaceInfo } from "./place-types";
 import { storedStoryTitle } from "./story-title";
 
@@ -120,6 +121,8 @@ export async function deleteEpisode(
   if (!episode) return { ok: false, error: "이야기를 찾을 수 없어요." };
 
   await prisma.$transaction(async (tx) => {
+    // 이 이야기에 걸린 (시기, 사람) — 지운 뒤 이야기 따라 생긴 시기↔사람(STORY)을 정리하려고 먼저 고른다(2026-11-02 출처 칸 §14.8).
+    const pairs = await periodPeoplePairsOfEpisode(tx, userId, episode.id);
     // Comment/MemoryReaction 은 UserMemory 를 폴리모픽(targetType/targetId)
     // 으로 가리켜 FK cascade 가 안 된다(lib/account-deletion.ts 와 동일
     // 이유) — 미리 지워야 고아 댓글/반응이 안 남는다.
@@ -143,6 +146,8 @@ export async function deleteEpisode(
       where: { id: episode.lifeEventId },
       data: { hasEpisode: stillHasEpisode },
     });
+    // 그 시기 이야기에 그 분이 더 안 나오면 이야기 따라 생긴 연결만 지운다(직접 넣은 연결은 그대로).
+    await cleanupStoryPeriodPeople(userId, pairs, tx);
   });
 
   return { ok: true };

@@ -13,7 +13,17 @@
 import { prisma } from "./db";
 import { createEpisodeBridge } from "./episode";
 import { MY_LIFE_COPY } from "./my-life-copy";
-import { removeNodeLink, restoreNodeLink, saveNodeLink, type NodeRef, type RemovedLink } from "./node-graph";
+import {
+  cleanupStoryPeriodPeople,
+  periodPeoplePairsOfEpisode,
+  removeNodeLink,
+  restoreNodeLink,
+  revertPeriodPersonUpgrade,
+  saveNodeLink,
+  type NodeRef,
+  type PeriodPersonOrigin,
+  type RemovedLink,
+} from "./node-graph";
 import { createCustomLifeEvent } from "./open-chat-promote";
 import { createPerson } from "./people";
 import { findSameNamePeople } from "./person-chat";
@@ -37,7 +47,8 @@ export const EDIT_LIMITS = {
 const FAMILY_GROUPS = new Set(["parent", "grandparent", "sibling", "relative", "spouse", "child"]);
 
 export type Fail = { ok: false; error: string };
-export type CreatedLink = { a: NodeRef; b: NodeRef };
+// downgrade — 이 넣기가 시기↔사람을 STORY → DIRECT 로 올렸음(새로 생긴 행 아님) — 되돌리기는 지우지 않고 다시 STORY 로.
+export type CreatedLink = { a: NodeRef; b: NodeRef; downgrade?: true };
 export type { RemovedLink };
 export type SameNamePerson = { id: string; name: string; relation: string | null };
 
@@ -61,10 +72,11 @@ async function isConfirmedPerson(userId: string, id: string): Promise<boolean> {
   return (await prisma.person.count({ where: { id, userId, subjectType: "person", isDraft: false } })) > 0;
 }
 
-// 노드 둘을 잇는다. 사람 쪽은 확정 인물만. 이야기↔사람이면 주 소속 시기↔사람도.
+// 노드 둘을 잇는다. 사람 쪽은 확정 인물만. 이야기↔사람이면 주 소속 시기↔사람도(출처 STORY — 이야기 따라).
+// 시기↔사람을 직접 넣으면 DIRECT(같은 쌍이 STORY 였으면 DIRECT 로 올림 — §14.8).
 export async function addLink(userId: string, a: NodeRef, b: NodeRef): Promise<{ ok: true; created: CreatedLink[] } | Fail> {
   for (const n of [a, b]) if (n.type === "PERSON" && !(await isConfirmedPerson(userId, n.id))) return { ok: false, error: E.notFound };
-  let pairs: CreatedLink[] = [{ a, b }];
+  let pairs: (CreatedLink & { origin?: PeriodPersonOrigin })[] = [{ a, b }];
   const ep = a.type === "EPISODE" ? a : b.type === "EPISODE" ? b : null;
   const person = a.type === "PERSON" ? a : b.type === "PERSON" ? b : null;
   if (ep && person) {
@@ -72,24 +84,31 @@ export async function addLink(userId: string, a: NodeRef, b: NodeRef): Promise<{
     if (!row) return { ok: false, error: E.notFound };
     // 대상 인물(Episode.personId)은 이미 이 이야기의 분 — NodeLink 를 또 두지 않는다(한 쌍 = 한 곳).
     if (row.personId === person.id) pairs = [];
-    pairs.push({ a: { type: "LIFE_EVENT", id: row.lifeEventId }, b: person });
+    pairs.push({ a: { type: "LIFE_EVENT", id: row.lifeEventId }, b: person, origin: "STORY" });
   }
   const created: CreatedLink[] = [];
   for (const [i, p] of pairs.entries()) {
-    const r = await saveNodeLink(userId, p.a, p.b);
+    const r = await saveNodeLink(userId, p.a, p.b, p.origin ? { origin: p.origin } : {});
     if (!r.ok) {
       if (i === 0) return { ok: false, error: r.reason === "primary_membership" ? E.alreadyPrimary : r.reason === "not_found" ? E.notFound : E.cannotLink };
       console.error("[my-life-edit] companion link", r.reason);
       continue;
     }
-    if (r.created) created.push(p);
+    if (r.created) created.push({ a: p.a, b: p.b });
+    else if (r.upgraded) created.push({ a: p.a, b: p.b, downgrade: true });
   }
   return { ok: true, created };
 }
 
-// 되돌리기 — 넣기에서 새로 생긴 연결만 지운다(이미 있던 연결은 created 에 없음).
+// 되돌리기 — 넣기에서 새로 생긴 연결만 지운다(이미 있던 연결은 created 에 없음). DIRECT 로 올린 것은 다시 STORY 로.
 export async function undoLinks(userId: string, links: CreatedLink[]): Promise<{ ok: true } | Fail> {
   for (const l of links.slice(0, 10)) {
+    if (l.downgrade) {
+      const ev = l.a.type === "LIFE_EVENT" ? l.a : l.b;
+      const p = l.a.type === "PERSON" ? l.a : l.b;
+      if (ev.type === "LIFE_EVENT" && p.type === "PERSON") await revertPeriodPersonUpgrade(userId, ev.id, p.id);
+      continue;
+    }
     const r = await removeNodeLink(userId, l.a, l.b);
     if (!r.ok && r.reason !== "not_found") return { ok: false, error: E.cannotUnlink };
   }
@@ -97,9 +116,22 @@ export async function undoLinks(userId: string, links: CreatedLink[]): Promise<{
 }
 
 // 빼기 — undo 는 실제로 지운 행이 있을 때만(없는 연결을 빼면 되돌릴 것도 없음).
-export async function removeLink(userId: string, a: NodeRef, b: NodeRef): Promise<{ ok: true; removed: number; undo: RemovedLink | null } | Fail> {
+// 이야기↔사람·이야기의 추가 소속을 빼면, 그 이야기에 걸린 (시기, 사람)의 이야기 따라 생긴 연결(STORY)을 다시 본다 —
+// 그 시기 이야기에 그 분이 하나도 안 나오면 지우고(§14.8), 그 행도 undo 에 담아 되돌리기로 같이 되살린다.
+export async function removeLink(userId: string, a: NodeRef, b: NodeRef): Promise<{ ok: true; removed: number; undo: RemovedLink[] | null } | Fail> {
+  const ep = a.type === "EPISODE" ? a : b.type === "EPISODE" ? b : null;
+  const other = ep === a ? b : a;
+  // 빼기 전에 고른다(빼고 나면 그 이야기에서 그 분이 이미 빠져 있음).
+  const pairs =
+    ep && (other.type === "PERSON" || other.type === "LIFE_EVENT")
+      ? (await periodPeoplePairsOfEpisode(prisma, userId, ep.id)).filter((p) => (other.type === "PERSON" ? p.personId === other.id : p.lifeEventId === other.id))
+      : [];
   const r = await removeNodeLink(userId, a, b);
-  if (r.ok) return { ok: true, removed: r.removed, undo: r.rows.length > 0 ? { a, b, rows: r.rows } : null };
+  if (r.ok) {
+    const cleaned = r.removed > 0 ? await cleanupStoryPeriodPeople(userId, pairs) : [];
+    const undo: RemovedLink[] = [...(r.rows.length > 0 ? [{ a, b, rows: r.rows }] : []), ...cleaned];
+    return { ok: true, removed: r.removed, undo: undo.length > 0 ? undo : null };
+  }
   if (r.reason === "primary_membership") return { ok: false, error: E.cannotRemovePrimary };
   if (r.reason === "subject_person") return { ok: false, error: E.cannotRemoveSubject };
   if (r.reason === "not_found") return { ok: false, error: E.notFound };
@@ -107,9 +139,17 @@ export async function removeLink(userId: string, a: NodeRef, b: NodeRef): Promis
 }
 
 // 빼기 되돌리기(Q50 보완 2026-11-02) — 빼기 직후 [되돌리기]. 같은 쌍을 saveNodeLink 입구로 다시 잇고 순서 값을 되살린다.
-export async function undoRemove(userId: string, u: RemovedLink): Promise<{ ok: true; restored: number } | Fail> {
-  const r = await restoreNodeLink(userId, u.a, u.b, u.rows);
-  return r.ok ? { ok: true, restored: r.restored } : { ok: false, error: r.reason === "not_found" ? E.notFound : E.cannotUndo };
+// 빼면서 같이 정리한 시기↔사람도 함께(목록 순서대로).
+export async function undoRemove(userId: string, links: RemovedLink[]): Promise<{ ok: true; restored: number } | Fail> {
+  const list = Array.isArray(links) ? links.slice(0, 10) : [];
+  if (list.length === 0) return { ok: false, error: E.cannotUndo };
+  let restored = 0;
+  for (const u of list) {
+    const r = await restoreNodeLink(userId, u.a, u.b, u.rows);
+    if (!r.ok) return { ok: false, error: r.reason === "not_found" ? E.notFound : E.cannotUndo };
+    restored += r.restored;
+  }
+  return { ok: true, restored };
 }
 
 // ── 만들기 ─────────────────────────────────────────────────────────

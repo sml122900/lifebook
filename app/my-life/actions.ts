@@ -137,11 +137,13 @@ export async function addLinkAction(a: NodeRef, b: NodeRef): Promise<{ ok: true;
 
 export async function undoLinksAction(links: CreatedLink[]): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await requireUserId();
-  const clean = (Array.isArray(links) ? links : []).map((l) => ({ a: ref(l?.a), b: ref(l?.b) })).filter((l): l is CreatedLink => !!l.a && !!l.b);
+  const clean = (Array.isArray(links) ? links : [])
+    .map((l) => ({ a: ref(l?.a), b: ref(l?.b), ...(l?.downgrade === true ? { downgrade: true as const } : {}) }))
+    .filter((l): l is CreatedLink => !!l.a && !!l.b);
   return undoLinks(userId, clean);
 }
 
-export async function removeLinkAction(a: NodeRef, b: NodeRef): Promise<{ ok: true; removed: number; undo: RemovedLink | null } | { ok: false; error: string }> {
+export async function removeLinkAction(a: NodeRef, b: NodeRef): Promise<{ ok: true; removed: number; undo: RemovedLink[] | null } | { ok: false; error: string }> {
   const userId = await requireUserId();
   const ra = ref(a);
   const rb = ref(b);
@@ -150,12 +152,11 @@ export async function removeLinkAction(a: NodeRef, b: NodeRef): Promise<{ ok: tr
 }
 
 // 빼기 되돌리기 — 화면이 돌려준 값은 쌍·소유·형식을 lib/node-graph restoreNodeLink 가 다시 검사한다.
-export async function undoRemoveAction(u: RemovedLink): Promise<{ ok: true; restored: number } | { ok: false; error: string }> {
+export async function undoRemoveAction(links: RemovedLink[]): Promise<{ ok: true; restored: number } | { ok: false; error: string }> {
   const userId = await requireUserId();
-  const a = ref(u?.a);
-  const b = ref(u?.b);
-  if (!a || !b) return { ok: false, error: E.notFound };
-  return undoRemove(userId, { a, b, rows: Array.isArray(u?.rows) ? u.rows : [] });
+  const list = (Array.isArray(links) ? links.slice(0, 10) : []).map((u) => ({ a: ref(u?.a), b: ref(u?.b), rows: Array.isArray(u?.rows) ? u.rows : [] }));
+  if (list.length === 0 || list.some((u) => !u.a || !u.b)) return { ok: false, error: E.notFound };
+  return undoRemove(userId, list as RemovedLink[]);
 }
 
 export async function moveStoryAction(episodeId: string, targetEventId: string): Promise<{ ok: true; key: string; undo: MoveUndo | null } | { ok: false; error: string }> {

@@ -82,6 +82,9 @@ export type ProposalCard = {
   // 이야기의 대상 인물(Episode.personId) — 인물과의 이야기로 시작한 대화.
   targetPersonId: string | null;
   isPeriod: boolean;
+  // 인물 질문("그 시절 가까이 지낸 분")으로 시작한 대화 — 이 카드의 사람은 그 시기에 직접 이은 분(시기↔사람 출처 DIRECT).
+  // 없으면 false(2026-11-02 전 카드). 대상 인물도 DIRECT, 나머지는 이야기 따라(STORY) — §14.8.
+  personQuestion?: boolean;
 };
 
 export type TranscriptTurn = { role: "assistant" | "user"; text: string };
@@ -363,6 +366,8 @@ export type BuildProposalInput = {
   centerFixed: boolean;
   // 이야기의 대상 인물(인물과의 이야기로 시작) — 카드 사람 목록 맨 앞에 넣는다.
   targetPersonId: string | null;
+  // 인물 질문으로 시작한 대화(자유 대화 주제 "그 시절 가까이 지낸 분") — 카드에 남겨 [만들기]에서 시기↔사람을 DIRECT 로.
+  personQuestion?: boolean;
   kind?: EpisodeKind; // 주면 고정(오늘의 인터뷰 "관계별 나")
   isPeriod?: boolean;
   titleHint?: string | null;
@@ -555,6 +560,7 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
       until: input.until,
       targetPersonId: target?.id ?? null,
       isPeriod: input.isPeriod ?? false,
+      ...(input.personQuestion ? { personQuestion: true } : {}),
     },
   };
 }
@@ -779,7 +785,9 @@ export async function createFromCard(
         const r = await saveNodeLink(userId, episodeRef, { type: "PERSON", id }, { status: "CONFIRMED" });
         if (!r.ok) console.error("[node-proposal] person link", r.reason);
       }
-      const r2 = await saveNodeLink(userId, { type: "LIFE_EVENT", id: center.id }, { type: "PERSON", id });
+      // 시기↔사람 출처 — 인물 질문 답·대상 인물 = 직접(DIRECT), 그 밖 = 이 이야기 따라(STORY).
+      const origin = card.personQuestion === true || id === targetPersonId ? "DIRECT" : "STORY";
+      const r2 = await saveNodeLink(userId, { type: "LIFE_EVENT", id: center.id }, { type: "PERSON", id }, { origin });
       if (!r2.ok) console.error("[node-proposal] person-center link", r2.reason);
       linkedPeople += 1;
     } catch (e) {

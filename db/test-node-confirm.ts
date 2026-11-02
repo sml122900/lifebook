@@ -189,6 +189,10 @@ async function main() {
     check("⑥ 빈 이름·이름 51자·관계 31자 → 거부(상태 무변)",
       bad1.invalid.length === 1 && bad2.invalid.length === 1 && bad3.invalid.length === 1 && (await linkOf(a, story1, leeId))?.status === "PROPOSED");
     await decidePeople(a, [{ linkId: l1Lee!.id, kind: "edit", name: "이순자", relation: "국어 담당 선생님" }]);
+    // 시기↔사람 출처(2026-11-02) — 확인으로 새로 생긴 연결 = 이야기 따라(STORY, 연결 입구로) · 미리 있던 직접 연결(박 씨)은 그대로 DIRECT.
+    const originOf = async (pid: string, ev: string) => (await prisma.personLifeEvent.findFirst({ where: { personId: pid, lifeEventId: ev }, select: { origin: true } }))?.origin;
+    check("⑥ 확인으로 생긴 시기↔사람 = STORY · 이미 있던 직접 연결은 DIRECT 그대로(내리지 않음)",
+      (await originOf(leeId, hs)) === "STORY" && (await originOf(park, hs)) === "DIRECT", { lee: await originOf(leeId, hs), park: await originOf(park, hs) });
     const leeAfter = await prisma.person.findUnique({ where: { id: leeId } });
     check("⑥ 초안 고칠게요 → 같은 인물이 고친 관계로 확정 + 연결 CONFIRMED + PersonLifeEvent",
       leeAfter?.isDraft === false && leeAfter.relation === "국어 담당 선생님" && (await linkOf(a, story1, leeId))?.status === "CONFIRMED" && (await ple(leeId, hs)) === 1,

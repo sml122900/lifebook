@@ -14,6 +14,8 @@
 //   ⑧ 빼기 되돌리기(Q50 보완 2026-11-02) — 다섯 칸 모두 빼기 전 값 그대로(만든 때·정렬 순서·NodeLink 역할·상태·출처·확인 때) ·
 //      두 번 눌러도 그대로 · 없는 연결은 되돌릴 것 없음 · 화면이 돌려준 값 다시 검사(남의 계정·남의 노드·이상한 값 거부) · 화면 [되돌리기]
 //   ⑨ 3단계 E2E 후속 2(2026-11-02) — 옮기기 되돌리기(옮기기 전 그대로·값 다시 검사) · 장소 지우기 확인창 묶음 수 · 화면(옮긴 뒤 [되돌리기]·지운 뒤 알림)
+//   ⑩ 시기↔사람 출처(2026-11-02) — 재현(넣기→옮기기→지우기 후 시기 연결 0) · 직접 넣은 연결 유지 · STORY→DIRECT 올림과 그 되돌리기 ·
+//      이야기 둘·추가 소속 · 카드(인물 질문·대상 인물 DIRECT, 같이 나온 분 STORY) · 시기↔사람 쓰기 = 입구 하나
 //   ⑦ 정적 — 서버 액션 전부 첫 줄 auth · NodeLink 쓰기는 lib/node-graph 만 · proxy.ts 무접촉 · 문구 임시 표기
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0). 실행: npx tsx db/test-my-life-edit.ts
@@ -49,6 +51,7 @@ import {
   undoRemove,
 } from "../lib/my-life-edit";
 import { saveNodeLink, type NodeRef } from "../lib/node-graph";
+import { cardToEdit, createFromCard, type CardPerson, type ProposalCard } from "../lib/node-proposal";
 
 const EMAIL_A = "fixture-mylife-edit-a@lifebook.invalid";
 const EMAIL_B = "fixture-mylife-edit-b@lifebook.invalid";
@@ -63,6 +66,10 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (!ok) failed += 1;
 }
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf8");
+const walkLib = (d: string): string[] =>
+  fs.readdirSync(path.join(ROOT, d), { withFileTypes: true }).flatMap((x) =>
+    x.name === "generated" ? [] : x.isDirectory() ? walkLib(`${d}/${x.name}`) : /.(ts|tsx)$/.test(x.name) ? [`${d}/${x.name}`] : [],
+  );
 
 async function removeFixtures() {
   for (const email of [EMAIL_A, EMAIL_B]) {
@@ -298,8 +305,9 @@ async function main() {
       highHasBefore === true && (await prisma.lifeEvent.findUnique({ where: { id: high }, select: { hasEpisode: true } }))?.hasEpisode === true &&
         (await prisma.lifeEvent.findUnique({ where: { id: job }, select: { hasEpisode: true } }))?.hasEpisode === true);
     const ple = async (pid: string, ev: string) => prisma.personLifeEvent.count({ where: { personId: pid, lifeEventId: ev } });
-    check("⑤ 옮기기 — 확정 인물은 새 시기에 시기↔사람 · 옛 시기 연결은 지우지 않음(Q48) · 확인 대기 분은 안 넣음",
-      (await ple(onlyId, job)) === 1 && (await ple(mateId, job)) === 1 && (await ple(onlyId, high)) === 1 && (await ple(draft, job)) === 0);
+    check("⑤ 옮기기 — 확정 인물은 새 시기에 시기↔사람(이야기 따라) · 옛 시기: 이 이야기로만 생긴 연결은 정리, 다른 이야기에도 나오거나 직접 넣은 분은 그대로(§14.8 — Q48 대체) · 확인 대기 분은 안 넣음",
+      (await ple(onlyId, job)) === 1 && (await ple(mateId, job)) === 1 && (await ple(onlyId, high)) === 0 && (await ple(mateId, high)) === 1 && (await ple(draft, job)) === 0,
+      { onlyJob: await ple(onlyId, job), mateJob: await ple(mateId, job), onlyHigh: await ple(onlyId, high), mateHigh: await ple(mateId, high) });
     const met = async (pid: string) => (await prisma.person.findUnique({ where: { id: pid }, select: { metYear: true } }))?.metYear;
     check("⑤ 옮기기 — 만난 해 규칙 3: 이 이야기로만 이어진 분(1971 → 1978) · 다른 이야기에도 있는 분(짝꿍 1971 그대로)",
       (await met(onlyId)) === 1978 && (await met(mateId)) === 1971, { only: await met(onlyId), mate: await met(mateId) });
@@ -383,7 +391,7 @@ async function main() {
     const rowsOf = async () =>
       JSON.stringify({
         nl: await prisma.nodeLink.findMany({ where: { fromType: "EPISODE", fromId: uStRef.id, toType: "PERSON", toId: uPid }, select: { role: true, status: true, source: true, createdAt: true, confirmedAt: true } }),
-        ple: await prisma.personLifeEvent.findMany({ where: { personId: uPid, lifeEventId: job }, select: { createdAt: true } }),
+        ple: await prisma.personLifeEvent.findMany({ where: { personId: uPid, lifeEventId: job }, select: { createdAt: true, origin: true } }),
         mp: await prisma.memoryPlace.findMany({ where: { memory: { episode: { id: uStRef.id } } }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { placeId: true, sortOrder: true, createdAt: true, placeName: true } }),
         pgm: await prisma.personGroupMember.findMany({ where: { groupId: uGid, personId: uPid }, select: { createdAt: true } }),
         plm: await prisma.placeGroupMember.findMany({ where: { groupId: uPgid, placeId: uPl1 }, select: { createdAt: true } }),
@@ -401,8 +409,9 @@ async function main() {
       const rm = await removeLink(a, x, y);
       const gone = (await rowsOf()) !== was;
       const un = rm.ok && rm.undo ? await undoRemove(a, rm.undo) : null;
-      check(`⑧ 빼기 되돌리기 — ${label}: 빼면 행 빠짐 → 되돌리면 빼기 전과 같은 값`,
-        rm.ok && rm.removed === 1 && !!rm.undo && gone && !!un?.ok && un.restored === 1 && (await rowsOf()) === was, { rm, un });
+      const rows = rm.ok && rm.undo ? rm.undo.reduce((n, l) => n + l.rows.length, 0) : 0;
+      check(`⑧ 빼기 되돌리기 — ${label}: 빼면 행 빠짐(이야기 따라 생긴 시기↔사람도 같이 정리) → 되돌리면 빼기 전과 같은 값(출처까지)`,
+        rm.ok && rm.removed === 1 && !!rm.undo && gone && !!un?.ok && un.restored === rows && (await rowsOf()) === was, { rm, un });
     }
     check("⑧ 다섯 칸 다 되돌린 뒤 = 처음과 같음(첫 장소가 첫째 자리 그대로 — 정렬 순서·만든 때)", (await rowsOf()) === s0 && uSt.ok && uG.ok && uPg.ok, JSON.parse(s0));
     const rmAgain = await removeLink(a, uStRef, { type: "PERSON", id: uPid });
@@ -410,17 +419,17 @@ async function main() {
     const un2 = rmAgain.ok && rmAgain.undo ? await undoRemove(a, rmAgain.undo) : null;
     const rmNone = await removeLink(a, { type: "LIFE_EVENT", id: elem }, { type: "PLACE", id: uPl2 });
     check("⑧ 같은 되돌리기 두 번 = 두 번째는 0행(그대로) · 없는 연결 빼기 = 되돌릴 것 없음(undo 없음)",
-      !!un1?.ok && un1.restored === 1 && !!un2?.ok && un2.restored === 0 && (await rowsOf()) === s0 && rmNone.ok && rmNone.removed === 0 && rmNone.undo === null, { un1, un2, rmNone });
+      !!un1?.ok && un1.restored === 2 && !!un2?.ok && un2.restored === 0 && (await rowsOf()) === s0 && rmNone.ok && rmNone.removed === 0 && rmNone.undo === null, { un1, un2, rmNone });
     // 화면이 돌려준 값은 다시 검사 — 남의 계정·남의 노드로 바꿔치기·이상한 값은 거부, 저장 0.
     const rmT = await removeLink(a, uStRef, { type: "PLACE", id: uPl2 });
     const tok = rmT.ok ? rmT.undo : null;
     const forged = tok
       ? [
           await undoRemove(b, tok),
-          await undoRemove(a, { ...tok, b: { type: "PLACE", id: placeB } }),
-          await undoRemove(a, { ...tok, rows: [{ createdAt: "어제" }] }),
-          await undoRemove(a, { ...tok, rows: [{ ...tok.rows[0], sortOrder: -5 }] }),
-          await undoRemove(a, { ...tok, rows: [] }),
+          await undoRemove(a, [{ ...tok[0], b: { type: "PLACE", id: placeB } }]),
+          await undoRemove(a, [{ ...tok[0], rows: [{ createdAt: "어제" }] }]),
+          await undoRemove(a, [{ ...tok[0], rows: [{ ...tok[0].rows[0], sortOrder: -5 }] }]),
+          await undoRemove(a, [{ ...tok[0], rows: [] }]),
         ]
       : [];
     check("⑧ 되돌리기 값 다시 검사 — 남의 계정·남의 장소 = 찾을 수 없음 · 날짜·정렬 순서 이상·빈 값 = 되돌리지 못함 · 저장 0",
@@ -489,6 +498,97 @@ async function main() {
       editUi9.includes("undoMove: r.undo ?? undefined") && view9.includes("const r = await undoMoveAction(mv);") &&
         editUi9.includes("onDeleted(nodeName);") && view9.includes("setMapNotice(C.edit.deletedName(name));") &&
         editUi9.includes("{im.placeGroups > 0 && <p className=\"text-lg text-ink\">{E.deletePlaceGroups(im.placeGroups)}</p>}"));
+
+    // ── ⑩ 시기↔사람 출처(2026-11-02 마이그 20261102200000 — §14.8) ─────────────────
+    const pleOf = (pid: string) => prisma.personLifeEvent.findMany({ where: { personId: pid }, orderBy: { lifeEventId: "asc" }, select: { lifeEventId: true, origin: true, createdAt: true } });
+    const newP = async (name: string) => (await prisma.person.create({ data: { userId: a, name, relation: "친구" }, select: { id: true } })).id;
+    // (가) 운영 재현 — 이야기에 넣기(고등학교) → 다른 시절로 옮기기(첫 직장) → 이야기 지우기 → 시기 연결 0
+    const r10 = await newP("[fixture] 재현 친구");
+    const s10 = await createStoryNode(a, { lifeEventId: high, kind: "STORY", title: "", content: "[fixture] 놀이터에서 그네를 오래 탔다.", personIds: [r10] });
+    const s10Id = s10.ok ? s10.episodeId : "";
+    const afterAdd = await pleOf(r10);
+    const mv10 = await moveEpisodeToLifeEvent(a, s10Id, job);
+    const afterMove = await pleOf(r10);
+    await deleteEpisode(a, s10Id);
+    const afterDel = await pleOf(r10);
+    check("⑩ 재현 — 넣기: 고등학교↔사람 STORY · 옮기기: 첫 직장 STORY 생기고 고등학교는 정리 · 이야기 지우기: 시기 연결 0",
+      afterAdd.length === 1 && afterAdd[0].lifeEventId === high && afterAdd[0].origin === "STORY" && mv10.ok &&
+        afterMove.length === 1 && afterMove[0].lifeEventId === job && afterMove[0].origin === "STORY" && afterDel.length === 0,
+      { afterAdd, afterMove, afterDel });
+    // (나) 직접 넣은 연결은 이야기가 생겼다 지워져도 그대로(이야기 넣기가 내리지도 않음)
+    const d10 = await newP("[fixture] 직접 넣은 분");
+    await addLink(a, { type: "LIFE_EVENT", id: job }, { type: "PERSON", id: d10 });
+    const s10b = await createStoryNode(a, { lifeEventId: job, kind: "STORY", title: "", content: "[fixture] 점심마다 같이 국수를 먹었다.", personIds: [d10] });
+    const midD = await pleOf(d10);
+    if (s10b.ok) await deleteEpisode(a, s10b.episodeId);
+    const endD = await pleOf(d10);
+    check("⑩ 직접 넣은 연결(DIRECT) — 같은 시기 이야기에 넣어도 DIRECT 그대로 · 그 이야기를 지워도 유지",
+      midD.length === 1 && midD[0].origin === "DIRECT" && endD.length === 1 && endD[0].origin === "DIRECT", { midD, endD });
+    // (다) 이야기 따라 있던 쌍을 직접 넣으면 DIRECT 로 올림 · 그 넣기 되돌리기 = 다시 STORY(지우지 않음)
+    const u10 = await newP("[fixture] 올림 확인 분");
+    await createStoryNode(a, { lifeEventId: job, kind: "STORY", title: "", content: "[fixture] 퇴근길에 붕어빵을 나눠 먹었다.", personIds: [u10] });
+    const up = await addLink(a, { type: "LIFE_EVENT", id: job }, { type: "PERSON", id: u10 });
+    const upRow = await pleOf(u10);
+    const upUndo = up.ok ? await undoLinks(a, up.created) : null;
+    const downRow = await pleOf(u10);
+    check("⑩ STORY 쌍을 직접 넣기 = DIRECT 로 올림(새 행 아님 — 되돌리기 표시) · 되돌리기 = 다시 STORY(행·만든 때 그대로)",
+      up.ok && up.created.length === 1 && up.created[0].downgrade === true && upRow[0]?.origin === "DIRECT" && !!upUndo?.ok &&
+        downRow.length === 1 && downRow[0].origin === "STORY" && +downRow[0].createdAt === +upRow[0].createdAt,
+      { up, upRow, downRow });
+    // (라) 같은 시기 이야기 둘에 나온 분 — 하나에서 빼도 유지, 둘 다 빼면 정리, 되돌리기 = 연결·시기 연결 둘 다 그대로
+    const t10 = await newP("[fixture] 두 이야기 분");
+    const s10c = await createStoryNode(a, { lifeEventId: elem, kind: "STORY", title: "", content: "[fixture] 운동회 날 줄다리기를 했다.", personIds: [t10] });
+    const s10d = await createStoryNode(a, { lifeEventId: elem, kind: "STORY", title: "", content: "[fixture] 소풍 가서 보물찾기를 했다.", personIds: [t10] });
+    const before10 = JSON.stringify(await pleOf(t10));
+    const rmC = s10c.ok ? await removeLink(a, { type: "EPISODE", id: s10c.episodeId }, { type: "PERSON", id: t10 }) : null;
+    const keep10 = await pleOf(t10);
+    const rmD = s10d.ok ? await removeLink(a, { type: "EPISODE", id: s10d.episodeId }, { type: "PERSON", id: t10 }) : null;
+    const gone10 = await pleOf(t10);
+    const unD = rmD?.ok && rmD.undo ? await undoRemove(a, rmD.undo) : null;
+    check("⑩ 이야기 둘에 나온 분 — 하나에서 빼면 시기 연결 유지 · 둘 다 빼면 정리 · 되돌리기 = 이야기 연결 + 시기 연결(출처·만든 때 그대로)",
+      !!rmC?.ok && rmC.undo?.length === 1 && keep10.length === 1 && !!rmD?.ok && rmD.undo?.length === 2 && gone10.length === 0 &&
+        !!unD?.ok && JSON.stringify(await pleOf(t10)) === before10 &&
+        (await prisma.nodeLink.count({ where: { fromType: "EPISODE", fromId: s10d.ok ? s10d.episodeId : "", toType: "PERSON", toId: t10 } })) === 1,
+      { rmC, keep10, rmD, gone10, unD });
+    // (마) 추가 소속 이야기에 나오는 동안은 유지 · 추가 소속을 빼면 정리
+    const x10 = await newP("[fixture] 추가 소속 분");
+    const s10e = await createStoryNode(a, { lifeEventId: job, kind: "STORY", title: "", content: "[fixture] 첫 월급으로 구두를 샀다.", personIds: [x10] });
+    const s10f = await createStoryNode(a, { lifeEventId: elem, kind: "STORY", title: "", content: "[fixture] 어릴 적 친구가 회사 근처로 이사 왔다.", personIds: [x10] });
+    if (s10f.ok) await saveNodeLink(a, { type: "LIFE_EVENT", id: job }, { type: "EPISODE", id: s10f.episodeId });
+    if (s10e.ok) await deleteEpisode(a, s10e.episodeId);
+    const xJob1 = (await pleOf(x10)).filter((r) => r.lifeEventId === job).length;
+    const rmX = s10f.ok ? await removeLink(a, { type: "LIFE_EVENT", id: job }, { type: "EPISODE", id: s10f.episodeId }) : null;
+    const xJob2 = (await pleOf(x10)).filter((r) => r.lifeEventId === job).length;
+    check("⑩ 추가 소속 — 그 시기에 추가 소속으로 걸린 이야기에 나오면 유지 · 그 추가 소속을 빼면 이야기 따라 생긴 시기 연결도 정리",
+      xJob1 === 1 && !!rmX?.ok && xJob2 === 0 && (rmX.undo?.length ?? 0) === 2, { xJob1, xJob2, rmX });
+    // (바) 인물 질문으로 시작한 카드 = DIRECT · 대상 인물 = DIRECT · 그 밖 = STORY
+    const hsEv10 = await prisma.lifeEvent.findUniqueOrThrow({ where: { id: high }, select: { label: true, year: true } });
+    const card10 = (people: CardPerson[], extra: Partial<ProposalCard>): ProposalCard => ({
+      v: 1, title: "", summary: "[fixture] 그 시절 함께 다닌 분들 이야기.", center: { id: high, label: hsEv10.label, year: hsEv10.year }, centerFixed: false,
+      people, places: [], kind: "STORY", transcript: "[본인] [fixture] 그 시절 함께 다닌 분들 이야기.", until: null, targetPersonId: null, isPeriod: false, ...extra,
+    });
+    const pq = card10([{ name: "[fixture] 인물 질문 답 분", relation: "친구", personId: null, sameName: [] }], { personQuestion: true });
+    const pqRes = await createFromCard(a, pq, cardToEdit(pq));
+    const pqPerson = await prisma.person.findFirst({ where: { userId: a, name: "[fixture] 인물 질문 답 분" }, select: { id: true } });
+    const pqRows = pqPerson ? await pleOf(pqPerson.id) : [];
+    const tgt10 = await newP("[fixture] 대상 인물 분");
+    const tc = card10(
+      [{ name: "[fixture] 대상 인물 분", relation: "친구", personId: tgt10, sameName: [] }, { name: "[fixture] 같이 나온 분", relation: "친구", personId: null, sameName: [] }],
+      { targetPersonId: tgt10 },
+    );
+    const tcRes = await createFromCard(a, tc, cardToEdit(tc));
+    const along = await prisma.person.findFirst({ where: { userId: a, name: "[fixture] 같이 나온 분" }, select: { id: true } });
+    const tgtRows = await pleOf(tgt10);
+    const alongRows = along ? await pleOf(along.id) : [];
+    if (pqRes.ok) await deleteEpisode(a, pqRes.episodeId);
+    const pqAfterDel = pqPerson ? await pleOf(pqPerson.id) : [];
+    check("⑩ 카드 — 인물 질문으로 시작 = DIRECT(이야기를 지워도 유지) · 대상 인물 = DIRECT · 같이 나온 분 = STORY",
+      pqRes.ok && pqRows.length === 1 && pqRows[0].origin === "DIRECT" && pqAfterDel.length === 1 &&
+        tcRes.ok && tgtRows.length === 1 && tgtRows[0].origin === "DIRECT" && alongRows.length === 1 && alongRows[0].origin === "STORY",
+      { pqRes, pqRows, pqAfterDel, tgtRows, alongRows });
+    const libAll = [...walkLib("lib"), ...walkLib("app")];
+    const pleWriters = libAll.filter((f) => /personLifeEvent\.(create|createMany|upsert)\(/.test(read(f)));
+    check("⑩ 시기↔사람 쓰기는 lib/node-graph 하나(인물 확인 [맞아요]의 직접 upsert 없앰 — 입구로)", JSON.stringify(pleWriters) === JSON.stringify(["lib/node-graph.ts"]), pleWriters);
 
     // ── ⑦ 정적 ───────────────────────────────────────────────────
     const actions = read("app/my-life/actions.ts");
