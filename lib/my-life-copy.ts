@@ -88,6 +88,7 @@ export const MY_LIFE_COPY = {
   toPlaces: "장소록",
   toTimeline: "시간 줄기",
   toRelated: (n: number) => `연결된 곳 차례로 보기(${n})`,
+  moveBarLabel: "지도에서 가기", // 도구줄 이동 줄(시간 줄기·인물록·장소록) 이름(화면 낭독용)
   panelStoriesWith: "나온 이야기",
   panelEventsWith: "그 시기",
   panelGroups: "모임",
@@ -205,6 +206,9 @@ export const MY_LIFE_COPY = {
     deleteIrreversible: "지우면 되돌릴 수 없어요.",
     deleteDo: "지우기",
     deleted: "지웠어요.",
+    // 3단계 E2E 후속 2(2026-11-02) — 지운 뒤 지도 머리 줄·목록 위 알림 · 장소 지우기 확인창의 장소 묶음 수
+    deletedName: (name: string) => `${name}${withJosa(name, "을/를")} 지웠어요.`,
+    deletePlaceGroups: (n: number) => `장소 묶음 ${n}개에서도 빠져요.`,
     deleteSkeletonNote: "처음 정한 시기는 지울 수 없어요.",
     personDeleteNote: "사람은 인물록에서 지울 수 있어요.",
     personDeleteLink: "인물록에서 지우기",

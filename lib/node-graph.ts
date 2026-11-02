@@ -202,6 +202,8 @@ export type RemovedLinkRow = {
   confirmedAt?: string | null;
   sortOrder?: number;
 };
+// 빼기 되돌리기 값 한 쌍 — removeNodeLink 를 부른 쪽이 (a, b, rows)로 묶어 화면에 넘기고 restoreNodeLink 로 되살린다.
+export type RemovedLink = { a: NodeRef; b: NodeRef; rows: RemovedLinkRow[] };
 export type RemoveNodeLinkResult =
   | { ok: true; removed: number; store: LinkStore; rows: RemovedLinkRow[] }
   | { ok: false; reason: "self_link" | "pair_not_allowed" | "not_found" | "primary_membership" | "subject_person" };

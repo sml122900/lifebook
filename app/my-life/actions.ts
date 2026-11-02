@@ -8,7 +8,7 @@
 
 import { auth } from "@/auth";
 import { deleteEpisode } from "@/lib/episode";
-import { moveEpisodeToLifeEvent } from "@/lib/episode-move";
+import { moveEpisodeToLifeEvent, undoMoveEpisode, type MoveUndo } from "@/lib/episode-move";
 import type { NodeType } from "@/lib/generated/prisma/enums";
 import { deleteCustomLifeEvent } from "@/lib/life-event-delete";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
@@ -158,11 +158,18 @@ export async function undoRemoveAction(u: RemovedLink): Promise<{ ok: true; rest
   return undoRemove(userId, { a, b, rows: Array.isArray(u?.rows) ? u.rows : [] });
 }
 
-export async function moveStoryAction(episodeId: string, targetEventId: string): Promise<{ ok: true; key: string } | { ok: false; error: string }> {
+export async function moveStoryAction(episodeId: string, targetEventId: string): Promise<{ ok: true; key: string; undo: MoveUndo | null } | { ok: false; error: string }> {
   const userId = await requireUserId();
   if (typeof episodeId !== "string" || typeof targetEventId !== "string") return { ok: false, error: E.notFound };
   const r = await moveEpisodeToLifeEvent(userId, episodeId, targetEventId);
-  return r.ok ? { ok: true, key: `st:${r.toEventId}:${episodeId}` } : { ok: false, error: E.notFound };
+  return r.ok ? { ok: true, key: `st:${r.toEventId}:${episodeId}`, undo: r.undo } : { ok: false, error: E.notFound };
+}
+
+// 옮기기 되돌리기 — 화면이 돌려준 값은 lib/episode-move undoMoveEpisode 가 다시 검사한다. 되돌린 뒤 그 이야기 노드 키.
+export async function undoMoveAction(u: MoveUndo): Promise<{ ok: true; key: string } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const r = await undoMoveEpisode(userId, u);
+  return r.ok ? { ok: true, key: `st:${u.fromEventId}:${u.episodeId}` } : { ok: false, error: r.reason === "not_found" ? E.notFound : E.cannotUndo };
 }
 
 export async function deleteImpactAction(node: NodeRef): Promise<DeleteImpact | null> {

@@ -14,6 +14,7 @@
 //   ⑦ 3단계 — 장소 묶음(데이터·배치·간선·검색) · 영역 제목 옆 [+ 사람][+ 모임]/[+ 장소][+ 묶음] 자리
 //   ⑧ 2026-11-02 E2E 재검증 — 시기 노드 사람·장소 수(버튼 이름·패널 같은 함수, 이야기로만 이은 곳 포함) · 제목 없는 이야기 패널
 //   ⑨ 2026-11-02 3단계 E2E — 연결 수·차례로 보기(시기 수와 같은 기준) · 지도 이동 요청 한 번만·패널 작업 뒤 지도 유지 · 한 번 탭 = 패널
+//   ⑩ 2026-11-02 3단계 E2E 후속 2 — 지도 위 떠 있던 가장자리 버튼을 도구줄(이동 줄)·머리 줄(연결된 곳)로
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0).
 // 실행: npx tsx db/test-my-life.ts
@@ -464,7 +465,7 @@ async function main() {
     check("⑨ 인물 간선 끄기 — 연결 수도 장소만 · 모임 선택 = 구성원(related 그대로)",
       JSON.stringify(e1p.connected) === JSON.stringify([`pl:${place1}`]) && JSON.stringify([...e4.connected].sort()) === JSON.stringify([...e4.related].sort()), { e1p: e1p.connected, e4: e4.connected });
     check("⑨ 머리 줄 \"연결 N\"·[연결된 곳 차례로 보기(N)] = 연결 전체 수(화면 밖 것만 세던 것 고침) · 차례로 보기는 그 노드들",
-      view.includes("C.selectedLine(nodeName(selected, data, idx), connected.length)") && view.includes("count: r.connected.length") &&
+      view.includes("C.selectedLine(nodeName(selected, data, idx), connected.length)") && view.includes("{C.toRelated(connected.length)}") &&
         /const on = new Set\(connected\);\n\s*const keys = \[selected, \.\.\.layoutRef\.current\.nodes\.map\(\(n\) => n\.key\)\.filter\(\(k\) => on\.has\(k\)\)\]/.test(view));
     check("⑨ 지도 이동 요청은 한 번만(넣기·빼기로 레이아웃이 바뀌어도 처음 목표로 다시 안 감) · 패널 작업 뒤 = 고른 노드 자리가 바뀌어 보이는 곳 밖일 때만 이동",
       view.includes("focusDoneRef.current === focusRequest.n) return;") && view.includes("focusDoneRef.current = focusRequest.n;") &&
@@ -475,6 +476,16 @@ async function main() {
         view.includes("if (stateRef.current.scale >= OVERVIEW_SCALE) requestAnimationFrame(() => requestAnimationFrame(() => ensureVisible(key)));") &&
         !/aria-pressed=\{c\.shown\}/.test(view) &&
         view.includes('if (!el.matches(":focus-visible")) return;'));
+    // ── ⑩ 3단계 E2E 후속 2(2026-11-02) — 지도 위에 떠 있던 가장자리 버튼(노드를 가림 — §8.4)을 지도 밖으로 ──
+    check("⑩ 지도 위 떠 있는 버튼 0 — 가장자리 버튼(EdgeButtons·화살표·화면 밖 계산) 없음",
+      !/EdgeButtons|updateOffscreen|dirOf\(|ARROW\[/.test(view) && !/pointer-events-none absolute z-10/.test(view));
+    check("⑩ 도구줄 이동 줄 [시간 줄기][인물록][장소록] — 늘 같은 자리, 지금 보는 곳 표시(aria-current), 지도 상자 밖(확대 줄 위)",
+      /<nav aria-label=\{C\.moveBarLabel\}[^>]*>\n\s*\{\(\["timeline", "people", "places"\] as const\)/.test(view) &&
+        view.includes('aria-current={area === w ? "true" : undefined}') &&
+        view.indexOf("<nav aria-label={C.moveBarLabel}") > view.indexOf("ref={boxRef}") && view.indexOf("<nav aria-label={C.moveBarLabel}") < view.indexOf("aria-label={C.zoomOut}"));
+    check("⑩ [연결된 곳 차례로 보기(N)] = 머리 줄 선택 줄(간선 끄기 옆, 연결 있을 때만)",
+      /\{connected\.length > 0 && \(\n\s*<Button variant="secondary" size="lg" className="px-4!" onClick=\{goRelated\}>\n\s*\{C\.toRelated\(connected\.length\)\}/.test(view) &&
+        view.indexOf("{C.toRelated(connected.length)}") > view.indexOf("C.edgePlaceOff") && view.indexOf("{C.toRelated(connected.length)}") < view.indexOf("ref={boxRef}"));
 
     for (const [g, pg] of [[0, 1], [2, 2], [3, 3], [1, 5]] as const) {
       const syn = synthetic({ events: 11, stories: 23, people: 12, groups: g, places: 14, placeGroups: pg, seed: 21 + pg });

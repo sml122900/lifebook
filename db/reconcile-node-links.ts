@@ -29,6 +29,7 @@ function print(i: NodeGraphIssues) {
   console.log(`9  확인 대기 연결              ${i.pendingLinks} (이야기→인물 ${i.pendingPeopleLinks}) · 가장 오래된 대기 ${i.oldestPendingDays ?? "-"}일  [지표]`);
   console.log(`10 장소형 인물                 ${i.locationPeople}  [지표]`);
   console.log(`11 구성원 행 주인 불일치       ${i.memberOwnerMismatch}  [보고만]`);
+  console.log(`12 이야기 없는 시기↔사람 연결  ${i.periodPeopleWithoutStory}  [보고만 — 출처 칸 전이라 시기에 직접 넣은 연결도 섞임]`);
 }
 
 async function main() {

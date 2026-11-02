@@ -13,6 +13,7 @@
 //      연결 트리거·묶음 구성원) · 모임 · 장소 묶음 · 직접 추가 시기(이야기 함께) · 처음 정한 시기 거부 · 남의 노드 거부
 //   ⑧ 빼기 되돌리기(Q50 보완 2026-11-02) — 다섯 칸 모두 빼기 전 값 그대로(만든 때·정렬 순서·NodeLink 역할·상태·출처·확인 때) ·
 //      두 번 눌러도 그대로 · 없는 연결은 되돌릴 것 없음 · 화면이 돌려준 값 다시 검사(남의 계정·남의 노드·이상한 값 거부) · 화면 [되돌리기]
+//   ⑨ 3단계 E2E 후속 2(2026-11-02) — 옮기기 되돌리기(옮기기 전 그대로·값 다시 검사) · 장소 지우기 확인창 묶음 수 · 화면(옮긴 뒤 [되돌리기]·지운 뒤 알림)
 //   ⑦ 정적 — 서버 액션 전부 첫 줄 auth · NodeLink 쓰기는 lib/node-graph 만 · proxy.ts 무접촉 · 문구 임시 표기
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0). 실행: npx tsx db/test-my-life-edit.ts
@@ -26,7 +27,7 @@ import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEpisodeBridge, deleteEpisode } from "../lib/episode";
-import { moveEpisodeToLifeEvent } from "../lib/episode-move";
+import { moveEpisodeToLifeEvent, undoMoveEpisode } from "../lib/episode-move";
 import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { deleteCustomLifeEvent } from "../lib/life-event-delete";
 import { getMyLifeData } from "../lib/my-life";
@@ -431,6 +432,63 @@ async function main() {
     const editUi = read("app/my-life/EditUI.tsx");
     check("⑧ 화면 — 빼기 직후 알림에 [되돌리기](undoRemoveAction) · 확인 단계(뺄게요)는 그대로",
       /text: E\.removed,\n\s*undo: u\n\s*\? async \(\) => \{\n\s*const x = await undoRemoveAction\(u\);/.test(editUi) && editUi.includes("onClick={() => remove(mode.other)}"));
+
+    // ── ⑨ 3단계 E2E 후속 2(2026-11-02) — 옮기기 되돌리기 · 장소 지우기 확인창 묶음 수 · 지운 뒤 알림 ─────────
+    const u9P = (await prisma.person.create({ data: { userId: a, name: "[fixture] 옮기기 되돌리기 분", relation: "친구", metYear: 1971 }, select: { id: true } })).id;
+    const u9Out = (await prisma.person.create({ data: { userId: a, name: "[fixture] 이 이야기 밖의 분", relation: "친구", metYear: 1965 }, select: { id: true } })).id;
+    const u9S = await createStoryNode(a, { lifeEventId: high, kind: "STORY", title: "", content: "[fixture] 운동장 끝 버드나무 아래서 도시락을 먹었다.", personIds: [u9P] });
+    const u9Id = u9S.ok ? u9S.episodeId : "";
+    await saveNodeLink(a, { type: "LIFE_EVENT", id: job }, { type: "EPISODE", id: u9Id }); // 첫 직장 추가 소속(옮기면 지워졌다가 되돌리면 그대로)
+    await prisma.nodeLink.updateMany({ where: { fromType: "LIFE_EVENT", fromId: job, toType: "EPISODE", toId: u9Id }, data: { createdAt: OLD, confirmedAt: OLD } });
+    const snap9 = async () =>
+      JSON.stringify({
+        ep: await prisma.episode.findUnique({ where: { id: u9Id }, select: { lifeEventId: true, memory: { select: { year: true } } } }),
+        ple: await prisma.personLifeEvent.findMany({ where: { personId: u9P }, orderBy: { lifeEventId: "asc" }, select: { lifeEventId: true, createdAt: true } }),
+        extra: await prisma.nodeLink.findMany({ where: { fromType: "LIFE_EVENT", toType: "EPISODE", toId: u9Id }, select: { fromId: true, role: true, status: true, source: true, createdAt: true, confirmedAt: true } }),
+        met: await prisma.person.findMany({ where: { id: { in: [u9P, u9Out] } }, orderBy: { id: "asc" }, select: { metYear: true } }),
+        has: await prisma.lifeEvent.findMany({ where: { id: { in: [high, job] } }, orderBy: { id: "asc" }, select: { hasEpisode: true } }),
+      });
+    const s9 = await snap9();
+    const mv9 = await moveEpisodeToLifeEvent(a, u9Id, job);
+    const after9 = {
+      primary: (await prisma.episode.findUnique({ where: { id: u9Id }, select: { lifeEventId: true } }))?.lifeEventId === job,
+      extra: await prisma.nodeLink.count({ where: { fromType: "LIFE_EVENT", fromId: job, toType: "EPISODE", toId: u9Id } }),
+      ple: await prisma.personLifeEvent.count({ where: { personId: u9P, lifeEventId: job } }),
+      met: (await prisma.person.findUnique({ where: { id: u9P }, select: { metYear: true } }))?.metYear,
+    };
+    check("⑨ 옮기기 — 대상 시기 추가 소속 지움·대상 시기↔사람 생김·만난 해 1978 · 되돌리기 값(옛 시기·새로 생긴 연결·지운 추가 소속·만난 해·브릿지 연도)",
+      mv9.ok && mv9.moved && after9.primary && after9.extra === 0 && after9.ple === 1 && after9.met === 1978 && !!mv9.undo &&
+        mv9.undo.fromEventId === high && JSON.stringify(mv9.undo.createdPersonIds) === JSON.stringify([u9P]) && mv9.undo.removed.length === 1 &&
+        mv9.undo.metYears.some((m) => m.personId === u9P && m.before === 1971),
+      { after9, undo: mv9.ok ? mv9.undo : mv9 });
+    const un9 = mv9.ok && mv9.undo ? await undoMoveEpisode(a, mv9.undo) : null;
+    check("⑨ 옮기기 되돌리기 = 옮기기 전 그대로(주 소속·브릿지 연도·시기↔사람·추가 소속 만든 때·만난 해·두 시기 hasEpisode)", !!un9?.ok && (await snap9()) === s9, { un9, s9: JSON.parse(s9), now: JSON.parse(await snap9()) });
+    const mv9b = await moveEpisodeToLifeEvent(a, u9Id, job);
+    const tok9 = mv9b.ok ? mv9b.undo : null;
+    const forged9 = tok9
+      ? [
+          await undoMoveEpisode(b, tok9),
+          await undoMoveEpisode(a, { ...tok9, memoryYear: 3000 }),
+          await undoMoveEpisode(a, { ...tok9, metYears: [{ personId: u9P, before: "x" as never }] }),
+          await undoMoveEpisode(a, { ...tok9, createdPersonIds: "x" as never }),
+        ]
+      : [];
+    const stillMoved = (await prisma.episode.findUnique({ where: { id: u9Id }, select: { lifeEventId: true } }))?.lifeEventId === job;
+    const un9b = tok9 ? await undoMoveEpisode(a, { ...tok9, metYears: [...tok9.metYears, { personId: u9Out, before: 1900 }] }) : null;
+    check("⑨ 옮기기 되돌리기 값 다시 검사 — 남의 계정 = 찾을 수 없음 · 연도·만난 해·목록 이상 = 거부(옮긴 그대로) · 이 이야기 밖의 분 만난 해는 안 건드림",
+      forged9.map((r) => (r.ok ? "ok" : r.reason)).join("|") === "not_found|bad_undo|bad_undo|bad_undo" && stillMoved && !!un9b?.ok && (await snap9()) === s9,
+      { forged9, stillMoved, un9b });
+    const pl9 = (await prisma.place.create({ data: { userId: a, name: "[fixture] 묶음 둘에 든 곳" }, select: { id: true } })).id;
+    const pg9a = await createPlaceGroupNode(a, { name: "[fixture] 묶음 가", placeIds: [pl9] });
+    const pg9b = await createPlaceGroupNode(a, { name: "[fixture] 묶음 나", placeIds: [pl9] });
+    const im9 = await deleteImpact(a, { type: "PLACE", id: pl9 });
+    check("⑨ 장소 지우기 확인창 — 장소 묶음 2개에서도 빠짐(placeGroups 2) · 다른 종류는 0", pg9a.ok && pg9b.ok && im9?.placeGroups === 2 && (await deleteImpact(a, { type: "EPISODE", id: u9Id }))?.placeGroups === 0, im9);
+    const editUi9 = read("app/my-life/EditUI.tsx");
+    const view9 = read("app/my-life/MyLifeView.tsx");
+    check("⑨ 화면 — 옮긴 뒤 알림에 [되돌리기](undoMoveAction → 원래 시기의 그 이야기 패널) · 지운 뒤 \"○○을 지웠어요\"(지도 머리 줄·목록 위·화면 낭독) · 확인창 묶음 수",
+      editUi9.includes("undoMove: r.undo ?? undefined") && view9.includes("const r = await undoMoveAction(mv);") &&
+        editUi9.includes("onDeleted(nodeName);") && view9.includes("setMapNotice(C.edit.deletedName(name));") &&
+        editUi9.includes("{im.placeGroups > 0 && <p className=\"text-lg text-ink\">{E.deletePlaceGroups(im.placeGroups)}</p>}"));
 
     // ── ⑦ 정적 ───────────────────────────────────────────────────
     const actions = read("app/my-life/actions.ts");

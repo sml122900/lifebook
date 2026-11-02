@@ -38,7 +38,7 @@ import {
 import { searchMyLife, type SearchResult } from "@/lib/my-life-search";
 import { displayTitle, hasOwnTitle, shortTitle } from "@/lib/story-title";
 
-import { undoCreateAction } from "./actions";
+import { undoCreateAction, undoMoveAction } from "./actions";
 import { CreateSheet, NodeEditor, type CreateKind, type Created, type Notice } from "./EditUI";
 
 const MAX_SCALE = 3;
@@ -196,6 +196,8 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   const [shownPlaceGroups, setShownPlaceGroups] = useState<string[]>([]);
   // 3단계 — 패널 맨 위 알림(넣었어요·만들었어요 + [되돌리기], 다음 동작 전까지) · 만들기 시트 · 만든 뒤 갈 노드.
   const [notice, setNotice] = useState<Notice | null>(null);
+  // 지운 뒤 알림("○○을 지웠어요") — 패널이 닫혀서 지도 머리 줄·목록 위에. 다음 동작(패널·찾기·만들기·보기 바꾸기) 전까지.
+  const [mapNotice, setMapNotice] = useState<string | null>(null);
   const [createKind, setCreateKind] = useState<CreateKind | null | undefined>(undefined); // undefined = 닫힘, null = 종류 고르기부터
   // keep — 패널 안 작업(옮기기·직접 쓰기)으로 생긴 노드: 지도 위치·배율은 그대로, 보이는 곳 밖일 때만 옮김(3단계 E2E 2026-11-02).
   const [pendingOpen, setPendingOpen] = useState<(Created & { keep?: boolean }) | null>(null);
@@ -219,6 +221,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   const idx = useMemo(() => buildIndex(data), [data]);
 
   const openPanel = useCallback((key: string) => {
+    setMapNotice(null);
     lastKeyRef.current = key;
     setSelected(key);
     setPanel(key);
@@ -256,6 +259,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
 
   function toggleView() {
     setPanel(null);
+    setMapNotice(null);
     window.history.pushState(null, "", view === "map" ? "?view=list" : window.location.pathname);
   }
 
@@ -273,6 +277,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   const goTo = useCallback(
     (key: string, eventId: string | null, keep = false) => {
       setPanel(null);
+      setMapNotice(null);
       setFindOpen(false);
       if (view === "list") {
         requestAnimationFrame(() => {
@@ -324,6 +329,7 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
       const key = done.key.startsWith("pgl:") && !layout.nodes.some((n) => n.key === done.key) && view === "map" ? `pgc:${done.key.slice(4)}` : done.key;
       openPanel(key);
       const u = done.undo;
+      const mv = done.undoMove;
       setNotice({
         key,
         text: done.text,
@@ -333,11 +339,30 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
               router.refresh();
               return r;
             }
+          : mv
+          ? async () => {
+              // 옮기기 되돌리기 — 원래 시기로 돌아간 그 이야기 패널을 다시 연다(3단계 E2E 2026-11-02).
+              const r = await undoMoveAction(mv);
+              if (r.ok) setPendingOpen({ key: r.key, eventId: mv.fromEventId, text: C.edit.undone, undo: null, keep: true });
+              router.refresh();
+              return r;
+            }
           : undefined,
+        undoFail: mv ? C.edit.cannotUndo : undefined,
       });
     });
     return () => cancelAnimationFrame(raf);
   }, [data, pendingOpen, goTo, openPanel, layout, view, router]);
+
+  function openFind() {
+    setMapNotice(null);
+    setFindOpen(true);
+  }
+
+  function openCreate(k: CreateKind | null) {
+    setMapNotice(null);
+    setCreateKind(k);
+  }
 
   function afterCreate(r: Created) {
     setCreateKind(undefined);
@@ -363,15 +388,20 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
           setSelected={setSelected}
           openPanel={openPanel}
           onToggleView={toggleView}
-          onOpenFind={() => setFindOpen(true)}
-          onCreate={(k) => setCreateKind(k)}
+          onOpenFind={openFind}
+          onCreate={openCreate}
           shownPlaceGroups={shownPlaceGroups}
           setShownPlaceGroups={setShownPlaceGroups}
           focusRequest={focusRequest}
+          status={mapNotice}
         />
       ) : (
-        <ListMode data={data} idx={idx} openPanel={openPanel} onToggleView={toggleView} onOpenFind={() => setFindOpen(true)} onCreate={(k) => setCreateKind(k)} />
+        <ListMode data={data} idx={idx} openPanel={openPanel} onToggleView={toggleView} onOpenFind={openFind} onCreate={openCreate} status={mapNotice} />
       )}
+
+      <p className="sr-only" aria-live="polite">
+        {mapNotice}
+      </p>
 
       <dialog
         ref={dialogRef}
@@ -401,8 +431,9 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
                 setPendingOpen({ ...r, keep: true });
                 router.refresh();
               }}
-              onDeleted={() => {
+              onDeleted={(name) => {
                 setSelected(null);
+                setMapNotice(C.edit.deletedName(name));
                 dialogRef.current?.close();
               }}
             />
@@ -442,19 +473,8 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
 type Init = { scale: number; x: number; y: number };
 // 지도에서 노드로 가기 요청 — n 이 바뀔 때 한 번만 처리(레이아웃이 바뀔 때마다 다시 그 노드로 가던 것 — 3단계 E2E 2026-11-02).
 type FocusRequest = { key: string; n: number; keep?: boolean };
-type Dir = "left" | "right" | "up" | "down";
-type Offscreen = { people: Dir | null; places: Dir | null; timeline: Dir | null; related: { dir: Dir; count: number } | null };
 
 const fitScaleOf = (w: number, h: number, layout: MyLifeLayout) => Math.min(w / layout.width, h / layout.height);
-
-function dirOf(view: { x: number; y: number; w: number; h: number }, r: { x: number; y: number; w: number; h: number }): Dir | null {
-  const visible = r.x < view.x + view.w && r.x + r.w > view.x && r.y < view.y + view.h && r.y + r.h > view.y;
-  if (visible) return null;
-  const dx = r.x + r.w / 2 - (view.x + view.w / 2);
-  const dy = r.y + r.h / 2 - (view.y + view.h / 2);
-  if (r.x >= view.x + view.w || r.x + r.w <= view.x) return dx > 0 ? "right" : "left";
-  return dy > 0 ? "down" : "up";
-}
 
 function MapMode({
   data,
@@ -476,6 +496,7 @@ function MapMode({
   shownPlaceGroups,
   setShownPlaceGroups,
   focusRequest,
+  status,
 }: {
   data: MyLifeData;
   idx: Index;
@@ -496,6 +517,7 @@ function MapMode({
   shownPlaceGroups: string[];
   setShownPlaceGroups: (g: string[]) => void;
   focusRequest: FocusRequest | null;
+  status: string | null; // 지운 뒤 알림 — "지금 보는 곳" 자리에(다음 동작 전까지)
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -509,14 +531,12 @@ function MapMode({
   const [area, setArea] = useState<"timeline" | "people" | "places">("timeline");
   const [scale, setScale] = useState(1);
   const [announce, setAnnounce] = useState("");
-  const [offscreen, setOffscreen] = useState<Offscreen>({ people: null, places: null, timeline: null, related: null });
 
   const { edges, related, connected } = useMemo(() => selectionEdges(data, layout, selected, edgesOn), [data, layout, selected, edgesOn]);
 
   // 콜백이 읽는 최신 값(렌더 중에는 읽지도 쓰지도 않는다).
   const layoutRef = useRef(layout);
   const savedRef = useRef({ folded, shownGroups, shownPlaceGroups, edgesOn });
-  const relatedRef = useRef<{ selected: string | null; connected: string[] }>({ selected, connected });
   const stateRef = useRef({ scale: 1, positionX: 0, positionY: 0 });
   const downRef = useRef<{ x: number; y: number } | null>(null);
   const lastTapRef = useRef<{ t: number; x: number; y: number } | null>(null);
@@ -527,8 +547,7 @@ function MapMode({
   useLayoutEffect(() => {
     layoutRef.current = layout;
     savedRef.current = { folded, shownGroups, shownPlaceGroups, edgesOn };
-    relatedRef.current = { selected, connected };
-  }, [layout, folded, shownGroups, shownPlaceGroups, edgesOn, selected, connected]);
+  }, [layout, folded, shownGroups, shownPlaceGroups, edgesOn]);
 
   // 페이지 자체 스크롤을 잠근다 — 지도 영역의 끌기·확대가 페이지 스크롤·브라우저 확대와 다투지 않게.
   useLayoutEffect(() => {
@@ -595,47 +614,11 @@ function MapMode({
     if (Math.abs(nx - x) > 0.5 || Math.abs(ny - y) > 0.5) api.setTransform(nx, ny, sc, 200);
   }, []);
 
-  // 화면 밖 영역·연결 대상 — 가장자리 버튼(지도 좌표로 계산, DOM 측정 없음).
-  const updateOffscreen = useCallback(() => {
-    const b = boxRef.current;
-    if (!b) return;
-    const s = stateRef.current;
-    const lay = layoutRef.current;
-    const view = { x: -s.positionX / s.scale, y: -s.positionY / s.scale, w: b.clientWidth / s.scale, h: b.clientHeight / s.scale };
-    const r = relatedRef.current;
-    let rel: Offscreen["related"] = null;
-    // 버튼은 연결 노드가 하나라도 화면 밖이면 보이고, 수는 연결 전체(머리 줄 "연결 N"과 같은 수 — 3단계 E2E 2026-11-02).
-    if (r.selected && r.connected.length > 0) {
-      const counts: Record<Dir, number> = { left: 0, right: 0, up: 0, down: 0 };
-      let n = 0;
-      for (const k of r.connected) {
-        const node = lay.nodes.find((x) => x.key === k);
-        const d = node ? dirOf(view, node) : null;
-        if (d) {
-          counts[d]++;
-          n++;
-        }
-      }
-      if (n > 0) rel = { dir: (Object.keys(counts) as Dir[]).sort((a, c) => counts[c] - counts[a])[0], count: r.connected.length };
-    }
-    const next: Offscreen = {
-      people: lay.regions.people.h > 0 ? dirOf(view, lay.regions.people) : null,
-      places: lay.regions.places.h > 0 ? dirOf(view, lay.regions.places) : null,
-      timeline: dirOf(view, lay.regions.timeline),
-      related: rel,
-    };
-    setOffscreen((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
-  }, []);
-
   useEffect(() => {
     if (ready) save();
   }, [ready, folded, shownGroups, shownPlaceGroups, edgesOn, save]);
 
-  useEffect(() => {
-    if (ready) requestAnimationFrame(updateOffscreen);
-  }, [ready, layout, selected, connected, updateOffscreen]);
-
-  // 매 프레임 — "지금 보는 곳"·배율 표시·화면 밖 버튼은 다음 프레임에 한 번만 갱신.
+  // 매 프레임 — "지금 보는 곳"·배율 표시는 다음 프레임에 한 번만 갱신.
   const onTransform = useCallback(
     (_ref: ReactZoomPanPinchRef, st: { scale: number; positionX: number; positionY: number }) => {
       stateRef.current = st;
@@ -651,7 +634,6 @@ function MapMode({
         setArea(cx < lay.regions.people.x ? "timeline" : cy < lay.regions.places.y ? "people" : "places");
         setCurrent(bandAt(lay, cy)?.eventId ?? null);
         setScale(s.scale);
-        updateOffscreen();
         if (saveTimer.current) clearTimeout(saveTimer.current);
         saveTimer.current = setTimeout(() => {
           keepInView();
@@ -659,7 +641,7 @@ function MapMode({
         }, 250);
       });
     },
-    [save, keepInView, updateOffscreen],
+    [save, keepInView],
   );
 
   // 노드가 지도에서 보이는 곳(패널이 열려 있으면 패널 위까지) 밖에 있으면 — 배율은 그대로, 보이는 곳 안(여백 24)으로만 옮긴다.
@@ -912,11 +894,17 @@ function MapMode({
             <Button variant="tertiary" size="lg" className="px-4!" aria-pressed={!edgesOn.place} onClick={() => setEdgesOn({ ...edgesOn, place: !edgesOn.place })}>
               {edgesOn.place ? C.edgePlaceOff : C.edgePlaceOn}
             </Button>
+            {/* 연결된 곳 차례로 보기 — 지도 위에 떠 있던 버튼을 머리 줄로(노드를 가리지 않게 — 3단계 E2E 2026-11-02, §8.4). */}
+            {connected.length > 0 && (
+              <Button variant="secondary" size="lg" className="px-4!" onClick={goRelated}>
+                {C.toRelated(connected.length)}
+              </Button>
+            )}
           </div>
         </>
       ) : (
         <div className="flex min-h-[56px] items-center justify-between gap-3 px-6 py-1">
-          <p className="min-w-0 truncate text-lg text-ink-soft">{nowText}</p>
+          {status ? <p className="min-w-0 truncate text-lg text-ink">{status}</p> : <p className="min-w-0 truncate text-lg text-ink-soft">{nowText}</p>}
           {anyFolded && (
             <Button variant="secondary" size="lg" className="shrink-0" onClick={() => setFolded(new Set())}>
               {C.unfoldAll}
@@ -980,9 +968,26 @@ function MapMode({
             </TransformComponent>
           </TransformWrapper>
         )}
-        <EdgeButtons offscreen={offscreen} onRegion={goRegion} onRelated={goRelated} />
       </div>
 
+      {/* 도구줄 — 지도 위에 떠서 노드를 가리던 가장자리 버튼을 지도 밖으로(3단계 E2E 2026-11-02, §8.4).
+          이동 줄 = 늘 같은 자리 [시간 줄기][인물록][장소록](지금 보는 곳 표시) · 아래 줄 = 확대·축소·전체 보기(오른쪽 = 비서 버튼 자리). */}
+      <nav aria-label={C.moveBarLabel} className="flex items-center gap-2 bg-surface px-4 pt-2">
+        {(["timeline", "people", "places"] as const)
+          .filter((w) => w === "timeline" || layout.regions[w].h > 0)
+          .map((w) => (
+            <Button
+              key={w}
+              variant="secondary"
+              size="lg"
+              className={`px-3! ${area === w ? "border-ink! bg-banner!" : ""}`} // 지금 보는 곳 = 진한 테두리(지도의 지금 보는 시기 노드와 같은 표시)
+              aria-current={area === w ? "true" : undefined}
+              onClick={() => goRegion(w)}
+            >
+              {w === "timeline" ? C.toTimeline : w === "people" ? C.toPeople : C.toPlaces}
+            </Button>
+          ))}
+      </nav>
       <div className="flex items-center gap-2 bg-surface py-2 pl-4 pr-[104px]">
         <Button
           variant="secondary"
@@ -1018,48 +1023,6 @@ function MapMode({
         </p>
       </div>
     </div>
-  );
-}
-
-const ARROW: Record<Dir, string> = { left: "←", right: "→", up: "↑", down: "↓" };
-
-// 지도 가장자리 버튼 — 지도 좌표가 아니라 화면에 고정(56px·18px).
-function EdgeButtons({
-  offscreen,
-  onRegion,
-  onRelated,
-}: {
-  offscreen: Offscreen;
-  onRegion: (w: "people" | "places" | "timeline") => void;
-  onRelated: () => void;
-}) {
-  const items: { dir: Dir; label: string; onClick: () => void; key: string }[] = [];
-  if (offscreen.related) items.push({ dir: offscreen.related.dir, label: C.toRelated(offscreen.related.count), onClick: onRelated, key: "rel" });
-  if (offscreen.people) items.push({ dir: offscreen.people, label: C.toPeople, onClick: () => onRegion("people"), key: "people" });
-  if (offscreen.places) items.push({ dir: offscreen.places, label: C.toPlaces, onClick: () => onRegion("places"), key: "places" });
-  if (offscreen.timeline) items.push({ dir: offscreen.timeline, label: C.toTimeline, onClick: () => onRegion("timeline"), key: "timeline" });
-  const at: Record<Dir, string> = {
-    right: "right-2 top-1/2 -translate-y-1/2 flex-col items-end",
-    left: "left-2 top-1/2 -translate-y-1/2 flex-col items-start",
-    up: "top-2 left-1/2 -translate-x-1/2 flex-row",
-    down: "bottom-2 left-1/2 -translate-x-1/2 flex-row",
-  };
-  return (
-    <>
-      {(Object.keys(at) as Dir[]).map((d) => {
-        const list = items.filter((i) => i.dir === d);
-        if (list.length === 0) return null;
-        return (
-          <div key={d} className={`pointer-events-none absolute z-10 flex gap-2 ${at[d]}`}>
-            {list.map((i) => (
-              <button key={i.key} type="button" onClick={i.onClick} className={buttonClasses("secondary", "lg", "pointer-events-auto px-4! shadow-sm")}>
-                {d === "left" || d === "up" ? `${ARROW[d]} ${i.label}` : `${i.label} ${ARROW[d]}`}
-              </button>
-            ))}
-          </div>
-        );
-      })}
-    </>
   );
 }
 
@@ -1431,6 +1394,7 @@ function ListMode({
   onToggleView,
   onOpenFind,
   onCreate,
+  status,
 }: {
   data: MyLifeData;
   idx: Index;
@@ -1438,6 +1402,7 @@ function ListMode({
   onToggleView: () => void;
   onOpenFind: () => void;
   onCreate: (kind: CreateKind | null) => void;
+  status: string | null;
 }) {
   const ungrouped = data.people.filter((p) => p.groupIds.length === 0);
   const ungroupedPlaces = data.places.filter((p) => p.groupIds.length === 0);
@@ -1471,6 +1436,7 @@ function ListMode({
           </Button>
         </div>
       </div>
+      {status && <p className="rounded-md border-2 border-brand bg-banner px-4 py-3 text-lg text-ink">{status}</p>}
       <div className="flex gap-2">
         <ButtonLink href="/chat-v3" variant="primary" size="lg" className="min-w-0 flex-1 px-3! sm:flex-none">
           <MessageCircle aria-hidden size={20} className="shrink-0" />
@@ -1727,7 +1693,7 @@ function PanelBody({
   notice: Notice | null;
   setNotice: (n: Notice | null) => void;
   onReopen: (r: Created) => void;
-  onDeleted: () => void;
+  onDeleted: (name: string) => void;
 }) {
   const info = panelInfo(nodeKey, data, idx, folded, showFold, onToggleFold, onGo);
   if (!info) return null;

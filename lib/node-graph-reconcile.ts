@@ -8,6 +8,8 @@
 //   4 한 쌍 두 곳(주 소속·대상 인물) — 보고만      9 확인 대기 연결 수·가장 오래된 대기 일수 — 지표
 //   5 본문 정합(노드 없음 → 정리 대상 / 주인 불일치·남의 메모리 — 보고만)   10 장소형 인물 수 — 지표
 //   11 모임·장소 묶음 구성원 행의 주인 ≠ 묶음·구성원 주인 — 보고만(My Life 개편 3단계)
+//   12 이야기 없는 시기↔사람 연결 — 그 시기 이야기(주 소속·추가 소속)에 그 분이 하나도 안 나옴(대상 인물·확정 연결) — 보고만
+//      (2026-11-02 3단계 E2E — 이야기를 지우거나 옮겨도 남던 것. 출처 칸 전이라 직접 넣은 연결과 구별 못 함 — §14.7)
 // 정리(applyNodeGraphCleanup)는 1·5(노드 없음)·8 만, 점검과 같은 조건의 DELETE 한 문장씩.
 
 import { prisma } from "./db";
@@ -34,6 +36,7 @@ export type NodeGraphIssues = {
   oldestPendingDays: number | null; // 9
   locationPeople: number; // 10
   memberOwnerMismatch: number; // 11 — PersonGroupMember·PlaceGroupMember
+  periodPeopleWithoutStory: number; // 12 — PersonLifeEvent 중 그 시기 이야기에 그 분이 안 나오는 행
 };
 
 function scope(col: string, s: NodeGraphScope): Prisma.Sql {
@@ -65,11 +68,20 @@ const ORPHAN_DRAFT = Prisma.sql`p."isDraft" AND p."companionSessionId" IS NULL
   AND NOT EXISTS (SELECT 1 FROM "PersonEvent" x WHERE x."personId" = p.id)
   AND NOT EXISTS (SELECT 1 FROM "PersonGroupMember" x WHERE x."personId" = p.id)`;
 
+// 12 — 시기↔사람 연결 x 에 대해 "그 시기 이야기 중 그 분이 나오는 것"이 없음. 그 시기 이야기 = 주 소속(Episode.lifeEventId) +
+// 추가 소속(NodeLink LIFE_EVENT→EPISODE). 나옴 = 대상 인물(Episode.personId) 또는 확정 연결(EPISODE→PERSON CONFIRMED).
+const PERIOD_PERSON_WITHOUT_STORY = Prisma.sql`NOT EXISTS (
+    SELECT 1 FROM "Episode" ep
+    WHERE (ep."lifeEventId" = x."lifeEventId"
+        OR EXISTS (SELECT 1 FROM "NodeLink" m WHERE m."fromType" = 'LIFE_EVENT' AND m."fromId" = x."lifeEventId" AND m."toType" = 'EPISODE' AND m."toId" = ep.id))
+      AND (ep."personId" = x."personId"
+        OR EXISTS (SELECT 1 FROM "NodeLink" l WHERE l."fromType" = 'EPISODE' AND l."fromId" = ep.id AND l."toType" = 'PERSON' AND l."toId" = x."personId" AND l.status = 'CONFIRMED')))`;
+
 const n = (v: unknown) => Number(v ?? 0);
 
 export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<NodeGraphIssues> {
   const linkScope = scope(`nl."userId"`, s);
-  const [ends, [dir], [dup], [body], [stale], [photo], [orphan], [pend], [loc], [mem]] = await Promise.all([
+  const [ends, [dir], [dup], [body], [stale], [photo], [orphan], [pend], [loc], [mem], [ple]] = await Promise.all([
     // 1·2 — 문제 있는 끝만 돌려받는다(정상이면 0행).
     prisma.$queryRaw<{ id: string; t: string; missing: boolean }[]>`
       SELECT nl.id, e.t::text AS t, (e.owner IS NULL) AS missing
@@ -124,6 +136,8 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
           WHERE ${scope(`m."userId"`, s)} AND (g."userId" <> m."userId" OR x."userId" <> m."userId"))
         + (SELECT count(*)::int FROM "PlaceGroupMember" m JOIN "PlaceGroup" g ON g.id = m."groupId" JOIN "Place" x ON x.id = m."placeId"
           WHERE ${scope(`m."userId"`, s)} AND (g."userId" <> m."userId" OR x."userId" <> m."userId")) AS n`,
+    prisma.$queryRaw<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM "PersonLifeEvent" x WHERE ${scope(`x."userId"`, s)} AND ${PERIOD_PERSON_WITHOUT_STORY}`,
   ]);
 
   const danglingByType: Record<string, number> = {};
@@ -146,6 +160,7 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
     oldestPendingDays: pend.oldest ? Math.floor((Date.now() - new Date(pend.oldest).getTime()) / 86_400_000) : null,
     locationPeople: n(loc.n),
     memberOwnerMismatch: n(mem.n),
+    periodPeopleWithoutStory: n(ple.n),
   };
 }
 

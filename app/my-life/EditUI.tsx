@@ -17,6 +17,7 @@ import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import type { MyLifeData, MyLifeEvent, MyLifeStory } from "@/lib/my-life";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
+import type { MoveUndo } from "@/lib/episode-move";
 import type { CreatedLink, DeleteImpact, SameNamePerson } from "@/lib/my-life-edit";
 import type { NodeRef } from "@/lib/node-graph";
 import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
@@ -46,7 +47,8 @@ export const CREATE_KINDS: CreateKind[] = ["period", "story", "self", "person", 
 // undoFail — 되돌리기가 안 됐을 때 문구(없으면 넣기·만들기 되돌리기 문구 cannotUnlink).
 export type Notice = { key: string; text: string; undo?: () => Promise<{ ok: boolean }>; undoFail?: string };
 // 만든 뒤 — 부모가 새 노드로 이동·선택·패널(+ 되돌리기 알림).
-export type Created = { key: string; eventId: string | null; text: string; undo: CreatedNode | null };
+// undoMove — 다른 시절로 옮긴 직후 [되돌리기] 값(3단계 E2E 2026-11-02, lib/episode-move undoMoveEpisode).
+export type Created = { key: string; eventId: string | null; text: string; undo: CreatedNode | null; undoMove?: MoveUndo };
 
 const INPUT = "min-h-[56px] w-full rounded-md border-2 border-line bg-surface px-4 text-lg text-ink placeholder:text-ink-soft focus:border-brand focus:outline-none";
 const ROW = "flex min-h-[56px] w-full items-center gap-3 rounded-md border-2 bg-surface px-4 py-2 text-left text-lg text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2";
@@ -402,7 +404,7 @@ export function NodeEditor({
   setNotice: (n: Notice | null) => void;
   onGo: (key: string, eventId: string | null) => void;
   onReopen: (r: Created) => void; // 새 노드(옮긴 이야기·직접 쓴 이야기)로 이동·패널
-  onDeleted: () => void;
+  onDeleted: (name: string) => void;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>({ t: "view" });
@@ -586,7 +588,7 @@ export function NodeEditor({
       }
       setMode({ t: "view" });
       router.refresh();
-      onReopen({ key: r.key, eventId: target.id, text: E.moved, undo: null });
+      onReopen({ key: r.key, eventId: target.id, text: E.moved, undo: null, undoMove: r.undo ?? undefined });
     });
   }
 
@@ -608,7 +610,7 @@ export function NodeEditor({
         return;
       }
       router.refresh();
-      onDeleted();
+      onDeleted(nodeName);
     });
   }
 
@@ -762,6 +764,7 @@ export function NodeEditor({
           <>
             {im.storiesDeleted && im.stories > 0 && <p className="text-lg font-semibold text-ink">{E.deleteStoriesToo(im.stories)}</p>}
             <p className="text-lg text-ink">{deleteLinkedText(im)}</p>
+            {im.placeGroups > 0 && <p className="text-lg text-ink">{E.deletePlaceGroups(im.placeGroups)}</p>}
             {im.familyActivity > 0 && <p className="text-lg text-ink">{E.deleteFamily(im.familyActivity)}</p>}
             <p className="text-lg text-ink-soft">{E.deleteIrreversible}</p>
           </>

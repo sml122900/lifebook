@@ -13,7 +13,7 @@
 import { prisma } from "./db";
 import { createEpisodeBridge } from "./episode";
 import { MY_LIFE_COPY } from "./my-life-copy";
-import { removeNodeLink, restoreNodeLink, saveNodeLink, type NodeRef, type RemovedLinkRow } from "./node-graph";
+import { removeNodeLink, restoreNodeLink, saveNodeLink, type NodeRef, type RemovedLink } from "./node-graph";
 import { createCustomLifeEvent } from "./open-chat-promote";
 import { createPerson } from "./people";
 import { findSameNamePeople } from "./person-chat";
@@ -38,7 +38,7 @@ const FAMILY_GROUPS = new Set(["parent", "grandparent", "sibling", "relative", "
 
 export type Fail = { ok: false; error: string };
 export type CreatedLink = { a: NodeRef; b: NodeRef };
-export type RemovedLink = { a: NodeRef; b: NodeRef; rows: RemovedLinkRow[] };
+export type { RemovedLink };
 export type SameNamePerson = { id: string; name: string; relation: string | null };
 
 const norm = (s: string) => s.normalize("NFC").replace(/\s+/g, "");
@@ -266,7 +266,8 @@ export async function createPlaceGroupNode(userId: string, input: { name: unknow
 
 // 지우기 확인창에 보일 수 — 지울 노드에 이어진 이야기·사람·장소, 가족이 남긴 댓글·반응(이야기·시기만 — 함께 지워짐).
 // 시기(직접 추가)는 그 안의 이야기가 함께 지워진다(lib/life-event-delete). 남의 노드·없는 노드 = null.
-export type DeleteImpact = { stories: number; people: number; places: number; familyActivity: number; storiesDeleted: boolean };
+// placeGroups — 장소를 지우면 함께 빠지는 장소 묶음 수(확인창 "묶음 N개에서도 빠져요" — 3단계 E2E 2026-11-02).
+export type DeleteImpact = { stories: number; people: number; places: number; familyActivity: number; storiesDeleted: boolean; placeGroups: number };
 
 async function familyActivityOf(memoryIds: string[]): Promise<number> {
   if (memoryIds.length === 0) return 0;
@@ -276,7 +277,7 @@ async function familyActivityOf(memoryIds: string[]): Promise<number> {
 }
 
 export async function deleteImpact(userId: string, ref: NodeRef): Promise<DeleteImpact | null> {
-  const zero: DeleteImpact = { stories: 0, people: 0, places: 0, familyActivity: 0, storiesDeleted: false };
+  const zero: DeleteImpact = { stories: 0, people: 0, places: 0, familyActivity: 0, storiesDeleted: false, placeGroups: 0 };
   if (ref.type === "LIFE_EVENT") {
     const ev = await prisma.lifeEvent.findFirst({ where: { id: ref.id, userId, type: "CUSTOM" }, select: { episodes: { select: { memoryId: true } } } });
     if (!ev) return null;
@@ -293,11 +294,12 @@ export async function deleteImpact(userId: string, ref: NodeRef): Promise<Delete
   }
   if (ref.type === "PLACE") {
     if ((await prisma.place.count({ where: { id: ref.id, userId } })) === 0) return null;
-    const [mps, people] = await Promise.all([
+    const [mps, people, placeGroups] = await Promise.all([
       prisma.memoryPlace.findMany({ where: { placeId: ref.id, memory: { userId, createdVia: "episode" } }, select: { memoryId: true } }),
       prisma.nodeLink.count({ where: { userId, toType: "PLACE", toId: ref.id, fromType: "PERSON" } }),
+      prisma.placeGroupMember.count({ where: { placeId: ref.id, group: { userId } } }),
     ]);
-    return { ...zero, stories: new Set(mps.map((m) => m.memoryId)).size, people };
+    return { ...zero, stories: new Set(mps.map((m) => m.memoryId)).size, people, placeGroups };
   }
   if (ref.type === "PERSON_GROUP") {
     if ((await prisma.personGroup.count({ where: { id: ref.id, userId } })) === 0) return null;

@@ -14,7 +14,7 @@
 //   ⑦ 같은 유형 중심 2개일 때 인터뷰 계획 — 풀 질문 1번·대상 = 세션과 같은 기준의 첫 사건
 //   ⑧ Q9 — 이야기 본문 정정(updateEpisodeContent) 시 다듬기 3필드 초기화, 다듬기
 //      (refineMemorySpelling — /api/memory/[id]/refine 본체)는 life_event 행만(모델 호출 전 차단)
-//   ⑨ 정합 점검(2b-1, lib/node-graph-reconcile.ts — db/reconcile-node-links.ts 본체) — 일부러 만든 이상 행을
+//   ⑨ 정합 점검(2b-1, lib/node-graph-reconcile.ts — db/reconcile-node-links.ts 본체 · 12 이야기 없는 시기↔사람 2026-11-02) — 일부러 만든 이상 행을
 //      항목별로 세고, 정리는 끝 없는 연결·노드 없는 본문·고아 초안 3종만(정상 행·보고 전용 항목 무변),
 //      다른 사용자 범위는 0 · 11 구성원 행 주인 불일치(보고만)
 //
@@ -436,6 +436,18 @@ async function main() {
         clean0.bodyOwnerMismatch === 0 && clean0.bodyForeignMemory === 0 && clean0.staleBodies === 0 &&
         clean0.missingPhotoBlocks === 0 && clean0.orphanDrafts === 0 && clean0.locationPeople === 0 && clean0.memberOwnerMismatch === 0,
       clean0);
+    // 12 이야기 없는 시기↔사람 연결(3단계 E2E 2026-11-02) — 시기에만 이으면 +1, 그 시기 이야기에 그 분이 나오면(확정 연결) 다시 그대로.
+    const p12 = (await prisma.person.create({ data: { userId: a, name: "[fixture] 시기에만 이은 분", relation: "친구" }, select: { id: true } })).id;
+    await saveNodeLink(a, { type: "LIFE_EVENT", id: mil }, { type: "PERSON", id: p12 });
+    const with12 = (await countNodeGraphIssues({ userId: a })).periodPeopleWithoutStory;
+    const st12 = await makeStory(a, mil, "군 입대", "[fixture] 훈련소 동기와 같은 내무반을 썼다.");
+    await saveNodeLink(a, { type: "EPISODE", id: st12.episodeId }, { type: "PERSON", id: p12 }, { status: "PROPOSED", source: "AI" });
+    const proposed12 = (await countNodeGraphIssues({ userId: a })).periodPeopleWithoutStory;
+    await saveNodeLink(a, { type: "EPISODE", id: st12.episodeId }, { type: "PERSON", id: p12 }, { status: "CONFIRMED" });
+    const told12 = (await countNodeGraphIssues({ userId: a })).periodPeopleWithoutStory;
+    check("⑨ 12 이야기 없는 시기↔사람 — 시기에만 이음 = +1 · 확인 대기 연결만으론 그대로 +1 · 확정 연결이면 다시 처음 수",
+      with12 === clean0.periodPeopleWithoutStory + 1 && proposed12 === with12 && told12 === clean0.periodPeopleWithoutStory,
+      { before: clean0.periodPeopleWithoutStory, with12, proposed12, told12 });
     // 이상 행을 일부러 만든다(저장 함수를 거치지 않는 직접 삽입 — 트리거·저장 함수가 막는 상황의 흉내).
     const ghost = await prisma.nodeLink.create({ data: { userId: a, fromType: "EPISODE", fromId: story1.episodeId, toType: "PERSON", toId: "ghost-person" } });
     const ghostBody = await prisma.nodeBody.create({ data: { userId: a, nodeType: "PERSON", nodeId: "ghost-node", doc: { v: 1, blocks: [] }, plainText: "" } });
