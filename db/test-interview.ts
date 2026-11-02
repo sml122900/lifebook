@@ -395,7 +395,7 @@ async function main() {
     const fin = await finishInterviewStory(userId, rows[2].id, transcript, now);
     const cardItem = await prisma.interviewItem.findUnique({ where: { id: rows[2].id } });
     check("⑤ 마무리 = 카드(시기 고정·제목 = 문항 주제)·문항은 아직 PLANNED·카드 저장",
-      fin.ok && !!fin.proposal && fin.proposal.card.centerFixed && "id" in fin.proposal.card.center && fin.proposal.card.center.id === ev.ELEM_SCHOOL &&
+      fin.ok && !!fin.proposal && fin.proposal.card.centerFixed && !!fin.proposal.card.center && "id" in fin.proposal.card.center && fin.proposal.card.center.id === ev.ELEM_SCHOOL &&
         fin.proposal.card.title === "국민학교 시절 놀이" && cardItem?.status === "PLANNED" && cardItem.proposal !== null,
       fin.ok ? fin.proposal?.card : fin);
     const resumed = await nextInterviewState(userId, now);

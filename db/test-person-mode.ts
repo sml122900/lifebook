@@ -156,7 +156,7 @@ async function scenarioPersonMode() {
   const person = await prisma.person.findFirst({ where: { userId: user.id, name: { contains: "영수" } } });
   console.log("person row:", person && { name: person.name, relation: person.relation, metYear: person.metYear, subjectType: person.subjectType, isDraft: person.isDraft });
   if (!real.card || !real.made || !person) fail("card/person missing — check proposal prompt");
-  if (!("id" in real.card.center) || real.card.center.id !== highSchool.id) fail("card center should be the topic period");
+  if (!real.card.center || !("id" in real.card.center) || real.card.center.id !== highSchool.id) fail("card center should be the topic period");
   if (person.subjectType !== "person" || person.isDraft !== false) fail("person row shape wrong");
   if (person.metYear !== 1978) fail(`expected metYear=1978, got ${person.metYear}`);
   const personId = person.id;

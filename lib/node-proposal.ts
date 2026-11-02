@@ -69,7 +69,8 @@ export type ProposalCard = {
   v: 1;
   title: string;
   summary: string;
-  center: CardCenter;
+  // null = 시기 미지정(모델이 준 시기 id·이름이 안 맞고 이름으로도 못 찾음 — 카드에서 사용자가 고른다, pickCenter).
+  center: CardCenter | null;
   // 오늘의 인터뷰 — 문항이 시기를 정함(카드에서 못 바꿈).
   centerFixed: boolean;
   people: CardPerson[];
@@ -357,6 +358,49 @@ export async function personRow(
   return { name, relation, personId: null, sameName: await findSameNamePeople(prisma, userId, name) };
 }
 
+type CenterRow = { id: string; label: string; year: number | null };
+
+// 시기 이름 비교 — 공백·연도 표기("1968년")·가운뎃점은 빼고 본다.
+function centerKey(s: string): string {
+  return norm(s).replace(/\d{4}년?|·/g, "");
+}
+
+// 시기 — 모델 답의 center 에서. fallback = 주제의 시기(모델이 시기를 안 정했을 때).
+// 모델이 시기 id 와 함께 그 시기 이름(label)도 쓴다 — personRow ② 와 같은 방식으로 둘을 맞춰 본다.
+//   실측 2026-11-02: [시기 후보] 바로 아랫줄 id 를 씀(고등학교 수학여행 → 군 입대 id, 논산 훈련소 → 첫 직장 id).
+//   id 시기 이름이 맞으면 그 시기, 안 맞으면 이름 쪽 시기(같은 이름이 먼저, 없으면 한쪽이 다른 쪽을 품는 이름 — 하나일 때만),
+//   이름으로도 못 찾으면 null(시기 미지정 — 카드에서 사용자가 고른다). 이름이 없는 옛 응답은 지금까지와 같다(id 만).
+export function pickCenter(
+  obj: Record<string, unknown>,
+  centers: CenterRow[],
+  fallback: CenterRow | undefined,
+  birthYear: number | null,
+): CardCenter | null {
+  const c = (obj.center ?? {}) as Record<string, unknown>;
+  const matchId = typeof c.matchId === "string" ? c.matchId : null;
+  const byId = matchId ? centers.find((x) => x.id === matchId) : undefined;
+  const label = matchId ? str(c.label, CENTER_LABEL_MAX) : "";
+  if (label) {
+    const key = centerKey(label);
+    const exact = centers.filter((x) => key && centerKey(x.label) === key);
+    const named = exact.length > 0
+      ? exact
+      : centers.filter((x) => {
+          const k = centerKey(x.label);
+          return Math.min(k.length, key.length) >= 2 && (k.includes(key) || key.includes(k));
+        });
+    if (byId && named.includes(byId)) return byId;
+    return named.length === 1 ? named[0] : null;
+  }
+  if (byId) return byId;
+  const fresh = (c.new ?? null) as Record<string, unknown> | null;
+  const freshLabel = fresh ? str(fresh.label, CENTER_LABEL_MAX) : "";
+  if (freshLabel) return { new: { label: freshLabel, year: yearInRange(fresh?.year, birthYear) } };
+  if (fallback) return fallback;
+  // 모델이 시기를 못 정했고 주제도 없음 — 연도 모름 새 시기(카드에서 고칠 수 있다).
+  return { new: { label: str(obj.title, CENTER_LABEL_MAX) || "기억 속 이야기", year: null } };
+}
+
 export type BuildProposalInput = {
   turns: TranscriptTurn[];
   // 주제 문구(모델 참고) — 예: "1974 고등학교 입학", "김민수 님과의 이야기".
@@ -456,24 +500,9 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
   const summary = parsed ? str(obj.summary, SUMMARY_MAX) : rawUserText.slice(0, SUMMARY_MAX);
 
   // 시기.
-  let center: CardCenter | null = null;
   const fixed = input.centerId ? centers.find((c) => c.id === input.centerId) : undefined;
-  if (input.centerFixed && fixed) {
-    center = fixed;
-  } else {
-    const c = (obj.center ?? {}) as Record<string, unknown>;
-    const matchId = typeof c.matchId === "string" ? c.matchId : null;
-    const byId = matchId ? centers.find((x) => x.id === matchId) : undefined;
-    const fresh = (c.new ?? null) as Record<string, unknown> | null;
-    const freshLabel = fresh ? str(fresh.label, CENTER_LABEL_MAX) : "";
-    if (byId) center = byId;
-    else if (freshLabel) center = { new: { label: freshLabel, year: yearInRange(fresh?.year, birthYear) } };
-    else if (fixed) center = fixed;
-  }
-  if (!center) {
-    // 모델이 시기를 못 정했고 주제도 없음 — 연도 모름 새 시기(카드에서 고칠 수 있다).
-    center = { new: { label: (str(obj.title, CENTER_LABEL_MAX) || "기억 속 이야기"), year: null } };
-  }
+  const center = input.centerFixed && fixed ? fixed : pickCenter(obj, centers, fixed, birthYear);
+  if (!center) console.warn("[node-proposal] center id and label disagree, label not found — left unset");
 
   // 사람 — 대상 인물이 맨 앞, 같은 사람은 한 번만.
   const rows: CardPerson[] = [];
@@ -569,7 +598,7 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
 export function parseCard(v: unknown): ProposalCard | null {
   if (!v || typeof v !== "object") return null;
   const c = v as Partial<ProposalCard>;
-  if (c.v !== 1 || typeof c.title !== "string" || typeof c.summary !== "string" || !c.center) return null;
+  if (c.v !== 1 || typeof c.title !== "string" || typeof c.summary !== "string" || c.center === undefined) return null;
   if (!Array.isArray(c.people) || !Array.isArray(c.places) || typeof c.transcript !== "string") return null;
   return c as ProposalCard;
 }
@@ -580,7 +609,8 @@ export function parseCard(v: unknown): ProposalCard | null {
 export type CardEdit = {
   title: string;
   summary: string;
-  center: { id: string } | { new: { label: string; year: number | null } };
+  // null = 아직 안 고름([만들기]는 needCenter).
+  center: { id: string } | { new: { label: string; year: number | null } } | null;
   people: {
     name: string;
     relation: string | null;
@@ -615,7 +645,7 @@ export function cardToEdit(card: ProposalCard): CardEdit {
   return {
     title: card.title,
     summary: card.summary,
-    center: "id" in card.center ? { id: card.center.id } : { new: { ...card.center.new } },
+    center: !card.center ? null : "id" in card.center ? { id: card.center.id } : { new: { ...card.center.new } },
     people: card.people.map((p) => ({ name: p.name, relation: p.relation, personId: p.personId })),
     places: card.places.map((p) => ({ name: p.name, placeId: p.placeId })),
   };
@@ -637,7 +667,7 @@ export async function createFromCard(
   // 시기 — 고정 카드는 카드의 시기만.
   let centerId: string | null = null;
   let newCenter: { label: string; year: number | null } | null = null;
-  const wantCenter = card.centerFixed ? ("id" in card.center ? { id: card.center.id } : null) : edit.center;
+  const wantCenter = card.centerFixed ? (card.center && "id" in card.center ? { id: card.center.id } : null) : edit.center;
   if (!wantCenter) return { ok: false, reason: "invalid", message: FREE_CHAT_COPY.needCenter };
   if ("id" in wantCenter) {
     const ev = await prisma.lifeEvent.findFirst({

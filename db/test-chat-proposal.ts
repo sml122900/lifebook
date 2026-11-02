@@ -18,6 +18,8 @@
 //   --live H = 같은 문장 재현("학교 앞 분식집" 저장 → "그 분식집 떡볶이가 정말 매웠어요") · I = 어머니 다시 말함 → 이미 계신 분.
 // ⑰(LLM 0) = 제안 재료 확인(2026-11-02) — 제목·장소는 이번 구간 본인 말에서만(저장한 이야기·앞 구간 낱말이면 제목 비움·장소 뺌)·
 //   장소 후보 목록(처리방침 v1.2 — 이름만)·모델이 고른 이름 다른 장소 = 되묻기. --live G = 같은 버그 재현(냇가·수박) + 장소록의 곳을 말하면 연결.
+// ⑲(LLM 0) = 제안 카드 시기 id·이름 확인 — 모델 답(JSON)을 넣어: id 아랫줄 + 이름 맞음 → 이름 쪽 시기, 둘 다 틀림 → 시기 미지정
+//   ([만들기] = 시기를 골라 주세요), 이름 없는 옛 응답·새 시기·주제 시기 그대로.
 // ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@·fixture-chat-e2e@lifebook.invalid)만 만들고 끝에 지운다.
 // 실고객·test30 접촉 0. 원가 원장(ChatV3Usage)은 실제 호출 원가라 남긴다(탈퇴처럼 userId 만 비워짐).
 
@@ -79,6 +81,7 @@ import {
   overlappingPlaces,
   parseCard,
   personRow,
+  pickCenter,
   placeFromModel,
   placeRow,
   placeSaidNow,
@@ -558,7 +561,7 @@ async function liveBasic(fx: Fixture) {
   // 실패 기록용 — 제안 모델이 받은 대화(카드 transcript)와 그때 주제(2026-11-02 시기 = 군 입대로 한 번 틀림 — 원인 추적).
   const segP = await prisma.chatV3Segment.findUnique({ where: { userId }, select: { proposal: true, topicEventId: true, topicGapType: true } });
   check("⑤ 실제 — 카드(Sonnet): 시기 = 고등학교 입학 · 박영수 = 이미 계신 분 · 경주 불국사",
-    !!card && "id" in card.center && card.center.id === ev.HIGH_SCHOOL && card.people.some((x) => x.personId === fx.friendId) && card.places.some((x) => x.name.includes("불국사")) && card.summary.length > 10,
+    !!card && !!card.center && "id" in card.center && card.center.id === ev.HIGH_SCHOOL && card.people.some((x) => x.personId === fx.friendId) && card.places.some((x) => x.name.includes("불국사")) && card.summary.length > 10,
     { card, transcript: parseCard(segP?.proposal)?.transcript ?? null, topic: { eventId: segP?.topicEventId, gapType: segP?.topicGapType, isHighSchool: segP?.topicEventId === ev.HIGH_SCHOOL } });
   const made = await createFromFreeChatProposal(userId);
   check("⑤ 실제 — [만들기] 저장 · 확인 대기 0", made.ok && JSON.stringify(await draftsAndProposed(userId)) === JSON.stringify({ drafts: 0, proposed: 0 }), made);
@@ -602,7 +605,7 @@ async function liveScenarios(fx: Fixture) {
   if (aProposed) {
     const p = await proposeFromSegment(userId, { until: aLast.kind === "reply" ? aLast.propose?.until ?? null : null });
     const card = p.kind === "card" ? p.view.card : null;
-    check("A 실제 — 카드 시기 = 군 입대", !!card && "id" in card.center && card.center.id === ev.MILITARY, card);
+    check("A 실제 — 카드 시기 = 군 입대", !!card && !!card.center && "id" in card.center && card.center.id === ev.MILITARY, card);
     const made = await createFromFreeChatProposal(userId);
     check("A 실제 — [만들기]", made.ok, made);
     console.log("   A 원가:", JSON.stringify(await usageSince(userId, tA)));
@@ -1280,6 +1283,59 @@ async function periodTitleGuardChecks(fx: Fixture) {
 
 // ─── 전역 하루 예산 — 테스트 계정 사용분 제외 + 테스트 한도(2026-11-02) — LLM 0 ─────────────────
 
+// ⑲(LLM 0) = 제안 카드 시기 id·이름 확인(2026-11-02) — 모델이 시기 id 와 함께 이름(label)도 쓴다. 안 맞으면 이름 쪽,
+// 이름으로도 못 찾으면 시기 미지정(카드에서 고름). 모델 답(JSON)을 직접 넣어 pickCenter 를 본다.
+async function centerLabelChecks(fx: Fixture) {
+  const { userId, ev } = fx;
+  // 픽스처 시기 = seedFixture 와 같은 순서(sequenceOrder) — 실측은 이 목록의 바로 아랫줄 id 를 썼다.
+  const centers = [
+    { id: ev.BIRTH, label: "출생", year: 1952 },
+    { id: ev.ELEM_SCHOOL, label: "국민학교 입학", year: 1959 },
+    { id: ev.HIGH_SCHOOL, label: "고등학교 입학", year: 1968 },
+    { id: ev.MILITARY, label: "군 입대", year: 1973 },
+    { id: ev.FIRST_JOB, label: "첫 직장", year: 1976 },
+  ];
+  const topic = centers[1];
+  const idOf = (c: ReturnType<typeof pickCenter>) => (c && "id" in c ? c.id : c === null ? null : "new");
+  const pick = (center: unknown, fallback = topic) => pickCenter({ title: "[fixture] 제목", center }, centers, fallback, 1952);
+
+  check("⑲ id 아랫줄(군 입대) + 이름 고등학교 입학 → 고등학교 입학(실측 ⑤ 재현)",
+    idOf(pick({ matchId: ev.MILITARY, label: "고등학교 입학" })) === ev.HIGH_SCHOOL);
+  check("⑲ id 아랫줄(첫 직장) + 이름 군 입대 → 군 입대(실측 A 재현)", idOf(pick({ matchId: ev.FIRST_JOB, label: "군 입대" })) === ev.MILITARY);
+  check("⑲ 이름에 연도·가운뎃점이 붙어도(\"고등학교 입학 · 1968년\") → 고등학교 입학",
+    idOf(pick({ matchId: ev.MILITARY, label: "고등학교 입학 · 1968년" })) === ev.HIGH_SCHOOL);
+  check("⑲ id·이름 둘 다 틀림(대학교 입학) → 시기 미지정 — 주제 시기로도 안 채움",
+    pick({ matchId: ev.MILITARY, label: "대학교 입학" }) === null && pick({ matchId: "c_not_mine", label: "대학교 입학" }) === null);
+  check("⑲ 이름이 여러 시기에 걸림(\"입학\") — id 시기가 그중 하나면 그 시기, 아니면 미지정",
+    idOf(pick({ matchId: ev.ELEM_SCHOOL, label: "입학" })) === ev.ELEM_SCHOOL && pick({ matchId: ev.MILITARY, label: "입학" }) === null);
+  check("⑲ 기존 사례 그대로 — id·이름 맞음 → 그 시기 · 이름 없는 옛 응답 → id 만 · 모르는 id(이름 없음) → 주제 시기",
+    idOf(pick({ matchId: ev.HIGH_SCHOOL, label: "고등학교 입학" })) === ev.HIGH_SCHOOL &&
+      idOf(pick({ matchId: ev.MILITARY })) === ev.MILITARY &&
+      idOf(pick({ matchId: "c_not_mine" })) === topic.id);
+  const fresh = pick({ new: { label: "고향을 떠난 해", year: 1971 } });
+  const none = pickCenter({ title: "[fixture] 제목" }, centers, undefined, 1952);
+  check("⑲ 기존 사례 그대로 — 새 시기 → new · 시기 없음 → 주제 시기 · 주제도 없음 → 제목으로 새 시기",
+    !!fresh && "new" in fresh && fresh.new.label === "고향을 떠난 해" && fresh.new.year === 1971 &&
+      idOf(pick(undefined)) === topic.id && !!none && "new" in none && none.new.label === "[fixture] 제목", { fresh, none });
+
+  // 시기 미지정 카드 — 저장된 카드로 다시 읽히고, [만들기]는 시기를 고를 때까지 아무것도 안 만든다.
+  const card = baseCard({ title: "[fixture] 시기 미지정", center: null });
+  const before = await Promise.all([prisma.lifeEvent.count({ where: { userId } }), prisma.episode.count({ where: { lifeEvent: { userId } } })]);
+  const made = await createFromCard(userId, card, cardToEdit(card));
+  const after = await Promise.all([prisma.lifeEvent.count({ where: { userId } }), prisma.episode.count({ where: { lifeEvent: { userId } } })]);
+  check("⑲ 시기 미지정 카드 — 다시 읽힘(center null) · 고치기 값 center null · [만들기] = \"시기를 골라 주세요.\" · 저장 0",
+    parseCard(card)?.center === null && parseCard({ ...card, center: undefined }) === null && cardToEdit(card).center === null &&
+      !made.ok && made.reason === "invalid" && made.message === FREE_CHAT_COPY.needCenter && JSON.stringify(before) === JSON.stringify(after),
+    { made, before, after });
+
+  const ui = read("app/components/ProposalCard.tsx");
+  check("⑲ 카드 화면 — 시기 줄 = 미지정 문구 · [만들기] 누르면 안내 + [고치기] 시기 고르기 열림 · 고르기 첫 칸",
+    ui.includes("if (!c) return C.centerUnset;") && /if \(!edit\.center\) \{\s*setMessage\(C\.needCenter\);\s*setEditing\(true\);/.test(ui) &&
+      ui.includes("{C.centerPick}") && ui.includes("aria-disabled={unanswered || !edit.center}"));
+  check("⑲ 프롬프트 — matchId 와 같은 줄의 시기 이름을 label 로",
+    PROPOSAL_SYSTEM_PROMPT.includes("{\"matchId\": \"시기 후보 id\", \"label\": \"그 시기 이름\"}") && PROPOSAL_SYSTEM_PROMPT.includes("id 와 이름은 반드시 같은 줄에서"));
+}
+
 async function budgetChecks(fx: Fixture) {
   const { userId } = fx;
   check("⑯ 테스트 계정 판정 — 이메일 최상위 도메인 .invalid·.test = 테스트 / test.com·gmail.com = 일반",
@@ -1476,7 +1532,7 @@ async function liveE2EReplay() {
     const c1 = p1.kind === "card" ? p1.view.card : null;
     console.log("   카드1:", JSON.stringify(c1 && { title: c1.title, center: c1.center, people: c1.people.map((x) => x.name), places: c1.places.map((x) => x.name), summary: c1.summary }));
     check("F 실제 — 카드1 시기 = 중학교 입학 · 사람 정우 · 장소에 외할머니 댁·개울(4)",
-      !!c1 && "id" in c1.center && c1.center.id === ev.MIDDLE_SCHOOL && c1.people.some((x) => x.name.includes("정우")) &&
+      !!c1 && !!c1.center && "id" in c1.center && c1.center.id === ev.MIDDLE_SCHOOL && c1.people.some((x) => x.name.includes("정우")) &&
         c1.places.some((x) => x.name.includes("외할머니")) && c1.places.some((x) => x.name.includes("개울")),
       c1 && { center: c1.center, people: c1.people, places: c1.places });
     check("F 실제 — 카드1 장소 = 장소 하나에 이름 하나(외할머니 댁·개울을 이어 붙인 이름 없음)",
@@ -1514,7 +1570,7 @@ async function liveE2EReplay() {
     console.log(`   카드2 합쳐진 장소 이름: ${mergedRows.length}개`);
     check("F 실제 — 두 번째 카드: 첫 이야기 내용(감자전·정우·방학) 없음 · 새로 한 말(차가운 개울물·발) 있음(1)",
       !!c2 && !/(감자전|정우|방학)/.test(c2.summary) && /(차가|차갑)/.test(c2.summary) && /발/.test(c2.summary), c2?.summary);
-    check("F 실제 — 두 번째 카드 시기 = 중학교 입학 유지(3)", !!c2 && "id" in c2.center && c2.center.id === ev.MIDDLE_SCHOOL, c2?.center);
+    check("F 실제 — 두 번째 카드 시기 = 중학교 입학 유지(3)", !!c2 && !!c2.center && "id" in c2.center && c2.center.id === ev.MIDDLE_SCHOOL, c2?.center);
     if (second?.propose) check("F 실제 — 두 번째 제안 턴 응답도 작별 인사 아님(5)", !FAREWELL.test(second.reply), second.reply);
     // [안 만들기] 뒤 대화 계속 — 안 만든 내용은 구간에서 빠짐.
     if (c2) await declineFreeChatProposal(userId);
@@ -1570,6 +1626,7 @@ async function main() {
     await titleChecks(fx);
     await periodTitleGuardChecks(fx);
     await leftoverChecks(fx);
+    await centerLabelChecks(fx);
     await budgetChecks(fx);
     await requireTestBudget("test-chat-proposal");
     await liveBasic(fx);

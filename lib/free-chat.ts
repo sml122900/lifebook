@@ -647,7 +647,7 @@ export async function declineFreeChatProposal(userId: string): Promise<{ segment
   const seg = await getSegment(userId);
   const card = parseCard(seg.proposal);
   const until = card?.until ? new Date(card.until) : new Date();
-  if (card) await markPersonAsked(userId, seg, "id" in card.center ? card.center.id : "new");
+  if (card) await markPersonAsked(userId, seg, !card.center ? null : "id" in card.center ? card.center.id : "new");
   // 안 만든 이야기는 다시 제안하지 않는다(구간을 카드 뒤로). 직전에 만든 이야기의 시기 힌트(carry)는 그대로 둔다.
   const keepCarry = seg.topicGapType === "carry";
   await prisma.chatV3Segment.update({

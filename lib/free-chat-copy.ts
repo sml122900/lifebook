@@ -32,6 +32,9 @@ export const FREE_CHAT_COPY = {
   existingPlace: "이미 있는 곳",
   newCenter: (label: string, year: number | null) => `${year ? `${year} ` : ""}${label} (새 시기)`,
   centerText: (label: string, year: number | null) => `${year ? `${year} ` : ""}${label}`,
+  // 시기 미지정 카드(시기 id·이름이 안 맞음) — 보기 줄 + [고치기] 시기 고르기 첫 칸.
+  centerUnset: "아직 못 정했어요 — [고치기]에서 골라 주세요",
+  centerPick: "시기 고르기",
   none: "없음",
   showMore: "내용 더 보기",
   showLess: "내용 접기",

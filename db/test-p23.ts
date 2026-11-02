@@ -56,7 +56,7 @@ async function main() {
     const card = p.kind === "card" ? p.view.card : null;
     console.log("카드:", card && { title: card.title, center: card.center, people: card.people });
     check("이야기는 버리지 않음 — 카드가 뜸", !!card, p);
-    check("카드 시기 = 새 시기(중학교 아님)", !!card && "new" in card.center, card?.center);
+    check("카드 시기 = 새 시기(중학교 아님)", !!card && !!card.center && "new" in card.center, card?.center);
     check("카드 사람 0명(이름 없음)", !!card && card.people.length === 0, card?.people);
     const made = await createFromFreeChatProposal(user.id);
     const created = made.ok

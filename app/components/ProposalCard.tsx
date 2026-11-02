@@ -31,7 +31,7 @@ function toEdit(card: ProposalView["card"]): CardEdit {
   return {
     title: card.title,
     summary: card.summary,
-    center: "id" in card.center ? { id: card.center.id } : { new: { ...card.center.new } },
+    center: !card.center ? null : "id" in card.center ? { id: card.center.id } : { new: { ...card.center.new } },
     people: card.people.map((p) => ({ name: p.name, relation: p.relation, personId: p.personId })),
     places: card.places.map((p) => ({ name: p.name, placeId: p.placeId })),
   };
@@ -112,6 +112,12 @@ export function ProposalCard({
       setMessage(peopleUnanswered ? C.answerAskFirst : C.answerPlaceAskFirst);
       return;
     }
+    // 시기 미지정 카드 — [고치기]의 시기 고르기를 연다(저장 쪽도 needCenter 로 막는다).
+    if (!edit.center) {
+      setMessage(C.needCenter);
+      setEditing(true);
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -155,8 +161,9 @@ export function ProposalCard({
 
   const centerLabel = (() => {
     const c = edit.center;
+    if (!c) return C.centerUnset;
     if ("id" in c) {
-      const o = centers.find((x) => x.id === c.id) ?? ("id" in card.center && card.center.id === c.id ? card.center : null);
+      const o = centers.find((x) => x.id === c.id) ?? (card.center && "id" in card.center && card.center.id === c.id ? card.center : null);
       return o ? C.centerText(o.label, o.year) : "";
     }
     return C.newCenter(c.new.label, c.new.year);
@@ -292,15 +299,20 @@ export function ProposalCard({
                 <select
                   className={INPUT}
                   aria-label={C.fieldCenter}
-                  value={"id" in edit.center ? `id:${edit.center.id}` : "new"}
+                  value={!edit.center ? "" : "id" in edit.center ? `id:${edit.center.id}` : "new"}
                   onChange={(e) => {
                     const v = e.target.value;
                     setEdit({
                       ...edit,
-                      center: v === "new" ? { new: { label: "new" in card.center ? card.center.new.label : "", year: null } } : { id: v.slice(3) },
+                      center: v === "new" ? { new: { label: card.center && "new" in card.center ? card.center.new.label : "", year: null } } : { id: v.slice(3) },
                     });
                   }}
                 >
+                  {!edit.center && (
+                    <option value="" disabled>
+                      {C.centerPick}
+                    </option>
+                  )}
                   {centers.map((c) => (
                     <option key={c.id} value={`id:${c.id}`}>
                       {C.centerText(c.label, c.year)}
@@ -308,7 +320,7 @@ export function ProposalCard({
                   ))}
                   <option value="new">{C.newCenterOption}</option>
                 </select>
-                {"new" in edit.center && (
+                {edit.center && "new" in edit.center && (
                   <div className="flex flex-col gap-2">
                     <input
                       className={INPUT}
@@ -316,17 +328,17 @@ export function ProposalCard({
                       placeholder={C.newCenterLabel}
                       maxLength={30}
                       value={edit.center.new.label}
-                      onChange={(e) => setEdit({ ...edit, center: { new: { label: e.target.value, year: "new" in edit.center ? edit.center.new.year : null } } })}
+                      onChange={(e) => setEdit({ ...edit, center: { new: { label: e.target.value, year: edit.center && "new" in edit.center ? edit.center.new.year : null } } })}
                     />
                     <input
                       className={INPUT}
                       aria-label={C.newCenterYear}
                       placeholder={C.newCenterYear}
                       inputMode="numeric"
-                      value={"new" in edit.center && edit.center.new.year !== null ? String(edit.center.new.year) : ""}
+                      value={edit.center.new.year !== null ? String(edit.center.new.year) : ""}
                       onChange={(e) => {
                         const n = Number(e.target.value.replace(/\D/g, "").slice(0, 4));
-                        setEdit({ ...edit, center: { new: { label: "new" in edit.center ? edit.center.new.label : "", year: n > 0 ? n : null } } });
+                        setEdit({ ...edit, center: { new: { label: edit.center && "new" in edit.center ? edit.center.new.label : "", year: n > 0 ? n : null } } });
                       }}
                     />
                   </div>
@@ -434,7 +446,7 @@ export function ProposalCard({
         </p>
       ) : (
         <div className="flex flex-col gap-3">
-          <Button variant="primary" size="lg" onClick={() => void create()} aria-disabled={unanswered}>
+          <Button variant="primary" size="lg" onClick={() => void create()} aria-disabled={unanswered || !edit.center}>
             {C.create}
           </Button>
           <Button

@@ -87,7 +87,7 @@ async function main() {
     const card = p.kind === "card" ? p.view.card : null;
     console.log("story card:", card && { title: card.title, center: card.center });
     if (!card) fail("story should make a card");
-    if (!("new" in card.center)) fail("story center should be a new period");
+    if (!card.center || !("new" in card.center)) fail("story center should be a new period");
     const newYear = card.center.new.year;
     if (newYear === null || newYear < 1969 || newYear > 1971) fail(`expected year ≈1970, got ${newYear}`);
     const made = await createFromFreeChatProposal(user.id);
