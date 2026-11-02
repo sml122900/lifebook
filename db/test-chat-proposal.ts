@@ -19,7 +19,8 @@
 // ⑰(LLM 0) = 제안 재료 확인(2026-11-02) — 제목·장소는 이번 구간 본인 말에서만(저장한 이야기·앞 구간 낱말이면 제목 비움·장소 뺌)·
 //   장소 후보 목록(처리방침 v1.2 — 이름만)·모델이 고른 이름 다른 장소 = 되묻기. --live G = 같은 버그 재현(냇가·수박) + 장소록의 곳을 말하면 연결.
 // ⑲(LLM 0) = 제안 카드 시기 id·이름 확인 — 모델 답(JSON)을 넣어: id 아랫줄 + 이름 맞음 → 이름 쪽 시기, 둘 다 틀림 → 시기 미지정
-//   ([만들기] = 시기를 골라 주세요), 이름 없는 옛 응답·새 시기·주제 시기 그대로.
+//   ([만들기] = 시기를 골라 주세요), 이름 없는 옛 응답·새 시기·주제 시기 그대로 · 같은 이름 시기 둘(id 가 가름) · 프롬프트 안 (a)
+//   (이름 먼저 + 그 이름 줄의 id, 2026-11-03) · 재생 세트(db/test-fixtures/proposal-replay — 실제 모델 비교는 db/replay-proposals.ts).
 // ⚠️ .env 가 운영 DB — 자기 픽스처 계정(fixture-chat-proposal@·fixture-chat-e2e@lifebook.invalid)만 만들고 끝에 지운다.
 // 실고객·test30 접촉 0. 원가 원장(ChatV3Usage)은 실제 호출 원가라 남긴다(탈퇴처럼 userId 만 비워짐).
 
@@ -779,6 +780,8 @@ const FIXTURE_WORDS = [
   "냇가", "수박", "장작", "물집", "나루터", "해 질 녘",
   // ⑱·--live H·I(2026-11-02 E2E 재검증 재현 — 운영 test30 같은 문장)
   "분식집", "떡볶이", "이영희", "국수", "박정자",
+  // 제안 재생 세트(2026-11-03 — db/test-fixtures/proposal-replay, 같은 픽스처 입력)
+  "사촌 동생", "이철수", "박순자", "최유령", "유령 장소", "동기들",
 ];
 
 async function placeMergeChecks(fx: Fixture) {
@@ -1318,6 +1321,20 @@ async function centerLabelChecks(fx: Fixture) {
     !!fresh && "new" in fresh && fresh.new.label === "고향을 떠난 해" && fresh.new.year === 1971 &&
       idOf(pick(undefined)) === topic.id && !!none && "new" in none && none.new.label === "[fixture] 제목", { fresh, none });
 
+  // 같은 이름 시기가 둘(2026-11-03 — 직접 추가 시기 "이사"가 두 번, 연도 다름). 이름만으로는 어느 쪽인지 모르므로 id 가 가른다.
+  // 이름은 맞고 id 가 동명 다른 시기를 가리키면 id 쪽을 그대로 쓴다 — 이름으로 가를 근거가 없고, id 밀림(실측 = 바로
+  // 아랫줄)이 동명 다른 시기에 닿으려면 두 줄이 붙어 있어야 한다(근거 — 설계 §13.13).
+  const move1970 = { id: "c_move_1970", label: "이사", year: 1970 };
+  const move1982 = { id: "c_move_1982", label: "이사", year: 1982 };
+  const withMoves = [centers[0], centers[1], centers[2], move1970, centers[3], centers[4], move1982];
+  const pickM = (center: unknown) => pickCenter({ title: "[fixture] 제목", center }, withMoves, undefined, 1952);
+  check("⑲ 같은 이름 시기 둘(이사 1970·1982) — 이름 + id 로 그 쪽(id 1970 → 1970 · id 1982 → 1982 · 이름에 연도가 붙어도)",
+    idOf(pickM({ label: "이사", matchId: move1970.id })) === move1970.id && idOf(pickM({ label: "이사", matchId: move1982.id })) === move1982.id &&
+      idOf(pickM({ label: "이사 · 1982년", matchId: move1982.id })) === move1982.id);
+  check("⑲ 이름은 맞고 id 가 동명 다른 시기 → id 쪽 유지 · 이름이 동명 둘인데 id 가 다른 이름 줄(밀림) → 미지정(어느 이사인지 모름)",
+    idOf(pickM({ label: "이사", matchId: move1982.id })) === move1982.id &&
+      pickM({ label: "이사", matchId: ev.MILITARY }) === null && idOf(pickM({ label: "군 입대", matchId: move1970.id })) === ev.MILITARY);
+
   // 시기 미지정 카드 — 저장된 카드로 다시 읽히고, [만들기]는 시기를 고를 때까지 아무것도 안 만든다.
   const card = baseCard({ title: "[fixture] 시기 미지정", center: null });
   const before = await Promise.all([prisma.lifeEvent.count({ where: { userId } }), prisma.episode.count({ where: { lifeEvent: { userId } } })]);
@@ -1332,8 +1349,20 @@ async function centerLabelChecks(fx: Fixture) {
   check("⑲ 카드 화면 — 시기 줄 = 미지정 문구 · [만들기] 누르면 안내 + [고치기] 시기 고르기 열림 · 고르기 첫 칸",
     ui.includes("if (!c) return C.centerUnset;") && /if \(!edit\.center\) \{\s*setMessage\(C\.needCenter\);\s*setEditing\(true\);/.test(ui) &&
       ui.includes("{C.centerPick}") && ui.includes("aria-disabled={unanswered || !edit.center}"));
-  check("⑲ 프롬프트 — matchId 와 같은 줄의 시기 이름을 label 로",
-    PROPOSAL_SYSTEM_PROMPT.includes("{\"matchId\": \"시기 후보 id\", \"label\": \"그 시기 이름\"}") && PROPOSAL_SYSTEM_PROMPT.includes("id 와 이름은 반드시 같은 줄에서"));
+  // 2026-11-03 안 (a) — 11-02 "id 와 같은 줄 이름" 지시는 이름을 밀린 id 줄에서 베끼게 해 F 입력 적중 9/10 → 1/10(재생 세트).
+  check("⑲ 프롬프트(안 (a)) — 시기 이름을 먼저 label 로, 그 이름이 적힌 줄의 id 를 matchId 로 · \"같은 줄\" 지시 없음",
+    PROPOSAL_SYSTEM_PROMPT.includes('{"label": "그 시기 이름", "matchId": "그 이름이 적힌 줄의 id"}') &&
+      PROPOSAL_SYSTEM_PROMPT.includes("먼저 그 시기 이름을 [시기 후보]에 적힌 그대로 label 에 쓰고, 그 이름이 적힌 줄의 id 를 matchId 로 쓰세요.") &&
+      !PROPOSAL_SYSTEM_PROMPT.includes("id 와 이름은 반드시 같은 줄에서"));
+  // 재생 세트(CLAUDE.md 작업 규칙 9) — 사례마다 기대 시기가 그 입력의 [시기 후보]에 있고, 재생 스크립트는 앱과 같은 호출 설정·pickCenter.
+  const replayDir = path.join(ROOT, "db/test-fixtures/proposal-replay");
+  const replay = fs.readdirSync(replayDir).filter((f) => f.endsWith(".json")).map((f) => JSON.parse(fs.readFileSync(path.join(replayDir, f), "utf8")) as { expectCenter: string; input: string });
+  const replaySrc = read("db/replay-proposals.ts");
+  check("⑲ 재생 세트 — 사례 3건 이상 · 기대 시기가 입력 [시기 후보]에 있음 · 재생 = 앱 호출 설정(PROPOSAL_CALL)·pickCenter",
+    replay.length >= 3 && replay.every((c) => new RegExp(`^- \\S+ · ${c.expectCenter}( · \\d{4}년)?$`, "m").test(c.input)) &&
+      replaySrc.includes("...PROPOSAL_CALL") && replaySrc.includes("pickCenter(obj, centers, fallback, c.birthYear)") &&
+      read("lib/node-proposal.ts").includes("{ system: PROPOSAL_SYSTEM_PROMPT, ...PROPOSAL_CALL }"),
+    replay.map((c) => c.expectCenter));
 }
 
 async function budgetChecks(fx: Fixture) {

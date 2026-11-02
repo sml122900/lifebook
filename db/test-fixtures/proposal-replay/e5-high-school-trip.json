@@ -1,0 +1,8 @@
+{
+ "name": "⑤ — 고등학교 수학여행(시기 = 고등학교 입학)",
+ "source": "원본 제안 입력 없음 → 재구성: 2026-11-02T15:38:49Z ⑤ 실제 제안 입력(같은 픽스처 구조)의 [대화]를 2026-11-01T18:38Z 실패 대화로 바꿈(첫 질문은 그날 입력의 주제 질문, 본인 끝말 \"그게 다예요.\"는 앱처럼 뗌). 실패: 모델이 군 입대 id(아랫줄).",
+ "expectCenter": "고등학교 입학",
+ "fallbackCenter": "고등학교 입학",
+ "birthYear": 1952,
+ "input": "[출생 연도]\n1952\n\n[방금 남긴 이야기 — 주제 힌트로만, 제목·본문·장소에 쓰지 마세요]\n(없음)\n\n[시기 후보]\n- cmvzfakwg0002oouvk1qq9m6x · 출생 · 1952년\n- cmvzfakyi0003oouvztkoqyzz · 국민학교 입학 · 1959년\n- cmvzfal0i0004oouvhafe6zqy · 고등학교 입학 · 1968년\n- cmvzfal2i0005oouvr2h4osyi · 군 입대 · 1973년\n- cmvzfal4m0006oouvn1o85ayb · 첫 직장 · 1976년\n- cmvzfamjh000doouvwv73h6ut · 서울 상경 · 1980년\n\n[이미 계신 분]\n- cmvzfal6l0007oouvuuuiwkq3 · 김민수 · 담임 선생님\n- cmvzfal8q0008oouvqtky7k2m · 박영수 · 고등학교 친구\n- cmvzfalap0009oouvs92xouxp · 정다운 · 외삼촌\n- cmvzfan1m000goouvhw6fzi1e · 김민수 · 친구\n- cmvzfaqsg000qoouvu1hz307q · 이철수 · 이웃\n- cmvzfarls000toouv8avmwtg1 · 박순자 · 어머니\n- cmvzfatpp000yoouvad7doko2 · 최유령 · 친구\n\n[이미 있는 장소]\n- cmvzfaleo000boouv2sw5h04x · 부산 해운대\n- cmvzfao4o000koouvg151pf4t · 경주 불국사\n- cmvzfauil0011oouvl5avfvi8 · 유령 장소\n- cmvzfb7tt001zoouv82y9yf2o · 외할머니 댁\n- cmvzfb7vq0020oouvv3lzt93e · 개울\n- cmvzfb7xn0021oouv5s1v3j5u · 집\n- cmvzfbapm0027oouvdyyggqbs · 외할머니 댁 개울\n- cmvzfbbax0029oouvj9a9nd8f · 강변 나루터\n\n[주제]\n1968 고등학교 입학\n\n[대화]\n[동반자] 고등학교 다닐 때 기억나는 일 있으세요?\n[본인] 고등학교 2학년 때 수학여행으로 경주 불국사에 갔어요. 박영수랑 같은 방을 썼지요.\n[동반자] 불국사 수학여행이군요. 박영수분이랑 같은 방에서 뭐 하면서 지냈어요?\n[본인] 밤새 이야기하다가 선생님한테 혼났어요.\n[동반자] 밤새 이야기하다가 들켰군요. 그때 박영수분이랑 무슨 이야기를 했는지 아직도 기억나세요?"
+}

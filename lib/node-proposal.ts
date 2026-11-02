@@ -30,6 +30,8 @@ import { buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "./prompts/free
 import { displayTitle, storedStoryTitle } from "./story-title";
 
 const PROPOSAL_MODEL = process.env.LIFE_EVENT_CONFIRM_MODEL ?? "claude-sonnet-4-6";
+// 제안 호출 설정 — 재생 세트(db/replay-proposals.ts)도 같은 값으로 부른다.
+export const PROPOSAL_CALL = { model: PROPOSAL_MODEL, maxTokens: 1200, temperature: 0.3 } as const;
 export const TITLE_MAX = 40;
 export const SUMMARY_MAX = 3000;
 export const CENTER_LABEL_MAX = 30;
@@ -475,7 +477,7 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
               }) + extra,
           },
         ],
-        { system: PROPOSAL_SYSTEM_PROMPT, model: PROPOSAL_MODEL, maxTokens: 1200, temperature: 0.3 },
+        { system: PROPOSAL_SYSTEM_PROMPT, ...PROPOSAL_CALL },
       );
       await recordChatUsage(userId, input.purpose, res);
       const obj = JSON.parse(stripJsonFence(res.text).match(/\{[\s\S]*\}/)?.[0] ?? "") as Record<string, unknown>;

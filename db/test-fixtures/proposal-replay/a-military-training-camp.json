@@ -1,0 +1,8 @@
+{
+ "name": "A — 논산 훈련소 첫날 밤(시기 = 군 입대)",
+ "source": "원본 제안 입력 없음 → 재구성: 2026-11-02T15:39:06Z A 실제 제안 입력(같은 픽스처 구조)의 [대화]를 2026-11-01T19:14Z 실패 대화로 바꿈. 실패: 모델이 첫 직장 id(아랫줄).",
+ "expectCenter": "군 입대",
+ "fallbackCenter": null,
+ "birthYear": 1952,
+ "input": "[출생 연도]\n1952\n\n[방금 남긴 이야기 — 주제 힌트로만, 제목·본문·장소에 쓰지 마세요]\n- 경주 불국사 수학여행에서 혼난 밤: 고등학교 2학년 때 수학여행으로 경주 불국사에 갔다. 박영수와 같은 방을 썼고, 밤새 이야기하다가 선생님께 혼났다.\n\n[시기 후보]\n- cmvzfakwg0002oouvk1qq9m6x · 출생 · 1952년\n- cmvzfakyi0003oouvztkoqyzz · 국민학교 입학 · 1959년\n- cmvzfal0i0004oouvhafe6zqy · 고등학교 입학 · 1968년\n- cmvzfal2i0005oouvr2h4osyi · 군 입대 · 1973년\n- cmvzfal4m0006oouvn1o85ayb · 첫 직장 · 1976년\n- cmvzfamjh000doouvwv73h6ut · 서울 상경 · 1980년\n\n[이미 계신 분]\n- cmvzfal6l0007oouvuuuiwkq3 · 김민수 · 담임 선생님\n- cmvzfal8q0008oouvqtky7k2m · 박영수 · 고등학교 친구\n- cmvzfalap0009oouvs92xouxp · 정다운 · 외삼촌\n- cmvzfan1m000goouvhw6fzi1e · 김민수 · 친구\n- cmvzfaqsg000qoouvu1hz307q · 이철수 · 이웃\n- cmvzfarls000toouv8avmwtg1 · 박순자 · 어머니\n- cmvzfatpp000yoouvad7doko2 · 최유령 · 친구\n\n[이미 있는 장소]\n- cmvzfaleo000boouv2sw5h04x · 부산 해운대\n- cmvzfao4o000koouvg151pf4t · 경주 불국사\n- cmvzfauil0011oouvl5avfvi8 · 유령 장소\n- cmvzfb7tt001zoouv82y9yf2o · 외할머니 댁\n- cmvzfb7vq0020oouvv3lzt93e · 개울\n- cmvzfb7xn0021oouv5s1v3j5u · 집\n- cmvzfbapm0027oouvdyyggqbs · 외할머니 댁 개울\n- cmvzfbbax0029oouvj9a9nd8f · 강변 나루터\n\n[주제]\n(없음)\n\n[대화]\n[본인] 군대 갔을 때 이야기 하나 할게요. 논산 훈련소에서 첫날 밤에 잠이 하나도 안 왔어요.\n[동반자] 첫날 밤이라 긴장이 많으셨겠네요. 그날 밤에 뭐가 제일 마음에 걸렸어요?\n[본인] 집 생각이 많이 났지요. 어머니가 싸 주신 미숫가루를 동기들이랑 나눠 먹었어요.\n[동반자] 어머니가 챙겨주신 미숫가루가 그때 얼마나 소중했겠어요. 동기들도 고마워했을 것 같은데, 그때 함께한 동기 중에 기억에 남는 친구가 있어요?\n[본인] 그래도 그 동기들 덕분에 버텼어요. 지금 생각해도 고마운 사람들이에요.\n[동반자] 그런 동기들이 있어서 정말 다행이었겠어요. 논산 훈련소 시절 다른 기억도 떠오르면 편하게 들려주세요."
+}
