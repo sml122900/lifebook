@@ -88,6 +88,12 @@ export const MY_LIFE_COPY = {
   toPlaces: "장소록",
   toTimeline: "시간 줄기",
   toRelated: (n: number) => `연결된 곳 차례로 보기(${n})`,
+  // 차례 보기 진행 중 — 선택 줄(3단계 최종 E2E 2026-11-02). 진행 표시는 줄 앞(좁은 화면에서 이름이 잘려도 남게).
+  tourLine: (at: number, n: number, name: string) => `연결 ${at}/${n} · ${name}`,
+  tourNext: "다음 연결",
+  tourBack: "처음으로", // 마지막 다음 — 고른 노드로 돌아가고 차례 보기 끝
+  tourBackLabel: (name: string) => `처음 노드로 돌아가기 — ${name}`,
+  inStory: (title: string) => `‘${title}’ 이야기에 나와요`, // 시기 패널 — 시기에 바로 잇지 않고 이야기에서만 나온 분·곳
   moveBarLabel: "지도에서 가기", // 도구줄 이동 줄(시간 줄기·인물록·장소록) 이름(화면 낭독용)
   panelStoriesWith: "나온 이야기",
   panelEventsWith: "그 시기",

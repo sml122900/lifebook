@@ -178,15 +178,26 @@ export function packChips(names: string[], rowWidth: number = L.COL_W - 2 * L.ST
 // 노드 버튼 이름("사람·장소 N")·패널("사람 N · 장소 N")의 수(eventPeoplePlaces)와 지도 선택의 연결 표시·[연결된 곳 차례로 보기]
 // (lib/my-life-edges connected)가 같이 쓴다(2026-11-02 E2E — 버튼 이름이 바로 이은 것만 세어 1 적던 것 · 3단계 E2E — 차례로 보기 수).
 export function eventPeoplePlaceRefs(ev: Pick<MyLifeEvent, "personIds" | "placeIds" | "stories">): { people: Set<string>; places: Set<string> } {
-  const people = new Set(ev.personIds.map((id) => `id:${id}`));
-  const places = new Set(ev.placeIds.map((id) => `id:${id}`));
+  const r = eventPeoplePlaceList(ev);
+  return { people: new Set(r.people.map((x) => x.ref)), places: new Set(r.places.map((x) => x.ref)) };
+}
+
+// 위 수·연결과 같은 목록 — 시기 패널의 "함께 나온 분"·"나온 곳"이 이름으로 보여 준다(3단계 최종 E2E 2026-11-02).
+// direct = 시기에 바로 이은 것(패널에서 [빼기]) · 아니면 이야기에서만 나온 것(storyId = 처음 나온 이야기) · name = 칩 이름(옛 장소 이름만 남은 곳).
+export type PeriodRef = { ref: string; id: string | null; name: string; direct: boolean; storyId: string | null };
+export function eventPeoplePlaceList(ev: Pick<MyLifeEvent, "personIds" | "placeIds" | "stories">): { people: PeriodRef[]; places: PeriodRef[] } {
+  const direct = (id: string): PeriodRef => ({ ref: `id:${id}`, id, name: "", direct: true, storyId: null });
+  const people = new Map(ev.personIds.map((id) => [`id:${id}`, direct(id)]));
+  const places = new Map(ev.placeIds.map((id) => [`id:${id}`, direct(id)]));
   for (const s of ev.stories) {
     for (const c of s.chips) {
       if (c.proposed || c.kind === "group") continue;
-      (c.kind === "place" ? places : people).add(c.id ? `id:${c.id}` : `name:${c.name}`);
+      const m = c.kind === "place" ? places : people;
+      const ref = c.id ? `id:${c.id}` : `name:${c.name}`;
+      if (!m.has(ref)) m.set(ref, { ref, id: c.id, name: c.name, direct: false, storyId: s.id });
     }
   }
-  return { people, places };
+  return { people: [...people.values()], places: [...places.values()] };
 }
 
 export function eventPeoplePlaces(ev: Pick<MyLifeEvent, "personIds" | "placeIds" | "stories">): { people: number; places: number } {

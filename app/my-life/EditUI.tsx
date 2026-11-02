@@ -19,6 +19,7 @@ import type { MyLifeData, MyLifeEvent, MyLifeStory } from "@/lib/my-life";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import type { MoveUndo } from "@/lib/episode-move";
 import type { CreatedLink, DeleteImpact, SameNamePerson } from "@/lib/my-life-edit";
+import { eventPeoplePlaceList, type PeriodRef } from "@/lib/my-life-layout";
 import type { NodeRef } from "@/lib/node-graph";
 import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
 import { displayTitle, shortTitle } from "@/lib/story-title";
@@ -373,7 +374,8 @@ type Mode =
   | { t: "moveConfirm"; target: MyLifeEvent }
   | { t: "delete"; impact: DeleteImpact | null; loading: boolean };
 
-type LinkItem = { ref: NodeRef; name: string; sub?: string; go?: { key: string; eventId: string | null }; removable: boolean; note?: string };
+// ref 없음 = 이름만 남은 옛 장소(노드 없음) · fromStory = 시기 패널에서 이야기에서만 나온 분·곳(시기에 바로 잇지 않음 — [넣기] 후보에서 안 뺌).
+type LinkItem = { ref?: NodeRef; name: string; sub?: string; go?: { key: string; eventId: string | null }; removable: boolean; note?: string; fromStory?: boolean };
 
 // 지우기 확인 — 이어진 것 중 0 이 아닌 것만(시기는 함께 지워질 이야기를 따로 적으므로 이야기 수는 빼고).
 function deleteLinkedText(im: DeleteImpact): string {
@@ -453,9 +455,9 @@ export function NodeEditor({
     const p = look.person.get(id);
     return p ? { ref: { type: "PERSON", id }, name: p.name, sub: p.relation ?? undefined, go: { key: `pe:${id}`, eventId: null }, removable, note } : null;
   };
-  const placeItem = (id: string): LinkItem | null => {
+  const placeItem = (id: string, removable = true, note?: string): LinkItem | null => {
     const p = look.place.get(id);
-    return p ? { ref: { type: "PLACE", id }, name: p.name, sub: p.address ?? undefined, go: { key: `pl:${id}`, eventId: null }, removable: true } : null;
+    return p ? { ref: { type: "PLACE", id }, name: p.name, sub: p.address ?? undefined, go: { key: `pl:${id}`, eventId: null }, removable, note } : null;
   };
   const groupItem = (id: string): LinkItem | null => {
     const g = look.group.get(id);
@@ -471,8 +473,22 @@ export function NodeEditor({
   const sections: { title: string; items: LinkItem[] }[] = [];
   const adds: { what: PickWhat; label: string }[] = [];
   if (ev && kind === "ev") {
-    sections.push({ title: C.panelWithPeople, items: nn(ev.personIds.map((id) => personItem(id))) });
-    sections.push({ title: C.panelWithPlaces, items: nn(ev.placeIds.map(placeItem)) });
+    // 사람·장소 = 시기 노드 "사람·장소 N"과 같은 목록(eventPeoplePlaceList — 이야기에 나온 분·곳 포함, 3단계 최종 E2E 2026-11-02).
+    // 시기에 바로 이은 것만 [빼기], 이야기에서만 나온 것은 그 이야기 이름 · 이름만 남은 옛 장소는 그 이야기로 가기.
+    const list = eventPeoplePlaceList(ev);
+    const inStory = (storyId: string | null) => {
+      const s = ev.stories.find((x) => x.id === storyId);
+      return C.inStory(s ? shortTitle(displayTitle(s)) : "");
+    };
+    const periodItem = (r: PeriodRef, kind: "person" | "place"): LinkItem | null => {
+      const make = kind === "person" ? personItem : placeItem;
+      if (r.direct) return make(r.id!);
+      const note = inStory(r.storyId);
+      const it = r.id ? make(r.id, false, note) : { name: r.name, go: { key: `st:${ev.id}:${r.storyId}`, eventId: ev.id }, removable: false, note };
+      return it && { ...it, fromStory: true };
+    };
+    sections.push({ title: C.panelWithPeople, items: nn(list.people.map((r) => periodItem(r, "person"))) });
+    sections.push({ title: C.panelWithPlaces, items: nn(list.places.map((r) => periodItem(r, "place"))) });
     sections.push({ title: C.panelGroups, items: nn(ev.groupIds.map(groupItem)) });
     adds.push({ what: "person", label: E.addPerson }, { what: "place", label: E.addPlace });
   } else if (story) {
@@ -494,13 +510,13 @@ export function NodeEditor({
     sections.push({ title: C.panelMembers, items: nn(group.memberIds.map((id) => personItem(id))) });
     adds.push({ what: "member", label: E.addMember });
   } else if (placeGroup) {
-    sections.push({ title: C.panelPlaceMembers, items: nn(placeGroup.memberIds.map(placeItem)) });
+    sections.push({ title: C.panelPlaceMembers, items: nn(placeGroup.memberIds.map((id) => placeItem(id))) });
     adds.push({ what: "placeMember", label: E.addPlace });
   }
 
   // 고르기 목록 — 아직 이어지지 않은 것만(확정 인물만).
   function candidates(what: PickWhat): { id: string; label: string; sub?: string; ref: NodeRef }[] {
-    const linked = new Set(sections.flatMap((s) => s.items.map((i) => `${i.ref.type}:${i.ref.id}`)));
+    const linked = new Set(sections.flatMap((s) => s.items.filter((i) => i.ref && !i.fromStory).map((i) => `${i.ref!.type}:${i.ref!.id}`)));
     if (story?.subjectPersonId) linked.add(`PERSON:${story.subjectPersonId}`);
     if (what === "person" || what === "member") {
       return data.people.filter((p) => !p.draft && !linked.has(`PERSON:${p.id}`)).map((p) => ({ id: p.id, label: p.name, sub: p.relation ?? undefined, ref: { type: "PERSON", id: p.id } }));
@@ -822,7 +838,7 @@ export function NodeEditor({
             <p className="text-lg font-semibold text-ink">{s.title}</p>
             <ul className="flex flex-col gap-2">
               {s.items.map((it) => (
-                <li key={`${it.ref.type}:${it.ref.id}`} className="flex items-stretch gap-2">
+                <li key={it.ref ? `${it.ref.type}:${it.ref.id}` : `name:${it.name}`} className="flex items-stretch gap-2">
                   <button type="button" onClick={() => it.go && onGo(it.go.key, it.go.eventId)} className={`${ROW} min-w-0 flex-1 border-line`}>
                     <span className="min-w-0">
                       <span className="block truncate">{it.name}</span>
@@ -830,8 +846,8 @@ export function NodeEditor({
                     </span>
                     <span className="ml-auto shrink-0 text-action">{C.goThere}</span>
                   </button>
-                  {it.removable && (
-                    <Button variant="tertiary" size="lg" className="shrink-0 px-4!" aria-label={`${it.name} ${E.remove}`} onClick={() => setMode({ t: "remove", other: it.ref, name: it.name })}>
+                  {it.removable && it.ref && (
+                    <Button variant="tertiary" size="lg" className="shrink-0 px-4!" aria-label={`${it.name} ${E.remove}`} onClick={() => setMode({ t: "remove", other: it.ref!, name: it.name })}>
                       {E.remove}
                     </Button>
                   )}

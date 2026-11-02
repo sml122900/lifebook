@@ -198,8 +198,10 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
   const [notice, setNotice] = useState<Notice | null>(null);
   // 지운 뒤 알림("○○을 지웠어요") — 패널이 닫혀서 지도 머리 줄·목록 위에. 다음 동작(패널·찾기·만들기·보기 바꾸기) 전까지.
   const [mapNotice, setMapNotice] = useState<string | null>(null);
-  // 패널의 [연결된 곳 차례로 보기(N)] — 누르면 패널을 닫고 지도가 다음 연결 노드로(2026-11-02 머리 줄에서 옮김).
-  const [relatedRequest, setRelatedRequest] = useState(0);
+  // 연결된 곳 차례 보기 — 패널의 [연결된 곳 차례로 보기(N)]가 시작(패널 닫고 첫 연결로, 2026-11-02 머리 줄에서 옮김),
+  // 진행 중엔 선택 줄 [다음 연결](3단계 최종 E2E 2026-11-02). at = 지금 보는 연결 순번(1~N, 0 = 고른 노드로 돌아가 끝) · n = 요청 번호.
+  const [tour, setTour] = useState<Tour | null>(null);
+  const focusTourRef = useRef(false); // 차례 보기를 시작하며 패널을 닫을 때 — 포커스를 노드 대신 [다음 연결]로
   const [createKind, setCreateKind] = useState<CreateKind | null | undefined>(undefined); // undefined = 닫힘, null = 종류 고르기부터
   // keep — 패널 안 작업(옮기기·직접 쓰기)으로 생긴 노드: 지도 위치·배율은 그대로, 보이는 곳 밖일 때만 옮김(3단계 E2E 2026-11-02).
   const [pendingOpen, setPendingOpen] = useState<(Created & { keep?: boolean }) | null>(null);
@@ -259,6 +261,11 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
 
   function onDialogClose() {
     setPanel(null);
+    if (focusTourRef.current) {
+      focusTourRef.current = false;
+      document.querySelector<HTMLElement>("[data-tour-next]")?.focus({ preventScroll: true });
+      return;
+    }
     const key = lastKeyRef.current;
     if (key) document.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(key)}"]`)?.focus({ preventScroll: true });
   }
@@ -400,7 +407,8 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
           setShownPlaceGroups={setShownPlaceGroups}
           focusRequest={focusRequest}
           status={mapNotice}
-          relatedRequest={relatedRequest}
+          tour={tour}
+          setTour={setTour}
         />
       ) : (
         <ListMode data={data} idx={idx} openPanel={openPanel} onToggleView={toggleView} onOpenFind={openFind} onCreate={openCreate} status={mapNotice} />
@@ -443,8 +451,9 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
                   ? {
                       count: relatedCount,
                       go: () => {
+                        focusTourRef.current = true;
                         dialogRef.current?.close();
-                        setRelatedRequest((n) => n + 1);
+                        setTour((t) => ({ sel: panel, at: 1, n: (t?.n ?? 0) + 1 }));
                       },
                     }
                   : null
@@ -491,6 +500,8 @@ export function MyLifeView({ data }: { data: MyLifeData }) {
 type Init = { scale: number; x: number; y: number };
 // 지도에서 노드로 가기 요청 — n 이 바뀔 때 한 번만 처리(레이아웃이 바뀔 때마다 다시 그 노드로 가던 것 — 3단계 E2E 2026-11-02).
 type FocusRequest = { key: string; n: number; keep?: boolean };
+// 연결된 곳 차례 보기 — sel = 고른 노드(바뀌면 끝) · at = 지금 보는 연결 순번(1~N, 0 = 고른 노드로 돌아감) · n = 요청 번호(한 번만 이동).
+type Tour = { sel: string; at: number; n: number };
 
 const fitScaleOf = (w: number, h: number, layout: MyLifeLayout) => Math.min(w / layout.width, h / layout.height);
 
@@ -515,7 +526,8 @@ function MapMode({
   setShownPlaceGroups,
   focusRequest,
   status,
-  relatedRequest,
+  tour,
+  setTour,
 }: {
   data: MyLifeData;
   idx: Index;
@@ -537,7 +549,8 @@ function MapMode({
   setShownPlaceGroups: (g: string[]) => void;
   focusRequest: FocusRequest | null;
   status: string | null; // 지운 뒤 알림 — "지금 보는 곳" 자리에(다음 동작 전까지)
-  relatedRequest: number; // 패널의 [연결된 곳 차례로 보기] 누름 수 — 바뀔 때마다 다음 연결 노드로
+  tour: Tour | null; // 연결된 곳 차례 보기(패널 버튼이 시작, 선택 줄 [다음 연결]이 다음 곳)
+  setTour: (t: Tour | null) => void;
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -740,23 +753,23 @@ function MapMode({
     api.setTransform(24 - r.x * s, 24 - r.y * s, s, 300);
   }
   // 연결된 곳 — 한꺼번에 맞추면 멀리 떨어진 이야기·인물록 때문에 배율이 너무 작아져(실측 0.09) 글씨를 못 읽는다.
-  // 그래서 선택 노드 → 연결 노드를 지도 순서대로 하나씩, 배율 1 이상으로(누를 때마다 다음 곳).
-  // 버튼은 패널 안([연결된 곳 차례로 보기(N)] — 누르면 패널을 닫고 다음 곳으로, 2026-11-02 머리 줄에서 옮김). 요청 번호 하나는 한 번만.
-  const relCursor = useRef(0);
-  const goRelated = useCallback(() => {
+  // 그래서 연결 노드를 지도 순서대로 하나씩, 배율 1 이상으로. 패널의 [연결된 곳 차례로 보기(N)]가 첫 곳으로 시작하고,
+  // 진행 중엔 선택 줄 [다음 연결](연결 n/N) — 마지막 다음은 [처음으로] = 고른 노드로 돌아가고 끝(3단계 최종 E2E 2026-11-02).
+  // 고른 노드가 바뀌거나(다른 노드 탭·선택 풀기) 연결이 줄면(간선 끄기) 끝. 요청 번호 하나는 한 번만 이동.
+  const tourOrder = useMemo(() => {
     const on = new Set(connected);
-    const keys = [selected, ...layoutRef.current.nodes.map((n) => n.key).filter((k) => on.has(k))].filter((k): k is string => !!k);
-    if (keys.length === 0) return;
-    relCursor.current = (relCursor.current + 1) % keys.length;
-    const el = boxRef.current?.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(keys[relCursor.current])}"]`);
-    if (el) apiRef.current?.zoomToElement(el, Math.max(stateRef.current.scale, 1), 300);
-  }, [connected, selected]);
-  const relatedDoneRef = useRef(0);
+    return layout.nodes.map((n) => n.key).filter((k) => on.has(k));
+  }, [connected, layout]);
+  const tourAt = tour && tour.sel === selected && tour.at <= tourOrder.length ? tour.at : 0;
+  const tourText = tourAt > 0 ? C.tourLine(tourAt, tourOrder.length, nodeName(tourOrder[tourAt - 1], data, idx)) : "";
+  const tourDoneRef = useRef(0);
   useEffect(() => {
-    if (!relatedRequest || relatedRequest === relatedDoneRef.current) return;
-    relatedDoneRef.current = relatedRequest;
-    goRelated();
-  }, [relatedRequest, goRelated]);
+    if (!tour || tour.n === tourDoneRef.current) return;
+    tourDoneRef.current = tour.n;
+    const key = tour.at === 0 ? tour.sel : tourOrder[tour.at - 1];
+    const el = key ? boxRef.current?.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(key)}"]`) : null;
+    if (el) apiRef.current?.zoomToElement(el, Math.max(stateRef.current.scale, 1), 300);
+  }, [tour, tourOrder]);
 
   // 노드 탭과 끌기 구분 — 누른 자리에서 8px 넘게 움직였으면 끌기(패널 안 염).
   function onPointerDown(e: React.PointerEvent) {
@@ -909,10 +922,34 @@ function MapMode({
       {selected ? (
         <>
           <div className="flex min-h-[56px] items-center justify-between gap-3 px-6 py-1">
-            <p className="min-w-0 truncate text-lg text-ink">{C.selectedLine(nodeName(selected, data, idx), connected.length)}</p>
-            <Button variant="secondary" size="lg" className="shrink-0 px-4!" onClick={() => setSelected(null)}>
-              {C.clearSelection}
-            </Button>
+            <p className="min-w-0 truncate text-lg text-ink">
+              {tourAt > 0 ? tourText : C.selectedLine(nodeName(selected, data, idx), connected.length)}
+            </p>
+            <div className="flex shrink-0 gap-2">
+              {tourAt > 0 && (
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="px-4!"
+                  data-tour-next
+                  aria-label={tourAt >= tourOrder.length ? C.tourBackLabel(nodeName(selected, data, idx)) : undefined}
+                  onClick={() => {
+                    const back = tourAt >= tourOrder.length;
+                    setTour({ sel: selected, at: back ? 0 : tourAt + 1, n: (tour?.n ?? 0) + 1 });
+                    // 끝 — 버튼이 사라지므로 포커스는 돌아간 고른 노드로(이동이 끝난 뒤 — 지도가 포커스 이동과 다투지 않게).
+                    if (back) setTimeout(() => boxRef.current?.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(selected)}"]`)?.focus({ preventScroll: true }), 320);
+                  }}
+                >
+                  {tourAt >= tourOrder.length ? C.tourBack : C.tourNext}
+                </Button>
+              )}
+              <Button variant="secondary" size="lg" className="px-4!" onClick={() => setSelected(null)}>
+                {C.clearSelection}
+              </Button>
+            </div>
+            <p className="sr-only" aria-live="polite">
+              {tourAt > 0 ? tourText : ""}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2 px-6 pb-1">
             <Button variant="tertiary" size="lg" className="px-4!" aria-pressed={!edgesOn.person} onClick={() => setEdgesOn({ ...edgesOn, person: !edgesOn.person })}>

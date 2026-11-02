@@ -15,6 +15,7 @@
 //   ⑧ 2026-11-02 E2E 재검증 — 시기 노드 사람·장소 수(버튼 이름·패널 같은 함수, 이야기로만 이은 곳 포함) · 제목 없는 이야기 패널
 //   ⑨ 2026-11-02 3단계 E2E — 연결 수·차례로 보기(시기 수와 같은 기준) · 지도 이동 요청 한 번만·패널 작업 뒤 지도 유지 · 한 번 탭 = 패널
 //   ⑩ 2026-11-02 3단계 E2E 후속 2 — 지도 위 떠 있던 가장자리 버튼을 도구줄(이동 줄)·머리 줄(연결된 곳)로
+//   ⑪ 2026-11-02 3단계 최종 E2E — 차례 보기 [다음 연결](연결 n/N, 마지막 다음 = 처음으로) · 시기 패널 사람·장소 목록 = 수와 같은 기준(이야기에 나온 곳 포함)
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0).
 // 실행: npx tsx db/test-my-life.ts
@@ -28,11 +29,13 @@ import { createEpisodeBridge } from "../lib/episode";
 import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { getMyLifeData, type MyLifeData, type MyLifeEvent, type MyLifePerson } from "../lib/my-life";
 import { edgeSamples, selectionEdges } from "../lib/my-life-edges";
+import { MY_LIFE_COPY as C } from "../lib/my-life-copy";
 import { rectInsideShape, rectOutsideShape, type GroupShapeKind } from "../lib/my-life-group-shape";
 import {
   FOLD_ALL_ABOVE,
   L,
   bandAt,
+  eventPeoplePlaceList,
   eventPeoplePlaceRefs,
   eventPeoplePlaces,
   countMapNodes,
@@ -466,7 +469,7 @@ async function main() {
       JSON.stringify(e1p.connected) === JSON.stringify([`pl:${place1}`]) && JSON.stringify([...e4.connected].sort()) === JSON.stringify([...e4.related].sort()), { e1p: e1p.connected, e4: e4.connected });
     check("⑨ 머리 줄 \"연결 N\"·[연결된 곳 차례로 보기(N)] = 연결 전체 수(화면 밖 것만 세던 것 고침) · 차례로 보기는 그 노드들",
       view.includes("C.selectedLine(nodeName(selected, data, idx), connected.length)") && view.includes("{C.toRelated(related.count)}") &&
-        /const on = new Set\(connected\);\n\s*const keys = \[selected, \.\.\.layoutRef\.current\.nodes\.map\(\(n\) => n\.key\)\.filter\(\(k\) => on\.has\(k\)\)\]/.test(view));
+        /const on = new Set\(connected\);\n\s*return layout\.nodes\.map\(\(n\) => n\.key\)\.filter\(\(k\) => on\.has\(k\)\);/.test(view));
     check("⑨ 지도 이동 요청은 한 번만(넣기·빼기로 레이아웃이 바뀌어도 처음 목표로 다시 안 감) · 패널 작업 뒤 = 고른 노드 자리가 바뀌어 보이는 곳 밖일 때만 이동",
       view.includes("focusDoneRef.current === focusRequest.n) return;") && view.includes("focusDoneRef.current = focusRequest.n;") &&
         view.includes("if (!now || (was && was.x === now.x && was.y === now.y)) return;") && view.includes("setPendingOpen({ ...r, keep: true });"));
@@ -485,9 +488,50 @@ async function main() {
         view.indexOf("<nav aria-label={C.moveBarLabel}") > view.indexOf("ref={boxRef}") && view.indexOf("<nav aria-label={C.moveBarLabel}") < view.indexOf("aria-label={C.zoomOut}"));
     check("⑩ [연결된 곳 차례로 보기(N)] = 패널 안(머리 줄에서 옮김 — 2026-11-02 성민 지시) · 누르면 패널 닫고 지도가 다음 곳으로(요청 번호 한 번만)",
       !view.includes("{C.toRelated(connected.length)}") && view.includes("{C.toRelated(related.count)}") &&
-        view.includes("dialogRef.current?.close();\n                        setRelatedRequest((n) => n + 1);") &&
-        view.includes("if (!relatedRequest || relatedRequest === relatedDoneRef.current) return;") &&
+        view.includes("dialogRef.current?.close();\n                        setTour((t) => ({ sel: panel, at: 1, n: (t?.n ?? 0) + 1 }));") &&
+        view.includes("if (!tour || tour.n === tourDoneRef.current) return;") &&
         /selectionEdges\(data, layout, selected, edgesOn\)\.connected\.length/.test(view));
+
+    // ── ⑪ 3단계 최종 E2E(2026-11-02) — 차례 보기 [다음 연결] · 시기 패널 장소 목록(이야기에 나온 곳 포함) ──
+    const edit = fs.readFileSync(path.resolve(__dirname, "../app/my-life/EditUI.tsx"), "utf8");
+    check("⑪ 차례 보기 진행 중에만 선택 줄 [다음 연결](연결 n/N) · 마지막 다음은 [처음으로] = 고른 노드로 돌아가고 끝 · 고른 노드가 바뀌거나 연결이 줄면 끝",
+      view.includes("const tourAt = tour && tour.sel === selected && tour.at <= tourOrder.length ? tour.at : 0;") &&
+        view.includes("{tourAt > 0 && (") && view.includes("data-tour-next") &&
+        view.includes("setTour({ sel: selected, at: back ? 0 : tourAt + 1, n: (tour?.n ?? 0) + 1 });") &&
+        view.includes("const key = tour.at === 0 ? tour.sel : tourOrder[tour.at - 1];") &&
+        view.includes("{tourAt >= tourOrder.length ? C.tourBack : C.tourNext}") &&
+        C.tourLine(2, 3, "미자") === "연결 2/3 · 미자");
+    check("⑪ 차례 보기 시작 — 패널이 닫히며 포커스는 [다음 연결]로(키보드로 이어 누르기)",
+      view.includes("focusTourRef.current = true;\n                        dialogRef.current?.close();") &&
+        view.includes('document.querySelector<HTMLElement>("[data-tour-next]")?.focus({ preventScroll: true });'));
+    const list8 = eventPeoplePlaceList(ev8);
+    check("⑪ 시기 목록 — 재현 모양(시기에 이은 분 + 이야기에만 이은 곳): 사람 = 바로 이은 분, 장소 = 이야기에서 나온 곳(그 이야기)",
+      list8.people.length === 1 && list8.people[0].direct && list8.people[0].id === uFriend &&
+        list8.places.length === 1 && !list8.places[0].direct && list8.places[0].id === uPlace && list8.places[0].storyId === uStory.episodeId,
+      list8);
+    const synEv = {
+      personIds: ["p"],
+      placeIds: ["x"],
+      stories: [
+        { id: "s1", chips: [{ kind: "person", id: "q", name: "Q", proposed: false }, { kind: "person", id: "p", name: "P", proposed: false }, { kind: "group", id: "g", name: "모임", proposed: false }, { kind: "person", id: "w", name: "대기", proposed: true }, { kind: "place", id: null, name: "옛 장소", proposed: false }] },
+        { id: "s2", chips: [{ kind: "place", id: "y", name: "Y", proposed: false }, { kind: "place", id: null, name: "옛 장소", proposed: false }, { kind: "place", id: "x", name: "X", proposed: false }] },
+      ],
+    } as never as MyLifeEvent;
+    const synL = eventPeoplePlaceList(synEv);
+    const synR = eventPeoplePlaceRefs(synEv);
+    check("⑪ 시기 목록 = 수(eventPeoplePlaces)·연결과 같은 기준 — 바로 이은 것 먼저 · 이야기에서만 나온 분·곳(처음 나온 이야기) · 옛 장소 이름 · 같은 것 한 번 · 모임·확인 대기 빠짐",
+      JSON.stringify(synL.people.map((r) => [r.ref, r.direct, r.storyId])) === JSON.stringify([["id:p", true, null], ["id:q", false, "s1"]]) &&
+        JSON.stringify(synL.places.map((r) => [r.ref, r.direct, r.storyId, r.name])) === JSON.stringify([["id:x", true, null, ""], ["name:옛 장소", false, "s1", "옛 장소"], ["id:y", false, "s2", "Y"]]) &&
+        JSON.stringify([...synR.people]) === JSON.stringify(synL.people.map((r) => r.ref)) && JSON.stringify([...synR.places]) === JSON.stringify(synL.places.map((r) => r.ref)) &&
+        eventPeoplePlaces(synEv).people === synL.people.length && eventPeoplePlaces(synEv).places === synL.places.length,
+      synL);
+    check("⑪ 시기 패널 — 사람·장소 목록 = eventPeoplePlaceList · 바로 이은 것만 [빼기] · 이야기에서만 = 그 이야기 이름(빼기 없음) · 옛 장소 이름 = 그 이야기로 가기 · [넣기] 후보에선 바로 이은 것만 뺌",
+      edit.includes("const list = eventPeoplePlaceList(ev);") &&
+        edit.includes("sections.push({ title: C.panelWithPlaces, items: nn(list.places.map((r) => periodItem(r, \"place\"))) });") &&
+        edit.includes("if (r.direct) return make(r.id!);") &&
+        edit.includes("const it = r.id ? make(r.id, false, note) : { name: r.name, go: { key: `st:${ev.id}:${r.storyId}`, eventId: ev.id }, removable: false, note };") &&
+        edit.includes("s.items.filter((i) => i.ref && !i.fromStory)") && edit.includes("{it.removable && it.ref && (") &&
+        !edit.includes("ev.placeIds.map(placeItem)"));
 
     for (const [g, pg] of [[0, 1], [2, 2], [3, 3], [1, 5]] as const) {
       const syn = synthetic({ events: 11, stories: 23, people: 12, groups: g, places: 14, placeGroups: pg, seed: 21 + pg });

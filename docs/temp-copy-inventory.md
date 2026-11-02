@@ -1,6 +1,6 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 4개의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 ## 요약
@@ -8,7 +8,7 @@
 | 파일 | 임시 문구 | 화면에 안 나오는 키(쓰는 곳 없음) | 보이는 곳 |
 |---|---|---|---|
 | `lib/free-chat-copy.ts` | 60 (전부 — 카드 오류 6개는 2026-11-02 `lib/node-proposal.ts` 에서 옮겨 옴) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
-| `lib/my-life-copy.ts` | 189 (79 + 3단계 110 · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
+| `lib/my-life-copy.ts` | 194 (79 + 3단계 115 · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
 | `lib/node-confirm-copy.ts` | 32 (전부) | 0 | `/story-review/confirm` · `/story-review` "정리할 것이 있어요" 카드 · `/interview` 요약 |
 | `lib/interview/copy.ts` | 43 (전부) | 0 | `/interview` · `/story-review` "오늘의 인터뷰" 카드·"그때의 나" |
 | `lib/interview/question-pool.ts` | 문항 8개(18줄 — 구조 예시 5 + "관계별 나" 3) | — | `/interview` 질문·이야기 제목 |
@@ -179,6 +179,7 @@
 | `edit` 알림(5) | `created`·`reused`·`linked`·`alreadyLinked`·`undo` "되돌리기"·`undone` | 패널 맨 위 알림 |
 | `edit` 패널 버튼·단계(29) | `addStory`·`talkStory`·`writeStory`·`addPerson`·`addPlace`·`addGroup`·`addToGroup`·`addToPlaceGroup`·`addMember`·`pickTitle`·`pickNone`·`pickSearch`·`pickNew`·`moveStory`·`moveTitle`·`hereNow`·`moveConfirm`·`moveDo`·`moved`·`remove`·`removeConfirm`·`removeDo` "뺄게요"·`removed`·`subjectNote`·`deleteNode` "이 노드 지우기"·`deleteTitle`·`deleteLinked`·`deleteNoLinks`·`linkStories`·`linkPeople`·`linkPlaces`·`deleteStoriesToo`·`deleteFamily`·`deleteIrreversible`·`deleteDo`·`deleted`·`deleteSkeletonNote`·`personDeleteNote`·`personDeleteLink` | 노드 패널 |
 | 3단계 E2E 후속 2(3) | `edit.deletedName` "○○을 지웠어요."(지운 뒤 지도 머리 줄·목록 위) · `edit.deletePlaceGroups` "장소 묶음 N개에서도 빠져요."(장소 지우기 확인창) · `moveBarLabel` "지도에서 가기"(도구줄 이동 줄 이름, 화면 낭독용) | /my-life |
+| 3단계 최종 E2E(5 — 2026-11-02) | `tourLine` "연결 n/N · 이름"(차례 보기 중 선택 줄) · `tourNext` "다음 연결" · `tourBack` "처음으로" · `tourBackLabel` "처음 노드로 돌아가기 — 이름"(화면 낭독용) · `inStory` "‘제목’ 이야기에 나와요"(시기 패널 — 이야기에서만 나온 분·곳의 아래 줄) | /my-life |
 | `edit` 오류(15) | `notFound`·`alreadyPrimary`·`cannotLink`·`cannotUnlink`·`cannotUndo` "되돌리지 못했어요. 다시 해 주세요."(빼기 되돌리기 실패 — 3단계 E2E 후속 2026-11-02)·`cannotRemovePrimary`·`cannotRemoveSubject`·`needName`·`tooLong`·`badYear`·`badEndYear`·`needBody`·`pickPeriod`·`repickSame`·`failed` | 시트·패널 오류 줄(`lib/my-life-edit.ts` 가 돌려줌) |
 
 ### `lib/node-confirm-copy.ts` (`CONFIRM_COPY`)
