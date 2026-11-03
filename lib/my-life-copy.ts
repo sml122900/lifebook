@@ -33,15 +33,12 @@ export const MY_LIFE_COPY = {
   selfTag: "그때의 나",
   kindPerson: "사람",
   kindPlace: "장소",
-  pendingTag: "확인 전",
   alsoElsewhereShort: "여러 시기", // 이야기 노드 꼬리표(폭 135px 안)
   close: "닫기",
   readBody: "본문 보기",
   hideBody: "본문 접기",
-  goConfirm: "확인하러 가기",
-  pendingNote: "이 이야기에 아직 확인하지 않은 분이 있어요.",
   // Q69(2026-11-02) — /story-review 에서 옮긴 것. 갭 카드·이야기 고치기 글자는 옮기기 전 /story-review 문구 그대로.
-  suggest: "이야기 거리", // 지도 보기 [이야기 거리] 버튼·시트 제목(정리할 것·오늘의 인터뷰·더 들어볼까요?)
+  suggest: "이야기 거리", // 지도 보기 [이야기 거리] 버튼·시트 제목(오늘의 인터뷰·더 들어볼까요?)
   gapsTitle: "더 들어볼까요?",
   gapInProgress: "진행 중",
   gapStart: "이야기하기",
@@ -110,7 +107,6 @@ export const MY_LIFE_COPY = {
   panelEventsWith: "그 시기",
   panelGroups: "모임",
   goThere: "여기로 가기",
-  draftNote: "이야기에서 찾은 분이에요. 아직 확인하지 않았어요.",
   personName2: (name: string, groups: string[], stories: number) =>
     `사람, ${name}${groups.length ? `, 모임 ${groups.join("·")}` : ""}, 이야기 ${stories}`,
   placeName2: (name: string, stories: number) => `장소, ${name}, 이야기 ${stories}`,

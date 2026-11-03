@@ -1,34 +1,19 @@
-// Q69(2026-11-02, docs/phase/my-life-restructure.md §15) — /story-review 에서 옮긴 카드 셋(정리할 것 · 오늘의 인터뷰 ·
-// 더 들어볼까요?). 목록 보기(맨 위·시간 줄기 아래)와 지도 보기 [이야기 거리] 시트가 같이 쓴다.
+// Q69(2026-11-02, docs/phase/my-life-restructure.md §15) — /story-review 에서 옮긴 카드(오늘의 인터뷰 · 더 들어볼까요?).
+// 목록 보기(맨 위·시간 줄기 아래)와 지도 보기 [이야기 거리] 시트가 같이 쓴다. "정리할 것"(인물 확인 대기) 카드는
+// 2026-11-03 인물 확인 화면과 함께 삭제(§15.6).
 // 데이터는 app/my-life/page.tsx 가 서버에서 만든다(갭 딥링크·진행 중 판정 포함) — 이 파일은 그리기만.
 
 import { ButtonLink } from "@/components/ui/Button";
 import { INTERVIEW_COPY } from "@/lib/interview/copy";
 import type { InterviewCardState } from "@/lib/interview/session";
 import { MY_LIFE_COPY as C } from "@/lib/my-life-copy";
-import { CONFIRM_COPY } from "@/lib/node-confirm-copy";
 
 export type SuggestGap = { key: string; label: string; href: string; inProgress: boolean };
-export type MyLifeSuggest = { pendingPeople: number; interview: InterviewCardState; gaps: SuggestGap[] };
+export type MyLifeSuggest = { interview: InterviewCardState; gaps: SuggestGap[] };
 
 type Heading = "h2" | "h3";
 const CARD = "flex flex-col gap-4 rounded-md border-2 border-brand bg-banner p-5";
 const CARD_TITLE = "m-0 text-2xl font-bold text-ink";
-
-// 인물 확인 대기가 있을 때만(대화 종료 경로를 안 거친 경우 보완 — 옮기기 전과 같음).
-export function PendingPeopleCard({ count, as: H = "h2" }: { count: number; as?: Heading }) {
-  if (count <= 0) return null;
-  const P = CONFIRM_COPY;
-  return (
-    <section className={CARD}>
-      <H className={CARD_TITLE}>{P.reviewCardTitle}</H>
-      <p className="m-0 text-lg text-ink">{P.reviewCardDesc(count)}</p>
-      <ButtonLink href="/story-review/confirm" variant="secondary" size="lg">
-        {P.reviewCardButton}
-      </ButtonLink>
-    </section>
-  );
-}
 
 // 오늘의 인터뷰 진입 — 항상 표시(V3 화면, 오늘 기록만 1회 조회).
 export function InterviewEntryCard({ state, as: H = "h2" }: { state: InterviewCardState; as?: Heading }) {

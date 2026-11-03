@@ -1100,6 +1100,26 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
 - 검증(2026-11-03, 마이그 적용 전 · 코드·스키마 삭제 후): 회귀 19종 exit 0(`test-chat-proposal` 158 · `test-interview` 95 · `test-my-life` 104 · `test-my-life-edit` 62 · `test-node-confirm` 46 · `test-node-graph` 69 · `test-v3-poster-bridge` 39 · `test-p18-1` 11) · 바꾼 검사 전부 PASS · `tsc` 0 · 빌드 exit 0. 테스트 원가(11-03 누적) 원장 $4.92(이번 19종 ≈ $0.20).
 - 운영 적용(2026-11-03): 코드 커밋 `818cc6a` 푸시 → Vercel 배포 성공(GitHub 상태 `Vercel = success`, 18:46:04Z) 확인 → `prisma migrate deploy` 적용 1건 → `migrate status` 최신 · `migrate diff --from-config-datasource` 빈 결과(드리프트 0) · 운영 DB 에 `ChatV3PendingContext` 테이블·`ChatV3PendingStage` 타입 0 · 적용 뒤 `test-p18-1`·`test-my-life` 다시 exit 0.
 
+### 15.6 인물 확인 화면(`/story-review/confirm`) 삭제 · `test-node-confirm` 퇴역(2026-11-03, 성민 지시)
+
+- **삭제 조건 재확인(삭제 직전, 운영 DB 읽기 전용 집계 — 내용은 안 읽고 숫자만)**: 확인 대기(PROPOSED) 연결 전체 0 · 그중 이야기→인물 0 · 대기 초안 인물(말동무 초안 = `companionSessionId` 있음 제외) 0 · 대기가 있는 계정 0(테스트 계정·그 밖 계정 모두 0). 참고 — 말동무 초안 4(별개 화면 `/life-timeline/manage` — 범위 밖). **만드는 경로 0**: PROPOSED 를 쓰는 곳 = `lib/person-chat.ts` `saveProposedPeople` 하나(app·lib 호출 0 — 회귀만), 초안 인물을 만드는 곳 = 말동무(`app/life-timeline/companion/actions.ts` — 세션 id 있음)뿐.
+- **들어오던 링크(삭제 전 4곳, 전부 대기 ≥1 일 때만 보임 → 대기 0 이라 화면에 안 나오고 있었음)**: ① My Life "정리할 것이 있어요" 카드 [확인하러 가기](목록 보기 맨 위·지도 [이야기 거리] 시트 — `Suggestions.tsx` `PendingPeopleCard`) ② 사람 패널(확인 전 초안) [확인하러 가기] ③ 이야기 패널(확인 대기 분이 있을 때) [확인하러 가기](`#<episodeId>`) ④ 오늘의 인터뷰 종료 요약 인물 확인 카드. (`/chat-v3` 종료 → 확인 화면 이동은 개편 2단계에 이미 제거.)
+- **삭제**: `app/story-review/confirm/`(page·ConfirmClient)·`app/actions/node-confirm.ts`·`lib/node-confirm.ts`·`lib/node-confirm-copy.ts`(32키)·`saveProposedPeople`(+ `PersonCandidate`) · My Life `PendingPeopleCard`·`MyLifeSuggest.pendingPeople`·페이지의 `countPendingPeople` · 패널 [확인하러 가기] 2곳 · 확인 대기 표시 — `MyLifeChip.proposed`·`MyLifeStory.hasPending`·`MyLifePerson.draft`·꼬리표 `"pending"`·점선 테두리·문구 4키(`pendingTag`·`goConfirm`·`pendingNote`·`draftNote`) · 인터뷰 요약 `pendingPeople`·카드. **My Life 데이터 규칙 = 확정만**: 이야기 연결(EPISODE→사람·모임)도 시기 연결처럼 CONFIRMED 만 읽고, 인물록 = `isDraft=false` 만(Prisma 호출 7 그대로 — `test-my-life` ②). 배치(`layoutMyLife`)의 "초안은 모임 밖 맨 끝"·"확인 대기 칩은 시기 수에서 뺌" 분기도 같이 뺌. `EditUI` 의 초안 거르기(5곳)는 데이터에 초안이 없어 뺌.
+- **남김**: `findCompatiblePerson`(초안 찾기 인자 `draft` 만 뺌 — 확정 인물만)·`findSameNamePeople`(제안 카드·지도 사람 만들기의 동명이인 되묻기) · 정합 점검 8(고아 초안)·9(확인 대기 지표 — 늘 0 이어야, 주석만 갱신) · `saveNodeLink` 의 PROPOSED 옵션(범용 입구 — 쓰는 곳 0) · `lib/episode-move.ts` 주석.
+- **주소**: `next.config.ts` redirects `/story-review/confirm` → `/my-life`(옛 온보딩 화면과 같은 방식 — proxy 보다 먼저, `proxy.ts` 무접촉). `/story-review` 리다이렉트(`?view=list`)는 그대로.
+- **회귀 — `test-node-confirm` 퇴역(검사별 처리)**:
+
+| `test-node-confirm` 검사 | 처리 |
+| --- | --- |
+| ① 저장 규칙(`saveProposedPeople`) | 함수와 함께 뺌 |
+| ② 확인 전 미노출(/people·타임라인 칩·갭·대기 수) | 확인 대기를 만드는 경로가 없음 — `test-chat-proposal` ⑦(실행의 모든 저장 뒤 PROPOSED·초안 0, 그대로) + `test-my-life` ①(PROPOSED 연결·초안을 직접 만들어도 My Life 에 안 보임 — 기대값 뒤집음) |
+| ③ 확인 화면 데이터 · ④ 맞아요 · ⑤ 아니에요 · ⑥ 고칠게요 | 화면과 함께 뺌 |
+| ⑦ 동명이인(자동 병합 안 함) | 지금 쓰는 곳(제안 카드·지도 사람 만들기) 기준 — 관계가 달라도 되묻기·[같은 분이에요]·[다른 분이에요]는 `test-p14`·`test-chat-proposal` ②·`test-my-life-edit` ① 이 이미 봄. 없던 것 3항목만 `test-p14` 로 옮김: 이름 공백 무시 + 관계 안 맞음 → 같은 이름 확정 인물 전부 후보(2명) · [같은 분이에요] 대상이 후보 밖(초안·남의 인물) → 거부·이야기 저장 0 · 고른 분에 연결(새 사람 안 만듦) |
+| ⑧ 확인 후 노출 + 정합 점검 | 정합 점검은 `test-node-graph`(고아 초안·확인 대기 지표 포함) |
+
+  다른 회귀: `test-my-life` ①(작은 물방울·인물록 — 확인 대기 연결·초안 안 보임) · ②③⑥(인물 6 → 5) · ④(이야기 간선 4 → 3) · ⑧⑪(칩 모양에서 `proposed` 뺌) · ⑫(인물 확인 화면·액션·lib·문구·회귀 파일 없음 · 주소 → `/my-life` · 앱 안 `/story-review/confirm` 링크 0 — 링크 검사에 `/confirm` 도 셈 · 카드 자리·시트에서 정리할 것 카드 뺌), 합성 데이터의 초안 인물 1명 뺌 · `test-chat-proposal` ⑪(인물 확인 묶음 제목 뺌 — 찾기·인터뷰 요약은 그대로) · ⑬(문구 파일 3개) · ⑦ `CONFIRM_COPY` 부재 검사 뺌(이름 자체가 없어짐) · `test-person-mode` 주석. 회귀 세트 18종(CLAUDE.md).
+- 검증(2026-11-03): 회귀 18종 exit 0(`test-chat-proposal --live` 188 · `test-interview` 95 · `test-my-life` 105(⑫ 인물 확인 삭제 1항목 추가) · `test-my-life-edit` 62 · `test-node-graph` 69 · `test-p14` 53(동명이인 3 추가) · `test-v3-poster-bridge` 39 · `test-p18-1` 11) · `tsc` 0 · 빌드 exit 0(`/story-review/confirm` 라우트 없음) · 바꾼 파일 eslint 오류 0(경고 1 = `test-chat-proposal.ts:370` `friendId` — 이번에 안 건드린 줄) · 운영 빌드 `next start` 에서 `/story-review/confirm`(·`#…`) → 307 `/my-life`, `/onboarding-v2` → 307 `/enter` 그대로. 테스트 원가(11-03 누적) 원장 $5.46(이번 18종 ≈ $0.54). 브라우저 화면 확인은 안 함 — 지운 카드·링크·점선·꼬리표는 대기 0 이라 원래 어느 계정에도 안 그려지던 것.
+
 ## 결정 로그
 
 - 2026-11-01 — 설계 작성(성민 결정 — §0, 구현 전·코드 변경 0). 운영 집계(개수·평균만, 실고객 제외): 인물 사용자당 최대 12·장소 최대 14·모임 0·이야기 최대 23(본인 턴 평균 2.1)·채팅 본인 메시지 평균 18자. 결정 질문 Q51~Q72(§7.3).
@@ -1145,3 +1165,4 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
 - 2026-11-03 — **제안 시기 프롬프트 안 (a)(성민 결정, 제안: Claude Code 조사 — §13.13)**: 모델이 시기 이름을 먼저 쓰고 그 이름이 적힌 줄의 id 를 씀, `pickCenter` 교정 유지. 11-02 "같은 줄" 지시 회귀(F 0/10) 수정. 재생 세트(`db/test-fixtures/proposal-replay/` + `db/replay-proposals.ts`) 신설, CLAUDE.md 작업 규칙 9(프롬프트 변경은 재생 세트로 전후 각 10회 비교 후 커밋, 새 실패 사례는 세트에 추가). 커밋 조건 = 안 (a)가 모든 입력에서 옛 프롬프트 이상 — 충족(F 10/10 vs 9/10, ⑤·A 10/10).
 - 2026-11-03 — **옛 화면 정리 + 비용 스크립트 안전장치(성민 지시 — §15.4)**: 옛 온보딩 화면 4개·`/story-review` 보존 본문 삭제(주소 → `/enter`·`/my-life?view=list`), 그것만 쓰던 액션·lib·문구 키 정리. `ChatV3PendingContext` 죽은 행 4 삭제 → 테이블 제거 추천, 마이그 SQL 만 만들고 승인 대기. 유료 단독 스크립트는 `--run` 있을 때만 호출(작업 규칙 10).
 - 2026-11-03 — **`ChatV3PendingContext` 제거 승인(성민) + 조사·회귀 개선(성민 지시 — §15.5)**: 마이그 `20261103000000_drop_chat_v3_pending_context` 승인 — 코드·스키마 삭제를 마이그와 같은 커밋에, 운영 적용은 그 코드 배포 뒤(순서만 바꿈 — 지금 운영 코드가 테이블을 읽음). 인물 확인 대기 = 운영 0·만드는 경로 0 → 화면 정리는 다음 후보(CLAUDE.md, 결정 대기). 회귀의 호출 위치·개수 정적 검사 → 실제 결과 검사, 화면 렌더·요청 문맥이 필요한 것과 "쓰는 곳 하나" 지킴은 이유와 함께 남김.
+- 2026-11-03 — **인물 확인 화면 삭제(성민 지시 — §15.6)**: 조건(운영 확인 대기 0·만드는 경로 0)을 삭제 직전 다시 확인한 뒤 `/story-review/confirm`·확인 액션·lib·문구·`saveProposedPeople`·My Life 정리할 것 카드·패널 확인 링크·확인 대기 표시·인터뷰 요약 카드 삭제. 주소 → `/my-life`. My Life 데이터 = 확정 연결·확정 인물만. `test-node-confirm` 퇴역(지금도 쓰는 동명이인 검사 3항목만 `test-p14` 로) — 회귀 18종. 마이그 0·`proxy.ts` 무접촉.

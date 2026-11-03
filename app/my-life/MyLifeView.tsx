@@ -12,7 +12,7 @@
 // 지도 DOM 은 시기 순 목록 → 인물록 → 장소록 순서(스크린리더·Tab). 모임 영역·간선은 aria-hidden.
 // 개편 3단계: 머리 줄 [+ 만들기](7종) · 인물록·장소록 제목 옆 [+ 사람][+ 모임]/[+ 장소][+ 묶음] · 장소 묶음 영역(장소록) ·
 //   패널의 넣기·빼기·되돌리기·옮기기·지우기(./EditUI). 만든 뒤 지도가 새 노드로 이동·선택·패널 + [되돌리기].
-// Q69(/story-review 합치기, 2026-11-02): 목록 보기 = 정리할 것·오늘의 인터뷰(맨 위)·더 들어볼까요?(시간 줄기 아래) — 그때의 나는
+// Q69(/story-review 합치기, 2026-11-02): 목록 보기 = 오늘의 인터뷰(맨 위)·더 들어볼까요?(시간 줄기 아래) — 그때의 나는
 //   시기 아래 꼬리표로만(별도 묶음은 중복이라 뺌, Q69 후속),
 //   지도 보기 = "지금 보는 곳" 줄 [이야기 거리] → 같은 카드 시트(./Suggestions). 이야기 패널 [이야기 고치기](본문).
 
@@ -44,7 +44,7 @@ import { displayTitle, hasOwnTitle, shortTitle } from "@/lib/story-title";
 
 import { undoCreateAction, undoMoveAction } from "./actions";
 import { CreateSheet, NodeEditor, type CreateKind, type Created, type Notice } from "./EditUI";
-import { GapCards, InterviewEntryCard, PendingPeopleCard, type MyLifeSuggest } from "./Suggestions";
+import { GapCards, InterviewEntryCard, type MyLifeSuggest } from "./Suggestions";
 
 const MAX_SCALE = 3;
 const MIN_SCALE = 0.5; // 지도 전체가 이보다 작아야 들어가면 그 배율까지 내려간다
@@ -98,7 +98,7 @@ function eventAriaLabel(ev: MyLifeEvent): string {
 }
 
 function storyAriaLabel(s: MyLifeStory): string {
-  const names = s.chips.map((c) => (c.proposed ? `${c.name}(${C.pendingTag})` : c.name));
+  const names = s.chips.map((c) => c.name);
   return s.kind === "SELF" ? C.selfName(displayTitle(s), names) : C.storyName(displayTitle(s), names);
 }
 
@@ -517,7 +517,6 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
             <h2 id="mylife-suggest-title" className="m-0">
               {C.suggest}
             </h2>
-            <PendingPeopleCard count={suggest.pendingPeople} as="h3" />
             <InterviewEntryCard state={suggest.interview} as="h3" />
             <GapCards gaps={suggest.gaps} as="h3" />
             <Button variant="tertiary" size="lg" onClick={() => suggestRef.current?.close()}>
@@ -1009,7 +1008,7 @@ function MapMode({
       ) : (
         <div className="flex min-h-[56px] items-center justify-between gap-3 px-6 py-1">
           {status ? <p className="min-w-0 truncate text-lg text-ink">{status}</p> : <p className="min-w-0 truncate text-lg text-ink-soft">{nowText}</p>}
-          {/* Q69 — /story-review 의 카드 셋을 지도 보기에서도(390 머리 줄 두 줄엔 자리가 없어 이 줄 오른쪽). */}
+          {/* Q69 — /story-review 의 카드를 지도 보기에서도(390 머리 줄 두 줄엔 자리가 없어 이 줄 오른쪽). */}
           <div className="flex shrink-0 gap-2">
             {anyFolded && (
               <Button variant="secondary" size="lg" className="px-4!" onClick={() => setFolded(new Set())}>
@@ -1342,14 +1341,13 @@ const MapWorld = memo(function MapWorld({
                   type="button"
                   data-node-key={n.key}
                   data-node-kind="person"
-                  data-group-ids={p.draft ? "" : p.groupIds.join(",")}
-                  aria-label={`${C.personName2(p.name, groupNames, idx.storiesOfPerson.get(p.id)?.length ?? 0)}${p.draft ? `, ${C.pendingTag}` : ""}`}
-                  className={`absolute flex items-center gap-2 border-2 border-emerald-700 bg-surface px-3 text-left text-lg text-ink hover:bg-banner ${p.draft ? "border-dashed" : ""} ${FOCUS}`}
+                  data-group-ids={p.groupIds.join(",")}
+                  aria-label={C.personName2(p.name, groupNames, idx.storiesOfPerson.get(p.id)?.length ?? 0)}
+                  className={`absolute flex items-center gap-2 border-2 border-emerald-700 bg-surface px-3 text-left text-lg text-ink hover:bg-banner ${FOCUS}`}
                   style={{ ...pos(n), ...mark(n.key), borderRadius: "6px 28px 28px 28px" }}
                 >
                   <UserRound aria-hidden size={20} className="shrink-0 text-emerald-700" />
                   <span className="min-w-0 truncate">{p.name}</span>
-                  {p.draft && <span className="shrink-0 text-lg text-ink-soft">{C.pendingTag}</span>}
                   {n.hiddenGroups > 0 && <span className="ml-auto shrink-0 text-lg text-ink-soft">{C.otherGroups(n.hiddenGroups)}</span>}
                 </button>
               </li>
@@ -1443,15 +1441,14 @@ const MapWorld = memo(function MapWorld({
 function tagText(s: MyLifeStory): string | null {
   const t = storyTag(s);
   if (t === "self") return C.selfTag;
-  if (t === "pending") return C.pendingTag;
   if (t === "elsewhere") return C.alsoElsewhereShort;
   return null;
 }
 
-function Chip({ chip }: { chip: Pick<MyLifeChip, "kind" | "name" | "proposed"> }) {
+function Chip({ chip }: { chip: Pick<MyLifeChip, "kind" | "name"> }) {
   return (
     <span
-      className={`inline-block h-9 max-w-full truncate border-2 px-[9px] text-lg leading-8 text-ink ${CHIP_KIND[chip.kind]} ${chip.proposed ? "border-dashed" : ""}`}
+      className={`inline-block h-9 max-w-full truncate border-2 px-[9px] text-lg leading-8 text-ink ${CHIP_KIND[chip.kind]}`}
       style={{ borderRadius: "18px 18px 18px 4px" }}
     >
       {chip.name}
@@ -1464,7 +1461,7 @@ function StoryNode({ story, node, style }: { story: MyLifeStory; node: Extract<L
   const rows = node.chipRows.map((r) => r.map((i) => story.chips[i]));
   if (node.overflow > 0) {
     if (rows.length === 0) rows.push([]);
-    rows[rows.length - 1].push({ kind: "person", id: null, name: overflowLabel(node.overflow), proposed: false });
+    rows[rows.length - 1].push({ kind: "person", id: null, name: overflowLabel(node.overflow) });
   }
   return (
     <button
@@ -1559,8 +1556,7 @@ function ListMode({
           {C.edit.create}
         </Button>
       </div>
-      {/* Q69 — /story-review 에서 옮긴 카드: 정리할 것(대기 있을 때만)·오늘의 인터뷰(항상) */}
-      <PendingPeopleCard count={suggest.pendingPeople} />
+      {/* Q69 — /story-review 에서 옮긴 카드: 오늘의 인터뷰(항상) */}
       <InterviewEntryCard state={suggest.interview} />
       <ol aria-label={C.mapListLabel} className="flex flex-col gap-6">
         {data.events.map((ev) => (
@@ -1648,7 +1644,7 @@ function ListMode({
             <ul aria-label={C.noGroup} className={`flex flex-col gap-2 ${data.groups.length > 0 ? "ml-6" : ""}`}>
               {ungrouped.map((p) => (
                 <li key={p.id}>
-                  <PersonRow person={p} listKey={`pe:${p.id}`} tag={p.draft ? C.pendingTag : null} onOpen={() => openPanel(`pe:${p.id}`)} />
+                  <PersonRow person={p} listKey={`pe:${p.id}`} tag={null} onOpen={() => openPanel(`pe:${p.id}`)} />
                 </li>
               ))}
             </ul>
@@ -1698,7 +1694,7 @@ function ListMode({
 function PersonRow({ person, listKey, tag, onOpen }: { person: MyLifePerson; listKey: string; tag: string | null; onOpen: () => void }) {
   // 여러 모임인 분은 모임마다 나온다 — 목록 키는 모임별로 다르게, 검색 이동은 첫 번째(키 pe:id 또는 pe:id@첫 모임)로.
   return (
-    <button type="button" data-list-key={listKey} onClick={onOpen} className={`${LIST_ITEM} border-emerald-700 ${person.draft ? "border-dashed" : ""}`}>
+    <button type="button" data-list-key={listKey} onClick={onOpen} className={`${LIST_ITEM} border-emerald-700`}>
       <UserRound aria-hidden size={20} className="shrink-0 text-emerald-700" />
       <span>{person.name}</span>
       {person.relation && <span className="text-ink-soft">· {person.relation}</span>}
@@ -1904,14 +1900,6 @@ function panelInfo(
             {C.panelMetYear}: {p.metYear}
           </p>
         )}
-        {p.draft && (
-          <div className="flex flex-col gap-3 rounded-md border-2 border-brand bg-banner p-4">
-            <p className="text-lg text-ink">{C.draftNote}</p>
-            <ButtonLink href="/story-review/confirm" variant="secondary" size="lg">
-              {C.goConfirm}
-            </ButtonLink>
-          </div>
-        )}
         {stories.length > 0 && (
           <div className="flex flex-col gap-2">
             <p className="text-lg font-semibold text-ink">{C.panelStoriesWith}</p>
@@ -1932,11 +1920,9 @@ function panelInfo(
             </ul>
           </div>
         )}
-        {!p.draft && (
-          <ButtonLink href={`/people/${p.id}`} variant="secondary" size="lg">
-            {C.openPerson}
-          </ButtonLink>
-        )}
+        <ButtonLink href={`/people/${p.id}`} variant="secondary" size="lg">
+          {C.openPerson}
+        </ButtonLink>
       </>
     );
   }
@@ -2044,7 +2030,6 @@ function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; i
       }
     });
   }
-  const pending = story.chips.filter((c) => c.proposed);
   const others = story.otherEventIds.map((id) => idx.eventById.get(id)).filter((e): e is MyLifeEvent => !!e);
   return (
     <>
@@ -2114,22 +2099,6 @@ function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; i
               <Chip key={i} chip={c} />
             ))}
         </p>
-      )}
-      {story.hasPending && (
-        <div className="flex flex-col gap-3 rounded-md border-2 border-brand bg-banner p-4">
-          <p className="flex flex-wrap gap-1.5">
-            {pending.map((c, i) => (
-              <span key={i} className="inline-flex items-center gap-1">
-                <Chip chip={c} />
-                <span className="text-lg text-ink-soft">({C.pendingTag})</span>
-              </span>
-            ))}
-          </p>
-          <p className="text-lg text-ink">{C.pendingNote}</p>
-          <ButtonLink href={`/story-review/confirm#${story.id}`} variant="secondary" size="lg">
-            {C.goConfirm}
-          </ButtonLink>
-        </div>
       )}
     </>
   );

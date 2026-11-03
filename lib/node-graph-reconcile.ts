@@ -32,7 +32,7 @@ export type NodeGraphIssues = {
   missingPhotoBlocks: number; // 7
   orphanDrafts: number; // 8
   pendingLinks: number; // 9 — PROPOSED 전체
-  pendingPeopleLinks: number; // 9 — 그중 이야기→인물(확인 화면 대상)
+  pendingPeopleLinks: number; // 9 — 그중 이야기→인물(옛 인물 확인 화면 대상 — 화면·만드는 경로 2026-11-03 삭제, 늘 0 이어야)
   oldestPendingDays: number | null; // 9
   locationPeople: number; // 10
   memberOwnerMismatch: number; // 11 — PersonGroupMember·PlaceGroupMember

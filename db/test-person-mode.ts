@@ -275,7 +275,7 @@ async function scenarioCorrectedStatus() {
 
 // P12-3/P12-2/P12-4/P12-5 — 인물 dedup + 에피소드 대화 중 인물 저장 + 호칭.
 // 2026-11-03 — P12-2(이야기 마무리 인물 추출 → 확인 대기)·P12-4(인물 추출 프롬프트)는 옛 온보딩 이야기 대화 마무리
-// 경로(finishEpisodeChatCore·savePeopleMentionedInEpisode·extractPersonCandidates)와 함께 삭제. 확인 화면 흐름은 test-node-confirm.
+// 경로(finishEpisodeChatCore·savePeopleMentionedInEpisode·extractPersonCandidates)와 함께 삭제. 확인 화면(test-node-confirm)도 2026-11-03 삭제(§15.6).
 async function scenarioP12() {
   console.log("\n=== P12 — 인물 dedup · 호칭 ===");
 

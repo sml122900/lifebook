@@ -30,7 +30,6 @@ import { getPeriodPromptForEvent } from "../gap-detector";
 import type { InterviewItem } from "../generated/prisma/client";
 import type { EpisodeKind } from "../generated/prisma/enums";
 import { getConfirmedLifeEvent } from "../life-event-query";
-import { countPendingPeople } from "../node-confirm";
 import { saveNodeLink } from "../node-graph";
 import { displayTitle } from "../story-title";
 import { INTERVIEW_COPY } from "./copy";
@@ -56,8 +55,8 @@ export type InterviewState =
   | { kind: "start"; plannedCount: number }
   | { kind: "empty" }
   | { kind: "item"; item: InterviewItemView; resumed: boolean }
-  // pendingPeople — 노드 그래프 2b-2: 이야기에 나온 인물 확인 대기 수(≥1 이면 요약에 확인 카드).
-  | { kind: "summary"; answered: number; skipped: number; saved: string[]; pendingPeople: number };
+  // 요약 — 인물 확인 대기 수(pendingPeople)는 2026-11-03 인물 확인 화면과 함께 뺌(my-life-restructure §15.6).
+  | { kind: "summary"; answered: number; skipped: number; saved: string[] };
 
 type Target = {
   eventId: string;
@@ -197,16 +196,15 @@ async function todayItems(userId: string, day: string): Promise<InterviewItem[]>
   return prisma.interviewItem.findMany({ where: { userId, day }, orderBy: { ordinal: "asc" } });
 }
 
-async function summarize(userId: string, rows: InterviewItem[]): Promise<InterviewState> {
+async function summarize(rows: InterviewItem[]): Promise<InterviewState> {
   const answeredRows = rows.filter((r) => r.status === "ANSWERED");
   const refIds = answeredRows.map((r) => r.refId).filter((id): id is string => id !== null);
-  const [episodes, events, pendingPeople] = await Promise.all([
+  const [episodes, events] = await Promise.all([
     prisma.episode.findMany({ where: { id: { in: refIds } }, select: { id: true, content: true, memory: { select: { title: true } } } }),
     prisma.lifeEvent.findMany({
       where: { id: { in: refIds } },
       select: { id: true, label: true, correctedLabel: true, year: true, correctedYear: true },
     }),
-    countPendingPeople(userId),
   ]);
   const saved: string[] = [];
   for (const r of answeredRows) {
@@ -224,7 +222,6 @@ async function summarize(userId: string, rows: InterviewItem[]): Promise<Intervi
     answered: answeredRows.length,
     skipped: rows.filter((r) => r.status === "SKIPPED").length,
     saved,
-    pendingPeople,
   };
 }
 
@@ -261,7 +258,7 @@ export async function nextInterviewState(userId: string, now: Date = new Date())
       resumed: false,
     };
   }
-  return summarize(userId, rows);
+  return summarize(rows);
 }
 
 // /interview 첫 화면. 오늘 세션이 없으면 계획만 계산해 문항 수를 보여준다(저장은

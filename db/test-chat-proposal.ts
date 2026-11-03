@@ -93,8 +93,6 @@ import {
   type CardEdit,
   type ProposalCard,
 } from "../lib/node-proposal";
-import { getPendingPeopleGroups } from "../lib/node-confirm";
-import { saveProposedPeople } from "../lib/person-chat";
 import { periodMemoryId, syncV3Bridge } from "../lib/poster/v3-bridge";
 import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
 import { DEFAULT_PERIOD_LABELS, displayTitle, isPeriodNameTitle, SHORT_TITLE_MAX, shortTitle, storedStoryTitle } from "../lib/story-title";
@@ -254,7 +252,6 @@ function staticChecks() {
   const promote = /(promoteOpenTurn|respondToOpenChat|submitPersonAnswer)\s*\(|from\s+["'][^"']*(open-chat|actions\/person-chat)["']/;
   check("⑦ 자유 발화 즉시 중심 생성 0 — app 에서 promoteOpenTurn·respondToOpenChat·submitPersonAnswer 호출 없음", uses(promote).length === 0, uses(promote));
   // "확인 대기를 만드는 경로 0" 은 파일 검색 대신 이 실행의 모든 저장 뒤 DB 로 본다(noPendingChecks — 2026-11-03).
-  check("⑦ /chat-v3 대화창 확인 카드 제거", !read("app/chat-v3/ChatV3Client.tsx").includes("CONFIRM_COPY"));
   check("⑦ /enter V3 설정 완료 → /my-life(Q68)", /if \(unconfirmed === 0\) \{\s*redirect\("\/my-life"\);/.test(read("app/enter/page.tsx")));
   // 화면 렌더 확인은 브라우저가 필요해 정적 확인 — 개수는 안 본다(버튼 자리를 옮기거나 늘려도 안 깨지게, 2026-11-03).
   check("⑦ /my-life 채팅 진입 버튼(→ /chat-v3) 있음", read("app/my-life/MyLifeView.tsx").includes('href="/chat-v3"'));
@@ -1161,15 +1158,11 @@ async function titleChecks(fx: Fixture) {
     label === lead && posterRow?.title === "훈련소에서 첫 편지를 썼다." && saved.length === 1 && saved[0].title === lead && saved[0].summary === card.summary,
     { label, posterRow, saved });
 
-  // 나머지 읽는 곳도 실제 결과로 — 찾기 결과 · 인물 확인 묶음 제목 · 오늘의 인터뷰 요약(2026-11-03, 파일마다 title 읽는 횟수를
-  // 세던 정적 검사 대신). 인물 확인 대기는 회귀만 쓰는 saveProposedPeople 로 잠깐 만들고 바로 지운다(아래 noPendingChecks 전에).
+  // 나머지 읽는 곳도 실제 결과로 — 찾기 결과 · 오늘의 인터뷰 요약(2026-11-03, 파일마다 title 읽는 횟수를 세던 정적 검사 대신).
+  // (인물 확인 묶음 제목은 인물 확인 화면과 함께 삭제 — 설계 §15.6.)
   const found = searchMyLife(await getMyLifeData(userId), "앞마당").find((r) => r.kind === "story" && made.ok && r.key.endsWith(`:${made.episodeId}`));
-  let confirmTitle: string | undefined;
   let summarySaved: string[] | undefined;
   if (made.ok) {
-    await saveProposedPeople(userId, ev.ELEM_SCHOOL, made.episodeId, [{ name: "[fixture] 확인 대기 분", relation: "친구" }]);
-    confirmTitle = (await getPendingPeopleGroups(userId)).find((g) => g.episodeId === made.episodeId)?.title;
-    await prisma.person.deleteMany({ where: { userId, name: "[fixture] 확인 대기 분" } }); // 연결은 DB 트리거가 같이 지움
     const now = new Date();
     const item = await prisma.interviewItem.create({
       data: { userId, day: kstDay(now), ordinal: 1, itemKey: "fixture:title", source: "POOL", status: "ANSWERED", doneAt: now, refId: made.episodeId },
@@ -1178,8 +1171,8 @@ async function titleChecks(fx: Fixture) {
     summarySaved = state.kind === "summary" ? state.saved : undefined;
     await prisma.interviewItem.delete({ where: { id: item.id } });
   }
-  check("⑪ 제목 없는 이야기 — 찾기 결과 · 인물 확인 묶음 제목 · 오늘의 인터뷰 요약 = 본문 첫 문장",
-    found?.title === lead && confirmTitle === lead && JSON.stringify(summarySaved) === JSON.stringify([lead]), { found, confirmTitle, summarySaved });
+  check("⑪ 제목 없는 이야기 — 찾기 결과 · 오늘의 인터뷰 요약 = 본문 첫 문장",
+    found?.title === lead && JSON.stringify(summarySaved) === JSON.stringify([lead]), { found, summarySaved });
   // 화면 컴포넌트(지도·목록·패널·카드)는 브라우저 렌더가 필요해 정적 확인으로 남긴다 — displayTitle 을 거치는지(있는지)만.
   const code = (rel: string) => read(rel).split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
   const screens = ["app/my-life/MyLifeView.tsx", "app/components/ProposalCard.tsx"].filter((rel) => !code(rel).includes("displayTitle("));
@@ -1227,8 +1220,8 @@ function josaChecks() {
       place("Tokyo Tower").includes("Tower와 ") && !["개울", "학교", "Tokyo Tower"].some((n) => place(n).includes("과/와")));
   check("⑬ 같은 분 되묻기 — \"님과\"(님 = 받침 있음, 늘 맞음) · 관계 있으면 괄호",
     FREE_CHAT_COPY.sameNameQuestion("김민수", "친구") === "이미 계신 김민수(친구) 님과 같은 분인가요?" && FREE_CHAT_COPY.sameNameQuestion("정우", null) === "이미 계신 정우 님과 같은 분인가요?");
-  // 문구 파일 4개 — 이름(보간) 바로 뒤에 조사를 글자로 박은 곳 0(조사는 withJosa 로).
-  const hard = ["lib/free-chat-copy.ts", "lib/my-life-copy.ts", "lib/node-confirm-copy.ts", "lib/interview/copy.ts"].flatMap((rel) =>
+  // 문구 파일 3개 — 이름(보간) 바로 뒤에 조사를 글자로 박은 곳 0(조사는 withJosa 로). (인물 확인 문구 파일은 2026-11-03 화면과 함께 삭제)
+  const hard = ["lib/free-chat-copy.ts", "lib/my-life-copy.ts", "lib/interview/copy.ts"].flatMap((rel) =>
     read(rel).split("\n").filter((l) => /\$\{[^}]+\}(이|가|을|를|은|는|과|와|으로|로|이랑|랑|에게|께서)[ "`'.,?!)]/.test(l)).map((l) => `${rel}: ${l.trim()}`),
   );
   check("⑬ 문구 파일 — 보간 바로 뒤 조사 하드코딩 0", hard.length === 0, hard);
@@ -1638,7 +1631,8 @@ async function liveE2EReplay() {
 }
 
 // ⑦ 확인 대기를 만드는 경로 0 — 이 실행에서 카드 [만들기]·[고치기]·되묻기·자유 대화(실제 모델 포함)·직접 저장을 다 거친 뒤
-// 이 계정에 확인 대기 연결(PROPOSED)·초안 인물이 없다(2026-11-03, 파일 안 호출 검색 대신 실제 DB). ⑪ 이 잠깐 만든 것은 지웠다.
+// 이 계정에 확인 대기 연결(PROPOSED)·초안 인물이 없다(2026-11-03, 파일 안 호출 검색 대신 실제 DB). 인물 확인 화면은 삭제(§15.6) —
+// 확인 대기가 생기면 풀 곳이 없으므로 이 검사가 그걸 막는다.
 async function noPendingChecks(fx: Fixture) {
   const [proposed, drafts] = await Promise.all([
     prisma.nodeLink.count({ where: { userId: fx.userId, status: "PROPOSED" } }),

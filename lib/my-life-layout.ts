@@ -191,7 +191,7 @@ export function eventPeoplePlaceList(ev: Pick<MyLifeEvent, "personIds" | "placeI
   const places = new Map(ev.placeIds.map((id) => [`id:${id}`, direct(id)]));
   for (const s of ev.stories) {
     for (const c of s.chips) {
-      if (c.proposed || c.kind === "group") continue;
+      if (c.kind === "group") continue;
       const m = c.kind === "place" ? places : people;
       const ref = c.id ? `id:${c.id}` : `name:${c.name}`;
       if (!m.has(ref)) m.set(ref, { ref, id: c.id, name: c.name, direct: false, storyId: s.id });
@@ -205,11 +205,10 @@ export function eventPeoplePlaces(ev: Pick<MyLifeEvent, "personIds" | "placeIds"
   return { people: r.people.size, places: r.places.size };
 }
 
-// 꼬리표 줄(한 줄, 18px) — 그때의 나 > 확인 전 > 여러 시기 순으로 하나만 보인다(나머지는 패널·버튼 이름에).
-export type StoryTag = "self" | "pending" | "elsewhere" | null;
+// 꼬리표 줄(한 줄, 18px) — 그때의 나 > 여러 시기 순으로 하나만 보인다(나머지는 패널·버튼 이름에).
+export type StoryTag = "self" | "elsewhere" | null;
 export function storyTag(s: MyLifeStory): StoryTag {
   if (s.kind === "SELF") return "self";
-  if (s.hasPending) return "pending";
   if (s.otherEventIds.length > 0) return "elsewhere";
   return null;
 }
@@ -552,8 +551,7 @@ export function layoutMyLife(
   const t = layoutTimeline(data, opts.folded ?? new Set<string>());
   const people = layoutRegion(
     "people",
-    // 확인 대기 초안은 모임에 넣지 않고 맨 끝(무소속 격자의 끝)에.
-    [...data.people.filter((p) => !p.draft), ...data.people.filter((p) => p.draft)].map((p) => ({ id: p.id, groupIds: p.draft ? [] : p.groupIds, kind: "person" as const })),
+    data.people.map((p) => ({ id: p.id, groupIds: p.groupIds, kind: "person" as const })),
     data.groups,
     opts.shownGroupIds ?? [],
     L.TOP_PAD,

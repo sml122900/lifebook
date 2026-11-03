@@ -355,7 +355,7 @@ export async function personRow(
   if (matched && nameAgrees(matched.name, name) && isRelationCompatible(matched.relation, relation)) {
     return { name: matched.name, relation: matched.relation, personId: matched.id, sameName: [] };
   }
-  const compatible = await findCompatiblePerson(prisma, userId, name, relation, false);
+  const compatible = await findCompatiblePerson(prisma, userId, name, relation);
   if (compatible) return { name: compatible.name, relation: compatible.relation, personId: compatible.id, sameName: [] };
   return { name, relation, personId: null, sameName: await findSameNamePeople(prisma, userId, name) };
 }

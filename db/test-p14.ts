@@ -8,6 +8,8 @@
 //         My Life 개편 2단계): 같은 이름·다른 관계(선생님 vs 선배)는 자동으로 합치지 않고 되묻고
 //         [다른 분이에요] = 별도 Person, 호환 관계(친구 vs 친한 친구·지인)는 기존 인물로 — 실제 DB 로.
 //         (옛 saveOrLinkPerson 은 /chat-v3 인물 단계와 함께 삭제.)
+//         + 2026-11-03 인물 확인 화면 회귀(test-node-confirm, 화면과 함께 퇴역)에서 옮긴 동명이인 검사 — 이름 공백 무시·
+//         관계 무관 되묻기(후보 전부) · [같은 분이에요] 대상이 후보 밖(초안·남의 인물)이면 거부 · 고른 분에 연결.
 // P14-3 — buildPersonAddress 배우자 동의어(안사람·영감).
 
 import "dotenv/config";
@@ -27,8 +29,8 @@ import { isRelationCompatible } from "../lib/person-relation";
 import { buildPersonAddress } from "../lib/person-honorific";
 import { cardToEdit, createFromCard, personRow, type ProposalCard } from "../lib/node-proposal";
 
-// 카드 사람 행 하나로 이야기 저장 — /chat-v3·인터뷰 카드와 같은 경로. decision 은 되묻기 답.
-async function saveViaCard(userId: string, eventId: string, name: string, relation: string, decision?: "different") {
+// 카드 사람 행 하나로 이야기 저장 — /chat-v3·인터뷰 카드와 같은 경로. decision·samePersonId 는 되묻기 답.
+async function saveViaCard(userId: string, eventId: string, name: string, relation: string, decision?: "same" | "different", samePersonId?: string) {
   const roster = await prisma.person.findMany({
     where: { userId, subjectType: "person", isDraft: false },
     select: { id: true, name: true, relation: true },
@@ -39,7 +41,7 @@ async function saveViaCard(userId: string, eventId: string, name: string, relati
     people: [row], places: [], kind: "STORY", transcript: "", until: null, targetPersonId: null, isPeriod: false,
   };
   const edit = cardToEdit(card);
-  if (decision) edit.people[0] = { ...edit.people[0], decision };
+  if (decision) edit.people[0] = { ...edit.people[0], decision, samePersonId };
   const result = await createFromCard(userId, card, edit);
   const linked = result.ok
     ? await prisma.nodeLink.findFirst({ where: { fromType: "EPISODE", fromId: result.episodeId, toType: "PERSON" }, select: { toId: true } })
@@ -128,6 +130,7 @@ async function dbChecks() {
   const user = await prisma.user.create({
     data: { email: "p14-test-hana@test", name: "hana", birthYear: 1962 },
   });
+  const other = await prisma.user.create({ data: { email: "p14-test-other@test", name: "other" } }); // 남의 인물(동명이인 거부)
   try {
     const mk = (type: "HIGH_SCHOOL" | "UNIVERSITY", label: string, year: number, order: number) =>
       prisma.lifeEvent.create({
@@ -167,10 +170,32 @@ async function dbChecks() {
 
     const people = await prisma.person.count({ where: { userId: user.id } });
     check("Person 총 3명(박정호×2·최영수×1)", people === 3, people);
+
+    // 동명이인(test-node-confirm ⑦에서 옮김 — 같은 이름 되묻기는 지금 제안 카드·지도 사람 만들기가 씀, 자동 병합 안 함).
+    const stories = () => prisma.episode.count({ where: { lifeEvent: { userId: user.id } } });
+    const storiesBefore = await stories();
+    const g = await saveViaCard(user.id, hs.id, "박 정호", "동네 이웃");
+    check("동명이인 — 이름 공백 무시·관계 안 맞음 → 같은 이름 확정 인물 전부 후보(2명)로 되묻기",
+      g.row.personId === null && g.row.sameName.length === 2 && [a.personId, b.personId].every((id) => g.row.sameName.some((s) => s.id === id)) &&
+        !g.result.ok && g.result.reason === "ask",
+      g);
+    const draftPerson = await prisma.person.create({ data: { userId: user.id, name: "박정호", relation: "동네 이웃", isDraft: true }, select: { id: true } });
+    const foreignPerson = await prisma.person.create({ data: { userId: other.id, name: "박정호", relation: "동네 이웃" }, select: { id: true } });
+    const badDraft = await saveViaCard(user.id, hs.id, "박 정호", "동네 이웃", "same", draftPerson.id);
+    const badForeign = await saveViaCard(user.id, hs.id, "박 정호", "동네 이웃", "same", foreignPerson.id);
+    check("[같은 분이에요] 대상이 후보 밖(초안·남의 인물) → 거부 · 되묻기·거부 모두 이야기 저장 0",
+      !badDraft.result.ok && badDraft.result.reason === "invalid" && !badForeign.result.ok && badForeign.result.reason === "invalid" &&
+        (await stories()) === storiesBefore,
+      { badDraft: badDraft.result, badForeign: badForeign.result });
+    const same = await saveViaCard(user.id, hs.id, "박 정호", "동네 이웃", "same", a.personId!);
+    check("[같은 분이에요] → 고른 분에 연결(새 사람 안 만듦 — 확정 박정호 2명 그대로)",
+      same.result.ok && same.personId === a.personId && (await prisma.person.count({ where: { userId: user.id, isDraft: false, name: "박정호" } })) === 2,
+      same);
   } finally {
     await deleteAccountTx(user.id);
-    const left = await prisma.user.findUnique({ where: { id: user.id } });
-    check("테스트 계정 흔적 삭제", left === null);
+    await deleteAccountTx(other.id);
+    const left = await prisma.user.count({ where: { id: { in: [user.id, other.id] } } });
+    check("테스트 계정 흔적 삭제", left === 0);
   }
 }
 

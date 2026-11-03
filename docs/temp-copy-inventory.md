@@ -1,15 +1,14 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
-> 뽑은 방법: 문구 파일 4개의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
+> 갱신 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 뽑은 방법: 문구 파일 3개(2026-11-03 인물 확인 문구 파일 삭제 전엔 4개)의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 ## 요약
 
 | 파일 | 임시 문구 | 화면에 안 나오는 키(쓰는 곳 없음) | 보이는 곳 |
 |---|---|---|---|
 | `lib/free-chat-copy.ts` | 62 (전부 — 카드 오류 6개는 2026-11-02 `lib/node-proposal.ts` 에서 옮겨 옴 · 시기 미지정 2개 `centerUnset`·`centerPick` 2026-11-02 추가) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
-| `lib/my-life-copy.ts` | 204 (78 + 3단계 115 + Q69 11 · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 (`storyReviewEntry` 는 2026-11-03 옛 `/story-review` 본문과 함께 삭제) | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
-| `lib/node-confirm-copy.ts` | 32 (전부) | 0 | `/story-review/confirm` · My Life "정리할 것이 있어요" 카드(목록 보기 맨 위·지도 [이야기 거리] — Q69 전 `/story-review`) · `/interview` 요약 |
+| `lib/my-life-copy.ts` | 200 (78 + 3단계 115 + Q69 11 − 확인 대기 표시 4(2026-11-03 삭제 — `pendingTag`·`goConfirm`·`pendingNote`·`draftNote`) · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 (`storyReviewEntry` 는 2026-11-03 옛 `/story-review` 본문과 함께 삭제) | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
 | `lib/interview/copy.ts` | 42 (전부 — `selfStoriesTitle` 2026-11-03 삭제) | 0 | `/interview` · My Life "오늘의 인터뷰" 카드(Q69 전 `/story-review`) |
 | `lib/interview/question-pool.ts` | 문항 8개(18줄 — 구조 예시 5 + "관계별 나" 3) | — | `/interview` 질문·이야기 제목 |
 | 그 밖 | 1 | — | 아래 "그 밖" |
@@ -110,13 +109,10 @@
 | `selfTag` | 32 | "그때의 나" | /my-life | app/my-life/MyLifeView.tsx:1102, app/my-life/MyLifeView.tsx:1585 |
 | `kindPerson` | 33 | "사람" | /my-life | app/my-life/MyLifeView.tsx:1316, app/my-life/MyLifeView.tsx:1450 |
 | `kindPlace` | 34 | "장소" | /my-life | app/my-life/MyLifeView.tsx:1317, app/my-life/MyLifeView.tsx:1513 |
-| `pendingTag` | 35 | "확인 전" | /my-life | app/my-life/MyLifeView.tsx:89, app/my-life/MyLifeView.tsx:1053, app/my-life/MyLifeView.tsx:1059, app/my-life/MyLifeView.tsx:1103, app/my-life/MyLifeView.tsx:1272, app/my-life/MyLifeView.tsx:1602 |
 | `alsoElsewhereShort` | 36 | "여러 시기" | /my-life | app/my-life/MyLifeView.tsx:1104 |
 | `close` | 37 | "닫기" | /my-life | app/my-life/MyLifeView.tsx:322, app/my-life/MyLifeView.tsx:1368 |
 | `readBody` | 38 | "본문 보기" | /my-life | app/my-life/MyLifeView.tsx:1593 |
 | `hideBody` | 39 | "본문 접기" | /my-life | app/my-life/MyLifeView.tsx:1593 |
-| `goConfirm` | 40 | "확인하러 가기" | /my-life | app/my-life/MyLifeView.tsx:1473, app/my-life/MyLifeView.tsx:1627 |
-| `pendingNote` | 41 | "이 이야기에 아직 확인하지 않은 분이 있어요." | /my-life | app/my-life/MyLifeView.tsx:1625 |
 | `openPerson` | 42 | "인물록에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1499 |
 | `openMap` | 43 | "지도에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1543 |
 | `emptyTitle` | 44 | "아직 지도에 담을 이야기가 없어요" | /my-life | app/my-life/page.tsx:33 |
@@ -162,7 +158,6 @@
 | `panelEventsWith` | 90 | "그 시기" | /my-life | app/my-life/MyLifeView.tsx:1489, app/my-life/MyLifeView.tsx:1534 |
 | `panelGroups` | 91 | "모임" | /my-life | app/my-life/MyLifeView.tsx:1466 |
 | `goThere` | 92 | "여기로 가기" | /my-life | app/my-life/MyLifeView.tsx:1384 |
-| `draftNote` | 93 | "이야기에서 찾은 분이에요. 아직 확인하지 않았어요." | /my-life | app/my-life/MyLifeView.tsx:1471 |
 | `personName2` | 94 | `` (name: string, groups: string[], stories: number) => `사람, ${name}${groups.length ? `, 모임 ${groups.join("·")}` : ""}, 이야기 ${stories}` `` | /my-life | app/my-life/MyLifeView.tsx:1053 |
 | `placeName2` | 96 | `` (name: string, stories: number) => `장소, ${name}, 이야기 ${stories}` `` | /my-life | app/my-life/MyLifeView.tsx:1084 |
 | `groupLabelName` | 97 | `` (name: string, n: number) => `모임, ${name}, ${n}명` `` | /my-life | app/my-life/MyLifeView.tsx:1022 |
@@ -200,43 +195,6 @@
 | `savingBody` | 53 | "저장 중…" | 이야기 패널 고치기 | app/my-life/MyLifeView.tsx:2117 |
 | `editBodyFailed` | 54 | "고치지 못했어요." | 이야기 패널 고치기 오류(서버 문구가 없을 때) | app/my-life/MyLifeView.tsx:2061 |
 | `editBodyRetry` | 55 | "처리 중 문제가 있었어요. 화면을 새로고침할게요." | 이야기 패널 고치기 — 응답 실패 | app/my-life/MyLifeView.tsx:2070 |
-
-### `lib/node-confirm-copy.ts` (`CONFIRM_COPY`)
-
-| 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
-|---|---|---|---|---|
-| `title` | 7 | "이야기에 나온 분들" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:106 |
-| `desc` | 8 | "이야기 속에서 말씀하신 분들이에요. 맞는지 한 번만 봐 주세요." | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:107 |
-| `storyHeading` | 9 | `` (title: string) => `‘${title}’에 나온 분` `` | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:129 |
-| `registered` | 10 | "이미 등록된 분" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:145 |
-| `yes` | 11 | "맞아요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:283 |
-| `no` | 12 | "아니에요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:303 |
-| `edit` | 13 | "고칠게요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:295 |
-| `allYes` | 14 | "모두 맞아요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:115 |
-| `nameLabel` | 15 | "이름" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:222 |
-| `relationLabel` | 16 | "관계" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:236 |
-| `editSave` | 17 | "이렇게 고칠게요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:260 |
-| `editCancel` | 18 | "취소" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:271 |
-| `editInvalid` | 19 | "이름을 적어 주세요. 이름은 50자, 관계는 30자까지예요." | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:79 |
-| `sameNameAsk` | 21 | "같은 이름으로 이미 등록된 분이 있어요. 같은 분인가요?" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:156 |
-| `sameYes` | 22 | "같은 분이에요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:176 |
-| `sameYesLabel` | 23 | `` (name: string, relation: string \| null) => `${name}${relation ? `, ${relation}` : ""} — 같은 분이에요` `` | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:168 |
-| `sameNo` | 24 | "다른 분이에요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:195 |
-| `sameBack` | 25 | "돌아가기" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:215 |
-| `saving` | 26 | "담고 있어요…" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:115, app/story-review/confirm/ConfirmClient.tsx:260 |
-| `rowConfirmed` | 27 | "확인했어요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:151 |
-| `rowRejected` | 28 | "뺐어요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:151 |
-| `error` | 29 | "처리하지 못했어요. 다시 해 볼까요?" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:79, app/story-review/confirm/ConfirmClient.tsx:85 |
-| `allDone` | 30 | "다 확인했어요. 고맙습니다." | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:323 |
-| `finish` | 31 | "확인 마치기" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:327 |
-| `emptyTitle` | 32 | "확인할 분이 없어요" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:94 |
-| `emptyDesc` | 33 | "이야기를 나누다 새로운 분이 나오면 여기서 확인해 드릴게요." | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:95 |
-| `emptyButton` | 34 | "지금까지 채운 이야기 보기" | /story-review/confirm(인물 확인) | app/story-review/confirm/ConfirmClient.tsx:97 |
-| `reviewCardTitle` | 37 | "정리할 것이 있어요" | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:24 |
-| `reviewCardDesc` | 38 | `` (n: number) => `이야기에 나온 분 ${n}명이 맞는지 확인해 주세요.` `` | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:25 |
-| `reviewCardButton` | 39 | "확인하러 가기" | My Life 목록 보기 맨 위 · 지도 [이야기 거리] 시트(Q69 전 /story-review) | app/my-life/Suggestions.tsx:27 |
-| `interviewCardDesc` | 42 | `` (n: number) => `이야기에 나온 분 ${n}명, 맞는지 확인해 주세요.` `` | /interview | app/interview/InterviewClient.tsx:105 |
-| `interviewCardButton` | 43 | "확인하러 가기" | /interview | app/interview/InterviewClient.tsx:107 |
 
 ### `lib/interview/copy.ts` (`INTERVIEW_COPY`)
 

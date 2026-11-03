@@ -152,7 +152,6 @@ export function CreateForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  const confirmedPeople = data.people.filter((p) => !p.draft);
   const kindLabel = E.kinds[kind];
   const fixedEvent = preset?.eventId ? data.events.find((e) => e.id === preset.eventId) : undefined;
 
@@ -282,7 +281,7 @@ export function CreateForm({
           </Field>
           <MultiPick
             label={kind === "self" ? E.fieldSelfPeople : E.fieldPeople}
-            items={confirmedPeople.map((p) => ({ id: p.id, label: p.name, sub: p.relation ?? undefined }))}
+            items={data.people.map((p) => ({ id: p.id, label: p.name, sub: p.relation ?? undefined }))}
             value={personIds}
             onChange={setPersonIds}
           />
@@ -313,7 +312,7 @@ export function CreateForm({
         </>
       )}
 
-      {kind === "group" && <MultiPick label={E.fieldMembers} items={confirmedPeople.map((p) => ({ id: p.id, label: p.name, sub: p.relation ?? undefined }))} value={personIds} onChange={setPersonIds} />}
+      {kind === "group" && <MultiPick label={E.fieldMembers} items={data.people.map((p) => ({ id: p.id, label: p.name, sub: p.relation ?? undefined }))} value={personIds} onChange={setPersonIds} />}
       {kind === "placeGroup" && <MultiPick label={E.fieldPlaceMembers} items={data.places.map((p) => ({ id: p.id, label: p.name, sub: p.address ?? undefined }))} value={placeIds} onChange={setPlaceIds} />}
 
       <ErrorLine text={error} />
@@ -492,7 +491,7 @@ export function NodeEditor({
     sections.push({ title: C.panelGroups, items: nn(ev.groupIds.map(groupItem)) });
     adds.push({ what: "person", label: E.addPerson }, { what: "place", label: E.addPlace });
   } else if (story) {
-    const ppl = story.chips.filter((c) => c.kind === "person" && c.id && !c.proposed);
+    const ppl = story.chips.filter((c) => c.kind === "person" && c.id);
     sections.push({
       title: C.panelWithPeople,
       items: nn(ppl.map((c) => (c.id === story.subjectPersonId ? personItem(c.id!, false, E.subjectNote) : personItem(c.id!)))),
@@ -500,7 +499,7 @@ export function NodeEditor({
     sections.push({ title: C.panelGroups, items: nn(story.chips.filter((c) => c.kind === "group" && c.id).map((c) => groupItem(c.id!))) });
     sections.push({ title: C.panelWithPlaces, items: nn(story.chips.filter((c) => c.kind === "place" && c.id).map((c) => placeItem(c.id!))) });
     adds.push({ what: "person", label: E.addPerson }, { what: "place", label: E.addPlace }, { what: "group", label: E.addGroup });
-  } else if (person && !person.draft) {
+  } else if (person) {
     sections.push({ title: C.panelGroups, items: nn(person.groupIds.map(groupItem)) });
     adds.push({ what: "group", label: E.addToGroup });
   } else if (place) {
@@ -519,7 +518,7 @@ export function NodeEditor({
     const linked = new Set(sections.flatMap((s) => s.items.filter((i) => i.ref && !i.fromStory).map((i) => `${i.ref!.type}:${i.ref!.id}`)));
     if (story?.subjectPersonId) linked.add(`PERSON:${story.subjectPersonId}`);
     if (what === "person" || what === "member") {
-      return data.people.filter((p) => !p.draft && !linked.has(`PERSON:${p.id}`)).map((p) => ({ id: p.id, label: p.name, sub: p.relation ?? undefined, ref: { type: "PERSON", id: p.id } }));
+      return data.people.filter((p) => !linked.has(`PERSON:${p.id}`)).map((p) => ({ id: p.id, label: p.name, sub: p.relation ?? undefined, ref: { type: "PERSON", id: p.id } }));
     }
     if (what === "place" || what === "placeMember") {
       return data.places.filter((p) => !linked.has(`PLACE:${p.id}`)).map((p) => ({ id: p.id, label: p.name, sub: p.address ?? undefined, ref: { type: "PLACE", id: p.id } }));
@@ -867,7 +866,7 @@ export function NodeEditor({
         </Button>
       )}
       <ErrorLine text={error} />
-      {person && !person.draft && (
+      {person && (
         <div className="flex flex-col gap-2 border-t border-line pt-4">
           <p className="text-lg text-ink-soft">{E.personDeleteNote}</p>
           <ButtonLink href={`/people/${person.id}`} variant="tertiary" size="lg">

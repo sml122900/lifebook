@@ -2,8 +2,8 @@
 // node-graph-self.md §6 2b.1·2b-3a 수정. LLM 0.
 //
 //   ① 포함 규칙(getMyLifeData) — 확정 중심만·sequenceOrder 순·연도 없는 중심 · 이야기 주 소속 + 추가 소속 · 작은 물방울
-//      (대상 인물·확정/확인 대기 연결·입구로 넣은 장소·옛 장소 이름) · 인물록 = 확정 인물 전부(연결 없는 분 포함) +
-//      확인 대기 초안(말동무 초안은 빠짐) · 모임과 구성원 · 장소록 = 사용자 장소 전부 · 중심 직접 연결(간선용) · 남의 데이터 0
+//      (대상 인물·확정 연결·입구로 넣은 장소·옛 장소 이름 — 확인 대기 연결은 안 보임) · 인물록 = 확정 인물 전부(연결 없는 분 포함,
+//      초안은 빠짐) · 모임과 구성원 · 장소록 = 사용자 장소 전부 · 중심 직접 연결(간선용) · 남의 데이터 0
 //   ② Prisma 호출 수 고정 — 기록을 크게 늘려도 같은 수
 //   ③ 배치 — 오른쪽 가지 없음 · 시간 줄기(x ≤ 420)와 인물록·장소록(x ≥ 520) 분리 · 노드 교차 0 · 중심 노드 전부 같은 크기 ·
 //      모임 영역 소속(각 노드가 자기 모임 영역 안·다른 모임 영역 밖, 빈 모임 영역) · 합성 데이터 모임 0~5 × 둥근 사각·원 ·
@@ -17,7 +17,7 @@
 //   ⑩ 2026-11-02 3단계 E2E 후속 2 — 지도 위 떠 있던 가장자리 버튼을 도구줄(이동 줄)·머리 줄(연결된 곳)로
 //   ⑪ 2026-11-02 3단계 최종 E2E — 차례 보기 [다음 연결](연결 n/N, 마지막 다음 = 처음으로) · 시기 패널 사람·장소 목록 = 수와 같은 기준(이야기에 나온 곳 포함)
 //   ⑫ 2026-11-02 Q69 — /story-review 합치기: redirect·archived · 앱 안 링크 0 · 사이드 패널 · 목록 보기 카드 자리·그때의 나 = 시기 아래 꼬리표로만 ·
-//      지도 [이야기 거리] 시트 · 이야기 패널 [이야기 고치기]
+//      지도 [이야기 거리] 시트 · 이야기 패널 [이야기 고치기] · 인물 확인 화면 삭제(2026-11-03 — 파일 없음·주소 → /my-life·링크 0)
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0).
 // 실행: npx tsx db/test-my-life.ts
@@ -129,7 +129,7 @@ function membershipErrors(data: MyLifeData, lay: MyLifeLayout): string[] {
     for (const s of lay.shapes) {
       const member =
         n.kind === "person"
-          ? s.region === "people" && !personById.get(n.personId)!.draft && personById.get(n.personId)!.groupIds.includes(s.groupId)
+          ? s.region === "people" && personById.get(n.personId)!.groupIds.includes(s.groupId)
           : s.region === "places" && placeById.get(n.placeId)!.groupIds.includes(s.groupId);
       if (member ? !rectInsideShape(s, n) : !rectOutsideShape(s, n)) errs.push(`${name}:${s.groupId}:${member ? "밖에있음" : "안에있음"}`);
     }
@@ -158,11 +158,10 @@ function synthetic(o: { events: number; stories: number; people: number; groups:
   const rnd = () => (x = (x * 1103515245 + 12345) % 2147483648) / 2147483648;
   const names = ["김민수", "박영수", "이순자", "정미숙", "한상철", "최영희", "강동원", "윤정아", "조성호", "임하늘", "송미란", "오세훈"];
   const people: MyLifePerson[] = Array.from({ length: o.people }, (_, i) => ({
-    id: `p${i}`, name: `${names[i % names.length]}${i >= names.length ? i : ""}`, relation: null, metYear: null, groupIds: [], draft: i === o.people - 1 && o.people > 3,
+    id: `p${i}`, name: `${names[i % names.length]}${i >= names.length ? i : ""}`, relation: null, metYear: null, groupIds: [],
   }));
   const groups = Array.from({ length: o.groups }, (_, g) => ({ id: `g${g}`, name: `모임${g}`, memberIds: [] as string[] }));
   for (const p of people) {
-    if (p.draft) continue;
     for (const g of groups) {
       if (rnd() < 0.3) {
         p.groupIds.push(g.id);
@@ -187,10 +186,10 @@ function synthetic(o: { events: number; stories: number; people: number; groups:
   for (let k = 0; k < o.stories; k++) {
     const ev = events[Math.floor(rnd() * events.length)];
     const chips = [
-      ...(people.length ? Array.from({ length: Math.floor(rnd() * 3) }, () => people[Math.floor(rnd() * people.length)]).map((p) => ({ kind: "person" as const, id: p.id, name: p.name, proposed: p.draft })) : []),
-      ...(places.length && rnd() < 0.4 ? [places[Math.floor(rnd() * places.length)]].map((q) => ({ kind: "place" as const, id: q.id, name: q.name, proposed: false })) : []),
+      ...(people.length ? Array.from({ length: Math.floor(rnd() * 3) }, () => people[Math.floor(rnd() * people.length)]).map((p) => ({ kind: "person" as const, id: p.id, name: p.name })) : []),
+      ...(places.length && rnd() < 0.4 ? [places[Math.floor(rnd() * places.length)]].map((q) => ({ kind: "place" as const, id: q.id, name: q.name })) : []),
     ].filter((c, i, arr) => arr.findIndex((d) => d.id === c.id) === i);
-    ev.stories.push({ id: `s${k}`, kind: rnd() < 0.15 ? "SELF" : "STORY", title: null, content: "가".repeat(10 + Math.floor(rnd() * 80)) + ".", primaryEventId: ev.id, otherEventIds: [], subjectPersonId: null, chips, hasPending: chips.some((c) => c.proposed) });
+    ev.stories.push({ id: `s${k}`, kind: rnd() < 0.15 ? "SELF" : "STORY", title: null, content: "가".repeat(10 + Math.floor(rnd() * 80)) + ".", primaryEventId: ev.id, otherEventIds: [], subjectPersonId: null, chips });
   }
   for (const ev of events) if (people.length && rnd() < 0.5) ev.personIds.push(people[Math.floor(rnd() * people.length)].id);
   for (const ev of events) if (places.length && rnd() < 0.3) ev.placeIds.push(places[Math.floor(rnd() * places.length)].id);
@@ -250,16 +249,17 @@ async function main() {
     check("① 연도 없는 중심 — year null, 맨 뒤", ej.year === null && ej.stories.length === 0);
     check("① 걸친 이야기 — 출생(주 소속)·고등학교(추가 소속) 두 곳, otherEventIds 서로",
       eb.stories[0].id === s1.episodeId && eb.stories[0].otherEventIds.join() === hs && eh.stories.some((s) => s.id === s1.episodeId && s.otherEventIds.join() === birth));
-    check("① 작은 물방울 — 대상 인물·확정 연결·확인 대기·입구로 넣은 장소·옛 장소 이름",
-      JSON.stringify(eb.stories[0].chips.map((c) => [c.kind, c.name, c.proposed, c.id !== null])) === JSON.stringify([
-        ["person", "[fixture] 어머니", false, true], ["person", "[fixture] 짝꿍", false, true], ["person", "[fixture] 확인 대기 분", true, true],
-        ["place", "[fixture] 외가", false, true], ["place", "[fixture] 옛 동네", false, false],
+    // 확인 대기(PROPOSED) 연결·그 초안 인물은 안 보임 — 그걸 확인하던 화면은 2026-11-03 삭제(설계 §15.6, 확정만 그림).
+    check("① 작은 물방울 — 대상 인물·확정 연결·입구로 넣은 장소·옛 장소 이름(확인 대기 연결은 안 보임)",
+      JSON.stringify(eb.stories[0].chips.map((c) => [c.kind, c.name, c.id !== null])) === JSON.stringify([
+        ["person", "[fixture] 어머니", true], ["person", "[fixture] 짝꿍", true],
+        ["place", "[fixture] 외가", true], ["place", "[fixture] 옛 동네", false],
       ]), eb.stories[0].chips);
     const pIds = d.people.map((p) => p.id);
-    check("① 인물록 = 확정 인물 전부(연결 없는 분 포함) + 확인 대기 초안, 말동무 초안 제외",
-      [mom, mate, teacher, leader, lonely, draft].every((id) => pIds.includes(id)) && !pIds.includes(compDraft) && pIds.length === 6, d.people.map((p) => p.name));
+    check("① 인물록 = 확정 인물 전부(연결 없는 분 포함), 초안(확인 대기·말동무) 제외",
+      [mom, mate, teacher, leader, lonely].every((id) => pIds.includes(id)) && !pIds.includes(draft) && !pIds.includes(compDraft) && pIds.length === 5, d.people.map((p) => p.name));
     check("① 인물록 가나다순", JSON.stringify(d.people.map((p) => p.name)) === JSON.stringify([...d.people.map((p) => p.name)].sort((x, y) => x.localeCompare(y, "ko"))));
-    check("① 초안 표시·모임 소속", d.people.find((p) => p.id === draft)?.draft === true &&
+    check("① 모임 소속",
       JSON.stringify([...(d.people.find((p) => p.id === mate)?.groupIds ?? [])].sort()) === JSON.stringify([choir, alumni].sort()) && d.people.find((p) => p.id === lonely)?.groupIds.length === 0);
     check("① 모임 3개(빈 모임 포함)와 구성원", d.groups.length === 3 && d.groups.find((g) => g.id === hiking)?.memberIds.length === 0 &&
       JSON.stringify([...(d.groups.find((g) => g.id === choir)?.memberIds ?? [])].sort()) === JSON.stringify([mate, leader].sort()));
@@ -292,7 +292,7 @@ async function main() {
     }
     ops = 0;
     const big = await getMyLifeData(a, counted);
-    check("② Prisma 호출 수 = 7 고정(기록 8건·인물 8명·연결 16건 늘려도 — 3단계 장소 묶음 +1)", opsSmall === 7 && ops === 7 && big.people.length === 14, { opsSmall, ops });
+    check("② Prisma 호출 수 = 7 고정(기록 8건·인물 8명·연결 16건 늘려도 — 3단계 장소 묶음 +1)", opsSmall === 7 && ops === 7 && big.people.length === 13, { opsSmall, ops, people: big.people.length });
 
     // ── ③ 배치 ───────────────────────────────────────────────────
     const lay = layoutMyLife(d);
@@ -304,8 +304,8 @@ async function main() {
       lay.nodes.filter((n) => timelineKinds.has(n.kind)).every((n) => n.x + n.w <= L.CENTER_RIGHT) &&
         lay.nodes.filter((n) => !timelineKinds.has(n.kind)).every((n) => n.x >= L.REGION_X) &&
         lay.shapes.every((s) => s.x >= L.REGION_X) && !lay.nodes.some((n) => (n.kind as string) === "branch"));
-    check("③ 인물 노드 6 · 장소 노드 3 · 모임 이름 3 · 칩 없음(3개 이하)",
-      lay.nodes.filter((n) => n.kind === "person").length === 6 && lay.nodes.filter((n) => n.kind === "place").length === 3 &&
+    check("③ 인물 노드 5(초안 빠짐) · 장소 노드 3 · 모임 이름 3 · 칩 없음(3개 이하)",
+      lay.nodes.filter((n) => n.kind === "person").length === 5 && lay.nodes.filter((n) => n.kind === "place").length === 3 &&
         lay.nodes.filter((n) => n.kind === "groupLabel").length === 3 && !lay.nodes.some((n) => n.kind === "groupChip"));
     check("③ 모임 소속 — 각 인물이 자기 모임 영역 안·다른 모임 영역 밖(짝꿍 = 합창부∩동창회, 반장 = 합창부만, 나머지 = 밖)", membershipErrors(d, lay).length === 0, membershipErrors(d, lay));
     const hikingShape = lay.shapes.find((s) => s.groupId === hiking);
@@ -349,15 +349,15 @@ async function main() {
     check("③ 모임 5개 — 고른 g4·g3 + 인원 많은 1개가 영역, 노드마다 숨은 모임 수", ly5.shownGroupIds.slice(0, 2).join() === "g4,g3" && ly5.shownGroupIds.length === 3 &&
       ly5.nodes.filter((n): n is PersonNode => n.kind === "person").every((n) => {
         const p = syn5.people.find((x) => x.id === n.personId)!;
-        return n.hiddenGroups === (p.draft ? p.groupIds.length : p.groupIds.filter((gid) => !ly5.shownGroupIds.includes(gid)).length);
+        return n.hiddenGroups === p.groupIds.filter((gid) => !ly5.shownGroupIds.includes(gid)).length;
       }), ly5.shownGroupIds);
 
     // ── ④ 간선 ───────────────────────────────────────────────────
     const on = { person: true, place: true };
     const keyS1 = `st:${birth}:${s1.episodeId}`;
     const e1 = selectionEdges(d, lay, keyS1, on);
-    check("④ 이야기 선택 — 사람 3(어머니·짝꿍·확인 대기)·장소 1(외가) 간선, 옛 장소(노드 없음) 빠짐",
-      JSON.stringify(e1.edges.map((e) => e.to).sort()) === JSON.stringify([`pe:${mom}`, `pe:${mate}`, `pe:${draft}`, `pl:${place1}`].sort()) && e1.related.size === 4, e1.edges.map((e) => e.to));
+    check("④ 이야기 선택 — 사람 2(어머니·짝꿍)·장소 1(외가) 간선, 옛 장소(노드 없음)·확인 대기 연결 빠짐",
+      JSON.stringify(e1.edges.map((e) => e.to).sort()) === JSON.stringify([`pe:${mom}`, `pe:${mate}`, `pl:${place1}`].sort()) && e1.related.size === 3, e1.edges.map((e) => e.to));
     const e1p = selectionEdges(d, lay, keyS1, { person: false, place: true });
     check("④ 인물 간선 끄기 — 장소 간선만, 사람 연결 표시도 없음", e1p.edges.length === 1 && e1p.edges[0].kind === "place" && !e1p.related.has(`pe:${mom}`));
     const e2 = selectionEdges(d, lay, `pe:${mate}`, on);
@@ -404,7 +404,7 @@ async function main() {
     const mid = (lay.bands[1].top + lay.bands[1].bottom) / 2;
     check("⑥ 지금 보는 곳", bandAt(lay, mid)?.eventId === hs && bandAt(lay, -100)?.eventId === birth);
     check("⑥ 노드 수 = 중심 + 이야기 + 인물 + 장소, 시간 줄기 수 = 중심 + 이야기, 접기 기준 60",
-      countMapNodes(d) === 3 + 4 + 6 + 3 && countTimelineNodes(d) === 3 + 4 && FOLD_ALL_ABOVE === 60);
+      countMapNodes(d) === 3 + 4 + 5 + 3 && countTimelineNodes(d) === 3 + 4 && FOLD_ALL_ABOVE === 60);
 
     // ── ⑦ 3단계 — 장소 묶음 · 영역 제목 옆 만들기 자리 ─────────────────
     const pgSea = (await prisma.placeGroup.create({ data: { userId: a, name: "[fixture] 바닷가 곳들" }, select: { id: true } })).id;
@@ -442,9 +442,9 @@ async function main() {
     check("⑧ 시기 사람·장소 수 — 시기에 바로 이은 분 + 이야기로만 이은 곳 = 사람 1·장소 1(예전 버튼 이름은 바로 이은 것만 세어 1)",
       n8.people === 1 && n8.places === 1 && ev8.personIds.length + ev8.placeIds.length === 1, { n8, personIds: ev8.personIds, placeIds: ev8.placeIds });
     const hsN = eventPeoplePlaces(d8.events.find((e) => e.id === hs)!);
-    check("⑧ 시기 사람·장소 수 — 같은 분·곳 한 번 · 모임 작은 물방울·확인 대기 분은 안 셈",
-      eventPeoplePlaces({ personIds: ["p"], placeIds: [], stories: [{ chips: [{ kind: "person", id: "p", name: "x", proposed: false }, { kind: "group", id: "g", name: "모임", proposed: false }, { kind: "person", id: "q", name: "대기", proposed: true }, { kind: "place", id: null, name: "옛 장소", proposed: false }] } as never] }).people === 1 &&
-        eventPeoplePlaces({ personIds: ["p"], placeIds: [], stories: [{ chips: [{ kind: "place", id: null, name: "옛 장소", proposed: false }] } as never] }).places === 1 &&
+    check("⑧ 시기 사람·장소 수 — 같은 분·곳 한 번 · 모임 작은 물방울은 안 셈",
+      eventPeoplePlaces({ personIds: ["p"], placeIds: [], stories: [{ chips: [{ kind: "person", id: "p", name: "x" }, { kind: "group", id: "g", name: "모임" }, { kind: "place", id: null, name: "옛 장소" }] } as never] }).people === 1 &&
+        eventPeoplePlaces({ personIds: ["p"], placeIds: [], stories: [{ chips: [{ kind: "place", id: null, name: "옛 장소" }] } as never] }).places === 1 &&
         hsN.people >= 1);
     const view = fs.readFileSync(path.resolve(__dirname, "../app/my-life/MyLifeView.tsx"), "utf8");
     check("⑧ 버튼 이름·패널이 같은 함수(eventPeoplePlaces)를 씀",
@@ -515,13 +515,13 @@ async function main() {
       personIds: ["p"],
       placeIds: ["x"],
       stories: [
-        { id: "s1", chips: [{ kind: "person", id: "q", name: "Q", proposed: false }, { kind: "person", id: "p", name: "P", proposed: false }, { kind: "group", id: "g", name: "모임", proposed: false }, { kind: "person", id: "w", name: "대기", proposed: true }, { kind: "place", id: null, name: "옛 장소", proposed: false }] },
-        { id: "s2", chips: [{ kind: "place", id: "y", name: "Y", proposed: false }, { kind: "place", id: null, name: "옛 장소", proposed: false }, { kind: "place", id: "x", name: "X", proposed: false }] },
+        { id: "s1", chips: [{ kind: "person", id: "q", name: "Q" }, { kind: "person", id: "p", name: "P" }, { kind: "group", id: "g", name: "모임" }, { kind: "place", id: null, name: "옛 장소" }] },
+        { id: "s2", chips: [{ kind: "place", id: "y", name: "Y" }, { kind: "place", id: null, name: "옛 장소" }, { kind: "place", id: "x", name: "X" }] },
       ],
     } as never as MyLifeEvent;
     const synL = eventPeoplePlaceList(synEv);
     const synR = eventPeoplePlaceRefs(synEv);
-    check("⑪ 시기 목록 = 수(eventPeoplePlaces)·연결과 같은 기준 — 바로 이은 것 먼저 · 이야기에서만 나온 분·곳(처음 나온 이야기) · 옛 장소 이름 · 같은 것 한 번 · 모임·확인 대기 빠짐",
+    check("⑪ 시기 목록 = 수(eventPeoplePlaces)·연결과 같은 기준 — 바로 이은 것 먼저 · 이야기에서만 나온 분·곳(처음 나온 이야기) · 옛 장소 이름 · 같은 것 한 번 · 모임 빠짐",
       JSON.stringify(synL.people.map((r) => [r.ref, r.direct, r.storyId])) === JSON.stringify([["id:p", true, null], ["id:q", false, "s1"]]) &&
         JSON.stringify(synL.places.map((r) => [r.ref, r.direct, r.storyId, r.name])) === JSON.stringify([["id:x", true, null, ""], ["name:옛 장소", false, "s1", "옛 장소"], ["id:y", false, "s2", "Y"]]) &&
         JSON.stringify([...synR.people]) === JSON.stringify(synL.people.map((r) => r.ref)) && JSON.stringify([...synR.places]) === JSON.stringify(synL.places.map((r) => r.ref)) &&
@@ -540,11 +540,16 @@ async function main() {
     const review = src("app/story-review/page.tsx");
     // 2026-11-03 — 보존해 둔 옛 화면 본문·카드 컴포넌트·lib/story-review 삭제(리다이렉트만 남김, 설계 §15.4).
     const gone = ["app/story-review/EpisodeCard.tsx", "app/story-review/TimelineRow.tsx", "app/story-review/DeleteCustomEventButton.tsx", "app/story-review/loading.tsx", "lib/story-review.ts"];
-    check("⑫ /story-review = /my-life?view=list redirect 만(옛 본문·카드·lib 삭제) · 인물 확인 /story-review/confirm 은 그대로",
+    check("⑫ /story-review = /my-life?view=list redirect 만(옛 본문·카드·lib 삭제)",
       /export default function StoryReviewPage\(\) \{\s*redirect\("\/my-life\?view=list"\);\s*\}/.test(review) && !review.includes("_StoryReviewPageArchived") &&
-        gone.every((f) => !fs.existsSync(path.resolve(__dirname, "..", f))) && fs.existsSync(path.resolve(__dirname, "../app/story-review/confirm/page.tsx")));
-    // 옛 온보딩 화면 4개(2026-11-03 삭제 — 진입 링크 0) — 라우트 폴더 없음 · 주소로 오면 /enter(next.config redirects).
+        gone.every((f) => !fs.existsSync(path.resolve(__dirname, "..", f))));
+    // 인물 확인 화면(2026-11-03 삭제 — 확인 대기 0·만드는 경로 0, 설계 §15.6) — 화면·액션·lib·문구 파일 없음 · 주소로 오면 /my-life.
     const nextConfig = src("next.config.ts");
+    const confirmGone = ["app/story-review/confirm", "app/actions/node-confirm.ts", "lib/node-confirm.ts", "lib/node-confirm-copy.ts", "db/test-node-confirm.ts"];
+    check("⑫ 인물 확인 화면(/story-review/confirm)·액션·lib·문구·회귀 없음 · 주소 → /my-life",
+      confirmGone.every((f) => !fs.existsSync(path.resolve(__dirname, "..", f))) &&
+        nextConfig.includes('{ source: "/story-review/confirm", destination: "/my-life", permanent: false }'));
+    // 옛 온보딩 화면 4개(2026-11-03 삭제 — 진입 링크 0) — 라우트 폴더 없음 · 주소로 오면 /enter(next.config redirects).
     check("⑫ 옛 온보딩 화면(/onboarding-v2·-confirm·-episode·-episode-chat) 라우트 없음 · 주소 → /enter",
       ["app/onboarding-v2", "app/onboarding-confirm", "app/onboarding-episode", "app/onboarding-episode-chat"].every((d) => !fs.existsSync(path.resolve(__dirname, "..", d))) &&
         ['"/onboarding-v2"', '"/onboarding-confirm"', '"/onboarding-episode"', '"/onboarding-episode-chat/:eventId"'].every((x) => nextConfig.includes(x)) &&
@@ -552,22 +557,22 @@ async function main() {
     const walkFiles = (dir: string): string[] =>
       fs.readdirSync(path.resolve(__dirname, "..", dir), { withFileTypes: true }).flatMap((d) =>
         d.isDirectory() ? (d.name === "generated" ? [] : walkFiles(`${dir}/${d.name}`)) : /\.(ts|tsx)$/.test(d.name) ? [`${dir}/${d.name}`] : []);
-    // 주석 줄은 빼고 — 링크·redirect·push·revalidatePath 로 쓰인 "/story-review"(뒤에 /confirm 이 아닌 것)
+    // 주석 줄은 빼고 — 링크·redirect·push·revalidatePath 로 쓰인 "/story-review"·"/story-review/confirm"(2026-11-03 — 인물 확인도 셈)
     const toReview = ["app", "lib", "components"].flatMap(walkFiles)
       .filter((f) => f !== "app/story-review/page.tsx")
-      .filter((f) => src(f).split("\n").some((line) => !/^\s*(\/\/|\*|\{\/\*)/.test(line) && /["'`]\/story-review(["'`?#])/.test(line)));
-    check("⑫ 앱 안 /story-review 링크·redirect·revalidatePath 0(인물 확인 /story-review/confirm 은 그대로)", toReview.length === 0, toReview);
+      .filter((f) => src(f).split("\n").some((line) => !/^\s*(\/\/|\*|\{\/\*)/.test(line) && /["'`]\/story-review(["'`?#/])/.test(line)));
+    check("⑫ 앱 안 /story-review·/story-review/confirm 링크·redirect·revalidatePath 0", toReview.length === 0, toReview);
     const side = src("app/timemachine/SidePanel.tsx");
     check("⑫ 사이드 패널 \"내 이야기\" 빠짐 · My Life 메뉴 그대로", !side.includes('href="/story-review"') && side.includes('href="/my-life"'));
     const page = src("app/my-life/page.tsx");
-    check("⑫ My Life 페이지가 카드 데이터를 만든다(인물 확인 대기·오늘의 인터뷰·갭 3·진행 중) — 옮기기 전과 같은 함수",
-      ["countPendingPeople(userId),", "getInterviewCardState(userId),", "detectGaps(userId),", "getFreeChatTopic(userId),", "pickTopGaps(gaps, 3)", "<MyLifeView data={data} suggest={suggest} />"].every((x) => page.includes(x)));
+    check("⑫ My Life 페이지가 카드 데이터를 만든다(오늘의 인터뷰·갭 3·진행 중) — 옮기기 전과 같은 함수 · 인물 확인 대기 수는 안 셈",
+      ["getInterviewCardState(userId),", "detectGaps(userId),", "getFreeChatTopic(userId),", "pickTopGaps(gaps, 3)", "<MyLifeView data={data} suggest={suggest} />"].every((x) => page.includes(x)) &&
+        !page.includes("countPendingPeople"));
     const listStart = view.indexOf("function ListMode(");
     const list = view.slice(listStart, view.indexOf("function PersonRow("));
     const at = (x: string) => list.indexOf(x);
-    check("⑫ 목록 보기 — 정리할 것·오늘의 인터뷰가 시간 줄기 위, 더 들어볼까요?가 시간 줄기 바로 아래·인물록 위",
-      at("<PendingPeopleCard count={suggest.pendingPeople} />") > 0 &&
-        at("<PendingPeopleCard count={suggest.pendingPeople} />") < at("<InterviewEntryCard state={suggest.interview} />") &&
+    check("⑫ 목록 보기 — 오늘의 인터뷰가 시간 줄기 위, 더 들어볼까요?가 시간 줄기 바로 아래·인물록 위 · 정리할 것 카드 없음",
+      at("<InterviewEntryCard state={suggest.interview} />") > 0 && !view.includes("PendingPeopleCard") &&
         at("<InterviewEntryCard state={suggest.interview} />") < at("<ol aria-label={C.mapListLabel}") &&
         /<\/ol>\s*<GapCards gaps=\{suggest\.gaps\} \/>/.test(list) &&
         at("<GapCards gaps={suggest.gaps} />") < at('aria-labelledby="mylife-list-people"'));
@@ -577,14 +582,14 @@ async function main() {
         view.includes('if (t === "self") return C.selfTag;') && list.includes("{tag && <span className=\"text-lg text-ink-soft\">{tag}</span>}") &&
         list.includes('${s.kind === "SELF" ? "border-sage" : "border-ink-soft"}') && C.selfTag === "그때의 나");
     const mapPart = view.slice(view.indexOf("function MapMode("), listStart);
-    check("⑫ 지도 보기 — 노드 안 골랐을 때 \"지금 보는 곳\" 줄에 [이야기 거리] · 시트 = 같은 카드 셋(제목 h3)",
+    check("⑫ 지도 보기 — 노드 안 골랐을 때 \"지금 보는 곳\" 줄에 [이야기 거리] · 시트 = 같은 카드(제목 h3)",
       mapPart.includes("onClick={onOpenSuggest}") && mapPart.indexOf("onClick={onOpenSuggest}") > mapPart.indexOf("{nowText}") &&
-        view.includes('<PendingPeopleCard count={suggest.pendingPeople} as="h3" />') && view.includes('<InterviewEntryCard state={suggest.interview} as="h3" />') &&
+        view.includes('<InterviewEntryCard state={suggest.interview} as="h3" />') &&
         view.includes('<GapCards gaps={suggest.gaps} as="h3" />') && view.includes('aria-labelledby="mylife-suggest-title"'));
     const sug = src("app/my-life/Suggestions.tsx");
-    check("⑫ 카드 — 정리할 것은 대기 있을 때만 · 갭은 있을 때만(진행 중 = [이어서 이야기하기]) · 링크 = 인물 확인·인터뷰·/chat-v3 딥링크",
-      sug.includes("if (count <= 0) return null;") && sug.includes("if (gaps.length === 0) return null;") &&
-        sug.includes("{g.inProgress ? C.gapContinue : C.gapStart}") && sug.includes('href="/story-review/confirm"') && sug.includes('href="/interview"') && sug.includes("href={g.href}"));
+    check("⑫ 카드 — 갭은 있을 때만(진행 중 = [이어서 이야기하기]) · 링크 = 인터뷰·/chat-v3 딥링크",
+      sug.includes("if (gaps.length === 0) return null;") &&
+        sug.includes("{g.inProgress ? C.gapContinue : C.gapStart}") && sug.includes('href="/interview"') && sug.includes("href={g.href}"));
     check("⑫ 이야기 패널 [이야기 고치기] — 같은 서버 액션(updateEpisodeContentAction) · 저장 뒤 바로 보임 + 지도 다시 읽기 · 응답 실패도 다시 읽기",
       view.includes("const r = await updateEpisodeContentAction(story.id, text);") && view.includes("setBody(text);") &&
         /setDraft\(null\);\s*router\.refresh\(\);/.test(view) && /setError\(C\.editBodyRetry\);\s*router\.refresh\(\);/.test(view) && view.includes("{C.editBody}") &&
