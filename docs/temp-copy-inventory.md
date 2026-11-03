@@ -1,6 +1,6 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-04(자유 대화 들어옴 10키 확정 — setupDone·confirmAlready·topicGone·inputPlaceholder 새 문구) · 2026-11-04(문구 판단 기준 — 대상 = 모든 성인, "어려움" 표시 기준 변경·자유 대화 표시 다시 정리) · 2026-11-04(자유 대화 `lib/free-chat-copy.ts` 72키 — `declineFailed` 신설·화면 코드 문구 9키 옮김(빈 답·오류 3·입력칸 안내 2·마무리 말 3), 문구는 그대로) · 2026-11-04(개정 공지 띠 버튼 문서별 — 처리방침 보기·약관 보기, /terms 맨 위 줄 신설(약관 쪽 글 임시)) · 2026-11-04(개정 공지 `lib/policy-notice-copy.ts` 4키 확정 — 임시에서 빠짐) · 2026-11-04(가입 화면 `lib/join-copy.ts` 13키 확정 — 임시에서 빠짐 · 서비스 이름 화면 표기 "Lifebook"·"Google" 통일, 법적 표기 "라이프북" 유지) · 2026-11-03(개정 공지 — `lib/policy-notice-copy.ts` 4키, 아래 "개정 공지") · 2026-11-03(이야기 상세·글 고치기·이전 판·인물 글 — `lib/my-life-copy.ts` `body` 60키, 아래 "2b-3c 추가" · `hideBody` 삭제) · 2026-11-03(가입 전 동의 화면 `/join` 신설 — `lib/join-copy.ts` 13키, 아래 "가입 전 동의" · 동의 항목 문구는 확정된 /consent 문구를 같이 씀) · 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-04(자유 대화 대화 중 8키 확정 — replyEmpty "다시 말씀해 주세요" 띄어쓰기) · 2026-11-04(자유 대화 들어옴 10키 확정 — setupDone·confirmAlready·topicGone·inputPlaceholder 새 문구) · 2026-11-04(문구 판단 기준 — 대상 = 모든 성인, "어려움" 표시 기준 변경·자유 대화 표시 다시 정리) · 2026-11-04(자유 대화 `lib/free-chat-copy.ts` 72키 — `declineFailed` 신설·화면 코드 문구 9키 옮김(빈 답·오류 3·입력칸 안내 2·마무리 말 3), 문구는 그대로) · 2026-11-04(개정 공지 띠 버튼 문서별 — 처리방침 보기·약관 보기, /terms 맨 위 줄 신설(약관 쪽 글 임시)) · 2026-11-04(개정 공지 `lib/policy-notice-copy.ts` 4키 확정 — 임시에서 빠짐) · 2026-11-04(가입 화면 `lib/join-copy.ts` 13키 확정 — 임시에서 빠짐 · 서비스 이름 화면 표기 "Lifebook"·"Google" 통일, 법적 표기 "라이프북" 유지) · 2026-11-03(개정 공지 — `lib/policy-notice-copy.ts` 4키, 아래 "개정 공지") · 2026-11-03(이야기 상세·글 고치기·이전 판·인물 글 — `lib/my-life-copy.ts` `body` 60키, 아래 "2b-3c 추가" · `hideBody` 삭제) · 2026-11-03(가입 전 동의 화면 `/join` 신설 — `lib/join-copy.ts` 13키, 아래 "가입 전 동의" · 동의 항목 문구는 확정된 /consent 문구를 같이 씀) · 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 3개(2026-11-03 인물 확인 문구 파일 삭제 전엔 4개)의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 **문구 판단 기준(2026-11-04 성민 — CLAUDE.md "문구 판단 기준")**: 대상은 어르신에서 출발했지만 청년을 포함한 모든 성인. "어려움" 표시 = 성인 누구나 바로 알아듣기 어려운 말(모호한 표현·개발 용어·키 조합 등). "카드"·"My Life"(영문 메뉴 이름)는 그대로 쓰며 표시 대상이 아니다. 접근성 기준(글자 크기·터치 영역 등)은 그대로.
@@ -9,7 +9,7 @@
 
 | 파일 | 임시 문구 | 화면에 안 나오는 키(쓰는 곳 없음) | 보이는 곳 |
 |---|---|---|---|
-| `lib/free-chat-copy.ts` | 62 (72키 중 들어옴 10키 2026-11-04 확정 · 2026-11-04 `declineFailed` 신설 + 화면 코드에서 9키 옮김 — 그 전 62: 전부 — 카드 오류 6개는 2026-11-02 `lib/node-proposal.ts` 에서 옮겨 옴 · 시기 미지정 2개 `centerUnset`·`centerPick` 2026-11-02 추가) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
+| `lib/free-chat-copy.ts` | 54 (72키 중 들어옴 10키·대화 중 8키 2026-11-04 확정 · 2026-11-04 `declineFailed` 신설 + 화면 코드에서 9키 옮김 — 그 전 62: 전부 — 카드 오류 6개는 2026-11-02 `lib/node-proposal.ts` 에서 옮겨 옴 · 시기 미지정 2개 `centerUnset`·`centerPick` 2026-11-02 추가) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
 | `lib/my-life-copy.ts` | 259 (2026-11-03 2b-3c `body` 60 추가·`hideBody` 삭제 — 아래 "2b-3c 추가" · 그 전 200 = 78 + 3단계 115 + Q69 11 − 확인 대기 표시 4(2026-11-03 삭제 — `pendingTag`·`goConfirm`·`pendingNote`·`draftNote`) · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 (`storyReviewEntry` 는 2026-11-03 옛 `/story-review` 본문과 함께 삭제) | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
 | `lib/interview/copy.ts` | 42 (전부 — `selfStoriesTitle` 2026-11-03 삭제) | 0 | `/interview` · My Life "오늘의 인터뷰" 카드(Q69 전 `/story-review`) |
 | `lib/join-copy.ts` | 0 (13키 2026-11-04 전부 확정) | 0 | `/join`(가입 전 동의 — 제목·안내·가입 방법 버튼) |
@@ -23,82 +23,82 @@
 
 ### `lib/free-chat-copy.ts` (`FREE_CHAT_COPY`)
 
-**표시(2026-11-04 새 기준)** — 들어옴 10키는 확정(아래 행 "확정") — 표시에서 뺌. 어려움: 없음(남은 임시 키 기준 — `inputNewlineHint` "Shift+Enter"는 확정, 키보드 있는 기기에만 보임). 중복(키는 그대로, 문구만 나중에): 마무리 말 3종(`endCapped`·`endSaved`·`endPlain`) · 같은 분·곳 다시 고르기 2쌍(`answerAskFirst`↔`repickSamePerson`, `answerPlaceAskFirst`↔`repickSamePlace`) · 시기 고르기 안내(`centerUnset`↔`needCenter`) · "~하지 못했어요" 실패 안내 5종. 뜻 어색: `endSaved`·`endPlain` 이 자유 대화를 그만할 때도 "이어서 여쭤볼게요".
+**표시(2026-11-04 새 기준)** — 들어옴 10키·대화 중 8키는 확정(아래 행 "확정") — 표시에서 뺌. 어려움: 없음(남은 임시 키 기준 — `inputNewlineHint` "Shift+Enter"는 확정, 키보드 있는 기기에만 보임). 중복(키는 그대로, 문구만 나중에): 마무리 말 3종(`endCapped`·`endSaved`·`endPlain`) · 같은 분·곳 다시 고르기 2쌍(`answerAskFirst`↔`repickSamePerson`, `answerPlaceAskFirst`↔`repickSamePlace`) · 시기 고르기 안내(`centerUnset`↔`needCenter`) · "~하지 못했어요" 실패 안내 5종. (마무리 말 3종은 지금 문구로 확정 — 성민 결정)
 
 | 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
 |---|---|---|---|---|
-| `greeting` | 11 | "편하게 아무 이야기나 들려주세요. 떠오르는 대로 말씀하시면 돼요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:423, lib/free-chat.ts:84 |
-| `setupDone` | 12 | "이제 준비가 끝났어요. 떠오르는 이야기를 편하게 들려주세요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:275, lib/free-chat.ts:85 |
-| `resume` | 13 | "아까 하시던 이야기, 이어서 들려주세요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:423, app/chat-v3/ChatV3Client.tsx:447, lib/free-chat.ts:86 |
-| `staleNotice` | 14 | "지난번에 나누던 이야기를 남겨 둘까요?" | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:417, lib/free-chat.ts:87 |
-| `chipsTitle` | 15 | "이런 이야기는 어떠세요?" | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:732 |
-| `saveNow` | 13 | "지금 이야기 남기기" | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:758 |
-| `proposing` | 14 | "이야기를 정리하고 있어요…" | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:485 |
-| `budgetPaused` | 15 | "오늘은 이야기 친구가 쉬는 시간이에요. 내일 다시 이야기 나눠요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:449, app/chat-v3/ChatV3Client.tsx:465, app/chat-v3/ChatV3Client.tsx:492, lib/free-chat.ts:88 |
-| `topicGone` | 19 | "그 이야기 거리는 지금 없어요. 다른 이야기를 들려주세요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:451, lib/free-chat.ts:89 |
-| `cardFirst` | 17 | "먼저 위 카드를 정해 주세요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:445, lib/free-chat.ts:90 |
-| `confirmApplied` | 21 | "네, 반영했어요. 다른 이야기도 편하게 해 주세요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:294, lib/free-chat.ts:91 |
-| `confirmAlready` | 22 | "그 이야기는 이미 확인했어요. 다른 이야기도 들려주세요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:309, lib/free-chat.ts:92 |
-| `exitAfterCard` | 20 | "카드를 정하시면 오늘은 여기까지 할게요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:630, app/chat-v3/ChatV3Client.tsx:635, lib/free-chat.ts:93 |
-| `cardTitle` | 23 | "이 이야기를 남길까요?" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:166, app/components/ProposalCard.tsx:167 |
-| `fieldTitle` | 24 | "제목" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:172, app/components/ProposalCard.tsx:276 |
-| `titlePlaceholder` | 25 | "비워 두면 내용 첫 문장이 제목이 돼요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:281 |
-| `fieldCenter` | 26 | "시기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:176, app/components/ProposalCard.tsx:287, app/components/ProposalCard.tsx:294 |
-| `fieldPeople` | 27 | "사람" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:180, app/components/ProposalCard.tsx:339 |
-| `fieldPlaces` | 28 | "장소" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:220, app/components/ProposalCard.tsx:383 |
-| `fieldSummary` | 29 | "내용" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:260, app/components/ProposalCard.tsx:419, app/components/ProposalCard.tsx:420 |
-| `existingPerson` | 30 | "이미 계신 분" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:188 |
-| `newTag` | 31 | "새로" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:188, app/components/ProposalCard.tsx:228 |
-| `existingPlace` | 32 | "이미 있는 곳" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:228 |
-| `newCenter` | 33 | `` (label: string, year: number \| null) => `${year ? `${year} ` : ""}${label} (새 시기)` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:162 |
-| `centerText` | 34 | `` (label: string, year: number \| null) => `${year ? `${year} ` : ""}${label}` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:160, app/components/ProposalCard.tsx:306 |
-| `centerUnset` | 36 | "아직 못 정했어요 — [고치기]에서 골라 주세요" | 제안 카드 시기 줄 — 시기 미지정 카드(시기 id·이름이 안 맞음, 2026-11-02 추가) | app/components/ProposalCard.tsx:164 |
-| `centerPick` | 37 | "시기 고르기" | 제안 카드 [고치기] 시기 고르기 첫 칸 — 시기 미지정 카드(2026-11-02 추가) | app/components/ProposalCard.tsx:313 |
-| `none` | 35 | "없음" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:182, app/components/ProposalCard.tsx:223 |
-| `showMore` | 36 | "내용 더 보기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:268 |
-| `showLess` | 37 | "내용 접기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:268 |
-| `create` | 38 | "만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:438 |
-| `edit` | 39 | "고치기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:448 |
-| `decline` | 40 | "안 만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:451 |
-| `cancelEdit` | 41 | "고치기 그만" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:448 |
-| `remove` | 42 | "빼기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:373, app/components/ProposalCard.tsx:409 |
-| `addPerson` | 43 | "사람 더하기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:378 |
-| `addPlace` | 44 | "장소 더하기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:414 |
-| `newCenterOption` | 45 | "새 시기 만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:309 |
-| `newCenterLabel` | 46 | "새 시기 이름" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:315, app/components/ProposalCard.tsx:316 |
-| `newCenterYear` | 47 | "연도 (모르면 비워 두세요)" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:323, app/components/ProposalCard.tsx:324 |
-| `personName` | 48 | "이름" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:344, app/components/ProposalCard.tsx:345 |
-| `personRelation` | 49 | "관계 (예: 친구)" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:359, app/components/ProposalCard.tsx:360 |
-| `placeName` | 50 | "장소 이름" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:388, app/components/ProposalCard.tsx:389 |
-| `sameNameQuestion` | 51 | `` (name: string, relation: string \| null) => `이미 계신 ${name}${relation ? `(${relation})` : ""} 님과 같은 분인가요?` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:194 |
-| `same` | 53 | "같은 분이에요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:201 |
-| `different` | 54 | "다른 분이에요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:211 |
-| `answerAskFirst` | 55 | "같은 분인지 먼저 골라 주세요." | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:112, app/components/ProposalCard.tsx:130 |
-| `samePlaceQuestion` | 56 | `` (name: string) => `이미 있는 장소 ${name}${withJosa(name, "과/와")} 같은 곳인가요?` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:234 |
-| `samePlace` | 57 | "같은 곳이에요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:241 |
-| `separatePlace` | 58 | "따로 만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:251 |
-| `answerPlaceAskFirst` | 59 | "같은 곳인지 먼저 골라 주세요." | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:112, app/components/ProposalCard.tsx:130 |
-| `createFailed` | 60 | "남기지 못했어요. 다시 해 주세요." | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:132, app/components/ProposalCard.tsx:137, app/components/ProposalCard.tsx:150 |
-| `needSummary` | 62 | "내용이 필요해요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:431 |
-| `needCenter` | 63 | "시기를 골라 주세요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:437 |
-| `centerNotFound` | 64 | "그 시기를 찾지 못했어요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:443 |
-| `needNewCenterLabel` | 65 | "새 시기 이름이 필요해요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:447 |
-| `repickSamePerson` | 66 | "같은 분을 다시 골라 주세요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:474 |
-| `repickSamePlace` | 67 | "같은 곳을 다시 골라 주세요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:504 |
-| `created` | 68 | `` (title: string) => `'${title}' 이야기를 My Life 에 남겼어요.` `` | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:510, lib/free-chat.ts:96 |
-| `viewOnMap` | 69 | "My Life 에서 보기" | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:695 |
-| `declined` | 70 | "네, 남기지 않을게요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:528, lib/free-chat.ts:94 |
-| `saving` | 71 | "남기는 중이에요…" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:433 |
-| `declineFailed` | 76 | "처리하지 못했어요. 다시 해 주세요." | 제안 카드 — [안 만들기] 실패(2026-11-04 신설, 전엔 `createFailed`) | app/components/ProposalCard.tsx(decline) |
-| `replyEmpty` | 79 | "잠시 문제가 있었어요. 다시 말씀해주세요." | /chat-v3 대화창 — 답이 비어 왔을 때(2026-11-04 화면 코드에서 옮김) | app/chat-v3/ChatV3Client.tsx(submitFree) |
-| `loadFailed` | 80 | "이야기를 불러오지 못했어요." | /chat-v3 오류 화면 — 자유 대화 들어오기 실패(옮김) | app/chat-v3/ChatV3Client.tsx(enterFree) |
-| `topicFailed` | 81 | "이야기를 준비하지 못했어요." | /chat-v3 오류 화면 — 주제로 시작 실패(옮김) | app/chat-v3/ChatV3Client.tsx(startTopic) |
-| `replyFailed` | 82 | "답변을 처리하지 못했어요." | /chat-v3 오류 화면 — 자유 대화 답 처리 실패(옮김) | app/chat-v3/ChatV3Client.tsx(submitFree) |
-| `inputPlaceholder` | 86 | "하고 싶은 이야기를 적어 주세요" | **확정(2026-11-04)** · /chat-v3 입력칸 안내(옮김) | app/chat-v3/ChatV3Client.tsx |
-| `inputNewlineHint` | 87 | "(Shift+Enter 줄바꿈)" | **확정(2026-11-04)** · 입력칸 안내 뒤 — 키보드 있는 기기(마우스·트랙패드가 주 입력)에서만(옮김) | app/chat-v3/ChatV3Client.tsx(useHasKeyboard) |
-| `endCapped` | 86 | "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요." | /chat-v3 마무리 말 — 질문 상한(설정 단계)(옮김) | app/chat-v3/ChatV3Client.tsx(finishSession) |
-| `endSaved` | 87 | "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요." | /chat-v3 마무리 말 — 이야기를 남기고 그만(옮김) | app/chat-v3/ChatV3Client.tsx(finishSession) |
-| `endPlain` | 88 | "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요." | /chat-v3 마무리 말 — 그냥 그만(옮김) | app/chat-v3/ChatV3Client.tsx(finishSession) |
+| `greeting` | 12 | "편하게 아무 이야기나 들려주세요. 떠오르는 대로 말씀하시면 돼요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:423, lib/free-chat.ts:84 |
+| `setupDone` | 13 | "이제 준비가 끝났어요. 떠오르는 이야기를 편하게 들려주세요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:275, lib/free-chat.ts:85 |
+| `resume` | 14 | "아까 하시던 이야기, 이어서 들려주세요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:423, app/chat-v3/ChatV3Client.tsx:447, lib/free-chat.ts:86 |
+| `staleNotice` | 15 | "지난번에 나누던 이야기를 남겨 둘까요?" | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:417, lib/free-chat.ts:87 |
+| `chipsTitle` | 16 | "이런 이야기는 어떠세요?" | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:732 |
+| `saveNow` | 17 | "지금 이야기 남기기" | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:758 |
+| `proposing` | 18 | "이야기를 정리하고 있어요…" | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:485 |
+| `budgetPaused` | 19 | "오늘은 이야기 친구가 쉬는 시간이에요. 내일 다시 이야기 나눠요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:449, app/chat-v3/ChatV3Client.tsx:465, app/chat-v3/ChatV3Client.tsx:492, lib/free-chat.ts:88 |
+| `topicGone` | 20 | "그 이야기 거리는 지금 없어요. 다른 이야기를 들려주세요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:451, lib/free-chat.ts:89 |
+| `cardFirst` | 21 | "먼저 위 카드를 정해 주세요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:445, lib/free-chat.ts:90 |
+| `confirmApplied` | 22 | "네, 반영했어요. 다른 이야기도 편하게 해 주세요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:294, lib/free-chat.ts:91 |
+| `confirmAlready` | 23 | "그 이야기는 이미 확인했어요. 다른 이야기도 들려주세요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:309, lib/free-chat.ts:92 |
+| `exitAfterCard` | 24 | "카드를 정하시면 오늘은 여기까지 할게요." | **확정(2026-11-04)** · /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:630, app/chat-v3/ChatV3Client.tsx:635, lib/free-chat.ts:93 |
+| `cardTitle` | 27 | "이 이야기를 남길까요?" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:166, app/components/ProposalCard.tsx:167 |
+| `fieldTitle` | 28 | "제목" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:172, app/components/ProposalCard.tsx:276 |
+| `titlePlaceholder` | 29 | "비워 두면 내용 첫 문장이 제목이 돼요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:281 |
+| `fieldCenter` | 30 | "시기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:176, app/components/ProposalCard.tsx:287, app/components/ProposalCard.tsx:294 |
+| `fieldPeople` | 31 | "사람" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:180, app/components/ProposalCard.tsx:339 |
+| `fieldPlaces` | 32 | "장소" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:220, app/components/ProposalCard.tsx:383 |
+| `fieldSummary` | 33 | "내용" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:260, app/components/ProposalCard.tsx:419, app/components/ProposalCard.tsx:420 |
+| `existingPerson` | 34 | "이미 계신 분" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:188 |
+| `newTag` | 35 | "새로" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:188, app/components/ProposalCard.tsx:228 |
+| `existingPlace` | 36 | "이미 있는 곳" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:228 |
+| `newCenter` | 37 | `` (label: string, year: number \| null) => `${year ? `${year} ` : ""}${label} (새 시기)` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:162 |
+| `centerText` | 38 | `` (label: string, year: number \| null) => `${year ? `${year} ` : ""}${label}` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:160, app/components/ProposalCard.tsx:306 |
+| `centerUnset` | 40 | "아직 못 정했어요 — [고치기]에서 골라 주세요" | 제안 카드 시기 줄 — 시기 미지정 카드(시기 id·이름이 안 맞음, 2026-11-02 추가) | app/components/ProposalCard.tsx:164 |
+| `centerPick` | 41 | "시기 고르기" | 제안 카드 [고치기] 시기 고르기 첫 칸 — 시기 미지정 카드(2026-11-02 추가) | app/components/ProposalCard.tsx:313 |
+| `none` | 42 | "없음" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:182, app/components/ProposalCard.tsx:223 |
+| `showMore` | 43 | "내용 더 보기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:268 |
+| `showLess` | 44 | "내용 접기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:268 |
+| `create` | 45 | "만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:438 |
+| `edit` | 46 | "고치기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:448 |
+| `decline` | 47 | "안 만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:451 |
+| `cancelEdit` | 48 | "고치기 그만" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:448 |
+| `remove` | 49 | "빼기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:373, app/components/ProposalCard.tsx:409 |
+| `addPerson` | 50 | "사람 더하기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:378 |
+| `addPlace` | 51 | "장소 더하기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:414 |
+| `newCenterOption` | 52 | "새 시기 만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:309 |
+| `newCenterLabel` | 53 | "새 시기 이름" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:315, app/components/ProposalCard.tsx:316 |
+| `newCenterYear` | 54 | "연도 (모르면 비워 두세요)" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:323, app/components/ProposalCard.tsx:324 |
+| `personName` | 55 | "이름" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:344, app/components/ProposalCard.tsx:345 |
+| `personRelation` | 56 | "관계 (예: 친구)" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:359, app/components/ProposalCard.tsx:360 |
+| `placeName` | 57 | "장소 이름" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:388, app/components/ProposalCard.tsx:389 |
+| `sameNameQuestion` | 58 | `` (name: string, relation: string \| null) => `이미 계신 ${name}${relation ? `(${relation})` : ""} 님과 같은 분인가요?` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:194 |
+| `same` | 60 | "같은 분이에요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:201 |
+| `different` | 61 | "다른 분이에요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:211 |
+| `answerAskFirst` | 62 | "같은 분인지 먼저 골라 주세요." | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:112, app/components/ProposalCard.tsx:130 |
+| `samePlaceQuestion` | 63 | `` (name: string) => `이미 있는 장소 ${name}${withJosa(name, "과/와")} 같은 곳인가요?` `` | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:234 |
+| `samePlace` | 64 | "같은 곳이에요" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:241 |
+| `separatePlace` | 65 | "따로 만들기" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:251 |
+| `answerPlaceAskFirst` | 66 | "같은 곳인지 먼저 골라 주세요." | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:112, app/components/ProposalCard.tsx:130 |
+| `createFailed` | 67 | "남기지 못했어요. 다시 해 주세요." | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:132, app/components/ProposalCard.tsx:137, app/components/ProposalCard.tsx:150 |
+| `needSummary` | 69 | "내용이 필요해요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:431 |
+| `needCenter` | 70 | "시기를 골라 주세요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:437 |
+| `centerNotFound` | 71 | "그 시기를 찾지 못했어요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:443 |
+| `needNewCenterLabel` | 72 | "새 시기 이름이 필요해요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:447 |
+| `repickSamePerson` | 73 | "같은 분을 다시 골라 주세요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:474 |
+| `repickSamePlace` | 74 | "같은 곳을 다시 골라 주세요." | 제안 카드 아래 빨간 글씨(서버가 돌려줌 — /chat-v3·/interview) | lib/node-proposal.ts:504 |
+| `created` | 75 | `` (title: string) => `'${title}' 이야기를 My Life 에 남겼어요.` `` | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:510, lib/free-chat.ts:96 |
+| `viewOnMap` | 76 | "My Life 에서 보기" | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:695 |
+| `declined` | 77 | "네, 남기지 않을게요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:528, lib/free-chat.ts:94 |
+| `saving` | 78 | "남기는 중이에요…" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:433 |
+| `declineFailed` | 80 | "처리하지 못했어요. 다시 해 주세요." | 제안 카드 — [안 만들기] 실패(2026-11-04 신설, 전엔 `createFailed`) | app/components/ProposalCard.tsx(decline) |
+| `replyEmpty` | 83 | "잠시 문제가 있었어요. 다시 말씀해 주세요." | **확정(2026-11-04)** · /chat-v3 대화창 — 답이 비어 왔을 때(2026-11-04 화면 코드에서 옮김) | app/chat-v3/ChatV3Client.tsx(submitFree) |
+| `loadFailed` | 84 | "이야기를 불러오지 못했어요." | /chat-v3 오류 화면 — 자유 대화 들어오기 실패(옮김) | app/chat-v3/ChatV3Client.tsx(enterFree) |
+| `topicFailed` | 85 | "이야기를 준비하지 못했어요." | /chat-v3 오류 화면 — 주제로 시작 실패(옮김) | app/chat-v3/ChatV3Client.tsx(startTopic) |
+| `replyFailed` | 86 | "답변을 처리하지 못했어요." | /chat-v3 오류 화면 — 자유 대화 답 처리 실패(옮김) | app/chat-v3/ChatV3Client.tsx(submitFree) |
+| `inputPlaceholder` | 87 | "하고 싶은 이야기를 적어 주세요" | **확정(2026-11-04)** · /chat-v3 입력칸 안내(옮김) | app/chat-v3/ChatV3Client.tsx |
+| `inputNewlineHint` | 88 | "(Shift+Enter 줄바꿈)" | **확정(2026-11-04)** · 입력칸 안내 뒤 — 키보드 있는 기기(마우스·트랙패드가 주 입력)에서만(옮김) | app/chat-v3/ChatV3Client.tsx(useHasKeyboard) |
+| `endCapped` | 90 | "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요." | **확정(2026-11-04)** · /chat-v3 마무리 말 — 질문 상한(설정 단계)(옮김) | app/chat-v3/ChatV3Client.tsx(finishSession) |
+| `endSaved` | 91 | "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요." | **확정(2026-11-04)** · /chat-v3 마무리 말 — 이야기를 남기고 그만(옮김) | app/chat-v3/ChatV3Client.tsx(finishSession) |
+| `endPlain` | 92 | "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요." | **확정(2026-11-04)** · /chat-v3 마무리 말 — 그냥 그만(옮김) | app/chat-v3/ChatV3Client.tsx(finishSession) |
 
 ### `lib/my-life-copy.ts` (`MY_LIFE_COPY`)
 

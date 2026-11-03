@@ -1226,6 +1226,11 @@ function longTitleChecks() {
     [FREE_CHAT_COPY.setupDone, FREE_CHAT_COPY.confirmAlready, FREE_CHAT_COPY.topicGone, FREE_CHAT_COPY.greeting, FREE_CHAT_COPY.resume, FREE_CHAT_COPY.staleNotice, FREE_CHAT_COPY.confirmApplied].every((t) => isAppNotice(t)) &&
       ["기본 칸은 다 채웠어요. 이제 편하게 이야기 나눠요.", "그 이야기는 지금 들을 수 없나봐요. 다른 이야기도 편하게 해 주세요.", "그 이야기는 이미 확인했나봐요. 다른 이야기도 편하게 해 주세요."].every((t) => isAppNotice(t)) &&
       !isAppNotice("이제 준비가 끝났어요"));
+  // 마무리 말 판정(다시 들어왔을 때 마지막 말이 마무리 말이면 "물어본 채 끝남"으로 안 봄) = 마무리 말 상수 그대로 — 문구가 바뀌어도 따라감.
+  // 빈 답 안내(replyEmpty)는 이 목록에 없다(다시 말해 달라는 말이라 "물어본 채 끝남"이 맞음) — 문구 확정(2026-11-04)과 무관.
+  check("㉒ 마무리 말 판정 목록 = 마무리 말 상수(endCapped·endPlain·endSaved — 바뀌면 따라감) · 빈 답 안내(replyEmpty)는 목록에 없음 · 확정 문구",
+    /SESSION_END_MESSAGES = new Set<string>\(\[\s*FC\.endCapped,\s*FC\.endPlain,\s*FC\.endSaved,/.test(chat) && !/SESSION_END_MESSAGES[^\]]*replyEmpty/.test(chat) &&
+      FREE_CHAT_COPY.replyEmpty === "잠시 문제가 있었어요. 다시 말씀해 주세요." && chat.includes("await addBot(r.reply.trim() || FC.replyEmpty);"));
 }
 
 // ─── 조사 — 이름 뒤 조사를 받침으로 고른다(2026-11-02) — LLM 0 ──────────────
