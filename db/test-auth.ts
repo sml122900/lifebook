@@ -6,6 +6,8 @@
 //      동의 전 = 계정 미생성(소셜 = 로그인 콜백이 /join 으로 · 어댑터 createUser 거부 / 이메일 = 거부) ·
 //      동의 후 = 동의 칸이 채워진 계정 · 기존 계정 로그인 = 동의 쿠키 없이 그대로(소셜·아이디) · 계정 만드는 곳 2곳뿐 ·
 //      화면 연결(/join 공개 · 로그인 회원가입 링크 · /signup 은 동의 없으면 /join)
+//   ③ 처리방침·약관 개정 공지(lib/policy-notice) — 공지 기간 경계(KST) · 시행일 = 공지일 + 7일 미만 거부 · 등록된 개정 규칙 통과 ·
+//      닫기 기록 판마다 · 문구 · 화면 연결(헤더 아래 띠·처리방침 맨 위 줄)
 //
 // 자체 픽스처 계정만 만들고 지운다(test30·실고객 접촉 0). 실행: npx tsx db/test-auth.ts
 
@@ -19,6 +21,8 @@ import { deleteAccountTx } from "../lib/account-deletion";
 import { makeAuthAdapter } from "../lib/auth-adapter";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEmailAccount } from "../lib/email-signup";
+import { activeNotice, formatNoticeDay, noticeClosedKey, noticeProblem, POLICY_NOTICES, type PolicyNotice } from "../lib/policy-notice";
+import { POLICY_NOTICE_COPY } from "../lib/policy-notice-copy";
 import {
   makeSignupConsentToken,
   readSignupConsentToken,
@@ -152,6 +156,28 @@ async function main() {
         read("app/join/actions.ts").includes("(await cookies()).set(SIGNUP_CONSENT_COOKIE, makeSignupConsentToken()"));
     check("② 기존 계정의 동의 게이트 그대로 — 동의 안 했거나 옛 버전이면 /consent(proxy)",
       read("proxy.ts").includes(`return NextResponse.redirect(new URL("/consent", req.url));`));
+
+    // ── ③ 처리방침·약관 개정 공지(2026-11-03 — lib/policy-notice, CLAUDE.md 작업 규칙 11) ──────
+    const sample: PolicyNotice = { doc: "privacy", version: "v9.9", summary: "예시 개정", noticeDay: "2030-03-01", effectiveDay: "2030-03-08" };
+    const at = (iso: string) => activeNotice(undefined, new Date(iso), [sample]);
+    check("③ 공지 기간 — 공지일 0시(KST) 전 없음 · 공지일~시행일 전 '바뀌어요' · 시행일~7일 '바뀌었어요' · 그 뒤 없음",
+      at("2030-02-28T23:59:59+09:00") === null && at("2030-03-01T00:00:00+09:00")?.phase === "before" && at("2030-03-07T23:59:59+09:00")?.phase === "before" &&
+        at("2030-03-08T00:00:00+09:00")?.phase === "after" && at("2030-03-14T23:59:59+09:00")?.phase === "after" && at("2030-03-15T00:00:00+09:00") === null);
+    const tooSoon = { ...sample, effectiveDay: "2030-03-07" };
+    check("③ 시행일 = 공지일 + 7일 미만 → 등록 오류 · 보이지 않음 · 문서별·여럿이면 가장 늦게 공지한 것",
+      noticeProblem(tooSoon) !== null && noticeProblem(sample) === null && activeNotice(undefined, new Date("2030-03-02T00:00:00+09:00"), [tooSoon]) === null &&
+        activeNotice("terms", new Date("2030-03-02T00:00:00+09:00"), [sample]) === null &&
+        activeNotice(undefined, new Date("2030-03-03T00:00:00+09:00"), [sample, { ...sample, version: "v9.10", noticeDay: "2030-03-02", effectiveDay: "2030-03-09" }])?.version === "v9.10");
+    check("③ 등록된 개정(POLICY_NOTICES) 전부 규칙 통과 · 처리방침 개정이면 개정 이력에 그 판·시행일",
+      POLICY_NOTICES.every((n) => noticeProblem(n) === null) &&
+        POLICY_NOTICES.filter((n) => n.doc === "privacy").every((n) => read("app/privacy/page.tsx").includes(`${n.version} — ${formatNoticeDay(n.effectiveDay)} 시행`)),
+      POLICY_NOTICES.map((n) => [n.version, noticeProblem(n)]));
+    check("③ 닫기 기록은 판마다 따로 · 문구 = 문서 이름(판)·시행일·바뀌는 점",
+      noticeClosedKey(sample) !== noticeClosedKey({ ...sample, version: "v9.10" }) &&
+        POLICY_NOTICE_COPY.bar({ ...sample, phase: "before" }).includes("개인정보 처리방침(v9.9)은 2030년 3월 8일부터 바뀌어요. 예시 개정"));
+    check("③ 화면 연결 — 로그인한 화면 헤더 아래 띠(root layout) · 처리방침 맨 위 줄",
+      read("app/layout.tsx").includes("const notice = session?.user ? activeNotice() : null;") && read("app/layout.tsx").includes("{notice && <PolicyNoticeBar notice={notice} />}") &&
+        read("app/privacy/page.tsx").includes(`const notice = activeNotice("privacy");`));
   } finally {
     await removeFixtures();
     await prisma.user.deleteMany({ where: { email: "fixture-auth-short@lifebook.invalid" } });

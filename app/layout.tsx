@@ -8,9 +8,11 @@ import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
 import { AssistantWidget } from "@/app/components/AssistantWidget";
 import { Footer } from "@/app/components/Footer";
+import { PolicyNoticeBar } from "@/app/components/PolicyNoticeBar";
 import { ServiceWorkerRegister } from "@/app/components/ServiceWorkerRegister";
 import { SessionProvider } from "@/app/components/SessionProvider";
 import { SidePanelLayout } from "@/app/timemachine/SidePanel";
+import { activeNotice } from "@/lib/policy-notice";
 import { loadSidePanelData } from "@/lib/side-panel-data";
 
 import "./globals.css";
@@ -77,6 +79,8 @@ export default async function RootLayout({
         userImage: session.user.image,
       })
     : null;
+  // 처리방침·약관 개정 안내 띠 — 로그인한 화면만(lib/policy-notice, 공지일~시행일 뒤 7일).
+  const notice = session?.user ? activeNotice() : null;
 
   return (
     <html lang="ko" className={`h-full antialiased ${notoSerif.variable}`}>
@@ -95,6 +99,7 @@ export default async function RootLayout({
             </ButtonLink>
           )}
         </header>
+        {notice && <PolicyNoticeBar notice={notice} />}
         {/* 인증된 사용자 — 사이드 패널로 감싸서 모든 페이지에 "내 정보" 토글 제공.
             비인증 페이지(로그인·동의 등)는 그대로 통과. */}
         {sidePanelData ? (

@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { BUSINESS_INFO } from "@/lib/commerce/business";
+import { activeNotice } from "@/lib/policy-notice";
+import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 
 // 개인정보 처리방침 v1.3. 공개 정적 페이지(비로그인 접근,
 // proxy.ts PUBLIC_PATHS 등록). 2026-09-10 — 토스페이먼츠 PG 심사 대응으로
@@ -100,6 +102,7 @@ function Article({
 const P = "text-lg leading-relaxed text-ink-soft";
 
 export default function PrivacyPage() {
+  const notice = activeNotice("privacy");
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
       <p className="text-base text-ink-soft">
@@ -109,6 +112,11 @@ export default function PrivacyPage() {
       </p>
 
       <h1 className="mt-4 text-ink">개인정보 처리방침</h1>
+      {notice && (
+        <p role="note" className="mt-4 rounded-md border-2 border-line bg-banner px-4 py-3 text-lg text-ink">
+          {POLICY_NOTICE_COPY.pageLine(notice)}
+        </p>
+      )}
 
       {/* 0항 — 회사의 약속 (강조 카드) */}
       <section className="mt-10" aria-labelledby="promises-title">
