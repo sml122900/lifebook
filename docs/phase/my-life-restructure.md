@@ -1,6 +1,6 @@
 # My Life 중심 서비스 개편 — 설계
 
-- 상태: 설계 2026-11-01 · 결정 Q51~Q72 2026-11-01(결정 로그) · **1단계(지도 개편) 구현 완료 2026-11-01**(§8) · **2단계(채팅 → 노드 제안) 구현 완료 2026-11-01**(§9) · **3단계(지도 직접 생성) 구현 완료 2026-11-02**(§14 — 옛 장소 백필 Q72 는 따로) · **Q69 `/story-review` → My Life 목록 보기 2026-11-02**(§15).
+- 상태: 설계 2026-11-01 · 결정 Q51~Q72 2026-11-01(결정 로그) · **1단계(지도 개편) 구현 완료 2026-11-01**(§8) · **2단계(채팅 → 노드 제안) 구현 완료 2026-11-01**(§9) · **3단계(지도 직접 생성) 구현 완료 2026-11-02**(§14 — 옛 장소 백필 Q72 는 따로) · **Q69 `/story-review` → My Life 목록 보기 2026-11-02**(§15) · **Q72 옛 장소 백필 2026-11-03**(§15.7 — 스크립트 + dry-run, 적용 대상 0행).
 - 작성: 2026-11-01 · Claude Code (성민 요청). 바탕: `docs/phase/node-graph-self.md`(노드 그래프·My Life 2b-3a 와 그 수정 — 이 문서는 참조만, 그쪽을 고치지 않음).
 - 화면 문구는 새로 쓰지 않는다. 자리는 `[문구 필요: 위치]` 로 적고 §7.4 에 모았다.
 - 운영 수치는 2026-11-01 운영 DB 집계(개수·평균만, 실고객 2명 제외). 표본이 작다 — V3 사용자 3명.
@@ -1120,6 +1120,31 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
   다른 회귀: `test-my-life` ①(작은 물방울·인물록 — 확인 대기 연결·초안 안 보임) · ②③⑥(인물 6 → 5) · ④(이야기 간선 4 → 3) · ⑧⑪(칩 모양에서 `proposed` 뺌) · ⑫(인물 확인 화면·액션·lib·문구·회귀 파일 없음 · 주소 → `/my-life` · 앱 안 `/story-review/confirm` 링크 0 — 링크 검사에 `/confirm` 도 셈 · 카드 자리·시트에서 정리할 것 카드 뺌), 합성 데이터의 초안 인물 1명 뺌 · `test-chat-proposal` ⑪(인물 확인 묶음 제목 뺌 — 찾기·인터뷰 요약은 그대로) · ⑬(문구 파일 3개) · ⑦ `CONFIRM_COPY` 부재 검사 뺌(이름 자체가 없어짐) · `test-person-mode` 주석. 회귀 세트 18종(CLAUDE.md).
 - 검증(2026-11-03): 회귀 18종 exit 0(`test-chat-proposal --live` 188 · `test-interview` 95 · `test-my-life` 105(⑫ 인물 확인 삭제 1항목 추가) · `test-my-life-edit` 62 · `test-node-graph` 69 · `test-p14` 53(동명이인 3 추가) · `test-v3-poster-bridge` 39 · `test-p18-1` 11) · `tsc` 0 · 빌드 exit 0(`/story-review/confirm` 라우트 없음) · 바꾼 파일 eslint 오류 0(경고 1 = `test-chat-proposal.ts:370` `friendId` — 이번에 안 건드린 줄) · 운영 빌드 `next start` 에서 `/story-review/confirm`(·`#…`) → 307 `/my-life`, `/onboarding-v2` → 307 `/enter` 그대로. 테스트 원가(11-03 누적) 원장 $5.46(이번 18종 ≈ $0.54). 브라우저 화면 확인은 안 함 — 지운 카드·링크·점선·꼬리표는 대기 0 이라 원래 어느 계정에도 안 그려지던 것.
 
+### 15.7 Q72 — 이름만 남은 옛 장소(`MemoryPlace`, placeId 없음) → `Place` 백필(2026-11-03, 성민 지시)
+
+- **스크립트** `db/backfill-memory-places.ts` — 기본 dry-run · `--apply [--expect=N]` · `--restore <백업> [--apply]` · `--only <이메일>`(허용 목록 또는 픽스처 `.invalid` 한 계정 — 규칙 검증용, 실고객 거부). 규칙(성민): 같은 계정 안 같은 이름(공백 무시 — `lib/my-life-edit` `norm` 과 같은 기준)은 Place 하나로 · 그 계정에 같은 이름 Place 가 이미 있으면 거기에 잇기(Place 는 안 고침) · 새로 만들 때 주소·좌표·출처를 옮김(주소 있는 첫 행 — 이름은 가장 오래된 행) · `MemoryPlace` 는 placeId 만 채움(장소명·주소 칸 그대로 — V2 화면·연구실 원천이 이 칸을 읽음). **보류**(쓰지 않고 보고만): 같은 이름인데 주소가 서로 다름 · 같은 이름 Place 가 여럿이라 어느 쪽인지 모름 · 기존 Place 주소와 행 주소가 다름. **건너뜀**: 같은 이야기(메모리)에 같은 장소가 이미 이어져 있음(한 쌍 = 한 곳). 계정 구분 = test30 · test.com · lab_persona(적용 대상 — 허용 목록) / 실고객(이메일 앞부분 `sml122900` — 1단계 이관 `db/migrate-places.ts` 와 같은 기준) · 그 밖(제외 — 기록 종류별 행 수·같은 이름 묶음 수만, 장소 이름 안 보임). 백업 = `db/backups/memory-place-backfill-<시각>.json`(쓰기 전 계획 → 묶음마다 커밋 뒤 실제 결과 — 중간에 멈춰도 그때까지 한 것이 남음). 되돌리기 = placeId 가 아직 그 값인 행만 비우고, 이 백필이 만든 Place 중 아무 데도 안 이어진(장소 행·묶음·연결 0) 것만 삭제.
+- **운영 dry-run(2026-11-03)**: placeId 빈 `MemoryPlace` 전체 **19행** — test30 0 · test.com 0 · lab_persona 0 · 그 밖 0 · **실고객 2계정 19행(life_event 18 · photo 1, 같은 이름 2행 이상 묶음 0)** → **적용 대상 0행 → 적용 실행 안 함**(실행해도 쓰기 0). 1단계 이관(2026-10-30 — 실고객 뺀 전부)이 나머지를 이미 이었고, 그 뒤 테스트 계정에서 이름만 남은 행이 새로 안 생김. 실고객 19행은 제외(성민 결정 전 — 아래 판단 참고).
+- **규칙 검증(픽스처 1계정 `--only`, 미커밋 스크립트 — 17항목 PASS)**: 공백만 다른 같은 이름 → 새 Place 하나(이름 = 가장 오래된 행 · 주소·좌표·출처 옮김) · 두 이야기의 같은 이름(공백 무시) → 하나 · 기존 같은 이름 Place 에 잇기 · 같은 이야기에 이미 이어진 장소 → 건너뜀 · 주소 다름·같은 이름 2곳 → 보류 · 장소명 칸 그대로 · `--expect` 다르면 중단(쓰기 0) · 다시 돌리면 이을 행 0(멱등) · My Life 칩에 장소 id · `--restore` = 이은 행 비움 + 새 Place 삭제(기존 Place·원래 이어진 행 그대로) · 연구실 원천 해시(`loadSourceUnits`)가 백필 전후·되돌린 뒤 모두 같음. 픽스처 계정·백업 파일 정리.
+- **연구실 영향(`diffSources` — 읽기 전용)**: 원천 해시는 `MemoryPlace.placeName` 만 넣고 placeId·Place 는 안 읽음(`lib/lab/sources.ts` — 맥락 `lib/lab/context.ts` 도 장소 안 봄) → 장소 id 로 이어도 이름이 같아 재추출 없음(위 픽스처 해시로 확인). 원장이 있는 계정(실고객 제외): lab_persona 2명 = 원천 79·26 전부 unchanged · test30 = unchanged 6 · changed 5(`SKELETON_EVENT` — 이 종류는 원천에 장소명이 없음(`placeNames: []`), 마지막 동기화 뒤 E2E 로 바뀐 것) · new 12(이야기 6·인물 메모 6) — 장소와 무관. 이번 백필은 이 계정들에 쓰기 0.
+- **"이름만 남은 장소" 예외 코드 — 정리할 수 있나(보고만, 코드 변경 0)**:
+
+| 곳 | 하는 일 |
+| --- | --- |
+| `lib/my-life.ts` `buildStory` — `id = mp.placeId && placeById.has(…) ? … : null` · `name: mp.place?.name ?? mp.placeName` · 칩 중복 키 `c.id ?? c.name` · `MyLifeChip.id: string \| null` 주석 | 이름만 남은 행 = id 없는 장소 칩 |
+| `lib/my-life-layout.ts` `eventPeoplePlaceList` — `ref = name:…` · `PeriodRef.id: string \| null`·`name` | 시기 머리 수·패널 "나온 곳"에 이름만 남은 곳도 셈·표시 |
+| `app/my-life/EditUI.tsx` 시기 패널 `periodItem` — `r.id ? … : { go: 그 이야기 }` | 이름만 남은 곳 [여기로 가기] → 그 이야기로(우회) |
+| `app/my-life/EditUI.tsx` 이야기 패널 장소 목록 `c.kind === "place" && c.id` · 목록 키 `name:…` | 이름만 남은 곳은 [빼기] 목록에 안 나옴 |
+| `app/my-life/MyLifeView.tsx` 이야기 패널 `chips.filter((c) => !c.id)` 칩 줄 · 색인 `if (!c.id) continue` | 이름만 남은 곳을 칩으로만 보여 줌 · 장소별 이야기 색인에서 뺌 |
+| `lib/my-life-edges.ts` `c.id && c.kind === "place"` | 간선 안 그림 |
+| 회귀 `test-my-life` ①(옛 동네 칩)·⑧·⑪(옛 장소 이름 칩) | 위 동작 검사 |
+
+  판단:
+  - **실고객 19행은 막는 이유가 아님** — 전부 V2 기록(life_event·photo)이고 My Life 는 이야기 브릿지 메모리(`createdVia="episode"`)의 장소만 읽는다 → 실고객이 V3 로 넘어와도 이 행은 My Life 에 안 나온다. 지금 운영 전 계정에서 이야기 메모리의 이름만 남은 장소 = 0행(실고객 포함 — 19행 중 episode 0).
+  - **바로 못 지우는 이유**: ① `lib/episode.ts` `saveEpisodePlaces`(연구실 페르소나 시드 `db/lab-seed-persona.ts` 가 씀)가 이야기 메모리에 placeId 없이 장소를 만든다 — 시드를 다시 돌리면 생긴다(페르소나는 로그인 계정이 아니라 화면엔 안 보이지만 `getMyLifeData` 는 같은 함수). ② 데이터 보증이 없다 — "이야기 메모리에 이름만 남은 장소 0" 을 보는 정합 점검 항목이 없다. ③ `MemoryPlace.placeId` 는 Place 삭제 때 SetNull — My Life 장소 지우기(`deletePlaceNode`)는 이야기 쪽 행을 먼저 지워 괜찮지만, 다른 경로가 Place 를 지우면 다시 생긴다(지금 그런 경로 없음 — 탈퇴는 계정째 삭제).
+  - V2 쪽(인생 연혁·사진 편집이 `MemoryPlace` 를 지우고 placeId 없이 다시 만듦 — `lib/life-events.ts`·`lib/photos.ts`)은 My Life 예외 코드와 무관(그 기록은 My Life 에 안 나옴). 다만 V2 기록에 이어 둔 placeId 는 편집 때 끊긴다(1단계 이관부터 있던 동작 — 실고객 19행을 백필해도 편집하면 다시 이름만 남음). V2 화면은 장소명 칸만 읽어 보이는 영향은 없다.
+  - **지우려면(제안 — 성민 결정)**: (a) `saveEpisodePlaces` 가 장소 노드로 잇게(같은 이름 Place 재사용·생성 → `saveNodeLink`) — 또는 시드 뒤 이 백필 (b) 정합 점검에 "이야기 메모리의 이름만 남은 장소"(보고) 추가 (c) 그 뒤 위 표의 분기 삭제 + `test-my-life` 예외 검사를 "없음" 검사로. `MyLifeChip.id` 의 null 은 화면의 "외 N" 넘침 칩도 쓰므로 타입은 화면 쪽에 남는다.
+- 검증(2026-11-03): 회귀 18종 exit 0(`test-chat-proposal --live` 188 · `test-interview` 95 · `test-my-life` 105 · `test-my-life-edit` 62 · `test-node-graph` 69 · `test-p14` 53 · `test-v3-poster-bridge` 39) · 빌드 exit 0 · 새 스크립트 eslint·`tsc` 0 · 회귀 뒤 dry-run 다시 = 같은 19행(그 밖 0 — 픽스처 잔재 0) · 백업 파일 0(픽스처 검증 백업은 지움). 앱 코드 변경 0(스크립트·문서만). 테스트 원가(11-03 누적) 원장 $6.00(이번 18종 ≈ $0.54).
+
 ## 결정 로그
 
 - 2026-11-01 — 설계 작성(성민 결정 — §0, 구현 전·코드 변경 0). 운영 집계(개수·평균만, 실고객 제외): 인물 사용자당 최대 12·장소 최대 14·모임 0·이야기 최대 23(본인 턴 평균 2.1)·채팅 본인 메시지 평균 18자. 결정 질문 Q51~Q72(§7.3).
@@ -1166,3 +1191,4 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
 - 2026-11-03 — **옛 화면 정리 + 비용 스크립트 안전장치(성민 지시 — §15.4)**: 옛 온보딩 화면 4개·`/story-review` 보존 본문 삭제(주소 → `/enter`·`/my-life?view=list`), 그것만 쓰던 액션·lib·문구 키 정리. `ChatV3PendingContext` 죽은 행 4 삭제 → 테이블 제거 추천, 마이그 SQL 만 만들고 승인 대기. 유료 단독 스크립트는 `--run` 있을 때만 호출(작업 규칙 10).
 - 2026-11-03 — **`ChatV3PendingContext` 제거 승인(성민) + 조사·회귀 개선(성민 지시 — §15.5)**: 마이그 `20261103000000_drop_chat_v3_pending_context` 승인 — 코드·스키마 삭제를 마이그와 같은 커밋에, 운영 적용은 그 코드 배포 뒤(순서만 바꿈 — 지금 운영 코드가 테이블을 읽음). 인물 확인 대기 = 운영 0·만드는 경로 0 → 화면 정리는 다음 후보(CLAUDE.md, 결정 대기). 회귀의 호출 위치·개수 정적 검사 → 실제 결과 검사, 화면 렌더·요청 문맥이 필요한 것과 "쓰는 곳 하나" 지킴은 이유와 함께 남김.
 - 2026-11-03 — **인물 확인 화면 삭제(성민 지시 — §15.6)**: 조건(운영 확인 대기 0·만드는 경로 0)을 삭제 직전 다시 확인한 뒤 `/story-review/confirm`·확인 액션·lib·문구·`saveProposedPeople`·My Life 정리할 것 카드·패널 확인 링크·확인 대기 표시·인터뷰 요약 카드 삭제. 주소 → `/my-life`. My Life 데이터 = 확정 연결·확정 인물만. `test-node-confirm` 퇴역(지금도 쓰는 동명이인 검사 3항목만 `test-p14` 로) — 회귀 18종. 마이그 0·`proxy.ts` 무접촉.
+- 2026-11-03 — **Q72 옛 장소 백필(성민 지시 — §15.7)**: `db/backfill-memory-places.ts`(규칙 — 같은 계정 같은 이름 = Place 하나·기존 같은 이름 Place 에 잇기·주소·좌표 옮김 / 백업·되돌리기·`--only`). 운영 dry-run 적용 대상 0행(placeId 빈 19행 = 전부 실고객 2계정 V2 기록 life_event 18·photo 1 — 제외) → 적용 실행 안 함. 픽스처 규칙 검증 17 PASS, 연구실 원천 해시 영향 없음(`diffSources`). My Life 예외 코드는 조건부 정리(연구실 시드 경로·정합 점검 뒤) — 보고만. 마이그 0·`proxy.ts` 무접촉.
