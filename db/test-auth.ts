@@ -176,7 +176,7 @@ async function main() {
       POLICY_NOTICES.map((n) => [n.version, noticeProblem(n)]));
     check("③ 닫기 기록은 판마다 따로 · 띠 = 짧은 요약 + 시행일(상세 없음) · 처리방침 줄 = 문서 이름(판)·시행일·상세 · [자세히] → 처리방침 줄",
       noticeClosedKey(sample) !== noticeClosedKey({ ...sample, version: "v9.10" }) &&
-        POLICY_NOTICE_COPY.bar({ ...sample, phase: "before" }) === "예시 개정 (3월 8일 시행)" &&
+        POLICY_NOTICE_COPY.bar({ ...sample, phase: "before" }) === "예시 개정 · 3월 8일부터" && POLICY_NOTICE_COPY.bar({ ...sample, phase: "after" }) === "예시 개정 · 3월 8일부터 적용" &&
         POLICY_NOTICE_COPY.pageLine({ ...sample, phase: "before" }).includes("개인정보 처리방침(v9.9)은 2030년 3월 8일부터 시행됩니다. 예시 개정의 자세한 내용.") &&
         noticeHref(sample) === "/privacy#policy-notice" && read("app/privacy/page.tsx").includes("<p id={NOTICE_ANCHOR}"));
     check("③ 화면 연결 — 로그인한 화면 헤더 아래 띠(root layout) · 처리방침 맨 위 줄",

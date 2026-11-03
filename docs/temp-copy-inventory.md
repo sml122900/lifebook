@@ -1,6 +1,6 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-04(가입 화면 `lib/join-copy.ts` 13키 확정 — 임시에서 빠짐 · 서비스 이름 화면 표기 "Lifebook"·"Google" 통일, 법적 표기 "라이프북" 유지) · 2026-11-03(개정 공지 — `lib/policy-notice-copy.ts` 4키, 아래 "개정 공지") · 2026-11-03(이야기 상세·글 고치기·이전 판·인물 글 — `lib/my-life-copy.ts` `body` 60키, 아래 "2b-3c 추가" · `hideBody` 삭제) · 2026-11-03(가입 전 동의 화면 `/join` 신설 — `lib/join-copy.ts` 13키, 아래 "가입 전 동의" · 동의 항목 문구는 확정된 /consent 문구를 같이 씀) · 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-04(개정 공지 `lib/policy-notice-copy.ts` 4키 확정 — 임시에서 빠짐) · 2026-11-04(가입 화면 `lib/join-copy.ts` 13키 확정 — 임시에서 빠짐 · 서비스 이름 화면 표기 "Lifebook"·"Google" 통일, 법적 표기 "라이프북" 유지) · 2026-11-03(개정 공지 — `lib/policy-notice-copy.ts` 4키, 아래 "개정 공지") · 2026-11-03(이야기 상세·글 고치기·이전 판·인물 글 — `lib/my-life-copy.ts` `body` 60키, 아래 "2b-3c 추가" · `hideBody` 삭제) · 2026-11-03(가입 전 동의 화면 `/join` 신설 — `lib/join-copy.ts` 13키, 아래 "가입 전 동의" · 동의 항목 문구는 확정된 /consent 문구를 같이 씀) · 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 3개(2026-11-03 인물 확인 문구 파일 삭제 전엔 4개)의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 ## 요약
@@ -11,7 +11,7 @@
 | `lib/my-life-copy.ts` | 259 (2026-11-03 2b-3c `body` 60 추가·`hideBody` 삭제 — 아래 "2b-3c 추가" · 그 전 200 = 78 + 3단계 115 + Q69 11 − 확인 대기 표시 4(2026-11-03 삭제 — `pendingTag`·`goConfirm`·`pendingNote`·`draftNote`) · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 (`storyReviewEntry` 는 2026-11-03 옛 `/story-review` 본문과 함께 삭제) | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
 | `lib/interview/copy.ts` | 42 (전부 — `selfStoriesTitle` 2026-11-03 삭제) | 0 | `/interview` · My Life "오늘의 인터뷰" 카드(Q69 전 `/story-review`) |
 | `lib/join-copy.ts` | 0 (13키 2026-11-04 전부 확정) | 0 | `/join`(가입 전 동의 — 제목·안내·가입 방법 버튼) |
-| `lib/policy-notice-copy.ts` | 4 (전부 — 2026-11-03 신설) | 0(개정 등록이 있을 때만 보임 — 지금 0) | 로그인한 화면 헤더 아래 띠 · /privacy 맨 위 |
+| `lib/policy-notice-copy.ts` | 0 (4키 2026-11-04 전부 확정) | 0(개정 등록이 있을 때만 보임 — 지금 0) | 로그인한 화면 헤더 아래 띠 · /privacy 맨 위 |
 | `lib/interview/question-pool.ts` | 문항 8개(18줄 — 구조 예시 5 + "관계별 나" 3) | — | `/interview` 질문·이야기 제목 |
 | 그 밖 | 1 | — | 아래 "그 밖" |
 
@@ -223,14 +223,14 @@
 | `pending` | "가입 화면으로 넘어가는 중…" | /join 가입 버튼(제출 중) |
 | `toLogin` | "이미 가입하셨나요? 로그인하기" | /join 아래 링크 |
 
-### `lib/policy-notice-copy.ts` (`POLICY_NOTICE_COPY`) — 개정 공지(2026-11-03, 전부 `[임시 — 성민 확정 필요]` · 2026-11-04 띠 구조 변경)
+### `lib/policy-notice-copy.ts` (`POLICY_NOTICE_COPY`) — 개정 공지 — **4키 전부 확정(2026-11-04 성민)**
 
-개정이 `lib/policy-notice.ts` 에 등록됐을 때만 보인다(지금 등록 0 — 화면에 안 나옴, 첫 사용 v1.4). 띠의 요약은 등록의 `short`(14자), 처리방침 줄의 상세는 등록의 `detail`.
+임시 목록에서 빠짐(아래는 확정 문구 기록). 개정이 `lib/policy-notice.ts` 에 등록됐을 때만 보인다(지금 등록 0 — 첫 사용 v1.4). 띠의 요약은 등록의 `short`(11자 — 어르신이 아는 말, 기술 용어 금지), 처리방침 줄의 상세는 등록의 `detail`.
 
-| 키 | 현재 문구 | 보이는 곳 |
+| 키 | 확정 문구 | 보이는 곳 |
 |---|---|---|
-| `bar(n)` | 시행 전 `${short} (${M월 D일} 시행)` · 시행 뒤 `${short} (${M월 D일}부터 시행 중)` — 예 "로그인 토큰 저장하지 않음 (11월 11일 시행)" | 로그인한 화면 헤더 아래 띠(app/components/PolicyNoticeBar.tsx) |
-| `more` | "자세히 보기" | 띠 버튼 → /privacy#policy-notice |
+| `bar(n)` | 시행 전 `${short} · ${M월 D일}부터` · 시행 뒤 7일 `${short} · ${M월 D일}부터 적용` | 로그인한 화면 헤더 아래 띠(app/components/PolicyNoticeBar.tsx) |
+| `more` | "처리방침 보기" | 띠 버튼 → /privacy#policy-notice |
 | `close` | "닫기" | 띠 버튼 |
 | `pageLine(n)` | 시행 전 `개정 안내 — 개인정보 처리방침(${판})은 ${YYYY년 M월 D일}부터 시행됩니다. ${detail}` · 시행 뒤 `…시행되었습니다. ${detail}` | /privacy 맨 위(app/privacy/page.tsx) |
 

@@ -14,7 +14,7 @@ export type PolicyDoc = "privacy" | "terms";
 export type PolicyNotice = {
   doc: PolicyDoc;
   version: string; // "v1.4"
-  short: string; // 띠용 짧은 요약(SHORT_MAX 자 이내 — 390 에서 시행일·버튼과 두 줄 안에)
+  short: string; // 띠용 짧은 요약(SHORT_MAX 자 이내 — 390 에서 시행일·버튼과 두 줄 안에). 어르신이 아는 말, 기술 용어 금지(규칙 11)
   detail: string; // 처리방침 맨 위 "개정 안내" 줄의 상세(바뀌는 점)
   noticeDay: string; // 공지일(KST, YYYY-MM-DD) = 배포일
   effectiveDay: string; // 시행일(KST, YYYY-MM-DD) — 공지일 + 7일 이상
@@ -24,7 +24,9 @@ export type ActiveNotice = PolicyNotice & { phase: "before" | "after" };
 
 export const NOTICE_LEAD_DAYS = 7; // 공지 → 시행 최소 간격
 export const NOTICE_AFTER_DAYS = 7; // 시행 뒤에도 안내를 남기는 날 수
-export const SHORT_MAX = 14; // 띠용 짧은 요약 글자 수 상한(390 실측 — 시행일·[자세히 보기]·[닫기]와 두 줄)
+// 띠용 짧은 요약 글자 수 상한 — 2026-11-04 확정 문구("· 12월 31일부터 적용"·[처리방침 보기]·[닫기])로 390 재실측: 11자 이하는
+// 긴 낱말("개인정보처리방침")이 있어도 두 줄, 12자는 긴 낱말이면·13자는 그렇지 않아도 세 줄(낱말 단위 줄바꿈). 넘치면 띠가 두 줄에서 말줄임.
+export const SHORT_MAX = 11;
 
 // 개정 등록 — 첫 사용은 v1.4 부터(2026-11-03 성민 결정: v1.3 은 개정 이력으로만). 새 개정을 맨 뒤에 더한다.
 export const POLICY_NOTICES: readonly PolicyNotice[] = [];
