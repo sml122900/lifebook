@@ -3,17 +3,17 @@
 // 여부"를 실어 Edge 미들웨어(proxy.ts)가 DB 접근 없이 리다이렉트를 판단하게
 // 한다. Edge 전용 인스턴스는 proxy.ts 가 auth.config 만으로 따로 만든다
 // (Edge 런타임에선 Prisma 를 못 쓰기 때문).
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 import authConfig from "./auth.config";
+import { authAdapter } from "./lib/auth-adapter";
 import { prisma } from "./lib/db";
 import { ensureWalletWithSignupGrant } from "./lib/tokens/wallet";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter: authAdapter, // Prisma 어댑터 — 소셜 토큰은 저장 안 함(lib/auth-adapter)
   session: { strategy: "jwt" }, // DB 세션 대신 JWT — Edge 미들웨어가 읽기 쉬움
   ...authConfig,
   // Credentials 는 Node-only (bcrypt + Prisma) — auth.config.ts(Edge) 엔 넣지 않음.
