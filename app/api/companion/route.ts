@@ -70,6 +70,7 @@ export async function POST(req: Request) {
       model,
       maxTokens: 250,
       temperature: 0.8,
+      cache: "conversation", // 다음 턴이 시스템 지시문(프로필) + 앞 대화를 캐시로 읽음(§17). 차감은 입력 전체 기준 그대로
     });
 
     // 라이브 차감 = 선택모델 배수(haiku×1/sonnet×3/opus×8). surcharge 로 배수 표현.

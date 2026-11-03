@@ -64,14 +64,38 @@ export type ChatOptions = {
   model?: string;
   maxTokens?: number;
   temperature?: number;
+  // 프롬프트 캐싱(2026-11-03 — docs/phase/my-life-restructure.md §17). 프롬프트 문장·순서는 그대로, 캐시 표시만.
+  //   "system"       — 시스템 지시문 끝에 표시(고정 지시문을 여러 호출이 같이 씀 — 제안 카드).
+  //   "conversation" — 시스템 지시문 + 마지막 메시지 끝에 표시(같은 대화의 다음 턴이 앞부분을 읽음 — 자유 대화·인터뷰 후속·말동무).
+  // 모델별 최소 길이(Haiku 4.5 4,096 · Sonnet 4.6·Opus 4.8 1,024 토큰)보다 짧으면 API 가 캐시 없이 그대로 처리한다(추가 요금 없음).
+  cache?: "system" | "conversation";
 };
 
 export type ChatResult = {
   text: string;
+  // 입력 토큰 전체 = 캐시 없이 읽은 것 + 캐시에 쓴 것 + 캐시에서 읽은 것(캐싱 전과 같은 뜻 — 토큰 차감·인터뷰 기록은 그대로).
   inputTokens: number;
   outputTokens: number;
   model: string;
+  cacheWriteTokens: number; // usage.cache_creation_input_tokens(기본 입력가의 1.25배)
+  cacheReadTokens: number; // usage.cache_read_input_tokens(기본 입력가의 0.1배)
 };
+
+// 캐시 표시 — 시스템 지시문은 블록 하나로, "conversation" 이면 마지막 메시지도 블록으로 바꿔 끝에 표시(내용 그대로).
+function withCache(
+  messages: ChatMessage[],
+  opts: ChatOptions,
+): { system: string | Anthropic.TextBlockParam[] | undefined; messages: Anthropic.MessageParam[] } {
+  if (!opts.cache) return { system: opts.system, messages };
+  const mark = { type: "ephemeral" } as const;
+  const system = opts.system ? [{ type: "text" as const, text: opts.system, cache_control: mark }] : opts.system;
+  const last = messages[messages.length - 1];
+  if (opts.cache !== "conversation" || !last?.content) return { system, messages };
+  return {
+    system,
+    messages: [...messages.slice(0, -1), { role: last.role, content: [{ type: "text", text: last.content, cache_control: mark }] }],
+  };
+}
 
 export async function chat(
   messages: ChatMessage[],
@@ -92,26 +116,30 @@ export async function chat(
   // 직접 보지 않는다 — API 호출 옆에 두는 부기(bookkeeping)다.
   // ──────────────────────────────────────────────────────────────────
 
+  const req = withCache(messages, opts);
   const res = await getClient().messages.create({
     model,
     max_tokens: opts.maxTokens ?? 1024,
     ...(supportsTemperature(model)
       ? { temperature: opts.temperature ?? 0.7 }
       : {}),
-    system: opts.system,
-    messages,
+    system: req.system,
+    messages: req.messages,
   });
+  const cacheWriteTokens = res.usage.cache_creation_input_tokens ?? 0;
+  const cacheReadTokens = res.usage.cache_read_input_tokens ?? 0;
+  const inputTokens = res.usage.input_tokens + cacheWriteTokens + cacheReadTokens;
 
   if (process.env.NODE_ENV !== "production") {
     console.log(
-      `[ai] model=${res.model} in=${res.usage.input_tokens} out=${res.usage.output_tokens} total=${res.usage.input_tokens + res.usage.output_tokens}`,
+      `[ai] model=${res.model} in=${inputTokens} out=${res.usage.output_tokens} total=${inputTokens + res.usage.output_tokens} cacheWrite=${cacheWriteTokens} cacheRead=${cacheReadTokens}`,
     );
   }
 
   const tracked = usageStore.getStore();
   if (tracked) {
     tracked.calls += 1;
-    tracked.inputTokens += res.usage.input_tokens;
+    tracked.inputTokens += inputTokens;
     tracked.outputTokens += res.usage.output_tokens;
     tracked.model = res.model;
   }
@@ -125,9 +153,11 @@ export async function chat(
 
   return {
     text,
-    inputTokens: res.usage.input_tokens,
+    inputTokens,
     outputTokens: res.usage.output_tokens,
     model: res.model,
+    cacheWriteTokens,
+    cacheReadTokens,
   };
 }
 

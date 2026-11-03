@@ -41,10 +41,24 @@ function priceOf(model: string) {
   return PRICE_PER_MTOK.sonnet;
 }
 
-// 추정 원가(백만분의 1 달러). 토큰 × 달러/백만토큰 = 마이크로달러.
-export function costMicroUsd(model: string, inputTokens: number, outputTokens: number): number {
+// 프롬프트 캐싱 배율(공식 문서 platform.claude.com/docs/en/build-with-claude/prompt-caching — 2026-11-03 확인):
+// 5분 캐시 쓰기 = 기본 입력가 × 1.25, 캐시 읽기 = × 0.1(Haiku 4.5·Sonnet 4.6·Opus 4.8). §17.
+const CACHE_WRITE_RATE = 1.25;
+const CACHE_READ_RATE = 0.1;
+
+// 추정 원가(백만분의 1 달러). 토큰 × 달러/백만토큰 = 마이크로달러. inputTokens 는 입력 전체(캐시 포함 — lib/ai ChatResult),
+// 그중 캐시에 쓴 것·읽은 것은 배율로(2026-11-03 — 캐싱 뒤 원가가 입력가 그대로 잡히던 것을 막음).
+export function costMicroUsd(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  cache: { writeTokens?: number; readTokens?: number } = {},
+): number {
   const p = priceOf(model);
-  return Math.ceil(inputTokens * p.input + outputTokens * p.output);
+  const write = cache.writeTokens ?? 0;
+  const read = cache.readTokens ?? 0;
+  const plain = Math.max(0, inputTokens - write - read);
+  return Math.ceil(plain * p.input + write * p.input * CACHE_WRITE_RATE + read * p.input * CACHE_READ_RATE + outputTokens * p.output);
 }
 
 function envUsdMicro(name: string, fallbackUsd: number): number {
@@ -94,10 +108,11 @@ export async function isOverDailyBudget(now: Date = new Date()): Promise<boolean
 export async function recordChatUsage(
   userId: string,
   purpose: ChatUsagePurpose,
-  r: { model: string; inputTokens: number; outputTokens: number },
+  r: { model: string; inputTokens: number; outputTokens: number; cacheWriteTokens?: number; cacheReadTokens?: number },
 ): Promise<void> {
   try {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    // 캐시 쓰기·읽기 토큰 칸은 마이그 승인 뒤(§17 — 20261103200000_chat_v3_usage_cache). 지금은 원가에만 배율로 반영.
     await prisma.chatV3Usage.create({
       data: {
         userId,
@@ -105,7 +120,7 @@ export async function recordChatUsage(
         model: r.model,
         inputTokens: r.inputTokens,
         outputTokens: r.outputTokens,
-        costMicroUsd: costMicroUsd(r.model, r.inputTokens, r.outputTokens),
+        costMicroUsd: costMicroUsd(r.model, r.inputTokens, r.outputTokens, { writeTokens: r.cacheWriteTokens, readTokens: r.cacheReadTokens }),
       },
     });
   } catch (e) {

@@ -32,7 +32,9 @@ import { resolveBirthYear } from "./life-events";
 
 const PROPOSAL_MODEL = process.env.LIFE_EVENT_CONFIRM_MODEL ?? "claude-sonnet-4-6";
 // 제안 호출 설정 — 재생 세트(db/replay-proposals.ts)도 같은 값으로 부른다.
-export const PROPOSAL_CALL = { model: PROPOSAL_MODEL, maxTokens: 1200, temperature: 0.3 } as const;
+// cache "system" — 고정 시스템 지시문(약 4,700 토큰)을 캐시: 제안이 몰리는 때(재요청·연달은 제안) 다음 호출이 0.1배로 읽음(§17).
+// 재생 세트(db/replay-proposals)도 이 설정을 그대로 써 앱과 같은 호출이 된다.
+export const PROPOSAL_CALL = { model: PROPOSAL_MODEL, maxTokens: 1200, temperature: 0.3, cache: "system" } as const;
 export const TITLE_MAX = 40;
 export const SUMMARY_MAX = 3000;
 export const CENTER_LABEL_MAX = 30;

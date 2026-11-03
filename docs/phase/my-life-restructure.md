@@ -1247,6 +1247,71 @@ A 출생연도 저장 정리 · B 소셜 로그인 토큰 저장 최소화 · C 
 - D2 인물 본문 편집 자리 — **사람 패널 [글 쓰기] → `/my-life/person/[id]/edit`**(추천, 이야기와 같은 편집 부품) / 이번엔 이야기만.
 - D3 이전 판에 사진 캡션 — 판은 평문 + 그때의 블록 문서만(캡션은 `Photo.caption` 한 곳 — **되돌려도 캡션은 지금 값**, 추천) / 캡션도 판에 복사.
 - 마이그 `20261103100000_node_body_revision` SQL 승인.
+
+## 17. Anthropic 프롬프트 캐싱(2026-11-03, 성민 지시 — 배경: Anthropic 안내 "캐시 적중률 낮음, 최대 55% 절감 가능")
+
+A~D(§16)와 별개 작업·별도 커밋. 프롬프트 문장·순서는 그대로, 캐시 표시만 더함.
+
+### 17.1 공식 문서 확인(2026-11-03)
+
+출처: https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+
+- **최소 길이** — "1,024 tokens for Claude Opus 4.8, Claude Sonnet 5, Claude Sonnet 4.6 …" · "4,096 tokens for Claude Haiku 4.5". "Shorter prompts cannot be cached, even if marked with `cache_control`. Any requests to cache fewer than this number of tokens are processed without caching, and no error is returned." → 짧은 호출에 표시해도 오류·추가 요금 없이 그냥 캐시 안 됨.
+- **유지 시간** — "By default, the cache has a 5-minute lifetime. The cache is refreshed for no additional cost each time the cached content is used." 1시간 캐시는 쓰기가 기본 입력가의 2배 — 앞 호출 간격이 5분 안인 비율이 90~100%(아래 표)라 쓰지 않음.
+- **가격** — "Cache write tokens with a 5-minute TTL are 1.25 times the base input tokens price." 읽기 = 0.1배(Haiku 4.5 $0.10/MTok · Sonnet 4.6 $0.30/MTok · Opus 4.8 $0.50/MTok).
+- **사용량 칸** — `input_tokens` 는 "tokens after your last breakpoint" 만, 입력 전체 = `cache_read_input_tokens + cache_creation_input_tokens + input_tokens`.
+- **보관·공유** — 워크스페이스 단위로 분리(다른 조직과 절대 공유 안 함), "KV (key-value) cache representations and cryptographic hashes of cached content are held in memory only and are not stored at rest." → 보내는 내용은 캐싱 전과 같아 처리방침(3항 Anthropic 이전·7일 보유) 영향 없음.
+
+### 17.2 조사 — 운영 호출 종류별(시스템 지시문 토큰 = `count_tokens` 실측, 빈도 = 최근 30일 원장 — 읽기 전용·집계만)
+
+| 호출 | 모델 | 매번 같은 앞부분 | 바뀌는 부분 | 빈도(최근 30일) | 전 캐시 | 판단 |
+|---|---|---|---|---|---|---|
+| 제안 카드(PROPOSAL·INTERVIEW_PROPOSAL) | Sonnet 4.6 | 시스템 지시문 **4,700** — 모든 사용자 같음 | 후보 목록·대화 = user 메시지(이미 뒤) | 테스트 계정 919+62회($16.66) · 그 밖(test30·연구실) 86+13회($1.30). 앞 제안이 5분 안에 있던 비율 90~100% | 없음 | **적용 `"system"`** |
+| 자유 대화 응답(REPLY) | 사용자 전역 모델(기본 Haiku) | 시스템 지시문 1,704(구간 동안 그대로 — 둘째 줄이 사용자별 참고) | 대화(턴마다 늘어남, 본인 6턴 상한) | 테스트 1,490회($3.21) · 그 밖 433회($0.81). 같은 사용자 앞 응답이 5분 안 98% | 없음 | **적용 `"conversation"`** — Sonnet·Opus 사용자만 효과. 기본 Haiku 는 6턴 안에서 4,096 을 거의 못 넘어 그대로(추가 요금 0) |
+| 말동무(V2 companion) | 사용자 전역 모델(기본 Haiku) | 시스템 지시문 3,697(프로필 — 한 대화 동안 그대로) | 대화(최대 50턴) | 토큰 차감 기록 최근 30일 0회 · 90일 37회(마지막 10-04) | 없음 | **적용 `"conversation"`** — Haiku 는 앞부분이 4,096 넘은 턴부터. 토큰 차감은 입력 전체 기준 그대로 |
+| 인터뷰 이야기 후속(episode-chat) | Sonnet 4.6 | 1,165 중 993자까지 — 마지막 차례 줄이 둘째 호출에서 생김 | 대화 | 이야기당 최대 2회(`MAX_FOLLOWUPS`) | 없음 | **안 함** — 둘째 호출의 시스템 지시문이 달라 읽히지 않고 쓰기(1.25배)만 붙음(실측 test-interview 쓰기 1,233·읽기 0). 바뀌는 줄을 뒤로 옮겨도 고정 부분 약 1,000 토큰 < 1,024 |
+| 그 밖 — 확인 질문 597 · 고친 답 244 · 신상 출생 293·지역 243 · 인터뷰 연도 192(Sonnet) / 다듬기 569 · 사용법 445 · 시대 비서 검색 1,131·후속 640 · 음성 다듬기 458 · 추억 대화 459(Haiku) / 포스터 문장 95·후보 94 · 자유 녹음 303(Sonnet) | — | 전부 최소 길이 미달 | — | — | 없음 | **안 함**(표시해도 캐시 안 됨) |
+
+순서 조정이 필요한 호출은 없었다 — 제안 카드는 이미 고정 지시문 = system · 후보·대화 = user 메시지 순서이고, 자유 대화·말동무는 한 대화 동안 system 이 그대로라 대화 앞부분까지 이어서 캐시된다. 자유 대화 지시문의 사용자별 둘째 줄을 뒤로 옮기면 다른 사용자끼리도 지시문을 같이 쓸 수 있지만, 고정 부분 1,544 토큰이 Haiku 최소에 못 미치고(Sonnet 사용자끼리 5분 안에 겹칠 일도 드묾) 순서 변경 = 규칙 9 재생 비교 대상이라 하지 않음.
+
+### 17.3 적용
+
+- `lib/ai.ts` `chat()` 옵션 `cache: "system" | "conversation"` — 시스템 지시문을 블록 하나로 바꿔 끝에 `cache_control: {type: "ephemeral"}`(5분), `"conversation"` 이면 마지막 메시지 끝에도(표시 2개 — 상한 4). 문장 그대로. 웹 검색 경로(`chatWithWebSearch`)는 무변.
+- `ChatResult.inputTokens` = 입력 전체(캐시 포함 — 캐싱 전과 같은 뜻) → 말동무 토큰 차감·인터뷰 문항 토큰 기록 무변(사용자 요금 그대로). 새 칸 `cacheWriteTokens`·`cacheReadTokens`, dev 로그 `[ai] … cacheWrite= cacheRead=`.
+- 호출: 제안 = `lib/node-proposal.ts` `PROPOSAL_CALL`(재생 세트 `db/replay-proposals.ts` 도 같은 설정으로 부름 — 앱과 같은 호출) · 자유 대화 = `lib/free-chat.ts` · 말동무 = `app/api/companion/route.ts`.
+- 프롬프트 문장·순서 무변 → 작업 규칙 9(재생 세트 전후 비교) 대상 아님.
+- **원가 기록**: `lib/chat-v3-usage.ts` `costMicroUsd` 가 쓰기 1.25배·읽기 0.1배로 계산 → `ChatV3Usage.costMicroUsd`·하루 예산 판정에 바로 반영(캐싱 뒤 원가가 입력가 그대로 잡히던 것 막음). 캐시 토큰 칸 자체는 스키마 변경 → **마이그 SQL `20261103200000_chat_v3_usage_cache`(`cacheReadTokens`·`cacheWriteTokens` INT NOT NULL DEFAULT 0 — 추가만) 미적용·미커밋, 성민 승인 대기**. 승인 뒤 스키마 2칸 + `recordChatUsage` 한 줄. `InterviewItem` 문항 기록은 토큰 합만(원가 칸 없음) — 그대로.
+
+### 17.4 전후 원가 비교 — 같은 실제 모델 회귀 6종
+
+test-chat-proposal `--live` · test-interview · test-open-promote · test-p23 · test-person-mode · test-v3-poster-bridge. 원가 = dev 로그 `[ai]` 줄 × 공식 배율(Haiku 4.5 $1/$5 · Sonnet 4.6 $3/$15 per MTok).
+
+| 실행 | 호출 | 입력 전체 | 캐시 쓰기 | 캐시 읽기 | 원가 |
+|---|---|---|---|---|---|
+| 전 1 | 84 | 210,103 | 0 | 0 | $0.5675 |
+| 전 2 | 84 | 210,019 | 0 | 0 | $0.5674 |
+| 전 3 | 84 | 210,599 | 0 | 0 | $0.5708 |
+| **후** | 84 | 210,171 | 5,934 | 112,824(54%) | **$0.2683(−53%)** |
+
+- 모델별: Sonnet 45회 $0.485 → $0.185(입력 중 읽기 81%) · Haiku 39회 $0.083 → $0.083(읽기 0% — Haiku 자유 대화 응답은 최소 길이 미달, 예상대로).
+- 회귀별(Sonnet): test-chat-proposal $0.288 → $0.115 · test-interview $0.043 → $0.019 · test-open-promote $0.033 → $0.008 · test-p23 $0.033 → $0.008 · test-person-mode $0.067 → $0.016 · test-v3-poster-bridge $0.020 → $0.020(포스터 지시문 95 토큰 — 미적용).
+- 원장(`ChatV3Usage.costMicroUsd`, test-chat-proposal 이 출력하는 "원가 합계"): 전 $0.1658·$0.1654·$0.1679 → 후 $0.1069·$0.0900(뒤 = 고친 뒤 재실행).
+- 주의: 회귀를 연달아 돌려 앞 회귀가 쓴 제안 캐시를 다음 회귀가 읽었다(open-promote·p23·person-mode 쓰기 0). 운영도 앞 제안이 5분 안에 있던 비율이 90~100%라 비슷하다고 보지만, 한산한 때 혼자 오는 제안은 쓰기만 붙는다 — 제안 1회 쓰기 추가 4,700 × $3 × 0.25 / 1M ≈ $0.0035, 다음 제안이 읽으면 ≈ $0.0127 절약. 제안 1회 원가 ≈ $0.017(30일 평균) → 앞 5분 안에 제안이 있었으면 ≈ $0.005.
+- "conversation" 실측(DB 무접촉 단독 호출, 픽스처 문장): 자유 대화 Sonnet 턴1 쓰기 1,715 → 턴2 읽기 1,715·쓰기 129 → 턴3 읽기 1,844 · 말동무 Haiku 턴1·2(3,751·3,937 토큰) 캐시 없음 → 턴3(4,113) 쓰기 4,110 → 턴4 읽기 4,110.
+
+### 17.5 연구실(lab) — 현황만(코드 무변)
+
+`lib/lab/llm.ts` 가 이미 캐시 표시를 하고 `LabUsage` 에 캐시 쓰기·읽기 칸이 있다. 전체 기간 집계(마지막 기록 2026-10-01 — R3 일시 정지):
+
+| 목적 | 모델 | 호출 | 입력 중 읽기 | 원가 |
+|---|---|---|---|---|
+| EXTRACT | Sonnet 4.6 | 105 | 72% | $0.759 |
+| AGENT | Sonnet 4.6 | 903 | 70% | $6.645 |
+| JUDGE | Sonnet 4.6 | 289 | 0%(캐시 밖 입력 476,745) | $1.864 |
+| EMBED | voyage-3.5 | 609 | — | $0.001 |
+
+JUDGE(채점)는 캐시가 없다 — 연구 재개 때 검토 후보(이번 범위 밖).
+
 ## 결정 로그
 
 - 2026-11-01 — 설계 작성(성민 결정 — §0, 구현 전·코드 변경 0). 운영 집계(개수·평균만, 실고객 제외): 인물 사용자당 최대 12·장소 최대 14·모임 0·이야기 최대 23(본인 턴 평균 2.1)·채팅 본인 메시지 평균 18자. 결정 질문 Q51~Q72(§7.3).
@@ -1299,3 +1364,4 @@ A 출생연도 저장 정리 · B 소셜 로그인 토큰 저장 최소화 · C 
 - 2026-11-03 — **B 소셜 로그인 토큰 저장 최소화(성민 지시 — §16.2)**: 토큰 쓰는 곳 0(세션 JWT·탈퇴 연결 끊기 API 없음) → `lib/auth-adapter.ts` 가 `linkAccount` 에 계정 식별만 넘김. 기존 3행(실고객 1 포함) 비우기는 `db/clear-oauth-tokens.ts` dry-run 만 — 적용은 성민 별도 승인. 처리방침 1-가 문장 제안(수정 안 함). 회귀 `test-auth` 신설(19종). 마이그 0.
 - 2026-11-03 — **C 동의를 계정 생성 전으로(성민 지시 — §16.3)**: 새 공개 화면 `/join`(동의 → 가입 방법) · 서명 쿠키(20분) · 소셜 = 로그인 콜백 `signInGate`(새 계정 + 동의 없음 → `/join?provider=`) + 어댑터 `createUser` 거부, 이메일 = `lib/email-signup`(동의 없으면 거부) — 계정에 동의 칸을 같은 insert 로. 기존 계정 그대로(재동의 강요 없음). proxy `/join` 공개(성민 허용). 회귀 `test-auth` ② · 390px 이메일 가입 실측. 마이그 0.
 - 2026-11-03 — **D 이야기 상세·블로그 작성 + 이전 판 보관 — 설계 재확인·마이그 SQL(§16.4)**: 설계(2b.2·Q8·Q21·Q22·Q27·Q36) 그대로 확인. Q23 "이전 판 보관 안 함" → 다시 정함 — `NodeBodyRevision`(이야기·인물 본문이 바뀔 때 직전 판, 노드마다 20판 제안, 노드 삭제 트리거·탈퇴 Cascade 정리). 마이그 `20261103100000_node_body_revision` SQL 만(미적용·미커밋, 드리프트 0 확인) — **성민 승인 대기**, 결정 질문 D1~D3.
+- 2026-11-03 — **Anthropic 프롬프트 캐싱(성민 지시 — §17)**: 공식 문서 확인(최소 길이 Haiku 4.5 4,096 · Sonnet 4.6·Opus 4.8 1,024, 5분 유지·쓸 때마다 무료 갱신, 쓰기 1.25배·읽기 0.1배). 적용 = 제안 카드(고정 지시문 4,700) · 자유 대화 응답·말동무(대화 앞부분 — Haiku 는 4,096 넘을 때만), 안 함 = 인터뷰 이야기 후속(마지막 차례 줄로 지시문이 바뀌어 읽히지 않음)·그 밖 최소 길이 미달. 프롬프트 문장·순서 무변(규칙 9 대상 아님), 토큰 차감 무변. 원가 = 캐시 배율로 기록, 캐시 토큰 칸은 마이그 `20261103200000_chat_v3_usage_cache` SQL 만(미적용·미커밋, **성민 승인 대기**). 실제 모델 회귀 6종 $0.567~0.571 → $0.268(−53%). 연구실은 현황만.
