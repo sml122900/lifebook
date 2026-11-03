@@ -1211,9 +1211,21 @@ function longTitleChecks() {
   // 화면 렌더는 브라우저가 필요해 정적 확인(2026-11-04 — 자유 대화 화면 문구를 문구 파일로 옮김).
   check("⑳ 자유 대화 화면 문구 = 문구 파일(빈 답·오류 3종·입력칸 안내·마무리 말 3) · 줄바꿈 안내는 키보드 기기만(hover·pointer: fine) · [안 만들기] 실패 = declineFailed",
     chat.includes("FC.replyEmpty") && chat.includes("enterError(FC.loadFailed,") && chat.includes("enterError(FC.topicFailed,") && chat.includes("enterError(FC.replyFailed,") &&
-      chat.includes("hasKeyboard ? `${FC.inputPlaceholder} ${FC.inputNewlineHint}` : FC.inputPlaceholder") && chat.includes('"(hover: hover) and (pointer: fine)"') &&
+      chat.includes("hasKeyboard ? `${FC.inputPlaceholder} ${FC.inputNewlineHint}` : FC.inputPlaceholder") && read("app/components/chat-input.ts").includes('"(hover: hover) and (pointer: fine)"') &&
       chat.includes('reason === "capped" ? FC.endCapped : savedStory ? FC.endSaved : FC.endPlain') && !chat.includes("placeholder=\"답을 입력해 주세요 (Shift+Enter 줄바꿈)\"") &&
       read("app/components/ProposalCard.tsx").includes("setMessage(C.declineFailed)") && (FREE_CHAT_COPY.declineFailed as string) !== FREE_CHAT_COPY.createFailed);
+  // 입력칸 Enter(2026-11-04) — 키보드 있는 기기만 Enter 보내기, 터치 기기는 줄바꿈 키 = 줄바꿈 · 한글 조합 중 Enter 무시 · 높이 자동. 쓰는 곳 두 화면.
+  const inputLib = read("app/components/chat-input.ts");
+  const companion = read("app/life-timeline/companion/CompanionClient.tsx");
+  check("㉑ 입력칸 — 키보드 있는 기기만 Enter 보내기(터치 = 줄바꿈 키 줄바꿈·보내기는 [전송]) · 한글 조합 중 Enter 무시(isComposing·keyCode 229) · 높이 자동 · 자유 대화·말동무 두 화면",
+    inputLib.includes("if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return false;") && inputLib.includes("return hasKeyboard;") &&
+      [chat, companion].every((f) => f.includes("if (isSendEnter(e, hasKeyboard)) {") && f.includes("useAutoGrow(inputRef, inputVal);") && f.includes("ref={inputRef}")) &&
+      !companion.includes('"이야기를 입력하거나 🎤 버튼을 눌러주세요 (Shift+Enter 줄바꿈)"'));
+  // 대화창 말 판정 — 확정한 새 문구를 따라가고(같은 상수), 바뀌기 전 문구로 쌓인 기록도 안내로 알아봄(2026-11-04 들어옴 확정).
+  check("㉑ 대화창 말 판정 — 새 문구(setupDone·confirmAlready·topicGone 등) · 옛 문구(문구 확정 전 기록) 모두 안내 · 사람 말은 아님",
+    [FREE_CHAT_COPY.setupDone, FREE_CHAT_COPY.confirmAlready, FREE_CHAT_COPY.topicGone, FREE_CHAT_COPY.greeting, FREE_CHAT_COPY.resume, FREE_CHAT_COPY.staleNotice, FREE_CHAT_COPY.confirmApplied].every((t) => isAppNotice(t)) &&
+      ["기본 칸은 다 채웠어요. 이제 편하게 이야기 나눠요.", "그 이야기는 지금 들을 수 없나봐요. 다른 이야기도 편하게 해 주세요.", "그 이야기는 이미 확인했나봐요. 다른 이야기도 편하게 해 주세요."].every((t) => isAppNotice(t)) &&
+      !isAppNotice("이제 준비가 끝났어요"));
 }
 
 // ─── 조사 — 이름 뒤 조사를 받침으로 고른다(2026-11-02) — LLM 0 ──────────────

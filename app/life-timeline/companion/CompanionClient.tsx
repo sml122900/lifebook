@@ -7,6 +7,7 @@
 // 백엔드(/api/companion, STT, 세션 저장, audioPaths 누적)는 모두 그대로.
 
 import { useEffect, useRef, useState } from "react";
+import { isSendEnter, useAutoGrow, useHasKeyboard } from "@/app/components/chat-input";
 import { useRouter } from "next/navigation";
 import { saveCompanionSessionAction } from "./actions";
 import { EraArchiveCard, type EraSnapshot } from "./EraArchiveCard";
@@ -67,6 +68,10 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
   const [phase, setPhase] = useState<Phase>("opening");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [inputVal, setInputVal] = useState("");
+  // 입력칸 — /chat-v3 와 같은 방식(app/components/chat-input, 2026-11-04): 키보드 있는 기기만 Enter 보내기, 터치 기기는 줄바꿈 키 = 줄바꿈.
+  const hasKeyboard = useHasKeyboard();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useAutoGrow(inputRef, inputVal);
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [audioPaths, setAudioPaths] = useState<string[]>([]);
   const [ttsOn, setTtsOn] = useState(false);
@@ -586,14 +591,11 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
           <div className="flex items-end gap-2">
             {/* 텍스트 입력 */}
             <textarea
+              ref={inputRef}
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               onKeyDown={(e) => {
-                if (
-                  e.key === "Enter" &&
-                  !e.shiftKey &&
-                  !e.nativeEvent.isComposing
-                ) {
+                if (isSendEnter(e, hasKeyboard)) {
                   e.preventDefault();
                   void handleSend();
                 }
@@ -604,7 +606,7 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
                   ? "녹음 중이에요…"
                   : isTranscribing
                   ? "음성 인식 중이에요…"
-                  : "이야기를 입력하거나 🎤 버튼을 눌러주세요 (Shift+Enter 줄바꿈)"
+                  : `이야기를 입력하거나 🎤 버튼을 눌러주세요${hasKeyboard ? " (Shift+Enter 줄바꿈)" : ""}`
               }
               rows={2}
               className="flex-1 resize-none rounded-2xl border-2 border-line bg-canvas px-4 py-3 text-lg text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none disabled:opacity-50"

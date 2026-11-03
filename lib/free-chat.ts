@@ -88,6 +88,13 @@ async function getSegment(userId: string): Promise<SegmentRow> {
 
 type LogTurn = { role: "user" | "assistant"; content: string; createdAt: Date };
 
+// 문구 확정 전에 대화창에 남은 안내 말(2026-11-04 바뀜) — 그 전에 쌓인 대화 기록도 안내로 알아보게. 문구를 또 바꾸면 옛 문구를 여기에 더한다.
+const LEGACY_APP_NOTICES = [
+  "기본 칸은 다 채웠어요. 이제 편하게 이야기 나눠요.", // setupDone
+  "그 이야기는 지금 들을 수 없나봐요. 다른 이야기도 편하게 해 주세요.", // topicGone
+  "그 이야기는 이미 확인했나봐요. 다른 이야기도 편하게 해 주세요.", // confirmAlready
+];
+
 // 앱이 대화창에 남기는 안내문(인사·"'…' 이야기를 My Life 에 남겼어요."·"남기지 않을게요" 등) — 대화가 아니다.
 // 구간에 넣으면 제안 모델이 이미 저장한 이야기 제목을 보고 다시 본문에 섞었다(운영 test30 E2E). 구간에서 뺀다.
 const APP_NOTICES = new Set<string>([
@@ -102,6 +109,7 @@ const APP_NOTICES = new Set<string>([
   FREE_CHAT_COPY.confirmAlready,
   FREE_CHAT_COPY.exitAfterCard,
   FREE_CHAT_COPY.declined,
+  ...LEGACY_APP_NOTICES,
 ]);
 const [CREATED_HEAD, CREATED_TAIL] = FREE_CHAT_COPY.created("\u0000").split("\u0000");
 

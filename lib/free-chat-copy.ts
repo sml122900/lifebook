@@ -1,22 +1,25 @@
-// My Life 개편 2단계 — /chat-v3 자유 대화·제안 카드 문구. 전부 [임시 — 성민 확정 필요].
+// My Life 개편 2단계 — /chat-v3 자유 대화·제안 카드 문구. "확정" 주석이 붙은 키 = 성민 확정, 나머지는 전부 [임시 — 성민 확정 필요].
+// 대화창에 남는 안내 말을 바꾸면 lib/free-chat.ts 대화창 말 판정(APP_NOTICES)이 새 문구를 따라가고, 옛 문구는
+// LEGACY_APP_NOTICES 에 남겨 그 전에 쌓인 대화 기록도 알아본다.
 // docs/phase/my-life-restructure.md §7.4 "자유 대화(2단계)" 행. 클라이언트에서도 쓰는 순수 모듈.
 
 import { withJosa } from "./josa";
 
 export const FREE_CHAT_COPY = {
   // ── 자유 대화 ──
-  greeting: "편하게 아무 이야기나 들려주세요. 떠오르는 대로 말씀하시면 돼요.",
-  setupDone: "기본 칸은 다 채웠어요. 이제 편하게 이야기 나눠요.",
-  resume: "아까 하시던 이야기, 이어서 들려주세요.",
-  staleNotice: "지난번에 나누던 이야기를 남겨 둘까요?",
-  chipsTitle: "이런 이야기는 어떠세요?",
+  // 들어옴 10키 — 확정(2026-11-04 성민: setupDone·confirmAlready·topicGone·inputPlaceholder 새 문구, 나머지 지금 문구)
+  greeting: "편하게 아무 이야기나 들려주세요. 떠오르는 대로 말씀하시면 돼요.", // 확정
+  setupDone: "이제 준비가 끝났어요. 떠오르는 이야기를 편하게 들려주세요.", // 확정
+  resume: "아까 하시던 이야기, 이어서 들려주세요.", // 확정
+  staleNotice: "지난번에 나누던 이야기를 남겨 둘까요?", // 확정
+  chipsTitle: "이런 이야기는 어떠세요?", // 확정
   saveNow: "지금 이야기 남기기",
   proposing: "이야기를 정리하고 있어요…",
   budgetPaused: "오늘은 이야기 친구가 쉬는 시간이에요. 내일 다시 이야기 나눠요.",
-  topicGone: "그 이야기는 지금 들을 수 없나봐요. 다른 이야기도 편하게 해 주세요.",
+  topicGone: "그 이야기 거리는 지금 없어요. 다른 이야기를 들려주세요.", // 확정
   cardFirst: "먼저 위 카드를 정해 주세요.",
-  confirmApplied: "네, 반영했어요. 다른 이야기도 편하게 해 주세요.",
-  confirmAlready: "그 이야기는 이미 확인했나봐요. 다른 이야기도 편하게 해 주세요.",
+  confirmApplied: "네, 반영했어요. 다른 이야기도 편하게 해 주세요.", // 확정
+  confirmAlready: "그 이야기는 이미 확인했어요. 다른 이야기도 들려주세요.", // 확정
   exitAfterCard: "카드를 정하시면 오늘은 여기까지 할게요.",
 
   // ── 제안 카드 ──
@@ -80,8 +83,8 @@ export const FREE_CHAT_COPY = {
   loadFailed: "이야기를 불러오지 못했어요.", // 자유 대화 들어오기 실패(오류 화면 — [다시 시도])
   topicFailed: "이야기를 준비하지 못했어요.", // 주제(이야기 거리)로 시작 실패(오류 화면)
   replyFailed: "답변을 처리하지 못했어요.", // 자유 대화 답 처리 실패(오류 화면)
-  inputPlaceholder: "답을 입력해 주세요", // 입력칸 안내
-  inputNewlineHint: "(Shift+Enter 줄바꿈)", // 입력칸 안내 뒤 — 키보드 있는 기기에서만 붙임(ChatV3Client useHasKeyboard)
+  inputPlaceholder: "하고 싶은 이야기를 적어 주세요", // 입력칸 안내 — 확정
+  inputNewlineHint: "(Shift+Enter 줄바꿈)", // 입력칸 안내 뒤 — 키보드 있는 기기에서만 붙임(app/components/chat-input useHasKeyboard) — 확정
   // 마무리 말(그만할 때) — 질문 상한(설정 단계) · 이야기를 남기고 그만 · 그냥 그만
   endCapped: "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요.",
   endSaved: "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요.",

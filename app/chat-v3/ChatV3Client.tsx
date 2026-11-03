@@ -12,12 +12,13 @@
 // 재사용 엔진: completeOnboarding(onboarding.ts), getNextConfirmQuestion/submitConfirmAnswer/
 // getConfirmQuestionForEvent(life-event.ts) — 설정 단계는 무수정.
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { CharacterStage } from "@/app/components/CharacterStage";
+import { isSendEnter, useAutoGrow, useHasKeyboard } from "@/app/components/chat-input";
 import { ProposalCard, type CreateOutcome } from "@/app/components/ProposalCard";
 import type { CharacterState } from "@/lib/characters";
 
@@ -82,18 +83,6 @@ function endsWithPendingBotTurn(loaded: ChatLogTurn[] | undefined): boolean {
 
 // P13-3 — "무한 로딩 절대 금지". 서버 액션이 응답을 영영 안 주면 이 시간을 넘겨 거절 → enterError.
 const ACTION_TIMEOUT_MS = 45_000;
-// 입력칸 "Shift+Enter 줄바꿈" 안내는 키보드가 있는 기기에서만(2026-11-04). 판정 = 주 입력 장치가 마우스·트랙패드
-// (CSS 미디어 질의 hover: hover 이고 pointer: fine — PC·노트북)면 키보드도 있다고 본다. 휴대폰·태블릿(손가락이 주 입력 —
-// hover: none · pointer: coarse)은 뺀다. 서버 그림·하이드레이션은 빼고 그린 뒤 그 기기 값으로(입력 장치가 바뀌면 다시 판정).
-const KEYBOARD_QUERY = "(hover: hover) and (pointer: fine)";
-function subscribeKeyboardQuery(cb: () => void) {
-  const mq = window.matchMedia(KEYBOARD_QUERY);
-  mq.addEventListener("change", cb);
-  return () => mq.removeEventListener("change", cb);
-}
-function useHasKeyboard(): boolean {
-  return useSyncExternalStore(subscribeKeyboardQuery, () => window.matchMedia(KEYBOARD_QUERY).matches, () => false);
-}
 
 function withTimeout<T>(p: Promise<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -168,13 +157,16 @@ export function ChatV3Client({
   characterMotionEnabled: boolean;
 }) {
   const router = useRouter();
+  // 입력칸 — 키보드 있는 기기만 Enter 보내기·"Shift+Enter 줄바꿈" 안내, 터치 기기는 줄바꿈 키 = 줄바꿈(app/components/chat-input).
   const hasKeyboard = useHasKeyboard();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [sessionId] = useState(() => crypto.randomUUID());
 
   const [stage, setStage] = useState<Stage>("profile_year");
   const [status, setStatus] = useState<Status>("loading");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [inputVal, setInputVal] = useState("");
+  useAutoGrow(inputRef, inputVal);
   const [inputFocused, setInputFocused] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loadingHint, setLoadingHint] = useState<string | null>(null);
@@ -788,12 +780,13 @@ export function ChatV3Client({
           )}
           <div className="flex items-end gap-2">
             <textarea
+              ref={inputRef}
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
               onFocus={() => setInputFocused(true)}
               onBlur={() => setInputFocused(false)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                if (isSendEnter(e, hasKeyboard)) {
                   e.preventDefault();
                   void handleSend();
                 }
