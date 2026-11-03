@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { BUSINESS_INFO } from "@/lib/commerce/business";
+import { activeNotice, NOTICE_ANCHOR } from "@/lib/policy-notice";
+import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 
 // 이용약관 — 공정거래위원회 전자상거래(인터넷사이버몰) 표준약관
 // 제10023호(2015.6.26 개정) 전문(제1조~제24조) 축조 그대로 게시. 조항의
@@ -317,6 +319,7 @@ function ArticleSection({ title, blocks }: ArticleData) {
 const P = "text-lg leading-relaxed text-ink-soft";
 
 export default function TermsPage() {
+  const notice = activeNotice("terms");
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
       <p className="text-base text-ink-soft">
@@ -326,6 +329,13 @@ export default function TermsPage() {
       </p>
 
       <h1 className="mt-4 text-ink">이용약관</h1>
+      {notice && (
+        // 약관 개정 안내(lib/policy-notice — 처리방침과 같은 구조, 2026-11-04). 띠 [약관 보기](#policy-notice)가 여기로.
+        // scroll-mt-20 — 고정된 [내 정보] 버튼(top-4·48px)에 가리지 않게
+        <p id={NOTICE_ANCHOR} role="note" className="mt-4 scroll-mt-20 rounded-md border-2 border-line bg-banner px-4 py-3 text-lg text-ink">
+          {POLICY_NOTICE_COPY.pageLine(notice)}
+        </p>
+      )}
 
       <p className="mt-4 text-base text-ink-faint">
         이 약관은 공정거래위원회 전자상거래(인터넷사이버몰) 표준약관

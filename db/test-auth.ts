@@ -164,24 +164,29 @@ async function main() {
       at("2030-02-28T23:59:59+09:00") === null && at("2030-03-01T00:00:00+09:00")?.phase === "before" && at("2030-03-07T23:59:59+09:00")?.phase === "before" &&
         at("2030-03-08T00:00:00+09:00")?.phase === "after" && at("2030-03-14T23:59:59+09:00")?.phase === "after" && at("2030-03-15T00:00:00+09:00") === null);
     const tooSoon = { ...sample, effectiveDay: "2030-03-07" };
-    check("③ 시행일 = 공지일 + 7일 미만·띠용 짧은 요약 상한 넘음·상세 비어 있음 → 등록 오류 · 보이지 않음 · 문서별·여럿이면 가장 늦게 공지한 것",
+    check("③ 시행일 = 공지일 + 7일 미만·띠용 짧은 요약 상한 넘음·상세 비어 있음·문서 종류 빠짐/모름 → 등록 오류 · 보이지 않음 · 문서별·여럿이면 가장 늦게 공지한 것",
       noticeProblem(tooSoon) !== null && noticeProblem(sample) === null &&
         noticeProblem({ ...sample, short: "가".repeat(SHORT_MAX + 1) }) !== null && noticeProblem({ ...sample, short: "가".repeat(SHORT_MAX) }) === null &&
-        noticeProblem({ ...sample, detail: " " }) !== null && activeNotice(undefined, new Date("2030-03-02T00:00:00+09:00"), [tooSoon]) === null &&
+        noticeProblem({ ...sample, detail: " " }) !== null &&
+        noticeProblem({ ...sample, doc: undefined } as unknown as PolicyNotice) !== null && noticeProblem({ ...sample, doc: "faq" } as unknown as PolicyNotice) !== null &&
+        activeNotice(undefined, new Date("2030-03-02T00:00:00+09:00"), [{ ...sample, doc: "faq" } as unknown as PolicyNotice]) === null && activeNotice(undefined, new Date("2030-03-02T00:00:00+09:00"), [tooSoon]) === null &&
         activeNotice("terms", new Date("2030-03-02T00:00:00+09:00"), [sample]) === null &&
         activeNotice(undefined, new Date("2030-03-03T00:00:00+09:00"), [sample, { ...sample, version: "v9.10", noticeDay: "2030-03-02", effectiveDay: "2030-03-09" }])?.version === "v9.10");
     check("③ 등록된 개정(POLICY_NOTICES) 전부 규칙 통과 · 처리방침 개정이면 개정 이력에 그 판·시행일",
       POLICY_NOTICES.every((n) => noticeProblem(n) === null) &&
         POLICY_NOTICES.filter((n) => n.doc === "privacy").every((n) => read("app/privacy/page.tsx").includes(`${n.version} — ${formatNoticeDay(n.effectiveDay)} 시행`)),
       POLICY_NOTICES.map((n) => [n.version, noticeProblem(n)]));
-    check("③ 닫기 기록은 판마다 따로 · 띠 = 짧은 요약 + 시행일(상세 없음) · 처리방침 줄 = 문서 이름(판)·시행일·상세 · [자세히] → 처리방침 줄",
+    check("③ 닫기 기록은 판마다 따로 · 띠 = 짧은 요약 + 시행일(상세 없음) · 처리방침 줄 = 문서 이름(판)·시행일·상세 · 버튼·가는 곳 = 문서별(처리방침 보기 → /privacy · 약관 보기 → /terms 맨 위 줄)",
       noticeClosedKey(sample) !== noticeClosedKey({ ...sample, version: "v9.10" }) &&
         POLICY_NOTICE_COPY.bar({ ...sample, phase: "before" }) === "예시 개정 · 3월 8일부터" && POLICY_NOTICE_COPY.bar({ ...sample, phase: "after" }) === "예시 개정 · 3월 8일부터 적용" &&
         POLICY_NOTICE_COPY.pageLine({ ...sample, phase: "before" }).includes("개인정보 처리방침(v9.9)은 2030년 3월 8일부터 시행됩니다. 예시 개정의 자세한 내용.") &&
-        noticeHref(sample) === "/privacy#policy-notice" && read("app/privacy/page.tsx").includes("<p id={NOTICE_ANCHOR}"));
-    check("③ 화면 연결 — 로그인한 화면 헤더 아래 띠(root layout) · 처리방침 맨 위 줄",
+        noticeHref(sample) === "/privacy#policy-notice" && read("app/privacy/page.tsx").includes("<p id={NOTICE_ANCHOR}") &&
+        POLICY_NOTICE_COPY.more[sample.doc] === "처리방침 보기" && POLICY_NOTICE_COPY.more.terms === "약관 보기" && noticeHref({ doc: "terms" }) === "/terms#policy-notice" &&
+        read("app/components/PolicyNoticeBar.tsx").includes("{C.more[notice.doc]}"));
+    check("③ 화면 연결 — 로그인한 화면 헤더 아래 띠(root layout) · 처리방침·약관 맨 위 줄",
       read("app/layout.tsx").includes("const notice = session?.user ? activeNotice() : null;") && read("app/layout.tsx").includes("{notice && <PolicyNoticeBar notice={notice} />}") &&
-        read("app/privacy/page.tsx").includes(`const notice = activeNotice("privacy");`));
+        read("app/privacy/page.tsx").includes(`const notice = activeNotice("privacy");`) &&
+        read("app/terms/page.tsx").includes(`const notice = activeNotice("terms");`) && read("app/terms/page.tsx").includes("<p id={NOTICE_ANCHOR}"));
   } finally {
     await removeFixtures();
     await prisma.user.deleteMany({ where: { email: "fixture-auth-short@lifebook.invalid" } });

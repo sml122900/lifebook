@@ -6,10 +6,11 @@
 // 보이는 곳: 공지일 0시(KST)부터 시행일 뒤 7일까지 —
 //   - 로그인한 화면 헤더 아래 안내 띠(app/components/PolicyNoticeBar — 390 에서 한 줄(최대 두 줄): 짧은 요약 + 시행일 +
 //     [자세히]·[닫기], 닫으면 그 기기에서 그 판은 숨김) — 등록의 short
-//   - 해당 문서 맨 위 "개정 안내" 줄(지금은 /privacy, [자세히]가 이 줄로 감) — 등록의 detail
+//   - 해당 문서 맨 위 "개정 안내" 줄(/privacy · /terms, 띠 버튼 [처리방침 보기]·[약관 보기]가 이 줄로 감) — 등록의 detail
 // 문구는 lib/policy-notice-copy.ts(임시).
 
 export type PolicyDoc = "privacy" | "terms";
+export const POLICY_DOCS: readonly PolicyDoc[] = ["privacy", "terms"];
 
 export type PolicyNotice = {
   doc: PolicyDoc;
@@ -37,6 +38,8 @@ const kstMidnight = (day: string) => Date.parse(`${day}T00:00:00+09:00`);
 
 // 등록값 검사 — 문제가 있으면 이유, 없으면 null.
 export function noticeProblem(n: PolicyNotice): string | null {
+  // 문서 종류로 띠 버튼(처리방침 보기·약관 보기)·가는 곳을 고른다 — 빠졌거나 모르는 값이면 등록 오류(띠 안 보임).
+  if (!POLICY_DOCS.includes(n.doc)) return "문서 종류(privacy·terms)";
   if (!DAY_RE.test(n.noticeDay) || !DAY_RE.test(n.effectiveDay) || Number.isNaN(kstMidnight(n.noticeDay)) || Number.isNaN(kstMidnight(n.effectiveDay))) {
     return "날짜 형식(YYYY-MM-DD)";
   }
@@ -74,8 +77,8 @@ export function formatNoticeDay(day: string, short = false): string {
   return short ? `${m}월 ${d}일` : `${y}년 ${m}월 ${d}일`;
 }
 
-// [자세히] 가 가는 곳 — 처리방침은 맨 위 "개정 안내" 줄(id), 약관은 문서 첫 화면.
+// 띠 버튼이 가는 곳 — 그 문서 맨 위 "개정 안내" 줄(id).
 export const NOTICE_ANCHOR = "policy-notice";
 export function noticeHref(n: Pick<PolicyNotice, "doc">): string {
-  return n.doc === "privacy" ? `/privacy#${NOTICE_ANCHOR}` : "/terms";
+  return `/${n.doc}#${NOTICE_ANCHOR}`;
 }

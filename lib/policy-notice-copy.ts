@@ -1,5 +1,6 @@
-// 처리방침·약관 개정 공지 문구 — 2026-11-04 성민 확정(4키). 클라이언트에서도 쓰는 순수 모듈(lib/policy-notice).
-// 띠 = 등록의 short(짧은 요약) + 시행일 한 줄, 처리방침 맨 위 줄 = 등록의 detail.
+// 처리방침·약관 개정 공지 문구 — 2026-11-04 성민 확정(4키 — 같은 날 more 를 문서별로). 클라이언트에서도 쓰는 순수 모듈(lib/policy-notice).
+// 띠 = 등록의 short(짧은 요약) + 시행일 한 줄, 문서 맨 위 "개정 안내" 줄 = 등록의 detail.
+// 약관(terms) 쪽 맨 위 줄은 처리방침과 같은 pageLine 을 쓴다 — 약관에 쓰일 때의 글은 [임시 — 성민 확정 필요](첫 약관 공지 전).
 
 import { formatNoticeDay, type ActiveNotice, type PolicyDoc } from "./policy-notice";
 
@@ -11,7 +12,8 @@ export const POLICY_NOTICE_COPY = {
     n.phase === "before"
       ? `${n.short} · ${formatNoticeDay(n.effectiveDay, true)}부터`
       : `${n.short} · ${formatNoticeDay(n.effectiveDay, true)}부터 적용`,
-  more: "처리방침 보기",
+  // 띠 버튼 — 등록의 문서 종류로(그 문서 맨 위 "개정 안내" 줄로 감 — noticeHref). "약관 보기"가 더 짧아 띠 요약 11자 상한 그대로.
+  more: { privacy: "처리방침 보기", terms: "약관 보기" } satisfies Record<PolicyDoc, string>,
   close: "닫기",
   // 문서 맨 위 "개정 안내" 줄
   pageLine: (n: ActiveNotice) =>

@@ -30,13 +30,13 @@ export function PolicyNoticeBar({ notice }: { notice: ActiveNotice }) {
   );
   if (closed) return null;
   // 390 에서 한 줄(최대 두 줄 — 넘치면 말줄임): "짧은 요약 · 11월 11일부터 [처리방침 보기] [닫기]", 높이 목표 56~72px(2026-11-04 — 실측 67px).
-  // 상세는 [처리방침 보기] → 처리방침 맨 위 "개정 안내" 줄(noticeHref).
+  // 상세는 버튼(처리방침 = [처리방침 보기], 약관 = [약관 보기]) → 그 문서 맨 위 "개정 안내" 줄(noticeHref).
   return (
     <aside className="border-b border-line bg-banner px-4 py-2 sm:px-6">
       <div className="flex items-center gap-2">
         <p className="m-0 line-clamp-2 min-w-0 flex-1 text-lg leading-snug text-ink">{C.bar(notice)}</p>
         <ButtonLink href={noticeHref(notice)} variant="secondary" className="shrink-0 px-3!">
-          {C.more}
+          {C.more[notice.doc]}
         </ButtonLink>
         <Button
           variant="tertiary"
