@@ -16,6 +16,9 @@
 //   ⑨ 3단계 E2E 후속 2(2026-11-02) — 옮기기 되돌리기(옮기기 전 그대로·값 다시 검사) · 장소 지우기 확인창 묶음 수 · 화면(옮긴 뒤 [되돌리기]·지운 뒤 알림)
 //   ⑩ 시기↔사람 출처(2026-11-02) — 재현(넣기→옮기기→지우기 후 시기 연결 0) · 직접 넣은 연결 유지 · STORY→DIRECT 올림과 그 되돌리기 ·
 //      이야기 둘·추가 소속 · 카드(인물 질문·대상 인물 DIRECT, 같이 나온 분 STORY) · 시기↔사람 쓰기 = 입구 하나
+//   ⑪ 출생연도 원본(2026-11-03 — my-life-restructure §16.1) — V3 = 출생 시기(고친 연도 포함)가 신상·User 보다 먼저 ·
+//      setBirthYear = 세 곳 같이 · V2 = 예전 규칙 그대로(getBirthYear = V2 출생 기록, resolveBirthYear = User 먼저) ·
+//      V3 화면 읽는 곳 = resolveBirthYear 하나 · 회원정보·V3 신상 저장 = setBirthYear
 //   ⑦ 정적 — 서버 액션 전부 첫 줄 auth · NodeLink 쓰기는 lib/node-graph 만 · proxy.ts 무접촉 · 문구 임시 표기
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0). 실행: npx tsx db/test-my-life-edit.ts
@@ -32,6 +35,7 @@ import { createEpisodeBridge, deleteEpisode } from "../lib/episode";
 import { moveEpisodeToLifeEvent, undoMoveEpisode } from "../lib/episode-move";
 import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { deleteCustomLifeEvent } from "../lib/life-event-delete";
+import { getBirthYear, getV3BirthYear, resolveBirthYear, setBirthYear } from "../lib/life-events";
 import { getMyLifeData } from "../lib/my-life";
 import { MY_LIFE_COPY } from "../lib/my-life-copy";
 import {
@@ -55,6 +59,8 @@ import { cardToEdit, createFromCard, type CardPerson, type ProposalCard } from "
 
 const EMAIL_A = "fixture-mylife-edit-a@lifebook.invalid";
 const EMAIL_B = "fixture-mylife-edit-b@lifebook.invalid";
+const EMAIL_C = "fixture-mylife-edit-c@lifebook.invalid"; // ⑪ V3 출생연도
+const EMAIL_D = "fixture-mylife-edit-d@lifebook.invalid"; // ⑪ V2 출생연도
 const ROOT = path.resolve(__dirname, "..");
 const E = MY_LIFE_COPY.edit;
 
@@ -72,7 +78,7 @@ const walkLib = (d: string): string[] =>
   );
 
 async function removeFixtures() {
-  for (const email of [EMAIL_A, EMAIL_B]) {
+  for (const email of [EMAIL_A, EMAIL_B, EMAIL_C, EMAIL_D]) {
     const u = await prisma.user.findUnique({ where: { email }, select: { id: true } });
     if (u) await deleteAccountTx(u.id);
   }
@@ -605,9 +611,43 @@ async function main() {
     check("⑦ NodeLink 쓰기는 lib/node-graph 하나(입구 — Q44)", JSON.stringify(nlWriters) === JSON.stringify(["lib/node-graph.ts"]), nlWriters);
     check("⑦ proxy.ts 무접촉(my-life 언급 없음)", !/my-life/.test(read("proxy.ts")));
     check("⑦ 문구 — 3단계 문구는 my-life-copy edit 블록(임시 표기 주석)", /전부 \[임시 — 성민 확정 필요\]\n\s*edit: \{/.test(read("lib/my-life-copy.ts")) && !/"[^"]*\[임시/.test(read("app/my-life/EditUI.tsx")));
+
+    // ── ⑪ 출생연도 원본(2026-11-03 — §16.1) ─────────────────────────────────────
+    const v3u = await makeUser(EMAIL_C, "[fixture] 출생연도 V3"); // 신상·User 1955
+    await prisma.user.update({ where: { id: v3u }, data: { birthYear: null } }); // V3 채팅 온보딩은 User 칸을 비워 뒀다(운영 V3 14명)
+    const birthEv = await makeEvent(v3u, "BIRTH", "출생", 1956, 0); // 원본 — 신상(1955)과 일부러 다르게(운영 1명 재현)
+    check("⑪ V3 — 출생 시기가 원본: resolveBirthYear·getBirthYear·getV3BirthYear = 1956(신상 1955·User 빈칸보다 먼저)",
+      (await resolveBirthYear(v3u)) === 1956 && (await getBirthYear(v3u)) === 1956 && (await getV3BirthYear(v3u)) === 1956);
+    await prisma.lifeEvent.update({ where: { id: birthEv }, data: { status: "CORRECTED", correctedYear: 1957 } });
+    check("⑪ V3 — 고친 연도(correctedYear)가 원본", (await resolveBirthYear(v3u)) === 1957 && (await getBirthYear(v3u)) === 1957);
+    await setBirthYear(v3u, 1960);
+    const ev11 = await prisma.lifeEvent.findUniqueOrThrow({ where: { id: birthEv }, select: { year: true, correctedYear: true } });
+    const prof11 = await prisma.onboardingProfile.findUniqueOrThrow({ where: { userId: v3u }, select: { birthYear: true } });
+    const user11 = await prisma.user.findUniqueOrThrow({ where: { id: v3u }, select: { birthYear: true } });
+    check("⑪ setBirthYear(V3) — 출생 시기(고친 칸)·신상·User 같이 1960 · 처음 year 칸은 그대로",
+      ev11.correctedYear === 1960 && ev11.year === 1956 && prof11.birthYear === 1960 && user11.birthYear === 1960 && (await resolveBirthYear(v3u)) === 1960,
+      { ev11, prof11, user11 });
+    const yearPick = await createPeriodNode(v3u, { label: "[fixture] 출생 전 시기", year: 1958, endYear: null });
+    check("⑪ 지도 시기 만들기 연도 범위 = 원본 출생연도 기준(1958 < 1960 − 1 → 거부)", !yearPick.ok, yearPick);
+    const v2u = (await prisma.user.create({ data: { email: EMAIL_D, name: "[fixture] 출생연도 V2", birthYear: 1950 }, select: { id: true } })).id;
+    await prisma.userMemory.create({ data: { userId: v2u, createdVia: "life_event", category: "BIRTH", year: 1951, eventYear: 1951, title: "출생" } });
+    check("⑪ V2 — 예전 규칙 그대로: getBirthYear = V2 출생 기록(1951) · resolveBirthYear = User(1950) · V3 원본 없음",
+      (await getBirthYear(v2u)) === 1951 && (await resolveBirthYear(v2u)) === 1950 && (await getV3BirthYear(v2u)) === null);
+    await setBirthYear(v2u, 1949);
+    check("⑪ setBirthYear(V2) — User 만 1949(V2 출생 기록 1951 그대로 · 신상·출생 시기 없음)",
+      (await prisma.user.findUniqueOrThrow({ where: { id: v2u }, select: { birthYear: true } })).birthYear === 1949 && (await getBirthYear(v2u)) === 1951 &&
+        (await prisma.onboardingProfile.count({ where: { userId: v2u } })) === 0 && (await prisma.lifeEvent.count({ where: { userId: v2u } })) === 0);
+    const v3Readers = ["lib/free-chat.ts", "lib/node-proposal.ts", "lib/interview/session.ts", "lib/my-life-edit.ts"];
+    check("⑪ V3 화면 읽는 곳(자유 대화·제안 카드·인터뷰·지도 만들기) = resolveBirthYear — 따로 신상·User 를 읽던 출생연도 함수 없음",
+      v3Readers.every((f) => read(f).includes("resolveBirthYear(") && !read(f).includes("birthYearOf")), v3Readers.filter((f) => read(f).includes("birthYearOf")));
+    const prof = read("app/account/profile/actions.ts");
+    check("⑪ 회원정보 — 화면 = 출생 시기 먼저(getV3BirthYear) · 저장 = setBirthYear(V3 는 비우기 안 함) · V3 신상 저장 두 갈래 모두 setBirthYear",
+      read("app/account/profile/page.tsx").includes("birthYear: v3BirthYear ?? user?.birthYear ?? null") && prof.includes("if (birthYear !== null) await setBirthYear(userId, birthYear);") &&
+        prof.includes("else if ((await getV3BirthYear(userId)) === null)") && /await setBirthYear\(userId, input\.birthYear\);\s*return \{ status: "ALREADY_DONE" \};/.test(read("app/actions/onboarding.ts")) &&
+        /await setBirthYear\(userId, input\.birthYear\);\s*return \{ status: "CREATED"/.test(read("app/actions/onboarding.ts")));
   } finally {
     await removeFixtures();
-    console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B] } } }));
+    console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B, EMAIL_C, EMAIL_D] } } }));
   }
   console.log(failed === 0 ? `\nALL PASS (${count})` : `\n${failed} FAIL / ${count}`);
   process.exit(failed === 0 ? 0 : 1);

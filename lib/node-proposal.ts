@@ -28,6 +28,7 @@ import { isRelationCompatible, relationGroup } from "./person-relation";
 import { EPISODE_SUMMARY_NO_CONTENT } from "./prompts/episode-chat";
 import { buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "./prompts/free-chat";
 import { displayTitle, storedStoryTitle } from "./story-title";
+import { resolveBirthYear } from "./life-events";
 
 const PROPOSAL_MODEL = process.env.LIFE_EVENT_CONFIRM_MODEL ?? "claude-sonnet-4-6";
 // 제안 호출 설정 — 재생 세트(db/replay-proposals.ts)도 같은 값으로 부른다.
@@ -121,14 +122,6 @@ export function cleanTurns(turns: TranscriptTurn[]): TranscriptTurn[] {
     const kept = stripEpisodeDoneSignal(t.text);
     return kept ? [{ role: "user", text: kept }] : [];
   });
-}
-
-async function birthYearOf(userId: string): Promise<number | null> {
-  const [p, u] = await Promise.all([
-    prisma.onboardingProfile.findUnique({ where: { userId }, select: { birthYear: true } }),
-    prisma.user.findUnique({ where: { id: userId }, select: { birthYear: true } }),
-  ]);
-  return p?.birthYear ?? u?.birthYear ?? null;
 }
 
 export function yearInRange(year: unknown, birthYear: number | null, now = new Date()): number | null {
@@ -444,7 +437,7 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
     confirmedCenters(userId),
     confirmedPeople(userId),
     userPlaces(userId),
-    birthYearOf(userId),
+    resolveBirthYear(userId),
     input.targetPersonId
       ? prisma.person.findFirst({ where: { id: input.targetPersonId, userId }, select: { id: true, name: true, relation: true } })
       : null,
@@ -660,7 +653,7 @@ export async function createFromCard(
   card: ProposalCard,
   edit: CardEdit,
 ): Promise<CreateFromCardResult> {
-  const birthYear = await birthYearOf(userId);
+  const birthYear = await resolveBirthYear(userId);
   // 제목은 비워도 된다 — 빈 문자열 = 제목 없음(화면은 본문 첫 문장, lib/story-title).
   const title = str(edit.title, TITLE_MAX);
   const summary = str(edit.summary, SUMMARY_MAX);

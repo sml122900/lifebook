@@ -29,6 +29,7 @@ import { createPerson } from "./people";
 import { findSameNamePeople } from "./person-chat";
 import { relationGroup } from "./person-relation";
 import { validatePlace } from "./place-validate";
+import { resolveBirthYear } from "./life-events";
 
 const E = MY_LIFE_COPY.edit;
 
@@ -55,12 +56,6 @@ export type SameNamePerson = { id: string; name: string; relation: string | null
 const norm = (s: string) => s.normalize("NFC").replace(/\s+/g, "");
 const clean = (s: unknown, max: number) => (typeof s === "string" ? s.trim().slice(0, max) : "");
 const ids = (v: unknown) => [...new Set((Array.isArray(v) ? v : []).filter((x): x is string => typeof x === "string" && x.length > 0))].slice(0, EDIT_LIMITS.pick);
-
-async function birthYearOf(userId: string): Promise<number | null> {
-  const p = await prisma.onboardingProfile.findUnique({ where: { userId }, select: { birthYear: true } });
-  if (p?.birthYear) return p.birthYear;
-  return (await prisma.user.findUnique({ where: { id: userId }, select: { birthYear: true } }))?.birthYear ?? null;
-}
 
 function yearOk(y: unknown, birthYear: number | null, now = new Date()): y is number {
   return typeof y === "number" && Number.isInteger(y) && y >= (birthYear ?? 1900) - 1 && y <= now.getFullYear();
@@ -162,7 +157,7 @@ export async function createPeriodNode(
   const label = clean(input.label, EDIT_LIMITS.periodLabel + 1);
   if (!label) return { ok: false, error: E.needName };
   if (label.length > EDIT_LIMITS.periodLabel) return { ok: false, error: E.tooLong(EDIT_LIMITS.periodLabel) };
-  const birthYear = await birthYearOf(userId);
+  const birthYear = await resolveBirthYear(userId);
   const year = input.year === null || input.year === undefined || input.year === "" ? null : input.year;
   const endYear = input.endYear === null || input.endYear === undefined || input.endYear === "" ? null : input.endYear;
   if (year !== null && !yearOk(year, birthYear)) return { ok: false, error: E.badYear };

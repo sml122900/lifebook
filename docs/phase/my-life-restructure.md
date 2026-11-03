@@ -1161,6 +1161,38 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
 - 회귀: `test-my-life` ①(노드 없는 장소 행 안 보임)·⑧⑨⑪(칩·목록이 id)·⑪ 예외 코드 없음 1항목 추가 — 106 · `test-node-graph` ⑨ 13(+1 · V2 행 안 셈 · 정리 무변)·⑩ `saveEpisodePlaces` 3항목(장소 노드 연결·재사용·한 번만·빈 이름·출처 / 다시 저장·남의 이야기 거부 / 저장 전후 13 그대로) — 73.
 - 검증(2026-11-03): 회귀 18종 exit 0(`test-chat-proposal --live` 188 · `test-interview` 95 · `test-my-life` 106 · `test-my-life-edit` 62 · `test-node-graph` 73 · `test-p14` 53 · `test-v3-poster-bridge` 39) · `tsc` 0 · 빌드 exit 0 · 바꾼 파일 eslint 0 · 회귀 뒤 운영 dry-run 다시 13 = 0(정리 대상 없음). 브라우저 화면 확인은 안 함 — 지운 분기는 장소 노드 없는 이야기 장소(운영 0행)에서만 그려지던 것. 테스트 원가(11-03 누적) 원장 $6.54(이번 18종 ≈ $0.54).
 
+
+## 16. 2026-11-03 작업 4건(성민 지시 — 각각 별도 커밋)
+
+A 출생연도 저장 정리 · B 소셜 로그인 토큰 저장 최소화 · C 동의를 계정 생성 전으로 · D 이야기 상세·블로그식 작성 + 이전 판 보관(2b-3c·Q23 — 마이그 승인 대기).
+
+### 16.1 A — 출생연도 이중 저장 정리(기술 부채)
+
+**저장 위치(4곳 — 지시의 3곳 + V2 출생 기록)와 쓰는 곳**
+
+| 저장 위치 | 쓰는 곳(바꾸기 전) | 바뀐 것 |
+| --- | --- | --- |
+| ① V3 출생 시기 `LifeEvent`(type BIRTH, 확정·고침 — `correctedYear ?? year`) | V3 신상(`completeOnboarding` — 채팅 골격은 확정으로 만듦) · 옛 V2 폼 골격의 확인질문(고침) | **원본**. `setBirthYear` 가 같이 갱신 |
+| ② `OnboardingProfile.birthYear` | V3 신상 upsert(다시 제출해도 신상만 바뀜 → 원본과 어긋남) | `setBirthYear` 가 같이 갱신 |
+| ③ `User.birthYear` | V2 `/onboarding`(archived) · 회원정보 저장(이것만 바꿈 — V3 는 ② 를 먼저 읽어 반영 안 됨) · V3 는 안 씀(빈칸) | 회원정보·V3 신상 = `setBirthYear` |
+| ④ V2 출생 기록 `UserMemory`(life_event · category BIRTH) | V2 인생 연혁·초기 질문 화면 | 그대로(V2 화면 몫) |
+
+**읽는 곳**
+
+| 읽는 곳 | 바꾸기 전 | 바꾼 뒤 |
+| --- | --- | --- |
+| `resolveBirthYear`(V2 말동무·자유 녹음 추출) | ③ → ④ — **V3 출생 시기를 못 읽음** | ① → ② → ③ → ④ |
+| 자유 대화(`lib/free-chat`)·제안 카드(`lib/node-proposal`)·지도 직접 만들기(`lib/my-life-edit`) | 각자 `birthYearOf` = ② → ③ | `resolveBirthYear` |
+| 오늘의 인터뷰(`lib/interview/session`) | `birthYearOf` = ② 만 | `resolveBirthYear` |
+| `getBirthYear`(V2 화면 나이 표시·포스터 시대 사건 생애 범위·말동무 프로필) | ④ 만 — **V3 포스터는 null**(가장 이른 노드 연도로 대신) | ① → ④ |
+| 회원정보 화면(`/account/profile`) | ③ 만 — **V3 는 빈칸** | ① → ③ |
+| 연구실 맥락(`lib/lab/context`) | ② → ③ → ④ → ① | 그대로(맥락 해시가 바뀌면 재추출 — 연구 트랙, 손대지 않음) |
+| 그 밖 V2·옛 화면(자유 녹음 화면·`/memory`·`/timeline`(archived)·타임머신 시대 담기·말동무 프로필 ③) | ③ | 그대로(V3 진입 불가) |
+
+- **구현**: `lib/life-events.ts` — `getV3BirthYear`(① 만) 추가 · `getBirthYear` = ① ?? ④ · `resolveBirthYear` = ① ?? ② ?? ③ ?? ④ · `setBirthYear(userId, year)` = ①(고친 연도가 있으면 그 칸, 없으면 year — 다른 골격 시기 연도는 안 옮김)·②·③ 을 한 트랜잭션으로(④ 는 V2 화면 몫이라 안 건드림). V3 화면 쪽 개별 `birthYearOf` 4개 삭제 → `resolveBirthYear`. 회원정보 저장 = `setBirthYear`(비우기는 V2 만 — V3 원본은 비우지 않음), 화면 = ① ?? ③. V3 신상 저장(`completeOnboarding`)은 골격 생성·다시 제출 두 갈래 모두 끝에 `setBirthYear`. **① 이 없는 계정(V2 — 실고객 2명 포함)은 두 함수·저장 모두 예전 그대로**.
+- **어긋난 기존 데이터 dry-run**(`db/check-birth-year.ts` — 읽기 전용, 실고객 2명 집계 제외 · 둘 다 V2): V3 18명 — 출생 시기 미확정 0 · 신상 없음 0 · **신상 ≠ 출생 시기 1** · **User 빈칸 14**(회원정보 화면이 빈칸으로 보이던 것) · User ≠ 출생 시기 0 · V2 출생 기록도 있음 2(연도 같음). V2 12명 — User 만 1 · V2 기록만 5 · 둘 다 1(같음) · 둘 다 없음 5. **고칠 데이터 없음** — 읽는 곳이 ① 을 먼저 보므로 신상 ≠ 1명은 원본(출생 시기)이 쓰이고, User 빈칸 14명은 회원정보 화면이 원본을 보여 주며 저장하면 세 곳이 같이 맞춰진다. 동작이 바뀌는 V3 계정 = 신상 ≠ 출생 시기 1명(테스트 계정)뿐.
+- 회귀: `test-my-life-edit` ⑪ 7항목(V3 원본·고친 연도 · `setBirthYear` 세 곳 · 지도 시기 만들기 연도 범위 · V2 예전 규칙 · V2 저장 · V3 읽는 곳 하나 · 회원정보·신상 저장).
+- 검증(2026-11-03): 회귀 18종 exit 0(`test-chat-proposal --live` 188 · `test-interview` 95 · `test-my-life` 106 · `test-my-life-edit` 70(⑪ 7) · `test-node-graph` 73) · `tsc` 0 · 빌드 exit 0 · 바꾼 파일 eslint 0. 테스트 원가(11-03 누적) 원장 $7.09(이번 18종 ≈ $0.54).
 ## 결정 로그
 
 - 2026-11-01 — 설계 작성(성민 결정 — §0, 구현 전·코드 변경 0). 운영 집계(개수·평균만, 실고객 제외): 인물 사용자당 최대 12·장소 최대 14·모임 0·이야기 최대 23(본인 턴 평균 2.1)·채팅 본인 메시지 평균 18자. 결정 질문 Q51~Q72(§7.3).
@@ -1209,3 +1241,4 @@ test30 대화(2026-11-01)를 읽기만 해서 원인을 찾았다(쓰기 0). 대
 - 2026-11-03 — **인물 확인 화면 삭제(성민 지시 — §15.6)**: 조건(운영 확인 대기 0·만드는 경로 0)을 삭제 직전 다시 확인한 뒤 `/story-review/confirm`·확인 액션·lib·문구·`saveProposedPeople`·My Life 정리할 것 카드·패널 확인 링크·확인 대기 표시·인터뷰 요약 카드 삭제. 주소 → `/my-life`. My Life 데이터 = 확정 연결·확정 인물만. `test-node-confirm` 퇴역(지금도 쓰는 동명이인 검사 3항목만 `test-p14` 로) — 회귀 18종. 마이그 0·`proxy.ts` 무접촉.
 - 2026-11-03 — **Q72 옛 장소 백필(성민 지시 — §15.7)**: `db/backfill-memory-places.ts`(규칙 — 같은 계정 같은 이름 = Place 하나·기존 같은 이름 Place 에 잇기·주소·좌표 옮김 / 백업·되돌리기·`--only`). 운영 dry-run 적용 대상 0행(placeId 빈 19행 = 전부 실고객 2계정 V2 기록 life_event 18·photo 1 — 제외) → 적용 실행 안 함. 픽스처 규칙 검증 17 PASS, 연구실 원천 해시 영향 없음(`diffSources`). My Life 예외 코드는 조건부 정리(연구실 시드 경로·정합 점검 뒤) — 보고만. 마이그 0·`proxy.ts` 무접촉.
 - 2026-11-03 — **이름만 남은 장소 예외 코드 제거(성민 결정·지시 — §15.8)**: 실고객 19행 백필 안 함(V2 기록). `saveEpisodePlaces`(연구실 시드) 장소 노드 연결 → 장소 id 없이 이야기 장소를 만드는 경로 0, 정합 점검 13 "장소 노드 없는 이야기 장소" 추가(운영 0), My Life 예외 분기 삭제(노드 없는 장소 행은 안 그림). 마이그 0·`proxy.ts` 무접촉.
+- 2026-11-03 — **A 출생연도 저장 정리(성민 지시 — §16.1)**: V3 원본 = 출생 시기 LifeEvent(고친 연도 포함). `getV3BirthYear` · `getBirthYear` = V3 ?? V2 출생 기록 · `resolveBirthYear` = V3 ?? 신상 ?? User ?? V2 기록 · `setBirthYear` = 세 곳 같이(회원정보·V3 신상 저장). V3 화면 읽는 곳 4곳 → `resolveBirthYear`. V2 계정(실고객 포함) 동작 무변. 어긋난 데이터 dry-run(V3 신상 ≠ 1·User 빈칸 14) — 읽는 곳이 원본을 먼저 봐 고칠 데이터 없음. 마이그 0.

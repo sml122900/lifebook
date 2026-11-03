@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { getV3BirthYear, setBirthYear } from "@/lib/life-events";
 
 // 회원정보 저장 — 온보딩 saveOnboarding과 같은 정제 로직을 쓰되
 // onboardingCompletedAt은 절대 덮어쓰지 않는다 (이미 완료된 사용자).
@@ -54,10 +55,10 @@ export async function saveProfile(input: ProfileInput) {
 
   const birthYear = cleanInt(input.birthYear);
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { birthYear },
-  });
+  // 출생연도 — 세 곳(V3 출생 시기 = 원본 · OnboardingProfile · User)을 같이(lib/life-events setBirthYear, 2026-11-03).
+  // 비우기는 V2 계정만(User.birthYear) — V3 는 출생 시기가 원본이라 비우지 않고 그대로 둔다.
+  if (birthYear !== null) await setBirthYear(userId, birthYear);
+  else if ((await getV3BirthYear(userId)) === null) await prisma.user.update({ where: { id: userId }, data: { birthYear: null } });
 
   // 비운 문자열은 null로 — schema에서 nullable이라 의미 그대로.
   const orNull = (s: string) => (s === "" ? null : s);

@@ -38,6 +38,7 @@ import { FREE_CHAT_COPY } from "./free-chat-copy";
 import { buildFreeChatReplySystemPrompt } from "./prompts/free-chat";
 import { displayTitle } from "./story-title";
 import { resolveLiveModel } from "./user-ai-model";
+import { resolveBirthYear } from "./life-events";
 
 export const SEGMENT_MAX_USER_TURNS = 6;
 
@@ -231,14 +232,6 @@ async function topicInfo(userId: string, seg: Pick<SegmentRow, "topicEventId" | 
   return { label: base, centerId: ev.id, targetPersonId: null, isPeriod: false };
 }
 
-async function birthYearOf(userId: string): Promise<number | null> {
-  const [p, u] = await Promise.all([
-    prisma.onboardingProfile.findUnique({ where: { userId }, select: { birthYear: true } }),
-    prisma.user.findUnique({ where: { id: userId }, select: { birthYear: true } }),
-  ]);
-  return p?.birthYear ?? u?.birthYear ?? null;
-}
-
 // ─── 화면에 보내는 값 ───────────────────────────────────────────────────
 
 export type CenterOption = { id: string; label: string; year: number | null };
@@ -418,7 +411,7 @@ export async function freeChatReply(userId: string): Promise<FreeChatReplyResult
   // 카드가 떠 있으면 그 카드 뒤 대화만 맥락으로(카드가 다룬 이야기를 또 묻지 않게).
   const from = card?.until ? new Date(card.until) : seg.startedAt;
   const turns = await logTurns(userId, from);
-  const [topic, birthYear, live] = await Promise.all([topicInfo(userId, seg), birthYearOf(userId), resolveLiveModel(userId)]);
+  const [topic, birthYear, live] = await Promise.all([topicInfo(userId, seg), resolveBirthYear(userId), resolveLiveModel(userId)]);
 
   const { messages, opening } = toModelMessages(turns);
   let raw = "";

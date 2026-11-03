@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { buttonClasses } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
+import { getV3BirthYear } from "@/lib/life-events";
 
 import { ProfileEditForm, type ProfileInitial } from "./ProfileEditForm";
 
@@ -17,11 +18,12 @@ export default async function AccountProfilePage() {
   }
   const userId = session.user.id;
 
-  const [user, profile] = await Promise.all([
+  const [user, v3BirthYear, profile] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { birthYear: true },
     }),
+    getV3BirthYear(userId),
     prisma.lifeProfile.findUnique({
       where: { userId },
       select: {
@@ -40,7 +42,8 @@ export default async function AccountProfilePage() {
   ]);
 
   const initial: ProfileInitial = {
-    birthYear: user?.birthYear ?? null,
+    // V3 는 출생 시기(원본) 연도 — User.birthYear 가 비어 빈칸으로 보이던 것(2026-11-03). V2 는 예전처럼 User.birthYear.
+    birthYear: v3BirthYear ?? user?.birthYear ?? null,
     interests: profile?.interests ?? [],
     residences: profile?.residences ?? [],
     schools: profile?.schools ?? [],

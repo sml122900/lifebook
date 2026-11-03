@@ -10,6 +10,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { getElemSchoolLabel } from "@/lib/constants/education-labels";
 import type { LifeEventType } from "@/lib/generated/prisma/enums";
+import { setBirthYear } from "@/lib/life-events";
 
 const MIN_BIRTH_YEAR = 1920;
 const MAX_BIRTH_YEAR = 2015;
@@ -143,7 +144,10 @@ export async function completeOnboarding(
     where: { userId, skeletonGeneratedAt: null },
     data: { skeletonGeneratedAt: new Date() },
   });
+  // 출생연도 세 곳(출생 시기 = 원본 · OnboardingProfile · User)을 같이 맞춘다(2026-11-03 — lib/life-events setBirthYear).
+  // 다시 제출(골격 이미 있음)이면 출생 시기도 새 연도로 — 위 upsert 가 신상만 바꿔 원본과 어긋나던 것.
   if (claimed.count === 0) {
+    await setBirthYear(userId, input.birthYear);
     return { status: "ALREADY_DONE" };
   }
 
@@ -151,6 +155,7 @@ export async function completeOnboarding(
   await prisma.lifeEvent.createMany({
     data: skeleton.map((ev) => ({ userId, ...ev })),
   });
+  await setBirthYear(userId, input.birthYear);
 
   return { status: "CREATED", count: skeleton.length };
 }

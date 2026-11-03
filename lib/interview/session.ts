@@ -38,6 +38,7 @@ import { computeTodayPlan } from "./plan";
 import { renderPoolText } from "./pool-text";
 import { QUESTION_POOL, SELF_QUESTION_POOL } from "./question-pool";
 import { isUnknownYearAnswer, parseYearDeterministic, parseYearWithAi } from "./year";
+import { resolveBirthYear } from "../life-events";
 
 export type InterviewItemView = {
   id: string;
@@ -90,7 +91,7 @@ async function resolveTarget(userId: string, itemKey: string, requireOpen: boole
     });
     if (!ev) return null;
     // {elemSchool} 등 자리표시는 출생연도 기준으로 치환(lib/interview/pool-text.ts).
-    const birthYear = await birthYearOf(userId);
+    const birthYear = await resolveBirthYear(userId);
     return {
       eventId: ev.id,
       label: ev.correctedLabel ?? ev.label,
@@ -158,7 +159,7 @@ async function resolveSelfTarget(userId: string, keyId: string): Promise<Target 
   if (!ev || ev.type !== q.anchor) return null;
   const who = q.relation.kind === "category" ? q.relation.label : await linkedRelationName(userId, ev.id, key.relation);
   if (!who) return null;
-  const birthYear = await birthYearOf(userId);
+  const birthYear = await resolveBirthYear(userId);
   return {
     eventId: ev.id,
     label: ev.label,
@@ -460,7 +461,7 @@ export async function answerInterviewYear(
       data: { status: "ANSWERED", doneAt: now, refId },
     });
 
-  const birthYear = answer ? await birthYearOf(userId) : null;
+  const birthYear = answer ? await resolveBirthYear(userId) : null;
   let year = answer ? parseYearDeterministic(answer, birthYear, now) : null;
   if (year === null && answer && !isUnknownYearAnswer(answer)) {
     const usage = newAiUsage();
@@ -490,11 +491,6 @@ export async function answerInterviewYear(
   }
   await markAnswered(target.eventId);
   return { outcome: "saved", label: target.label, year };
-}
-
-async function birthYearOf(userId: string): Promise<number | null> {
-  const profile = await prisma.onboardingProfile.findUnique({ where: { userId }, select: { birthYear: true } });
-  return profile?.birthYear ?? null;
 }
 
 // /story-review 진입 카드 — 오늘 기록만 1회 조회(계획 계산 없음).

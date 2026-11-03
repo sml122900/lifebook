@@ -261,9 +261,21 @@ async function _getLifeEvents(userId: string): Promise<LifeEvent[]> {
 }
 export const getLifeEvents = cache(_getLifeEvents);
 
-// L2(+) — 사용자의 출생 연도 1회 조회. BIRTH 카테고리에 답한 행이 있으면
-// 그 eventYear, 없으면 null. 나이 자동 표시·SCHOOL 역계산 힌트에 사용.
-export async function getBirthYear(userId: string): Promise<number | null> {
+// 출생연도 원본(2026-11-03 — docs/phase/my-life-restructure.md §16.1). 저장 위치 4곳:
+//   ① V3 출생 시기 LifeEvent(type BIRTH, 확정·고침 — correctedYear ?? year) ← V3 계정의 원본
+//   ② OnboardingProfile.birthYear(V3 신상) ③ User.birthYear(V2 온보딩·회원정보) ④ V2 출생 기록(UserMemory BIRTH)
+// V3 는 ① 을 먼저 읽고, ①·②·③ 은 회원정보 저장(app/account/profile/actions)·V3 신상(app/actions/onboarding)이
+// 같이 갱신한다. ① 이 없는 계정(V2)은 아래 두 함수 모두 예전 규칙 그대로.
+export async function getV3BirthYear(userId: string): Promise<number | null> {
+  const ev = await prisma.lifeEvent.findFirst({
+    where: { userId, type: "BIRTH", status: { in: ["CONFIRMED", "CORRECTED"] } },
+    orderBy: { createdAt: "asc" },
+    select: { year: true, correctedYear: true },
+  });
+  return ev ? (ev.correctedYear ?? ev.year) : null;
+}
+
+async function getV2BirthMemoryYear(userId: string): Promise<number | null> {
   const row = await prisma.userMemory.findFirst({
     where: {
       userId,
@@ -277,17 +289,39 @@ export async function getBirthYear(userId: string): Promise<number | null> {
   return row?.eventYear ?? null;
 }
 
-// S5 — 추출(사건 분할)·동반자 프롬프트가 쓰는 "유효 출생연도".
-// 우선순위: User.birthYear 컬럼 → 없으면 BIRTH life_event 연도 파생 → 둘 다
-// 없으면 null(연도 추정 안 함). 컬럼이 비어도(이유옥 계정처럼) BIRTH 사건이
-// 있으면 그 연도로 상대나이 추정이 동작한다.
+// L2(+) — 사용자의 출생 연도 1회 조회. V3 출생 시기가 있으면 그 연도(2026-11-03), 아니면 BIRTH 카테고리에 답한
+// V2 행의 eventYear, 없으면 null. 나이 자동 표시·SCHOOL 역계산 힌트·포스터(시대 사건 생애 범위)에 사용.
+export async function getBirthYear(userId: string): Promise<number | null> {
+  const [v3, v2] = await Promise.all([getV3BirthYear(userId), getV2BirthMemoryYear(userId)]);
+  return v3 ?? v2;
+}
+
+// S5 — 추출(사건 분할)·동반자·자유 대화·제안 카드·인터뷰·지도 직접 만들기가 쓰는 "유효 출생연도".
+// 우선순위: V3 출생 시기(원본) → OnboardingProfile.birthYear → User.birthYear → V2 출생 기록 → null(연도 추정 안 함).
+// V2 계정(① ② 없음)은 예전과 같다 — 컬럼이 비어도(이유옥 계정처럼) BIRTH 기록이 있으면 그 연도.
 export async function resolveBirthYear(userId: string): Promise<number | null> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { birthYear: true },
+  const [v3, profile, user] = await Promise.all([
+    getV3BirthYear(userId),
+    prisma.onboardingProfile.findUnique({ where: { userId }, select: { birthYear: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { birthYear: true } }),
+  ]);
+  return v3 ?? profile?.birthYear ?? user?.birthYear ?? (await getV2BirthMemoryYear(userId));
+}
+
+// 출생연도 바꾸기 — ①②③ 을 한 트랜잭션으로 같이. V3 출생 시기는 고친 연도(correctedYear)가 있으면 그 칸, 없으면 year
+// (다른 골격 시기 연도는 안 옮김 — 사용자가 따로 확인한 값). ④ V2 출생 기록은 V2 화면(인생 연혁) 몫이라 안 건드림.
+// V2 계정(① ② 없음)은 User.birthYear 만 바뀐다(예전과 같음).
+export async function setBirthYear(userId: string, year: number): Promise<void> {
+  const ev = await prisma.lifeEvent.findFirst({
+    where: { userId, type: "BIRTH" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, correctedYear: true },
   });
-  if (user?.birthYear != null) return user.birthYear;
-  return getBirthYear(userId);
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { birthYear: year } }),
+    prisma.onboardingProfile.updateMany({ where: { userId }, data: { birthYear: year } }),
+    ...(ev ? [prisma.lifeEvent.update({ where: { id: ev.id }, data: ev.correctedYear !== null ? { correctedYear: year } : { year } })] : []),
+  ]);
 }
 
 // L2(+) — 사용자가 "건너뛰기" 처리한 카테고리 셋.
