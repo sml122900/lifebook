@@ -112,7 +112,7 @@ export async function recordChatUsage(
 ): Promise<void> {
   try {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
-    // 캐시 쓰기·읽기 토큰 칸은 마이그 승인 뒤(§17 — 20261103200000_chat_v3_usage_cache). 지금은 원가에만 배율로 반영.
+    // 캐시 쓰기·읽기 토큰도 칸에(마이그 20261103200000_chat_v3_usage_cache — §17). 원가는 배율로.
     await prisma.chatV3Usage.create({
       data: {
         userId,
@@ -120,6 +120,8 @@ export async function recordChatUsage(
         model: r.model,
         inputTokens: r.inputTokens,
         outputTokens: r.outputTokens,
+        cacheWriteTokens: r.cacheWriteTokens ?? 0,
+        cacheReadTokens: r.cacheReadTokens ?? 0,
         costMicroUsd: costMicroUsd(r.model, r.inputTokens, r.outputTokens, { writeTokens: r.cacheWriteTokens, readTokens: r.cacheReadTokens }),
       },
     });

@@ -1275,10 +1275,13 @@ model ChatV3Usage {
   user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   purpose      String // REPLY | PROPOSAL | INTERVIEW_PROPOSAL — 테스트 계정(이메일 최상위 도메인 .invalid·.test)은 앞에 TEST_ (전역 예산 합계 제외)
   model        String
-  inputTokens  Int      @default(0)
+  inputTokens  Int      @default(0) // 입력 전체(캐시 포함)
   outputTokens Int      @default(0)
-  costMicroUsd Int // 추정 원가(백만분의 1 달러)
+  costMicroUsd Int // 추정 원가(백만분의 1 달러) — 캐시 쓰기 1.25배·읽기 0.1배(lib/chat-v3-usage costMicroUsd)
   createdAt    DateTime @default(now())
+  // 프롬프트 캐싱(2026-11-03 — docs/phase/my-life-restructure.md §17): inputTokens 중 캐시에 쓴·읽은 토큰. 칸 생기기 전 행은 0.
+  cacheReadTokens  Int @default(0)
+  cacheWriteTokens Int @default(0)
 
   @@index([createdAt])
 }

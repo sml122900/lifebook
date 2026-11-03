@@ -7,7 +7,10 @@
 // - 기존 테이블에 없는 항목은 "기록 없음"으로 표시한다(새 기록을 만들지 않는다).
 // - 실고객 계정(sml122900)은 --user 로 줘도 거부한다.
 // - 오늘의 인터뷰(InterviewItem): 세션 수·완료율·출처별 문항·문항별 답 길이·AI 사용량.
-//   비용은 lib/lab/usage.ts 가격표(가정값) 기준 추정.
+//   비용은 lib/lab/usage.ts 가격표(가정값) 기준 추정 — 문항 기록엔 캐시 구분이 없어 입력 전체를 기본가로 센 상한.
+// - /chat-v3·인터뷰 원가 원장(ChatV3Usage): 자유 대화 응답·제안 카드·인터뷰 마무리 카드. 원가는 기록할 때 프롬프트 캐싱
+//   배율(쓰기 1.25배·읽기 0.1배 — lib/chat-v3-usage costMicroUsd)로 계산된 값을 더한다. 캐시 쓰기·읽기 토큰 칸은
+//   2026-11-03 마이그(20261103200000_chat_v3_usage_cache) 뒤 행부터(그 전 행은 0).
 import "dotenv/config";
 
 import { prisma } from "../lib/db";
@@ -106,7 +109,7 @@ async function main() {
   const inRange = (d: Date | null | undefined) => !!d && d >= from && d < to;
   const userId = user.id;
 
-  const [messages, lifeEvents, episodes, people, tokenTxs, labUsages, aiMessages, poster, interviewItems] = await Promise.all([
+  const [messages, lifeEvents, episodes, people, tokenTxs, labUsages, aiMessages, poster, interviewItems, chatUsages] = await Promise.all([
     // 본문은 불러오지 않고 길이만.
     prisma.$queryRaw<{ sessionId: string; role: string; createdAt: Date; len: number }[]>`
       SELECT "sessionId", role::text AS role, "createdAt", LENGTH(content)::int AS len
@@ -154,6 +157,10 @@ async function main() {
         aiOutputTokens: true,
         aiModel: true,
       },
+    }),
+    prisma.chatV3Usage.findMany({
+      where: { userId, createdAt: { gte: from, lt: to } },
+      select: { purpose: true, inputTokens: true, outputTokens: true, cacheReadTokens: true, cacheWriteTokens: true, costMicroUsd: true },
     }),
   ]);
 
@@ -298,9 +305,7 @@ async function main() {
   for (const [k, n] of [...peopleBreakdown].sort()) console.log(`  - ${k}: ${n}`);
 
   console.log("\n── AI 호출 ──");
-  console.log(
-    `/chat-v3 AI 호출 수·토큰·비용: ${NO_RECORD} (lib/ai.ts chat() 는 사용량을 DB 에 남기지 않음 — 오늘의 인터뷰만 아래 섹션에 기록)`,
-  );
+  printChatUsage(chatUsages);
   if (chargeByReason.size === 0) {
     console.log("사용자 토큰 차감(TokenTransaction): 기간 안 0건");
   } else {
@@ -377,6 +382,36 @@ function median(xs: number[]): number {
 }
 
 // 오늘의 인터뷰 — 세션 = (사용자, day). 시작 = 문항 하나라도 화면에 나옴(askedAt),
+// /chat-v3·인터뷰 원가 원장 — 목적별 호출·입력(그중 캐시 읽기·쓰기)·출력·원가(캐시 배율 반영된 기록값).
+function printChatUsage(
+  rows: { purpose: string; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; costMicroUsd: number }[],
+) {
+  if (rows.length === 0) {
+    console.log("/chat-v3·인터뷰 원가 원장(ChatV3Usage): 기간 안 0건");
+    return;
+  }
+  console.log("/chat-v3·인터뷰 원가 원장(ChatV3Usage — 원가는 캐시 쓰기 1.25배·읽기 0.1배 반영):");
+  const by = new Map<string, { n: number; inTok: number; read: number; write: number; out: number; micro: number }>();
+  for (const r of rows) {
+    const a = by.get(r.purpose) ?? { n: 0, inTok: 0, read: 0, write: 0, out: 0, micro: 0 };
+    a.n++;
+    a.inTok += r.inputTokens;
+    a.read += r.cacheReadTokens;
+    a.write += r.cacheWriteTokens;
+    a.out += r.outputTokens;
+    a.micro += r.costMicroUsd;
+    by.set(r.purpose, a);
+  }
+  for (const [purpose, a] of [...by].sort()) {
+    const pct = a.inTok ? Math.round((a.read / a.inTok) * 100) : 0;
+    console.log(
+      `  - ${purpose}: ${a.n}회 · 입력 ${a.inTok}(캐시 읽기 ${a.read} · 쓰기 ${a.write} — 읽기 ${pct}%) · 출력 ${a.out} · $${(a.micro / 1e6).toFixed(4)}`,
+    );
+  }
+  const total = rows.reduce((n, r) => n + r.costMicroUsd, 0);
+  console.log(`  합계 ${rows.length}회 · $${(total / 1e6).toFixed(4)}`);
+}
+
 // 완료 = PLANNED 로 남은 문항 0. 비용은 문항별 모델 기준 추정(가격표에 없으면 따로 표시).
 function printInterview(rows: InterviewRow[]) {
   console.log("\n── 오늘의 인터뷰 ──");
@@ -438,7 +473,7 @@ function printInterview(rows: InterviewRow[]) {
   console.log(
     `AI: ${rows.reduce((n, r) => n + r.aiCalls, 0)}회 · 입력 ${rows.reduce((n, r) => n + r.aiInputTokens, 0)}` +
       ` · 출력 ${rows.reduce((n, r) => n + r.aiOutputTokens, 0)} · 모델 ${models}` +
-      ` · 추정 ${usd(rows.reduce((n, r) => n + (cost(r) ?? 0), 0))}` +
+      ` · 추정 ${usd(rows.reduce((n, r) => n + (cost(r) ?? 0), 0))}(상한 — 문항 기록엔 캐시 구분이 없어 입력 전체를 기본가로; 마무리 카드의 실제 원가는 위 원장 INTERVIEW_PROPOSAL)` +
       (unpriced ? ` (가격표에 없는 모델 문항 ${unpriced}개는 비용 제외)` : ""),
   );
 }
