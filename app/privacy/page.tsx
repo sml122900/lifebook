@@ -16,8 +16,8 @@ import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 //   바꿈). 수집 축소라 동의 버전은 올리지 않음(성민 결정 — 결정 로그 2026-11-03 "처리방침 v1.3").
 
 export const metadata = {
-  title: "개인정보 처리방침 — 라이프북",
-  description: "라이프북 개인정보 처리방침.",
+  title: "개인정보 처리방침 — Lifebook",
+  description: "Lifebook 개인정보 처리방침.",
 };
 
 // 0항 — 회사의 약속 4조. 데이터 원칙 강조 카드로 먼저 노출.
@@ -107,7 +107,7 @@ export default function PrivacyPage() {
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
       <p className="text-base text-ink-soft">
         <Link href="/" className="underline hover:text-ink">
-          ← 라이프북 홈으로
+          ← Lifebook 홈으로
         </Link>
       </p>
 

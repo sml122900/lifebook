@@ -9,8 +9,8 @@ import { BUSINESS_INFO } from "@/lib/commerce/business";
 // /privacy 와 레이아웃·스타일 통일.
 
 export const metadata = {
-  title: "이용약관 — 라이프북",
-  description: "라이프북 서비스 이용약관.",
+  title: "이용약관 — Lifebook",
+  description: "Lifebook 서비스 이용약관.",
 };
 
 const MALL = BUSINESS_INFO.companyName;
@@ -321,7 +321,7 @@ export default function TermsPage() {
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
       <p className="text-base text-ink-soft">
         <Link href="/" className="underline hover:text-ink">
-          ← 라이프북 홈으로
+          ← Lifebook 홈으로
         </Link>
       </p>
 

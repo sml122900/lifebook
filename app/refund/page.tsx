@@ -8,8 +8,8 @@ import { REFUND_POLICY_LINES } from "@/lib/commerce/order-display";
 // 로 공유 — 여기서 새로 쓰지 않는다(단일 출처, 문구 드리프트 방지).
 
 export const metadata = {
-  title: "환불·교환 정책 — 라이프북",
-  description: "라이프북 실물 상품(포스터 등) 환불·교환 정책.",
+  title: "환불·교환 정책 — Lifebook",
+  description: "Lifebook 실물 상품(포스터 등) 환불·교환 정책.",
 };
 
 export default function RefundPolicyPage() {
@@ -17,7 +17,7 @@ export default function RefundPolicyPage() {
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-12">
       <p className="text-base text-ink-soft">
         <Link href="/" className="underline hover:text-ink">
-          ← 라이프북 홈으로
+          ← Lifebook 홈으로
         </Link>
       </p>
 
