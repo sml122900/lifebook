@@ -4,16 +4,24 @@
 // 한다. Edge 전용 인스턴스는 proxy.ts 가 auth.config 만으로 따로 만든다
 // (Edge 런타임에선 Prisma 를 못 쓰기 때문).
 import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 import authConfig from "./auth.config";
-import { authAdapter } from "./lib/auth-adapter";
+import { makeAuthAdapter } from "./lib/auth-adapter";
 import { prisma } from "./lib/db";
+import { readSignupConsentToken, signInGate, SIGNUP_CONSENT_COOKIE } from "./lib/signup-consent";
 import { ensureWalletWithSignupGrant } from "./lib/tokens/wallet";
 
+// 가입 전 동의(서명 쿠키 — /join 이 심음, 2026-11-03 docs/phase/my-life-restructure.md §16.3). 소셜 가입은 이 동의가 있어야
+// 계정이 생긴다(로그인 콜백 signInGate + 어댑터 createUser 두 겹). 이미 있는 계정의 로그인은 쿠키를 보지 않는다.
+async function readSignupConsent() {
+  return readSignupConsentToken((await cookies()).get(SIGNUP_CONSENT_COOKIE)?.value);
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: authAdapter, // Prisma 어댑터 — 소셜 토큰은 저장 안 함(lib/auth-adapter)
+  adapter: makeAuthAdapter(readSignupConsent), // 소셜 토큰 저장 안 함 · 동의 없이 계정 안 만듦(lib/auth-adapter)
   session: { strategy: "jwt" }, // DB 세션 대신 JWT — Edge 미들웨어가 읽기 쉬움
   ...authConfig,
   // Credentials 는 Node-only (bcrypt + Prisma) — auth.config.ts(Edge) 엔 넣지 않음.
@@ -53,6 +61,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // ensureWalletWithSignupGrant 는 idempotent 이라 계정 연결 같은 엣지로
     // 예기치 않게 또 불려도 지급은 한 번만 된다.
     async createUser({ user }) {
+      // 가입 동의 쿠키는 한 번만 — 같은 기기에서 다음 사람이 그 동의로 가입하지 않게 지운다(남아도 20분 뒤 만료).
+      try {
+        (await cookies()).delete(SIGNUP_CONSENT_COOKIE);
+      } catch (e) {
+        console.error("[auth] 가입 동의 쿠키 지우기 실패(만료로 정리됨)", e);
+      }
       if (user.id) {
         await ensureWalletWithSignupGrant(user.id);
         // v3 P17 — 소셜(카카오/네이버/구글) 신규 가입은 V3 파이프라인.
@@ -72,6 +86,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     ...authConfig.callbacks,
+    // 소셜 로그인 — 계정을 만들기 전에 돈다(@auth/core callback: signIn 판정 → handleLoginOrRegister). 이미 있는 계정이면
+    // 통과, 새 계정이면 가입 전 동의가 있어야 통과, 없으면 계정을 만들지 않고 /join?provider= 로(lib/signup-consent signInGate).
+    async signIn({ account }) {
+      return signInGate(account, await readSignupConsent());
+    },
     // Node 전용: DB 의 동의 상태를 JWT 토큰에 실어둔다 → Edge 미들웨어가
     // Prisma 를 건드리지 않고 리다이렉트를 결정할 수 있게.
     async jwt({ token }) {

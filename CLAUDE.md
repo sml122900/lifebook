@@ -791,6 +791,9 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [x] 소셜 로그인 토큰 저장 최소화(2026-11-03 — `docs/phase/my-life-restructure.md` §16.2): 토큰 쓰는 곳 0 → `lib/auth-adapter.ts` 가 `Account` 에 계정 식별(사업자·회원 식별값)만 저장. 회귀 `test-auth`.
 - [ ] 기존 `Account` 토큰 칸 비우기 — `npx tsx db/clear-oauth-tokens.ts --apply`, **성민 별도 승인 대기**(dry-run 2026-11-03: 3행 — google 1(실고객 계정)·kakao 1·naver 1). 백업 없음(쓰는 곳 0).
 - [ ] 처리방침 1-가 "인증 토큰을 함께 저장합니다" — 위 비우기 적용 뒤 "인증 토큰은 로그인을 처리하는 데에만 쓰고 저장하지 않습니다(회원 식별값만 저장)"로(제안 — 수정은 성민 결정, §16.2).
+- [x] 동의를 계정 생성 전으로(2026-11-03 — `docs/phase/my-life-restructure.md` §16.3): 새 공개 화면 `/join`(필수 3종 동의 → 가입 방법) → 서명 쿠키(`lb_signup_consent`, 20분 — `lib/signup-consent.ts`) → 계정 생성 때 동의 칸을 같은 insert 로. 소셜 = 로그인 콜백 `signInGate`(새 계정 + 동의 없음 → 계정 안 만들고 `/join?provider=`) + 어댑터 `createUser` 거부 두 겹, 이메일 = `lib/email-signup`(동의 없으면 거부, `/signup` → `/join`). 계정 만드는 곳 2곳뿐. 기존 계정은 그대로(재동의 강요 없음 — `/consent` 는 옛 버전·동의 전 옛 계정만). proxy `/join` 공개(성민 허용). 회귀 `test-auth` ②.
+- [ ] 가입 전 동의 화면 임시 문구 확정 — `lib/join-copy.ts` 13키 전부 `[임시 — 성민 확정 필요]`(`docs/temp-copy-inventory.md`).
+- [ ] 가입 전 동의 실기기 확인 — 카카오·네이버·구글 실제 왕복(새 계정 → `/join?provider=` → 동의 → 다시 사업자 → 계정 생성·`/consent` 안 거침, 이미 있는 계정 바로 로그인, 카카오톡 인앱). 헤드리스로는 이메일 가입만 실측(§16.3).
 - [ ] My Life 3단계 임시 문구 확정 — `lib/my-life-copy.ts` 장소 묶음 7키 + `edit` 블록 106키 + 이동 줄 이름 `moveBarLabel` + 차례 보기·시기 패널 5키(`tourLine`·`tourNext`·`tourBack`·`tourBackLabel`·`inStory` — 2026-11-02 최종 E2E)(`docs/temp-copy-inventory.md` "3단계 추가").
 - [ ] My Life(`/my-life`) — ⓪ 모임 도형 최종 결정(둥근 사각 / 원 — `lib/my-life-group-shape.ts` `GROUP_SHAPE` 한 줄, 개편 1단계) ① 임시 문구 확정(`lib/my-life-copy.ts` — 메뉴 이름 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] 외 전부 `[임시 — 성민 확정 필요]`) ② iOS·Android 실기기 확인 — 2026-11-01 운영 폰 피드백으로 react-zoom-pan-pinch 캔버스로 교체(헤드리스 CDP 실제 터치로 끌기·두 손가락·더블탭 확인), 실기기 재확인 필요. 2026-11-01 2b-3a.
 - [ ] 운영 test30 "1974년 고등학교 입학 — 김민수와의 기억은 그 정도다." 1건 처리(2026-11-01 E2E) — 내용 유실 수정 배포 뒤. 지우지 말 것(성민). 처리 방법은 성민 결정 후 test30 E2E 때.

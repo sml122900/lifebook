@@ -20,6 +20,7 @@ const PUBLIC_PATHS = new Set<string>([
   "/",
   "/login",
   "/signup",
+  "/join", // 가입 전 동의(2026-11-03 — 계정이 생기기 전이라 로그인 없이)
   "/privacy",
   "/terms",
   "/refund",

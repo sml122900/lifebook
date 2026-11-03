@@ -1,6 +1,6 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-03(가입 전 동의 화면 `/join` 신설 — `lib/join-copy.ts` 13키, 아래 "가입 전 동의" · 동의 항목 문구는 확정된 /consent 문구를 같이 씀) · 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 3개(2026-11-03 인물 확인 문구 파일 삭제 전엔 4개)의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 ## 요약
@@ -10,6 +10,7 @@
 | `lib/free-chat-copy.ts` | 62 (전부 — 카드 오류 6개는 2026-11-02 `lib/node-proposal.ts` 에서 옮겨 옴 · 시기 미지정 2개 `centerUnset`·`centerPick` 2026-11-02 추가) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
 | `lib/my-life-copy.ts` | 200 (78 + 3단계 115 + Q69 11 − 확인 대기 표시 4(2026-11-03 삭제 — `pendingTag`·`goConfirm`·`pendingNote`·`draftNote`) · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 (`storyReviewEntry` 는 2026-11-03 옛 `/story-review` 본문과 함께 삭제) | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
 | `lib/interview/copy.ts` | 42 (전부 — `selfStoriesTitle` 2026-11-03 삭제) | 0 | `/interview` · My Life "오늘의 인터뷰" 카드(Q69 전 `/story-review`) |
+| `lib/join-copy.ts` | 13 (전부 — 2026-11-03 신설) | 0 | `/join`(가입 전 동의 — 제목·안내·가입 방법 버튼) |
 | `lib/interview/question-pool.ts` | 문항 8개(18줄 — 구조 예시 5 + "관계별 나" 3) | — | `/interview` 질문·이야기 제목 |
 | 그 밖 | 1 | — | 아래 "그 밖" |
 
@@ -195,6 +196,21 @@
 | `savingBody` | 53 | "저장 중…" | 이야기 패널 고치기 | app/my-life/MyLifeView.tsx:2117 |
 | `editBodyFailed` | 54 | "고치지 못했어요." | 이야기 패널 고치기 오류(서버 문구가 없을 때) | app/my-life/MyLifeView.tsx:2061 |
 | `editBodyRetry` | 55 | "처리 중 문제가 있었어요. 화면을 새로고침할게요." | 이야기 패널 고치기 — 응답 실패 | app/my-life/MyLifeView.tsx:2070 |
+
+### `lib/join-copy.ts` (`JOIN_COPY`) — 가입 전 동의(2026-11-03)
+
+| 키 | 현재 문구 | 보이는 곳 |
+|---|---|---|
+| `title` | "가입하기 전에" | /join 제목 |
+| `desc` | "라이프북을 쓰시려면 아래 세 가지에 동의해 주세요. 동의하신 뒤 가입 방법을 고르시면 바로 이어서 가입돼요." | /join 안내 |
+| `bounced` | `` (method) => `처음 오셨네요. 동의해 주시면 ${method}로 바로 이어서 가입돼요.` `` | /join?provider= — 로그인 화면 소셜 버튼으로 왔는데 아직 계정이 없을 때 · 동의 없이 /signup 에 왔을 때 |
+| `consentError` | "필수 항목 세 가지에 모두 동의해 주세요." | /join?error=consent(서버가 동의 누락을 거부했을 때) |
+| `methodsTitle` | "가입 방법 고르기" | /join 소제목 |
+| `methodName` | 카카오 · 네이버 · 구글 · 이메일 | `bounced` 안 |
+| `kakao`·`naver`·`google`·`email` | "카카오로 가입하기" · "네이버로 가입하기" · "Google로 가입하기" · "이메일로 가입하기" | /join 가입 버튼 |
+| `needAll` | "위 세 가지에 모두 동의하시면 가입 버튼을 누를 수 있어요." | /join(동의 전) |
+| `pending` | "이어서 가는 중…" | /join 가입 버튼(제출 중) |
+| `toLogin` | "이미 가입하셨나요? 로그인하기" | /join 아래 링크 |
 
 ### `lib/interview/copy.ts` (`INTERVIEW_COPY`)
 

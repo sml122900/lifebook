@@ -62,7 +62,7 @@ export function LoginCredentialsForm() {
       <p className="text-center text-sm text-ink-soft">
         계정이 없으신가요?{" "}
         <Link
-          href="/signup"
+          href="/join"
           className="font-medium text-action underline-offset-2 hover:underline"
         >
           회원가입

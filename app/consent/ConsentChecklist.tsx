@@ -1,0 +1,110 @@
+"use client";
+
+import Link from "next/link";
+
+// 필수 동의 3종 체크리스트 — /consent(기존 계정 재동의)와 /join(가입 전 동의, 2026-11-03)이 같이 쓴다.
+// 체크 상태는 부모가 들고(제출 버튼 활성), 체크박스 name(privacy·overseas·terms)이 폼 제출에 실려 서버가 다시 확인한다.
+//
+// 문구는 개인정보 처리방침 v1.1~v1.2(/privacy)와 정합(v1.2 는 3항 항목에 장소 이름만 더해 이 문구 무변) — 수집·이용은 처리방침
+// 1·2항, 국외이전은 3항(Anthropic·OpenAI·Google·Vercel·Supabase, 필수 동의) 기준. "자세히 보기" 가
+// /privacy 로 연결된다. 이용약관은 /terms(표준약관 전문 게시, 2026-09)로 연결.
+export const REQUIRED_ITEMS = [
+  {
+    key: "privacy" as const,
+    title: "(필수) 개인정보 수집·이용 동의",
+    body:
+      "라이프북은 회원 식별과 서비스 제공을 위해 가입·로그인 정보(카카오·네이버·구글 계정 정보 또는 이메일·비밀번호), " +
+      "출생연도·출생지 등 기본 정보, 회원님이 직접 입력하신 인생 기록·사진·가족 공유 내용을 수집·이용합니다. " +
+      "음성으로 입력하신 경우 글자로 바뀐 텍스트와 녹음 파일을 함께 저장합니다. " +
+      "녹음 파일은 회원님만 들으실 수 있도록 비공개로 보관되며, " +
+      "회고·재생 목적으로만 사용합니다. 외부에 제공하거나 광고에 활용하지 않습니다. " +
+      "AI 동반자와 실시간으로 음성 대화를 나누실 때도 동일하게 적용됩니다. " +
+      "자세한 수집 항목과 보유 기간은 개인정보 처리방침에서 확인하실 수 있습니다.",
+    detailHref: "/privacy" as const,
+    detailLabel: "개인정보 처리방침 자세히 보기 (새 창)",
+  },
+  {
+    key: "overseas" as const,
+    title: "(필수) 개인정보 국외 이전 동의",
+    body:
+      "서비스 제공을 위해 회원님의 개인정보를 미국의 Anthropic, PBC(AI 대화·기록 정리), " +
+      "OpenAI, L.L.C.(포스터 배경 생성), Google LLC(장소 검색·지도), Vercel Inc.(서버 운영), " +
+      "Supabase, Inc.(데이터 저장, 저장 위치 서울)로 이전합니다. 자세한 항목과 보유 기간은 " +
+      "개인정보 처리방침 3항에서 확인하실 수 있습니다. 동의를 거부하실 수 있으나, 거부하시면 " +
+      "서비스를 이용하실 수 없습니다.",
+    detailHref: "/privacy" as const,
+    detailLabel: "개인정보 처리방침 자세히 보기 (새 창)",
+  },
+  {
+    key: "terms" as const,
+    title: "(필수) 서비스 이용약관 동의",
+    body: "라이프북 서비스 이용약관에 동의합니다.",
+    detailHref: "/terms" as const,
+    detailLabel: "이용약관 자세히 보기 (새 창)",
+  },
+];
+
+export type ConsentChecked = Record<string, boolean>;
+export const allConsentChecked = (checked: ConsentChecked) => REQUIRED_ITEMS.every((i) => checked[i.key]);
+
+export function ConsentChecklist({ checked, onChange }: { checked: ConsentChecked; onChange: (next: ConsentChecked) => void }) {
+  const allChecked = allConsentChecked(checked);
+  return (
+    <>
+      {/*
+        마케팅 동의 UI 는 일부러 렌더하지 않는다. 예전엔 "(선택) 마케팅
+        정보 수신 동의" 체크박스가 있었지만, saveConsent 가 그 값을 저장한
+        적이 없고 User 에 marketingConsentAt 컬럼도 없다 — 체크박스를
+        보여주면서 조용히 무시하면 정보통신망법 위반 소지. 실제 마케팅
+        발송을 붙일 때 marketingConsentAt 컬럼을 추가하고 saveConsent 가
+        값을 저장하게 한 "다음에야" UI 를 되살린다.
+      */}
+      <label className="flex cursor-pointer items-center gap-4 rounded-md border-2 border-action bg-action/5 px-5 py-4">
+        <input
+          type="checkbox"
+          checked={allChecked}
+          onChange={(e) => onChange(Object.fromEntries(REQUIRED_ITEMS.map((i) => [i.key, e.target.checked])))}
+          className="h-6 w-6 accent-zinc-900"
+        />
+        <span className="text-lg font-bold text-ink">모두 동의</span>
+      </label>
+
+      <ul className="flex flex-col gap-6">
+        {REQUIRED_ITEMS.map((item) => (
+          <li
+            key={item.key}
+            className="rounded-md border-2 border-line bg-surface p-5"
+          >
+            <label className="flex cursor-pointer items-start gap-4">
+              <input
+                type="checkbox"
+                name={item.key}
+                checked={checked[item.key] ?? false}
+                onChange={(e) => onChange({ ...checked, [item.key]: e.target.checked })}
+                className="mt-1 h-6 w-6 accent-zinc-900"
+              />
+              <div>
+                <div className="text-lg font-semibold text-ink">
+                  {item.title}
+                </div>
+                <p className="mt-2 text-ink">{item.body}</p>
+              </div>
+            </label>
+            {/* 처리방침 자세히 보기 — 라벨 밖 형제(라벨 안이면 클릭이 체크박스를
+                토글). 새 창으로 열어 동의 진행 상태를 잃지 않게. */}
+            {item.detailHref && (
+              <Link
+                href={item.detailHref}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="ml-10 mt-3 inline-flex min-h-[48px] items-center text-base font-semibold text-action underline hover:text-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+              >
+                {item.detailLabel}
+              </Link>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
