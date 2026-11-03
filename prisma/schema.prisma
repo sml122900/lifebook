@@ -185,12 +185,13 @@ model User {
   interviewItems InterviewItem[]
 
   // 노드 그래프(docs/phase/node-graph-self.md) — 탈퇴 시 Cascade.
-  places       Place[]
-  personGroups PersonGroup[]
-  nodeLinks    NodeLink[]
-  nodeBodies   NodeBody[]
+  places            Place[]
+  personGroups      PersonGroup[]
+  nodeLinks         NodeLink[]
+  nodeBodies        NodeBody[]
+  nodeBodyRevisions NodeBodyRevision[]
   // My Life 개편 3단계(docs/phase/my-life-restructure.md §2) — 장소 묶음. 탈퇴 시 Cascade.
-  placeGroups  PlaceGroup[]
+  placeGroups       PlaceGroup[]
 }
 
 // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
@@ -1604,4 +1605,22 @@ model NodeBody {
   updatedAt DateTime    @updatedAt
 
   @@unique([nodeType, nodeId])
+}
+
+// 노드 본문 이전 판(Q23 재결정 2026-11-03 — docs/phase/my-life-restructure.md §16.4). 이야기 본문([이야기 고치기]·블로그
+// 저장·되돌리기)·인물 본문이 실제로 바뀔 때 바뀌기 직전 판 1행(평문 + 그때 평문과 맞던 블록 문서, 아니면 null).
+// 노드마다 최근 20판 — 저장 함수(lib/node-body.ts)가 같은 트랜잭션에서 오래된 것부터 지운다.
+// 정리: 다형 연결이라 FK 없음 — 노드 삭제 트리거 함수 node_graph_cleanup() 가 지운다(마이그 SQL 에만). 탈퇴 = userId Cascade.
+model NodeBodyRevision {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodeType  NodeType
+  nodeId    String
+  doc       Json?
+  plainText String
+  createdAt DateTime @default(now())
+
+  @@index([nodeType, nodeId, createdAt])
+  @@index([userId])
 }

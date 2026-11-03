@@ -28,6 +28,8 @@ const LINKABLE_CREATED_VIA: ReadonlySet<string> = new Set([
 ]);
 import type { EventPrecision, LifeCategory } from "./generated/prisma/enums";
 import { prisma } from "./db";
+import { CREATED_VIA_NODE_BODY } from "./node-body";
+import { removeStorageObjects } from "./storage";
 
 // Phase 8 — 이야기 주체 유형.
 export const SUBJECT_TYPE = {
@@ -194,13 +196,25 @@ export async function updatePerson(
 }
 
 // 본인 인물만 삭제. cascade 로 PersonEvent 행도 함께 사라짐.
+// 인물 글(NodeBody)·그 사진 메모리는 DB 트리거가 지운다 — 사진 파일(Storage)은 트리거가 못 지워 여기서(2026-11-03, lib/node-body).
 export async function deletePerson(
   userId: string,
   personId: string,
 ): Promise<boolean> {
+  const photos = await prisma.photo.findMany({
+    where: { userId, memory: { createdVia: CREATED_VIA_NODE_BODY, nodeBody: { nodeType: "PERSON", nodeId: personId } } },
+    select: { storagePath: true },
+  });
   const result = await prisma.person.deleteMany({
     where: { id: personId, userId },
   });
+  if (result.count > 0 && photos.length > 0) {
+    try {
+      await removeStorageObjects("photos", photos.map((p) => p.storagePath));
+    } catch (e) {
+      console.error("[deletePerson] storage", e instanceof Error ? e.message : e); // 실패 시 파일만 남음(DB 행은 이미 없음 — 현존 계정 미참조 파일, reconcile-storage 범위 밖)
+    }
+  }
   return result.count > 0;
 }
 

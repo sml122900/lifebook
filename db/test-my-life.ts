@@ -158,7 +158,7 @@ function synthetic(o: { events: number; stories: number; people: number; groups:
   const rnd = () => (x = (x * 1103515245 + 12345) % 2147483648) / 2147483648;
   const names = ["김민수", "박영수", "이순자", "정미숙", "한상철", "최영희", "강동원", "윤정아", "조성호", "임하늘", "송미란", "오세훈"];
   const people: MyLifePerson[] = Array.from({ length: o.people }, (_, i) => ({
-    id: `p${i}`, name: `${names[i % names.length]}${i >= names.length ? i : ""}`, relation: null, metYear: null, groupIds: [],
+    id: `p${i}`, name: `${names[i % names.length]}${i >= names.length ? i : ""}`, relation: null, metYear: null, groupIds: [], body: "",
   }));
   const groups = Array.from({ length: o.groups }, (_, g) => ({ id: `g${g}`, name: `모임${g}`, memberIds: [] as string[] }));
   for (const p of people) {
@@ -189,7 +189,7 @@ function synthetic(o: { events: number; stories: number; people: number; groups:
       ...(people.length ? Array.from({ length: Math.floor(rnd() * 3) }, () => people[Math.floor(rnd() * people.length)]).map((p) => ({ kind: "person" as const, id: p.id, name: p.name })) : []),
       ...(places.length && rnd() < 0.4 ? [places[Math.floor(rnd() * places.length)]].map((q) => ({ kind: "place" as const, id: q.id, name: q.name })) : []),
     ].filter((c, i, arr) => arr.findIndex((d) => d.id === c.id) === i);
-    ev.stories.push({ id: `s${k}`, kind: rnd() < 0.15 ? "SELF" : "STORY", title: null, content: "가".repeat(10 + Math.floor(rnd() * 80)) + ".", primaryEventId: ev.id, otherEventIds: [], subjectPersonId: null, chips });
+    ev.stories.push({ id: `s${k}`, kind: rnd() < 0.15 ? "SELF" : "STORY", title: null, content: "가".repeat(10 + Math.floor(rnd() * 80)) + ".", primaryEventId: ev.id, otherEventIds: [], subjectPersonId: null, chips, richBody: false });
   }
   for (const ev of events) if (people.length && rnd() < 0.5) ev.personIds.push(people[Math.floor(rnd() * people.length)].id);
   for (const ev of events) if (places.length && rnd() < 0.3) ev.placeIds.push(places[Math.floor(rnd() * places.length)].id);
@@ -293,7 +293,7 @@ async function main() {
     }
     ops = 0;
     const big = await getMyLifeData(a, counted);
-    check("② Prisma 호출 수 = 7 고정(기록 8건·인물 8명·연결 16건 늘려도 — 3단계 장소 묶음 +1)", opsSmall === 7 && ops === 7 && big.people.length === 13, { opsSmall, ops, people: big.people.length });
+    check("② Prisma 호출 수 = 8 고정(기록 8건·인물 8명·연결 16건 늘려도 — 3단계 장소 묶음 +1 · 2b-3c 노드 본문 +1)", opsSmall === 8 && ops === 8 && big.people.length === 13, { opsSmall, ops, people: big.people.length });
 
     // ── ③ 배치 ───────────────────────────────────────────────────
     const lay = layoutMyLife(d);

@@ -8,6 +8,7 @@ import { randomBytes } from "node:crypto";
 
 import { prisma } from "./db";
 import { CREATED_VIA_EPISODE } from "./episode";
+import { CREATED_VIA_NODE_BODY } from "./node-body";
 import { CREATED_VIA_PHOTO } from "./photos";
 import { CREATED_VIA_V3_BRIDGE } from "./poster/v3-bridge";
 
@@ -160,7 +161,8 @@ export async function listRoomMemories(roomId: string, viewerUserId: string) {
       // 시점에 이 필터가 없으면 놓치기 쉬워 미리 막아둔다(가족 룸 노출
       // 여부는 그때 별도 결정).
       // v3_bridge(포스터용 v3 사건 사본)도 같은 이유로 제외(2026-10-24 결정).
-      createdVia: { notIn: [CREATED_VIA_PHOTO, CREATED_VIA_EPISODE, CREATED_VIA_V3_BRIDGE] },
+      // node_body(인물 글 사진이 붙는 메모리 — lib/node-body)도 제외(2026-11-03, node-graph-self §1.6-6).
+      createdVia: { notIn: [CREATED_VIA_PHOTO, CREATED_VIA_EPISODE, CREATED_VIA_V3_BRIDGE, CREATED_VIA_NODE_BODY] },
     },
     select: {
       id: true,

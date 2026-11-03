@@ -1899,6 +1899,11 @@ function panelInfo(
             {C.panelMetYear}: {p.metYear}
           </p>
         )}
+        {/* 이 분에 대해 적은 글(인물 본문 — 2b-3c, 2026-11-03) */}
+        {p.body && <p className="line-clamp-3 whitespace-pre-line text-lg text-ink">{p.body}</p>}
+        <ButtonLink href={`/my-life/person/${p.id}/edit`} variant="secondary" size="lg">
+          {p.body ? C.body.personEdit : C.body.personWrite}
+        </ButtonLink>
         {stories.length > 0 && (
           <div className="flex flex-col gap-2">
             <p className="text-lg font-semibold text-ink">{C.panelStoriesWith}</p>
@@ -2002,9 +2007,10 @@ function panelInfo(
 // 이야기 정보 — 함께 나온 분·나온 곳 목록(과 [빼기])은 NodeEditor 가 그린다. 확인 대기 분은 여기(작은 물방울 + 확인하러 가기).
 // [이야기 고치기](Q69 — /story-review 이야기 카드에서 옮김): 본문 칸 + [저장]/[취소], 같은 서버 액션(updateEpisodeContentAction —
 // 다듬은 글 초기화·제목은 그대로). 저장하면 바로 보이고(로컬) 지도 데이터는 router.refresh 로 다시 읽는다.
+// [본문 보기] = 이야기 상세(/my-life/story/[id] — 2b-3c, 2026-11-03). 소제목·사진이 있는 글은 평문 칸 대신 글 고치기 화면으로
+// (평문으로 고치면 그 자리가 사라지므로 — node-graph-self §2b.2 표시 규칙 3).
 function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; idx: Index }) {
   const router = useRouter();
-  const [full, setFull] = useState(false);
   const [body, setBody] = useState(story.content);
   const [draft, setDraft] = useState<string | null>(null); // null = 보기, 문자열 = 고치는 중
   const [error, setError] = useState<string | null>(null);
@@ -2042,13 +2048,22 @@ function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; i
       </h2>
       {draft === null ? (
         <>
-          <p className={`whitespace-pre-line text-lg text-ink ${full ? "" : "line-clamp-3"}`}>{body}</p>
-          <Button variant="secondary" size="lg" aria-expanded={full} onClick={() => setFull((v) => !v)}>
-            {full ? C.hideBody : C.readBody}
-          </Button>
-          <Button variant="secondary" size="lg" onClick={() => setDraft(body)}>
-            {C.editBody}
-          </Button>
+          <p className="line-clamp-3 whitespace-pre-line text-lg text-ink">{body}</p>
+          <ButtonLink href={`/my-life/story/${story.id}`} variant="secondary" size="lg">
+            {C.readBody}
+          </ButtonLink>
+          {story.richBody ? (
+            <>
+              <p className="m-0 text-lg text-ink-soft">{C.body.richNote}</p>
+              <ButtonLink href={`/my-life/story/${story.id}/edit`} variant="secondary" size="lg">
+                {C.editBody}
+              </ButtonLink>
+            </>
+          ) : (
+            <Button variant="secondary" size="lg" onClick={() => setDraft(body)}>
+              {C.editBody}
+            </Button>
+          )}
         </>
       ) : (
         <div className="flex flex-col gap-3">

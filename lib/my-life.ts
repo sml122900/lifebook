@@ -1,7 +1,8 @@
 // My Life 마인드맵 — 화면 데이터. 읽기 전용, auth 없음(회귀가 같은 함수를 부른다).
 // docs/phase/my-life-restructure.md §1(1단계 지도 개편) · node-graph-self.md §6 2b.1 의 1(포함 규칙).
 //
-// Prisma 호출 수는 기록 양과 무관하게 고정 7회(중심+이야기 1 · 중심↔인물 1 · NodeLink 1 · 인물·모임·장소·장소 묶음 4).
+// Prisma 호출 수는 기록 양과 무관하게 고정 8회(중심+이야기 1 · 중심↔인물 1 · NodeLink 1 · 인물·모임·장소·장소 묶음 4 ·
+// 노드 본문 1 — 2026-11-03 2b-3c: 이야기 "소제목·사진 있는 글" 표시·인물 글 첫 줄).
 // 중심 = 확정(CONFIRMED·CORRECTED) LifeEvent, sequenceOrder·id 순(/story-review·갭·인터뷰와 같은 기준).
 //   왼쪽 가지 = 이야기(STORY)·그때의 나(SELF) — 주 소속 + NodeLink(LIFE_EVENT→EPISODE) 추가 소속.
 //   이야기 안 작은 물방울 = 대상 인물 + NodeLink(EPISODE→PERSON·PERSON_GROUP, 확정만) + 브릿지 MemoryPlace.
@@ -11,6 +12,7 @@
 
 import { prisma } from "./db";
 import type { EpisodeKind, LifeEventType } from "./generated/prisma/enums";
+import { isRichDoc, shownDoc } from "./node-body-doc";
 
 export type ChipKind = "person" | "group" | "place";
 
@@ -32,6 +34,7 @@ export type MyLifeStory = {
   otherEventIds: string[]; // 이 이야기가 같이 보이는 다른 중심(추가 소속·주 소속)
   subjectPersonId: string | null; // 대상 인물(Episode.personId) — 빼기 대상 아님(3단계 패널)
   chips: MyLifeChip[];
+  richBody: boolean; // 소제목·사진이 있는 글(평문과 맞는 블로그 문서) — 패널 [이야기 고치기] 대신 글 고치기 화면(2b-3c)
 };
 
 export type MyLifeEvent = {
@@ -53,6 +56,7 @@ export type MyLifePerson = {
   relation: string | null;
   metYear: number | null;
   groupIds: string[];
+  body: string; // 이 분에 대해 적은 글(인물 본문 평문 — 없으면 빈 문자열, 2b-3c)
 };
 
 // 모임(memberIds = 사람 id)·장소 묶음(memberIds = 장소 id) 같은 모양.
@@ -123,7 +127,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
 
   // 초안 인물(말동무 초안 검토 대기)은 안 보임. 확인 대기(PROPOSED) 연결도 안 그림 — 그걸 확인하던 화면은
   // 2026-11-03 삭제(확인 대기 0·만드는 경로 0, docs/phase/my-life-restructure.md §15.6).
-  const [peopleRows, groupRows, placeRows, placeGroupRows] = await Promise.all([
+  const [peopleRows, groupRows, placeRows, placeGroupRows, bodyRows] = await Promise.all([
     db.person.findMany({
       where: { userId, subjectType: "person", isDraft: false },
       select: { id: true, name: true, relation: true, metYear: true },
@@ -134,7 +138,9 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
     }),
     db.place.findMany({ where: { userId }, select: { id: true, name: true, address: true, source: true, lat: true, lng: true } }),
     db.placeGroup.findMany({ where: { userId }, select: { id: true, name: true, members: { select: { placeId: true } } } }),
+    db.nodeBody.findMany({ where: { userId, nodeType: { in: ["EPISODE", "PERSON"] } }, select: { nodeType: true, nodeId: true, doc: true, plainText: true } }),
   ]);
+  const bodyOf = new Map(bodyRows.map((b) => [`${b.nodeType}:${b.nodeId}`, b]));
 
   const personById = new Map(peopleRows.map((p) => [p.id, p]));
   const groupById = new Map(groupRows.map((g) => [g.id, g]));
@@ -202,6 +208,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
       otherEventIds: (storyEvents.get(epId) ?? []).filter((id) => id !== shownUnder),
       subjectPersonId: ep.personId && personById.has(ep.personId) ? ep.personId : null,
       chips,
+      richBody: isRichDoc(shownDoc(bodyOf.get(`EPISODE:${ep.id}`) ?? null, ep.content)),
     };
   }
 
@@ -226,7 +233,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
       groupIds: [...new Set(eventGroups.get(e.id) ?? [])],
     })),
     people: peopleRows
-      .map((p) => ({ id: p.id, name: p.name, relation: p.relation, metYear: p.metYear, groupIds: memberGroups.get(p.id) ?? [] }))
+      .map((p) => ({ id: p.id, name: p.name, relation: p.relation, metYear: p.metYear, groupIds: memberGroups.get(p.id) ?? [], body: bodyOf.get(`PERSON:${p.id}`)?.plainText ?? "" }))
       .sort(byName),
     groups: groupRows.map((g) => ({ id: g.id, name: g.name, memberIds: g.members.map((m) => m.personId).filter((id) => personById.has(id)) })).sort(byName),
     places: placeRows.map((p) => ({ ...p, groupIds: placeGroupsOf.get(p.id) ?? [] })).sort(byName),

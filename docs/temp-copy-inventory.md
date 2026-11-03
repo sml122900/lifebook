@@ -1,6 +1,6 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-03(가입 전 동의 화면 `/join` 신설 — `lib/join-copy.ts` 13키, 아래 "가입 전 동의" · 동의 항목 문구는 확정된 /consent 문구를 같이 씀) · 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-03(이야기 상세·글 고치기·이전 판·인물 글 — `lib/my-life-copy.ts` `body` 60키, 아래 "2b-3c 추가" · `hideBody` 삭제) · 2026-11-03(가입 전 동의 화면 `/join` 신설 — `lib/join-copy.ts` 13키, 아래 "가입 전 동의" · 동의 항목 문구는 확정된 /consent 문구를 같이 씀) · 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 3개(2026-11-03 인물 확인 문구 파일 삭제 전엔 4개)의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 ## 요약
@@ -112,8 +112,7 @@
 | `kindPlace` | 34 | "장소" | /my-life | app/my-life/MyLifeView.tsx:1317, app/my-life/MyLifeView.tsx:1513 |
 | `alsoElsewhereShort` | 36 | "여러 시기" | /my-life | app/my-life/MyLifeView.tsx:1104 |
 | `close` | 37 | "닫기" | /my-life | app/my-life/MyLifeView.tsx:322, app/my-life/MyLifeView.tsx:1368 |
-| `readBody` | 38 | "본문 보기" | /my-life | app/my-life/MyLifeView.tsx:1593 |
-| `hideBody` | 39 | "본문 접기" | /my-life | app/my-life/MyLifeView.tsx:1593 |
+| `readBody` | 38 | "본문 보기" | /my-life 이야기 패널 → 이야기 상세 링크(2026-11-03 — 패널 안 펼침·`hideBody` "본문 접기" 삭제) | app/my-life/MyLifeView.tsx(StoryPanel) |
 | `openPerson` | 42 | "인물록에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1499 |
 | `openMap` | 43 | "지도에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1543 |
 | `emptyTitle` | 44 | "아직 지도에 담을 이야기가 없어요" | /my-life | app/my-life/page.tsx:33 |
@@ -196,6 +195,15 @@
 | `savingBody` | 53 | "저장 중…" | 이야기 패널 고치기 | app/my-life/MyLifeView.tsx:2117 |
 | `editBodyFailed` | 54 | "고치지 못했어요." | 이야기 패널 고치기 오류(서버 문구가 없을 때) | app/my-life/MyLifeView.tsx:2061 |
 | `editBodyRetry` | 55 | "처리 중 문제가 있었어요. 화면을 새로고침할게요." | 이야기 패널 고치기 — 응답 실패 | app/my-life/MyLifeView.tsx:2070 |
+
+#### 2b-3c 추가(2026-11-03 — 이야기 상세·블로그식 글 고치기·이전 판·인물 글, `MY_LIFE_COPY.body` 60키 전부 `[임시 — 성민 확정 필요]`)
+
+| 묶음 | 키 | 보이는 곳 |
+|---|---|---|
+| 상세(8) | `backToMap` "My Life 로 돌아가기" · `edit` "글 고치기" · `history(n)` "이전 판 n개" · `photosTitle` "이 이야기의 사진" · `peopleTitle` "함께 나온 분" · `placesTitle` "나온 곳" · `photoGone` "사진이 지워졌어요" · `richNote` "소제목이나 사진이 있는 글이라 글 고치기 화면에서 고쳐요."(이야기 패널) | `/my-life/story/[id]` · 이야기 패널 |
+| 인물 글(4) | `personWrite` "이 분 이야기 쓰기" · `personEdit` "이 분 이야기 고치기" · `personTitle(name)` "○○ — 이야기" · `personIntro` | 사람 패널 · `/my-life/person/[id]/edit` |
+| 편집(35) | `editTitle` · `paragraphLabel(n)` "문단 n" · `headingLabel(n)` · `photoLabel(n)` · `captionLabel` · `addParagraph` "문단 추가" · `addHeading` "소제목 추가" · `addPhoto` "사진 넣기" · `up` "위로" · `down` "아래로" · `remove` "빼기" · `removeNote` · `pickTitle` · `pickNone` · `upload` "새 사진 올리기" · `uploadHint` · `uploading` · `uploadFailed` · `uploadTooBig` · `uploadHeic` · `uploadGps` · `pickClose` · `emptyDoc` · `save` · `saving` · `cancel` · `unsaved` · `unsavedLeave` · `unsavedStay` · `errEmpty` · `errTooLong` · `errConflict` · `reload` "다시 불러오기" · `errBadPhoto` · `errFailed` | `…/story/[id]/edit` · `…/person/[id]/edit`(app/my-life/_body/BodyEditor.tsx) |
+| 이전 판(13) | `historyTitle` "이전 판" · `historyIntro` · `historyEmpty` · `historyWhen(when)` "○에 바뀌기 전 글" · `historyChars(n)` "n자" · `historyShow` "보기" · `historyHide` "접기" · `historyPhoto` "(사진)" · `restore` "이 판으로 되돌리기" · `restoreAsk` · `restoreYes` "되돌리기" · `restoreNo` "그대로 두기" · `restoring` | `…/history`(app/my-life/_body/RevisionList.tsx·HistoryPage.tsx) |
 
 ### `lib/join-copy.ts` (`JOIN_COPY`) — 가입 전 동의(2026-11-03)
 

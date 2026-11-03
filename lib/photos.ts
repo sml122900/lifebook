@@ -16,6 +16,7 @@
 
 import { prisma } from "./db";
 import { CREATED_VIA_EPISODE } from "./episode";
+import { CREATED_VIA_NODE_BODY } from "./node-body";
 import {
   CREATED_VIA_LIFE_EVENT,
   isPhotoPeriodAnchor,
@@ -192,7 +193,8 @@ export async function attachPhotoToMemory(
   if (!memory) return { ok: false, reason: "memory_not_found" };
   if (
     memory.createdVia !== CREATED_VIA_LIFE_EVENT &&
-    memory.createdVia !== CREATED_VIA_EPISODE
+    memory.createdVia !== CREATED_VIA_EPISODE &&
+    memory.createdVia !== CREATED_VIA_NODE_BODY // 인물 글 사진(2026-11-03 — lib/node-body)
   ) {
     return { ok: false, reason: "not_life_event" };
   }

@@ -657,6 +657,8 @@ SelfAspectRun       id, userId(Cascade), status RUNNING|DONE|FAILED, watermark, 
 
 #### 2b.2 노드 상세 — `/story-review/nodes/[종류]/[id]`
 
+> **2026-11-03 구현(2b-3c)** — `/my-life/story/[id]`(+`/edit`·`/history`)·`/my-life/person/[id]/edit`, 이전 판 보관(Q23 재결정). 설계와 다른 점·검증은 `docs/phase/my-life-restructure.md` §19.
+
 > **2026-11-01 갱신(2b-3 재정의)**: 경로는 `/my-life/story/[id]`(+`/edit`)로 옮긴다(Q36). 진입은 My Life 이야기 패널 [본문 보기](2b-3c). 중심·인물·모임은 지도 패널이 상세를 대신하므로 2b-3c 의 새 상세 페이지는 이야기만 — 인물 본문(Q21) 편집 자리는 2b-3c 착수 때 정한다. 아래 본문 표시 규칙·블로그 편집·저장 함수는 그대로.
 
 종류 슬러그: `event`(중심) · `story`(이야기 — STORY·SELF 둘 다) · `person` · `group`. 장소는 공용 `/people/places/[id]`(2b.5 — 장소 탭이 V2 와 같이 쓰는 화면이라). 남의 노드·없는 노드는 `notFound()`.

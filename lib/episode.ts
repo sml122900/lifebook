@@ -13,6 +13,7 @@
 import { prisma } from "./db";
 import { isSubstantiveEpisodeContent } from "./episode-text";
 import type { EpisodeKind } from "./generated/prisma/enums";
+import { writeEpisodePlainTx } from "./node-body";
 import { cleanupStoryPeriodPeople, periodPeoplePairsOfEpisode } from "./node-graph";
 import type { PlaceInfo } from "./place-types";
 import { storedStoryTitle } from "./story-title";
@@ -161,6 +162,7 @@ export async function deleteEpisode(
 // 노출될 가능성 대비) 어긋나지 않게 유지한다.
 // 본문이 실제로 바뀌면 브릿지 행의 다듬기 3필드(refinedText·refinedAt·displayRefined)도
 // 초기화 — 옛 본문 기준 교정본이라 stale(lib/life-events.ts saveMemoryContent 와 같은 정책).
+// 바뀌기 전 본문은 이전 판(NodeBodyRevision)으로 남는다(lib/node-body writeEpisodePlainTx).
 export type UpdateEpisodeContentResult = { ok: true } | { ok: false; error: string };
 
 export async function updateEpisodeContent(
@@ -173,21 +175,12 @@ export async function updateEpisodeContent(
 
   const episode = await prisma.episode.findFirst({
     where: { id: episodeId, memory: { userId } },
-    select: { id: true, memoryId: true, memory: { select: { content: true } } },
+    select: { id: true, memoryId: true, content: true, memory: { select: { content: true } } },
   });
   if (!episode) return { ok: false, error: "이야기를 찾을 수 없어요." };
-  const contentChanged = episode.memory.content !== trimmed;
 
-  await prisma.$transaction([
-    prisma.episode.update({ where: { id: episode.id }, data: { content: trimmed } }),
-    prisma.userMemory.update({
-      where: { id: episode.memoryId },
-      data: {
-        content: trimmed,
-        ...(contentChanged ? { refinedText: null, refinedAt: null, displayRefined: false } : {}),
-      },
-    }),
-  ]);
+  // 본문 쓰기는 블로그 저장과 같은 함수(2026-11-03 — 바뀌면 이전 판을 남김, 다듬기 3필드 초기화 규칙 그대로).
+  await prisma.$transaction((tx) => writeEpisodePlainTx(tx, userId, episode, trimmed, null));
 
   return { ok: true };
 }
