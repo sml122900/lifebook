@@ -16,7 +16,7 @@ export default async function SignupPage() {
       <header className="text-center">
         <h1 className="text-4xl font-bold text-ink">회원가입</h1>
         <p className="mt-3 text-ink-soft">
-          이메일과 비밀번호로 라이프북을 시작해요.
+          이메일과 비밀번호로 Lifebook을 시작해요.
         </p>
       </header>
 

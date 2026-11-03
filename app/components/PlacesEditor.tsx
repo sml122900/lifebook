@@ -62,7 +62,7 @@ export function PlacesEditor({
                     {p.placeSource === "naver"
                       ? "네이버"
                       : p.placeSource === "google"
-                        ? "구글"
+                        ? "Google"
                         : "지도"}
                   </span>
                 )}

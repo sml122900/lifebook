@@ -1,20 +1,20 @@
 // 가입 전 동의 화면(/join — 2026-11-03, docs/phase/my-life-restructure.md §16.3) 문구 단일 출처.
-// 전부 임시 문구다. 성민이 확정하면 이 파일만 고친다. 순수 모듈(클라·서버 공용).
-// 동의 항목 문구 자체는 /consent 와 같은 app/consent/ConsentChecklist(확정 문구)를 쓴다.
+// 2026-11-04 성민 확정(전부). 서비스 이름 화면 표기 = "Lifebook", 구글 = "Google". 순수 모듈(클라·서버 공용).
+// 동의 항목 문구 자체는 /consent 와 같은 app/consent/ConsentChecklist(확정 문구 — 법적 표기라 "라이프북" 유지)를 쓴다.
 
 export const JOIN_COPY = {
-  title: "가입하기 전에", // [임시 — 성민 확정 필요]
-  desc: "라이프북을 쓰시려면 아래 세 가지에 동의해 주세요. 동의하신 뒤 가입 방법을 고르시면 바로 이어서 가입돼요.", // [임시 — 성민 확정 필요]
+  title: "가입하기 전에",
+  desc: "Lifebook을 쓰시려면 아래 세 가지에 동의해 주세요. 동의하신 뒤 가입 방법을 고르시면 바로 이어서 가입돼요.",
   // 로그인 화면에서 소셜 버튼을 눌렀는데 아직 계정이 없을 때(계정은 안 만들고 여기로 옴)
-  bounced: (method: string) => `처음 오셨네요. 동의해 주시면 ${method}로 바로 이어서 가입돼요.`, // [임시 — 성민 확정 필요]
-  consentError: "필수 항목 세 가지에 모두 동의해 주세요.", // [임시 — 성민 확정 필요]
-  methodsTitle: "가입 방법 고르기", // [임시 — 성민 확정 필요]
-  methodName: { kakao: "카카오", naver: "네이버", google: "구글", email: "이메일" }, // [임시 — 성민 확정 필요]
-  kakao: "카카오로 가입하기", // [임시 — 성민 확정 필요]
-  naver: "네이버로 가입하기", // [임시 — 성민 확정 필요]
-  google: "Google로 가입하기", // [임시 — 성민 확정 필요]
-  email: "이메일로 가입하기", // [임시 — 성민 확정 필요]
-  needAll: "위 세 가지에 모두 동의하시면 가입 버튼을 누를 수 있어요.", // [임시 — 성민 확정 필요]
-  pending: "이어서 가는 중…", // [임시 — 성민 확정 필요]
-  toLogin: "이미 가입하셨나요? 로그인하기", // [임시 — 성민 확정 필요]
+  bounced: (method: string) => `처음 오셨네요. 아래에서 동의하신 뒤 ${method} 버튼을 한 번 더 눌러 주세요.`,
+  consentError: "필수 항목 세 가지에 모두 동의해 주세요.",
+  methodsTitle: "가입 방법 고르기",
+  methodName: { kakao: "카카오", naver: "네이버", google: "Google", email: "이메일" },
+  kakao: "카카오로 가입하기",
+  naver: "네이버로 가입하기",
+  google: "Google로 가입하기",
+  email: "이메일로 가입하기",
+  needAll: "위 세 가지에 모두 동의하시면 가입 버튼을 누를 수 있어요.",
+  pending: "가입 화면으로 넘어가는 중…",
+  toLogin: "이미 가입하셨나요? 로그인하기",
 } as const;

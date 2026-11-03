@@ -295,7 +295,7 @@ export function PlaceSearchInput({
       value.placeSource === "naver"
         ? "네이버"
         : value.placeSource === "google"
-          ? "구글"
+          ? "Google"
           : "지도";
     return (
       <div className="flex flex-col gap-3 rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-3">
@@ -354,19 +354,19 @@ export function PlaceSearchInput({
             onClick={() => setActiveSource("naver")}
           />
           <SourcePickButton
-            label="🌍 구글 지도에서 찾기"
+            label="🌍 Google 지도에서 찾기"
             onClick={() => setActiveSource("google")}
           />
         </div>
         <p className="text-sm text-ink-soft">
-          한국 장소는 네이버, 해외 장소는 구글에서 찾아보세요.
+          한국 장소는 네이버, 해외 장소는 Google에서 찾아보세요.
         </p>
       </div>
     );
   }
 
   // ── (B) 엔진 선택 후 편집 ───────────────────────────────────
-  const sourceLabel = activeSource === "naver" ? "네이버" : "구글";
+  const sourceLabel = activeSource === "naver" ? "네이버" : "Google";
   const isGoogle = activeSource === "google";
 
   // 빈 결과 판정 — 엔진에 따라 다른 상태 참조

@@ -1173,7 +1173,7 @@ function PlaceChip({
     place.placeSource === "naver"
       ? "네이버 지도"
       : place.placeSource === "google"
-        ? "구글 지도"
+        ? "Google 지도"
         : "지도";
   const className =
     "text-xs leading-snug text-ink-soft hover:text-amber-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 " +

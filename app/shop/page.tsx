@@ -4,7 +4,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { PRODUCTS, SHIPPING_KRW } from "@/lib/commerce/products";
 
 export const metadata = {
-  title: "상점 — 라이프북",
+  title: "상점 — Lifebook",
 };
 
 // /shop — 실물 상품 3종 카드. 클릭 → 상세(/shop/[productId]).

@@ -68,7 +68,7 @@ export function InAppIosBanner() {
       role="alert"
       className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"
     >
-      <p className="font-semibold text-amber-900">구글 로그인은 Safari에서 해주세요</p>
+      <p className="font-semibold text-amber-900">Google 로그인은 Safari에서 해주세요</p>
       <p className="mt-1.5 text-amber-800">
         화면 하단(또는 상단){" "}
         <span className="font-semibold">···</span> 메뉴 →{" "}
@@ -97,7 +97,7 @@ export function InAppGoogleNote() {
   if (!show) return null;
   return (
     <p className="text-center text-sm text-ink-soft">
-      구글 로그인은 외부 브라우저(Safari·Chrome)에서만 동작해요.
+      Google 로그인은 외부 브라우저(Safari·Chrome)에서만 동작해요.
     </p>
   );
 }

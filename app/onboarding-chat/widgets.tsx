@@ -338,7 +338,7 @@ export function PlaceableMultiItemWidget({
       {/* 검색 엔진 헤더 + 전환 버튼 */}
       <div className="flex items-center justify-between">
         <span className="text-[15px] font-medium text-[var(--color-ink)]">
-          {source === "naver" ? "🗺️ 네이버 지도 검색" : "🌍 구글 지도 검색"}
+          {source === "naver" ? "🗺️ 네이버 지도 검색" : "🌍 Google 지도 검색"}
         </span>
         <button
           type="button"
@@ -346,7 +346,7 @@ export function PlaceableMultiItemWidget({
           disabled={disabled}
           className="text-[13px] text-[var(--color-brand)] underline-offset-2 hover:underline disabled:opacity-50"
         >
-          {source === "naver" ? "구글로 전환" : "네이버로 전환"}
+          {source === "naver" ? "Google로 전환" : "네이버로 전환"}
         </button>
       </div>
 

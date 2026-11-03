@@ -29,12 +29,8 @@ export default async function JoinPage({ searchParams }: { searchParams: Promise
         {first && (
           <p className="m-0 rounded-md border-2 border-brand bg-banner p-4 text-lg text-ink">{C.bounced(C.methodName[first])}</p>
         )}
-        {error === "consent" && (
-          <p role="alert" className="m-0 text-lg text-danger">
-            {C.consentError}
-          </p>
-        )}
-        <JoinForm first={first} />
+        {/* 동의 없이 제출돼 돌아온 경우(?error=consent)의 안내는 가입 방법 칸 안 한 자리에서 — 같은 자리의 "모두 동의하시면" 안내와 둘 중 하나만 */}
+        <JoinForm first={first} consentError={error === "consent"} />
         <Link href="/login" className="self-center text-lg font-semibold text-action underline underline-offset-2">
           {C.toLogin}
         </Link>

@@ -23,7 +23,7 @@ export default function LoginPage() {
       <header className="text-center">
         <h1 className="text-4xl font-bold text-ink">로그인</h1>
         <p className="mt-3 text-ink">
-          카카오·네이버·구글 계정으로 안전하게 시작합니다.
+          카카오·네이버·Google 계정으로 안전하게 시작합니다.
         </p>
       </header>
 

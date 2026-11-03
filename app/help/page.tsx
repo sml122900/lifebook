@@ -7,7 +7,7 @@ import { HelpFaq } from "./HelpFaq";
 // 고객센터 — FAQ(아코디언) + 이메일 문의. 어르신·가족 대상, 쉬운 말.
 // 순수 정적 콘텐츠라 auth() 미호출 → proxy PUBLIC_PATHS 로 비로그인도 열람 가능.
 
-export const metadata: Metadata = { title: "고객센터 | 라이프북" };
+export const metadata: Metadata = { title: "고객센터 | Lifebook" };
 
 export default function HelpPage() {
   const cs = BUSINESS_INFO.csEmail;

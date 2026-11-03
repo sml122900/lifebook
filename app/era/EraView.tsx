@@ -495,11 +495,11 @@ function EraEventRow({
               href={googleSearchHref(event.title)}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={`${event.title} 구글에서 더 알아보기 (새 탭)`}
+              aria-label={`${event.title} Google에서 더 알아보기 (새 탭)`}
               className="inline-flex min-h-[48px] w-fit items-center gap-2 rounded-md border-2 border-brand bg-banner px-4 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               <Search strokeWidth={1.75} aria-hidden className="h-5 w-5 text-action" />
-              구글에서 더 알아보기
+              Google에서 더 알아보기
             </a>
 
 

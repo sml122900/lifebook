@@ -14,7 +14,7 @@ import { getUserAiModel } from "@/lib/user-ai-model";
 import { CompanionClient } from "./CompanionClient";
 import { StoryTimelinePanel } from "./StoryTimelinePanel";
 
-export const metadata = { title: "말동무 | 라이프북" };
+export const metadata = { title: "말동무 | Lifebook" };
 
 // v3 P20-2b — V3 사용자가 이 v2 전용 화면에 (플로팅 위젯 인터셉트를 우회한
 // 직접 URL 등으로) 들어오면 /my-life 로 돌려보낸다(Q69 전엔 /story-review). P17-2 의 /start·

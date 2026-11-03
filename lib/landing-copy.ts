@@ -21,7 +21,7 @@ export const S1 = {
 
 // ── S2 작동 3단계 (녹음 → AI → 포스터) ─────────────────────────────────
 export const S2 = {
-  headline: "말 한마디면, 나머지는 라이프북이 합니다",
+  headline: "말 한마디면, 나머지는 Lifebook이 합니다",
   steps: [
     {
       icon: "mic",

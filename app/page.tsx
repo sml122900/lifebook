@@ -27,13 +27,13 @@ import {
 // ④제품(포스터 중심·책 축소) ⑤안심 ⑥마무리 CTA. 디자인 토큰 v1.0(cream·따뜻·존엄).
 
 export const metadata = {
-  title: "라이프북 — 말로 남기는 인생, 한 장의 포스터로",
+  title: "Lifebook — 말로 남기는 인생, 한 장의 포스터로",
   description:
     "말로 이야기하면 AI가 알아서 정리하고, 멋진 인생 포스터로 만들어드려요. 어르신도 가족도 쉽게.",
   openGraph: {
-    title: "라이프북 — 말로 남기는 인생, 한 장의 포스터로",
+    title: "Lifebook — 말로 남기는 인생, 한 장의 포스터로",
     description: S1.sub,
-    siteName: "라이프북",
+    siteName: "Lifebook",
     locale: "ko_KR",
     type: "website",
   },

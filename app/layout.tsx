@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   // 카카오톡·문자 링크 미리보기용 기본값. 페이지가 openGraph 를 따로
   // 주면 병합되어 덮어쓴다. og:image 는 app/opengraph-image.tsx 가 자동 생성.
   openGraph: {
-    siteName: "라이프북",
+    siteName: "Lifebook",
     locale: "ko_KR",
     type: "website",
   },

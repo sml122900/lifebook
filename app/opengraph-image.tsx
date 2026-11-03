@@ -4,11 +4,11 @@ import { ImageResponse } from "next/og";
 // 이 파일이 존재하면 자동으로 og:image / twitter:image 태그가 생성된다.
 // 실제 대표 이미지가 나오면 이 파일을 app/opengraph-image.png 로 교체 가능.
 
-export const alt = "라이프북 — 부모님의 인생을 한 권으로";
+export const alt = "Lifebook — 부모님의 인생을 한 권으로";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const TITLE = "라이프북";
+const TITLE = "Lifebook";
 const SUBTITLE = "부모님의 인생을 한 권으로";
 
 // ImageResponse(satori)는 woff2 미지원 → Google Fonts CSS 에서 truetype/

@@ -34,7 +34,7 @@ function MethodButton({ method, enabled }: { method: Method; enabled: boolean })
   );
 }
 
-export function JoinForm({ first }: { first: Method | null }) {
+export function JoinForm({ first, consentError }: { first: Method | null; consentError: boolean }) {
   const [checked, setChecked] = useState<ConsentChecked>({});
   const ok = allConsentChecked(checked);
   const order: Method[] = ["kakao", "naver", "google", "email"];
@@ -46,7 +46,15 @@ export function JoinForm({ first }: { first: Method | null }) {
         <h2 id="join-methods" className="m-0 text-2xl font-bold text-ink">
           {C.methodsTitle}
         </h2>
-        {!ok && <p className="m-0 text-lg text-ink-soft">{C.needAll}</p>}
+        {/* 동의 전 안내 한 줄 — 동의 없이 제출돼 돌아왔으면(consentError) 같은 자리에 오류 문구만(둘이 같이 뜨지 않게), 모두 동의하면 사라짐 */}
+        {!ok &&
+          (consentError ? (
+            <p role="alert" className="m-0 text-lg text-danger">
+              {C.consentError}
+            </p>
+          ) : (
+            <p className="m-0 text-lg text-ink-soft">{C.needAll}</p>
+          ))}
         {methods.map((m) => (
           <div key={m} className="flex flex-col gap-2">
             <MethodButton method={m} enabled={ok} />

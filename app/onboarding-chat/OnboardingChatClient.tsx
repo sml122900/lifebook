@@ -57,7 +57,7 @@ function getKoreanVoice(): Promise<SpeechSynthesisVoice | null> {
 }
 
 const WELCOME =
-  "안녕하세요! 저는 라이프북 도우미예요. 😊\n이야기를 시작하기 전에 몇 가지 여쭤봐도 될까요?\n나중에 함께 기억 여행을 할 때 도움이 될 거예요.\n언제든지 '넘어가기'를 눌러 건너뛰셔도 괜찮아요.";
+  "안녕하세요! 저는 Lifebook 도우미예요. 😊\n이야기를 시작하기 전에 몇 가지 여쭤봐도 될까요?\n나중에 함께 기억 여행을 할 때 도움이 될 거예요.\n언제든지 '넘어가기'를 눌러 건너뛰셔도 괜찮아요.";
 const RETRY_MSG =
   "이 부분은 나중에 시대 이야기를 나눌 때 정말 도움이 돼요. 알려주실 수 있을까요? 아니면 넘어가셔도 괜찮아요.";
 const SKIP_ACK = "알겠어요, 나중에 알려주셔도 좋아요.";
@@ -189,7 +189,7 @@ export default function OnboardingChatClient() {
 
     const nextIdx = idx + 1;
     if (nextIdx >= cands.length) {
-      addBot("모두 정리했어요! 인물록에서 언제든 수정하실 수 있어요. 😊\n이제 라이프북을 시작해 볼까요?");
+      addBot("모두 정리했어요! 인물록에서 언제든 수정하실 수 있어요. 😊\n이제 Lifebook을 시작해 볼까요?");
       setPhase("done");
       startTransition(() => { router.push("/life-timeline"); });
     } else {
@@ -365,7 +365,7 @@ export default function OnboardingChatClient() {
   function handleSummaryChoice(choice: "now" | "later") {
     if (choice === "later") {
       addUser("나중에 할게요");
-      addBot("알겠어요! 언제든 라이프북에서 더 알려주실 수 있어요. 😊");
+      addBot("알겠어요! 언제든 Lifebook에서 더 알려주실 수 있어요. 😊");
       // setPhase 는 saveAndGoPeople 이 결정
       saveAndGoPeople();
     } else {
@@ -486,7 +486,7 @@ export default function OnboardingChatClient() {
       {/* 헤더 — 진행 표시 + TTS 토글 */}
       <div className="flex items-center border-b border-[var(--color-line)] px-4 py-3 flex-shrink-0">
         <span className="text-sm font-medium text-[var(--color-ink)]">
-          {phase === "chat" ? "라이프북 시작하기" : " "}
+          {phase === "chat" ? "Lifebook 시작하기" : " "}
         </span>
         {phase === "chat" && (
           <span className="mx-3 text-sm text-[var(--color-ink-subtle)]">
