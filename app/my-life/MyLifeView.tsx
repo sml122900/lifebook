@@ -139,7 +139,6 @@ function buildIndex(data: MyLifeData): Index {
     for (const s of ev.stories) {
       if (s.primaryEventId !== ev.id) continue; // 걸친 이야기는 주 소속 쪽 한 번만
       for (const c of s.chips) {
-        if (!c.id) continue;
         const m = c.kind === "person" ? storiesOfPerson : c.kind === "place" ? storiesOfPlace : null;
         if (!m) continue;
         if (!m.has(c.id)) m.set(c.id, []);
@@ -1458,10 +1457,10 @@ function Chip({ chip }: { chip: Pick<MyLifeChip, "kind" | "name"> }) {
 
 function StoryNode({ story, node, style }: { story: MyLifeStory; node: Extract<LayoutNode, { kind: "story" }>; style: React.CSSProperties }) {
   const tag = tagText(story);
-  const rows = node.chipRows.map((r) => r.map((i) => story.chips[i]));
+  const rows: Pick<MyLifeChip, "kind" | "name">[][] = node.chipRows.map((r) => r.map((i) => story.chips[i]));
   if (node.overflow > 0) {
     if (rows.length === 0) rows.push([]);
-    rows[rows.length - 1].push({ kind: "person", id: null, name: overflowLabel(node.overflow) });
+    rows[rows.length - 1].push({ kind: "person", name: overflowLabel(node.overflow) });
   }
   return (
     <button
@@ -2089,15 +2088,6 @@ function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; i
       {others.length > 0 && (
         <p className="text-lg text-ink">
           {C.panelAlsoIn}: {others.map((o) => `${yearText(o)} ${o.label}`).join(", ")}
-        </p>
-      )}
-      {story.chips.some((c) => !c.id) && (
-        <p className="flex flex-wrap gap-1.5">
-          {story.chips
-            .filter((c) => !c.id)
-            .map((c, i) => (
-              <Chip key={i} chip={c} />
-            ))}
         </p>
       )}
     </>

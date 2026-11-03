@@ -16,7 +16,9 @@
 //      (refineMemorySpelling — /api/memory/[id]/refine 본체)는 life_event 행만(모델 호출 전 차단)
 //   ⑨ 정합 점검(2b-1, lib/node-graph-reconcile.ts — db/reconcile-node-links.ts 본체 · 12 이야기 없는 시기↔사람 2026-11-02) — 일부러 만든 이상 행을
 //      항목별로 세고, 정리는 끝 없는 연결·노드 없는 본문·고아 초안 3종만(정상 행·보고 전용 항목 무변),
-//      다른 사용자 범위는 0 · 11 구성원 행 주인 불일치(보고만)
+//      다른 사용자 범위는 0 · 11 구성원 행 주인 불일치(보고만) · 13 장소 노드 없는 이야기 장소(보고만 — V2 기록 행은 안 셈)
+//   ⑩ 이야기 장소 한꺼번에 저장(saveEpisodePlaces — 연구실 시드) = 모든 행을 장소 노드에 잇기(같은 이름·주소 재사용,
+//      2026-11-03 이름만 남은 장소 예외 제거 — my-life-restructure §15.8)
 //
 // 자체 픽스처 계정 3개만 만들고 지운다(test30·실고객 접촉 0).
 // 실행: npx tsx db/test-node-graph.ts
@@ -27,7 +29,7 @@ import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
 import { newAiUsage, trackAiUsage } from "../lib/ai";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
-import { createEpisodeBridge, deleteEpisode, updateEpisodeContent } from "../lib/episode";
+import { createEpisodeBridge, deleteEpisode, saveEpisodePlaces, updateEpisodeContent } from "../lib/episode";
 import { detectGaps } from "../lib/gap-detector";
 import type { LifeEventType, NodeType } from "../lib/generated/prisma/enums";
 import { computeTodayPlan } from "../lib/interview/plan";
@@ -428,6 +430,28 @@ async function main() {
     const rLife = await trackAiUsage(usage, () => refineMemorySpelling(c, lifeRow.id, "haiku"));
     check("⑧ 다듬기 — life_event 행은 그대로 통과(빈 본문 = empty, 모델 호출 0)", rLife.status === "empty" && usage.calls === 0, rLife);
 
+    // ── ⑩ 이야기 장소 한꺼번에 저장(saveEpisodePlaces) = 장소 노드에 잇기(2026-11-03) ──────────
+    const seedStory = await makeStory(a, hs, "고등학교 입학", "운동장에서 공을 차던 기억.");
+    const seedOld = (await prisma.place.create({ data: { userId: a, name: "[fixture] 시드 기존 장소" }, select: { id: true } })).id;
+    const placesBefore = await prisma.place.count({ where: { userId: a } });
+    // 13 은 ⑤ 가 DB 에서 장소를 직접 지운(FK SetNull — 앱의 deletePlaceNode 는 이야기 쪽 행을 먼저 지움) 행만 남아 있다 — 저장 전후 같아야.
+    const spl0 = (await countNodeGraphIssues({ userId: a })).storyPlacesWithoutNode;
+    const textPlace = (name: string) => ({ placeName: name, placeAddress: null, lat: null, lng: null, placeSource: "naver" });
+    const savedSeed = await saveEpisodePlaces(a, seedStory.memoryId, [textPlace("[fixture] 시드 기존장소"), textPlace("[fixture] 운동장"), textPlace("[fixture] 운동 장"), textPlace("")]);
+    const seedRows = () => prisma.memoryPlace.findMany({ where: { memoryId: seedStory.memoryId }, orderBy: { sortOrder: "asc" }, select: { placeId: true } });
+    const ground = await prisma.place.findFirst({ where: { userId: a, name: "[fixture] 운동장" }, select: { id: true, source: true } });
+    const rows0 = await seedRows();
+    check("⑩ saveEpisodePlaces — 모든 행에 장소 노드 · 같은 이름(공백 무시)·같은 주소 기존 Place 재사용 · 새 이름은 Place 하나(운동장·운동 장 = 한 곳, 한 번만) · 빈 이름 뺌 · 출처 옮김",
+      savedSeed && rows0.length === 2 && rows0.every((r) => r.placeId !== null) && rows0[0].placeId === seedOld && rows0[1].placeId === ground?.id &&
+        ground?.source === "naver" && (await prisma.place.count({ where: { userId: a } })) === placesBefore + 1,
+      { rows0, placesBefore });
+    const savedAgain = await saveEpisodePlaces(a, seedStory.memoryId, [textPlace("[fixture] 운동장")]);
+    check("⑩ 다시 저장 = 장소 행 바꿈(같은 장소 노드 재사용 · 새 Place 0) · 남의 이야기 = 거부",
+      savedAgain && (await seedRows()).map((r) => r.placeId).join() === ground?.id && (await prisma.place.count({ where: { userId: a } })) === placesBefore + 1 &&
+        !(await saveEpisodePlaces(b, seedStory.memoryId, [textPlace("[fixture] 남의 장소")])) && (await prisma.place.count({ where: { userId: b, name: "[fixture] 남의 장소" } })) === 0);
+    const spl1 = (await countNodeGraphIssues({ userId: a })).storyPlacesWithoutNode;
+    check("⑩ 저장 뒤 정합 점검 13(장소 노드 없는 이야기 장소) 그대로 — ⑤ 직접 장소 삭제(FK SetNull)가 남긴 행만", spl1 === spl0 && spl0 >= 1, { spl0, spl1 });
+
     // ── ⑨ 정합 점검(2b-1) ─────────────────────────────────────────
     const clean0 = await countNodeGraphIssues({ userId: a });
     check("⑨ 정상 상태 — 끝 없는 연결·주인 불일치·방향·한 쌍 두 곳·본문·고아 초안 0",
@@ -498,7 +522,10 @@ async function main() {
     await prisma.person.create({ data: { userId: a, name: "[fixture] 장소형 인물", subjectType: "location" } });
     const mmGroup = (await prisma.placeGroup.create({ data: { userId: a, name: "[fixture] 주인 불일치 묶음" }, select: { id: true } })).id;
     await prisma.placeGroupMember.create({ data: { groupId: mmGroup, placeId: placeB, userId: a } }); // 남(B)의 장소를 직접 넣음
+    await prisma.memoryPlace.create({ data: { memoryId: story1.memoryId, placeName: "[fixture] 노드 없는 장소", sortOrder: 9 } }); // 13 — 만드는 경로 0, 일부러 만든 이상 행
+    await prisma.userMemory.create({ data: { userId: a, createdVia: "life_event", year: 1975, title: "[fixture] 옛 연혁", places: { create: [{ placeName: "[fixture] 옛 연혁 장소" }] } } }); // V2 기록 — 13 아님
     const dirty = await countNodeGraphIssues({ userId: a });
+    check("⑨ 13 장소 노드 없는 이야기 장소 +1(V2 기록의 이름만 남은 장소는 안 셈)", dirty.storyPlacesWithoutNode === clean0.storyPlacesWithoutNode + 1, { dirty: dirty.storyPlacesWithoutNode, clean0: clean0.storyPlacesWithoutNode });
     check("⑨ 11 구성원 행 주인 불일치 1(남의 장소가 내 묶음 구성원)", dirty.memberOwnerMismatch === 1, dirty.memberOwnerMismatch);
     check("⑨ 1 끝 없는 연결 1(없는 끝 = PERSON)", dirty.danglingLinks === 1 && dirty.danglingByType.PERSON === 1, dirty.danglingByType);
     check("⑨ 4 한 쌍 두 곳 — 주 소속 1·대상 인물 1", dirty.primaryMembershipDup === 1 && dirty.episodeSubjectDup === 1, dirty);
@@ -518,13 +545,13 @@ async function main() {
         after.danglingLinks === 0 && after.bodyMissingNode === 0 && after.orphanDrafts === 0 && after.storyPeriodPeopleWithoutStory === 0 &&
         (await prisma.personLifeEvent.count({ where: { personId: ps } })) === 0,
       { applied, after });
-    check("⑨ 정리는 그 4종만 — 직접 넣은 시기↔사람(DIRECT)·정상 연결·대기 초안·보고 전용 항목(한 쌍 두 곳·낡은 본문·사진 블록·장소형 인물) 무변",
+    check("⑨ 정리는 그 4종만 — 직접 넣은 시기↔사람(DIRECT)·정상 연결·대기 초안·보고 전용 항목(한 쌍 두 곳·낡은 본문·사진 블록·장소형 인물·장소 노드 없는 이야기 장소) 무변",
       (await prisma.personLifeEvent.count({ where: { personId: pd, lifeEventId: mil } })) === 1 &&
       (await prisma.nodeLink.count({ where: { userId: a } })) === linksBefore - 1 &&
         (await prisma.nodeLink.count({ where: { id: ghost.id } })) === 0 && (await prisma.nodeBody.count({ where: { id: ghostBody.id } })) === 0 &&
         (await prisma.person.count({ where: { id: orphan.id } })) === 0 && (await prisma.person.count({ where: { id: pendingDraft.id } })) === 1 &&
         after.primaryMembershipDup === 1 && after.episodeSubjectDup === 1 && after.staleBodies === 1 && after.missingPhotoBlocks === 1 && after.locationPeople === 1 &&
-        after.memberOwnerMismatch === 1,
+        after.memberOwnerMismatch === 1 && after.storyPlacesWithoutNode === clean0.storyPlacesWithoutNode + 1,
       after);
   } finally {
     await removeFixtures();

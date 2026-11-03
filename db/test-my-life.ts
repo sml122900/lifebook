@@ -2,7 +2,7 @@
 // node-graph-self.md §6 2b.1·2b-3a 수정. LLM 0.
 //
 //   ① 포함 규칙(getMyLifeData) — 확정 중심만·sequenceOrder 순·연도 없는 중심 · 이야기 주 소속 + 추가 소속 · 작은 물방울
-//      (대상 인물·확정 연결·입구로 넣은 장소·옛 장소 이름 — 확인 대기 연결은 안 보임) · 인물록 = 확정 인물 전부(연결 없는 분 포함,
+//      (대상 인물·확정 연결·입구로 넣은 장소 — 확인 대기 연결·장소 노드 없는 장소 행은 안 보임) · 인물록 = 확정 인물 전부(연결 없는 분 포함,
 //      초안은 빠짐) · 모임과 구성원 · 장소록 = 사용자 장소 전부 · 중심 직접 연결(간선용) · 남의 데이터 0
 //   ② Prisma 호출 수 고정 — 기록을 크게 늘려도 같은 수
 //   ③ 배치 — 오른쪽 가지 없음 · 시간 줄기(x ≤ 420)와 인물록·장소록(x ≥ 520) 분리 · 노드 교차 0 · 중심 노드 전부 같은 크기 ·
@@ -227,6 +227,7 @@ async function main() {
     await saveNodeLink(a, { type: "EPISODE", id: s1.episodeId }, { type: "PERSON", id: mate });
     await saveNodeLink(a, { type: "EPISODE", id: s1.episodeId }, { type: "PERSON", id: draft }, { status: "PROPOSED", source: "AI" });
     await saveNodeLink(a, { type: "EPISODE", id: s1.episodeId }, { type: "PLACE", id: place1 });
+    // 장소 노드 없는 장소 행(정합 점검 13 대상 — 만드는 경로 0, 2026-11-03 이름만 남은 장소 예외 제거) — 지도에 안 보여야 함.
     await prisma.memoryPlace.create({ data: { memoryId: s1.memoryId, placeName: "[fixture] 옛 동네", sortOrder: 5 } });
     await saveNodeLink(a, { type: "LIFE_EVENT", id: hs }, { type: "EPISODE", id: s1.episodeId });
     await makeStory(a, hs, "고등학교 입학", "합창부에서 처음 솔로를 맡았다.");
@@ -250,10 +251,10 @@ async function main() {
     check("① 걸친 이야기 — 출생(주 소속)·고등학교(추가 소속) 두 곳, otherEventIds 서로",
       eb.stories[0].id === s1.episodeId && eb.stories[0].otherEventIds.join() === hs && eh.stories.some((s) => s.id === s1.episodeId && s.otherEventIds.join() === birth));
     // 확인 대기(PROPOSED) 연결·그 초안 인물은 안 보임 — 그걸 확인하던 화면은 2026-11-03 삭제(설계 §15.6, 확정만 그림).
-    check("① 작은 물방울 — 대상 인물·확정 연결·입구로 넣은 장소·옛 장소 이름(확인 대기 연결은 안 보임)",
-      JSON.stringify(eb.stories[0].chips.map((c) => [c.kind, c.name, c.id !== null])) === JSON.stringify([
-        ["person", "[fixture] 어머니", true], ["person", "[fixture] 짝꿍", true],
-        ["place", "[fixture] 외가", true], ["place", "[fixture] 옛 동네", false],
+    check("① 작은 물방울 — 대상 인물·확정 연결·입구로 넣은 장소(확인 대기 연결·장소 노드 없는 장소 행은 안 보임)",
+      JSON.stringify(eb.stories[0].chips.map((c) => [c.kind, c.name])) === JSON.stringify([
+        ["person", "[fixture] 어머니"], ["person", "[fixture] 짝꿍"],
+        ["place", "[fixture] 외가"],
       ]), eb.stories[0].chips);
     const pIds = d.people.map((p) => p.id);
     check("① 인물록 = 확정 인물 전부(연결 없는 분 포함), 초안(확인 대기·말동무) 제외",
@@ -356,7 +357,7 @@ async function main() {
     const on = { person: true, place: true };
     const keyS1 = `st:${birth}:${s1.episodeId}`;
     const e1 = selectionEdges(d, lay, keyS1, on);
-    check("④ 이야기 선택 — 사람 2(어머니·짝꿍)·장소 1(외가) 간선, 옛 장소(노드 없음)·확인 대기 연결 빠짐",
+    check("④ 이야기 선택 — 사람 2(어머니·짝꿍)·장소 1(외가) 간선, 장소 노드 없는 행·확인 대기 연결 빠짐",
       JSON.stringify(e1.edges.map((e) => e.to).sort()) === JSON.stringify([`pe:${mom}`, `pe:${mate}`, `pl:${place1}`].sort()) && e1.related.size === 3, e1.edges.map((e) => e.to));
     const e1p = selectionEdges(d, lay, keyS1, { person: false, place: true });
     check("④ 인물 간선 끄기 — 장소 간선만, 사람 연결 표시도 없음", e1p.edges.length === 1 && e1p.edges[0].kind === "place" && !e1p.related.has(`pe:${mom}`));
@@ -443,8 +444,8 @@ async function main() {
       n8.people === 1 && n8.places === 1 && ev8.personIds.length + ev8.placeIds.length === 1, { n8, personIds: ev8.personIds, placeIds: ev8.placeIds });
     const hsN = eventPeoplePlaces(d8.events.find((e) => e.id === hs)!);
     check("⑧ 시기 사람·장소 수 — 같은 분·곳 한 번 · 모임 작은 물방울은 안 셈",
-      eventPeoplePlaces({ personIds: ["p"], placeIds: [], stories: [{ chips: [{ kind: "person", id: "p", name: "x" }, { kind: "group", id: "g", name: "모임" }, { kind: "place", id: null, name: "옛 장소" }] } as never] }).people === 1 &&
-        eventPeoplePlaces({ personIds: ["p"], placeIds: [], stories: [{ chips: [{ kind: "place", id: null, name: "옛 장소" }] } as never] }).places === 1 &&
+      eventPeoplePlaces({ personIds: ["p"], placeIds: [], stories: [{ chips: [{ kind: "person", id: "p", name: "x" }, { kind: "group", id: "g", name: "모임" }] } as never] }).people === 1 &&
+        eventPeoplePlaces({ personIds: [], placeIds: ["x"], stories: [{ chips: [{ kind: "place", id: "x", name: "X" }] } as never] }).places === 1 &&
         hsN.people >= 1);
     const view = fs.readFileSync(path.resolve(__dirname, "../app/my-life/MyLifeView.tsx"), "utf8");
     check("⑧ 버튼 이름·패널이 같은 함수(eventPeoplePlaces)를 씀",
@@ -457,8 +458,8 @@ async function main() {
 
     // ── ⑨ 3단계 E2E(2026-11-02) — 연결 수·차례로 보기 = 시기 노드 사람·장소 수와 같은 기준 · 패널 작업 뒤 지도 유지 · 한 번 탭 = 패널 ──
     const s1d = d.events.find((e) => e.id === birth)!.stories.find((s) => s.id === s1.episodeId)!;
-    const idRefs = (r: { people: Set<string>; places: Set<string> }) => [...[...r.people].filter((x) => x.startsWith("id:")).map((x) => `pe:${x.slice(3)}`), ...[...r.places].filter((x) => x.startsWith("id:")).map((x) => `pl:${x.slice(3)}`)].sort();
-    check("⑨ 이야기 연결 — 확정 사람·장소만(확인 대기·옛 장소 이름은 안 셈 — 노드 없음), 시기 수와 같은 함수(eventPeoplePlaceRefs)",
+    const idRefs = (r: { people: Set<string>; places: Set<string> }) => [...[...r.people].map((x) => `pe:${x}`), ...[...r.places].map((x) => `pl:${x}`)].sort();
+    check("⑨ 이야기 연결 — 확정 사람·장소만(확인 대기·장소 노드 없는 행은 안 셈), 시기 수와 같은 함수(eventPeoplePlaceRefs)",
       JSON.stringify([...e1.connected].sort()) === JSON.stringify([`pe:${mom}`, `pe:${mate}`, `pl:${place1}`].sort()) &&
         JSON.stringify([...e1.connected].sort()) === JSON.stringify(idRefs(eventPeoplePlaceRefs({ personIds: [], placeIds: [], stories: [s1d] }))),
       e1.connected);
@@ -515,25 +516,29 @@ async function main() {
       personIds: ["p"],
       placeIds: ["x"],
       stories: [
-        { id: "s1", chips: [{ kind: "person", id: "q", name: "Q" }, { kind: "person", id: "p", name: "P" }, { kind: "group", id: "g", name: "모임" }, { kind: "place", id: null, name: "옛 장소" }] },
-        { id: "s2", chips: [{ kind: "place", id: "y", name: "Y" }, { kind: "place", id: null, name: "옛 장소" }, { kind: "place", id: "x", name: "X" }] },
+        { id: "s1", chips: [{ kind: "person", id: "q", name: "Q" }, { kind: "person", id: "p", name: "P" }, { kind: "group", id: "g", name: "모임" }] },
+        { id: "s2", chips: [{ kind: "place", id: "y", name: "Y" }, { kind: "place", id: "x", name: "X" }] },
       ],
     } as never as MyLifeEvent;
     const synL = eventPeoplePlaceList(synEv);
     const synR = eventPeoplePlaceRefs(synEv);
-    check("⑪ 시기 목록 = 수(eventPeoplePlaces)·연결과 같은 기준 — 바로 이은 것 먼저 · 이야기에서만 나온 분·곳(처음 나온 이야기) · 옛 장소 이름 · 같은 것 한 번 · 모임 빠짐",
-      JSON.stringify(synL.people.map((r) => [r.ref, r.direct, r.storyId])) === JSON.stringify([["id:p", true, null], ["id:q", false, "s1"]]) &&
-        JSON.stringify(synL.places.map((r) => [r.ref, r.direct, r.storyId, r.name])) === JSON.stringify([["id:x", true, null, ""], ["name:옛 장소", false, "s1", "옛 장소"], ["id:y", false, "s2", "Y"]]) &&
-        JSON.stringify([...synR.people]) === JSON.stringify(synL.people.map((r) => r.ref)) && JSON.stringify([...synR.places]) === JSON.stringify(synL.places.map((r) => r.ref)) &&
+    check("⑪ 시기 목록 = 수(eventPeoplePlaces)·연결과 같은 기준 — 바로 이은 것 먼저 · 이야기에서만 나온 분·곳(처음 나온 이야기) · 같은 것 한 번 · 모임 빠짐",
+      JSON.stringify(synL.people.map((r) => [r.id, r.direct, r.storyId])) === JSON.stringify([["p", true, null], ["q", false, "s1"]]) &&
+        JSON.stringify(synL.places.map((r) => [r.id, r.direct, r.storyId])) === JSON.stringify([["x", true, null], ["y", false, "s2"]]) &&
+        JSON.stringify([...synR.people]) === JSON.stringify(synL.people.map((r) => r.id)) && JSON.stringify([...synR.places]) === JSON.stringify(synL.places.map((r) => r.id)) &&
         eventPeoplePlaces(synEv).people === synL.people.length && eventPeoplePlaces(synEv).places === synL.places.length,
       synL);
-    check("⑪ 시기 패널 — 사람·장소 목록 = eventPeoplePlaceList · 바로 이은 것만 [빼기] · 이야기에서만 = 그 이야기 이름(빼기 없음) · 옛 장소 이름 = 그 이야기로 가기 · [넣기] 후보에선 바로 이은 것만 뺌",
+    check("⑪ 시기 패널 — 사람·장소 목록 = eventPeoplePlaceList · 바로 이은 것만 [빼기] · 이야기에서만 = 그 이야기 이름(빼기 없음) · [넣기] 후보에선 바로 이은 것만 뺌",
       edit.includes("const list = eventPeoplePlaceList(ev);") &&
         edit.includes("sections.push({ title: C.panelWithPlaces, items: nn(list.places.map((r) => periodItem(r, \"place\"))) });") &&
-        edit.includes("if (r.direct) return make(r.id!);") &&
-        edit.includes("const it = r.id ? make(r.id, false, note) : { name: r.name, go: { key: `st:${ev.id}:${r.storyId}`, eventId: ev.id }, removable: false, note };") &&
-        edit.includes("s.items.filter((i) => i.ref && !i.fromStory)") && edit.includes("{it.removable && it.ref && (") &&
+        edit.includes("if (r.direct) return make(r.id);") && edit.includes("const it = make(r.id, false, inStory(r.storyId));") &&
+        edit.includes("s.items.filter((i) => !i.fromStory)") && edit.includes("{it.removable && (") &&
         !edit.includes("ev.placeIds.map(placeItem)"));
+    // 2026-11-03 — 이름만 남은 장소 예외 제거(설계 §15.8): 시기 패널 이야기로 가기 우회·이야기 패널 id 없는 칩 줄·id 거르기 없음.
+    check("⑪ 이름만 남은 장소 예외 코드 없음 — 시기 패널 이야기로 우회(name: r.name) · 이야기 패널 칩 줄(!c.id) · 장소 칩 id 거르기 · 간선 id 조건",
+      !edit.includes("name: r.name") && !edit.includes("c.kind === \"place\" && c.id") && !view.includes("(c) => !c.id") && !view.includes("if (!c.id) continue") &&
+        !fs.readFileSync(path.resolve(__dirname, "../lib/my-life-edges.ts"), "utf8").includes("c.id && c.kind") &&
+        !fs.readFileSync(path.resolve(__dirname, "../lib/my-life.ts"), "utf8").includes("mp.placeName"));
 
     // ── ⑫ Q69(2026-11-02) — /story-review 를 My Life 로 합침 ──
     const src = (rel: string) => fs.readFileSync(path.resolve(__dirname, "..", rel), "utf8");

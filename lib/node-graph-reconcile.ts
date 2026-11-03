@@ -10,6 +10,8 @@
 //   11 모임·장소 묶음 구성원 행의 주인 ≠ 묶음·구성원 주인 — 보고만(My Life 개편 3단계)
 //   12 이야기 없는 시기↔사람 연결 — 그 시기 이야기(주 소속·추가 소속)에 그 분이 하나도 안 나옴(대상 인물·확정 연결)
 //      출처 STORY(이야기 따라) → 정리 대상 · DIRECT(직접·칸 전 기존 행) → 보고만(2026-11-02 3단계 E2E — §14.7·§14.8)
+//   13 이야기 기록(브릿지 메모리 createdVia="episode")의 장소 행 중 장소 노드(placeId) 없는 것 — 보고만(늘 0 이어야.
+//      My Life 는 이야기 장소를 장소 노드로만 그린다 — 2026-11-03 이름만 남은 장소 예외 제거, my-life-restructure §15.8)
 // 정리(applyNodeGraphCleanup)는 1·5(노드 없음)·8·12(STORY) 만, 점검과 같은 조건의 DELETE 한 문장씩.
 
 import { prisma } from "./db";
@@ -38,6 +40,7 @@ export type NodeGraphIssues = {
   memberOwnerMismatch: number; // 11 — PersonGroupMember·PlaceGroupMember
   storyPeriodPeopleWithoutStory: number; // 12 — 그 시기 이야기에 그 분이 안 나오는 시기↔사람 중 출처 STORY(정리 대상)
   directPeriodPeopleWithoutStory: number; // 12 — 같은 조건, 출처 DIRECT(보고만)
+  storyPlacesWithoutNode: number; // 13 — 이야기 기록의 placeId 없는 장소 행(보고만)
 };
 
 function scope(col: string, s: NodeGraphScope): Prisma.Sql {
@@ -82,7 +85,7 @@ const n = (v: unknown) => Number(v ?? 0);
 
 export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<NodeGraphIssues> {
   const linkScope = scope(`nl."userId"`, s);
-  const [ends, [dir], [dup], [body], [stale], [photo], [orphan], [pend], [loc], [mem], [ple]] = await Promise.all([
+  const [ends, [dir], [dup], [body], [stale], [photo], [orphan], [pend], [loc], [mem], [ple], [spl]] = await Promise.all([
     // 1·2 — 문제 있는 끝만 돌려받는다(정상이면 0행).
     prisma.$queryRaw<{ id: string; t: string; missing: boolean }[]>`
       SELECT nl.id, e.t::text AS t, (e.owner IS NULL) AS missing
@@ -140,6 +143,9 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
     prisma.$queryRaw<{ story: number; direct: number }[]>`
       SELECT count(*) FILTER (WHERE x.origin = 'STORY')::int AS story, count(*) FILTER (WHERE x.origin <> 'STORY')::int AS direct
       FROM "PersonLifeEvent" x WHERE ${scope(`x."userId"`, s)} AND ${PERIOD_PERSON_WITHOUT_STORY}`,
+    prisma.$queryRaw<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM "MemoryPlace" mp JOIN "UserMemory" m ON m.id = mp."memoryId"
+      WHERE ${scope(`m."userId"`, s)} AND m."createdVia" = 'episode' AND mp."placeId" IS NULL`,
   ]);
 
   const danglingByType: Record<string, number> = {};
@@ -164,6 +170,7 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
     memberOwnerMismatch: n(mem.n),
     storyPeriodPeopleWithoutStory: n(ple.story),
     directPeriodPeopleWithoutStory: n(ple.direct),
+    storyPlacesWithoutNode: n(spl.n),
   };
 }
 

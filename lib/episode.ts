@@ -192,9 +192,13 @@ export async function updateEpisodeContent(
   return { ok: true };
 }
 
-// PlacesEditor(장소 1:N) 저장 — updatePhotoMemoryPlaces(lib/photos.ts) 와
-// 같은 패턴(소유·종류 가드 → 트랜잭션으로 싹 지우고 새로 생성), 대상
-// createdVia 만 "episode" 로 다르다.
+const normPlaceName = (s: string) => s.normalize("NFC").replace(/\s+/g, "");
+
+// 이야기 장소 한꺼번에 저장 — updatePhotoMemoryPlaces(lib/photos.ts) 와 같은 패턴(소유·종류 가드 → 트랜잭션으로
+// 싹 지우고 새로 생성), 대상 createdVia 만 "episode". 지금 쓰는 곳 = 연구실 페르소나 시드(db/lab-seed-persona.ts).
+// 이야기 장소는 늘 장소 노드(Place)에 잇는다(2026-11-03 — 이름만 남은 이야기 장소 0, my-life-restructure §15.8):
+// 같은 이름(공백 무시)·같은 주소 Place 가 있으면 그곳(지도에서 장소 만들기 lib/my-life-edit createPlaceNode 와 같은
+// 규칙), 없으면 새로. 같은 장소가 두 번 오면 한 번만(한 쌍 = 한 곳).
 export async function saveEpisodePlaces(
   userId: string,
   memoryId: string,
@@ -206,25 +210,37 @@ export async function saveEpisodePlaces(
   });
   if (!owned) return false;
 
-  const valid = places.filter((p) => p.placeName);
+  const valid = places.filter((p): p is PlaceInfo & { placeName: string } => !!p.placeName);
 
-  await prisma.$transaction([
-    prisma.memoryPlace.deleteMany({ where: { memoryId } }),
-    ...(valid.length
-      ? [
-          prisma.memoryPlace.createMany({
-            data: valid.map((p, i) => ({
-              memoryId,
-              placeName: p.placeName as string,
-              placeAddress: p.placeAddress,
-              lat: p.lat,
-              lng: p.lng,
-              placeSource: p.placeSource,
-              sortOrder: i,
-            })),
-          }),
-        ]
-      : []),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    await tx.memoryPlace.deleteMany({ where: { memoryId } });
+    if (valid.length === 0) return;
+    const mine = await tx.place.findMany({ where: { userId }, select: { id: true, name: true, address: true } });
+    const rows: { p: PlaceInfo & { placeName: string }; placeId: string }[] = [];
+    for (const p of valid) {
+      let hit = mine.find((m) => normPlaceName(m.name) === normPlaceName(p.placeName) && (m.address ?? null) === (p.placeAddress ?? null));
+      if (!hit) {
+        hit = await tx.place.create({
+          data: { userId, name: p.placeName, address: p.placeAddress, lat: p.lat, lng: p.lng, source: p.placeSource },
+          select: { id: true, name: true, address: true },
+        });
+        mine.push(hit);
+      }
+      const placeId = hit.id;
+      if (!rows.some((r) => r.placeId === placeId)) rows.push({ p, placeId });
+    }
+    await tx.memoryPlace.createMany({
+      data: rows.map(({ p, placeId }, i) => ({
+        memoryId,
+        placeId,
+        placeName: p.placeName,
+        placeAddress: p.placeAddress,
+        lat: p.lat,
+        lng: p.lng,
+        placeSource: p.placeSource,
+        sortOrder: i,
+      })),
+    });
+  });
   return true;
 }

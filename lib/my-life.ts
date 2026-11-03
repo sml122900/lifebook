@@ -17,7 +17,7 @@ export type ChipKind = "person" | "group" | "place";
 // 이야기 안 작은 물방울(누르는 곳 아님 — 이야기 노드 전체가 버튼).
 export type MyLifeChip = {
   kind: ChipKind;
-  id: string | null; // 장소 이름만 있는 옛 MemoryPlace(placeId 없음)는 null
+  id: string; // 사람·모임·장소 노드 id — 이야기 장소는 장소 노드(Place)로만(2026-11-03 이름만 남은 장소 예외 제거 — 정합 점검 13)
   name: string;
 };
 
@@ -105,7 +105,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
                 title: true,
                 places: {
                   orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-                  select: { placeId: true, placeName: true, place: { select: { name: true } } },
+                  select: { placeId: true },
                 },
               },
             },
@@ -170,7 +170,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
     const chips: MyLifeChip[] = [];
     const seen = new Set<string>();
     const add = (c: MyLifeChip) => {
-      const key = `${c.kind}:${c.id ?? c.name}`;
+      const key = `${c.kind}:${c.id}`;
       if (seen.has(key)) return;
       seen.add(key);
       chips.push(c);
@@ -188,9 +188,10 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
         if (g) add({ kind: "group", id: g.id, name: g.name });
       }
     }
+    // 장소 노드 없는 장소 행은 안 그림 — 이야기 장소를 쓰는 경로는 전부 장소 노드에 잇는다(정합 점검 13 이 0 을 확인).
     for (const mp of ep.memory.places) {
-      const id = mp.placeId && placeById.has(mp.placeId) ? mp.placeId : null;
-      add({ kind: "place", id, name: mp.place?.name ?? mp.placeName });
+      const pl = mp.placeId ? placeById.get(mp.placeId) : undefined;
+      if (pl) add({ kind: "place", id: pl.id, name: pl.name });
     }
     return {
       id: ep.id,

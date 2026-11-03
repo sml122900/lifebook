@@ -31,6 +31,7 @@ function print(i: NodeGraphIssues) {
   console.log(`10 장소형 인물                 ${i.locationPeople}  [지표]`);
   console.log(`11 구성원 행 주인 불일치       ${i.memberOwnerMismatch}  [보고만]`);
   console.log(`12 이야기 없는 시기↔사람 연결  출처 STORY ${i.storyPeriodPeopleWithoutStory}  [정리 대상] · DIRECT ${i.directPeriodPeopleWithoutStory}  [보고만 — 직접 넣은 연결·출처 칸 전 기존 행]`);
+  console.log(`13 장소 노드 없는 이야기 장소  ${i.storyPlacesWithoutNode}  [보고만 — 늘 0 이어야(My Life 에 안 보임)]`);
 }
 
 async function main() {

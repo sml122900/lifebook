@@ -69,8 +69,8 @@ export function selectionEdges(
   if (!sel) return { edges, related, connected: [] };
   const refKeys = (r: { people: Set<string>; places: Set<string> }) =>
     [
-      ...(show.person ? [...r.people].filter((x) => x.startsWith("id:")).map((x) => `pe:${x.slice(3)}`) : []),
-      ...(show.place ? [...r.places].filter((x) => x.startsWith("id:")).map((x) => `pl:${x.slice(3)}`) : []),
+      ...(show.person ? [...r.people].map((id) => `pe:${id}`) : []),
+      ...(show.place ? [...r.places].map((id) => `pl:${id}`) : []),
     ].filter((k) => node.has(k));
   let connected: string[] | null = null;
 
@@ -88,9 +88,9 @@ export function selectionEdges(
   if (sel.kind === "story") {
     const story = storyOf(sel);
     for (const c of story?.chips ?? []) {
-      if (c.id && c.kind === "person") add(sel.key, "story", `pe:${c.id}`, "person");
-      if (c.id && c.kind === "place") add(sel.key, "story", `pl:${c.id}`, "place");
-      if (c.id && c.kind === "group" && node.has(`gl:${c.id}`)) related.add(`gl:${c.id}`);
+      if (c.kind === "person") add(sel.key, "story", `pe:${c.id}`, "person");
+      if (c.kind === "place") add(sel.key, "story", `pl:${c.id}`, "place");
+      if (c.kind === "group" && node.has(`gl:${c.id}`)) related.add(`gl:${c.id}`);
     }
     connected = refKeys(eventPeoplePlaceRefs({ personIds: [], placeIds: [], stories: story ? [story] : [] }));
   } else if (sel.kind === "event") {
