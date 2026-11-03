@@ -5,7 +5,7 @@ import Link from "next/link";
 // 필수 동의 3종 체크리스트 — /consent(기존 계정 재동의)와 /join(가입 전 동의, 2026-11-03)이 같이 쓴다.
 // 체크 상태는 부모가 들고(제출 버튼 활성), 체크박스 name(privacy·overseas·terms)이 폼 제출에 실려 서버가 다시 확인한다.
 //
-// 문구는 개인정보 처리방침 v1.1~v1.2(/privacy)와 정합(v1.2 는 3항 항목에 장소 이름만 더해 이 문구 무변) — 수집·이용은 처리방침
+// 문구는 개인정보 처리방침 v1.1~v1.3(/privacy)와 정합(v1.2 는 3항 항목에 장소 이름만 더하고, v1.3 은 1-가 토큰 저장을 빼 이 문구 무변) — 수집·이용은 처리방침
 // 1·2항, 국외이전은 3항(Anthropic·OpenAI·Google·Vercel·Supabase, 필수 동의) 기준. "자세히 보기" 가
 // /privacy 로 연결된다. 이용약관은 /terms(표준약관 전문 게시, 2026-09)로 연결.
 export const REQUIRED_ITEMS = [
