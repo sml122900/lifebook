@@ -21,7 +21,7 @@ import { deleteAccountTx } from "../lib/account-deletion";
 import { makeAuthAdapter } from "../lib/auth-adapter";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEmailAccount } from "../lib/email-signup";
-import { activeNotice, formatNoticeDay, noticeClosedKey, noticeProblem, POLICY_NOTICES, type PolicyNotice } from "../lib/policy-notice";
+import { activeNotice, formatNoticeDay, noticeClosedKey, noticeHref, noticeProblem, POLICY_NOTICES, SHORT_MAX, type PolicyNotice } from "../lib/policy-notice";
 import { POLICY_NOTICE_COPY } from "../lib/policy-notice-copy";
 import {
   makeSignupConsentToken,
@@ -158,23 +158,27 @@ async function main() {
       read("proxy.ts").includes(`return NextResponse.redirect(new URL("/consent", req.url));`));
 
     // ── ③ 처리방침·약관 개정 공지(2026-11-03 — lib/policy-notice, CLAUDE.md 작업 규칙 11) ──────
-    const sample: PolicyNotice = { doc: "privacy", version: "v9.9", summary: "예시 개정", noticeDay: "2030-03-01", effectiveDay: "2030-03-08" };
+    const sample: PolicyNotice = { doc: "privacy", version: "v9.9", short: "예시 개정", detail: "예시 개정의 자세한 내용.", noticeDay: "2030-03-01", effectiveDay: "2030-03-08" };
     const at = (iso: string) => activeNotice(undefined, new Date(iso), [sample]);
     check("③ 공지 기간 — 공지일 0시(KST) 전 없음 · 공지일~시행일 전 '바뀌어요' · 시행일~7일 '바뀌었어요' · 그 뒤 없음",
       at("2030-02-28T23:59:59+09:00") === null && at("2030-03-01T00:00:00+09:00")?.phase === "before" && at("2030-03-07T23:59:59+09:00")?.phase === "before" &&
         at("2030-03-08T00:00:00+09:00")?.phase === "after" && at("2030-03-14T23:59:59+09:00")?.phase === "after" && at("2030-03-15T00:00:00+09:00") === null);
     const tooSoon = { ...sample, effectiveDay: "2030-03-07" };
-    check("③ 시행일 = 공지일 + 7일 미만 → 등록 오류 · 보이지 않음 · 문서별·여럿이면 가장 늦게 공지한 것",
-      noticeProblem(tooSoon) !== null && noticeProblem(sample) === null && activeNotice(undefined, new Date("2030-03-02T00:00:00+09:00"), [tooSoon]) === null &&
+    check("③ 시행일 = 공지일 + 7일 미만·띠용 짧은 요약 상한 넘음·상세 비어 있음 → 등록 오류 · 보이지 않음 · 문서별·여럿이면 가장 늦게 공지한 것",
+      noticeProblem(tooSoon) !== null && noticeProblem(sample) === null &&
+        noticeProblem({ ...sample, short: "가".repeat(SHORT_MAX + 1) }) !== null && noticeProblem({ ...sample, short: "가".repeat(SHORT_MAX) }) === null &&
+        noticeProblem({ ...sample, detail: " " }) !== null && activeNotice(undefined, new Date("2030-03-02T00:00:00+09:00"), [tooSoon]) === null &&
         activeNotice("terms", new Date("2030-03-02T00:00:00+09:00"), [sample]) === null &&
         activeNotice(undefined, new Date("2030-03-03T00:00:00+09:00"), [sample, { ...sample, version: "v9.10", noticeDay: "2030-03-02", effectiveDay: "2030-03-09" }])?.version === "v9.10");
     check("③ 등록된 개정(POLICY_NOTICES) 전부 규칙 통과 · 처리방침 개정이면 개정 이력에 그 판·시행일",
       POLICY_NOTICES.every((n) => noticeProblem(n) === null) &&
         POLICY_NOTICES.filter((n) => n.doc === "privacy").every((n) => read("app/privacy/page.tsx").includes(`${n.version} — ${formatNoticeDay(n.effectiveDay)} 시행`)),
       POLICY_NOTICES.map((n) => [n.version, noticeProblem(n)]));
-    check("③ 닫기 기록은 판마다 따로 · 문구 = 문서 이름(판)·시행일·바뀌는 점",
+    check("③ 닫기 기록은 판마다 따로 · 띠 = 짧은 요약 + 시행일(상세 없음) · 처리방침 줄 = 문서 이름(판)·시행일·상세 · [자세히] → 처리방침 줄",
       noticeClosedKey(sample) !== noticeClosedKey({ ...sample, version: "v9.10" }) &&
-        POLICY_NOTICE_COPY.bar({ ...sample, phase: "before" }).includes("개인정보 처리방침(v9.9)은 2030년 3월 8일부터 바뀌어요. 예시 개정"));
+        POLICY_NOTICE_COPY.bar({ ...sample, phase: "before" }) === "예시 개정 (3월 8일 시행)" &&
+        POLICY_NOTICE_COPY.pageLine({ ...sample, phase: "before" }).includes("개인정보 처리방침(v9.9)은 2030년 3월 8일부터 시행됩니다. 예시 개정의 자세한 내용.") &&
+        noticeHref(sample) === "/privacy#policy-notice" && read("app/privacy/page.tsx").includes("<p id={NOTICE_ANCHOR}"));
     check("③ 화면 연결 — 로그인한 화면 헤더 아래 띠(root layout) · 처리방침 맨 위 줄",
       read("app/layout.tsx").includes("const notice = session?.user ? activeNotice() : null;") && read("app/layout.tsx").includes("{notice && <PolicyNoticeBar notice={notice} />}") &&
         read("app/privacy/page.tsx").includes(`const notice = activeNotice("privacy");`));

@@ -223,16 +223,17 @@
 | `pending` | "가입 화면으로 넘어가는 중…" | /join 가입 버튼(제출 중) |
 | `toLogin` | "이미 가입하셨나요? 로그인하기" | /join 아래 링크 |
 
-### `lib/policy-notice-copy.ts` (`POLICY_NOTICE_COPY`) — 개정 공지(2026-11-03, 전부 `[임시 — 성민 확정 필요]`)
+### `lib/policy-notice-copy.ts` (`POLICY_NOTICE_COPY`) — 개정 공지(2026-11-03, 전부 `[임시 — 성민 확정 필요]` · 2026-11-04 띠 구조 변경)
 
-개정이 `lib/policy-notice.ts` 에 등록됐을 때만 보인다(지금 등록 0 — 화면에 안 나옴, 첫 사용 v1.4).
+개정이 `lib/policy-notice.ts` 에 등록됐을 때만 보인다(지금 등록 0 — 화면에 안 나옴, 첫 사용 v1.4). 띠의 요약은 등록의 `short`(14자), 처리방침 줄의 상세는 등록의 `detail`.
 
 | 키 | 현재 문구 | 보이는 곳 |
 |---|---|---|
-| `bar(n)` | "개인정보 처리방침(v1.4)은 2026년 ○월 ○일부터 바뀌어요. (바뀌는 점)" / 시행 뒤 "…바뀌었어요." | 로그인한 화면 헤더 아래 띠(app/components/PolicyNoticeBar.tsx) |
-| `more` | "자세히 보기" | 띠 버튼 |
+| `bar(n)` | 시행 전 `${short} (${M월 D일} 시행)` · 시행 뒤 `${short} (${M월 D일}부터 시행 중)` — 예 "로그인 토큰 저장하지 않음 (11월 11일 시행)" | 로그인한 화면 헤더 아래 띠(app/components/PolicyNoticeBar.tsx) |
+| `more` | "자세히 보기" | 띠 버튼 → /privacy#policy-notice |
 | `close` | "닫기" | 띠 버튼 |
-| `pageLine(n)` | "개정 안내 — 개인정보 처리방침(v1.4)은 2026년 ○월 ○일부터 시행됩니다. (바뀌는 점)" / 시행 뒤 "…시행되었습니다." | /privacy 맨 위(app/privacy/page.tsx) |
+| `pageLine(n)` | 시행 전 `개정 안내 — 개인정보 처리방침(${판})은 ${YYYY년 M월 D일}부터 시행됩니다. ${detail}` · 시행 뒤 `…시행되었습니다. ${detail}` | /privacy 맨 위(app/privacy/page.tsx) |
+
 ### `lib/interview/copy.ts` (`INTERVIEW_COPY`)
 
 | 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |

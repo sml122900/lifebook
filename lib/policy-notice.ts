@@ -4,16 +4,18 @@
 // (수집 축소 개정도 예외 없음 — 법령상 즉시 필요한 경우만 성민 승인). 회귀 test-auth ③ 이 등록값을 확인한다.
 //
 // 보이는 곳: 공지일 0시(KST)부터 시행일 뒤 7일까지 —
-//   - 로그인한 화면 헤더 아래 안내 띠(app/components/PolicyNoticeBar — 닫으면 그 기기에서 그 판은 숨김)
-//   - 해당 문서 맨 위 "개정 안내" 줄(지금은 /privacy)
-// 시행일 전 = "바뀌어요", 시행일부터 = "시행됐어요". 문구는 lib/policy-notice-copy.ts(임시).
+//   - 로그인한 화면 헤더 아래 안내 띠(app/components/PolicyNoticeBar — 390 에서 한 줄(최대 두 줄): 짧은 요약 + 시행일 +
+//     [자세히]·[닫기], 닫으면 그 기기에서 그 판은 숨김) — 등록의 short
+//   - 해당 문서 맨 위 "개정 안내" 줄(지금은 /privacy, [자세히]가 이 줄로 감) — 등록의 detail
+// 문구는 lib/policy-notice-copy.ts(임시).
 
 export type PolicyDoc = "privacy" | "terms";
 
 export type PolicyNotice = {
   doc: PolicyDoc;
   version: string; // "v1.4"
-  summary: string; // 바뀌는 점 한 줄
+  short: string; // 띠용 짧은 요약(SHORT_MAX 자 이내 — 390 에서 시행일·버튼과 두 줄 안에)
+  detail: string; // 처리방침 맨 위 "개정 안내" 줄의 상세(바뀌는 점)
   noticeDay: string; // 공지일(KST, YYYY-MM-DD) = 배포일
   effectiveDay: string; // 시행일(KST, YYYY-MM-DD) — 공지일 + 7일 이상
 };
@@ -22,6 +24,7 @@ export type ActiveNotice = PolicyNotice & { phase: "before" | "after" };
 
 export const NOTICE_LEAD_DAYS = 7; // 공지 → 시행 최소 간격
 export const NOTICE_AFTER_DAYS = 7; // 시행 뒤에도 안내를 남기는 날 수
+export const SHORT_MAX = 14; // 띠용 짧은 요약 글자 수 상한(390 실측 — 시행일·[자세히 보기]·[닫기]와 두 줄)
 
 // 개정 등록 — 첫 사용은 v1.4 부터(2026-11-03 성민 결정: v1.3 은 개정 이력으로만). 새 개정을 맨 뒤에 더한다.
 export const POLICY_NOTICES: readonly PolicyNotice[] = [];
@@ -36,7 +39,9 @@ export function noticeProblem(n: PolicyNotice): string | null {
     return "날짜 형식(YYYY-MM-DD)";
   }
   if (!/^v\d+(\.\d+)*$/.test(n.version)) return "판 번호 형식(v1.4)";
-  if (!n.summary.trim()) return "바뀌는 점 비어 있음";
+  if (!n.short.trim()) return "띠용 짧은 요약 비어 있음";
+  if (n.short.length > SHORT_MAX) return `띠용 짧은 요약 ${SHORT_MAX}자 넘음`;
+  if (!n.detail.trim()) return "처리방침 상단 상세 비어 있음";
   if (kstMidnight(n.effectiveDay) - kstMidnight(n.noticeDay) < NOTICE_LEAD_DAYS * DAY_MS) return `시행일이 공지일 + ${NOTICE_LEAD_DAYS}일보다 이름`;
   return null;
 }
@@ -61,8 +66,14 @@ export function noticeClosedKey(n: Pick<PolicyNotice, "doc" | "version">): strin
   return `policy-notice-closed:${n.doc}:${n.version}`;
 }
 
-// "2026-11-10" → "2026년 11월 10일"
-export function formatNoticeDay(day: string): string {
+// "2026-11-10" → "2026년 11월 10일"(처리방침 줄) · short = "11월 10일"(띠 — 폭)
+export function formatNoticeDay(day: string, short = false): string {
   const [y, m, d] = day.split("-").map(Number);
-  return `${y}년 ${m}월 ${d}일`;
+  return short ? `${m}월 ${d}일` : `${y}년 ${m}월 ${d}일`;
+}
+
+// [자세히] 가 가는 곳 — 처리방침은 맨 위 "개정 안내" 줄(id), 약관은 문서 첫 화면.
+export const NOTICE_ANCHOR = "policy-notice";
+export function noticeHref(n: Pick<PolicyNotice, "doc">): string {
+  return n.doc === "privacy" ? `/privacy#${NOTICE_ANCHOR}` : "/terms";
 }

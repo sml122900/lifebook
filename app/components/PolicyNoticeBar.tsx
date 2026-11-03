@@ -7,7 +7,7 @@
 import { useSyncExternalStore } from "react";
 
 import { Button, ButtonLink } from "@/components/ui/Button";
-import { noticeClosedKey, type ActiveNotice } from "@/lib/policy-notice";
+import { noticeClosedKey, noticeHref, type ActiveNotice } from "@/lib/policy-notice";
 import { POLICY_NOTICE_COPY as C } from "@/lib/policy-notice-copy";
 
 const CLOSE_EVENT = "policy-notice-closed";
@@ -29,24 +29,25 @@ export function PolicyNoticeBar({ notice }: { notice: ActiveNotice }) {
     () => true,
   );
   if (closed) return null;
+  // 390 에서 한 줄(최대 두 줄 — 넘치면 말줄임): "짧은 요약 (시행일) [자세히 보기] [닫기]", 높이 목표 56~72px(2026-11-04).
+  // 상세는 [자세히 보기] → 처리방침 맨 위 "개정 안내" 줄(noticeHref).
   return (
-    <aside className="border-b border-line bg-banner px-6 py-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="m-0 min-w-0 flex-1 basis-60 text-lg text-ink">{C.bar(notice)}</p>
-        <div className="flex gap-2">
-          <ButtonLink href={notice.doc === "privacy" ? "/privacy" : "/terms"} variant="secondary">
-            {C.more}
-          </ButtonLink>
-          <Button
-            variant="tertiary"
-            onClick={() => {
-              window.localStorage.setItem(key, "1");
-              window.dispatchEvent(new Event(CLOSE_EVENT));
-            }}
-          >
-            {C.close}
-          </Button>
-        </div>
+    <aside className="border-b border-line bg-banner px-4 py-2 sm:px-6">
+      <div className="flex items-center gap-2">
+        <p className="m-0 line-clamp-2 min-w-0 flex-1 text-lg leading-snug text-ink">{C.bar(notice)}</p>
+        <ButtonLink href={noticeHref(notice)} variant="secondary" className="shrink-0 px-3!">
+          {C.more}
+        </ButtonLink>
+        <Button
+          variant="tertiary"
+          className="shrink-0 px-3!"
+          onClick={() => {
+            window.localStorage.setItem(key, "1");
+            window.dispatchEvent(new Event(CLOSE_EVENT));
+          }}
+        >
+          {C.close}
+        </Button>
       </div>
     </aside>
   );

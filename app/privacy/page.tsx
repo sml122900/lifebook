@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { BUSINESS_INFO } from "@/lib/commerce/business";
-import { activeNotice } from "@/lib/policy-notice";
+import { activeNotice, NOTICE_ANCHOR } from "@/lib/policy-notice";
 import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 
 // 개인정보 처리방침 v1.3. 공개 정적 페이지(비로그인 접근,
@@ -113,7 +113,8 @@ export default function PrivacyPage() {
 
       <h1 className="mt-4 text-ink">개인정보 처리방침</h1>
       {notice && (
-        <p role="note" className="mt-4 rounded-md border-2 border-line bg-banner px-4 py-3 text-lg text-ink">
+        // scroll-mt-20 — 띠 [자세히 보기](#policy-notice)로 내려왔을 때 고정된 [내 정보] 버튼(top-4·48px)에 가리지 않게
+        <p id={NOTICE_ANCHOR} role="note" className="mt-4 scroll-mt-20 rounded-md border-2 border-line bg-banner px-4 py-3 text-lg text-ink">
           {POLICY_NOTICE_COPY.pageLine(notice)}
         </p>
       )}
