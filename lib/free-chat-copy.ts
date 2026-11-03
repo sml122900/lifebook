@@ -72,4 +72,18 @@ export const FREE_CHAT_COPY = {
   viewOnMap: "My Life 에서 보기",
   declined: "네, 남기지 않을게요.",
   saving: "남기는 중이에요…",
+  // [안 만들기] 가 실패했을 때(2026-11-04 — 전엔 createFailed "남기지 못했어요"가 나와 뜻이 안 맞았음).
+  declineFailed: "처리하지 못했어요. 다시 해 주세요.",
+
+  // ── 화면 코드(app/chat-v3/ChatV3Client.tsx)에 직접 적혀 있던 같은 화면 문구 — 2026-11-04 옮김, 문구는 그대로(임시) ──
+  replyEmpty: "잠시 문제가 있었어요. 다시 말씀해주세요.", // 대화 답이 비어 왔을 때 이야기 친구의 말
+  loadFailed: "이야기를 불러오지 못했어요.", // 자유 대화 들어오기 실패(오류 화면 — [다시 시도])
+  topicFailed: "이야기를 준비하지 못했어요.", // 주제(이야기 거리)로 시작 실패(오류 화면)
+  replyFailed: "답변을 처리하지 못했어요.", // 자유 대화 답 처리 실패(오류 화면)
+  inputPlaceholder: "답을 입력해 주세요", // 입력칸 안내
+  inputNewlineHint: "(Shift+Enter 줄바꿈)", // 입력칸 안내 뒤 — 키보드 있는 기기에서만 붙임(ChatV3Client useHasKeyboard)
+  // 마무리 말(그만할 때) — 질문 상한(설정 단계) · 이야기를 남기고 그만 · 그냥 그만
+  endCapped: "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요.",
+  endSaved: "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요.",
+  endPlain: "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요.",
 } as const;

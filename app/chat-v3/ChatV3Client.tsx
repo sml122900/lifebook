@@ -12,7 +12,7 @@
 // 재사용 엔진: completeOnboarding(onboarding.ts), getNextConfirmQuestion/submitConfirmAnswer/
 // getConfirmQuestionForEvent(life-event.ts) — 설정 단계는 무수정.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -68,11 +68,11 @@ const MAX_SESSION_QUESTIONS = 12;
 
 // finishSession 이 마지막으로 남기는 문구들. 재진입 dedupe(마지막 메시지가 봇 발화 = 이미 뭔가 물어본
 // 채로 끝나 있다)에서 이 문구는 질문이 아니라 제외한다.
-const SESSION_END_MESSAGES = new Set([
-  "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요.",
-  "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요.",
-  "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요.",
-  "뼈대가 다 채워졌어요! 지금까지 채운 이야기를 보여드릴게요.",
+const SESSION_END_MESSAGES = new Set<string>([
+  FC.endCapped,
+  FC.endPlain,
+  FC.endSaved,
+  "뼈대가 다 채워졌어요! 지금까지 채운 이야기를 보여드릴게요.", // 옛 마무리 말(지금은 안 씀 — 옛 대화 기록 판정용)
 ]);
 
 function endsWithPendingBotTurn(loaded: ChatLogTurn[] | undefined): boolean {
@@ -82,7 +82,18 @@ function endsWithPendingBotTurn(loaded: ChatLogTurn[] | undefined): boolean {
 
 // P13-3 — "무한 로딩 절대 금지". 서버 액션이 응답을 영영 안 주면 이 시간을 넘겨 거절 → enterError.
 const ACTION_TIMEOUT_MS = 45_000;
-const EMPTY_REPLY_FALLBACK = "잠시 문제가 있었어요. 다시 말씀해주세요.";
+// 입력칸 "Shift+Enter 줄바꿈" 안내는 키보드가 있는 기기에서만(2026-11-04). 판정 = 주 입력 장치가 마우스·트랙패드
+// (CSS 미디어 질의 hover: hover 이고 pointer: fine — PC·노트북)면 키보드도 있다고 본다. 휴대폰·태블릿(손가락이 주 입력 —
+// hover: none · pointer: coarse)은 뺀다. 서버 그림·하이드레이션은 빼고 그린 뒤 그 기기 값으로(입력 장치가 바뀌면 다시 판정).
+const KEYBOARD_QUERY = "(hover: hover) and (pointer: fine)";
+function subscribeKeyboardQuery(cb: () => void) {
+  const mq = window.matchMedia(KEYBOARD_QUERY);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+function useHasKeyboard(): boolean {
+  return useSyncExternalStore(subscribeKeyboardQuery, () => window.matchMedia(KEYBOARD_QUERY).matches, () => false);
+}
 
 function withTimeout<T>(p: Promise<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -157,6 +168,7 @@ export function ChatV3Client({
   characterMotionEnabled: boolean;
 }) {
   const router = useRouter();
+  const hasKeyboard = useHasKeyboard();
   const [sessionId] = useState(() => crypto.randomUUID());
 
   const [stage, setStage] = useState<Stage>("profile_year");
@@ -267,12 +279,7 @@ export function ChatV3Client({
 
   // 세션 마침 — 마무리 말 뒤 My Life 로(Q68). canReview = 보여 줄 골격이 있는지(신상 단계 종료면 없음).
   async function finishSession(reason: FinishReason, canReview: boolean, savedStory = false) {
-    const msg =
-      reason === "capped"
-        ? "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요."
-        : savedStory
-          ? "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요."
-          : "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요.";
+    const msg = reason === "capped" ? FC.endCapped : savedStory ? FC.endSaved : FC.endPlain;
     setStatus("finished");
     await addBot(msg);
     if (canReview) setTimeout(() => router.push("/my-life"), 1200);
@@ -446,7 +453,7 @@ export function ChatV3Client({
       setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
-      enterError("이야기를 불러오지 못했어요.", () => enterFree(opts));
+      enterError(FC.loadFailed, () => enterFree(opts));
     }
   }
 
@@ -474,7 +481,7 @@ export function ChatV3Client({
       setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
-      enterError("이야기를 준비하지 못했어요.", () => startTopic(topic));
+      enterError(FC.topicFailed, () => startTopic(topic));
     }
   }
 
@@ -487,7 +494,7 @@ export function ChatV3Client({
         setStatus("idle");
         return;
       }
-      await addBot(r.reply.trim() || EMPTY_REPLY_FALLBACK);
+      await addBot(r.reply.trim() || FC.replyEmpty);
       setSegTurns(r.segmentTurns);
       if (r.propose) {
         await requestProposal(r.propose.until);
@@ -496,7 +503,7 @@ export function ChatV3Client({
       setStatus("idle");
     } catch (e) {
       console.error("[chat-v3]", e);
-      enterError("답변을 처리하지 못했어요.", () => submitFree());
+      enterError(FC.replyFailed, () => submitFree());
     }
   }
 
@@ -792,7 +799,7 @@ export function ChatV3Client({
                 }
               }}
               disabled={!isIdle}
-              placeholder="답을 입력해 주세요 (Shift+Enter 줄바꿈)"
+              placeholder={hasKeyboard ? `${FC.inputPlaceholder} ${FC.inputNewlineHint}` : FC.inputPlaceholder}
               rows={2}
               autoComplete="off"
               data-lpignore="true"

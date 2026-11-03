@@ -1,13 +1,13 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-04(개정 공지 띠 버튼 문서별 — 처리방침 보기·약관 보기, /terms 맨 위 줄 신설(약관 쪽 글 임시)) · 2026-11-04(개정 공지 `lib/policy-notice-copy.ts` 4키 확정 — 임시에서 빠짐) · 2026-11-04(가입 화면 `lib/join-copy.ts` 13키 확정 — 임시에서 빠짐 · 서비스 이름 화면 표기 "Lifebook"·"Google" 통일, 법적 표기 "라이프북" 유지) · 2026-11-03(개정 공지 — `lib/policy-notice-copy.ts` 4키, 아래 "개정 공지") · 2026-11-03(이야기 상세·글 고치기·이전 판·인물 글 — `lib/my-life-copy.ts` `body` 60키, 아래 "2b-3c 추가" · `hideBody` 삭제) · 2026-11-03(가입 전 동의 화면 `/join` 신설 — `lib/join-copy.ts` 13키, 아래 "가입 전 동의" · 동의 항목 문구는 확정된 /consent 문구를 같이 씀) · 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-04(자유 대화 `lib/free-chat-copy.ts` 72키 — `declineFailed` 신설·화면 코드 문구 9키 옮김(빈 답·오류 3·입력칸 안내 2·마무리 말 3), 문구는 그대로) · 2026-11-04(개정 공지 띠 버튼 문서별 — 처리방침 보기·약관 보기, /terms 맨 위 줄 신설(약관 쪽 글 임시)) · 2026-11-04(개정 공지 `lib/policy-notice-copy.ts` 4키 확정 — 임시에서 빠짐) · 2026-11-04(가입 화면 `lib/join-copy.ts` 13키 확정 — 임시에서 빠짐 · 서비스 이름 화면 표기 "Lifebook"·"Google" 통일, 법적 표기 "라이프북" 유지) · 2026-11-03(개정 공지 — `lib/policy-notice-copy.ts` 4키, 아래 "개정 공지") · 2026-11-03(이야기 상세·글 고치기·이전 판·인물 글 — `lib/my-life-copy.ts` `body` 60키, 아래 "2b-3c 추가" · `hideBody` 삭제) · 2026-11-03(가입 전 동의 화면 `/join` 신설 — `lib/join-copy.ts` 13키, 아래 "가입 전 동의" · 동의 항목 문구는 확정된 /consent 문구를 같이 씀) · 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 3개(2026-11-03 인물 확인 문구 파일 삭제 전엔 4개)의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 ## 요약
 
 | 파일 | 임시 문구 | 화면에 안 나오는 키(쓰는 곳 없음) | 보이는 곳 |
 |---|---|---|---|
-| `lib/free-chat-copy.ts` | 62 (전부 — 카드 오류 6개는 2026-11-02 `lib/node-proposal.ts` 에서 옮겨 옴 · 시기 미지정 2개 `centerUnset`·`centerPick` 2026-11-02 추가) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
+| `lib/free-chat-copy.ts` | 72 (2026-11-04 `declineFailed` 신설 + 화면 코드에서 9키 옮김 — 그 전 62: 전부 — 카드 오류 6개는 2026-11-02 `lib/node-proposal.ts` 에서 옮겨 옴 · 시기 미지정 2개 `centerUnset`·`centerPick` 2026-11-02 추가) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
 | `lib/my-life-copy.ts` | 259 (2026-11-03 2b-3c `body` 60 추가·`hideBody` 삭제 — 아래 "2b-3c 추가" · 그 전 200 = 78 + 3단계 115 + Q69 11 − 확인 대기 표시 4(2026-11-03 삭제 — `pendingTag`·`goConfirm`·`pendingNote`·`draftNote`) · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 (`storyReviewEntry` 는 2026-11-03 옛 `/story-review` 본문과 함께 삭제) | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
 | `lib/interview/copy.ts` | 42 (전부 — `selfStoriesTitle` 2026-11-03 삭제) | 0 | `/interview` · My Life "오늘의 인터뷰" 카드(Q69 전 `/story-review`) |
 | `lib/join-copy.ts` | 0 (13키 2026-11-04 전부 확정) | 0 | `/join`(가입 전 동의 — 제목·안내·가입 방법 버튼) |
@@ -85,6 +85,16 @@
 | `viewOnMap` | 69 | "My Life 에서 보기" | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:695 |
 | `declined` | 70 | "네, 남기지 않을게요." | /chat-v3 대화창 | app/chat-v3/ChatV3Client.tsx:528, lib/free-chat.ts:94 |
 | `saving` | 71 | "남기는 중이에요…" | 제안 카드(/chat-v3 · /interview 마무리) | app/components/ProposalCard.tsx:433 |
+| `declineFailed` | 76 | "처리하지 못했어요. 다시 해 주세요." | 제안 카드 — [안 만들기] 실패(2026-11-04 신설, 전엔 `createFailed`) | app/components/ProposalCard.tsx(decline) |
+| `replyEmpty` | 79 | "잠시 문제가 있었어요. 다시 말씀해주세요." | /chat-v3 대화창 — 답이 비어 왔을 때(2026-11-04 화면 코드에서 옮김) | app/chat-v3/ChatV3Client.tsx(submitFree) |
+| `loadFailed` | 80 | "이야기를 불러오지 못했어요." | /chat-v3 오류 화면 — 자유 대화 들어오기 실패(옮김) | app/chat-v3/ChatV3Client.tsx(enterFree) |
+| `topicFailed` | 81 | "이야기를 준비하지 못했어요." | /chat-v3 오류 화면 — 주제로 시작 실패(옮김) | app/chat-v3/ChatV3Client.tsx(startTopic) |
+| `replyFailed` | 82 | "답변을 처리하지 못했어요." | /chat-v3 오류 화면 — 자유 대화 답 처리 실패(옮김) | app/chat-v3/ChatV3Client.tsx(submitFree) |
+| `inputPlaceholder` | 83 | "답을 입력해 주세요" | /chat-v3 입력칸 안내(옮김) | app/chat-v3/ChatV3Client.tsx |
+| `inputNewlineHint` | 84 | "(Shift+Enter 줄바꿈)" | 입력칸 안내 뒤 — 키보드 있는 기기(마우스·트랙패드가 주 입력)에서만(옮김) | app/chat-v3/ChatV3Client.tsx(useHasKeyboard) |
+| `endCapped` | 86 | "오늘은 여기까지 여쭤볼게요. 나머지는 다음에 이어서 여쭤볼게요." | /chat-v3 마무리 말 — 질문 상한(설정 단계)(옮김) | app/chat-v3/ChatV3Client.tsx(finishSession) |
+| `endSaved` | 87 | "네, 들려주신 이야기는 잘 담아뒀어요. 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요." | /chat-v3 마무리 말 — 이야기를 남기고 그만(옮김) | app/chat-v3/ChatV3Client.tsx(finishSession) |
+| `endPlain` | 88 | "네, 오늘은 여기까지 할게요. 다음에 오시면 이어서 여쭤볼게요." | /chat-v3 마무리 말 — 그냥 그만(옮김) | app/chat-v3/ChatV3Client.tsx(finishSession) |
 
 ### `lib/my-life-copy.ts` (`MY_LIFE_COPY`)
 

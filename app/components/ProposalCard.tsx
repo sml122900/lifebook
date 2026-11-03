@@ -153,7 +153,7 @@ export function ProposalCard({
       await onDecline();
     } catch (e) {
       console.error("[proposal-card]", e);
-      setMessage(C.createFailed);
+      setMessage(C.declineFailed); // [안 만들기] 실패 — "남기지 못했어요"(createFailed)는 뜻이 안 맞아 따로(2026-11-04)
     } finally {
       setBusy(false);
     }
