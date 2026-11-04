@@ -19,7 +19,7 @@ import type { MyLifeData, MyLifeEvent, MyLifeStory } from "@/lib/my-life";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import type { MoveUndo } from "@/lib/episode-move";
 import type { CreatedLink, DeleteImpact, SameNamePerson } from "@/lib/my-life-edit";
-import { eventPeoplePlaceList, type PeriodRef } from "@/lib/my-life-layout";
+import { eventPeoplePlaceList, yearText, type PeriodRef } from "@/lib/my-life-layout";
 import type { NodeRef } from "@/lib/node-graph";
 import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
 import { displayTitle, shortTitle } from "@/lib/story-title";
@@ -53,11 +53,6 @@ export type Created = { key: string; eventId: string | null; text: string; undo:
 
 const INPUT = "min-h-[56px] w-full rounded-md border-2 border-line bg-surface px-4 text-lg text-ink placeholder:text-ink-soft focus:border-brand focus:outline-none";
 const ROW = "flex min-h-[56px] w-full items-center gap-3 rounded-md border-2 bg-surface px-4 py-2 text-left text-lg text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2";
-
-function yearText(ev: Pick<MyLifeEvent, "year" | "endYear">): string {
-  if (ev.year === null) return C.yearUnknown;
-  return ev.endYear !== null && ev.endYear !== ev.year ? `${ev.year}~${ev.endYear}` : `${ev.year}`;
-}
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
   return (
@@ -485,8 +480,8 @@ export function NodeEditor({
       const it = make(r.id, false, inStory(r.storyId));
       return it && { ...it, fromStory: true };
     };
-    sections.push({ title: C.panelWithPeople, items: nn(list.people.map((r) => periodItem(r, "person"))) });
-    sections.push({ title: C.panelWithPlaces, items: nn(list.places.map((r) => periodItem(r, "place"))) });
+    sections.push({ title: C.panelPeriodPeople, items: nn(list.people.map((r) => periodItem(r, "person"))) });
+    sections.push({ title: C.panelPeriodPlaces, items: nn(list.places.map((r) => periodItem(r, "place"))) });
     sections.push({ title: C.panelGroups, items: nn(ev.groupIds.map(groupItem)) });
     adds.push({ what: "person", label: E.addPerson }, { what: "place", label: E.addPlace });
   } else if (story) {

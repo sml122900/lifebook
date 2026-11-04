@@ -48,6 +48,7 @@ import {
   overflowLabel,
   packChips,
   resolveOverlaps,
+  yearText,
   type LayoutNode,
   type MyLifeLayout,
 } from "../lib/my-life-layout";
@@ -530,7 +531,7 @@ async function main() {
       synL);
     check("⑪ 시기 패널 — 사람·장소 목록 = eventPeoplePlaceList · 바로 이은 것만 [빼기] · 이야기에서만 = 그 이야기 이름(빼기 없음) · [넣기] 후보에선 바로 이은 것만 뺌",
       edit.includes("const list = eventPeoplePlaceList(ev);") &&
-        edit.includes("sections.push({ title: C.panelWithPlaces, items: nn(list.places.map((r) => periodItem(r, \"place\"))) });") &&
+        edit.includes("sections.push({ title: C.panelPeriodPlaces, items: nn(list.places.map((r) => periodItem(r, \"place\"))) });") &&
         edit.includes("if (r.direct) return make(r.id);") && edit.includes("const it = make(r.id, false, inStory(r.storyId));") &&
         edit.includes("s.items.filter((i) => !i.fromStory)") && edit.includes("{it.removable && (") &&
         !edit.includes("ev.placeIds.map(placeItem)"));
@@ -601,6 +602,30 @@ async function main() {
         view.includes("<StoryPanel key={s.id}") &&
         /setDraft\(null\);\s*router\.refresh\(\);/.test(view) && /setError\(C\.editBodyRetry\);\s*router\.refresh\(\);/.test(view) && view.includes("{C.editBody}") &&
         view.includes("aria-label={C.bodyLabel}"));
+
+    // ── ⑬ 지도·목록 공통·패널 정보 문구 확정(2026-11-04) · 연도 글자 한 곳 ──
+    const story13 = src("app/my-life/story/[id]/page.tsx");
+    check("⑬ 연도 글자 = lib/my-life-layout yearText 한 곳(지도·만들기·이야기 상세 3벌 삭제) · 출력 그대로(1971 · 1971~1974 · 같은 해 · 연도 모름)",
+      yearText({ year: 1971, endYear: null }) === "1971" && yearText({ year: 1971, endYear: 1974 }) === "1971~1974" &&
+        yearText({ year: 1971, endYear: 1971 }) === "1971" && yearText({ year: null, endYear: 1980 }) === C.yearUnknown &&
+        ![view, edit, story13].some((t) => t.includes("function yearText(")) &&
+        [view, edit, story13].every((t) => /import \{[^}]*\byearText\b[^}]*\} from "@\/lib\/my-life-layout";/.test(t)));
+    check("⑬ 지도 맨 처음엔 \"지금 보는 곳\" 줄 비움(옛 nowViewingNone 없음 — 줄 높이는 오른쪽 버튼 56px) · 접기 = 이야기만(이야기 n개 펼치기·이야기 접기)",
+      !("nowViewingNone" in C) && !view.includes("nowViewingNone") && view.includes(': nowText ? <p className="min-w-0 truncate text-lg text-ink-soft">{nowText}</p> : <span />}') &&
+        C.unfold(3) === "이야기 3개 펼치기" && C.fold === "이야기 접기");
+    check("⑬ 꼬리표 \"다른 시기에도\" — 화면 꼬리표가 보이면 낭독 이름 끝에도 · 그때의 나는 그대로 · 이야기 패널 \"다른 시기에도 있어요: …\"",
+      C.alsoElsewhereShort === "다른 시기에도" && C.storyName("수학여행", ["철수"], C.alsoElsewhereShort) === "이야기, 수학여행, 함께: 철수, 다른 시기에도" &&
+        C.storyName("수학여행", []) === "이야기, 수학여행" && view.includes("C.storyName(displayTitle(s), names, tagText(s))") &&
+        C.panelAlsoIn("1971 고등학교 입학, 1975 대학교 입학") === "다른 시기에도 있어요: 1971 고등학교 입학, 1975 대학교 입학");
+    check("⑬ 패널 목록 제목 — 시기 패널 \"이 시기의 분들\"·\"이 시기의 장소\" / 이야기 패널 \"함께 나온 분\"·\"이야기에 나온 곳\"(이야기 상세와 같은 글) · 사람·장소 패널 이동 버튼",
+      edit.includes("sections.push({ title: C.panelPeriodPeople,") && edit.includes("sections.push({ title: C.panelPeriodPlaces,") &&
+        edit.includes("title: C.panelWithPeople,") && edit.includes("sections.push({ title: C.panelWithPlaces, items: nn(story.chips") &&
+        C.panelWithPeople === C.body.peopleTitle && C.panelWithPlaces === C.body.placesTitle &&
+        C.openPerson === "이 분 자세히 보기" && C.openMap === "지도 앱에서 열기" && view.includes("{C.openMap} ↗"));
+    const side13 = src("app/timemachine/SidePanel.tsx");
+    check("⑬ 사이드 메뉴 My Life — 이름·설명 18px(large) · 다른 메뉴는 그대로",
+      side13.includes("hint={MY_LIFE_COPY.menuHint}\n                  prefetch={false}\n                  large") &&
+        side13.includes('${large ? "text-lg" : "text-base"}') && side13.includes('${large ? "text-lg" : "text-xs"}') && (side13.match(/\blarge$/gm) ?? []).length === 1);
 
     for (const [g, pg] of [[0, 1], [2, 2], [3, 3], [1, 5]] as const) {
       const syn = synthetic({ events: 11, stories: 23, people: 12, groups: g, places: 14, placeGroups: pg, seed: 21 + pg });

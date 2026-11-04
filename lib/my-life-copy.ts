@@ -1,5 +1,6 @@
-// My Life 화면 문구 — 메뉴 이름 "My Life"·이야기 상세 body 63키·editBody(2026-11-04)는 성민 확정 문구, 나머지는 전부
-// [임시 — 성민 확정 필요]. 설계 docs/phase/node-graph-self.md §4.5 "My Life" 행.
+// My Life 화면 문구 — 확정: 메뉴 이름 "My Life"(2026-11-01) · 지도·목록 공통·패널 이동·빈 화면·패널 정보·낭독 이름(2026-11-04)
+// · 이야기 상세 body 63키·editBody(2026-11-04). 나머지(Q69·인물록·장소록·찾기·선택 줄·이동 줄·차례 보기·장소 묶음·edit)는
+// 묶음 주석에 [임시 — 성민 확정 필요]. 설계 docs/phase/node-graph-self.md §4.5 "My Life" 행.
 // 클라이언트에서도 쓰는 순수 모듈.
 
 import { withJosa } from "./josa";
@@ -11,13 +12,12 @@ export const MY_LIFE_COPY = {
   edgePersonOff: "인물 간선 끄기",
   edgePlaceOff: "장소 간선 끄기",
 
-  // ── 아래는 전부 [임시 — 성민 확정 필요] ──
+  // ── 지도·목록 공통 — 확정(성민 2026-11-04). 아무 시기도 안 지난 지도 맨 처음엔 "지금 보는 곳" 줄을 비운다(옛 nowViewingNone 삭제). ──
   menuHint: "내 인생을 한 장의 지도로",
   mapListLabel: "My Life — 시기 순서",
   mapRegionLabel: "My Life 지도",
   listStories: "이야기",
   nowViewing: (where: string) => `지금 보는 곳: ${where}`,
-  nowViewingNone: "지금 보는 곳: 처음",
   fitAll: "전체 보기",
   zoomIn: "크게 보기",
   zoomOut: "작게 보기",
@@ -25,18 +25,19 @@ export const MY_LIFE_COPY = {
   toList: "목록으로 보기",
   chatEntry: "이야기 나누기", // My Life 개편 2단계 — 채팅 진입
   toMap: "지도로 보기",
-  unfold: (n: number) => `가지 ${n}개 펼치기`,
-  fold: "가지 접기",
+  unfold: (n: number) => `이야기 ${n}개 펼치기`, // 접히는 것은 시기 아래 이야기뿐(lib/my-life-layout fold count)
+  fold: "이야기 접기",
   unfoldAll: "모두 펼치기",
   yearsLater: (n: number) => `${n}년 뒤`,
   yearUnknown: "연도 모름",
   selfTag: "그때의 나",
   kindPerson: "사람",
   kindPlace: "장소",
-  alsoElsewhereShort: "여러 시기", // 이야기 노드 꼬리표(폭 135px 안)
+  alsoElsewhereShort: "다른 시기에도", // 이야기 노드·목록 꼬리표(폭 135px 안) — 낭독 이름(storyName)에도 붙임
   close: "닫기",
   readBody: "본문 보기", // 이야기 패널 → 이야기 상세(/my-life/story/[id], 2026-11-03 2b-3c)
   // Q69(2026-11-02) — /story-review 에서 옮긴 것. 갭 카드·이야기 고치기 글자는 옮기기 전 /story-review 문구 그대로.
+  // [임시 — 성민 확정 필요](editBody 만 확정).
   suggest: "이야기 거리", // 지도 보기 [이야기 거리] 버튼·시트 제목(오늘의 인터뷰·더 들어볼까요?)
   gapsTitle: "더 들어볼까요?",
   gapInProgress: "진행 중",
@@ -123,27 +124,31 @@ export const MY_LIFE_COPY = {
     restoreNo: "그대로 두기",
     restoring: "되돌리는 중…",
   },
-  openPerson: "인물록에서 보기",
-  openMap: "지도에서 보기",
+  // 패널 이동·빈 화면 — 확정(성민 2026-11-04)
+  openPerson: "이 분 자세히 보기", // 사람 패널 → /people/[id]
+  openMap: "지도 앱에서 열기", // 장소 패널 → 네이버·구글 지도 새 창(뒤 "↗" 는 화면 코드)
   emptyTitle: "아직 지도에 담을 이야기가 없어요",
   emptyDesc: "이야기를 나누면 인생의 시기들이 여기에 하나씩 생겨요.",
   emptyCta: "이야기 나누기",
-  // 패널 소제목·글자
+  // 패널 소제목·글자 — 확정(성민 2026-11-04)
   panelStories: (n: number) => `이야기 ${n}`,
   panelPeople: (n: number) => `사람 ${n}`,
   panelPlaces: (n: number) => `장소 ${n}`,
-  panelWithPeople: "함께 나온 분",
-  panelWithPlaces: "나온 곳",
-  panelAlsoIn: "같이 보이는 시기",
+  panelPeriodPeople: "이 시기의 분들", // 시기 패널 사람 목록 제목
+  panelPeriodPlaces: "이 시기의 장소", // 시기 패널 장소 목록 제목
+  panelWithPeople: "함께 나온 분", // 이야기 패널 사람 목록 제목(이야기 상세 body.peopleTitle 과 같은 글)
+  panelWithPlaces: "이야기에 나온 곳", // 이야기 패널 장소 목록 제목(이야기 상세 body.placesTitle 과 같은 글)
+  panelAlsoIn: (events: string) => `다른 시기에도 있어요: ${events}`, // 이야기 패널 — 추가 소속 시기들
   panelMembers: "모임 사람들",
   panelRelation: "관계",
   panelMetYear: "만난 해",
   panelAddress: "주소",
-  // 버튼 이름(화면 낭독용) — 종류 + 이름 + 수
+  // 버튼 이름(화면 낭독용) — 종류 + 이름 + 수 — 확정(성민 2026-11-04)
   eventName: (yearText: string, label: string, stories: number, others: number) =>
     `${yearText} ${label}, 이야기 ${stories}, 사람·장소 ${others}`,
-  storyName: (lead: string, withNames: string[]) =>
-    withNames.length > 0 ? `이야기, ${lead}, 함께: ${withNames.join(", ")}` : `이야기, ${lead}`,
+  // tag = 화면 꼬리표(다른 시기에도)가 보이면 낭독 이름 끝에도. 그때의 나 이야기는 꼬리표가 늘 "그때의 나"라 selfName 에 이미 있음.
+  storyName: (lead: string, withNames: string[], tag?: string | null) =>
+    (withNames.length > 0 ? `이야기, ${lead}, 함께: ${withNames.join(", ")}` : `이야기, ${lead}`) + (tag ? `, ${tag}` : ""),
   selfName: (lead: string, withNames: string[]) =>
     withNames.length > 0 ? `그때의 나, ${lead}, 함께: ${withNames.join(", ")}` : `그때의 나, ${lead}`,
   // 인물록·장소록(My Life 개편 1단계) — [임시 — 성민 확정 필요]

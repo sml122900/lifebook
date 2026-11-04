@@ -36,6 +36,7 @@ import {
   layoutMyLife,
   overflowLabel,
   storyTag,
+  yearText,
   type LayoutNode,
   type MyLifeLayout,
 } from "@/lib/my-life-layout";
@@ -87,11 +88,6 @@ function writeSaved(v: Saved) {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-function yearText(ev: MyLifeEvent): string {
-  if (ev.year === null) return C.yearUnknown;
-  return ev.endYear !== null && ev.endYear !== ev.year ? `${ev.year}~${ev.endYear}` : `${ev.year}`;
-}
-
 function eventAriaLabel(ev: MyLifeEvent): string {
   const y = ev.year === null ? C.yearUnknown : `${yearText(ev)}년`;
   const n = eventPeoplePlaces(ev);
@@ -100,7 +96,7 @@ function eventAriaLabel(ev: MyLifeEvent): string {
 
 function storyAriaLabel(s: MyLifeStory): string {
   const names = s.chips.map((c) => c.name);
-  return s.kind === "SELF" ? C.selfName(displayTitle(s), names) : C.storyName(displayTitle(s), names);
+  return s.kind === "SELF" ? C.selfName(displayTitle(s), names) : C.storyName(displayTitle(s), names, tagText(s));
 }
 
 // 외부 지도 — 기존 연혁 카드(TimelineView externalMapHref)와 같은 규칙.
@@ -929,7 +925,7 @@ function MapMode({
     ? C.nowViewing(area === "people" ? C.peopleTitle : C.placesTitle)
     : currentEvent
     ? C.nowViewing(currentEvent.year === null ? `${currentEvent.label}(${C.yearUnknown})` : `${yearText(currentEvent)} ${currentEvent.label}`)
-    : C.nowViewingNone;
+    : ""; // 지도 맨 처음(아직 어느 시기도 안 지남) — 줄을 비운다(줄 높이는 오른쪽 버튼이 지킴)
 
   return (
     <div ref={regionRef} className="flex flex-col" style={{ height: regionTop ? `calc(100dvh - ${regionTop}px)` : "calc(100dvh - 72px)", minHeight: 420 }}>
@@ -1007,7 +1003,7 @@ function MapMode({
         </>
       ) : (
         <div className="flex min-h-[56px] items-center justify-between gap-3 px-6 py-1">
-          {status ? <p className="min-w-0 truncate text-lg text-ink">{status}</p> : <p className="min-w-0 truncate text-lg text-ink-soft">{nowText}</p>}
+          {status ? <p className="min-w-0 truncate text-lg text-ink">{status}</p> : nowText ? <p className="min-w-0 truncate text-lg text-ink-soft">{nowText}</p> : <span />}
           {/* Q69 — /story-review 의 카드를 지도 보기에서도(390 머리 줄 두 줄엔 자리가 없어 이 줄 오른쪽). */}
           <div className="flex shrink-0 gap-2">
             {anyFolded && (
@@ -2116,7 +2112,7 @@ function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; i
       )}
       {others.length > 0 && (
         <p className="text-lg text-ink">
-          {C.panelAlsoIn}: {others.map((o) => `${yearText(o)} ${o.label}`).join(", ")}
+          {C.panelAlsoIn(others.map((o) => `${yearText(o)} ${o.label}`).join(", "))}
         </p>
       )}
     </>

@@ -1,6 +1,6 @@
 # 임시 문구 목록 (2026-11-02)
 
-> 갱신 2026-11-04(충돌 3키·말로 적기 7키 확정 — 말로 적기 4키 새 문구 · `lib/my-life-copy.ts` 임시 수를 구문 트리로 다시 셈 = 202) · 2026-11-04(충돌 보존 — `body.errConflict` 새 문구·`reloadLoseAsk`·`historyUnsaved` 임시 3 + `errConflictOnly` = 옛 확정 문구) · 2026-11-04(이야기 상세 `body` 60키 + `editBody` "글 고치기" 확정 — 9키 새 문구 · `lib/voice-copy.ts` 신설 = 말로 적기 칸 7키 코드에서 옮김, 임시) · 2026-11-04(`samePlaceQuestion` 조사 없는 문장 "같은 곳인가요? (이미 있는 장소: {이름})" — 조사 import 삭제·설명 줄 추가로 이 표 줄 번호 다시 맞춤) · 2026-11-04(자유 대화 72키 전부 확정 — 남은 54키 확정·5키 새 문구) · 2026-11-04(자유 대화 대화 중 8키 확정 — replyEmpty "다시 말씀해 주세요" 띄어쓰기) · 2026-11-04(자유 대화 들어옴 10키 확정 — setupDone·confirmAlready·topicGone·inputPlaceholder 새 문구) · 2026-11-04(문구 판단 기준 — 대상 = 모든 성인, "어려움" 표시 기준 변경·자유 대화 표시 다시 정리) · 2026-11-04(자유 대화 `lib/free-chat-copy.ts` 72키 — `declineFailed` 신설·화면 코드 문구 9키 옮김(빈 답·오류 3·입력칸 안내 2·마무리 말 3), 문구는 그대로) · 2026-11-04(개정 공지 띠 버튼 문서별 — 처리방침 보기·약관 보기, /terms 맨 위 줄 신설(약관 쪽 글 임시)) · 2026-11-04(개정 공지 `lib/policy-notice-copy.ts` 4키 확정 — 임시에서 빠짐) · 2026-11-04(가입 화면 `lib/join-copy.ts` 13키 확정 — 임시에서 빠짐 · 서비스 이름 화면 표기 "Lifebook"·"Google" 통일, 법적 표기 "라이프북" 유지) · 2026-11-03(개정 공지 — `lib/policy-notice-copy.ts` 4키, 아래 "개정 공지") · 2026-11-03(이야기 상세·글 고치기·이전 판·인물 글 — `lib/my-life-copy.ts` `body` 60키, 아래 "2b-3c 추가" · `hideBody` 삭제) · 2026-11-03(가입 전 동의 화면 `/join` 신설 — `lib/join-copy.ts` 13키, 아래 "가입 전 동의" · 동의 항목 문구는 확정된 /consent 문구를 같이 씀) · 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
+> 갱신 2026-11-04(My Life 지도·목록 공통 29 + 패널 정보 13 확정 — 9키 새 문구·`nowViewingNone` 삭제·`panelPeriodPeople`·`panelPeriodPlaces` 키 분리, 남은 임시 160 · 지난 보고의 묶음 이름 바로잡음 — 아래 "남은 임시 — 화면 묶음") · 2026-11-04(충돌 3키·말로 적기 7키 확정 — 말로 적기 4키 새 문구 · `lib/my-life-copy.ts` 임시 수를 구문 트리로 다시 셈 = 202) · 2026-11-04(충돌 보존 — `body.errConflict` 새 문구·`reloadLoseAsk`·`historyUnsaved` 임시 3 + `errConflictOnly` = 옛 확정 문구) · 2026-11-04(이야기 상세 `body` 60키 + `editBody` "글 고치기" 확정 — 9키 새 문구 · `lib/voice-copy.ts` 신설 = 말로 적기 칸 7키 코드에서 옮김, 임시) · 2026-11-04(`samePlaceQuestion` 조사 없는 문장 "같은 곳인가요? (이미 있는 장소: {이름})" — 조사 import 삭제·설명 줄 추가로 이 표 줄 번호 다시 맞춤) · 2026-11-04(자유 대화 72키 전부 확정 — 남은 54키 확정·5키 새 문구) · 2026-11-04(자유 대화 대화 중 8키 확정 — replyEmpty "다시 말씀해 주세요" 띄어쓰기) · 2026-11-04(자유 대화 들어옴 10키 확정 — setupDone·confirmAlready·topicGone·inputPlaceholder 새 문구) · 2026-11-04(문구 판단 기준 — 대상 = 모든 성인, "어려움" 표시 기준 변경·자유 대화 표시 다시 정리) · 2026-11-04(자유 대화 `lib/free-chat-copy.ts` 72키 — `declineFailed` 신설·화면 코드 문구 9키 옮김(빈 답·오류 3·입력칸 안내 2·마무리 말 3), 문구는 그대로) · 2026-11-04(개정 공지 띠 버튼 문서별 — 처리방침 보기·약관 보기, /terms 맨 위 줄 신설(약관 쪽 글 임시)) · 2026-11-04(개정 공지 `lib/policy-notice-copy.ts` 4키 확정 — 임시에서 빠짐) · 2026-11-04(가입 화면 `lib/join-copy.ts` 13키 확정 — 임시에서 빠짐 · 서비스 이름 화면 표기 "Lifebook"·"Google" 통일, 법적 표기 "라이프북" 유지) · 2026-11-03(개정 공지 — `lib/policy-notice-copy.ts` 4키, 아래 "개정 공지") · 2026-11-03(이야기 상세·글 고치기·이전 판·인물 글 — `lib/my-life-copy.ts` `body` 60키, 아래 "2b-3c 추가" · `hideBody` 삭제) · 2026-11-03(가입 전 동의 화면 `/join` 신설 — `lib/join-copy.ts` 13키, 아래 "가입 전 동의" · 동의 항목 문구는 확정된 /consent 문구를 같이 씀) · 2026-11-03(인물 확인 화면 삭제와 함께 `lib/node-confirm-copy.ts` 32키 전부 — 확인 화면·My Life "정리할 것" 카드·인터뷰 요약 카드 — 와 My Life 확인 대기 표시 4키 삭제, 설계 §15.6) · 2026-11-02(안 쓰는 키 7개 삭제 · 카드 오류 문구 6개를 `lib/free-chat-copy.ts` 로 옮김 반영) · 2026-11-02 My Life 개편 3단계(장소 묶음 7키 + 직접 만들기 `edit` 블록 103키 — 아래 "3단계 추가", 전부 임시) · 2026-11-02 3단계 E2E 후속(`edit.cannotUndo` 1키 — 104키) · 3단계 E2E 후속 2(`edit.deletedName`·`edit.deletePlaceGroups` — 106키, 지도 이동 줄 이름 `moveBarLabel`) · 3단계 최종 E2E(차례 보기 `tourLine`·`tourNext`·`tourBack`·`tourBackLabel` + 시기 패널 `inStory` — 5키) · 제안 카드 시기 미지정(`centerUnset`·`centerPick` — 2키) · 2026-11-03 옛 `/story-review` 본문 삭제와 함께 `storyReviewEntry`·`selfStoriesTitle` 삭제 · Q69 `/story-review` 합치기(My Life 11키 — 아래 "Q69 추가", 정리할 것·오늘의 인터뷰 문구의 보이는 곳 → My Life · Q69 후속에 그때의 나 묶음 제목은 화면에서 빠짐). 앱에 남은 `[임시 — 성민 확정 필요]` 문구 전부. **문구는 고치지 않았다** — 확정 문구는 성민이 준다. 확정되면 각 문구 파일만 고친다(로직 파일에 문구 하드코딩 없음).
 > 뽑은 방법: 문구 파일 3개(2026-11-03 인물 확인 문구 파일 삭제 전엔 4개)의 키를 TypeScript 구문 트리로 읽고, 그 키를 쓰는 곳(import 별칭·`const C = …` 대입 별칭 — 대입은 그 함수 안만 — 의 `별칭.키`)을 `app/`·`lib/`·`components/` 전체에서 찾았다. 줄 번호는 이 문서를 쓴 시점(커밋 기준) 값이다.
 
 **문구 판단 기준(2026-11-04 성민 — CLAUDE.md "문구 판단 기준")**: 대상은 어르신에서 출발했지만 청년을 포함한 모든 성인. "어려움" 표시 = 성인 누구나 바로 알아듣기 어려운 말(모호한 표현·개발 용어·키 조합 등). "카드"·"My Life"(영문 메뉴 이름)는 그대로 쓰며 표시 대상이 아니다. 접근성 기준(글자 크기·터치 영역 등)은 그대로.
@@ -10,7 +10,7 @@
 | 파일 | 임시 문구 | 화면에 안 나오는 키(쓰는 곳 없음) | 보이는 곳 |
 |---|---|---|---|
 | `lib/free-chat-copy.ts` | 0 (72키 2026-11-04 전부 확정 — 그 전 54: 72키 중 들어옴 10키·대화 중 8키 2026-11-04 확정 · 2026-11-04 `declineFailed` 신설 + 화면 코드에서 9키 옮김 — 그 전 62: 전부 — 카드 오류 6개는 2026-11-02 `lib/node-proposal.ts` 에서 옮겨 옴 · 시기 미지정 2개 `centerUnset`·`centerPick` 2026-11-02 추가) | 0 | `/chat-v3` 대화창 · 제안 카드(`/chat-v3`·`/interview` 마무리) |
-| `lib/my-life-copy.ts` | 202 (2026-11-04 구문 트리로 다시 셈 — 키 270 = 확정 68(메뉴 4·`editBody`·`body` 63) + 임시 202. 바로 앞 표기 201(충돌 3키 포함)·198 은 둘 다 실제보다 4개 적게 셈 · 충돌 3키는 같은 날 확정 · 그 전: 2026-11-04 충돌 보존 임시 3 — `body.errConflict`(새 문구)·`reloadLoseAsk`·`historyUnsaved` · 그 전 198: 2026-11-04 `body` 60키·`editBody` 확정 — 그 전 259: 2026-11-03 2b-3c `body` 60 추가·`hideBody` 삭제 — 아래 "2b-3c 추가" · 그 전 200 = 78 + 3단계 115 + Q69 11 − 확인 대기 표시 4(2026-11-03 삭제 — `pendingTag`·`goConfirm`·`pendingNote`·`draftNote`) · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 (`storyReviewEntry` 는 2026-11-03 옛 `/story-review` 본문과 함께 삭제) | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
+| `lib/my-life-copy.ts` | 160 (2026-11-04 지도·목록 공통·패널 정보 확정 — 키 271 = 확정 111 + 임시 160, 묶음은 아래 "남은 임시 — 화면 묶음" · 그 전 202: 2026-11-04 구문 트리로 다시 셈 — 키 270 = 확정 68(메뉴 4·`editBody`·`body` 63) + 임시 202. 바로 앞 표기 201(충돌 3키 포함)·198 은 둘 다 실제보다 4개 적게 셈 · 충돌 3키는 같은 날 확정 · 그 전: 2026-11-04 충돌 보존 임시 3 — `body.errConflict`(새 문구)·`reloadLoseAsk`·`historyUnsaved` · 그 전 198: 2026-11-04 `body` 60키·`editBody` 확정 — 그 전 259: 2026-11-03 2b-3c `body` 60 추가·`hideBody` 삭제 — 아래 "2b-3c 추가" · 그 전 200 = 78 + 3단계 115 + Q69 11 − 확인 대기 표시 4(2026-11-03 삭제 — `pendingTag`·`goConfirm`·`pendingNote`·`draftNote`) · 확정 4개 — 메뉴 이름 "My Life"·화면 제목 "My Life"·[인물 간선 끄기]·[장소 간선 끄기] — 제외) | 0 (`storyReviewEntry` 는 2026-11-03 옛 `/story-review` 본문과 함께 삭제) | `/my-life`(지도·목록·패널·만들기 시트) · 사이드 패널 메뉴 · `/story-review` |
 | `lib/interview/copy.ts` | 42 (전부 — `selfStoriesTitle` 2026-11-03 삭제) | 0 | `/interview` · My Life "오늘의 인터뷰" 카드(Q69 전 `/story-review`) |
 | `lib/join-copy.ts` | 0 (13키 2026-11-04 전부 확정) | 0 | `/join`(가입 전 동의 — 제목·안내·가입 방법 버튼) |
 | `lib/policy-notice-copy.ts` | 0 (4키 2026-11-04 전부 확정) | 0(개정 등록이 있을 때만 보임 — 지금 0) | 로그인한 화면 헤더 아래 띠 · /privacy 맨 위 |
@@ -103,50 +103,69 @@
 
 ### `lib/my-life-copy.ts` (`MY_LIFE_COPY`)
 
+#### 남은 임시 — 화면 묶음(2026-11-04 다시 분류, 160키)
+
+지난 보고(2026-11-04)의 "인물록·장소록 23 · 차례 보기 14"는 문구 파일 주석 범위로 센 것이라 묶음 이름이 실제 화면과 달랐다(그 범위에 찾기·선택 줄·이동 줄·패널 키가 섞여 있었음). 실제 화면 묶음으로 다시 나누면:
+
+- 찾기 8: `find`·`findTitle`·`findPlaceholder`·`findNone`·`findCount`·`kindEvent`·`kindStory`·`kindGroup`(찾기 결과 종류 — `kindPerson`·`kindPlace` 는 이번에 확정)
+- 선택 줄 2: `selectedLine`·`clearSelection`
+- 이동 줄 4: `toTimeline`·`toPeople`·`toPlaces`·`moveBarLabel`(낭독 이름)
+- 패널 5: `inStory`·`panelStoriesWith`·`panelEventsWith`·`panelGroups`·`goThere`
+- 차례 보기 5: `toRelated`·`tourLine`·`tourNext`·`tourBack`·`tourBackLabel`
+- 인물록·장소록 13: 화면 9(`edgePersonOn`·`edgePlaceOn`·`peopleTitle`·`placesTitle`·`noGroup`·`otherGroups`·`otherGroupsLong`·`groupChipShown`·`groupEmpty`) + 낭독 이름 4(`personName2`·`placeName2`·`groupLabelName`·`groupChipName`)
+- 장소 묶음 7: `kindPlaceGroup`·`noPlaceGroup`·`panelPlaceMembers`·`panelPlaceGroups`·`placeGroupEmpty`·`placeGroupLabelName`·`placeGroupChipName`
+- 이야기 거리·갭 카드·패널 평문 고치기(Q69) 10: `suggest`·`gapsTitle`·`gapInProgress`·`gapStart`·`gapContinue`·`bodyLabel`·`saveBody`·`savingBody`·`editBodyFailed`·`editBodyRetry`
+- 지도에서 만들기·넣기·빼기·옮기기·지우기·되돌리기(`edit`) 106 — 아래 "3단계 추가"
+
+확정(111): 메뉴 이름 4(2026-11-01) · 지도·목록 공통 28(머리 줄·찾기 9·확대·전환·접기 9·꼬리표 4·빈 화면 3·패널 이동 3 — `nowViewingNone` 삭제로 29 → 28)·패널 정보·낭독 이름 13·새 키 2(2026-11-04) · `editBody` · `body` 63.
+
+**지도·목록 공통 29 + 패널 정보 13 — 2026-11-04 확정**(아래 표의 "확정(2026-11-04)" 줄). 새 문구 9: `unfold` "이야기 {n}개 펼치기" · `fold` "이야기 접기"(접히는 것은 이야기뿐) · `alsoElsewhereShort` "다른 시기에도"(이야기 낭독 이름 끝에도) · `panelAlsoIn` "다른 시기에도 있어요: {시기들}" · `openPerson` "이 분 자세히 보기" · `openMap` "지도 앱에서 열기"(뒤 ↗ 그대로) · 시기 패널 `panelPeriodPeople` "이 시기의 분들"·`panelPeriodPlaces` "이 시기의 장소"(키 분리) · 이야기 패널 `panelWithPlaces` "이야기에 나온 곳". `nowViewingNone` 삭제(지도 맨 처음엔 줄을 비움). 사이드 메뉴 My Life 이름·설명 18px.
+
 | 키 | 줄 | 현재 문구 | 보이는 곳 | 코드 위치 |
 |---|---|---|---|---|
-| `menuHint` | 13 | "내 인생을 한 장의 지도로" | 사이드 패널 메뉴 | app/timemachine/SidePanel.tsx:274 |
-| `mapListLabel` | 15 | "My Life — 시기 순서" | /my-life | app/my-life/MyLifeView.tsx:937, app/my-life/MyLifeView.tsx:1189 |
-| `mapRegionLabel` | 16 | "My Life 지도" | /my-life | app/my-life/MyLifeView.tsx:764 |
-| `listStories` | 17 | "이야기" | /my-life | app/my-life/MyLifeView.tsx:972, app/my-life/MyLifeView.tsx:1204 |
-| `nowViewing` | 18 | `` (where: string) => `지금 보는 곳: ${where}` `` | /my-life | app/my-life/MyLifeView.tsx:679, app/my-life/MyLifeView.tsx:681 |
-| `nowViewingNone` | 19 | "지금 보는 곳: 처음" | /my-life | app/my-life/MyLifeView.tsx:682 |
-| `fitAll` | 20 | "전체 보기" | /my-life | app/my-life/MyLifeView.tsx:823 |
-| `zoomIn` | 21 | "크게 보기" | /my-life | app/my-life/MyLifeView.tsx:813 |
-| `zoomOut` | 22 | "작게 보기" | /my-life | app/my-life/MyLifeView.tsx:800 |
-| `zoomAnnounce` | 23 | `` (percent: number) => `지금 ${percent}%` `` | /my-life | app/my-life/MyLifeView.tsx:574, app/my-life/MyLifeView.tsx:625, app/my-life/MyLifeView.tsx:804, app/my-life/MyLifeView.tsx:817 |
-| `toList` | 24 | "목록으로 보기" | /my-life | app/my-life/MyLifeView.tsx:698 |
-| `chatEntry` | 25 | "이야기 나누기" | /my-life | app/my-life/MyLifeView.tsx:691, app/my-life/MyLifeView.tsx:706, app/my-life/MyLifeView.tsx:1187 |
-| `toMap` | 26 | "지도로 보기" | /my-life | app/my-life/MyLifeView.tsx:1181 |
-| `unfold` | 27 | `` (n: number) => `가지 ${n}개 펼치기` `` | /my-life | app/my-life/MyLifeView.tsx:968, app/my-life/MyLifeView.tsx:1429 |
-| `fold` | 28 | "가지 접기" | /my-life | app/my-life/MyLifeView.tsx:1429 |
-| `unfoldAll` | 29 | "모두 펼치기" | /my-life | app/my-life/MyLifeView.tsx:731 |
-| `yearsLater` | 30 | `` (n: number) => `${n}년 뒤` `` | /my-life | app/my-life/MyLifeView.tsx:932 |
-| `yearUnknown` | 31 | "연도 모름" | /my-life | app/my-life/MyLifeView.tsx:79, app/my-life/MyLifeView.tsx:84, app/my-life/MyLifeView.tsx:681 |
-| `selfTag` | 32 | "그때의 나" | /my-life | app/my-life/MyLifeView.tsx:1102, app/my-life/MyLifeView.tsx:1585 |
-| `kindPerson` | 33 | "사람" | /my-life | app/my-life/MyLifeView.tsx:1316, app/my-life/MyLifeView.tsx:1450 |
-| `kindPlace` | 34 | "장소" | /my-life | app/my-life/MyLifeView.tsx:1317, app/my-life/MyLifeView.tsx:1513 |
-| `alsoElsewhereShort` | 36 | "여러 시기" | /my-life | app/my-life/MyLifeView.tsx:1104 |
-| `close` | 37 | "닫기" | /my-life | app/my-life/MyLifeView.tsx:322, app/my-life/MyLifeView.tsx:1368 |
-| `readBody` | 38 | "본문 보기" | /my-life 이야기 패널 → 이야기 상세 링크(2026-11-03 — 패널 안 펼침·`hideBody` "본문 접기" 삭제) | app/my-life/MyLifeView.tsx(StoryPanel) |
-| `openPerson` | 42 | "인물록에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1499 |
-| `openMap` | 43 | "지도에서 보기" | /my-life | app/my-life/MyLifeView.tsx:1543 |
-| `emptyTitle` | 44 | "아직 지도에 담을 이야기가 없어요" | /my-life | app/my-life/page.tsx:33 |
-| `emptyDesc` | 45 | "이야기를 나누면 인생의 시기들이 여기에 하나씩 생겨요." | /my-life | app/my-life/page.tsx:34 |
-| `emptyCta` | 46 | "이야기 나누기" | /my-life | app/my-life/page.tsx:34 |
-| `panelStories` | 48 | `` (n: number) => `이야기 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
-| `panelPeople` | 49 | `` (n: number) => `사람 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
-| `panelPlaces` | 50 | `` (n: number) => `장소 ${n}` `` | /my-life | app/my-life/MyLifeView.tsx:1425 |
-| `panelWithPeople` | 51 | "함께 나온 분" | /my-life | app/my-life/MyLifeView.tsx:1597 |
-| `panelWithPlaces` | 52 | "나온 곳" | /my-life | app/my-life/MyLifeView.tsx:1610 |
-| `panelAlsoIn` | 53 | "같이 보이는 시기" | /my-life | app/my-life/MyLifeView.tsx:1620 |
-| `panelMembers` | 54 | "모임 사람들" | /my-life | app/my-life/MyLifeView.tsx:1562 |
-| `panelRelation` | 55 | "관계" | /my-life | app/my-life/MyLifeView.tsx:1456 |
-| `panelMetYear` | 56 | "만난 해" | /my-life | app/my-life/MyLifeView.tsx:1461 |
-| `panelAddress` | 57 | "주소" | /my-life | app/my-life/MyLifeView.tsx:1519 |
-| `eventName` | 59 | `` (yearText: string, label: string, stories: number, others: number) => `${yearText} ${label}, 이야기 ${stories}, 사람·장소 ${others}` `` | /my-life | app/my-life/MyLifeView.tsx:85 |
-| `storyName` | 61 | `` (lead: string, withNames: string[]) => withNames.length > 0 ? `이야기, ${lead}, 함께: ${withNames.join(", ")}` : `이야기, ${lead}` `` | /my-life | app/my-life/MyLifeView.tsx:90 |
-| `selfName` | 63 | `` (lead: string, withNames: string[]) => withNames.length > 0 ? `그때의 나, ${lead}, 함께: ${withNames.join(", ")}` : `그때의 나, ${lead}` `` | /my-life | app/my-life/MyLifeView.tsx:90 |
+| `menuHint` | 16 | "내 인생을 한 장의 지도로" | **확정(2026-11-04)** · 사이드 패널 메뉴 "My Life" 아래 설명(18px — 2026-11-04) | app/timemachine/SidePanel.tsx:269 |
+| `mapListLabel` | 17 | "My Life — 시기 순서" | **확정(2026-11-04)** · 시기 목록 낭독 이름(지도·목록 보기) | app/my-life/MyLifeView.tsx:1225, app/my-life/MyLifeView.tsx:1557 |
+| `mapRegionLabel` | 18 | "My Life 지도" | **확정(2026-11-04)** · 지도 영역 낭독 이름 | app/my-life/MyLifeView.tsx:1048 |
+| `listStories` | 19 | "이야기" | **확정(2026-11-04)** · 한 시기 아래 이야기 목록 낭독 이름 | app/my-life/MyLifeView.tsx:1260, app/my-life/MyLifeView.tsx:1572 |
+| `nowViewing` | 20 | `` (where: string) => `지금 보는 곳: ${where}` `` | **확정(2026-11-04)** · 지도에서 아무것도 안 골랐을 때 머리 줄 아래 줄 — 시기가 있으면 늘 가장 가까운 시기(보는 시기가 사라진 순간만 빈 줄) | app/my-life/MyLifeView.tsx:925, app/my-life/MyLifeView.tsx:927 |
+| `fitAll` | 21 | "전체 보기" | **확정(2026-11-04)** · 지도 아래 도구줄 버튼 | app/my-life/MyLifeView.tsx:1124 |
+| `zoomIn` | 22 | "크게 보기" | **확정(2026-11-04)** · 지도 아래 [＋] 낭독 이름(화면엔 그림만) | app/my-life/MyLifeView.tsx:1114 |
+| `zoomOut` | 23 | "작게 보기" | **확정(2026-11-04)** · 지도 아래 [－] 낭독 이름(화면엔 그림만) | app/my-life/MyLifeView.tsx:1101 |
+| `zoomAnnounce` | 24 | `` (percent: number) => `지금 ${percent}%` `` | **확정(2026-11-04)** · 확대·축소 뒤 읽어 줌(화면엔 안 보임) | app/my-life/MyLifeView.tsx:778, app/my-life/MyLifeView.tsx:837, app/my-life/MyLifeView.tsx:1105, app/my-life/MyLifeView.tsx:1118 |
+| `toList` | 25 | "목록으로 보기" | **확정(2026-11-04)** · 지도 머리 줄 버튼 | app/my-life/MyLifeView.tsx:948 |
+| `chatEntry` | 26 | "이야기 나누기" | **확정(2026-11-04)** · 지도·목록 머리 쪽 주 버튼 | app/my-life/MyLifeView.tsx:937, app/my-life/MyLifeView.tsx:956, app/my-life/MyLifeView.tsx:1548 |
+| `toMap` | 27 | "지도로 보기" | **확정(2026-11-04)** · 목록 보기 머리 줄 버튼 | app/my-life/MyLifeView.tsx:1540 |
+| `unfold` | 28 | `` (n: number) => `이야기 ${n}개 펼치기` `` | **확정(2026-11-04)** · 접은 시기 아래 지도 버튼 · 시기 패널 버튼(접히는 것은 이야기뿐) | app/my-life/MyLifeView.tsx:1256, app/my-life/MyLifeView.tsx:1864 |
+| `fold` | 29 | "이야기 접기" | **확정(2026-11-04)** · 시기 패널 버튼(지도 보기) | app/my-life/MyLifeView.tsx:1864 |
+| `unfoldAll` | 30 | "모두 펼치기" | **확정(2026-11-04)** · 접은 시기가 있고 아무것도 안 골랐을 때 머리 줄 아래 줄 버튼 | app/my-life/MyLifeView.tsx:1011 |
+| `yearsLater` | 31 | `` (n: number) => `${n}년 뒤` `` | **확정(2026-11-04)** · 지도에서 시기 사이가 멀 때 사이 칸(낭독 숨김) | app/my-life/MyLifeView.tsx:1220 |
+| `yearUnknown` | 32 | "연도 모름" | **확정(2026-11-04)** · 시기 노드·패널 연도 자리 · 이야기 상세 · 지금 보는 곳 괄호 | app/my-life/MyLifeView.tsx:92, app/my-life/MyLifeView.tsx:927 |
+| `selfTag` | 33 | "그때의 나" | **확정(2026-11-04)** · 그때의 나 이야기 노드·목록 꼬리표 · 이야기 패널·상세 맨 위 | app/my-life/MyLifeView.tsx:1439, app/my-life/MyLifeView.tsx:2050, app/my-life/story/[id]/page.tsx:42 |
+| `kindPerson` | 34 | "사람" | **확정(2026-11-04)** · 찾기 결과 "사람 · 이름" · 사람 패널 맨 위 | app/my-life/MyLifeView.tsx:1707, app/my-life/MyLifeView.tsx:1885 |
+| `kindPlace` | 35 | "장소" | **확정(2026-11-04)** · 찾기 결과 "장소 · 이름" · 장소 패널 맨 위 | app/my-life/MyLifeView.tsx:1708, app/my-life/MyLifeView.tsx:1938 |
+| `alsoElsewhereShort` | 36 | "다른 시기에도" | **확정(2026-11-04)** · 다른 시기에도 걸린 이야기 노드·목록 꼬리표 · 그 이야기 낭독 이름 끝 | app/my-life/MyLifeView.tsx:1440 |
+| `close` | 37 | "닫기" | **확정(2026-11-04)** · 패널·찾기·이야기 거리·만들기 시트 맨 아래 | app/my-life/EditUI.tsx:349, app/my-life/MyLifeView.tsx:485, app/my-life/MyLifeView.tsx:519, app/my-life/MyLifeView.tsx:1760 |
+| `readBody` | 38 | "본문 보기" | **확정(2026-11-04)** · 이야기 패널 → 이야기 상세 | app/my-life/MyLifeView.tsx:2061 |
+| `openPerson` | 128 | "이 분 자세히 보기" | **확정(2026-11-04)** · 사람 패널 맨 아래 → /people/[id] | app/my-life/MyLifeView.tsx:1925 |
+| `openMap` | 129 | "지도 앱에서 열기" | **확정(2026-11-04)** · 장소 패널 맨 아래 → 네이버·구글 지도 새 창(뒤 "↗" 는 화면 코드) | app/my-life/MyLifeView.tsx:1968 |
+| `emptyTitle` | 130 | "아직 지도에 담을 이야기가 없어요" | **확정(2026-11-04)** · 시기가 0개일 때 /my-life(20px 굵게) | app/my-life/page.tsx:46 |
+| `emptyDesc` | 131 | "이야기를 나누면 인생의 시기들이 여기에 하나씩 생겨요." | **확정(2026-11-04)** · 같은 빈 화면 그림 아래 | app/my-life/page.tsx:47 |
+| `emptyCta` | 132 | "이야기 나누기" | **확정(2026-11-04)** · 같은 빈 화면 주 버튼 | app/my-life/page.tsx:47 |
+| `panelStories` | 134 | `` (n: number) => `이야기 ${n}` `` | **확정(2026-11-04)** · 시기 패널 수 줄 "이야기 n · 사람 n · 장소 n" | app/my-life/MyLifeView.tsx:1860 |
+| `panelPeople` | 135 | `` (n: number) => `사람 ${n}` `` | **확정(2026-11-04)** · 같은 줄 | app/my-life/MyLifeView.tsx:1860 |
+| `panelPlaces` | 136 | `` (n: number) => `장소 ${n}` `` | **확정(2026-11-04)** · 같은 줄 | app/my-life/MyLifeView.tsx:1860 |
+| `panelPeriodPeople` | 137 | "이 시기의 분들" | **확정(2026-11-04)** · 시기 패널 사람 목록 제목(2026-11-04 키 분리) | app/my-life/EditUI.tsx:483 |
+| `panelPeriodPlaces` | 138 | "이 시기의 장소" | **확정(2026-11-04)** · 시기 패널 장소 목록 제목(2026-11-04 키 분리) | app/my-life/EditUI.tsx:484 |
+| `panelWithPeople` | 139 | "함께 나온 분" | **확정(2026-11-04)** · 이야기 패널 사람 목록 제목(이야기 상세와 같은 글) | app/my-life/EditUI.tsx:490 |
+| `panelWithPlaces` | 140 | "이야기에 나온 곳" | **확정(2026-11-04)** · 이야기 패널 장소 목록 제목(이야기 상세와 같은 글) | app/my-life/EditUI.tsx:494 |
+| `panelAlsoIn` | 141 | `` (events: string) => `다른 시기에도 있어요: ${events}` `` | **확정(2026-11-04)** · 이야기 패널 — 추가 소속 시기 | app/my-life/MyLifeView.tsx:2115 |
+| `panelMembers` | 142 | "모임 사람들" | **확정(2026-11-04)** · 모임 패널 사람 목록 제목 | app/my-life/EditUI.tsx:503 |
+| `panelRelation` | 143 | "관계" | **확정(2026-11-04)** · 사람 패널 "관계: …" | app/my-life/MyLifeView.tsx:1891 |
+| `panelMetYear` | 144 | "만난 해" | **확정(2026-11-04)** · 사람 패널 "만난 해: …" | app/my-life/MyLifeView.tsx:1896 |
+| `panelAddress` | 145 | "주소" | **확정(2026-11-04)** · 장소 패널 "주소: …" | app/my-life/MyLifeView.tsx:1944 |
+| `eventName` | 147 | `` (yearText: string, label: string, stories: number, others: number) => `${yearText} ${label}, 이야기 ${stories}, 사람·장소 ${others}` `` | **확정(2026-11-04)** · 시기 노드·목록 낭독 이름(화면 이름 + 수) | app/my-life/MyLifeView.tsx:94 |
+| `storyName` | 150 | `` (lead: string, withNames: string[], tag?: string \| null) => (withNames.length > 0 ? `이야기, ${lead}, 함께: ${withNames.join(", ")}` : `이야기, ${lead}`) + (tag ? `, ${tag}` : "") `` | **확정(2026-11-04)** · 이야기 노드·목록 낭독 이름("다른 시기에도" 꼬리표가 보이면 끝에) | app/my-life/MyLifeView.tsx:99 |
+| `selfName` | 152 | `` (lead: string, withNames: string[]) => withNames.length > 0 ? `그때의 나, ${lead}, 함께: ${withNames.join(", ")}` : `그때의 나, ${lead}` `` | **확정(2026-11-04)** · 그때의 나 노드·목록 낭독 이름 | app/my-life/MyLifeView.tsx:99 |
 | `edgePersonOn` | 66 | "인물 간선 켜기" | /my-life | app/my-life/MyLifeView.tsx:719 |
 | `edgePlaceOn` | 67 | "장소 간선 켜기" | /my-life | app/my-life/MyLifeView.tsx:722 |
 | `peopleTitle` | 68 | "인물록" | /my-life | app/my-life/MyLifeView.tsx:679, app/my-life/MyLifeView.tsx:991, app/my-life/MyLifeView.tsx:1041, app/my-life/MyLifeView.tsx:1240 |

@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ButtonLink } from "@/components/ui/Button";
-import { getMyLifeData, type MyLifeEvent } from "@/lib/my-life";
+import { getMyLifeData } from "@/lib/my-life";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
+import { yearText } from "@/lib/my-life-layout";
 import { getEpisodeBody } from "@/lib/node-body";
 import { displayTitle } from "@/lib/story-title";
 
@@ -16,11 +17,6 @@ import { photoMapOf } from "../../_body/photo-urls";
 // 머리 정보(시기·제목·함께 나온 분·나온 곳)는 지도와 같은 데이터(getMyLifeData) — 지도에 없는 이야기(확정 안 된 시기)는 없음.
 
 const C = MY_LIFE_COPY;
-
-function yearText(ev: Pick<MyLifeEvent, "year" | "endYear">): string {
-  if (ev.year === null) return C.yearUnknown;
-  return ev.endYear !== null && ev.endYear !== ev.year ? `${ev.year}~${ev.endYear}` : `${ev.year}`;
-}
 
 export default async function StoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

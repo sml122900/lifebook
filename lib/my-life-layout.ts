@@ -14,6 +14,7 @@
 // 클라이언트에서도 쓰므로 prisma 를 import 하지 않는다(타입만).
 
 import type { MyLifeData, MyLifeEvent, MyLifeStory } from "./my-life";
+import { MY_LIFE_COPY } from "./my-life-copy";
 import { GROUP_SHAPE, rectInsideShape, rectOutsideShape, shapeAround, SHAPE_PAD, type GroupShape, type GroupShapeKind, type Rect } from "./my-life-group-shape";
 
 const PAD = 40;
@@ -204,7 +205,13 @@ export function eventPeoplePlaces(ev: Pick<MyLifeEvent, "personIds" | "placeIds"
   return { people: r.people.size, places: r.places.size };
 }
 
-// 꼬리표 줄(한 줄, 18px) — 그때의 나 > 여러 시기 순으로 하나만 보인다(나머지는 패널·버튼 이름에).
+// 시기 연도 글자 — "1971" · 기간이면 "1971~1974" · 모르면 "연도 모름". 지도·목록·패널·만들기·이야기 상세 공용(2026-11-04 — 3벌을 한 곳으로).
+export function yearText(ev: Pick<MyLifeEvent, "year" | "endYear">): string {
+  if (ev.year === null) return MY_LIFE_COPY.yearUnknown;
+  return ev.endYear !== null && ev.endYear !== ev.year ? `${ev.year}~${ev.endYear}` : `${ev.year}`;
+}
+
+// 꼬리표 줄(한 줄, 18px) — 그때의 나 > 다른 시기에도 순으로 하나만 보인다(나머지는 패널·버튼 이름에).
 export type StoryTag = "self" | "elsewhere" | null;
 export function storyTag(s: MyLifeStory): StoryTag {
   if (s.kind === "SELF") return "self";
