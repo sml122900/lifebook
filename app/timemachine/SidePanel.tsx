@@ -132,7 +132,7 @@ function SidePanel({
               ? `내 정보 패널 열기 (새 가족 소식 ${data.familyNewsCount}개)`
               : "내 정보 패널 열기"
           }
-          className="fixed right-4 top-4 z-30 inline-flex min-h-[48px] items-center gap-2 rounded-md border-2 border-amber-500 bg-surface px-4 py-2 text-base font-semibold text-amber-900 shadow-md hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="fixed right-4 top-[calc((var(--app-header-h)-3rem)/2)] z-30 inline-flex min-h-[48px] items-center gap-2 rounded-md border-2 border-amber-500 bg-surface px-4 py-2 text-base font-semibold text-amber-900 shadow-md hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
           <span aria-hidden>≡</span>
           내 정보
@@ -268,7 +268,6 @@ function SidePanel({
                   label={MY_LIFE_COPY.menuLabel}
                   hint={MY_LIFE_COPY.menuHint}
                   prefetch={false}
-                  large
                 />
               </>
             ) : (
@@ -427,14 +426,12 @@ function MenuItem({
   icon,
   dataTour,
   prefetch,
-  large,
 }: {
   href: string;
   label: string;
   hint: string;
   icon?: React.ReactNode;
   dataTour?: string;
-  large?: boolean; // 이름·설명 18px(2026-11-04 — 지금은 My Life 만, 다른 메뉴는 16·12px 그대로)
   // v3 P22-2 — 이 사이드 패널은 로그인 후 거의 모든 화면에 떠 있어, 여기
   // 담긴 링크는 뷰포트에 들어올 때마다 Next 기본(auto) prefetch 대상이
   // 된다. /chat-v3·/story-review 는 완전 동적 렌더(auth() 의존)라 그
@@ -451,11 +448,12 @@ function MenuItem({
       prefetch={prefetch}
       className="flex flex-col rounded-md border-2 border-line bg-surface px-4 py-3 hover:bg-amber-50 hover:border-amber-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
     >
-      <span className={`flex items-center gap-1.5 ${large ? "text-lg" : "text-base"} font-semibold text-ink`}>
+      {/* 이름·설명 18px(2026-11-04 — 메뉴 전부, 본문 하한) */}
+      <span className="flex items-center gap-1.5 text-lg font-semibold text-ink">
         {icon && <span className="text-ink-soft">{icon}</span>}
         {label}
       </span>
-      <span className={`mt-0.5 ${large ? "text-lg" : "text-xs"} text-ink-soft`}>{hint}</span>
+      <span className="mt-0.5 text-lg text-ink-soft">{hint}</span>
     </Link>
   );
 }

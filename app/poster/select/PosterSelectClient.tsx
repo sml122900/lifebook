@@ -145,10 +145,10 @@ export function PosterSelectClient({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 상단 고정 바 — 카운터 + 저장 */}
+      {/* 상단 고정 바 — 카운터 + 저장. 앱 머리 줄(--app-header-h, [내 정보] 버튼이 그 안) 바로 아래에 붙는다(2026-11-04). */}
       <div
         data-tour="poster-counter"
-        className="sticky top-0 z-10 -mx-4 flex items-center justify-between gap-3 border-b border-line bg-canvas px-4 py-3"
+        className="sticky top-[var(--app-header-h)] z-10 -mx-4 flex items-center justify-between gap-3 border-b border-line bg-canvas px-4 py-3"
       >
         <span className="text-base font-semibold text-ink sm:text-lg">
           노드 <b className="text-action">{nodeCount}</b>

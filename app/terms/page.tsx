@@ -331,8 +331,8 @@ export default function TermsPage() {
       <h1 className="mt-4 text-ink">이용약관</h1>
       {notice && (
         // 약관 개정 안내(lib/policy-notice — 처리방침과 같은 구조, 2026-11-04). 띠 [약관 보기](#policy-notice)가 여기로.
-        // scroll-mt-20 — 고정된 [내 정보] 버튼(top-4·48px)에 가리지 않게
-        <p id={NOTICE_ANCHOR} role="note" className="mt-4 scroll-mt-20 rounded-md border-2 border-line bg-banner px-4 py-3 text-lg text-ink">
+        // scroll-mt-4 — 숨 쉴 여백. 로그인한 화면의 머리 줄은 html scroll-padding-top(--app-header-h)이 비켜 준다(2026-11-04).
+        <p id={NOTICE_ANCHOR} role="note" className="mt-4 scroll-mt-4 rounded-md border-2 border-line bg-banner px-4 py-3 text-lg text-ink">
           {POLICY_NOTICE_COPY.pageLine(notice)}
         </p>
       )}

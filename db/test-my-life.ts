@@ -610,8 +610,10 @@ async function main() {
         yearText({ year: 1971, endYear: 1971 }) === "1971" && yearText({ year: null, endYear: 1980 }) === C.yearUnknown &&
         ![view, edit, story13].some((t) => t.includes("function yearText(")) &&
         [view, edit, story13].every((t) => /import \{[^}]*\byearText\b[^}]*\} from "@\/lib\/my-life-layout";/.test(t)));
-    check("⑬ 지도 맨 처음엔 \"지금 보는 곳\" 줄 비움(옛 nowViewingNone 없음 — 줄 높이는 오른쪽 버튼 56px) · 접기 = 이야기만(이야기 n개 펼치기·이야기 접기)",
-      !("nowViewingNone" in C) && !view.includes("nowViewingNone") && view.includes(': nowText ? <p className="min-w-0 truncate text-lg text-ink-soft">{nowText}</p> : <span />}') &&
+    check("⑬ \"지금 보는 곳\" — 보는 시기가 없으면 비움(옛 nowViewingNone 없음) · 좁은 화면은 글 줄(늘 한 줄 높이)·버튼 줄 나눔(모두 펼치기 있고 없음에 높이 같음) · 접기 = 이야기만",
+      !("nowViewingNone" in C) && !view.includes("nowViewingNone") &&
+        view.includes('<div className="flex flex-col gap-1 px-6 py-1 sm:min-h-[56px] sm:flex-row sm:items-center sm:justify-between sm:gap-3">') &&
+        view.includes('<p className={`min-h-7 min-w-0 truncate text-lg ${status ? "text-ink" : "text-ink-soft"}`}>{status || nowText}</p>') &&
         C.unfold(3) === "이야기 3개 펼치기" && C.fold === "이야기 접기");
     check("⑬ 꼬리표 \"다른 시기에도\" — 화면 꼬리표가 보이면 낭독 이름 끝에도 · 그때의 나는 그대로 · 이야기 패널 \"다른 시기에도 있어요: …\"",
       C.alsoElsewhereShort === "다른 시기에도" && C.storyName("수학여행", ["철수"], C.alsoElsewhereShort) === "이야기, 수학여행, 함께: 철수, 다른 시기에도" &&
@@ -623,9 +625,22 @@ async function main() {
         C.panelWithPeople === C.body.peopleTitle && C.panelWithPlaces === C.body.placesTitle &&
         C.openPerson === "이 분 자세히 보기" && C.openMap === "지도 앱에서 열기" && view.includes("{C.openMap} ↗"));
     const side13 = src("app/timemachine/SidePanel.tsx");
-    check("⑬ 사이드 메뉴 My Life — 이름·설명 18px(large) · 다른 메뉴는 그대로",
-      side13.includes("hint={MY_LIFE_COPY.menuHint}\n                  prefetch={false}\n                  large") &&
-        side13.includes('${large ? "text-lg" : "text-base"}') && side13.includes('${large ? "text-lg" : "text-xs"}') && (side13.match(/\blarge$/gm) ?? []).length === 1);
+    check("⑬ 사이드 메뉴 전부 — 이름·설명 18px(메뉴 항목 하나의 부품 MenuItem)",
+      side13.includes('<span className="flex items-center gap-1.5 text-lg font-semibold text-ink">') && side13.includes('<span className="mt-0.5 text-lg text-ink-soft">{hint}</span>') &&
+        !side13.includes("text-xs text-ink-soft\">{hint}") && !/\blarge\b/.test(side13));
+    // 2026-11-04 — 고정 [내 정보] 버튼 겹침: 로그인한 화면의 앱 머리 줄을 위에 붙이고(sticky) 버튼을 그 안 오른쪽 빈자리에. 다른 sticky 줄·앵커는 그 아래에서.
+    const layout13 = src("app/layout.tsx");
+    const css13 = src("app/globals.css");
+    check("⑬ 앱 머리 줄(로그인) — sticky·높이 --app-header-h·오른쪽 버튼 자리 · 버튼은 그 안 가운데 · html scroll-padding · chat-v3·포스터 고르기 sticky 줄은 그 아래",
+      layout13.includes('"sticky top-0 z-20 flex h-[var(--app-header-h)] items-center border-b border-line bg-canvas pl-6 pr-44"') &&
+        layout13.includes('data-app-header={sidePanelData ? "" : undefined}') && css13.includes("--app-header-h: 4.5rem;") &&
+        /html\[data-app-header\] \{\s*scroll-padding-top: var\(--app-header-h\);/.test(css13) &&
+        side13.includes("fixed right-4 top-[calc((var(--app-header-h)-3rem)/2)] z-30") &&
+        src("app/chat-v3/ChatV3Client.tsx").includes('className="sticky top-[var(--app-header-h)] z-20 ') &&
+        src("app/chat-v3/ChatV3Client.tsx").includes("root.style.scrollPaddingTop = `calc(var(--app-header-h) + ${el.offsetHeight}px)`;") &&
+        src("app/poster/select/PosterSelectClient.tsx").includes('className="sticky top-[var(--app-header-h)] z-10 ') &&
+        ["app/privacy/page.tsx", "app/terms/page.tsx"].every((f) => src(f).includes('role="note" className="mt-4 scroll-mt-4 ')) &&
+        !/sticky top-0/.test(src("app/chat-v3/ChatV3Client.tsx") + src("app/poster/select/PosterSelectClient.tsx")));
 
     for (const [g, pg] of [[0, 1], [2, 2], [3, 3], [1, 5]] as const) {
       const syn = synthetic({ events: 11, stories: 23, people: 12, groups: g, places: 14, placeGroups: pg, seed: 21 + pg });

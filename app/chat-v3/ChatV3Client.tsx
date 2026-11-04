@@ -213,12 +213,13 @@ export function ChatV3Client({
 
   // 고정 머리말(sticky) 높이만큼 문서 스크롤 여백(scroll-padding-top) — 카드로 자동 스크롤할 때·키보드로 카드 버튼에 갈 때·
   // 카드를 맨 위까지 올렸을 때 머리말 뒤로 가리지 않게(390 실측 — 카드 제목 윗줄이 가렸다). 머리말 높이가 바뀌면 다시 잰다.
+  // 2026-11-04 — 이 머리말은 앱 머리 줄(Lifebook + [내 정보], --app-header-h) 아래에 붙으므로 그 높이도 더한다.
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
     const root = document.documentElement;
     const apply = () => {
-      root.style.scrollPaddingTop = `${el.offsetHeight}px`;
+      root.style.scrollPaddingTop = `calc(var(--app-header-h) + ${el.offsetHeight}px)`;
     };
     apply();
     const ro = new ResizeObserver(apply);
@@ -681,8 +682,8 @@ export function ChatV3Client({
   return (
     <div className="flex flex-1 flex-col gap-4">
       {/* P5-4 — 캐릭터가 대화 리액션 용도라 헤더 전체를 sticky 로 고정. 작은 화면에서는 캐릭터를 제목
-          아래 줄로 — 사이드 패널 "내 정보" 버튼(fixed right-4 top-4)과 세로로 겹칠 공간 자체를 없앤다. */}
-      <header ref={headerRef} className="sticky top-0 z-20 flex flex-col gap-3 border-b border-line bg-canvas py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          아래 줄로. 2026-11-04 — 앱 머리 줄(--app-header-h, [내 정보] 버튼이 그 안) 바로 아래에 붙는다. */}
+      <header ref={headerRef} className="sticky top-[var(--app-header-h)] z-20 flex flex-col gap-3 border-b border-line bg-canvas py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ink">이야기 나누기</h1>
           <p className="mt-1 text-base text-ink-soft">편하게 대답만 해주세요.</p>

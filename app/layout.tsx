@@ -83,10 +83,18 @@ export default async function RootLayout({
   const notice = session?.user ? activeNotice() : null;
 
   return (
-    <html lang="ko" className={`h-full antialiased ${notoSerif.variable}`}>
+    <html lang="ko" className={`h-full antialiased ${notoSerif.variable}`} data-app-header={sidePanelData ? "" : undefined}>
       <body className="min-h-full flex flex-col bg-canvas text-ink text-lg leading-relaxed">
         <SessionProvider>
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-6 py-4">
+        {/* 로그인한 화면 — 머리 줄을 위에 붙이고(sticky) 오른쪽은 고정 [내 정보] 버튼(app/timemachine/SidePanel) 자리로 비운다.
+            스크롤해도 버튼 아래로 글·버튼이 지나가지 않는다(2026-11-04 — 화면마다 겹치던 것을 한 곳에서). 높이 = --app-header-h. */}
+        <header
+          className={
+            sidePanelData
+              ? "sticky top-0 z-20 flex h-[var(--app-header-h)] items-center border-b border-line bg-canvas pl-6 pr-44"
+              : "flex flex-wrap items-center justify-between gap-3 border-b border-line px-6 py-4"
+          }
+        >
           <Link
             href="/"
             className="text-2xl font-bold text-ink hover:text-ink-soft"

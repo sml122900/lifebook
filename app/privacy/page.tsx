@@ -113,8 +113,9 @@ export default function PrivacyPage() {
 
       <h1 className="mt-4 text-ink">개인정보 처리방침</h1>
       {notice && (
-        // scroll-mt-20 — 띠 [자세히 보기](#policy-notice)로 내려왔을 때 고정된 [내 정보] 버튼(top-4·48px)에 가리지 않게
-        <p id={NOTICE_ANCHOR} role="note" className="mt-4 scroll-mt-20 rounded-md border-2 border-line bg-banner px-4 py-3 text-lg text-ink">
+        // scroll-mt-4 — 띠의 문서 버튼(#policy-notice)으로 내려왔을 때 숨 쉴 여백. 로그인한 화면의 머리 줄(Lifebook + [내 정보])은
+        // html scroll-padding-top(--app-header-h, app/globals.css)이 비켜 준다(2026-11-04 — 전엔 버튼만큼 scroll-mt-20).
+        <p id={NOTICE_ANCHOR} role="note" className="mt-4 scroll-mt-4 rounded-md border-2 border-line bg-banner px-4 py-3 text-lg text-ink">
           {POLICY_NOTICE_COPY.pageLine(notice)}
         </p>
       )}

@@ -1002,10 +1002,12 @@ function MapMode({
           </div>
         </>
       ) : (
-        <div className="flex min-h-[56px] items-center justify-between gap-3 px-6 py-1">
-          {status ? <p className="min-w-0 truncate text-lg text-ink">{status}</p> : nowText ? <p className="min-w-0 truncate text-lg text-ink-soft">{nowText}</p> : <span />}
-          {/* Q69 — /story-review 의 카드를 지도 보기에서도(390 머리 줄 두 줄엔 자리가 없어 이 줄 오른쪽). */}
-          <div className="flex shrink-0 gap-2">
+        // 좁은 화면(sm 미만)은 글 줄과 버튼 줄을 늘 나눈다 — [모두 펼치기]가 생기고 없어져도 높이가 같아 지도가 출렁이지 않는다
+        // (2026-11-04 — 한 줄일 땐 글이 "지금 보는 …"까지 잘렸다). 글 줄은 비어도 한 줄 높이(min-h-7)를 지킨다.
+        <div className="flex flex-col gap-1 px-6 py-1 sm:min-h-[56px] sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <p className={`min-h-7 min-w-0 truncate text-lg ${status ? "text-ink" : "text-ink-soft"}`}>{status || nowText}</p>
+          {/* Q69 — /story-review 의 카드를 지도 보기에서도(390 은 글 줄 아래 버튼 줄, sm 이상은 이 줄 오른쪽). */}
+          <div className="flex shrink-0 justify-end gap-2">
             {anyFolded && (
               <Button variant="secondary" size="lg" className="px-4!" onClick={() => setFolded(new Set())}>
                 {C.unfoldAll}

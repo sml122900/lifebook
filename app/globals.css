@@ -64,6 +64,14 @@
 /* 가이드 집행: 다크모드 없음 — OS 설정과 무관하게 항상 라이트. */
 :root {
   color-scheme: light;
+  /* 로그인한 화면의 맨 위 머리 줄(Lifebook + [내 정보]) 높이 — 머리 줄이 위에 붙어 있어서(sticky) 다른 sticky 줄·
+     앵커 이동이 이만큼 아래에서 시작한다(2026-11-04 — 고정 [내 정보] 버튼 겹침을 공통으로 해결, app/layout.tsx). */
+  --app-header-h: 4.5rem;
+}
+
+/* 로그인한 화면(app/layout.tsx 가 html 에 data-app-header) — 앵커·scrollIntoView 가 머리 줄 뒤로 가리지 않게. */
+html[data-app-header] {
+  scroll-padding-top: var(--app-header-h);
 }
 
 body {
