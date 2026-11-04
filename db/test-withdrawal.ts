@@ -432,6 +432,13 @@ async function scenario6_nodeGraph() {
   await prisma.nodeBody.create({
     data: { userId: hana.id, nodeType: "PLACE_GROUP", nodeId: placeGroup.id, doc: { v: 1, blocks: [] }, plainText: "" },
   });
+  // 사용자 카테고리(2026-11-04 — docs/phase/custom-graph.md) — 카테고리·항목 + 넣기 연결(사람 → 카테고리) + 항목 본문·이전 판.
+  const cat = await prisma.customNode.create({ data: { userId: hana.id, kind: "CATEGORY", name: "[fixture] 반려동물" } });
+  const item = await prisma.customNode.create({ data: { userId: hana.id, kind: "ITEM", parentId: cat.id, name: "[fixture] 초롱이" } });
+  const member = await saveNodeLink(hana.id, { type: "PERSON", id: person.id }, { type: "CUSTOM", id: cat.id });
+  if (!member.ok) throw new Error(`saveNodeLink(CUSTOM) failed in setup: ${JSON.stringify(member)}`);
+  await prisma.nodeBody.create({ data: { userId: hana.id, nodeType: "CUSTOM", nodeId: item.id, doc: { v: 1, blocks: [] }, plainText: "" } });
+  await prisma.nodeBodyRevision.create({ data: { userId: hana.id, nodeType: "CUSTOM", nodeId: item.id, plainText: "[fixture] 옛 글" } });
 
   const count = async () => ({
     places: await prisma.place.count({ where: { userId: hana.id } }),
@@ -442,6 +449,8 @@ async function scenario6_nodeGraph() {
     links: await prisma.nodeLink.count({ where: { userId: hana.id } }),
     bodies: await prisma.nodeBody.count({ where: { userId: hana.id } }),
     bodyMemory: await prisma.userMemory.count({ where: { id: bodyMemory.id } }),
+    customNodes: await prisma.customNode.count({ where: { userId: hana.id } }),
+    bodyRevisions: await prisma.nodeBodyRevision.count({ where: { userId: hana.id } }),
   });
   console.log("before deletion:", await count());
 

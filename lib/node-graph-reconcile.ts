@@ -12,6 +12,9 @@
 //      출처 STORY(이야기 따라) → 정리 대상 · DIRECT(직접·칸 전 기존 행) → 보고만(2026-11-02 3단계 E2E — §14.7·§14.8)
 //   13 이야기 기록(브릿지 메모리 createdVia="episode")의 장소 행 중 장소 노드(placeId) 없는 것 — 보고만(늘 0 이어야.
 //      My Life 는 이야기 장소를 장소 노드로만 그린다 — 2026-11-03 이름만 남은 장소 예외 제거, my-life-restructure §15.8)
+//   14 사용자 노드(CustomNode — docs/phase/custom-graph.md §2.3) — 보고만(늘 0 이어야): 종류 값 밖 · 자리 규칙(카테고리에 자리 /
+//      묶음·항목에 자리 없음·자리가 카테고리 아님·자리가 기본 카테고리 행) · 남의 parentId · 자기 자신 부모(CHECK 가 막음) · 고리 ·
+//      기본 카테고리 행 오용(종류·자리·값·자식·연결) · 같은 종류 넣기(MEMBER) · 역할과 종류 불일치 · 자리와 겹치는 넣기
 // 정리(applyNodeGraphCleanup)는 1·5(노드 없음)·8·12(STORY) 만, 점검과 같은 조건의 DELETE 한 문장씩.
 
 import { prisma } from "./db";
@@ -41,6 +44,19 @@ export type NodeGraphIssues = {
   storyPeriodPeopleWithoutStory: number; // 12 — 그 시기 이야기에 그 분이 안 나오는 시기↔사람 중 출처 STORY(정리 대상)
   directPeriodPeopleWithoutStory: number; // 12 — 같은 조건, 출처 DIRECT(보고만)
   storyPlacesWithoutNode: number; // 13 — 이야기 기록의 placeId 없는 장소 행(보고만)
+  custom: CustomNodeIssues; // 14 — 사용자 노드(보고만)
+};
+
+export type CustomNodeIssues = {
+  badKind: number; // 종류 값이 CATEGORY·GROUP·ITEM 밖
+  badHome: number; // 카테고리에 자리 · 묶음·항목에 자리 없음 · 자리가 카테고리 아님 · 자리가 기본 카테고리 행
+  foreignParent: number; // 자리(parentId)가 남의 노드
+  selfParent: number; // 자기 자신이 자리(CHECK CustomNode_parent_not_self_check 가 막음 — 늘 0)
+  cycles: number; // 자리를 따라 올라가면 자기에게 돌아오는 노드(고리)
+  builtinMisuse: number; // 기본 카테고리 행이 카테고리 아님·자리 있음·값 밖·자식 있음·연결 있음
+  sameKindMember: number; // 같은 종류끼리 넣기(MEMBER)
+  roleMismatch: number; // 역할이 노드 종류 규칙과 다름(넣기여야 하는데 관련·관련이어야 하는데 넣기·허용 안 된 관련 쌍)
+  homeMember: number; // 담기는 쪽의 자리가 담는 쪽인데 넣기 연결도 있음(한 쌍 두 곳)
 };
 
 function scope(col: string, s: NodeGraphScope): Prisma.Sql {
@@ -61,6 +77,7 @@ function ownerOf(typeCol: string, idCol: string): Prisma.Sql {
     WHEN 'PERSON' THEN (SELECT x."userId" FROM "Person" x WHERE x.id = ${id})
     WHEN 'PLACE_GROUP' THEN (SELECT x."userId" FROM "PlaceGroup" x WHERE x.id = ${id})
     WHEN 'PLACE' THEN (SELECT x."userId" FROM "Place" x WHERE x.id = ${id})
+    WHEN 'CUSTOM' THEN (SELECT x."userId" FROM "CustomNode" x WHERE x.id = ${id})
   END`;
 }
 
@@ -83,9 +100,59 @@ const PERIOD_PERSON_WITHOUT_STORY = Prisma.sql`NOT EXISTS (
 
 const n = (v: unknown) => Number(v ?? 0);
 
+// 14 — 종류 순서(카테고리 3 > 묶음 2 > 항목 1). 담는 쪽 = 순서가 높은 쪽(lib/node-graph customPairRole 과 같은 규칙).
+const ORD = (alias: string) => Prisma.raw(`(CASE ${alias}.kind WHEN 'CATEGORY' THEN 3 WHEN 'GROUP' THEN 2 WHEN 'ITEM' THEN 1 ELSE 0 END)`);
+
+async function countCustomNodeIssues(s: NodeGraphScope): Promise<CustomNodeIssues> {
+  const cs = scope(`c."userId"`, s);
+  const ls = scope(`nl."userId"`, s);
+  const [r] = await prisma.$queryRaw<Record<string, number>[]>`
+    SELECT
+      (SELECT count(*)::int FROM "CustomNode" c WHERE ${cs} AND c.kind NOT IN ('CATEGORY', 'GROUP', 'ITEM')) AS bad_kind,
+      (SELECT count(*)::int FROM "CustomNode" c LEFT JOIN "CustomNode" p ON p.id = c."parentId"
+        WHERE ${cs} AND ((c.kind = 'CATEGORY' AND c."parentId" IS NOT NULL)
+          OR (c.kind IN ('GROUP', 'ITEM') AND (c."parentId" IS NULL OR p.kind <> 'CATEGORY' OR p.builtin IS NOT NULL)))) AS bad_home,
+      (SELECT count(*)::int FROM "CustomNode" c JOIN "CustomNode" p ON p.id = c."parentId" WHERE ${cs} AND p."userId" <> c."userId") AS foreign_parent,
+      (SELECT count(*)::int FROM "CustomNode" c WHERE ${cs} AND c."parentId" = c.id) AS self_parent,
+      (WITH RECURSIVE walk(start, cur, depth) AS (
+          SELECT c.id, c."parentId", 1 FROM "CustomNode" c WHERE ${cs} AND c."parentId" IS NOT NULL
+          UNION ALL
+          SELECT w.start, p."parentId", w.depth + 1 FROM walk w JOIN "CustomNode" p ON p.id = w.cur
+          WHERE w.cur <> w.start AND p."parentId" IS NOT NULL AND w.depth < 50)
+        SELECT count(DISTINCT start)::int FROM walk WHERE cur = start AND depth > 1) AS cycles,
+      (SELECT count(*)::int FROM "CustomNode" c WHERE ${cs} AND c.builtin IS NOT NULL AND (
+          c.kind <> 'CATEGORY' OR c."parentId" IS NOT NULL OR c.builtin NOT IN ('PEOPLE', 'PLACES')
+          OR EXISTS (SELECT 1 FROM "CustomNode" k WHERE k."parentId" = c.id)
+          OR EXISTS (SELECT 1 FROM "NodeLink" l WHERE (l."fromType" = 'CUSTOM' AND l."fromId" = c.id) OR (l."toType" = 'CUSTOM' AND l."toId" = c.id)))) AS builtin_misuse,
+      (SELECT count(*)::int FROM "NodeLink" nl JOIN "CustomNode" f ON f.id = nl."fromId" JOIN "CustomNode" t ON t.id = nl."toId"
+        WHERE ${ls} AND nl."fromType" = 'CUSTOM' AND nl."toType" = 'CUSTOM' AND f.kind = t.kind AND nl.role = 'MEMBER') AS same_kind_member,
+      (SELECT count(*)::int FROM "NodeLink" nl JOIN "CustomNode" t ON t.id = nl."toId"
+        WHERE ${ls} AND nl."fromType" <> 'CUSTOM' AND nl."toType" = 'CUSTOM' AND (
+          (t.kind IN ('CATEGORY', 'GROUP') AND nl.role <> 'MEMBER')
+          OR (t.kind = 'ITEM' AND (nl.role <> '' OR nl."fromType" NOT IN ('LIFE_EVENT', 'EPISODE', 'PERSON', 'PLACE')))))
+      + (SELECT count(*)::int FROM "NodeLink" nl JOIN "CustomNode" f ON f.id = nl."fromId" JOIN "CustomNode" t ON t.id = nl."toId"
+        WHERE ${ls} AND nl."fromType" = 'CUSTOM' AND nl."toType" = 'CUSTOM' AND (
+          (f.kind = t.kind AND nl.role <> 'MEMBER' AND NOT (f.kind = 'ITEM' AND nl.role = ''))
+          OR (f.kind <> t.kind AND nl.role <> 'MEMBER'))) AS role_mismatch,
+      (SELECT count(*)::int FROM "NodeLink" nl JOIN "CustomNode" f ON f.id = nl."fromId" JOIN "CustomNode" t ON t.id = nl."toId"
+        WHERE ${ls} AND nl."fromType" = 'CUSTOM' AND nl."toType" = 'CUSTOM' AND nl.role = 'MEMBER' AND f.kind <> t.kind
+          AND ((${ORD("f")} > ${ORD("t")} AND t."parentId" = f.id) OR (${ORD("t")} > ${ORD("f")} AND f."parentId" = t.id))) AS home_member`;
+  return {
+    badKind: n(r.bad_kind),
+    badHome: n(r.bad_home),
+    foreignParent: n(r.foreign_parent),
+    selfParent: n(r.self_parent),
+    cycles: n(r.cycles),
+    builtinMisuse: n(r.builtin_misuse),
+    sameKindMember: n(r.same_kind_member),
+    roleMismatch: n(r.role_mismatch),
+    homeMember: n(r.home_member),
+  };
+}
+
 export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<NodeGraphIssues> {
   const linkScope = scope(`nl."userId"`, s);
-  const [ends, [dir], [dup], [body], [stale], [photo], [orphan], [pend], [loc], [mem], [ple], [spl]] = await Promise.all([
+  const [ends, [dir], [dup], [body], [stale], [photo], [orphan], [pend], [loc], [mem], [ple], [spl], custom] = await Promise.all([
     // 1·2 — 문제 있는 끝만 돌려받는다(정상이면 0행).
     prisma.$queryRaw<{ id: string; t: string; missing: boolean }[]>`
       SELECT nl.id, e.t::text AS t, (e.owner IS NULL) AS missing
@@ -146,6 +213,7 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
     prisma.$queryRaw<{ n: number }[]>`
       SELECT count(*)::int AS n FROM "MemoryPlace" mp JOIN "UserMemory" m ON m.id = mp."memoryId"
       WHERE ${scope(`m."userId"`, s)} AND m."createdVia" = 'episode' AND mp."placeId" IS NULL`,
+    countCustomNodeIssues(s),
   ]);
 
   const danglingByType: Record<string, number> = {};
@@ -171,6 +239,7 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
     storyPeriodPeopleWithoutStory: n(ple.story),
     directPeriodPeopleWithoutStory: n(ple.direct),
     storyPlacesWithoutNode: n(spl.n),
+    custom,
   };
 }
 

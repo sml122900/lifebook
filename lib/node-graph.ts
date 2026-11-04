@@ -14,14 +14,17 @@
 //   4) upsert — 이미 있으면 같은 행. PROPOSED 행에 CONFIRMED 요청이 오면 확정만 올린다
 //      (확정 → 제안으로 내리지 않는다).
 // 노드 삭제 시 연결 정리는 DB 트리거(마이그 20261030000000_node_graph)가 한다.
+// 사용자 노드(CUSTOM — CustomNode, docs/phase/custom-graph.md §2.3)가 낀 쌍은 역할(role)을 부르는 쪽이 아니라
+// customPairRole 이 노드 종류로 정한다 — 넣기 "MEMBER" / 관련 "". 부르는 쪽이 다른 role 을 넘기면 unsupported_option.
 
 import { prisma } from "./db";
 import type { Prisma } from "./generated/prisma/client";
 import type { LinkStatus, NodeType } from "./generated/prisma/enums";
 
 // 순위 — prisma/schema.prisma 의 NodeType 선언 순서와 같아야 한다(DB CHECK 가 그 순서를 쓴다).
-// PLACE_GROUP 은 마이그 20261102000000_place_group 에서 PLACE 바로 위에 넣었다.
-export const NODE_RANK: readonly NodeType[] = ["LIFE_EVENT", "EPISODE", "PERSON_GROUP", "PERSON", "PLACE_GROUP", "PLACE"];
+// PLACE_GROUP 은 마이그 20261102000000_place_group 에서 PLACE 바로 위에 넣었다. CUSTOM 은 마이그 20261104000000_custom_node 에서
+// 맨 뒤(가장 낮은 순위) — 기본 종류 ↔ 사용자 노드는 늘 기본 종류가 from, 사용자 노드끼리는 id 바이트 순.
+export const NODE_RANK: readonly NodeType[] = ["LIFE_EVENT", "EPISODE", "PERSON_GROUP", "PERSON", "PLACE_GROUP", "PLACE", "CUSTOM"];
 
 export type NodeRef = { type: NodeType; id: string };
 
@@ -33,6 +36,14 @@ export const ALLOWED_PAIRS: ReadonlySet<string> = new Set<string>([
   "EPISODE>PERSON_GROUP",
   "EPISODE>PERSON", // 함께 나온 인물(대상 인물 1명은 Episode.personId)
   "PERSON>PLACE",
+  // 사용자 노드(CUSTOM) 쌍 — 쌍 키만. 실제 허용 여부와 역할(넣기 MEMBER / 관련 "")은 customPairRole 이 노드 종류로 정한다.
+  "LIFE_EVENT>CUSTOM",
+  "EPISODE>CUSTOM",
+  "PERSON_GROUP>CUSTOM",
+  "PERSON>CUSTOM",
+  "PLACE_GROUP>CUSTOM",
+  "PLACE>CUSTOM",
+  "CUSTOM>CUSTOM",
 ]);
 
 // 정규화된 쌍 중 NodeLink 가 아니라 기존 칸에 저장하는 것(§1.5). 정합 점검의 "허용 안 된 쌍"은
@@ -69,7 +80,58 @@ async function ownsNode(db: Prisma.TransactionClient, userId: string, n: NodeRef
       return (await db.placeGroup.count({ where })) > 0;
     case "PLACE":
       return (await db.place.count({ where })) > 0;
+    case "CUSTOM":
+      return (await db.customNode.count({ where })) > 0;
   }
+}
+
+// ── 사용자 노드 역할 규칙(docs/phase/custom-graph.md §2.3 — 2026-11-04 성민) ─────────────────────────
+// 종류 순서 카테고리 > 묶음 > 항목. 다른 종류끼리 = 넣기(MEMBER), 담는 쪽 = 순서가 높은 쪽. 같은 종류끼리는 넣기 금지 —
+// 항목끼리만 관련("")(Q79), 묶음·카테고리끼리는 거부. 기본 종류(6종) ↔ 사용자 노드: 카테고리·묶음이면 넣기, 항목이면 관련
+// (시기·이야기·사람·장소만 — 모임·장소 묶음 ↔ 항목 관련은 Q79 밖). 기본 카테고리 행(builtin — 인물록·장소록 표시 이름)은
+// 넣기·관련 모두 거부(그 영역은 기존 영역 그대로). 담기는 쪽의 자리(parentId)가 담는 쪽이면 거부(이미 그 자리 — 한 쌍 = 한 곳).
+export type CustomEnd = { type: "CUSTOM"; id: string; kind: string; parentId: string | null; builtin: string | null };
+export type PairEnd = CustomEnd | { type: Exclude<NodeType, "CUSTOM">; id: string };
+export type CustomPairReject = "pair_not_allowed" | "builtin_category" | "home_category" | "same_kind";
+export type CustomPairRole = { ok: true; role: "MEMBER" | "" } | { ok: false; reason: CustomPairReject };
+
+const KIND_ORDER: Readonly<Record<string, number>> = { CATEGORY: 3, GROUP: 2, ITEM: 1 };
+const ITEM_RELATED: ReadonlySet<NodeType> = new Set<NodeType>(["LIFE_EVENT", "EPISODE", "PERSON", "PLACE"]);
+
+// 순수 함수 — 두 끝 중 적어도 하나가 CUSTOM 일 때만 부른다.
+export function customPairRole(a: PairEnd, b: PairEnd): CustomPairRole {
+  for (const e of [a, b]) {
+    if (e.type !== "CUSTOM") continue;
+    if (e.builtin !== null) return { ok: false, reason: "builtin_category" };
+    if (!Object.hasOwn(KIND_ORDER, e.kind)) return { ok: false, reason: "pair_not_allowed" };
+  }
+  if (a.type !== "CUSTOM" || b.type !== "CUSTOM") {
+    const c = (a.type === "CUSTOM" ? a : b) as CustomEnd;
+    const x = a.type === "CUSTOM" ? b : a;
+    if (c.kind === "ITEM") return ITEM_RELATED.has(x.type) ? { ok: true, role: "" } : { ok: false, reason: "pair_not_allowed" };
+    return { ok: true, role: "MEMBER" };
+  }
+  const oa = KIND_ORDER[a.kind];
+  const ob = KIND_ORDER[b.kind];
+  if (oa === ob) return a.kind === "ITEM" ? { ok: true, role: "" } : { ok: false, reason: "same_kind" };
+  const [container, member] = oa > ob ? [a, b] : [b, a];
+  if (member.parentId === container.id) return { ok: false, reason: "home_category" };
+  return { ok: true, role: "MEMBER" };
+}
+
+// 소유는 부르는 쪽이 먼저 확인한다(ownsNode). 사용자 노드 끝의 종류·자리·기본 카테고리 표시를 읽어 역할을 정한다.
+async function customRoleOf(db: Prisma.TransactionClient, userId: string, a: NodeRef, b: NodeRef): Promise<CustomPairRole> {
+  const ids = [a, b].filter((n) => n.type === "CUSTOM").map((n) => n.id);
+  const rows = await db.customNode.findMany({ where: { id: { in: ids }, userId }, select: { id: true, kind: true, parentId: true, builtin: true } });
+  const end = (n: NodeRef): PairEnd | null => {
+    if (n.type !== "CUSTOM") return { type: n.type, id: n.id };
+    const r = rows.find((x) => x.id === n.id);
+    return r ? { type: "CUSTOM", ...r } : null;
+  };
+  const ea = end(a);
+  const eb = end(b);
+  if (!ea || !eb) return { ok: false, reason: "pair_not_allowed" };
+  return customPairRole(ea, eb);
 }
 
 // store — 실제로 저장한 칸. linkId 는 그 칸의 행 id(NodeLink·PersonLifeEvent·MemoryPlace·구성원 행).
@@ -82,7 +144,7 @@ export type SaveNodeLinkResult =
   | {
       ok: false;
       // unsupported_option — 기존 칸으로 넘기는 쌍에 PROPOSED·role 요청(그 칸들엔 상태·역할이 없다)
-      reason: "self_link" | "pair_not_allowed" | "not_found" | "primary_membership" | "unsupported_option";
+      reason: "self_link" | "pair_not_allowed" | "not_found" | "primary_membership" | "unsupported_option" | Exclude<CustomPairReject, "pair_not_allowed">;
     };
 
 export async function saveNodeLink(
@@ -108,6 +170,14 @@ export async function saveNodeLink(
 
   const [fromOwned, toOwned] = await Promise.all([ownsNode(db, userId, from), ownsNode(db, userId, to)]);
   if (!fromOwned || !toOwned) return { ok: false, reason: "not_found" };
+
+  let role = opts.role ?? "";
+  if (from.type === "CUSTOM" || to.type === "CUSTOM") {
+    const r = await customRoleOf(db, userId, from, to);
+    if (!r.ok) return { ok: false, reason: r.reason };
+    if (opts.role !== undefined && opts.role !== r.role) return { ok: false, reason: "unsupported_option" };
+    role = r.role;
+  }
 
   const made = (linkId: string, store: LinkStore, created: boolean): SaveNodeLinkResult => ({ ok: true, linkId, status: "CONFIRMED", store, created });
 
@@ -170,7 +240,6 @@ export async function saveNodeLink(
     if (primary > 0) return { ok: false, reason: "primary_membership" };
   }
 
-  const role = opts.role ?? "";
   const status = opts.status ?? "CONFIRMED";
   const unique = { fromType: from.type, fromId: from.id, toType: to.type, toId: to.id, role };
   const had = await db.nodeLink.findUnique({ where: { fromType_fromId_toType_toId_role: unique }, select: { id: true } });
@@ -237,6 +306,15 @@ export async function removeNodeLink(
   const [fromOwned, toOwned] = await Promise.all([ownsNode(db, userId, from), ownsNode(db, userId, to)]);
   if (!fromOwned || !toOwned) return { ok: false, reason: "not_found" };
 
+  // 사용자 노드 쌍 — 저장과 같은 계산으로 역할을 정해 그 행만 지운다(다른 role 을 넘기면 지울 행 없음).
+  let roleFilter: string | undefined = opts.role;
+  if (from.type === "CUSTOM" || to.type === "CUSTOM") {
+    const r = await customRoleOf(db, userId, from, to);
+    if (!r.ok) return { ok: false, reason: "pair_not_allowed" };
+    if (opts.role !== undefined && opts.role !== r.role) return { ok: true, removed: 0, store: "NODE_LINK", rows: [] };
+    roleFilter = r.role;
+  }
+
   // 지울 행을 먼저 읽어 되살림 값을 남기고, 그 id 들만 지운다.
   const at = (d: Date) => d.toISOString();
   if (key === "LIFE_EVENT>PERSON") {
@@ -272,7 +350,7 @@ export async function removeNodeLink(
     return { ok: false, reason: "subject_person" };
   }
   const rows = await db.nodeLink.findMany({
-    where: { userId, fromType: from.type, fromId: from.id, toType: to.type, toId: to.id, ...(opts.role !== undefined ? { role: opts.role } : {}) },
+    where: { userId, fromType: from.type, fromId: from.id, toType: to.type, toId: to.id, ...(roleFilter !== undefined ? { role: roleFilter } : {}) },
     select: { id: true, role: true, status: true, source: true, createdAt: true, confirmedAt: true },
   });
   const r = await db.nodeLink.deleteMany({ where: { id: { in: rows.map((x) => x.id) } } });
@@ -296,7 +374,7 @@ export async function removeNodeLink(
 // 그사이 같은 연결이 다시 생겼으면 그 행은 그대로 둔다(created false — 멱등).
 export type RestoreNodeLinkResult =
   | { ok: true; restored: number }
-  | { ok: false; reason: "bad_rows" | "self_link" | "pair_not_allowed" | "not_found" | "primary_membership" | "unsupported_option" };
+  | { ok: false; reason: "bad_rows" | "self_link" | "pair_not_allowed" | "not_found" | "primary_membership" | "unsupported_option" | Exclude<CustomPairReject, "pair_not_allowed"> };
 
 function parseRemovedRow(v: unknown): RemovedLinkRow | null {
   if (!v || typeof v !== "object") return null;

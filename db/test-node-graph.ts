@@ -108,17 +108,18 @@ async function main() {
       `SELECT t.tgname::text AS tgname, t.tgenabled::text AS enabled FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
         WHERE NOT t.tgisinternal AND p.proname IN ('node_graph_cleanup','node_body_cleanup_memory') ORDER BY 1`);
     const expected = [
+      "CustomNode_node_graph_cleanup", // 사용자 카테고리 1단계(마이그 20261104000000_custom_node)
       "Episode_node_graph_cleanup", "LifeEvent_node_graph_cleanup", "NodeBody_cleanup_memory",
       "PersonGroup_node_graph_cleanup", "Person_node_graph_cleanup", "PlaceGroup_node_graph_cleanup", "Place_node_graph_cleanup",
     ];
-    check("① 정리 트리거 7개 존재·활성", JSON.stringify(triggers.map((t) => t.tgname)) === JSON.stringify(expected) && triggers.every((t) => t.enabled === "O"), triggers);
+    check("① 정리 트리거 8개 존재·활성", JSON.stringify(triggers.map((t) => t.tgname)) === JSON.stringify(expected) && triggers.every((t) => t.enabled === "O"), triggers);
     const checks = await prisma.$queryRawUnsafe<{ n: bigint }[]>(`SELECT count(*) AS n FROM pg_constraint WHERE conname = 'NodeLink_direction_check' AND contype = 'c'`);
     check("① 방향 CHECK(NodeLink_direction_check) 존재", Number(checks[0].n) === 1);
     const enumOrder = await prisma.$queryRawUnsafe<{ label: string }[]>(
       `SELECT e.enumlabel::text AS label FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'NodeType' ORDER BY e.enumsortorder`);
     check("① DB NodeType 선언 순서 = lib NODE_RANK", JSON.stringify(enumOrder.map((e) => e.label)) === JSON.stringify(NODE_RANK), enumOrder);
-    check("① PLACE_GROUP 은 PERSON 아래·PLACE 위(묶음이 구성원 위)",
-      JSON.stringify(NODE_RANK) === JSON.stringify(["LIFE_EVENT", "EPISODE", "PERSON_GROUP", "PERSON", "PLACE_GROUP", "PLACE"]), NODE_RANK);
+    check("① PLACE_GROUP 은 PERSON 아래·PLACE 위(묶음이 구성원 위) · CUSTOM 은 맨 뒤(가장 낮은 순위)",
+      JSON.stringify(NODE_RANK) === JSON.stringify(["LIFE_EVENT", "EPISODE", "PERSON_GROUP", "PERSON", "PLACE_GROUP", "PLACE", "CUSTOM"]), NODE_RANK);
 
     // ── ② 방향 정규화 ─────────────────────────────────────────────
     const n1 = normalizeNodePair({ type: "PLACE", id: "p1" }, { type: "LIFE_EVENT", id: "e1" });

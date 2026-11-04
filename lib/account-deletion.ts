@@ -16,6 +16,10 @@
 // - Account/Session/Wallet/Transaction/AIConversation/TriggerResponse/
 //   LifeEvent/Episode/OnboardingProfile/OnboardingChatMessage: 기존
 //   cascade로 자동 정리.
+// - 노드 그래프(docs/phase/node-graph-self.md · custom-graph.md): Person·Place·PlaceGroup·
+//   PersonGroup·NodeLink·NodeBody·NodeBodyRevision·CustomNode 도 userId FK Cascade(구성원
+//   PersonGroupMember·PlaceGroupMember 는 묶음·구성원 FK Cascade). 다형 연결(NodeLink·NodeBody·
+//   NodeBodyRevision)은 노드 행이 지워질 때 DB 트리거 node_graph_cleanup 이 정리 — 여기서 손대지 않음.
 import { prisma } from "@/lib/db";
 import { purgeUserStorage } from "@/lib/storage-purge";
 
