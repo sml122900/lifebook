@@ -178,10 +178,11 @@ function CycleDots({
   todayChecked: boolean;
 }) {
   // 7개 슬롯. i (1-indexed) ≤ cyclePos 면 채움.
+  // 7칸 격자 — 동그라미는 칸 폭에 맞춰 줄고(최대 48·sm 56px) 좁은 화면(390·360)에서도 가로로 안 넘친다(2026-11-04 — 전엔 48px 고정 7개 = 360px).
   // 마지막 채워진 자리 + todayChecked → "오늘" 강조 (ring).
   return (
     <ol
-      className="flex items-center justify-between gap-1 sm:gap-2"
+      className="grid grid-cols-7 gap-1 sm:gap-2"
       aria-label={`이번 사이클 ${cyclePos} / ${BONUS_EVERY_DAYS}일 진행`}
     >
       {Array.from({ length: BONUS_EVERY_DAYS }).map((_, idx) => {
@@ -192,7 +193,7 @@ function CycleDots({
         return (
           <li
             key={day}
-            className="flex flex-col items-center gap-1"
+            className="flex min-w-0 flex-col items-center gap-1"
             aria-label={
               filled
                 ? `${day}일째 출석 완료${isBonusSlot ? " (보너스)" : ""}`
@@ -201,7 +202,7 @@ function CycleDots({
           >
             <div
               className={
-                "flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all sm:h-14 sm:w-14 " +
+                "flex aspect-square w-full max-w-12 items-center justify-center rounded-full border-2 transition-all sm:max-w-14 " +
                 (filled
                   ? "border-amber-700 bg-amber-700 text-white shadow"
                   : "border-line bg-surface text-ink-faint") +

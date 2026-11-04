@@ -628,12 +628,15 @@ async function main() {
     check("⑬ 사이드 메뉴 전부 — 이름·설명 18px(메뉴 항목 하나의 부품 MenuItem)",
       side13.includes('<span className="flex items-center gap-1.5 text-lg font-semibold text-ink">') && side13.includes('<span className="mt-0.5 text-lg text-ink-soft">{hint}</span>') &&
         !side13.includes("text-xs text-ink-soft\">{hint}") && !/\blarge\b/.test(side13));
+    check("⑬ 지도 머리 줄 — 390 에서 제목 한 줄(안 꺾음) · 좁은 화면 [찾기]·[목록으로 보기] 좌우 여백 12px",
+      view.includes('<h1 className="m-0 shrink-0 whitespace-nowrap text-[28px]">{C.pageTitle}</h1>') &&
+        (view.match(/className="px-3! sm:px-4!" onClick={(onOpenFind|onToggleView)}/g) ?? []).length === 2);
     // 2026-11-04 — 고정 [내 정보] 버튼 겹침: 로그인한 화면의 앱 머리 줄을 위에 붙이고(sticky) 버튼을 그 안 오른쪽 빈자리에. 다른 sticky 줄·앵커는 그 아래에서.
     const layout13 = src("app/layout.tsx");
     const css13 = src("app/globals.css");
-    check("⑬ 앱 머리 줄(로그인) — sticky·높이 --app-header-h·오른쪽 버튼 자리 · 버튼은 그 안 가운데 · html scroll-padding · chat-v3·포스터 고르기 sticky 줄은 그 아래",
+    check("⑬ 앱 머리 줄(로그인) — sticky·높이 --app-header-h 56px·오른쪽 버튼 자리 · 버튼은 그 안 가운데(보이는 48 + 터치 56) · html scroll-padding · chat-v3·포스터 고르기 sticky 줄은 그 아래",
       layout13.includes('"sticky top-0 z-20 flex h-[var(--app-header-h)] items-center border-b border-line bg-canvas pl-6 pr-44"') &&
-        layout13.includes('data-app-header={sidePanelData ? "" : undefined}') && css13.includes("--app-header-h: 4.5rem;") &&
+        layout13.includes('data-app-header={sidePanelData ? "" : undefined}') && css13.includes("--app-header-h: 3.5rem;") && side13.includes("before:absolute before:inset-x-0 before:-inset-y-1.5") &&
         /html\[data-app-header\] \{\s*scroll-padding-top: var\(--app-header-h\);/.test(css13) &&
         side13.includes("fixed right-4 top-[calc((var(--app-header-h)-3rem)/2)] z-30") &&
         src("app/chat-v3/ChatV3Client.tsx").includes('className="sticky top-[var(--app-header-h)] z-20 ') &&

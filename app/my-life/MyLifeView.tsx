@@ -930,7 +930,9 @@ function MapMode({
   return (
     <div ref={regionRef} className="flex flex-col" style={{ height: regionTop ? `calc(100dvh - ${regionTop}px)` : "calc(100dvh - 72px)", minHeight: 420 }}>
       <div className="flex items-center justify-between gap-2 px-6 pt-3">
-        <h1 className="m-0 text-[28px]">{C.pageTitle}</h1>
+        {/* 390 에서 제목 한 줄(2026-11-04 — 두 줄로 꺾여 지도 높이 35px 를 먹었다): 제목은 안 꺾고, 좁은 화면은 [찾기]·[목록으로 보기]
+            좌우 여백 16 → 12px(제목 107 + 버튼 87·126 + 간격 = 336 / 342px). */}
+        <h1 className="m-0 shrink-0 whitespace-nowrap text-[28px]">{C.pageTitle}</h1>
         <div className="flex shrink-0 gap-2">
           <ButtonLink href="/chat-v3" variant="primary" size="lg" className="hidden! px-4! sm:inline-flex!">
             <MessageCircle aria-hidden size={20} className="shrink-0" />
@@ -940,11 +942,11 @@ function MapMode({
             <Plus aria-hidden size={20} className="shrink-0" />
             {C.edit.create}
           </Button>
-          <Button variant="secondary" size="lg" className="px-4!" onClick={onOpenFind}>
+          <Button variant="secondary" size="lg" className="px-3! sm:px-4!" onClick={onOpenFind}>
             <Search aria-hidden size={20} className="shrink-0" />
             {C.find}
           </Button>
-          <Button variant="secondary" size="lg" className="px-4!" onClick={onToggleView}>
+          <Button variant="secondary" size="lg" className="px-3! sm:px-4!" onClick={onToggleView}>
             {C.toList}
           </Button>
         </div>

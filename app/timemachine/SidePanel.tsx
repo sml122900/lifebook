@@ -122,7 +122,8 @@ function SidePanel({
   return (
     <>
       {/* 햄버거 / "내 정보" 버튼 — 사이드 닫혀있을 때만, 모든 화면.
-          새 가족 소식이 있으면 개수 뱃지 — 패널 안 열어도 눈에 띄게. */}
+          새 가족 소식이 있으면 개수 뱃지 — 패널 안 열어도 눈에 띄게.
+          자리 = 앱 머리 줄(--app-header-h 56px) 안 가운데 — 보이는 48px + 위아래 4px 터치 영역(::before — 테두리 2px 안쪽 기준이라 -6px) = 56px(2026-11-04). */}
       {!open && (
         <button
           type="button"
@@ -132,7 +133,7 @@ function SidePanel({
               ? `내 정보 패널 열기 (새 가족 소식 ${data.familyNewsCount}개)`
               : "내 정보 패널 열기"
           }
-          className="fixed right-4 top-[calc((var(--app-header-h)-3rem)/2)] z-30 inline-flex min-h-[48px] items-center gap-2 rounded-md border-2 border-amber-500 bg-surface px-4 py-2 text-base font-semibold text-amber-900 shadow-md hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="fixed right-4 top-[calc((var(--app-header-h)-3rem)/2)] z-30 inline-flex before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] min-h-[48px] items-center gap-2 rounded-md border-2 border-amber-500 bg-surface px-4 py-2 text-base font-semibold text-amber-900 shadow-md hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
           <span aria-hidden>≡</span>
           내 정보
