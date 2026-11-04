@@ -14,10 +14,13 @@
 //   ⑪ 가족 룸 — node_body 메모리 안 보임 · My Life 데이터(richBody·인물 글)
 //   ⑫ 노드 삭제 — 이야기 지우기·인물 지우기 → 본문·이전 판·사진 메모리·사진 파일 0
 //   ⑬ 탈퇴 — 이전 판 Cascade 0 · ⑭ 남의 것 — 저장·되돌리기·목록 막힘
+//   ⑮ 문구(2026-11-04 확정) — 빈 글 오류의 버튼 이름 = 실제 [이 노드 지우기] · 패널 버튼 = 글 고치기 화면 이름 · 안내 18px · 말로 적기 문구는 문구 파일
 //
 // 실행: npx tsx db/test-node-body.ts
 
 import "dotenv/config";
+
+import fs from "node:fs";
 
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
@@ -39,6 +42,8 @@ import {
 import { deletePerson } from "../lib/people";
 import { attachPhotoToMemory } from "../lib/photos";
 import { createRoom, listRoomMemories } from "../lib/rooms";
+import { MY_LIFE_COPY } from "../lib/my-life-copy";
+import { VOICE_COPY } from "../lib/voice-copy";
 
 const EMAIL_A = "fixture-node-body-a@lifebook.invalid";
 const EMAIL_B = "fixture-node-body-b@lifebook.invalid";
@@ -287,6 +292,17 @@ async function main() {
     check("⑭ 남의 이야기 — 저장·되돌리기·이전 판 목록·보기 막힘 · 본문 그대로",
       !bSave.ok && bSave.reason === "not_found" && !bRestore.ok && bRestore.reason === "not_found" && bList.length === 0 && bView === null && stillA?.content === "A 가 고친 글.",
       { bSave, bRestore, n: bList.length });
+
+    // ── ⑮ 문구(2026-11-04 확정) ───────────────────────────────────
+    const B = MY_LIFE_COPY.body;
+    const editorSrc = fs.readFileSync("app/my-life/_body/BodyEditor.tsx", "utf8");
+    const voiceSrc = fs.readFileSync("app/components/VoiceTextarea.tsx", "utf8");
+    check("⑮ 빈 글 오류 = 실제 [이 노드 지우기] · 패널 버튼 = 글 고치기 화면 이름([글 고치기]) · 사진 안내 2줄 18px · 말로 적기 문구 7개는 문구 파일에서만",
+      B.errEmpty.includes(`[${MY_LIFE_COPY.edit.deleteNode}]`) && MY_LIFE_COPY.editBody === B.editTitle && B.richNote.includes(`[${B.editTitle}]`) &&
+        editorSrc.includes('text-lg text-ink-soft">{C.uploadHint}') && editorSrc.includes('text-lg text-ink-soft">{C.removeNote}') &&
+        Object.values(VOICE_COPY).every((t) => !voiceSrc.includes(t)) &&
+        Object.keys(VOICE_COPY).every((k) => voiceSrc.includes(`VOICE_COPY.${k}`)),
+      { errEmpty: B.errEmpty, editBody: MY_LIFE_COPY.editBody });
   } finally {
     await removeFixtures();
     const left = await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B, EMAIL_C] } } });

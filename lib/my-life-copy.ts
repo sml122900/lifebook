@@ -1,4 +1,4 @@
-// My Life 화면 문구 — 메뉴 이름 "My Life" 만 성민 확정 문구, 나머지는 전부
+// My Life 화면 문구 — 메뉴 이름 "My Life"·이야기 상세 body 60키·editBody(2026-11-04)는 성민 확정 문구, 나머지는 전부
 // [임시 — 성민 확정 필요]. 설계 docs/phase/node-graph-self.md §4.5 "My Life" 행.
 // 클라이언트에서도 쓰는 순수 모듈.
 
@@ -42,22 +42,23 @@ export const MY_LIFE_COPY = {
   gapInProgress: "진행 중",
   gapStart: "이야기하기",
   gapContinue: "이어서 이야기하기",
-  editBody: "이야기 고치기",
+  // 확정(성민 2026-11-04) — 이야기 패널 두 버튼이 같이 씀: 소제목·사진이 든 글 = 글 고치기 화면으로, 그 밖 = 패널 안에서 바로 고치기.
+  editBody: "글 고치기",
   bodyLabel: "이야기 내용",
   saveBody: "저장",
   savingBody: "저장 중…",
   editBodyFailed: "고치지 못했어요.",
   editBodyRetry: "처리 중 문제가 있었어요. 화면을 새로고침할게요.",
-  // 이야기 상세·블로그식 글 고치기·이전 판(2b-3c, 2026-11-03 — lib/node-body) — 전부 [임시 — 성민 확정 필요]
+  // 이야기 상세·블로그식 글 고치기·이전 판(2b-3c, 2026-11-03 — lib/node-body) — 60키 전부 성민 확정(2026-11-04)
   body: {
-    backToMap: "My Life 로 돌아가기",
+    backToMap: "My Life로 돌아가기",
     edit: "글 고치기",
     history: (n: number) => `이전 판 ${n}개`,
     photosTitle: "이 이야기의 사진",
     peopleTitle: "함께 나온 분",
-    placesTitle: "나온 곳",
+    placesTitle: "이야기에 나온 곳",
     photoGone: "사진이 지워졌어요",
-    richNote: "소제목이나 사진이 있는 글이라 글 고치기 화면에서 고쳐요.",
+    richNote: "소제목이나 사진이 있는 글은 [글 고치기]에서 고칠 수 있어요.",
     // 인물 패널·인물 글
     personWrite: "이 분 이야기 쓰기",
     personEdit: "이 분 이야기 고치기",
@@ -83,8 +84,8 @@ export const MY_LIFE_COPY = {
     uploading: "올리는 중…",
     uploadFailed: "사진을 올리지 못했어요. 다시 해 주세요.",
     uploadTooBig: "사진은 10MB까지 올릴 수 있어요.",
-    uploadHeic: "HEIC 형식은 아직 받지 못해요. 설정 > 카메라 > 포맷 > 호환성으로 바꾼 뒤 다시 시도해 주세요.",
-    uploadGps: "위치정보를 지우지 못해 올리지 못했어요. 다른 사진을 시도해 주세요.",
+    uploadHeic: "아이폰 사진(HEIC)은 아직 올릴 수 없어요. 아이폰 설정 > 카메라 > 포맷에서 '높은 호환성'으로 바꾼 뒤 다시 올려 주세요.",
+    uploadGps: "사진 속 위치 정보를 지우고 올리는데, 이 사진은 지우지 못해 올리지 않았어요. 다른 사진으로 해 주세요.",
     pickClose: "닫기",
     emptyDoc: "아직 적은 글이 없어요. 아래 [문단 추가]를 눌러 시작해 보세요.",
     save: "저장",
@@ -93,9 +94,10 @@ export const MY_LIFE_COPY = {
     unsaved: "저장하지 않은 글이 있어요. 나가면 고친 내용이 사라져요.",
     unsavedLeave: "저장 안 하고 나가기",
     unsavedStay: "계속 고치기",
-    errEmpty: "글이 비어 있어요. 이야기를 지우려면 My Life 에서 지우기를 써 주세요.",
+    // [이 노드 지우기] = My Life 이야기 패널의 실제 버튼 이름(edit.deleteNode).
+    errEmpty: "글이 비어 있어요. 이야기를 지우려면 My Life에서 [이 노드 지우기]를 눌러 주세요.",
     errTooLong: "문단은 3,000자, 소제목은 40자, 사진 설명은 200자까지 적을 수 있어요. 문단·소제목·사진은 모두 60개까지예요.",
-    errConflict: "다른 곳에서 먼저 고쳐졌어요. 다시 불러온 뒤 고쳐 주세요.",
+    errConflict: "다른 창이나 기기에서 먼저 고쳤어요. 다시 불러온 뒤 고쳐 주세요.",
     reload: "다시 불러오기",
     errBadPhoto: "넣을 수 없는 사진이 있어요. 그 사진을 빼고 다시 저장해 주세요.",
     errFailed: "저장하지 못했어요. 다시 해 주세요.",
@@ -103,7 +105,7 @@ export const MY_LIFE_COPY = {
     historyTitle: "이전 판",
     historyIntro: "글을 고칠 때마다 바뀌기 전 글을 20개까지 남겨 둬요.",
     historyEmpty: "아직 이전 판이 없어요.",
-    historyWhen: (when: string) => `${when}에 바뀌기 전 글`,
+    historyWhen: (when: string) => `${when}까지의 글`,
     historyChars: (n: number) => `${n}자`,
     historyShow: "보기",
     historyHide: "접기",

@@ -226,7 +226,7 @@ export function BodyEditor({
                   {C.remove}
                 </Button>
               </div>
-              {b.type === "photo" && <p className="m-0 text-base text-ink-soft">{C.removeNote}</p>}
+              {b.type === "photo" && <p className="m-0 text-lg text-ink-soft">{C.removeNote}</p>}
             </li>
           );
         })}
@@ -268,7 +268,7 @@ export function BodyEditor({
           )}
           <label className="flex flex-col gap-1">
             <span className="text-lg font-semibold text-ink">{C.upload}</span>
-            <span className="text-base text-ink-soft">{C.uploadHint}</span>
+            <span className="text-lg text-ink-soft">{C.uploadHint}</span>
             <input
               ref={fileRef}
               type="file"

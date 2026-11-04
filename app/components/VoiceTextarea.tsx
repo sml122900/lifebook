@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
+import { VOICE_COPY } from "@/lib/voice-copy";
+
 // 음성으로 받아쓰는 textarea. Web Speech API (브라우저 STT) 만 사용 —
 // AI 다듬기 + 토큰 차감은 Phase T4 에서 이 위에 얹는다.
 //
@@ -127,8 +129,8 @@ export function VoiceTextarea({
     rec.onerror = (e) => {
       setVoiceError(
         e.error === "not-allowed"
-          ? "마이크 사용 권한이 필요해요."
-          : "녹음 중 문제가 생겼어요. 다시 시도해 주세요.",
+          ? VOICE_COPY.errPermission
+          : VOICE_COPY.errRecording,
       );
       setRecording(false);
       stopMediaRecorder();
@@ -144,7 +146,7 @@ export function VoiceTextarea({
       setRecording(true);
     } catch (err) {
       console.error("[voice-textarea] start failed", err);
-      setVoiceError("녹음을 시작할 수 없어요.");
+      setVoiceError(VOICE_COPY.errStart);
       return;
     }
 
@@ -236,7 +238,7 @@ export function VoiceTextarea({
                 type="button"
                 onClick={recording ? stopRecording : startRecording}
                 aria-pressed={recording}
-                aria-label={recording ? "녹음 멈추기" : "음성으로 말하기"}
+                aria-label={recording ? VOICE_COPY.stop : VOICE_COPY.startAria}
                 disabled={isPending}
                 className={
                   "flex items-center justify-center gap-3 min-h-[60px] rounded-md border-2 px-6 py-3 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
@@ -248,7 +250,7 @@ export function VoiceTextarea({
                 <span aria-hidden className="text-2xl">
                   {recording ? "■" : "🎤"}
                 </span>
-                <span>{recording ? "녹음 멈추기" : "말로 적기"}</span>
+                <span>{recording ? VOICE_COPY.stop : VOICE_COPY.start}</span>
               </button>
             )}
 
@@ -268,7 +270,7 @@ export function VoiceTextarea({
 
           {recording && (
             <p className="text-base text-rose-700">
-              듣고 있어요… 다 말씀하시면 멈추기를 누르세요.
+              {VOICE_COPY.listening}
             </p>
           )}
           {voiceError && (
