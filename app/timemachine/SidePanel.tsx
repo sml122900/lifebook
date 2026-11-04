@@ -54,17 +54,18 @@ export function SidePanelLayout({
   data: SidePanelData;
   children: React.ReactNode;
 }) {
-  // 첫 방문 = 열림. localStorage "closed" 일 때만 닫힘.
-  // SSR·하이드레이션은 항상 열림으로 그림 → 하이드레이션 뒤 저장값으로 보정. 깜빡임 최소화 위해
+  // 첫 방문 = 열림(My Life 만 닫힘 — 아래). localStorage "closed" 일 때만 닫힘.
+  // SSR·하이드레이션은 첫 방문 값(firstOpen)으로 그림 → 하이드레이션 뒤 저장값으로 보정. 깜빡임 최소화 위해
   // transition 도 하이드레이션 뒤에만 활성(mounted).
   // 2026-11-02 — effect 안 setState(린트 react-hooks/set-state-in-effect) 대신: mounted = useSyncExternalStore
   // (서버·하이드레이션 false → 그 뒤 true), 저장값은 마운트 때 한 번 읽음(전과 같음), 이번 화면에서 정한 값(choice)이 우선.
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
-  const [storedClosed] = useState(
-    () => typeof window !== "undefined" && window.localStorage.getItem(STORAGE_KEY) === "closed",
-  );
+  // My Life 는 저장값이 없으면(새 기기 첫 진입) 닫힌 채 시작 — 390 에서 패널이 지도를 덮어 첫 화면이 224자가 되던 것
+  // (우주 개편 U1 완료 기준, 2026-11-05 결정). 다른 화면은 지금처럼 열림. 한 번 열고 닫은 기록이 있으면 그 기록을 따른다.
+  const firstOpen = !usePathname()?.startsWith("/my-life");
+  const [stored] = useState(() => (typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null));
   const [choice, setChoice] = useState<boolean | null>(null); // 사용자 토글·둘러보기가 정한 값(null = 아직 없음)
-  const open = choice ?? (mounted ? !storedClosed : true);
+  const open = choice ?? (mounted ? (stored === null ? firstOpen : stored !== "closed") : firstOpen);
 
   // 코치마크 둘러보기가 단계별로 패널을 여닫게 하는 브리지. 투어 전용이라
   // setChoice 만 호출(사용자 localStorage 선호는 건드리지 않음).

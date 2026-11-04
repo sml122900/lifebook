@@ -12,13 +12,17 @@
 // 지도 DOM 은 시기 순 목록 → 인물록 → 장소록 순서(스크린리더·Tab). 모임 영역·간선은 aria-hidden.
 // 개편 3단계: 머리 줄 [+ 만들기](7종) · 인물록·장소록 제목 옆 [+ 사람][+ 모임]/[+ 장소][+ 묶음] · 장소 묶음 영역(장소록) ·
 //   패널의 넣기·빼기·되돌리기·옮기기·지우기(./EditUI). 만든 뒤 지도가 새 노드로 이동·선택·패널 + [되돌리기].
+// 우주 개편 U1(2026-11-05 — docs/phase/ui-space.md): 시기·이야기 = 행성(원), 사람·모임·장소 = 위성(행성 아래 정지 칸 — 바로가기),
+//   인물록·장소록 = 작은 행성 모음. 간선은 그리지 않고(Q114) 선택한 사람·장소의 위성·진짜 자리에 빛 고리. 밤 우주 = 이 화면의
+//   My Life 영역(data-space — 지도 안 토글, 기기별 localStorage, Q102·Q103·Q142). "지금 보는 곳" 줄·[이야기 거리] 줄은 뺐다(§6.2 —
+//   [이야기 거리]는 만들기 시트 맨 아래·목록 보기).
 // Q69(/story-review 합치기, 2026-11-02): 목록 보기 = 오늘의 인터뷰(맨 위)·더 들어볼까요?(시간 줄기 아래) — 그때의 나는
 //   시기 아래 꼬리표로만(별도 묶음은 중복이라 뺌, Q69 후속),
 //   지도 보기 = "지금 보는 곳" 줄 [이야기 거리] → 같은 카드 시트(./Suggestions). 이야기 패널 [이야기 고치기](본문).
 
-import { MapPin, MessageCircle, Minus, Plus, Search, UserRound, Users } from "lucide-react";
+import { MapPin, MessageCircle, Minus, Moon, Plus, Search, Sun, UserRound, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 
 import { updateEpisodeContentAction } from "@/app/actions/episode";
@@ -34,10 +38,10 @@ import {
   bandAt,
   countTimelineNodes,
   layoutMyLife,
-  overflowLabel,
   storyTag,
   yearText,
   type LayoutNode,
+  type LayoutSatellite,
   type MyLifeLayout,
 } from "@/lib/my-life-layout";
 import { searchMyLife, type SearchResult } from "@/lib/my-life-search";
@@ -57,6 +61,37 @@ const DOUBLE_TAP_MS = 350; // 어르신 손 — 라이브러리 기본(200ms)보
 const DOUBLE_TAP_SCALE = 1.6;
 const OVERVIEW_SCALE = 0.6; // 이 배율 미만 = 전체 보기 상태(노드 탭 = 그 노드로 확대 — Q60)
 const STORE_KEY = "mylife:v3";
+const SPACE_KEY = "mylife:space"; // 밝은 우주 / 밤 우주 — 기기별(Q103), 처음 값 = 밝은 우주
+const SPACE_EVENT = "mylife-space";
+const ALL_EDGES: EdgeToggles = { person: true, place: true }; // U1 — 간선 끄기 토글 없앰(Q114), 연결 계산은 늘 전부
+
+// 밤 우주 여부 — 기기 저장값(서버·하이드레이션 = 밝게, 그 뒤 저장값). 저장·바꾸기는 toggleSpace 한 곳.
+function subscribeSpace(cb: () => void) {
+  window.addEventListener(SPACE_EVENT, cb);
+  window.addEventListener("storage", cb);
+  return () => {
+    window.removeEventListener(SPACE_EVENT, cb);
+    window.removeEventListener("storage", cb);
+  };
+}
+function readSpaceNight(): boolean {
+  try {
+    return localStorage.getItem(SPACE_KEY) === "night";
+  } catch {
+    return false;
+  }
+}
+function toggleSpace(night: boolean) {
+  try {
+    localStorage.setItem(SPACE_KEY, night ? "night" : "light");
+  } catch {
+    // 저장소 불가 — 이번 화면에서만
+  }
+  document.querySelector("[data-space-root]")?.setAttribute("data-space", night ? "night" : "light");
+  window.dispatchEvent(new Event(SPACE_EVENT));
+}
+// 첫 그림 전에 저장값을 입힌다 — 밤 우주를 고른 분이 밝은 화면이 번쩍 보이지 않게(하이드레이션 전 HTML 에서 실행).
+const SPACE_BOOT = `try{if(localStorage.getItem("${SPACE_KEY}")==="night")document.currentScript.parentElement.setAttribute("data-space","night")}catch(e){}`;
 
 type Saved = { scale: number; x: number; y: number; folded: string[]; shownGroups: string[]; shownPlaceGroups?: string[]; edges: EdgeToggles };
 
@@ -109,10 +144,12 @@ function placeMapHref(p: { name: string; source: string | null; lat: number | nu
 
 const FOCUS = "focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2";
 const CHIP_KIND: Record<MyLifeChip["kind"], string> = {
-  person: "border-emerald-700 bg-emerald-50",
-  group: "border-emerald-700 bg-emerald-50",
-  place: "border-sky-700 bg-sky-50",
+  person: "border-person bg-person-wash",
+  group: "border-person bg-person-wash",
+  place: "border-place bg-place-wash",
 };
+// 찾기·선택 빛 — 색만으로 알리지 않게 굵은 고리 + 점선 바깥 고리(1.4.1, ui-space §1.5).
+const GLOW: React.CSSProperties = { boxShadow: "0 0 0 4px var(--color-glow), 0 0 18px 6px var(--color-glow)", outline: "2px dashed var(--color-glow)", outlineOffset: 8 };
 // 선택 = 진한 윤곽, 연결된 노드 = 다른 색·두께의 윤곽(키보드 포커스 링 brand 4px 와 구분). 흐리게 하지 않는다.
 const SELECTED_OUTLINE: React.CSSProperties = { outline: "4px solid var(--color-ink)", outlineOffset: 2 };
 const RELATED_OUTLINE: React.CSSProperties = { outline: "3px solid var(--color-action)", outlineOffset: 3 };
@@ -207,7 +244,7 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
   // keep — 패널 안 작업(옮기기·직접 쓰기)으로 생긴 노드: 지도 위치·배율은 그대로, 보이는 곳 밖일 때만 옮김(3단계 E2E 2026-11-02).
   const [pendingOpen, setPendingOpen] = useState<(Created & { keep?: boolean }) | null>(null);
   const createRef = useRef<HTMLDialogElement>(null);
-  const [edgesOn, setEdgesOn] = useState<EdgeToggles>({ person: true, place: true });
+  const night = useSyncExternalStore(subscribeSpace, readSpaceNight, () => false);
   const [selected, setSelected] = useState<string | null>(initialFocus?.key ?? null);
   const [panel, setPanel] = useState<string | null>(null);
   const [findOpen, setFindOpen] = useState(false);
@@ -227,8 +264,8 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
   );
   const idx = useMemo(() => buildIndex(data), [data]);
   const relatedCount = useMemo(
-    () => (view === "map" && selected ? selectionEdges(data, layout, selected, edgesOn).connected.length : 0),
-    [view, selected, data, layout, edgesOn],
+    () => (view === "map" && selected ? selectionEdges(data, layout, selected, ALL_EDGES).connected.length : 0),
+    [view, selected, data, layout],
   );
 
   const openPanel = useCallback((key: string) => {
@@ -399,7 +436,9 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
   }
 
   return (
-    <>
+    // 밤 우주 범위 = 이 화면의 My Life 영역(머리 줄·지도·패널·시트·도구줄 — Q102·Q142). 앱 머리 줄·사이드 패널·비서 버튼은 밖이라 밝게.
+    <div data-space-root data-space={night ? "night" : "light"} suppressHydrationWarning className="min-h-[calc(100dvh-var(--app-header-h))] bg-canvas text-ink">
+      <script dangerouslySetInnerHTML={{ __html: SPACE_BOOT }} />
       {view === "map" ? (
         <MapMode
           data={data}
@@ -410,14 +449,12 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
           toggleFold={toggleFold}
           shownGroups={shownGroups}
           setShownGroups={setShownGroups}
-          edgesOn={edgesOn}
-          setEdgesOn={setEdgesOn}
+          night={night}
           selected={selected}
           setSelected={setSelected}
           openPanel={openPanel}
           onToggleView={toggleView}
           onOpenFind={openFind}
-          onOpenSuggest={openSuggest}
           onCreate={openCreate}
           shownPlaceGroups={shownPlaceGroups}
           setShownPlaceGroups={setShownPlaceGroups}
@@ -528,9 +565,22 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
         onClose={() => setCreateKind(undefined)}
         className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[85dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-ink/40"
       >
-        {createKind !== undefined && <CreateSheet key={createKind ?? "pick"} data={data} initialKind={createKind} onDone={afterCreate} onClose={() => createRef.current?.close()} />}
+        {createKind !== undefined && (
+          <CreateSheet
+            key={createKind ?? "pick"}
+            data={data}
+            initialKind={createKind}
+            onDone={afterCreate}
+            onClose={() => createRef.current?.close()}
+            // [이야기 거리] — 지도 머리 줄에서 옮김(ui-space §6.2): 만들기 시트 맨 아래 → 같은 시트(오늘의 인터뷰·더 들어볼까요?)
+            onSuggest={() => {
+              createRef.current?.close();
+              openSuggest();
+            }}
+          />
+        )}
       </dialog>
-    </>
+    </div>
   );
 }
 
@@ -553,14 +603,12 @@ function MapMode({
   toggleFold,
   shownGroups,
   setShownGroups,
-  edgesOn,
-  setEdgesOn,
+  night,
   selected,
   setSelected,
   openPanel,
   onToggleView,
   onOpenFind,
-  onOpenSuggest,
   onCreate,
   shownPlaceGroups,
   setShownPlaceGroups,
@@ -577,19 +625,17 @@ function MapMode({
   toggleFold: (eventId: string) => void;
   shownGroups: string[];
   setShownGroups: (g: string[]) => void;
-  edgesOn: EdgeToggles;
-  setEdgesOn: (e: EdgeToggles) => void;
+  night: boolean; // 밤 우주(지도 안 토글 — Q103)
   selected: string | null;
   setSelected: (k: string | null) => void;
   openPanel: (key: string) => void;
   onToggleView: () => void;
   onOpenFind: () => void;
-  onOpenSuggest: () => void; // [이야기 거리] 시트(Q69 — 정리할 것·오늘의 인터뷰·더 들어볼까요?)
   onCreate: (kind: CreateKind | null) => void;
   shownPlaceGroups: string[];
   setShownPlaceGroups: (g: string[]) => void;
   focusRequest: FocusRequest | null;
-  status: string | null; // 지운 뒤 알림 — "지금 보는 곳" 자리에(다음 동작 전까지)
+  status: string | null; // 지운 뒤 알림 — 지도 위 줄에(다음 동작 전까지)
   tour: Tour | null; // 연결된 곳 차례 보기(패널 버튼이 시작, 선택 줄 [다음 연결]이 다음 곳)
   setTour: (t: Tour | null) => void;
 }) {
@@ -606,11 +652,12 @@ function MapMode({
   const [scale, setScale] = useState(1);
   const [announce, setAnnounce] = useState("");
 
-  const { edges, related, connected } = useMemo(() => selectionEdges(data, layout, selected, edgesOn), [data, layout, selected, edgesOn]);
+  // U1 — 간선은 그리지 않는다(Q114). 연결된 노드(윤곽)·차례 보기 순서만 쓴다.
+  const { related, connected } = useMemo(() => selectionEdges(data, layout, selected, ALL_EDGES), [data, layout, selected]);
 
   // 콜백이 읽는 최신 값(렌더 중에는 읽지도 쓰지도 않는다).
   const layoutRef = useRef(layout);
-  const savedRef = useRef({ folded, shownGroups, shownPlaceGroups, edgesOn });
+  const savedRef = useRef({ folded, shownGroups, shownPlaceGroups });
   const stateRef = useRef({ scale: 1, positionX: 0, positionY: 0 });
   const downRef = useRef<{ x: number; y: number } | null>(null);
   const lastTapRef = useRef<{ t: number; x: number; y: number } | null>(null);
@@ -620,8 +667,8 @@ function MapMode({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useLayoutEffect(() => {
     layoutRef.current = layout;
-    savedRef.current = { folded, shownGroups, shownPlaceGroups, edgesOn };
-  }, [layout, folded, shownGroups, shownPlaceGroups, edgesOn]);
+    savedRef.current = { folded, shownGroups, shownPlaceGroups };
+  }, [layout, folded, shownGroups, shownPlaceGroups]);
 
   // 페이지 자체 스크롤을 잠근다 — 지도 영역의 끌기·확대가 페이지 스크롤·브라우저 확대와 다투지 않게.
   useLayoutEffect(() => {
@@ -651,7 +698,6 @@ function MapMode({
         setFolded(new Set(saved.folded.filter((id) => id !== focusEvent && data.events.some((e) => e.id === id))));
         setShownGroups(saved.shownGroups.filter((id) => data.groups.some((g) => g.id === id)));
         setShownPlaceGroups((saved.shownPlaceGroups ?? []).filter((id) => data.placeGroups.some((g) => g.id === id)));
-        setEdgesOn(saved.edges);
       }
     };
     measure();
@@ -670,7 +716,7 @@ function MapMode({
   const save = useCallback(() => {
     const st = stateRef.current;
     const v = savedRef.current;
-    writeSaved({ scale: st.scale, x: st.positionX, y: st.positionY, folded: [...v.folded], shownGroups: v.shownGroups, shownPlaceGroups: v.shownPlaceGroups, edges: v.edgesOn });
+    writeSaved({ scale: st.scale, x: st.positionX, y: st.positionY, folded: [...v.folded], shownGroups: v.shownGroups, shownPlaceGroups: v.shownPlaceGroups, edges: ALL_EDGES });
   }, []);
 
   // 자유 이동이라 경계 제한은 두지 않되, 움직임이 멈추면 지도가 화면에서 다 사라지지 않게 되돌린다.
@@ -690,7 +736,7 @@ function MapMode({
 
   useEffect(() => {
     if (ready) save();
-  }, [ready, folded, shownGroups, shownPlaceGroups, edgesOn, save]);
+  }, [ready, folded, shownGroups, shownPlaceGroups, save]);
 
   // 매 프레임 — "지금 보는 곳"·배율 표시는 다음 프레임에 한 번만 갱신.
   const onTransform = useCallback(
@@ -728,6 +774,12 @@ function MapMode({
     const w = b.getBoundingClientRect();
     const panel = document.querySelector("dialog[open]");
     const bottom = Math.min(w.bottom, panel ? panel.getBoundingClientRect().top : w.bottom);
+    // 지도 안 테마 토글(오른쪽 위 모서리 — Q103)에 가리면 그만큼 아래로(일부라도 보이는지와 별개).
+    const tg = b.querySelector("[data-space-toggle]")?.getBoundingClientRect();
+    if (tg && r.left < tg.right && r.right > tg.left && r.top < tg.bottom && r.bottom > tg.top) {
+      apiRef.current?.panBy(0, tg.bottom + 8 - r.top, 200);
+      return;
+    }
     if (!(r.right <= w.left || r.left >= w.right || r.bottom <= w.top || r.top >= bottom)) return;
     const m = 24;
     const dx = r.left < w.left + m ? w.left + m - r.left : r.right > w.right - m ? Math.max(w.left + m - r.left, w.right - m - r.right) : 0;
@@ -852,12 +904,14 @@ function MapMode({
     if (e.detail > 0 && d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > TAP_SLOP) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-node-key]");
     if (!el) return;
-    const { nodeKey, nodeKind, eventId, groupId, region, createKind } = el.dataset;
+    const { nodeKey, nodeKind, eventId, groupId, region, createKind, targetKey } = el.dataset;
     if (!nodeKey) return;
     // 한 번 탭 = 그 노드의 동작(패널 열기) — 노드 종류·배율과 무관(3단계 E2E 2026-11-02, Q60 보완).
     // 전체 보기 상태면 그 노드로 확대도 같이(패널에 가리지 않게 지도 위쪽에).
     if (stateRef.current.scale < OVERVIEW_SCALE) zoomAbovePanel(el);
     if (nodeKind === "fold" && eventId) toggleFold(eventId);
+    // 고른 행성의 위성 = 그 분·곳·모임의 패널(바로가기 — Q99, 지도는 안 움직임)
+    else if (nodeKind === "satellite" && targetKey) openPanel(targetKey);
     else if (nodeKind === "regionAdd" && createKind) onCreate(createKind as CreateKind);
     else if (nodeKind === "groupChip" && groupId) {
       // 칩(모임·장소 묶음 4개 이상 — 영역은 늘 3개) — 안 보이던 모임이면 영역으로 바꿔 넣고 + 그 모임 패널.
@@ -873,7 +927,36 @@ function MapMode({
       openPanel(key);
       // 새로 들어온 영역 이름표가 보이는 곳(패널 위) 밖이면 그만큼만 — 영역이 다시 그려지고 패널이 열린 다음 그림에서.
       if (stateRef.current.scale >= OVERVIEW_SCALE) requestAnimationFrame(() => requestAnimationFrame(() => ensureVisible(key)));
-    } else openPanel(nodeKey);
+    } else {
+      openPanel(nodeKey);
+      // 행성 탭 = 펼침 + 패널(Q110) — 펼친 계(행성 + 위성)가 패널·지도 상자 밖에 걸리면 패널 위로(배율 그대로). 다 보이면 안 움직임.
+      if ((nodeKind === "event" || nodeKind === "story") && stateRef.current.scale >= OVERVIEW_SCALE) liftAbovePanel(nodeKey);
+    }
+  }
+
+  // 고른 행성의 계(행성 + 위성 — 위성 버튼 키 sat:<행성 키>:…, "+N" 칸은 행성 키)를 패널 위 보이는 띠 안으로.
+  // 띠에 들어가면 가운데, 크면 위쪽 맞춤. 선택 줄·패널이 생긴 다음 그림에서 잰다(zoomAbovePanel 과 같은 시점).
+  function liftAbovePanel(key: string) {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const b = boxRef.current;
+        const api = apiRef.current;
+        if (!b || !api) return;
+        const parts = [...b.querySelectorAll<HTMLElement>(`[data-node-key="${CSS.escape(key)}"], [data-node-key^="${CSS.escape(`sat:${key}:`)}"]`)];
+        if (parts.length === 0) return;
+        const st = api.instance.state; // 지금 변환 — stateRef 는 첫 사용자 이동 전엔 처음 값(0)이라 가로로 밀렸다
+        const w = b.getBoundingClientRect();
+        const panelEl = document.querySelector("dialog[open]");
+        const top = w.top + 8;
+        const bottom = Math.min(w.bottom, panelEl ? panelEl.getBoundingClientRect().top : w.bottom) - 8;
+        const rs = parts.map((p) => p.getBoundingClientRect());
+        const rTop = Math.min(...rs.map((r) => r.top));
+        const rBottom = Math.max(...rs.map((r) => r.bottom));
+        if (rTop >= top && rBottom <= bottom) return;
+        const dy = rBottom - rTop <= bottom - top ? (top + bottom - rTop - rBottom) / 2 : top - rTop;
+        api.setTransform(st.positionX, st.positionY + dy, st.scale, 300);
+      }),
+    );
   }
 
   // 전체 보기에서 누른 노드 — 배율 1, 패널 위 보이는 띠 안에(들어가면 가운데, 크면 위쪽 맞춤).
@@ -921,11 +1004,10 @@ function MapMode({
   const minScale = box ? Math.min(MIN_SCALE, fitScaleOf(box.w, box.h, layout)) : MIN_SCALE;
   const anyFolded = folded.size > 0;
   const currentEvent = data.events.find((e) => e.id === current);
-  const nowText = area !== "timeline"
-    ? C.nowViewing(area === "people" ? C.peopleTitle : C.placesTitle)
-    : currentEvent
-    ? C.nowViewing(currentEvent.year === null ? `${currentEvent.label}(${C.yearUnknown})` : `${yearText(currentEvent)} ${currentEvent.label}`)
-    : ""; // 지도 맨 처음(아직 어느 시기도 안 지남) — 줄을 비운다(줄 높이는 오른쪽 버튼이 지킴)
+  // "지금 보는 곳" 글 줄은 뺐다(ui-space §6.2) — 보는 시기는 행성 고리(aria-current)와 지도 상자 낭독 이름으로.
+  const regionLabel = currentEvent
+    ? C.space.regionAt(currentEvent.year === null ? `${currentEvent.label}(${C.yearUnknown})` : `${yearText(currentEvent)} ${currentEvent.label}`)
+    : C.mapRegionLabel;
 
   return (
     <div ref={regionRef} className="flex flex-col" style={{ height: regionTop ? `calc(100dvh - ${regionTop}px)` : "calc(100dvh - 72px)", minHeight: 420 }}>
@@ -994,35 +1076,34 @@ function MapMode({
               {tourAt > 0 ? tourText : ""}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 px-6 pb-1">
-            <Button variant="tertiary" size="lg" className="px-4!" aria-pressed={!edgesOn.person} onClick={() => setEdgesOn({ ...edgesOn, person: !edgesOn.person })}>
-              {edgesOn.person ? C.edgePersonOff : C.edgePersonOn}
-            </Button>
-            <Button variant="tertiary" size="lg" className="px-4!" aria-pressed={!edgesOn.place} onClick={() => setEdgesOn({ ...edgesOn, place: !edgesOn.place })}>
-              {edgesOn.place ? C.edgePlaceOff : C.edgePlaceOn}
-            </Button>
-          </div>
         </>
       ) : (
-        // 좁은 화면(sm 미만)은 글 줄과 버튼 줄을 늘 나눈다 — [모두 펼치기]가 생기고 없어져도 높이가 같아 지도가 출렁이지 않는다
-        // (2026-11-04 — 한 줄일 땐 글이 "지금 보는 …"까지 잘렸다). 글 줄은 비어도 한 줄 높이(min-h-7)를 지킨다.
-        <div className="flex flex-col gap-1 px-6 py-1 sm:min-h-[56px] sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-          <p className={`min-h-7 min-w-0 truncate text-lg ${status ? "text-ink" : "text-ink-soft"}`}>{status || nowText}</p>
-          {/* Q69 — /story-review 의 카드를 지도 보기에서도(390 은 글 줄 아래 버튼 줄, sm 이상은 이 줄 오른쪽). */}
-          <div className="flex shrink-0 justify-end gap-2">
+        // U1(ui-space §6.2) — "지금 보는 곳" 글 줄·[이야기 거리] 줄을 뺐다. 지운 뒤 알림이나 접힌 띠가 있을 때만 이 줄이 생긴다.
+        (status || anyFolded) && (
+          <div className="flex min-h-[56px] items-center justify-between gap-3 px-6 py-1">
+            <p className="min-w-0 truncate text-lg text-ink">{status}</p>
             {anyFolded && (
-              <Button variant="secondary" size="lg" className="px-4!" onClick={() => setFolded(new Set())}>
+              <Button variant="secondary" size="lg" className="shrink-0 px-4!" onClick={() => setFolded(new Set())}>
                 {C.unfoldAll}
               </Button>
             )}
-            <Button variant="secondary" size="lg" className="px-4!" onClick={onOpenSuggest}>
-              {C.suggest}
-            </Button>
           </div>
-        </div>
+        )
       )}
 
-      <div ref={boxRef} className="relative min-h-0 flex-1 overflow-hidden border-y border-line bg-canvas">
+      <div ref={boxRef} className="space-map relative min-h-0 flex-1 overflow-hidden border-y border-line">
+        {/* 밝은 우주 / 밤 우주 토글 — 지도 안 오른쪽 위 모서리(Q103). 아이콘만, 낭독 이름·눌림 상태. */}
+        <button
+          type="button"
+          data-space-toggle
+          aria-pressed={night}
+          aria-label={night ? C.space.toLight : C.space.toNight}
+          title={night ? C.space.toLight : C.space.toNight}
+          onClick={() => toggleSpace(!night)}
+          className={`absolute right-2 top-2 z-10 flex h-14 w-14 items-center justify-center rounded-full border-2 border-brand bg-surface text-action hover:bg-banner ${FOCUS}`}
+        >
+          {night ? <Sun aria-hidden size={26} /> : <Moon aria-hidden size={26} />}
+        </button>
         {init && (
           <TransformWrapper
             ref={apiRef}
@@ -1049,7 +1130,7 @@ function MapMode({
               wrapperProps={
                 {
                   role: "region",
-                  "aria-label": C.mapRegionLabel,
+                  "aria-label": regionLabel,
                   "data-ready": ready ? "1" : undefined,
                   onPointerDown,
                   onPointerUp,
@@ -1060,19 +1141,6 @@ function MapMode({
             >
               <div className="relative" style={{ width: layout.width, height: layout.height }} onClick={onWorldClick}>
                 <MapWorld data={data} idx={idx} layout={layout} folded={folded} current={current} selected={selected} related={related} />
-                <svg className="pointer-events-none absolute left-0 top-0" width={layout.width} height={layout.height} aria-hidden style={{ zIndex: 1 }}>
-                  {edges.map((e) => (
-                    <path
-                      key={`${e.from}>${e.to}`}
-                      data-edge={e.kind}
-                      d={e.d}
-                      fill="none"
-                      stroke={e.kind === "person" ? "var(--color-emerald-700)" : "var(--color-sky-700)"}
-                      strokeWidth={3}
-                      strokeDasharray={e.kind === "place" ? "8 6" : undefined}
-                    />
-                  ))}
-                </svg>
               </div>
             </TransformComponent>
           </TransformWrapper>
@@ -1136,7 +1204,10 @@ function MapMode({
   );
 }
 
-// 지도 안 내용 — 확대·이동은 바깥 transform 만 바뀌어 다시 그리지 않는다(memo). 선택·지금 보는 곳이 바뀔 때만.
+// 지도 안 내용 — 확대·이동은 바깥 transform 만 바뀌어 다시 그리지 않는다(memo). 선택·지금 보는 시기가 바뀔 때만.
+// U1(ui-space §1): 시기·이야기 = 행성(원 버튼), 그 아래 위성 칸(사람·모임·장소 바로가기 — 정지 = 펼침 자리). 위성은 그 행성을 골랐을
+// 때만 따로 누르는 버튼(그 분·곳 패널 — Q99, 지도 안 움직임)이고, 안 골랐을 때는 행성 그림의 일부(누르면 행성 선택 — 낭독은 행성
+// 이름에 들어 있어 숨김). 인물록·장소록 = 작은 행성 모음. 선택한 사람·장소(찾기 결과 포함)는 진짜 자리와 모든 위성에 빛 고리.
 const MapWorld = memo(function MapWorld({
   data,
   idx,
@@ -1155,7 +1226,14 @@ const MapWorld = memo(function MapWorld({
   related: Set<string>;
 }) {
   const byKey = new Map<string, LayoutNode>(layout.nodes.map((n) => [n.key, n]));
-  const pos = (n: LayoutNode) => ({ left: n.x, top: n.y, width: n.w, height: n.h });
+  const satsOf = new Map<string, LayoutSatellite[]>();
+  for (const s of layout.satellites) {
+    const list = satsOf.get(s.planetKey);
+    if (list) list.push(s);
+    else satsOf.set(s.planetKey, [s]);
+  }
+  const pos = (n: { x: number; y: number; w: number; h: number }) => ({ left: n.x, top: n.y, width: n.w, height: n.h });
+  const circle = (p: { cx: number; cy: number; d: number }) => ({ left: p.cx - p.d / 2, top: p.cy - p.d / 2, width: p.d, height: p.d });
   const mark = (key: string): React.CSSProperties => (key === selected ? SELECTED_OUTLINE : related.has(key) ? RELATED_OUTLINE : {});
   const people = layout.nodes.filter((n): n is Extract<LayoutNode, { kind: "person" }> => n.kind === "person");
   const places = layout.nodes.filter((n): n is Extract<LayoutNode, { kind: "place" }> => n.kind === "place");
@@ -1192,6 +1270,67 @@ const MapWorld = memo(function MapWorld({
   };
   const placeLabels = labelsOf("places");
   const placeChips = chipsOf("places");
+  // 위성 하나 — ref 의 이름·모양. 고른 행성의 위성만 버튼.
+  const satTarget = (s: LayoutSatellite) => (s.ref ? `${s.ref.kind === "person" ? "pe" : s.ref.kind === "place" ? "pl" : "gl"}:${s.ref.id}` : null);
+  const satName = (s: LayoutSatellite) =>
+    s.ref ? (s.ref.kind === "person" ? idx.personById.get(s.ref.id)?.name : s.ref.kind === "place" ? idx.placeById.get(s.ref.id)?.name : idx.groupById.get(s.ref.id)?.name) ?? "" : "";
+  const satellites = (planetKey: string, planetKind: "event" | "story", eventId: string) => {
+    const list = satsOf.get(planetKey);
+    if (!list) return null;
+    const open = selected === planetKey;
+    return list.map((s) => {
+      const target = satTarget(s);
+      const name = satName(s);
+      const kind = s.ref?.kind ?? "person";
+      const moon = (
+        <>
+          <span
+            aria-hidden
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold ${
+              kind === "place" ? "moon-place border-place" : "moon-person border-person"
+            } ${kind === "group" ? "border-dashed" : ""}`}
+            style={target && target === selected ? GLOW : undefined}
+          >
+            {!s.ref ? `+${s.more}` : kind === "place" ? <MapPin size={22} /> : kind === "group" ? <Users size={22} /> : name.slice(0, 1)}
+          </span>
+          {s.ref && <span className="line-clamp-2 w-full text-center text-lg leading-6 text-ink">{name}</span>}
+        </>
+      );
+      const style = { ...pos(s), zIndex: 2 };
+      // 고른 행성의 위성 = 그 분·곳·모임 패널(바로가기 — Q99). "+N" 은 행성 패널(전체 목록).
+      if (open && target) {
+        return (
+          <button
+            key={s.key}
+            type="button"
+            data-node-key={s.key}
+            data-node-kind="satellite"
+            data-target-key={target}
+            aria-label={C.space.satName(name, kind)}
+            className={`absolute flex flex-col items-center gap-1 rounded-md ${FOCUS}`}
+            style={style}
+          >
+            {moon}
+          </button>
+        );
+      }
+      return (
+        <div
+          key={s.key}
+          aria-hidden={open ? undefined : true}
+          aria-label={open && !s.ref ? C.space.satMore(s.more) : undefined}
+          role={open && !s.ref ? "img" : undefined}
+          data-node-key={planetKey}
+          data-node-kind={planetKind}
+          data-event-id={eventId}
+          className="absolute flex cursor-pointer flex-col items-center gap-1"
+          style={style}
+        >
+          {moon}
+        </div>
+      );
+    });
+  };
   return (
     <>
       {layout.shapes.map((s) => (
@@ -1199,7 +1338,7 @@ const MapWorld = memo(function MapWorld({
           key={`shape:${s.groupId}`}
           aria-hidden
           data-group-id={s.groupId}
-          className={`pointer-events-none absolute border-2 ${s.region === "places" ? "border-sky-700 bg-sky-700/5" : "border-emerald-700 bg-emerald-700/5"}`}
+          className={`pointer-events-none absolute border-2 ${s.region === "places" ? "border-place bg-place-wash/60" : "border-person bg-person-wash/60"}`}
           style={{ left: s.x, top: s.y, width: s.w, height: s.h, borderRadius: shapeRadiusCss(s), borderStyle: GROUP_BORDER[s.index % GROUP_BORDER.length] }}
         />
       ))}
@@ -1207,21 +1346,19 @@ const MapWorld = memo(function MapWorld({
         {layout.trunk.map((t, i) => (
           <line
             key={`t${i}`}
-            x1={L.TRUNK_X}
-            x2={L.TRUNK_X}
+            x1={L.RAIL_X}
+            x2={L.RAIL_X}
             y1={t.y1}
             y2={t.y2}
             stroke={t.decade === null ? "var(--color-ink-faint)" : `var(--color-decade-strip-${t.decade})`}
-            strokeWidth={4}
+            strokeWidth={6}
+            strokeLinecap="round"
           />
-        ))}
-        {layout.edges.map((e, i) => (
-          <line key={`e${i}`} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke="var(--color-brand)" strokeWidth={2} />
         ))}
       </svg>
       {layout.nodes.map((n) =>
         n.kind === "gap" ? (
-          <div key={n.key} aria-hidden className="absolute flex items-center justify-center rounded-md border border-line bg-canvas text-lg text-ink-soft" style={pos(n)}>
+          <div key={n.key} aria-hidden className="absolute flex items-center justify-center rounded-md border border-line bg-surface text-lg text-ink-soft" style={pos(n)}>
             {C.yearsLater(n.years)}
           </div>
         ) : null,
@@ -1230,7 +1367,7 @@ const MapWorld = memo(function MapWorld({
       <ol aria-label={C.mapListLabel} className="relative" style={{ zIndex: 2 }}>
         {data.events.map((ev) => {
           const en = byKey.get(`ev:${ev.id}`);
-          if (!en) return null;
+          if (!en || en.kind !== "event") return null;
           const fold = byKey.get(`fold:${ev.id}`);
           const open = !folded.has(ev.id);
           return (
@@ -1242,12 +1379,13 @@ const MapWorld = memo(function MapWorld({
                 data-event-id={ev.id}
                 aria-label={eventAriaLabel(ev)}
                 aria-current={current === ev.id ? "location" : undefined}
-                className={`absolute flex flex-col items-center justify-center rounded-[50%] border-[3px] bg-banner px-9 py-3.5 text-center hover:bg-surface ${current === ev.id ? "border-ink" : "border-action"} ${FOCUS}`}
-                style={{ ...pos(en), ...mark(en.key) }}
+                className={`planet-period absolute flex flex-col items-center justify-center rounded-full px-3 text-center ${current === ev.id ? "border-[4px] border-ink" : "border-2 border-period-edge"} ${FOCUS}`}
+                style={{ ...circle(en.planet), ...mark(en.key) }}
               >
-                <span className="text-lg leading-[26px] text-ink-soft">{yearText(ev)}</span>
-                <span className="line-clamp-2 text-[22px] font-bold leading-[28px] text-ink">{ev.label}</span>
+                <span className="text-lg leading-6">{yearText(ev)}</span>
+                <span className="line-clamp-2 text-xl font-bold leading-7">{ev.label}</span>
               </button>
+              {satellites(en.key, "event", ev.id)}
               {fold && fold.kind === "fold" && (
                 <button
                   type="button"
@@ -1267,7 +1405,8 @@ const MapWorld = memo(function MapWorld({
                     const n = byKey.get(`st:${ev.id}:${s.id}`);
                     return n && n.kind === "story" ? (
                       <li key={s.id}>
-                        <StoryNode story={s} node={n} style={{ ...pos(n), ...mark(n.key) }} />
+                        <StoryPlanet story={s} node={n} style={{ ...circle(n.planet), ...mark(n.key) }} />
+                        {satellites(n.key, "story", ev.id)}
                       </li>
                     ) : null;
                   })}
@@ -1295,7 +1434,7 @@ const MapWorld = memo(function MapWorld({
               data-node-kind="groupChip"
               data-group-id={c.groupId}
               aria-label={C.groupChipName(g?.name ?? "", c.shown)}
-              className={`absolute flex items-center justify-center gap-1 rounded-[10px] border-2 px-3 text-lg font-semibold ${c.shown ? "border-emerald-700 bg-emerald-50 text-ink" : "border-line bg-surface text-ink-soft"} ${FOCUS}`}
+              className={`absolute flex items-center justify-center gap-1 rounded-[10px] border-2 px-3 text-lg font-semibold ${c.shown ? "border-person bg-person-wash text-ink" : "border-line bg-surface text-ink-soft"} ${FOCUS}`}
               style={{ ...pos(c), ...mark(c.key) }}
             >
               <span className="truncate">{g?.name}</span>
@@ -1313,10 +1452,10 @@ const MapWorld = memo(function MapWorld({
               data-node-kind="groupLabel"
               data-group-id={l.groupId}
               aria-label={C.groupLabelName(g?.name ?? "", g?.memberIds.length ?? 0)}
-              className={`absolute flex items-center gap-2 rounded-[10px] border-2 border-emerald-700 bg-surface px-3 text-lg font-semibold text-ink hover:bg-banner ${FOCUS}`}
+              className={`absolute flex items-center gap-2 rounded-[10px] border-2 border-person bg-surface px-3 text-lg font-semibold text-ink hover:bg-banner ${FOCUS}`}
               style={{ ...pos(l), ...mark(l.key) }}
             >
-              <Users aria-hidden size={20} className="shrink-0 text-emerald-700" />
+              <Users aria-hidden size={20} className="shrink-0 text-person" />
               <span className="truncate">{g?.name}</span>
             </button>
           );
@@ -1344,12 +1483,22 @@ const MapWorld = memo(function MapWorld({
                   data-node-kind="person"
                   data-group-ids={p.groupIds.join(",")}
                   aria-label={C.personName2(p.name, groupNames, idx.storiesOfPerson.get(p.id)?.length ?? 0)}
-                  className={`absolute flex items-center gap-2 border-2 border-emerald-700 bg-surface px-3 text-left text-lg text-ink hover:bg-banner ${FOCUS}`}
-                  style={{ ...pos(n), ...mark(n.key), borderRadius: "6px 28px 28px 28px" }}
+                  className={`absolute flex flex-col items-center gap-1.5 rounded-md pt-1 text-center ${FOCUS}`}
+                  style={{ ...pos(n), ...mark(n.key) }}
                 >
-                  <UserRound aria-hidden size={20} className="shrink-0 text-emerald-700" />
-                  <span className="min-w-0 truncate">{p.name}</span>
-                  {n.hiddenGroups > 0 && <span className="ml-auto shrink-0 text-lg text-ink-soft">{C.otherGroups(n.hiddenGroups)}</span>}
+                  <span
+                    aria-hidden
+                    className="moon-person relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-person text-[22px] font-bold"
+                    style={selected === n.key ? GLOW : undefined}
+                  >
+                    {p.name.slice(0, 1)}
+                    {n.hiddenGroups > 0 && (
+                      <span className="absolute -right-3 -top-2 rounded-full border-2 border-person bg-surface px-1.5 text-lg font-semibold leading-6 text-ink">
+                        {C.otherGroups(n.hiddenGroups)}
+                      </span>
+                    )}
+                  </span>
+                  <span className="line-clamp-2 w-full text-lg leading-6 text-ink">{p.name}</span>
                 </button>
               </li>
             );
@@ -1375,7 +1524,7 @@ const MapWorld = memo(function MapWorld({
               data-group-id={c.groupId}
               data-region="places"
               aria-label={C.placeGroupChipName(g?.name ?? "", c.shown)}
-              className={`absolute flex items-center justify-center gap-1 rounded-[10px] border-2 px-3 text-lg font-semibold ${c.shown ? "border-sky-700 bg-sky-50 text-ink" : "border-line bg-surface text-ink-soft"} ${FOCUS}`}
+              className={`absolute flex items-center justify-center gap-1 rounded-[10px] border-2 px-3 text-lg font-semibold ${c.shown ? "border-place bg-place-wash text-ink" : "border-line bg-surface text-ink-soft"} ${FOCUS}`}
               style={{ ...pos(c), ...mark(c.key) }}
             >
               <span className="truncate">{g?.name}</span>
@@ -1394,10 +1543,10 @@ const MapWorld = memo(function MapWorld({
               data-group-id={l.groupId}
               data-region="places"
               aria-label={C.placeGroupLabelName(g?.name ?? "", g?.memberIds.length ?? 0)}
-              className={`absolute flex items-center gap-2 rounded-[10px] border-2 border-sky-700 bg-surface px-3 text-lg font-semibold text-ink hover:bg-banner ${FOCUS}`}
+              className={`absolute flex items-center gap-2 rounded-[10px] border-2 border-place bg-surface px-3 text-lg font-semibold text-ink hover:bg-banner ${FOCUS}`}
               style={{ ...pos(l), ...mark(l.key) }}
             >
-              <MapPin aria-hidden size={20} className="shrink-0 text-sky-700" />
+              <MapPin aria-hidden size={20} className="shrink-0 text-place" />
               <span className="truncate">{g?.name}</span>
             </button>
           );
@@ -1424,11 +1573,17 @@ const MapWorld = memo(function MapWorld({
                   data-node-kind="place"
                   data-group-ids={p.groupIds.join(",")}
                   aria-label={C.placeName2(p.name, idx.storiesOfPlace.get(p.id)?.length ?? 0)}
-                  className={`absolute flex items-center gap-2 border-2 border-sky-700 bg-surface px-3 text-left text-lg text-ink hover:bg-banner ${FOCUS}`}
-                  style={{ ...pos(n), ...mark(n.key), borderRadius: "6px 28px 28px 28px" }}
+                  className={`absolute flex flex-col items-center gap-1.5 rounded-md pt-1 text-center ${FOCUS}`}
+                  style={{ ...pos(n), ...mark(n.key) }}
                 >
-                  <MapPin aria-hidden size={20} className="shrink-0 text-sky-700" />
-                  <span className="min-w-0 truncate">{p.name}</span>
+                  <span
+                    aria-hidden
+                    className="moon-place flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-place"
+                    style={selected === n.key ? GLOW : undefined}
+                  >
+                    <MapPin size={26} />
+                  </span>
+                  <span className="line-clamp-2 w-full text-lg leading-6 text-ink">{p.name}</span>
                 </button>
               </li>
             );
@@ -1457,13 +1612,9 @@ function Chip({ chip }: { chip: Pick<MyLifeChip, "kind" | "name"> }) {
   );
 }
 
-function StoryNode({ story, node, style }: { story: MyLifeStory; node: Extract<LayoutNode, { kind: "story" }>; style: React.CSSProperties }) {
+// 이야기 행성 — 지름 128 원 안에 꼬리표 한 줄(그때의 나·다른 시기에도) + 제목 2줄 말줄임(전체 제목은 패널·낭독 이름에 — Q106).
+function StoryPlanet({ story, node, style }: { story: MyLifeStory; node: Extract<LayoutNode, { kind: "story" }>; style: React.CSSProperties }) {
   const tag = tagText(story);
-  const rows: Pick<MyLifeChip, "kind" | "name">[][] = node.chipRows.map((r) => r.map((i) => story.chips[i]));
-  if (node.overflow > 0) {
-    if (rows.length === 0) rows.push([]);
-    rows[rows.length - 1].push({ kind: "person", name: overflowLabel(node.overflow) });
-  }
   return (
     <button
       type="button"
@@ -1471,25 +1622,15 @@ function StoryNode({ story, node, style }: { story: MyLifeStory; node: Extract<L
       data-node-kind="story"
       data-event-id={node.eventId}
       aria-label={storyAriaLabel(story)}
-      className={`absolute flex flex-col overflow-hidden border-2 bg-surface px-[14px] py-3 text-left hover:bg-banner ${story.kind === "SELF" ? "border-sage" : "border-ink-soft"} ${FOCUS}`}
-      style={{ ...style, borderRadius: "32px 6px 32px 32px" }}
+      className={`planet-story absolute flex flex-col items-center justify-center rounded-full px-3 text-center ${story.kind === "SELF" ? "border-[3px] border-sage" : "border-2 border-planet-edge"} ${FOCUS}`}
+      style={style}
     >
-      {tag && <span className="block h-7 shrink-0 truncate text-lg leading-7 text-ink-soft">{tag}</span>}
-      <span className="line-clamp-2 shrink-0 text-lg leading-[26px] text-ink">{shortTitle(displayTitle(story))}</span>
-      {rows.length > 0 && (
-        <span className="mt-2 flex shrink-0 flex-col gap-1.5">
-          {rows.map((r, ri) => (
-            <span key={ri} className="flex min-w-0 gap-1.5">
-              {r.map((c, ci) => (
-                <Chip key={ci} chip={c} />
-              ))}
-            </span>
-          ))}
-        </span>
-      )}
+      {tag && <span className="line-clamp-1 text-lg leading-6">{tag}</span>}
+      <span className="line-clamp-2 text-lg font-semibold leading-6">{shortTitle(displayTitle(story))}</span>
     </button>
   );
 }
+
 
 // ── 목록 보기(?view=list) — 같은 데이터·같은 패널, 절대 좌표·배율 없이 일반 흐름 ────────────
 
@@ -1527,8 +1668,8 @@ function ListMode({
     </div>
   );
   const placeButton = (p: MyLifePlace, listKey: string) => (
-    <button type="button" data-list-key={listKey} data-node-key={`pl:${p.id}`} onClick={() => openPanel(`pl:${p.id}`)} className={`${LIST_ITEM} border-sky-700`}>
-      <MapPin aria-hidden size={20} className="shrink-0 text-sky-700" />
+    <button type="button" data-list-key={listKey} data-node-key={`pl:${p.id}`} onClick={() => openPanel(`pl:${p.id}`)} className={`${LIST_ITEM} border-place`}>
+      <MapPin aria-hidden size={20} className="shrink-0 text-place" />
       {p.name}
     </button>
   );
@@ -1617,8 +1758,8 @@ function ListMode({
         {addRow([["person", C.edit.regionAddPerson], ["group", C.edit.regionAddGroup]])}
         {data.groups.map((g) => (
           <div key={g.id} className="flex flex-col gap-2">
-            <button type="button" data-list-key={`gl:${g.id}`} data-node-key={`gl:${g.id}`} onClick={() => openPanel(`gl:${g.id}`)} className={`${LIST_ITEM} border-emerald-700 font-semibold`}>
-              <Users aria-hidden size={20} className="shrink-0 text-emerald-700" />
+            <button type="button" data-list-key={`gl:${g.id}`} data-node-key={`gl:${g.id}`} onClick={() => openPanel(`gl:${g.id}`)} className={`${LIST_ITEM} border-person font-semibold`}>
+              <Users aria-hidden size={20} className="shrink-0 text-person" />
               {g.name}
             </button>
             {g.memberIds.length === 0 ? (
@@ -1661,8 +1802,8 @@ function ListMode({
         {/* 장소 묶음(3단계) — 묶음별(여러 묶음인 곳은 각 묶음에), 묶음 없는 곳 */}
         {data.placeGroups.map((g) => (
           <div key={g.id} className="flex flex-col gap-2">
-            <button type="button" data-list-key={`pgl:${g.id}`} data-node-key={`pgl:${g.id}`} onClick={() => openPanel(`pgl:${g.id}`)} className={`${LIST_ITEM} border-sky-700 font-semibold`}>
-              <MapPin aria-hidden size={20} className="shrink-0 text-sky-700" />
+            <button type="button" data-list-key={`pgl:${g.id}`} data-node-key={`pgl:${g.id}`} onClick={() => openPanel(`pgl:${g.id}`)} className={`${LIST_ITEM} border-place font-semibold`}>
+              <MapPin aria-hidden size={20} className="shrink-0 text-place" />
               {g.name}
             </button>
             {g.memberIds.length === 0 ? (
@@ -1695,8 +1836,8 @@ function ListMode({
 function PersonRow({ person, listKey, tag, onOpen }: { person: MyLifePerson; listKey: string; tag: string | null; onOpen: () => void }) {
   // 여러 모임인 분은 모임마다 나온다 — 목록 키는 모임별로 다르게, 검색 이동은 첫 번째(키 pe:id 또는 pe:id@첫 모임)로.
   return (
-    <button type="button" data-list-key={listKey} onClick={onOpen} className={`${LIST_ITEM} border-emerald-700`}>
-      <UserRound aria-hidden size={20} className="shrink-0 text-emerald-700" />
+    <button type="button" data-list-key={listKey} onClick={onOpen} className={`${LIST_ITEM} border-person`}>
+      <UserRound aria-hidden size={20} className="shrink-0 text-person" />
       <span>{person.name}</span>
       {person.relation && <span className="text-ink-soft">· {person.relation}</span>}
       {tag && <span className="ml-auto text-ink-soft">{tag}</span>}

@@ -1,62 +1,67 @@
 // My Life 마인드맵 배치 — 순수 함수(DB·DOM·LLM 0). docs/phase/my-life-restructure.md §1 ·
-// node-graph-self.md §6 2b.1 의 1·4 · 2b-3a 수정(고정 좌표 캔버스).
+// node-graph-self.md §6 2b.1 의 1·4 · 2b-3a 수정(고정 좌표 캔버스) · 우주 개편 U1(docs/phase/ui-space.md §1).
 //
 // 지도 = 고정 좌표계의 한 장(배율 1 = CSS px). 노드 크기·간격은 화면 크기·접힘·배율과 무관하다.
-//   시간 줄기: 이야기·그때의 나 열 x 40~240 · 줄기 x 296 · 중심 노드 x 172~420(248×120, 전부 같은 크기).
-//   간선 통로: x 420~520(노드 없음 — 이야기 → 인물·장소 간선이 지나감).
-//   인물록: x 520~ (제목 → [+ 사람][+ 모임] → 모임 칩(4개 이상) → 모임 영역 1~3개 → 모임 없는 분), 장소록: 그 아래 —
-//   같은 모양(제목 + [+ 장소][+ 묶음] → 장소 묶음 칩 → 묶음 영역 → 묶음 없는 곳, 3단계). 키: 모임 gl/gc · 장소 묶음 pgl/pgc.
-//   (2b-3a 의 "중심마다 오른쪽 사람·장소 가지"는 없앰 — 사람·장소는 인물록·장소록에 한 번씩만.)
-// 겹침: 시간 줄기는 띠를 쌓기만 하고 배치 뒤 resolveOverlaps 로 한 번 더 검사·해소. 인물록·장소록은 x 520
-//   오른쪽에만 놓여 시간 줄기와 가로로 만날 수 없고, 안쪽은 칸 격자(구성상 0). 모임 영역은 "각 칸이 자기 모임 영역
-//   안·다른 모임 영역 밖"을 검사해 어긋나면 칸 사이를 넓혀 다시 배치한다(모양은 lib/my-life-group-shape.ts 한 곳).
-// 글자 폭은 재지 않는다 — 노드 크기는 종류·작은 물방울 수로만, 글자는 CSS 줄 수 제한으로 맞춘다.
+//   시간 줄기(U1 — Q104): 세로 한 줄. 시기 행성 → 그 시기 이야기 행성 → 다음 시기. 그림 단위 = "계 상자"(행성 + 위성 + 이름표가
+//   차지하는 고정 사각형, x 56~416 · 폭 360). 계 상자 왼쪽에 연대 색 세로 줄(RAIL_X). 이야기·시기 행성 = 지름 128 / 128·144·160(Q105).
+//   위성(사람·모임·장소 바로가기) = 행성 아래 3칸 줄(U1 은 정지 — 정지 자리 = 펼침 자리, §2.3), 이름표 2줄. 13개부터 11개 + "+N"(Q108).
+//   U1 은 공전이 없어 궤도 자리를 잡지 않는다 — U2 에서 계 상자를 궤도까지 키운다(ui-space §1.2·§7).
+//   인물·장소 행성 모음(인물록·장소록): x 480~ (제목 → [+ 사람][+ 모임] → 모임 칩(4개 이상) → 모임 성운 1~3개 → 모임 없는 분),
+//   장소록은 그 아래 — 같은 모양. 칸 = 작은 행성 64 + 이름(120×124, 3열 384). 키: 모임 gl/gc · 장소 묶음 pgl/pgc.
+// 겹침: 시간 줄기는 계 상자를 쌓기만 하고 배치 뒤 resolveOverlaps 로 한 번 더 검사·해소(위성·행성 중심도 같이 내림).
+//   위성은 nodes 가 아니라 satellites 에 따로 둔다(자기 계 상자 안 — 회귀가 상자 안·서로 간격을 검사).
+//   인물록·장소록은 x 480 오른쪽에만 놓여 시간 줄기와 가로로 만날 수 없고, 안쪽은 칸 격자(구성상 0). 모임 영역은 "각 칸이
+//   자기 모임 영역 안·다른 모임 영역 밖"을 검사해 어긋나면 칸 사이를 넓혀 다시 배치한다(모양은 lib/my-life-group-shape.ts 한 곳).
+// 글자 폭은 재지 않는다 — 노드 크기는 종류·위성 수로만, 글자는 CSS 줄 수 제한으로 맞춘다.
 // 클라이언트에서도 쓰므로 prisma 를 import 하지 않는다(타입만).
 
-import type { MyLifeData, MyLifeEvent, MyLifeStory } from "./my-life";
+import type { ChipKind, MyLifeData, MyLifeEvent, MyLifeStory } from "./my-life";
 import { MY_LIFE_COPY } from "./my-life-copy";
 import { GROUP_SHAPE, rectInsideShape, rectOutsideShape, shapeAround, SHAPE_PAD, type GroupShape, type GroupShapeKind, type Rect } from "./my-life-group-shape";
 
 const PAD = 40;
-const COL_W = 200;
-const BRANCH_DX = 56; // 줄기 ↔ 이야기 열 안쪽 가장자리
-const TRUNK_X = PAD + COL_W + BRANCH_DX;
-const CENTER_W = 248;
+const TIME_X = 56; // 계 상자 왼쪽(왼쪽 연대 줄 자리)
+const SYS_W = 360; // 계 상자 폭 = 위성 칸 3 × 112 + 사이 12 × 2
 
 export const L = {
   PAD,
-  COL_W,
-  BRANCH_DX,
-  TRUNK_X,
-  LEFT_X: PAD,
+  TIME_X,
+  SYS_W,
+  TRUNK_X: TIME_X + SYS_W / 2, // 236 — 계 상자 가운데(처음 화면·[시간 줄기] 이동이 이 x 를 화면 가운데에)
+  RAIL_X: 30, // 연대 색 세로 줄
   TOP_PAD: 32,
   BOTTOM_PAD: 120, // 오른쪽 아래 떠 있는 비서 버튼(64px)에 마지막 노드가 가리지 않게
-  CENTER_W,
-  CENTER_H: 120,
-  CENTER_RIGHT: TRUNK_X + CENTER_W / 2, // 420 — 시간 줄기 쪽 오른쪽 끝
-  AFTER_CENTER: 24,
-  BRANCH_GAP: 16,
-  BAND_GAP: 48,
+  // 행성(Q105) — 이야기 128 고정, 시기 = 이야기 0~1·2~3·4 이상
+  PLANET_STORY: 128,
+  PLANET_PERIOD: [128, 144, 160] as readonly number[],
+  SYS_PAD_TOP: 8,
+  SYS_PAD_BOTTOM: 8,
+  // 위성(정지 = 펼침 자리) — 행성 아래 3칸 줄, 첫 줄 바깥 두 칸은 조금 올려 궤도 느낌(ARC_LIFT)
+  SAT_D: 48,
+  SAT_CELL_W: 112,
+  SAT_CELL_H: 100, // 원 48 + 4 + 이름표 2줄 48
+  SAT_COL_GAP: 12,
+  SAT_ROW_GAP: 8,
+  SAT_TOP_GAP: 12, // 행성 아래 ~ 첫 줄
+  SAT_PER_ROW: 3,
+  SAT_MAX: 12, // 넘으면 11 + "+N"(Q108)
+  ARC_LIFT: 12,
+  SYS_GAP: 16, // 같은 띠 안 계 사이
+  BAND_GAP: 40, // 띠(시기 하나와 그 이야기들) 사이
   FOLD_W: 220,
   FOLD_H: 56,
   FOLD_GAP: 12,
   YEAR_GAP_H: 40,
   YEAR_GAP_MIN: 10,
-  STORY_PAD_X: 14,
-  STORY_PAD_Y: 12,
-  STORY_TAG_H: 28,
-  STORY_TEXT_H: 52, // 18px · 줄 높이 26px · 2줄
-  CHIP_H: 36,
-  CHIP_GAP: 6,
-  CHIP_TOP: 8,
-  CHIP_MAX_ROWS: 2,
-  EDGE_DY: 22, // 이야기 노드에서 간선이 나가는 높이(꼭지 자리)
   OVERLAP_GAP: 12, // 겹침 해소 때 띄우는 간격
-  // 간선 통로·인물록·장소록
-  CORRIDOR_X: 440,
-  REGION_X: 520,
-  ITEM_W: 184,
-  ITEM_H: 56,
+  // 간선(선택했을 때 — U1 은 그리지 않음, 연결 계산·차례 보기만 씀 — lib/my-life-edges)
+  EDGE_DY: 22,
+  CORRIDOR_X: 448,
+  // 인물·장소 행성 모음
+  REGION_X: 480,
+  ITEM_W: 120,
+  ITEM_H: 124, // 작은 행성 64 + 6 + 이름 2줄 48 + 여백
+  ITEM_PLANET: 64,
   ITEM_GAP: 12,
   GRID_COLS: 3,
   CELL_GAP: 2 * SHAPE_PAD + 8, // 56 — 한 영역의 안쪽 여백이 남의 칸에 닿지 않게(설계 g ≥ 2p + 8)
@@ -78,16 +83,12 @@ export const L = {
 
 type Box = { key: string; x: number; y: number; w: number; h: number };
 
+// 행성 — 계 상자 안 원(가운데·지름). 누르는 곳 = 이 원.
+export type Planet = { cx: number; cy: number; d: number };
+
 export type LayoutNode =
-  | (Box & { kind: "event"; eventId: string })
-  | (Box & {
-      kind: "story";
-      eventId: string;
-      storyId: string;
-      hasTag: boolean;
-      chipRows: number[][]; // 이야기 chips 의 인덱스, 줄마다
-      overflow: number; // 줄에 못 담은 작은 물방울 수("외 N")
-    })
+  | (Box & { kind: "event"; eventId: string; planet: Planet })
+  | (Box & { kind: "story"; eventId: string; storyId: string; planet: Planet })
   | (Box & { kind: "fold"; eventId: string; count: number })
   | (Box & { kind: "gap"; years: number })
   | (Box & { kind: "person"; personId: string; hiddenGroups: number }) // hiddenGroups = 영역에 안 보이는 모임 수
@@ -98,6 +99,11 @@ export type LayoutNode =
   | (Box & { kind: "title"; region: "people" | "places" })
   | (Box & { kind: "subtitle"; region: "people" | "places" });
 
+// 위성 — 행성의 사람·모임·장소 바로가기(진짜 노드는 인물·장소 행성 모음에 한 번 — Q99). ref null = "+N" 칸(more = 숨은 수).
+// 칸 = 원(cx, cy, SAT_D) + 아래 이름표. key = sat:<행성 키>:<종류>:<id> · "+N" = sat:<행성 키>:more.
+export type SatRef = { kind: ChipKind; id: string };
+export type LayoutSatellite = Box & { planetKey: string; ref: SatRef | null; more: number; cx: number; cy: number };
+
 export type LayoutShape = GroupShape & { groupId: string; index: number; region: "people" | "places" }; // index = 영역 안 순서(테두리 무늬 구분)
 export type LayoutBand = { eventId: string; top: number; bottom: number; centerMidY: number };
 export type TrunkSegment = { y1: number; y2: number; decade: number | null };
@@ -107,8 +113,9 @@ export type MyLifeLayout = {
   width: number;
   height: number;
   nodes: LayoutNode[];
-  edges: Edge[]; // 줄기 ↔ 이야기 이음선(늘 보임). 이야기 → 인물·장소 간선은 lib/my-life-edges(선택했을 때만)
-  trunk: TrunkSegment[];
+  satellites: LayoutSatellite[];
+  edges: Edge[]; // U1 — 비어 있음(이야기도 줄기 위 행성이라 이음선 없음). 선택 간선 계산은 lib/my-life-edges
+  trunk: TrunkSegment[]; // 왼쪽 연대 색 세로 줄(RAIL_X)
   bands: LayoutBand[];
   shapes: LayoutShape[];
   shownGroupIds: string[];
@@ -118,7 +125,7 @@ export type MyLifeLayout = {
   shifted: number; // 시간 줄기 겹침 해소로 내린 횟수(정상 배치 = 0)
 };
 
-// 지도 노드 수(중심 + 이야기 + 인물 + 장소, 작은 물방울 제외) — 접기 기본값(Q41)·성능 상한 기준.
+// 지도 노드 수(중심 + 이야기 + 인물 + 장소, 위성 제외) — 접기 기본값(Q41)·성능 상한 기준.
 export function countMapNodes(data: MyLifeData): number {
   return data.events.reduce((n, e) => n + 1 + e.stories.length, 0) + data.people.length + data.places.length;
 }
@@ -129,49 +136,13 @@ export function countTimelineNodes(data: MyLifeData): number {
   return data.events.reduce((n, e) => n + 1 + e.stories.length, 0);
 }
 
-const WIDE = /[ᄀ-ᇿ　-鿿가-힯豈-﫿＀-￯]/;
+const WIDE = /[ᄀ-ᇿ　-鿿가-힯豈-﫿＀-￯]/;
 
-// 작은 물방울 폭 추정 — 한글·한자 등 18px, 그 밖 10px, + 좌우 여백 22 + 테두리 4.
-export function estimateChipWidth(text: string): number {
+// 글자 폭 추정 — 한글·한자 등 18px, 그 밖 10px, + 좌우 여백 22 + 테두리 4(모임 이름 버튼 폭).
+function estimateChipWidth(text: string): number {
   let w = 26;
   for (const ch of text) w += WIDE.test(ch) ? 18 : 10;
   return w;
-}
-
-export function overflowLabel(n: number): string {
-  return `외 ${n}`;
-}
-
-// 작은 물방울을 줄에 담는다. 넘치면 마지막 줄 끝에 "외 N" 이 들어갈 자리를 비운다.
-export function packChips(names: string[], rowWidth: number = L.COL_W - 2 * L.STORY_PAD_X): { rows: number[][]; overflow: number } {
-  const rows: number[][] = [];
-  const widths: number[] = [];
-  let i = 0;
-  for (; i < names.length; i++) {
-    const w = Math.min(estimateChipWidth(names[i]), rowWidth);
-    const last = rows.length - 1;
-    if (last >= 0 && widths[last] + L.CHIP_GAP + w <= rowWidth) {
-      rows[last].push(i);
-      widths[last] += L.CHIP_GAP + w;
-    } else if (rows.length < L.CHIP_MAX_ROWS) {
-      rows.push([i]);
-      widths.push(w);
-    } else break;
-  }
-  let overflow = names.length - i;
-  if (overflow > 0) {
-    const last = rows.length - 1;
-    // "외 N" 이 마지막 줄에 들어갈 때까지 끝에서 하나씩 뺀다(뺀 만큼 N 이 늘어남).
-    while (rows[last].length > 0) {
-      const tag = estimateChipWidth(overflowLabel(overflow));
-      const used = rows[last].reduce((s, k) => s + Math.min(estimateChipWidth(names[k]), rowWidth), 0) + L.CHIP_GAP * (rows[last].length - 1);
-      if (used + L.CHIP_GAP + tag <= rowWidth) break;
-      rows[last].pop();
-      overflow += 1;
-    }
-    // 마지막 줄이 비면 그 줄은 "외 N" 만 담는 줄로 남긴다(줄 수 = 높이라 지우지 않음).
-  }
-  return { rows, overflow };
 }
 
 // 시기 노드의 사람·장소 — 시기에 바로 이은 분·곳 + 이 시기 이야기에 나온 분·곳(확정만, 모임 제외), 같은 분·곳은 한 번.
@@ -211,29 +182,84 @@ export function yearText(ev: Pick<MyLifeEvent, "year" | "endYear">): string {
   return ev.endYear !== null && ev.endYear !== ev.year ? `${ev.year}~${ev.endYear}` : `${ev.year}`;
 }
 
-// 꼬리표 줄(한 줄, 18px) — 그때의 나 > 다른 시기에도 순으로 하나만 보인다(나머지는 패널·버튼 이름에).
+// 꼬리표 — 그때의 나 > 다른 시기에도 순으로 하나만(나머지는 패널·버튼 이름에).
 export type StoryTag = "self" | "elsewhere" | null;
 export function storyTag(s: MyLifeStory): StoryTag {
   if (s.kind === "SELF") return "self";
   if (s.otherEventIds.length > 0) return "elsewhere";
   return null;
 }
-export function storyHasTag(s: MyLifeStory): boolean {
-  return storyTag(s) !== null;
-}
-
-export function storyHeight(s: MyLifeStory): { h: number; rows: number[][]; overflow: number } {
-  const { rows, overflow } = packChips(s.chips.map((c) => c.name));
-  const lines = rows.length + (overflow > 0 && rows.length === 0 ? 1 : 0);
-  const chipsH = lines > 0 ? L.CHIP_TOP + lines * L.CHIP_H + (lines - 1) * L.CHIP_GAP : 0;
-  const h = L.STORY_PAD_Y * 2 + (storyHasTag(s) ? L.STORY_TAG_H : 0) + L.STORY_TEXT_H + chipsH;
-  return { h, rows, overflow };
-}
 
 // 연대 스트립 색 단계 — 토큰은 1940~2020 년대만 있다.
 export function decadeOf(year: number | null): number | null {
   if (year === null) return null;
   return Math.min(2020, Math.max(1940, Math.floor(year / 10) * 10));
+}
+
+// ── 행성·위성(U1 — ui-space §1.2·§1.3) ─────────────────────────────────
+
+// 시기 행성 지름 — 이야기 0~1 = 128 · 2~3 = 144 · 4 이상 = 160(Q105).
+export function periodPlanetD(stories: number): number {
+  return L.PLANET_PERIOD[stories >= 4 ? 2 : stories >= 2 ? 1 : 0];
+}
+
+// 위성 순서 — 이야기 = 작은 물방울 순서(대상 인물 → 사람·모임 → 장소), 시기 = 바로 이은 사람 → 모임 → 장소(시기 위성 = 직접 연결만 —
+// 이야기에서 나온 분·곳은 이야기 위성에 이미 있다, ui-space §1.1).
+export function storySatRefs(s: Pick<MyLifeStory, "chips">): SatRef[] {
+  return s.chips.map((c) => ({ kind: c.kind, id: c.id }));
+}
+export function eventSatRefs(ev: Pick<MyLifeEvent, "personIds" | "groupIds" | "placeIds">): SatRef[] {
+  return [
+    ...ev.personIds.map((id) => ({ kind: "person" as const, id })),
+    ...ev.groupIds.map((id) => ({ kind: "group" as const, id })),
+    ...ev.placeIds.map((id) => ({ kind: "place" as const, id })),
+  ];
+}
+
+// 보이는 위성 수·"+N"(Q108) — 12개까지 전부, 13개부터 11개 + "+N"(N = n − 11).
+export function satelliteSlots(n: number): { shown: number; more: number } {
+  return n <= L.SAT_MAX ? { shown: n, more: 0 } : { shown: L.SAT_MAX - 1, more: n - (L.SAT_MAX - 1) };
+}
+
+// 궤도 수(U2 공전용 — Q108): 0 · 1~6 = 1 · 7 이상 = 2.
+export function orbitCount(n: number): number {
+  return n === 0 ? 0 : n <= 6 ? 1 : 2;
+}
+
+// 계 하나 — 행성(상자 위쪽 가운데) + 아래 위성 칸 줄(3칸씩, 줄 폭만큼 가운데 맞춤, 첫 줄이 3칸이면 바깥 두 칸을 ARC_LIFT 만큼 올림).
+function placeSystem(planetKey: string, y0: number, d: number, refs: SatRef[]): { h: number; planet: Planet; sats: LayoutSatellite[] } {
+  const cx = L.TIME_X + L.SYS_W / 2;
+  const planet: Planet = { cx, cy: y0 + L.SYS_PAD_TOP + d / 2, d };
+  const { shown, more } = satelliteSlots(refs.length);
+  const cells = shown + (more > 0 ? 1 : 0);
+  if (cells === 0) return { h: L.SYS_PAD_TOP + d + L.SYS_PAD_BOTTOM, planet, sats: [] };
+  const gridTop = y0 + L.SYS_PAD_TOP + d + L.SAT_TOP_GAP;
+  const rows = Math.ceil(cells / L.SAT_PER_ROW);
+  const sats: LayoutSatellite[] = [];
+  for (let i = 0; i < cells; i++) {
+    const r = Math.floor(i / L.SAT_PER_ROW);
+    const col = i % L.SAT_PER_ROW;
+    const inRow = Math.min(L.SAT_PER_ROW, cells - r * L.SAT_PER_ROW);
+    const rowW = inRow * L.SAT_CELL_W + (inRow - 1) * L.SAT_COL_GAP;
+    const x = cx - rowW / 2 + col * (L.SAT_CELL_W + L.SAT_COL_GAP);
+    const lift = r === 0 && inRow === L.SAT_PER_ROW && col !== 1 ? L.ARC_LIFT : 0;
+    const y = gridTop + r * (L.SAT_CELL_H + L.SAT_ROW_GAP) - lift;
+    const ref = i < shown ? refs[i] : null;
+    sats.push({
+      key: ref ? `sat:${planetKey}:${ref.kind}:${ref.id}` : `sat:${planetKey}:more`,
+      planetKey,
+      ref,
+      more: ref ? 0 : more,
+      x,
+      y,
+      w: L.SAT_CELL_W,
+      h: L.SAT_CELL_H,
+      cx: x + L.SAT_CELL_W / 2,
+      cy: y + L.SAT_D / 2,
+    });
+  }
+  const h = gridTop + rows * L.SAT_CELL_H + (rows - 1) * L.SAT_ROW_GAP + L.SYS_PAD_BOTTOM - y0;
+  return { h, planet, sats };
 }
 
 const intersects = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -257,14 +283,15 @@ const bboxOf = (rs: readonly Rect[]): Rect => {
 
 // ── 시간 줄기 ─────────────────────────────────────────────────────────
 
-type Timeline = Pick<MyLifeLayout, "nodes" | "edges" | "trunk" | "bands" | "height" | "shifted">;
+type Timeline = Pick<MyLifeLayout, "nodes" | "satellites" | "edges" | "trunk" | "bands" | "height" | "shifted">;
 
-// 배치 후 겹침 해소 — 겹치는 쌍이 있으면 아래쪽 노드의 윗변 이하에 있는 모든 것(노드·이음선·줄기·띠)을
+// 배치 후 겹침 해소 — 겹치는 쌍이 있으면 아래쪽 노드의 윗변 이하에 있는 모든 것(노드·행성 중심·그 위성·이음선·줄·띠)을
 // 위 노드 아랫변 + 간격까지 내린다. 위아래 순서·좌우 위치는 그대로라 구조가 깨지지 않는다(시간 줄기 안에서만).
 export function resolveOverlaps<T extends Timeline>(layout: T): T {
   const out: T = {
     ...layout,
-    nodes: layout.nodes.map((n) => ({ ...n })),
+    nodes: layout.nodes.map((n) => ("planet" in n ? { ...n, planet: { ...n.planet } } : { ...n })),
+    satellites: layout.satellites.map((s) => ({ ...s })),
     edges: layout.edges.map((e) => ({ ...e })),
     trunk: layout.trunk.map((t) => ({ ...t })),
     bands: layout.bands.map((b) => ({ ...b })),
@@ -284,7 +311,20 @@ export function resolveOverlaps<T extends Timeline>(layout: T): T {
     const from = lower.y;
     const dy = upper.y + upper.h + L.OVERLAP_GAP - lower.y;
     // 아래 노드 자신과 그보다 아래에 있는 것만 — 두 노드가 같은 높이면 위 노드까지 같이 내려가 끝없이 돌던 결함 방지.
-    for (const n of out.nodes) if (n === lower || n.y > from) n.y += dy;
+    const moved = new Set<string>();
+    for (const n of out.nodes) {
+      if (n === lower || n.y > from) {
+        n.y += dy;
+        if ("planet" in n) n.planet.cy += dy;
+        moved.add(n.key);
+      }
+    }
+    for (const s of out.satellites) {
+      if (moved.has(s.planetKey)) {
+        s.y += dy;
+        s.cy += dy;
+      }
+    }
     for (const e of out.edges) {
       if (e.y1 >= from) e.y1 += dy;
       if (e.y2 >= from) e.y2 += dy;
@@ -308,43 +348,46 @@ export function resolveOverlaps<T extends Timeline>(layout: T): T {
 
 function layoutTimeline(data: MyLifeData, folded: ReadonlySet<string>): Timeline {
   const nodes: LayoutNode[] = [];
-  const edges: Edge[] = [];
+  const satellites: LayoutSatellite[] = [];
   const trunk: TrunkSegment[] = [];
   const bands: LayoutBand[] = [];
   let y = L.TOP_PAD;
   let prevYear: number | null = null;
 
   data.events.forEach((ev, idx) => {
-    const segStart = y; // 줄기는 앞 띠 끝에서 이어진다(연도 간격 표지 뒤로도 끊기지 않게)
+    const segStart = y; // 줄은 앞 띠 끝에서 이어진다(연도 간격 표지 뒤로도 끊기지 않게)
     if (idx > 0 && ev.year !== null && prevYear !== null && ev.year - prevYear >= L.YEAR_GAP_MIN) {
       nodes.push({ key: `gap:${ev.id}`, kind: "gap", years: ev.year - prevYear, x: L.TRUNK_X - L.FOLD_W / 2, y, w: L.FOLD_W, h: L.YEAR_GAP_H });
-      y += L.YEAR_GAP_H + L.BRANCH_GAP;
+      y += L.YEAR_GAP_H + L.SYS_GAP;
     }
     if (ev.year !== null) prevYear = ev.year;
 
     const top = y;
-    nodes.push({ key: `ev:${ev.id}`, kind: "event", eventId: ev.id, x: L.TRUNK_X - L.CENTER_W / 2, y, w: L.CENTER_W, h: L.CENTER_H });
-    let bottom = y + L.CENTER_H;
+    const evKey = `ev:${ev.id}`;
+    const es = placeSystem(evKey, y, periodPlanetD(ev.stories.length), eventSatRefs(ev));
+    nodes.push({ key: evKey, kind: "event", eventId: ev.id, planet: es.planet, x: L.TIME_X, y, w: L.SYS_W, h: es.h });
+    satellites.push(...es.sats);
+    let bottom = y + es.h;
     if (ev.stories.length > 0 && folded.has(ev.id)) {
       const fy = bottom + L.FOLD_GAP;
       nodes.push({ key: `fold:${ev.id}`, kind: "fold", eventId: ev.id, count: ev.stories.length, x: L.TRUNK_X - L.FOLD_W / 2, y: fy, w: L.FOLD_W, h: L.FOLD_H });
       bottom = fy + L.FOLD_H;
-    } else if (ev.stories.length > 0) {
-      let ly = bottom + L.AFTER_CENTER;
+    } else {
       for (const s of ev.stories) {
-        const { h, rows, overflow } = storyHeight(s);
-        nodes.push({ key: `st:${ev.id}:${s.id}`, kind: "story", eventId: ev.id, storyId: s.id, x: L.LEFT_X, y: ly, w: L.COL_W, h, hasTag: storyHasTag(s), chipRows: rows, overflow });
-        edges.push({ x1: L.TRUNK_X, y1: ly + L.EDGE_DY, x2: L.LEFT_X + L.COL_W, y2: ly + L.EDGE_DY });
-        ly += h + L.BRANCH_GAP;
+        const sy = bottom + L.SYS_GAP;
+        const stKey = `st:${ev.id}:${s.id}`;
+        const ss = placeSystem(stKey, sy, L.PLANET_STORY, storySatRefs(s));
+        nodes.push({ key: stKey, kind: "story", eventId: ev.id, storyId: s.id, planet: ss.planet, x: L.TIME_X, y: sy, w: L.SYS_W, h: ss.h });
+        satellites.push(...ss.sats);
+        bottom = sy + ss.h;
       }
-      bottom = ly - L.BRANCH_GAP;
     }
-    bands.push({ eventId: ev.id, top, bottom, centerMidY: top + L.CENTER_H / 2 });
+    bands.push({ eventId: ev.id, top, bottom, centerMidY: es.planet.cy });
     trunk.push({ y1: segStart, y2: bottom + L.BAND_GAP, decade: decadeOf(ev.year) });
     y = bottom + L.BAND_GAP;
   });
   if (trunk.length > 0) trunk[trunk.length - 1].y2 = bands[bands.length - 1].bottom;
-  return resolveOverlaps({ nodes, edges, trunk, bands, height: Math.max(y - L.BAND_GAP, L.TOP_PAD), shifted: 0 });
+  return resolveOverlaps({ nodes, satellites, edges: [], trunk, bands, height: Math.max(y - L.BAND_GAP, L.TOP_PAD), shifted: 0 });
 }
 
 // ── 인물록·장소록(모임 영역) ────────────────────────────────────────────
@@ -571,7 +614,7 @@ export function layoutMyLife(
     people.rect.y + people.rect.h + L.REGION_GAP,
     kind,
   );
-  const timelineRect: Rect = { x: L.LEFT_X, y: L.TOP_PAD, w: L.CENTER_RIGHT - L.LEFT_X, h: Math.max(t.height - L.TOP_PAD, L.CENTER_H) };
+  const timelineRect: Rect = { x: L.TIME_X, y: L.TOP_PAD, w: L.SYS_W, h: Math.max(t.height - L.TOP_PAD, L.PLANET_STORY) };
   const nodes = [...t.nodes, ...people.nodes, ...places.nodes];
   const shapes = [...people.shapes, ...places.shapes];
   const right = bboxOf([...nodes, ...shapes, timelineRect]);
@@ -579,6 +622,7 @@ export function layoutMyLife(
     width: right.x + right.w + L.PAD,
     height: Math.max(t.height, places.rect.y + places.rect.h) + L.BOTTOM_PAD,
     nodes,
+    satellites: t.satellites,
     edges: t.edges,
     trunk: t.trunk,
     bands: t.bands,
@@ -591,7 +635,7 @@ export function layoutMyLife(
   };
 }
 
-// 화면 가운데(세계 y)에 가장 가까운 띠 — "지금 보는 곳"·중심 테두리 강조.
+// 화면 가운데(세계 y)에 가장 가까운 띠 — "지금 보는 시기"(행성 고리·지도 상자 낭독 이름).
 export function bandAt(layout: Pick<MyLifeLayout, "bands">, worldY: number): LayoutBand | null {
   let best: LayoutBand | null = null;
   let bestD = Infinity;

@@ -9,15 +9,12 @@ export const MY_LIFE_COPY = {
   // 확정(성민 2026-11-01)
   menuLabel: "My Life",
   pageTitle: "My Life",
-  edgePersonOff: "인물 간선 끄기",
-  edgePlaceOff: "장소 간선 끄기",
 
-  // ── 지도·목록 공통 — 확정(성민 2026-11-04). 아무 시기도 안 지난 지도 맨 처음엔 "지금 보는 곳" 줄을 비운다(옛 nowViewingNone 삭제). ──
+  // ── 지도·목록 공통 — 확정(성민 2026-11-04). "지금 보는 곳" 줄·간선 끄기 토글은 우주 개편 U1 에서 뺐다(ui-space §6.2·Q114 — 지도 낭독 이름 space.regionAt 로). ──
   menuHint: "내 인생을 한 장의 지도로",
   mapListLabel: "My Life — 시기 순서",
   mapRegionLabel: "My Life 지도",
   listStories: "이야기",
-  nowViewing: (where: string) => `지금 보는 곳: ${where}`,
   fitAll: "전체 보기",
   zoomIn: "크게 보기",
   zoomOut: "작게 보기",
@@ -152,8 +149,6 @@ export const MY_LIFE_COPY = {
   selfName: (lead: string, withNames: string[]) =>
     withNames.length > 0 ? `그때의 나, ${lead}, 함께: ${withNames.join(", ")}` : `그때의 나, ${lead}`,
   // 인물록·장소록(My Life 개편 1단계) — [임시 — 성민 확정 필요]
-  edgePersonOn: "인물 간선 켜기",
-  edgePlaceOn: "장소 간선 켜기",
   peopleTitle: "인물록",
   placesTitle: "장소록",
   noGroup: "모임 없는 분",
@@ -320,5 +315,15 @@ export const MY_LIFE_COPY = {
     pickPeriod: "시기를 골라 주세요.",
     repickSame: "같은 분을 다시 골라 주세요.",
     failed: "저장하지 못했어요. 다시 해 주세요.",
+  },
+
+  // 우주 개편 U1(2026-11-05 — docs/phase/ui-space.md §1·§3) — [임시 — 성민 확정 필요]
+  space: {
+    toNight: "밤 우주로 보기", // 지도 안 테마 토글 낭독 이름(아이콘만 — Q103)
+    toLight: "밝은 우주로 보기",
+    regionAt: (period: string) => `My Life 지도 — 지금 보는 시기: ${period}`, // "지금 보는 곳" 줄을 뺀 대신(§6.2)
+    satName: (name: string, kind: "person" | "group" | "place") =>
+      kind === "place" ? `${name} — 장소록에 있는 곳` : kind === "group" ? `${name} — 모임` : `${name} — 인물록에 있는 분`,
+    satMore: (n: number) => `${n}개 더 — 패널에서 모두 보기`,
   },
 };

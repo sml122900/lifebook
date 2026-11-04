@@ -322,7 +322,20 @@ export function CreateForm({
 }
 
 // 만들기 시트 — 종류 고르기 → 입력.
-export function CreateSheet({ data, initialKind, onDone, onClose }: { data: MyLifeData; initialKind: CreateKind | null; onDone: (r: Created) => void; onClose: () => void }) {
+// onSuggest — [이야기 거리](오늘의 인터뷰·더 들어볼까요? 시트). 지도 머리 줄에서 옮겨 와 종류 고르기 맨 아래에(우주 개편 U1, ui-space §6.2).
+export function CreateSheet({
+  data,
+  initialKind,
+  onDone,
+  onClose,
+  onSuggest,
+}: {
+  data: MyLifeData;
+  initialKind: CreateKind | null;
+  onDone: (r: Created) => void;
+  onClose: () => void;
+  onSuggest?: () => void;
+}) {
   const [kind, setKind] = useState<CreateKind | null>(initialKind);
   return (
     <div className="flex flex-col gap-4 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6">
@@ -345,6 +358,11 @@ export function CreateSheet({ data, initialKind, onDone, onClose }: { data: MyLi
               </li>
             ))}
           </ul>
+          {onSuggest && (
+            <Button variant="secondary" size="lg" onClick={onSuggest}>
+              {C.suggest}
+            </Button>
+          )}
           <Button variant="tertiary" size="lg" onClick={onClose}>
             {C.close}
           </Button>

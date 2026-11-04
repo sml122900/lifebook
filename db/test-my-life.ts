@@ -42,12 +42,14 @@ import {
   eventPeoplePlaces,
   countMapNodes,
   countTimelineNodes,
-  estimateChipWidth,
+  eventSatRefs,
   findOverlaps,
   layoutMyLife,
-  overflowLabel,
-  packChips,
+  orbitCount,
+  periodPlanetD,
   resolveOverlaps,
+  satelliteSlots,
+  storySatRefs,
   yearText,
   type LayoutNode,
   type MyLifeLayout,
@@ -151,6 +153,38 @@ function edgesHittingCenters(data: MyLifeData, lay: MyLifeLayout, selections: st
     }
   }
   return bad;
+}
+
+// U1 위성·행성 자리 검사(ui-space §1.2·§1.3) — 행성 원·위성 칸이 자기 계 상자 안 · 같은 계 위성 칸끼리 안 겹침 ·
+// 위성 원이 행성 원과 8px 이상 떨어짐 · 위성 원 가운데끼리 56px 이상(손가락 하나에 하나) · 키 하나씩.
+function satErrors(lay: MyLifeLayout): string[] {
+  const errs: string[] = [];
+  const nm = nodeMap(lay);
+  const inside = (r: { x: number; y: number; w: number; h: number }, n: LayoutNode) => r.x >= n.x && r.y >= n.y && r.x + r.w <= n.x + n.w && r.y + r.h <= n.y + n.h;
+  for (const n of lay.nodes) {
+    if (n.kind !== "event" && n.kind !== "story") continue;
+    const p = n.planet;
+    if (!inside({ x: p.cx - p.d / 2, y: p.cy - p.d / 2, w: p.d, h: p.d }, n)) errs.push(`${n.key}:행성밖`);
+  }
+  const byPlanet = new Map<string, MyLifeLayout["satellites"]>();
+  for (const s of lay.satellites) byPlanet.set(s.planetKey, [...(byPlanet.get(s.planetKey) ?? []), s]);
+  for (const [pk, sats] of byPlanet) {
+    const n = nm.get(pk);
+    if (!n || (n.kind !== "event" && n.kind !== "story")) {
+      errs.push(`${pk}:주인없음`);
+      continue;
+    }
+    if (findOverlaps(sats).length) errs.push(`${pk}:칸겹침`);
+    for (const s of sats) {
+      if (!inside(s, n)) errs.push(`${s.key}:상자밖`);
+      if (Math.hypot(s.cx - n.planet.cx, s.cy - n.planet.cy) < n.planet.d / 2 + L.SAT_D / 2 + 8) errs.push(`${s.key}:행성에붙음`);
+    }
+    for (let i = 0; i < sats.length; i++) for (let j = i + 1; j < sats.length; j++) {
+      if (Math.hypot(sats[i].cx - sats[j].cx, sats[i].cy - sats[j].cy) < 56) errs.push(`${sats[i].key}~${sats[j].key}:가까움`);
+    }
+  }
+  if (new Set(lay.satellites.map((s) => s.key)).size !== lay.satellites.length) errs.push("키중복");
+  return errs;
 }
 
 // 합성 데이터 — 중심 N, 이야기 S, 인물 P, 모임 G(구성 무작위·여러 모임 소속 포함), 장소 Q. 결정적 의사난수.
@@ -302,8 +336,8 @@ async function main() {
     check("③ 노드 교차 0 · 세계 안 · 해소 0회", findOverlaps(lay.nodes).length === 0 && lay.shifted === 0 &&
       lay.nodes.every((n) => n.x >= 0 && n.y >= 0 && n.x + n.w <= lay.width && n.y + n.h <= lay.height), findOverlaps(lay.nodes));
     const timelineKinds = new Set(["event", "story", "fold", "gap"]);
-    check("③ 시간 줄기(x ≤ 420)와 인물록·장소록(x ≥ 520) 분리, 오른쪽 가지 없음",
-      lay.nodes.filter((n) => timelineKinds.has(n.kind)).every((n) => n.x + n.w <= L.CENTER_RIGHT) &&
+    check("③ 시간 줄기(계 상자 x 56~416)와 인물록·장소록(x ≥ 480) 분리, 오른쪽 가지 없음",
+      lay.nodes.filter((n) => timelineKinds.has(n.kind)).every((n) => n.x + n.w <= L.TIME_X + L.SYS_W) && L.TIME_X + L.SYS_W < L.REGION_X &&
         lay.nodes.filter((n) => !timelineKinds.has(n.kind)).every((n) => n.x >= L.REGION_X) &&
         lay.shapes.every((s) => s.x >= L.REGION_X) && !lay.nodes.some((n) => (n.kind as string) === "branch"));
     check("③ 인물 노드 5(초안 빠짐) · 장소 노드 3 · 모임 이름 3 · 칩 없음(3개 이하)",
@@ -313,8 +347,14 @@ async function main() {
     const hikingShape = lay.shapes.find((s) => s.groupId === hiking);
     check("③ 빈 모임(등산회)도 영역이 보임·그 안에 사람 없음", !!hikingShape && lay.nodes.filter((n) => n.kind === "person").every((n) => rectOutsideShape(hikingShape!, n)));
     check("③ 인물록 제목 맨 위·장소록은 인물록 아래", lay.regions.places.y >= lay.regions.people.y + lay.regions.people.h + L.REGION_GAP - 1 && nm.get("title:people")!.y === L.TOP_PAD);
-    const ev3 = lay.nodes.filter((n) => n.kind === "event");
-    check("③ 중심 노드 전부 같은 크기 248×120", ev3.length === 3 && ev3.every((n) => n.w === L.CENTER_W && n.h === L.CENTER_H));
+    // U1(ui-space Q105) — 시기 행성 = 이야기 수로 128·144·160, 이야기 행성 = 128, 계 상자 폭 360 고정.
+    const ev3 = lay.nodes.filter((n): n is Extract<LayoutNode, { kind: "event" }> => n.kind === "event");
+    const st3 = lay.nodes.filter((n): n is Extract<LayoutNode, { kind: "story" }> => n.kind === "story");
+    check("③ 행성 크기 — 시기 = 이야기 수로(출생 1 → 128 · 고등학교 3 → 144 · 첫 직장 0 → 128), 이야기 = 128, 계 상자 폭 360",
+      ev3.length === 3 && ev3.every((n) => n.w === L.SYS_W && n.planet.d === periodPlanetD(d.events.find((e) => e.id === n.eventId)!.stories.length)) &&
+        JSON.stringify(ev3.map((n) => n.planet.d)) === JSON.stringify([128, 144, 128]) &&
+        st3.length === 4 && st3.every((n) => n.w === L.SYS_W && n.planet.d === L.PLANET_STORY),
+      ev3.map((n) => n.planet.d));
     check("③ 같은 입력 같은 출력", JSON.stringify(layoutMyLife(d)) === JSON.stringify(lay));
     check("③ 출생(1958)→고등학교(1974) 16년 표지", lay.nodes.some((n) => n.kind === "gap" && n.key === `gap:${hs}` && n.years === 16));
     const fl = layoutMyLife(d, { folded: new Set([hs]) });
@@ -353,6 +393,25 @@ async function main() {
         const p = syn5.people.find((x) => x.id === n.personId)!;
         return n.hiddenGroups === p.groupIds.filter((gid) => !ly5.shownGroupIds.includes(gid)).length;
       }), ly5.shownGroupIds);
+
+    // U1 위성 — 픽스처 · 합성(이야기 60·인물 30) · 위성 13·30개 계("+N" 칸 하나).
+    const satB = lay.satellites.filter((s) => s.planetKey === `st:${birth}:${s1.episodeId}`);
+    check("③ U1 위성 — 출생 이야기 = 작은 물방울 3개(어머니·짝꿍·외가) 자리 · 고등학교 시기 = 바로 이은 5개(사람 3·모임 1·장소 1)",
+      JSON.stringify(satB.map((s) => s.ref?.id)) === JSON.stringify([mom, mate, place1]) &&
+        lay.satellites.filter((s) => s.planetKey === `ev:${hs}`).length === 5 && satErrors(lay).length === 0, { satB: satB.map((s) => s.key), e: satErrors(lay) });
+    const synS = synthetic({ events: 11, stories: 60, people: 30, groups: 3, places: 14, seed: 5 });
+    const many = (n: number) => Array.from({ length: n }, (_, i) => ({ kind: "person" as const, id: `p${i % 30}x${i}`, name: `분${i}` }));
+    synS.events[0].stories[0] = { ...synS.events[0].stories[0], chips: many(13) };
+    synS.events[1].stories.push({ ...synS.events[0].stories[0], id: "s-big", primaryEventId: synS.events[1].id, chips: many(30) });
+    const lyS = layoutMyLife(synS);
+    const moreOf = (sid: string, eid: string) => lyS.satellites.filter((s) => s.planetKey === `st:${eid}:${sid}`);
+    const m13 = moreOf(synS.events[0].stories[0].id, synS.events[0].id);
+    const m30 = moreOf("s-big", synS.events[1].id);
+    check("③ U1 위성 — 합성(이야기 60·인물 30·장소 14 + 위성 13·30개 계): 상자 안·칸 안 겹침·행성과 8px·서로 56px·키 하나씩 · 교차 0",
+      satErrors(lyS).length === 0 && findOverlaps(lyS.nodes).length === 0 && lyS.shifted === 0, satErrors(lyS).slice(0, 5));
+    check("③ U1 \"+N\" — 13개 = 11 + \"+2\" · 30개 = 11 + \"+19\"(마지막 칸)",
+      m13.length === 12 && m13[11].ref === null && m13[11].more === 2 && m13[11].key.endsWith(":more") &&
+        m30.length === 12 && m30[11].ref === null && m30[11].more === 19, { m13: m13.length, m30: m30.length });
 
     // ── ④ 간선 ───────────────────────────────────────────────────
     const on = { person: true, place: true };
@@ -395,13 +454,13 @@ async function main() {
     check("⑤ 결과 최대 30", searchMyLife(syn60, "가").length === 30);
 
     // ── ⑥ 순수 함수 ──────────────────────────────────────────────
-    const row = L.COL_W - 2 * L.STORY_PAD_X;
-    const five = ["김민수", "박영수", "이순자", "정미숙", "한상철"];
-    const p = packChips(five);
-    const fits = (r: number[], extra: string | null) =>
-      r.reduce((s, i) => s + Math.min(estimateChipWidth(five[i]), row), 0) + L.CHIP_GAP * (r.length - 1) + (extra ? L.CHIP_GAP + estimateChipWidth(extra) : 0) <= row;
-    check("⑥ 작은 물방울 — 최대 2줄, 넘치면 마지막 줄에 '외 N'", p.rows.length <= 2 && p.overflow > 0 && p.rows.flat().length + p.overflow === 5 &&
-      p.rows.every((r, i) => fits(r, i === p.rows.length - 1 ? overflowLabel(p.overflow) : null)), p);
+    // U1(ui-space Q108) — 위성 12개까지 전부, 13개부터 11개 + "+N" · 궤도 수(U2 용) 0 / 1~6 = 1 / 7 이상 = 2.
+    check("⑥ 위성 수·\"+N\"·궤도 수 — 0·3·6·7·12·13·30",
+      JSON.stringify([0, 3, 6, 7, 12, 13, 30].map((n) => [satelliteSlots(n).shown, satelliteSlots(n).more, orbitCount(n)])) ===
+        JSON.stringify([[0, 0, 0], [3, 0, 1], [6, 0, 1], [7, 0, 2], [12, 0, 2], [11, 2, 2], [11, 19, 2]]));
+    check("⑥ 위성 순서 — 이야기 = 작은 물방울 순서 · 시기 = 바로 이은 사람 → 모임 → 장소(이야기에서만 나온 분·곳은 시기 위성 아님)",
+      JSON.stringify(storySatRefs(eb.stories[0])) === JSON.stringify(eb.stories[0].chips.map((c) => ({ kind: c.kind, id: c.id }))) &&
+        JSON.stringify(eventSatRefs(eh).map((r) => r.kind)) === JSON.stringify(["person", "person", "person", "group", "place"]));
     check("⑥ 본문 첫 문장", storyLead("  외가에서 태어났다.  어머니가 말씀하셨다. ") === "외가에서 태어났다." && storyLead("마침표 없는 글") === "마침표 없는 글");
     const mid = (lay.bands[1].top + lay.bands[1].bottom) / 2;
     check("⑥ 지금 보는 곳", bandAt(lay, mid)?.eventId === hs && bandAt(lay, -100)?.eventId === birth);
@@ -494,7 +553,7 @@ async function main() {
       !view.includes("{C.toRelated(connected.length)}") && view.includes("{C.toRelated(related.count)}") &&
         view.includes("dialogRef.current?.close();\n                        setTour((t) => ({ sel: panel, at: 1, n: (t?.n ?? 0) + 1 }));") &&
         view.includes("if (!tour || tour.n === tourDoneRef.current) return;") &&
-        /selectionEdges\(data, layout, selected, edgesOn\)\.connected\.length/.test(view));
+        /selectionEdges\(data, layout, selected, ALL_EDGES\)\.connected\.length/.test(view));
 
     // ── ⑪ 3단계 최종 E2E(2026-11-02) — 차례 보기 [다음 연결] · 시기 패널 장소 목록(이야기에 나온 곳 포함) ──
     const edit = fs.readFileSync(path.resolve(__dirname, "../app/my-life/EditUI.tsx"), "utf8");
@@ -588,8 +647,11 @@ async function main() {
         view.includes('if (t === "self") return C.selfTag;') && list.includes("{tag && <span className=\"text-lg text-ink-soft\">{tag}</span>}") &&
         list.includes('${s.kind === "SELF" ? "border-sage" : "border-ink-soft"}') && C.selfTag === "그때의 나");
     const mapPart = view.slice(view.indexOf("function MapMode("), listStart);
-    check("⑫ 지도 보기 — 노드 안 골랐을 때 \"지금 보는 곳\" 줄에 [이야기 거리] · 시트 = 같은 카드(제목 h3)",
-      mapPart.includes("onClick={onOpenSuggest}") && mapPart.indexOf("onClick={onOpenSuggest}") > mapPart.indexOf("{nowText}") &&
+    // U1(ui-space §6.2) — [이야기 거리]는 지도 머리 줄에서 만들기 시트 맨 아래로(지도 첫 화면 글자 40자 이하).
+    check("⑫ 지도 보기 — [이야기 거리] = 만들기 시트 맨 아래(지도 위 줄 없음) · 시트 = 같은 카드(제목 h3)",
+      !mapPart.includes("onOpenSuggest") && !mapPart.includes("nowText") &&
+        /onSuggest=\{\(\) => \{\s*createRef\.current\?\.close\(\);\s*openSuggest\(\);/.test(view) &&
+        /\{onSuggest && \(\s*<Button variant="secondary" size="lg" onClick=\{onSuggest\}>\s*\{C\.suggest\}/.test(edit) &&
         view.includes('<InterviewEntryCard state={suggest.interview} as="h3" />') &&
         view.includes('<GapCards gaps={suggest.gaps} as="h3" />') && view.includes('aria-labelledby="mylife-suggest-title"'));
     const sug = src("app/my-life/Suggestions.tsx");
@@ -610,11 +672,49 @@ async function main() {
         yearText({ year: 1971, endYear: 1971 }) === "1971" && yearText({ year: null, endYear: 1980 }) === C.yearUnknown &&
         ![view, edit, story13].some((t) => t.includes("function yearText(")) &&
         [view, edit, story13].every((t) => /import \{[^}]*\byearText\b[^}]*\} from "@\/lib\/my-life-layout";/.test(t)));
-    check("⑬ \"지금 보는 곳\" — 보는 시기가 없으면 비움(옛 nowViewingNone 없음) · 좁은 화면은 글 줄(늘 한 줄 높이)·버튼 줄 나눔(모두 펼치기 있고 없음에 높이 같음) · 접기 = 이야기만",
-      !("nowViewingNone" in C) && !view.includes("nowViewingNone") &&
-        view.includes('<div className="flex flex-col gap-1 px-6 py-1 sm:min-h-[56px] sm:flex-row sm:items-center sm:justify-between sm:gap-3">') &&
-        view.includes('<p className={`min-h-7 min-w-0 truncate text-lg ${status ? "text-ink" : "text-ink-soft"}`}>{status || nowText}</p>') &&
+    // U1(ui-space §6.2) — "지금 보는 곳" 줄 삭제(지도 낭독 이름이 대신 — space.regionAt). 지운 뒤 알림·접힌 띠가 있을 때만 줄이 생김.
+    check("⑬ U1 — \"지금 보는 곳\" 줄 없음(nowViewing 키·nowText 없음) · 알림·[모두 펼치기]가 있을 때만 줄 · 지도 낭독 이름 = 지금 보는 시기 · 접기 = 이야기만",
+      !("nowViewing" in C) && !view.includes("nowText") && view.includes("(status || anyFolded) && (") &&
+        view.includes('"aria-label": regionLabel,') && C.space.regionAt("1974 고등학교 입학") === "My Life 지도 — 지금 보는 시기: 1974 고등학교 입학" &&
         C.unfold(3) === "이야기 3개 펼치기" && C.fold === "이야기 접기");
+    // U1 — 밝은 우주/밤 우주(Q102·Q103·Q142): /my-life 뿌리에만 data-space, 첫 그림 전에 기기 값(깜박임 없음), 지도 안 오른쪽 위 56px 토글.
+    check("⑬ U1 테마 — My Life 뿌리 data-space + 첫 그림 전 기기 값 스크립트 · 토글 = 지도 안 56px·눌림 상태·낭독 이름 · 앱 머리 줄(layout)엔 data-space 없음",
+      view.includes('<div data-space-root data-space={night ? "night" : "light"} suppressHydrationWarning') &&
+        view.includes("<script dangerouslySetInnerHTML={{ __html: SPACE_BOOT }} />") && view.includes('const SPACE_KEY = "mylife:space";') &&
+        /data-space-toggle\s*aria-pressed=\{night\}\s*aria-label=\{night \? C\.space\.toLight : C\.space\.toNight\}/.test(view) &&
+        view.includes("absolute right-2 top-2 z-10 flex h-14 w-14") && !src("app/layout.tsx").includes("data-space") &&
+        src("app/globals.css").includes("--color-canvas: #221d52;"));
+    {
+      // U1 대비(1.4.3·1.4.11) — globals.css 값으로 계산. 밤 우주 = 글자 4.5·테두리·포커스 3 전부, 밝은 우주 = 행성·위성 테두리 3(U1 기준 ①).
+      // 밝은 우주의 brand(버튼 테두리·포커스)·line(칸 테두리)은 앱 전체 토큰이라 여기서 안 봄(U1 보고 — 앱 전체 결정).
+      const css = src("app/globals.css");
+      const blk = (re: RegExp) => Object.fromEntries([...css.match(re)![1].matchAll(/--color-([\w-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]]));
+      const lt = blk(/@theme \{([\s\S]*?)\n\}/);
+      const nt = { ...lt, ...blk(/\[data-space="night"\] \{([\s\S]*?)\n\}/) };
+      const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+      const lum = (h: string) => rgb(h).map((v) => (v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+      const cr = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+      const mixHex = (fg: string, a: number, bg: string) => "#" + rgb(fg).map((c, i) => Math.round(c * a + rgb(bg)[i] * (1 - a)).toString(16).padStart(2, "0")).join("");
+      const lMap = ["#ece6ff", "#f7f0ff", "#fff0e6"];
+      const nMap = ["#221d52", mixHex("#be78ff", 0.35, "#221d52"), mixHex("#5aa0ff", 0.3, "#221d52")];
+      const low: string[] = [];
+      const need = (label: string, fg: string, bgs: string[], min: number) => bgs.forEach((b) => cr(fg, b) < min && low.push(`${label} ${fg}/${b} ${cr(fg, b).toFixed(2)}`));
+      for (const k of ["planet-edge", "period-edge", "person", "place", "glow"]) need(`밝음 ${k}`, lt[k], lMap, 3);
+      for (const k of ["ink", "ink-soft"]) need(`밤 ${k}`, nt[k], [nt.canvas, nt.surface, nt.banner, ...nMap], 4.5);
+      for (const k of ["ink-faint", "action", "danger", "person", "place"]) need(`밤 ${k}`, nt[k], [nt.surface, nt.canvas], 4.5);
+      need("밤 주요 버튼 글자", "#2a1400", [nt.action, nt["action-hover"]], 4.5);
+      for (const k of ["planet-edge", "period-edge", "person", "place", "glow", "ink", "sage"]) need(`밤 ${k} 테두리`, nt[k], nMap, 3);
+      for (const k of ["brand", "line"]) need(`밤 ${k} 테두리`, nt[k], [nt.surface, nt.canvas], 3);
+      check("⑬ U1 대비 — 밝은 우주 행성·위성 테두리·빛 고리 3:1 · 밤 우주 글자 4.5:1·테두리·포커스 3:1(globals.css 값으로 계산)", low.length === 0, low);
+    }
+    check("⑬ U1 행성 탭(Q110) — 펼침 + 패널 · 펼친 계(행성 + 위성)가 패널·지도 상자에 걸릴 때만 패널 위로(배율 그대로) · 고른 행성의 위성만 버튼(바로가기)",
+      view.includes('if ((nodeKind === "event" || nodeKind === "story") && stateRef.current.scale >= OVERVIEW_SCALE) liftAbovePanel(nodeKey);') &&
+        view.includes("if (rTop >= top && rBottom <= bottom) return;") && view.includes("api.setTransform(st.positionX, st.positionY + dy, st.scale, 300);") &&
+        view.includes("const open = selected === planetKey;") && view.includes("if (open && target) {") &&
+        view.includes('else if (nodeKind === "satellite" && targetKey) openPanel(targetKey);'));
+    check("⑬ U1 — /my-life 첫 진입 사이드 패널 닫힘(기기에 고른 값이 없을 때만 — 다른 화면 첫 진입은 그대로 열림)",
+      src("app/timemachine/SidePanel.tsx").includes('const firstOpen = !usePathname()?.startsWith("/my-life");') &&
+        src("app/timemachine/SidePanel.tsx").includes('stored === null ? firstOpen : stored !== "closed"'));
     check("⑬ 꼬리표 \"다른 시기에도\" — 화면 꼬리표가 보이면 낭독 이름 끝에도 · 그때의 나는 그대로 · 이야기 패널 \"다른 시기에도 있어요: …\"",
       C.alsoElsewhereShort === "다른 시기에도" && C.storyName("수학여행", ["철수"], C.alsoElsewhereShort) === "이야기, 수학여행, 함께: 철수, 다른 시기에도" &&
         C.storyName("수학여행", []) === "이야기, 수학여행" && view.includes("C.storyName(displayTitle(s), names, tagText(s))") &&

@@ -1201,9 +1201,9 @@ function longTitleChecks() {
   const chat = read("app/chat-v3/ChatV3Client.tsx");
   const map = read("app/my-life/MyLifeView.tsx");
   // 줄인 제목 = 지도 노드 · 목록 보기 · 제목 없는 이야기 패널의 화면 낭독용 제목 줄. 화면 렌더는 브라우저가 필요해 정적 확인 —
-  // 쓰는 곳 개수 대신 자리마다 본다(다른 곳에 더 써도 안 깨지게, 2026-11-03).
+  // 쓰는 곳 개수 대신 자리마다 본다(다른 곳에 더 써도 안 깨지게, 2026-11-03). 지도 노드 = 이야기 행성 안 제목(우주 개편 U1, 2026-11-05).
   check("⑭ 쓰는 곳 — 저장 안내 = 줄인 이름 · 지도 노드·목록 보기·(제목 없는 이야기 패널의 화면 낭독용 제목 줄) = 줄인 제목 · 카드 제목 = 2줄 말줄임(본문은 그대로)",
-    chat.includes("FC.created(shortTitle(r.title))") && map.includes('text-ink">{shortTitle(displayTitle(story))}</span>') &&
+    chat.includes("FC.created(shortTitle(r.title))") && map.includes('<span className="line-clamp-2 text-lg font-semibold leading-6">{shortTitle(displayTitle(story))}</span>') &&
       map.includes('<span className="text-lg text-ink">{shortTitle(displayTitle(s))}</span>') &&
       map.includes("{hasOwnTitle(story) ? displayTitle(story) : shortTitle(displayTitle(story))}") &&
       /<dd className="m-0 line-clamp-2 text-xl font-bold text-ink">\{displayTitle\(\{ title: edit\.title, content: edit\.summary \}\)\}<\/dd>/.test(read("app/components/ProposalCard.tsx")));
