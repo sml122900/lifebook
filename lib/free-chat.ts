@@ -111,11 +111,15 @@ const APP_NOTICES = new Set<string>([
   FREE_CHAT_COPY.declined,
   ...LEGACY_APP_NOTICES,
 ]);
-const [CREATED_HEAD, CREATED_TAIL] = FREE_CHAT_COPY.created("\u0000").split("\u0000");
+// "'제목' 이야기를 My Life에 남겼어요." 꼴(제목 자리만 다름) — 지금 꼴 + 옛 꼴("My Life 에", 2026-11-04 띄어쓰기 바뀜).
+const CREATED_FORMS: readonly (readonly [string, string])[] = [
+  FREE_CHAT_COPY.created("\u0000").split("\u0000") as [string, string],
+  ["'", "' 이야기를 My Life 에 남겼어요."],
+];
 
 export function isAppNotice(content: string): boolean {
   const t = content.trim();
-  return APP_NOTICES.has(t) || (t.startsWith(CREATED_HEAD) && t.endsWith(CREATED_TAIL) && t.length > CREATED_HEAD.length + CREATED_TAIL.length);
+  return APP_NOTICES.has(t) || CREATED_FORMS.some(([head, tail]) => t.startsWith(head) && t.endsWith(tail) && t.length > head.length + tail.length);
 }
 
 async function logTurns(userId: string, from: Date, until?: Date): Promise<LogTurn[]> {

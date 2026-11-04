@@ -23,10 +23,15 @@ export function useHasKeyboard(): boolean {
   return useSyncExternalStore(subscribeKeyboardQuery, () => window.matchMedia(KEYBOARD_QUERY).matches, () => false);
 }
 
-// 이 keydown 으로 보내야 하는지 — 맞으면 호출부가 preventDefault 후 보낸다.
+// 한글 조합 중 Enter(조합을 확정하는 Enter 포함 — Safari 는 isComposing 없이 keyCode 229) — 보내지 않는다.
+// 한 줄 입력칸(글로벌 비서·사용법 챗)도 이 판정을 쓴다(2026-11-04).
+export function isComposingEnter(e: KeyboardEvent<Element>): boolean {
+  return e.key === "Enter" && (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229);
+}
+
+// 이 keydown 으로 보내야 하는지(여러 줄 입력칸) — 맞으면 호출부가 preventDefault 후 보낸다.
 export function isSendEnter(e: KeyboardEvent<HTMLTextAreaElement>, hasKeyboard: boolean): boolean {
-  if (e.key !== "Enter" || e.shiftKey) return false;
-  if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return false;
+  if (e.key !== "Enter" || e.shiftKey || isComposingEnter(e)) return false;
   return hasKeyboard;
 }
 

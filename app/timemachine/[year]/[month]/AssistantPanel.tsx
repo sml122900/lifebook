@@ -5,6 +5,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 
 import { BookOpen, Search, ListChecks, type LucideIcon } from "lucide-react";
 
+import { isComposingEnter } from "@/app/components/chat-input";
+
 import { SongCard } from "./SongCard";
 import {
   saveAssistantAnswerAction,
@@ -632,7 +634,8 @@ export function AssistantPanel({
             value={tutInput}
             onChange={(e) => setTutInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !tutIsPending) {
+              // 한글 조합 중 Enter(조합 확정 포함)는 보내지 않음 — 마지막 글자가 겹쳐 두 번 보내지던 것(2026-11-04)
+              if (e.key === "Enter" && !isComposingEnter(e) && !tutIsPending) {
                 e.preventDefault();
                 askTutorial(tutInput);
                 setTutInput("");
@@ -796,7 +799,7 @@ export function AssistantPanel({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !isPending) {
+                if (e.key === "Enter" && !isComposingEnter(e) && !isPending) {
                   e.preventDefault();
                   ask(inputText);
                   setInputText("");

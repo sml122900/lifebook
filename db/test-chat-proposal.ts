@@ -1218,14 +1218,22 @@ function longTitleChecks() {
   const inputLib = read("app/components/chat-input.ts");
   const companion = read("app/life-timeline/companion/CompanionClient.tsx");
   check("㉑ 입력칸 — 키보드 있는 기기만 Enter 보내기(터치 = 줄바꿈 키 줄바꿈·보내기는 [전송]) · 한글 조합 중 Enter 무시(isComposing·keyCode 229) · 높이 자동 · 자유 대화·말동무 두 화면",
-    inputLib.includes("if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return false;") && inputLib.includes("return hasKeyboard;") &&
+    inputLib.includes('return e.key === "Enter" && (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229);') &&
+      inputLib.includes("if (e.key !== \"Enter\" || e.shiftKey || isComposingEnter(e)) return false;") && inputLib.includes("return hasKeyboard;") &&
       [chat, companion].every((f) => f.includes("if (isSendEnter(e, hasKeyboard)) {") && f.includes("useAutoGrow(inputRef, inputVal);") && f.includes("ref={inputRef}")) &&
       !companion.includes('"이야기를 입력하거나 🎤 버튼을 눌러주세요 (Shift+Enter 줄바꿈)"'));
+  // 글로벌 비서·사용법 챗(한 줄 입력칸, 2026-11-04) — 같은 조합 판정으로 한글 조합 중 Enter 를 보내지 않음.
+  const assistantPanel = read("app/timemachine/[year]/[month]/AssistantPanel.tsx");
+  check("㉓ 글로벌 비서·사용법 챗 입력칸 — 한글 조합 중 Enter(조합 확정 포함) 안 보냄 · 공용 판정(isComposingEnter) 두 칸",
+    (assistantPanel.match(/e\.key === "Enter" && !isComposingEnter\(e\) &&/g) ?? []).length === 2 && !/e\.key === "Enter" && !(tutIsPending|isPending)\)/.test(assistantPanel));
   // 대화창 말 판정 — 확정한 새 문구를 따라가고(같은 상수), 바뀌기 전 문구로 쌓인 기록도 안내로 알아봄(2026-11-04 들어옴 확정).
   check("㉑ 대화창 말 판정 — 새 문구(setupDone·confirmAlready·topicGone 등) · 옛 문구(문구 확정 전 기록) 모두 안내 · 사람 말은 아님",
     [FREE_CHAT_COPY.setupDone, FREE_CHAT_COPY.confirmAlready, FREE_CHAT_COPY.topicGone, FREE_CHAT_COPY.greeting, FREE_CHAT_COPY.resume, FREE_CHAT_COPY.staleNotice, FREE_CHAT_COPY.confirmApplied].every((t) => isAppNotice(t)) &&
       ["기본 칸은 다 채웠어요. 이제 편하게 이야기 나눠요.", "그 이야기는 지금 들을 수 없나봐요. 다른 이야기도 편하게 해 주세요.", "그 이야기는 이미 확인했나봐요. 다른 이야기도 편하게 해 주세요."].every((t) => isAppNotice(t)) &&
-      !isAppNotice("이제 준비가 끝났어요"));
+      !isAppNotice("이제 준비가 끝났어요") &&
+      // 저장 안내 꼴 — 지금 꼴("My Life에") · 옛 꼴("My Life 에", 2026-11-04 띄어쓰기 확정 전) 모두 안내
+      isAppNotice(FREE_CHAT_COPY.created("소풍")) && isAppNotice("'소풍' 이야기를 My Life 에 남겼어요.") && FREE_CHAT_COPY.created("소풍") === "'소풍' 이야기를 My Life에 남겼어요." &&
+      !isAppNotice("'' 이야기를 My Life에 남겼어요 정말요"));
   // 마무리 말 판정(다시 들어왔을 때 마지막 말이 마무리 말이면 "물어본 채 끝남"으로 안 봄) = 마무리 말 상수 그대로 — 문구가 바뀌어도 따라감.
   // 빈 답 안내(replyEmpty)는 이 목록에 없다(다시 말해 달라는 말이라 "물어본 채 끝남"이 맞음) — 문구 확정(2026-11-04)과 무관.
   check("㉒ 마무리 말 판정 목록 = 마무리 말 상수(endCapped·endPlain·endSaved — 바뀌면 따라감) · 빈 답 안내(replyEmpty)는 목록에 없음 · 확정 문구",
