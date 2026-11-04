@@ -54,18 +54,16 @@ export function SidePanelLayout({
   data: SidePanelData;
   children: React.ReactNode;
 }) {
-  // 첫 방문 = 열림(My Life 만 닫힘 — 아래). localStorage "closed" 일 때만 닫힘.
-  // SSR·하이드레이션은 첫 방문 값(firstOpen)으로 그림 → 하이드레이션 뒤 저장값으로 보정. 깜빡임 최소화 위해
+  // 첫 진입 = 닫힘(모든 화면 — 2026-11-05 성민 결정, 밤 우주 1단계. 그 전: 첫 방문 = 열림 · 같은 날 U1 에서 My Life 만 닫힘).
+  // 한 번 연 기록(localStorage "open")이 있을 때만 열림, 닫은 기록·기록 없음은 닫힘.
+  // SSR·하이드레이션은 닫힘으로 그림 → 하이드레이션 뒤 저장값으로 보정. 깜빡임 최소화 위해
   // transition 도 하이드레이션 뒤에만 활성(mounted).
   // 2026-11-02 — effect 안 setState(린트 react-hooks/set-state-in-effect) 대신: mounted = useSyncExternalStore
   // (서버·하이드레이션 false → 그 뒤 true), 저장값은 마운트 때 한 번 읽음(전과 같음), 이번 화면에서 정한 값(choice)이 우선.
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
-  // My Life 는 저장값이 없으면(새 기기 첫 진입) 닫힌 채 시작 — 390 에서 패널이 지도를 덮어 첫 화면이 224자가 되던 것
-  // (우주 개편 U1 완료 기준, 2026-11-05 결정). 다른 화면은 지금처럼 열림. 한 번 열고 닫은 기록이 있으면 그 기록을 따른다.
-  const firstOpen = !usePathname()?.startsWith("/my-life");
   const [stored] = useState(() => (typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null));
   const [choice, setChoice] = useState<boolean | null>(null); // 사용자 토글·둘러보기가 정한 값(null = 아직 없음)
-  const open = choice ?? (mounted ? (stored === null ? firstOpen : stored !== "closed") : firstOpen);
+  const open = choice ?? (mounted && stored === "open");
 
   // 코치마크 둘러보기가 단계별로 패널을 여닫게 하는 브리지. 투어 전용이라
   // setChoice 만 호출(사용자 localStorage 선호는 건드리지 않음).
@@ -134,14 +132,14 @@ function SidePanel({
               ? `내 정보 패널 열기 (새 가족 소식 ${data.familyNewsCount}개)`
               : "내 정보 패널 열기"
           }
-          className="fixed right-4 top-[calc((var(--app-header-h)-3rem)/2)] z-30 inline-flex before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] min-h-[48px] items-center gap-2 rounded-md border-2 border-amber-500 bg-surface px-4 py-2 text-base font-semibold text-amber-900 shadow-md hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="fixed right-4 top-[calc((var(--app-header-h)-3rem)/2)] z-30 inline-flex before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] min-h-[48px] items-center gap-2 rounded-md border-2 border-brand bg-surface px-4 py-2 text-base font-semibold text-action shadow-md hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <span aria-hidden>≡</span>
           내 정보
           {data.familyNewsCount > 0 && (
             <span
               aria-hidden
-              className="inline-flex min-w-[24px] justify-center rounded-full bg-amber-700 px-2 text-sm font-bold text-white"
+              className="inline-flex min-w-[24px] justify-center rounded-full bg-action px-2 text-sm font-bold text-on-action"
             >
               {data.familyNewsCount}
             </span>
@@ -155,7 +153,7 @@ function SidePanel({
           type="button"
           aria-label="패널 닫기"
           onClick={() => onToggle(false)}
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-scrim lg:hidden"
         />
       )}
 
@@ -164,7 +162,7 @@ function SidePanel({
         aria-label="내 정보 사이드 패널"
         aria-hidden={!open}
         className={
-          "fixed top-0 right-0 z-50 h-full w-80 max-w-[85vw] overflow-y-auto border-l-2 border-amber-200 bg-surface p-6 shadow-xl transition-transform " +
+          "fixed top-0 right-0 z-50 h-full w-80 max-w-[85vw] overflow-y-auto border-l-2 border-line bg-surface p-6 shadow-xl transition-transform " +
           (mounted ? "" : "!transition-none ") +
           (open ? "translate-x-0" : "translate-x-full")
         }
@@ -189,12 +187,12 @@ function SidePanel({
             <img
               src={data.userImage}
               alt=""
-              className="h-20 w-20 rounded-full border-2 border-amber-200 object-cover"
+              className="h-20 w-20 rounded-full border-2 border-line object-cover"
             />
           ) : (
             <div
               aria-hidden
-              className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-3xl font-bold text-amber-800"
+              className="flex h-20 w-20 items-center justify-center rounded-full bg-banner text-3xl font-bold text-action"
             >
               {(data.userName.trim()[0] ?? "?").toUpperCase()}
             </div>
@@ -207,10 +205,10 @@ function SidePanel({
         {/* 2. 토큰 잔액 */}
         <div
           data-tour="tokens"
-          className="mt-6 rounded-md border-2 border-amber-200 bg-amber-50 p-4 text-center"
+          className="mt-6 rounded-md border-2 border-line bg-banner p-4 text-center"
         >
           <p className="text-sm font-semibold text-ink-soft">내 토큰</p>
-          <p className="mt-1 text-3xl font-bold text-amber-900">
+          <p className="mt-1 text-3xl font-bold text-action">
             {data.balance.toLocaleString()}
             <span className="ml-1 text-base font-semibold text-action">토큰</span>
           </p>
@@ -219,7 +217,7 @@ function SidePanel({
         {/* 3. 토큰 화면 — 잔액·출석·충전 통합 페이지로 (v3.5) */}
         <Link
           href="/account/tokens"
-          className="mt-3 inline-flex w-full min-h-[56px] items-center justify-center rounded-md bg-amber-700 px-4 py-3 text-lg font-bold text-white hover:bg-amber-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="mt-3 inline-flex w-full min-h-[56px] items-center justify-center rounded-md bg-action px-4 py-3 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           토큰 화면 열기
         </Link>
@@ -230,12 +228,12 @@ function SidePanel({
         {data.familyNewsCount > 0 && (
           <Link
             href="/life-timeline"
-            className="mt-4 flex items-center justify-between rounded-md border-2 border-amber-400 bg-amber-50 px-4 py-3 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="mt-4 flex items-center justify-between rounded-md border-2 border-brand bg-banner px-4 py-3 hover:bg-surface focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
-            <span className="text-base font-bold text-amber-900">
+            <span className="text-base font-bold text-action">
               새 가족 소식
             </span>
-            <span className="inline-flex min-w-[28px] justify-center rounded-full bg-amber-700 px-2 py-0.5 text-base font-bold text-white">
+            <span className="inline-flex min-w-[28px] justify-center rounded-full bg-action px-2 py-0.5 text-base font-bold text-on-action">
               {data.familyNewsCount}
             </span>
           </Link>
@@ -391,7 +389,7 @@ function RerunTourItem() {
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col rounded-md border-2 border-line bg-surface px-4 py-3 text-left hover:bg-amber-50 hover:border-amber-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+      className="flex flex-col rounded-md border-2 border-line bg-surface px-4 py-3 text-left hover:bg-banner hover:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     >
       <span className="flex items-center gap-1.5 text-base font-semibold text-ink">
         <span className="text-ink-soft">
@@ -448,7 +446,7 @@ function MenuItem({
       href={href}
       data-tour={dataTour}
       prefetch={prefetch}
-      className="flex flex-col rounded-md border-2 border-line bg-surface px-4 py-3 hover:bg-amber-50 hover:border-amber-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+      className="flex flex-col rounded-md border-2 border-line bg-surface px-4 py-3 hover:bg-banner hover:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     >
       {/* 이름·설명 18px(2026-11-04 — 메뉴 전부, 본문 하한) */}
       <span className="flex items-center gap-1.5 text-lg font-semibold text-ink">
@@ -491,7 +489,7 @@ function AttendanceMini({
   return (
     <div className="mt-6 rounded-md border-2 border-line bg-surface p-4">
       <p className="text-sm font-semibold text-ink-soft">오늘의 출석</p>
-      <p className="mt-1 text-2xl font-bold text-amber-900">
+      <p className="mt-1 text-2xl font-bold text-action">
         연속 {currentStreak}일째
       </p>
 
@@ -510,9 +508,9 @@ function AttendanceMini({
               className={
                 "h-4 w-4 rounded-full border-2 " +
                 (filled
-                  ? "border-amber-700 bg-amber-700"
+                  ? "border-action bg-action"
                   : "border-line bg-surface") +
-                (isToday ? " ring-2 ring-amber-300" : "")
+                (isToday ? " ring-2 ring-brand" : "")
               }
               aria-hidden
             />
@@ -524,19 +522,19 @@ function AttendanceMini({
       </ol>
 
       {done ? (
-        <p className="mt-2 text-sm text-emerald-700">오늘은 받으셨어요 ✓</p>
+        <p className="mt-2 text-sm text-success">오늘은 받으셨어요 ✓</p>
       ) : (
         <button
           type="button"
           onClick={onClick}
           disabled={isPending}
-          className="mt-2 inline-flex w-full min-h-[48px] items-center justify-center rounded-md border-2 border-amber-500 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-2 inline-flex w-full min-h-[48px] items-center justify-center rounded-md border-2 border-brand bg-banner px-3 py-2 text-sm font-semibold text-action hover:bg-surface focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? "처리 중…" : `오늘 ${DAILY_CREDIT}토큰 받기`}
         </button>
       )}
       {error && (
-        <p className="mt-2 text-xs text-rose-700" role="alert">
+        <p className="mt-2 text-xs text-danger" role="alert">
           {error}
         </p>
       )}

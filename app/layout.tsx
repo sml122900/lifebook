@@ -12,6 +12,7 @@ import { PolicyNoticeBar } from "@/app/components/PolicyNoticeBar";
 import { ServiceWorkerRegister } from "@/app/components/ServiceWorkerRegister";
 import { SessionProvider } from "@/app/components/SessionProvider";
 import { SidePanelLayout } from "@/app/timemachine/SidePanel";
+import { isNightThemeUser } from "@/lib/night-theme";
 import { activeNotice } from "@/lib/policy-notice";
 import { loadSidePanelData } from "@/lib/side-panel-data";
 
@@ -81,9 +82,16 @@ export default async function RootLayout({
     : null;
   // 처리방침·약관 개정 안내 띠 — 로그인한 화면만(lib/policy-notice, 공지일~시행일 뒤 7일).
   const notice = session?.user ? activeNotice() : null;
+  // 밤 우주(docs/phase/ui-night.md N1) — 허용 목록 계정만. 서버가 html 에 그려 첫 그림부터 밤(깜빡임 0).
+  const night = isNightThemeUser(session?.user?.id);
 
   return (
-    <html lang="ko" className={`h-full antialiased ${notoSerif.variable}`} data-app-header={sidePanelData ? "" : undefined}>
+    <html
+      lang="ko"
+      className={`h-full antialiased ${notoSerif.variable}`}
+      data-app-header={sidePanelData ? "" : undefined}
+      data-theme={night ? "night" : undefined}
+    >
       <body className="min-h-full flex flex-col bg-canvas text-ink text-lg leading-relaxed">
         <SessionProvider>
         {/* 로그인한 화면 — 머리 줄을 위에 붙이고(sticky) 오른쪽은 고정 [내 정보] 버튼(app/timemachine/SidePanel) 자리로 비운다.

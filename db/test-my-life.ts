@@ -55,6 +55,7 @@ import {
   type MyLifeLayout,
 } from "../lib/my-life-layout";
 import { normalizeForSearch, searchMyLife } from "../lib/my-life-search";
+import { isNightThemeUser } from "../lib/night-theme";
 import { saveNodeLink } from "../lib/node-graph";
 import fs from "node:fs";
 import path from "node:path";
@@ -677,20 +678,41 @@ async function main() {
       !("nowViewing" in C) && !view.includes("nowText") && view.includes("(status || anyFolded) && (") &&
         view.includes('"aria-label": regionLabel,') && C.space.regionAt("1974 고등학교 입학") === "My Life 지도 — 지금 보는 시기: 1974 고등학교 입학" &&
         C.unfold(3) === "이야기 3개 펼치기" && C.fold === "이야기 접기");
-    // U1 — 밝은 우주/밤 우주(Q102·Q103·Q142): /my-life 뿌리에만 data-space, 첫 그림 전에 기기 값(깜박임 없음), 지도 안 오른쪽 위 56px 토글.
-    check("⑬ U1 테마 — My Life 뿌리 data-space + 첫 그림 전 기기 값 스크립트 · 토글 = 지도 안 56px·눌림 상태·낭독 이름 · 앱 머리 줄(layout)엔 data-space 없음",
-      view.includes('<div data-space-root data-space={night ? "night" : "light"} suppressHydrationWarning') &&
-        view.includes("<script dangerouslySetInnerHTML={{ __html: SPACE_BOOT }} />") && view.includes('const SPACE_KEY = "mylife:space";') &&
-        /data-space-toggle\s*aria-pressed=\{night\}\s*aria-label=\{night \? C\.space\.toLight : C\.space\.toNight\}/.test(view) &&
-        view.includes("absolute right-2 top-2 z-10 flex h-14 w-14") && !src("app/layout.tsx").includes("data-space") &&
-        src("app/globals.css").includes("--color-canvas: #221d52;"));
+    // 밤 우주 1단계(2026-11-05 — docs/phase/ui-night.md N1): 단일 테마 · 허용 목록 계정만 서버가 <html data-theme="night"> ·
+    // U1 지도 안 토글·기기 저장값·첫 그림 스크립트 삭제(Q149) · 밝은 우주 지도 값(.space-map)은 남김(허용 목록 밖).
+    {
+      const layoutSrc = src("app/layout.tsx");
+      const css = src("app/globals.css");
+      const before = process.env.NIGHT_THEME_USER_IDS;
+      process.env.NIGHT_THEME_USER_IDS = " u-night1 , u-night2 ";
+      const gate = isNightThemeUser("u-night1") && isNightThemeUser("u-night2") && !isNightThemeUser("u-other") && !isNightThemeUser(null) && !isNightThemeUser("");
+      process.env.NIGHT_THEME_USER_IDS = "";
+      const off = !isNightThemeUser("u-night1");
+      if (before === undefined) delete process.env.NIGHT_THEME_USER_IDS;
+      else process.env.NIGHT_THEME_USER_IDS = before;
+      check("⑬ 밤 1단계 — 허용 목록(NIGHT_THEME_USER_IDS, 쉼표·공백 허용, 미설정 = 아무도 아님) · 루트 레이아웃이 서버에서 html data-theme(깜빡임 0 — 스크립트 없음)",
+        gate && off && layoutSrc.includes("const night = isNightThemeUser(session?.user?.id);") && layoutSrc.includes('data-theme={night ? "night" : undefined}'));
+      check("⑬ 밤 1단계 — My Life 지도 안 토글·기기 저장값·첫 그림 스크립트 없음 · data-space 없음 · 지도 바탕 = 밝은 .space-map + [data-theme=night] .space-map",
+        !/data-space|SPACE_KEY|SPACE_BOOT|toggleSpace|mylife:space/.test(view) && !("toNight" in C.space) && !/data-space/.test(css) &&
+          css.includes(".space-map {") && css.includes('[data-theme="night"] .space-map {'));
+      check("⑬ 밤 1단계 — 뜻이 뒤집히는 곳 공통 값 한 곳: 주요 버튼 text-on-action(+ 밤 bg-action 글자 규칙) · 덮개 bg-scrim(My Life 대화상자 bg-ink 덮개 0) · 포커스 여백 = canvas(base 층) · 그림자 → 테두리 빛",
+        src("components/ui/Button.tsx").includes('primary: "bg-action text-on-action hover:bg-action-hover",') &&
+          /\[data-theme="night"\] \.bg-action \{\s*color: var\(--color-on-action\);/.test(css) &&
+          (view.match(/backdrop:bg-scrim/g) ?? []).length === 4 && !/bg-ink\//.test(view) &&
+          /@layer base \{[\s\S]*\[data-theme="night"\] \*,[\s\S]*--tw-ring-offset-color: var\(--color-canvas\);/.test(css) &&
+          css.includes('[data-theme="night"] :is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {') &&
+          css.includes("--color-on-action: #ffffff;") && css.includes("--color-scrim: rgb(42 37 32 / 0.4);"));
+      const side = src("app/timemachine/SidePanel.tsx");
+      const raw = side.match(/\b(?:text|bg|border|ring|from|to|via|fill|stroke|outline|divide|placeholder|accent)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b|\b(?:text|bg|border)-(?:white|black)\b/g) ?? [];
+      check("⑬ 밤 1단계 — 공통 요소 [내 정보]·사이드 패널 직접 색 0(amber → 토큰)", raw.length === 0, raw);
+    }
     {
       // U1 대비(1.4.3·1.4.11) — globals.css 값으로 계산. 밤 우주 = 글자 4.5·테두리·포커스 3 전부, 밝은 우주 = 행성·위성 테두리 3(U1 기준 ①).
       // 밝은 우주의 brand(버튼 테두리·포커스)·line(칸 테두리)은 앱 전체 토큰이라 여기서 안 봄(U1 보고 — 앱 전체 결정).
       const css = src("app/globals.css");
       const blk = (re: RegExp) => Object.fromEntries([...css.match(re)![1].matchAll(/--color-([\w-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]]));
       const lt = blk(/@theme \{([\s\S]*?)\n\}/);
-      const nt = { ...lt, ...blk(/\[data-space="night"\] \{([\s\S]*?)\n\}/) };
+      const nt = { ...lt, ...blk(/\[data-theme="night"\] \{([\s\S]*?)\n\}/) };
       const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
       const lum = (h: string) => rgb(h).map((v) => (v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
       const cr = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
@@ -702,19 +724,28 @@ async function main() {
       for (const k of ["planet-edge", "period-edge", "person", "place", "glow"]) need(`밝음 ${k}`, lt[k], lMap, 3);
       for (const k of ["ink", "ink-soft"]) need(`밤 ${k}`, nt[k], [nt.canvas, nt.surface, nt.banner, ...nMap], 4.5);
       for (const k of ["ink-faint", "action", "danger", "person", "place"]) need(`밤 ${k}`, nt[k], [nt.surface, nt.canvas], 4.5);
-      need("밤 주요 버튼 글자", "#2a1400", [nt.action, nt["action-hover"]], 4.5);
+      need("밤 주요 버튼 글자 on-action", nt["on-action"], [nt.action, nt["action-hover"]], 4.5);
+      need("밝음 주요 버튼 글자 on-action", lt["on-action"], [lt.action, lt["action-hover"]], 4.5);
+      for (const k of ["success", "success-deep", "sage"]) need(`밤 ${k}`, nt[k], [nt.surface, nt.canvas, nt.banner], 4.5);
+      for (const d of [1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]) {
+        need(`밤 워시 ${d} 위 ink`, nt.ink, [nt[`decade-${d}`]], 4.5);
+        need(`밤 스트립 ${d}`, nt[`decade-strip-${d}`], [nt.canvas], 3);
+      }
+      need("편지지 글자", lt["paper-ink"], [lt.paper], 4.5);
+      need("편지지 보조", lt["paper-ink-soft"], [lt.paper], 4.5);
+      need("편지지 링크", lt["paper-action"], [lt.paper], 4.5);
+      need("편지지 칸 테두리", lt["paper-line"], [lt.paper], 3);
       for (const k of ["planet-edge", "period-edge", "person", "place", "glow", "ink", "sage"]) need(`밤 ${k} 테두리`, nt[k], nMap, 3);
       for (const k of ["brand", "line"]) need(`밤 ${k} 테두리`, nt[k], [nt.surface, nt.canvas], 3);
-      check("⑬ U1 대비 — 밝은 우주 행성·위성 테두리·빛 고리 3:1 · 밤 우주 글자 4.5:1·테두리·포커스 3:1(globals.css 값으로 계산)", low.length === 0, low);
+      check("⑬ 대비 — 밝은 우주 행성·위성 테두리·빛 고리 3:1 · 밤 우주 글자 4.5:1·테두리·포커스 3:1·연대 틴트·편지지(globals.css 값으로 계산 — ui-night §1.2)", low.length === 0, low);
     }
     check("⑬ U1 행성 탭(Q110) — 펼침 + 패널 · 펼친 계(행성 + 위성)가 패널·지도 상자에 걸릴 때만 패널 위로(배율 그대로) · 고른 행성의 위성만 버튼(바로가기)",
       view.includes('if ((nodeKind === "event" || nodeKind === "story") && stateRef.current.scale >= OVERVIEW_SCALE) liftAbovePanel(nodeKey);') &&
         view.includes("if (rTop >= top && rBottom <= bottom) return;") && view.includes("api.setTransform(st.positionX, st.positionY + dy, st.scale, 300);") &&
         view.includes("const open = selected === planetKey;") && view.includes("if (open && target) {") &&
         view.includes('else if (nodeKind === "satellite" && targetKey) openPanel(targetKey);'));
-    check("⑬ U1 — /my-life 첫 진입 사이드 패널 닫힘(기기에 고른 값이 없을 때만 — 다른 화면 첫 진입은 그대로 열림)",
-      src("app/timemachine/SidePanel.tsx").includes('const firstOpen = !usePathname()?.startsWith("/my-life");') &&
-        src("app/timemachine/SidePanel.tsx").includes('stored === null ? firstOpen : stored !== "closed"'));
+    check("⑬ 사이드 패널 첫 진입 = 닫힘(모든 화면 — 2026-11-05 성민 결정) · 연 기록(\"open\")이 있을 때만 열림",
+      src("app/timemachine/SidePanel.tsx").includes('const open = choice ?? (mounted && stored === "open");') && !src("app/timemachine/SidePanel.tsx").includes("firstOpen"));
     check("⑬ 꼬리표 \"다른 시기에도\" — 화면 꼬리표가 보이면 낭독 이름 끝에도 · 그때의 나는 그대로 · 이야기 패널 \"다른 시기에도 있어요: …\"",
       C.alsoElsewhereShort === "다른 시기에도" && C.storyName("수학여행", ["철수"], C.alsoElsewhereShort) === "이야기, 수학여행, 함께: 철수, 다른 시기에도" &&
         C.storyName("수학여행", []) === "이야기, 수학여행" && view.includes("C.storyName(displayTitle(s), names, tagText(s))") &&

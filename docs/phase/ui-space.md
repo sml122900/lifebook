@@ -55,7 +55,7 @@
 |---|---|---|
 | 밤 단일 테마 | **밤 우주가 Lifebook 단일 테마**(라이트 온리 대체). 밝은 우주는 기본에서 제외("밝게 보기" 설정 보류) | 설계 `docs/phase/ui-night.md` · `docs/decisions/design-tokens-light-only.md` 맨 위 |
 | Q102 | 범위가 `/my-life` → **서비스 전체**로 넓어짐 | ui-night §1 |
-| Q103 | 지도 안 테마 토글(U1 구현)은 **ui-night N1 에서 삭제**(ui-night Q149) | ui-night §5 |
+| Q103 | 지도 안 테마 토글(U1 구현)은 **ui-night N1 에서 삭제**(ui-night Q149) — 2026-11-05 1단계에서 삭제함 | ui-night §5·§7 |
 | Q142 | **무효** — 앱 공통 요소도 밤 | ui-night 결정 로그 |
 | U1 밝은 우주 대비(§7.1 표의 밝은 칸) | 기록으로만 남김(밝은 값은 ui-night N4 에서 코드에서 지움) | — |
 

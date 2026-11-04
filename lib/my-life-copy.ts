@@ -319,8 +319,6 @@ export const MY_LIFE_COPY = {
 
   // 우주 개편 U1(2026-11-05 — docs/phase/ui-space.md §1·§3) — [임시 — 성민 확정 필요]
   space: {
-    toNight: "밤 우주로 보기", // 지도 안 테마 토글 낭독 이름(아이콘만 — Q103)
-    toLight: "밝은 우주로 보기",
     regionAt: (period: string) => `My Life 지도 — 지금 보는 시기: ${period}`, // "지금 보는 곳" 줄을 뺀 대신(§6.2)
     satName: (name: string, kind: "person" | "group" | "place") =>
       kind === "place" ? `${name} — 장소록에 있는 곳` : kind === "group" ? `${name} — 모임` : `${name} — 인물록에 있는 분`,

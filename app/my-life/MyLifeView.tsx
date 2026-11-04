@@ -13,16 +13,17 @@
 // 개편 3단계: 머리 줄 [+ 만들기](7종) · 인물록·장소록 제목 옆 [+ 사람][+ 모임]/[+ 장소][+ 묶음] · 장소 묶음 영역(장소록) ·
 //   패널의 넣기·빼기·되돌리기·옮기기·지우기(./EditUI). 만든 뒤 지도가 새 노드로 이동·선택·패널 + [되돌리기].
 // 우주 개편 U1(2026-11-05 — docs/phase/ui-space.md): 시기·이야기 = 행성(원), 사람·모임·장소 = 위성(행성 아래 정지 칸 — 바로가기),
-//   인물록·장소록 = 작은 행성 모음. 간선은 그리지 않고(Q114) 선택한 사람·장소의 위성·진짜 자리에 빛 고리. 밤 우주 = 이 화면의
-//   My Life 영역(data-space — 지도 안 토글, 기기별 localStorage, Q102·Q103·Q142). "지금 보는 곳" 줄·[이야기 거리] 줄은 뺐다(§6.2 —
-//   [이야기 거리]는 만들기 시트 맨 아래·목록 보기).
+//   인물록·장소록 = 작은 행성 모음. 간선은 그리지 않고(Q114) 선택한 사람·장소의 위성·진짜 자리에 빛 고리. "지금 보는 곳" 줄·
+//   [이야기 거리] 줄은 뺐다(§6.2 — [이야기 거리]는 만들기 시트 맨 아래·목록 보기).
+// 밤 우주(2026-11-05 단일 테마 결정 — docs/phase/ui-night.md): 테마는 앱 전체 <html data-theme>(허용 목록 — lib/night-theme)를
+//   따른다. U1 의 지도 안 토글·기기 저장값은 삭제(Q149). 밝은 우주 지도 값(.space-map)은 globals.css 에 남아 허용 목록 밖에서 쓰인다.
 // Q69(/story-review 합치기, 2026-11-02): 목록 보기 = 오늘의 인터뷰(맨 위)·더 들어볼까요?(시간 줄기 아래) — 그때의 나는
 //   시기 아래 꼬리표로만(별도 묶음은 중복이라 뺌, Q69 후속),
 //   지도 보기 = "지금 보는 곳" 줄 [이야기 거리] → 같은 카드 시트(./Suggestions). 이야기 패널 [이야기 고치기](본문).
 
-import { MapPin, MessageCircle, Minus, Moon, Plus, Search, Sun, UserRound, Users } from "lucide-react";
+import { MapPin, MessageCircle, Minus, Plus, Search, UserRound, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 
 import { updateEpisodeContentAction } from "@/app/actions/episode";
@@ -61,37 +62,7 @@ const DOUBLE_TAP_MS = 350; // 어르신 손 — 라이브러리 기본(200ms)보
 const DOUBLE_TAP_SCALE = 1.6;
 const OVERVIEW_SCALE = 0.6; // 이 배율 미만 = 전체 보기 상태(노드 탭 = 그 노드로 확대 — Q60)
 const STORE_KEY = "mylife:v3";
-const SPACE_KEY = "mylife:space"; // 밝은 우주 / 밤 우주 — 기기별(Q103), 처음 값 = 밝은 우주
-const SPACE_EVENT = "mylife-space";
 const ALL_EDGES: EdgeToggles = { person: true, place: true }; // U1 — 간선 끄기 토글 없앰(Q114), 연결 계산은 늘 전부
-
-// 밤 우주 여부 — 기기 저장값(서버·하이드레이션 = 밝게, 그 뒤 저장값). 저장·바꾸기는 toggleSpace 한 곳.
-function subscribeSpace(cb: () => void) {
-  window.addEventListener(SPACE_EVENT, cb);
-  window.addEventListener("storage", cb);
-  return () => {
-    window.removeEventListener(SPACE_EVENT, cb);
-    window.removeEventListener("storage", cb);
-  };
-}
-function readSpaceNight(): boolean {
-  try {
-    return localStorage.getItem(SPACE_KEY) === "night";
-  } catch {
-    return false;
-  }
-}
-function toggleSpace(night: boolean) {
-  try {
-    localStorage.setItem(SPACE_KEY, night ? "night" : "light");
-  } catch {
-    // 저장소 불가 — 이번 화면에서만
-  }
-  document.querySelector("[data-space-root]")?.setAttribute("data-space", night ? "night" : "light");
-  window.dispatchEvent(new Event(SPACE_EVENT));
-}
-// 첫 그림 전에 저장값을 입힌다 — 밤 우주를 고른 분이 밝은 화면이 번쩍 보이지 않게(하이드레이션 전 HTML 에서 실행).
-const SPACE_BOOT = `try{if(localStorage.getItem("${SPACE_KEY}")==="night")document.currentScript.parentElement.setAttribute("data-space","night")}catch(e){}`;
 
 type Saved = { scale: number; x: number; y: number; folded: string[]; shownGroups: string[]; shownPlaceGroups?: string[]; edges: EdgeToggles };
 
@@ -244,7 +215,6 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
   // keep — 패널 안 작업(옮기기·직접 쓰기)으로 생긴 노드: 지도 위치·배율은 그대로, 보이는 곳 밖일 때만 옮김(3단계 E2E 2026-11-02).
   const [pendingOpen, setPendingOpen] = useState<(Created & { keep?: boolean }) | null>(null);
   const createRef = useRef<HTMLDialogElement>(null);
-  const night = useSyncExternalStore(subscribeSpace, readSpaceNight, () => false);
   const [selected, setSelected] = useState<string | null>(initialFocus?.key ?? null);
   const [panel, setPanel] = useState<string | null>(null);
   const [findOpen, setFindOpen] = useState(false);
@@ -436,9 +406,7 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
   }
 
   return (
-    // 밤 우주 범위 = 이 화면의 My Life 영역(머리 줄·지도·패널·시트·도구줄 — Q102·Q142). 앱 머리 줄·사이드 패널·비서 버튼은 밖이라 밝게.
-    <div data-space-root data-space={night ? "night" : "light"} suppressHydrationWarning className="min-h-[calc(100dvh-var(--app-header-h))] bg-canvas text-ink">
-      <script dangerouslySetInnerHTML={{ __html: SPACE_BOOT }} />
+    <div className="min-h-[calc(100dvh-var(--app-header-h))] bg-canvas text-ink">
       {view === "map" ? (
         <MapMode
           data={data}
@@ -449,7 +417,6 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
           toggleFold={toggleFold}
           shownGroups={shownGroups}
           setShownGroups={setShownGroups}
-          night={night}
           selected={selected}
           setSelected={setSelected}
           openPanel={openPanel}
@@ -478,7 +445,7 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
         onClick={(e) => {
           if (e.target === dialogRef.current && Date.now() - openedAtRef.current > 400) dialogRef.current.close();
         }}
-        className={`inset-x-0 bottom-0 top-auto mx-auto mb-0 w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-ink/40 ${view === "map" ? "max-h-[50dvh]" : "max-h-[75dvh]"}`}
+        className={`inset-x-0 bottom-0 top-auto mx-auto mb-0 w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-scrim ${view === "map" ? "max-h-[50dvh]" : "max-h-[75dvh]"}`}
       >
         <div className="flex flex-col gap-4 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6">
           {panel && (
@@ -531,7 +498,7 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
         onClick={(e) => {
           if (e.target === findRef.current) findRef.current.close();
         }}
-        className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[75dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-ink/40"
+        className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[75dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-scrim"
       >
         {findOpen && <FindSheet data={data} onPick={(r) => goTo(r.key, r.eventId)} onClose={() => findRef.current?.close()} />}
       </dialog>
@@ -543,7 +510,7 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
         onClick={(e) => {
           if (e.target === suggestRef.current) suggestRef.current.close();
         }}
-        className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[75dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-ink/40"
+        className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[75dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-scrim"
       >
         {suggestOpen && (
           <div className="flex flex-col gap-4 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6">
@@ -563,7 +530,7 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
         ref={createRef}
         aria-labelledby="mylife-create-title"
         onClose={() => setCreateKind(undefined)}
-        className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[85dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-ink/40"
+        className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[85dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-scrim"
       >
         {createKind !== undefined && (
           <CreateSheet
@@ -603,7 +570,6 @@ function MapMode({
   toggleFold,
   shownGroups,
   setShownGroups,
-  night,
   selected,
   setSelected,
   openPanel,
@@ -625,7 +591,6 @@ function MapMode({
   toggleFold: (eventId: string) => void;
   shownGroups: string[];
   setShownGroups: (g: string[]) => void;
-  night: boolean; // 밤 우주(지도 안 토글 — Q103)
   selected: string | null;
   setSelected: (k: string | null) => void;
   openPanel: (key: string) => void;
@@ -774,12 +739,6 @@ function MapMode({
     const w = b.getBoundingClientRect();
     const panel = document.querySelector("dialog[open]");
     const bottom = Math.min(w.bottom, panel ? panel.getBoundingClientRect().top : w.bottom);
-    // 지도 안 테마 토글(오른쪽 위 모서리 — Q103)에 가리면 그만큼 아래로(일부라도 보이는지와 별개).
-    const tg = b.querySelector("[data-space-toggle]")?.getBoundingClientRect();
-    if (tg && r.left < tg.right && r.right > tg.left && r.top < tg.bottom && r.bottom > tg.top) {
-      apiRef.current?.panBy(0, tg.bottom + 8 - r.top, 200);
-      return;
-    }
     if (!(r.right <= w.left || r.left >= w.right || r.bottom <= w.top || r.top >= bottom)) return;
     const m = 24;
     const dx = r.left < w.left + m ? w.left + m - r.left : r.right > w.right - m ? Math.max(w.left + m - r.left, w.right - m - r.right) : 0;
@@ -1092,18 +1051,6 @@ function MapMode({
       )}
 
       <div ref={boxRef} className="space-map relative min-h-0 flex-1 overflow-hidden border-y border-line">
-        {/* 밝은 우주 / 밤 우주 토글 — 지도 안 오른쪽 위 모서리(Q103). 아이콘만, 낭독 이름·눌림 상태. */}
-        <button
-          type="button"
-          data-space-toggle
-          aria-pressed={night}
-          aria-label={night ? C.space.toLight : C.space.toNight}
-          title={night ? C.space.toLight : C.space.toNight}
-          onClick={() => toggleSpace(!night)}
-          className={`absolute right-2 top-2 z-10 flex h-14 w-14 items-center justify-center rounded-full border-2 border-brand bg-surface text-action hover:bg-banner ${FOCUS}`}
-        >
-          {night ? <Sun aria-hidden size={26} /> : <Moon aria-hidden size={26} />}
-        </button>
         {init && (
           <TransformWrapper
             ref={apiRef}

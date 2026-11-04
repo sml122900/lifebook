@@ -3,7 +3,7 @@ import type { ComponentProps } from "react";
 
 // 디자인 토큰 2차 (토큰 가이드 v1.0 §3.2) — 버튼 위계 3종 + 파괴적 옵션.
 //
-// - primary:   bg-action 흰 글자. 화면당 1개 원칙 (주요 CTA).
+// - primary:   bg-action + on-action 글자(밝은 화면 흰색 · 밤 우주 어두운 글자 — 2026-11-05). 화면당 1개 원칙 (주요 CTA).
 // - secondary: surface 표면 + brand 보더 + action 글자.
 // - tertiary:  배경 없음 + ink-soft 글자 + line 1px 보더.
 // - plain:     보더도 없는 텍스트형 (ink-soft + 밑줄) — 카드 안 최하 위계.
@@ -26,7 +26,7 @@ const BASE =
   "disabled:cursor-not-allowed disabled:opacity-60";
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: "bg-action text-white hover:bg-action-hover",
+  primary: "bg-action text-on-action hover:bg-action-hover",
   secondary: "border-2 border-brand bg-surface text-action hover:bg-banner",
   tertiary: "border border-line bg-transparent text-ink-soft hover:bg-canvas",
   plain:
