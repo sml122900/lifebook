@@ -14,7 +14,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { CharacterStage } from "@/app/components/CharacterStage";
@@ -681,19 +680,16 @@ export function ChatV3Client({
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      {/* P5-4 — 캐릭터가 대화 리액션 용도라 헤더 전체를 sticky 로 고정. 작은 화면에서는 캐릭터를 제목
-          아래 줄로. 2026-11-04 — 앱 머리 줄(--app-header-h, [내 정보] 버튼이 그 안) 바로 아래에 붙는다. */}
-      <header ref={headerRef} className="sticky top-[var(--app-header-h)] z-20 flex flex-col gap-3 border-b border-line bg-canvas py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">이야기 나누기</h1>
-          <p className="mt-1 text-base text-ink-soft">편하게 대답만 해주세요.</p>
-        </div>
-        <div className="flex items-center gap-2 self-start sm:flex-col sm:items-center sm:gap-1 sm:self-auto">
-          <CharacterStage characterId={characterId} motionEnabled={characterMotionEnabled} state={characterState} />
-          <Link href="/account/settings" className="text-sm text-ink-faint underline">
-            바꾸기
-          </Link>
-        </div>
+      {/* P5-4 — 캐릭터가 대화 리액션 용도라 헤더 전체를 sticky 로 고정. 앱 머리 줄(--app-header-h, [내 정보] 버튼이 그 안)
+          바로 아래에 붙는다. 2026-11-04 — 화면 폭·스크롤과 상관없이 한 줄 [캐릭터 64] + 제목 + [바꾸기](56px·18px) — 고정 영역을
+          줄이려고(390×667 스크롤 중 217 → 머리 줄 56 + 이 줄). 360px 에 들어가게 간격 8px·[바꾸기] 좌우 여백 16px(가안).
+          제목 아래 부제(대답만 하면 된다는 안내)는 삭제 — 대화창 첫 말(setupDone·greeting)이 같은 안내를 한다. */}
+      <header ref={headerRef} className="sticky top-[var(--app-header-h)] z-20 flex items-center gap-2 border-b border-line bg-canvas py-2">
+        <CharacterStage characterId={characterId} motionEnabled={characterMotionEnabled} state={characterState} />
+        <h1 className="min-w-0 flex-1 whitespace-nowrap text-2xl font-bold text-ink">이야기 나누기</h1>
+        <ButtonLink href="/account/settings" variant="tertiary" size="lg" className="shrink-0 px-4!">
+          바꾸기
+        </ButtonLink>
       </header>
 
       <div className="space-y-4 pb-2">

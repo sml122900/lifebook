@@ -1208,9 +1208,12 @@ function longTitleChecks() {
       map.includes("{hasOwnTitle(story) ? displayTitle(story) : shortTitle(displayTitle(story))}") &&
       /<dd className="m-0 line-clamp-2 text-xl font-bold text-ink">\{displayTitle\(\{ title: edit\.title, content: edit\.summary \}\)\}<\/dd>/.test(read("app/components/ProposalCard.tsx")));
   // 2026-11-04 — 머리말이 앱 머리 줄(--app-header-h) 아래에 붙음(850afea) → scroll-padding 도 그 높이를 더함. 이 확인은 850afea 뒤 고치지 않아 깨져 있었다.
-  check("⑭ 카드가 고정 머리말에 안 가림 — 앱 머리 줄 + 머리말 높이만큼 문서 scroll-padding-top(크기 바뀌면 다시 잼) · 머리말은 앱 머리 줄 바로 아래에 붙음",
+  // 같은 날 — 머리말은 늘 한 줄 [캐릭터 64] + 제목 + [바꾸기](56px·18px, 간격 8·좌우 여백 16 — 360 에 들어가게), 부제 삭제(첫 말이 같은 안내).
+  check("⑭ 카드가 고정 머리말에 안 가림 — 앱 머리 줄 + 머리말 높이만큼 문서 scroll-padding-top(크기 바뀌면 다시 잼) · 머리말은 앱 머리 줄 바로 아래 한 줄 · 부제 없음",
     chat.includes("root.style.scrollPaddingTop = `calc(var(--app-header-h) + ${el.offsetHeight}px)`;") && chat.includes("new ResizeObserver(apply)") &&
-      chat.includes('<header ref={headerRef} className="sticky top-[var(--app-header-h)] z-20 '));
+      chat.includes('<header ref={headerRef} className="sticky top-[var(--app-header-h)] z-20 flex items-center gap-2 border-b border-line bg-canvas py-2">') &&
+      chat.includes('<ButtonLink href="/account/settings" variant="tertiary" size="lg" className="shrink-0 px-4!">') &&
+      !chat.includes("편하게 대답만 해주세요."));
   // 화면 렌더는 브라우저가 필요해 정적 확인(2026-11-04 — 자유 대화 화면 문구를 문구 파일로 옮김).
   check("⑳ 자유 대화 화면 문구 = 문구 파일(빈 답·오류 3종·입력칸 안내·마무리 말 3) · 줄바꿈 안내는 키보드 기기만(hover·pointer: fine) · [안 만들기] 실패 = declineFailed",
     chat.includes("FC.replyEmpty") && chat.includes("enterError(FC.loadFailed,") && chat.includes("enterError(FC.topicFailed,") && chat.includes("enterError(FC.replyFailed,") &&
