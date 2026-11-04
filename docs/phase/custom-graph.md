@@ -1,6 +1,6 @@
 # 사용자 카테고리 + AI 지도 편집 — 설계
 
-- 상태: **설계만(코드·스키마·DB 변경 0)**. 2026-11-04 보완(원칙 §2.0 · 단계 조정 §6). 결정 질문 §7(Q73~Q101)은 성민 결정 대기 — ★ 6개(Q73·Q74·Q76·Q78·Q80·Q96)를 먼저 정해야 1단계 마이그 SQL 을 쓸 수 있다.
+- 상태: **설계 + 1단계 마이그 초안(부록 A — 적용·커밋 안 함, 승인 대기)**. 코드·스키마·DB 변경 0. 결정 2026-11-04(§7.1): Q73·Q74 수정·Q75·Q76·Q78 수정·Q79·Q80·Q96 결정, Q92 보류. 나머지는 추천안이고 확정은 해당 단계 시작 때.
 - 작성: 2026-11-04 · Claude Code (성민 요청).
 - 목표: 재료는 **노드·연결·포함(묶음)** 세 가지다. 카테고리는 사용자가 이름을 붙이며, 노션의 "페이지 안 페이지"처럼 단순하게 둔다. 채팅 AI 는 지도에 대한 질문에 답하고, 지도를 정리하고, 노드를 추가·삭제한다.
 - 화면 문구는 새로 쓰지 않았다. 문구가 들어갈 자리는 `[문구 필요: 위치]` 로 적고 §8 에 모았다.
@@ -27,10 +27,13 @@
 ## 0. 요약
 
 - **원칙(2026-11-04 보완, §2.0).** 시기·이야기·사람·장소·모임·장소 묶음(기존 6종)은 사용자 항목으로 새로 만들지 않는다. 카테고리·묶음에는 **연결로 넣는다**. 사용자 항목은 6종에 없는 것만이다(반려동물·물건·취미 등). 직접 만들기 화면(§3.4)과 AI 도구(§4.2)가 같은 규칙을 따른다.
-- **추천은 안 C(보완)다(§2).**
+- **결정: 안 C(§2, Q73).**
   - 기존 6종과 원본 테이블은 손대지 않는다. 새 테이블 **`CustomNode` 하나**에 종류 칸(카테고리·묶음·항목)을 둔다.
-  - 사용자 항목의 자리는 자기 카테고리 하나다(`parentId`).
-  - 카테고리·묶음에 넣는 것은 기존 노드든 사용자 항목이든 **`NodeLink` role `MEMBER` 연결 한 방식**이다. 그래서 여러 곳에 들어갈 수 있고, 빼거나 카테고리·묶음을 지워도 원래 노드는 남는다.
+  - **규칙은 하나다(Q74 결정):** 모든 노드(6종 + 사용자 항목)는 자리 하나 + 다른 카테고리·묶음에는 넣기 연결(바로가기)로 여러 곳에 들어간다.
+    - 6종의 자리는 지금 영역(시간 줄기·인물록·장소록), 사용자 항목·묶음의 자리는 자기 카테고리(`parentId`)다.
+    - 사용자 카테고리·묶음에 넣는 것은 `NodeLink` role `MEMBER` 연결이라, 빼거나 지워도 원래 노드는 남는다.
+  - 항목 = 이름 + 본문(`NodeBody` — 사진·이전 판 재사용)이고, 메모·연도 칸은 없다(Q78). 깊이 2 는 코드 규칙만이다(Q75).
+  - 1단계 마이그 초안은 부록 A(파일끼리 비교, 드리프트 0 확인)에 있고, 같은 커밋 코드 목록은 §6.4 에 있다.
   - `NodeType` 에 `CUSTOM` 하나를 **맨 뒤(가장 낮은 순위)** 에 더하므로 방향 CHECK 식은 바꾸지 않는다. 정리 트리거는 하나 더하고, 이관할 행은 0이다.
 - **이유는 의존 조사(§1)에서 나왔다.** 포스터 브릿지·인터뷰·갭·연구실·확인질문·자유 대화는 모두 "시기·이야기·사람" 세 원본만 안다. 사용자 노드를 그 세 테이블에 섞지만 않으면 이 영역들은 영향이 0이다. 반대로 사용자 카테고리를 직접 만든 시기(CUSTOM `LifeEvent`)로 흉내 내면, 포스터 행·연도 문항·"○○ 시절" 갭·확인질문 연도 이동에 휘말린다. 원칙 §2.0 은 사람·이야기가 두 곳에 생기는 일까지 막는다.
 - **같은 단계에서 반드시 고쳐야 할 곳이 하나 있다.** 정합 점검의 `ownerOf`(`lib/node-graph-reconcile.ts:53-65`)는 6종을 CASE 로 하드코딩한다. 새 종류의 노드는 주인이 NULL 로 나오고, 그러면 `--apply` 정리(`:182-186`)가 그 노드의 연결과 본문을 **실제로 지운다**. 그래서 `ownerOf` 는 마이그와 같은 커밋에서 고친다.
@@ -98,6 +101,7 @@
 - 시기·이야기·사람·장소·모임·장소 묶음(기존 6종)에 해당하는 것은 사용자 항목(`CustomNode`)으로 새로 만들지 않는다. 카테고리·묶음에는 **연결로 넣는다.**
 - 사용자 항목은 6종에 없는 것만 만든다(반려동물·물건·취미 등).
 - 6종인데 아직 지도에 없는 것은 그 종류로 먼저 만들고(사람 = `Person`, 이야기 = `Episode` …) 넣는다.
+- **규칙 하나(Q74 결정 2026-11-04):** 모든 노드는 자리 하나 + 넣기 연결 여러 곳이다(§2.3 표).
 - 적용 범위:
   - 직접 만들기 화면 — 같은 이름 안내(§3.4, Q98)
   - AI 지도 편집 도구 — 이름 대조(§4.2, Q100)
@@ -130,57 +134,84 @@
 1. **§1.2 영향 0.** 시기·이야기·사람 원본에 섞지 않고(원칙 §2.0 으로 중복도 0), 포스터·인터뷰·갭·연구실·확인질문·자유 대화는 코드 변경 0이다.
 2. **추가만 하는 가장 작은 마이그.** 테이블 1·enum 값 1·트리거 1, 이관 0이다. 노드 그래프 1단계·장소 묶음 마이그와 같은 결이다.
 3. **넣기는 한 방식이다.** 기존 노드든 사용자 항목이든 카테고리·묶음에 넣는 것은 `NodeLink` role `MEMBER` 연결이다. 그래서 모임처럼 여러 카테고리·묶음에 들어갈 수 있다. 빼거나 카테고리·묶음을 지우면 연결만 사라지고 원래 노드는 남는다.
-4. **사용자 항목의 자리는 하나다.** 자리는 자기 카테고리(`parentId`, FK)다. "페이지 안 페이지"의 부모가 자기 카테고리이고, 다른 곳에 보이는 것은 바로가기다. 카테고리를 지우면 자기 항목·묶음은 같이 지워진다(확인 카드 — Q80).
+4. **모든 노드는 자리 하나다(Q74).** 6종은 지금 영역, 사용자 항목·묶음은 자기 카테고리(`parentId`, FK)가 자리다. "페이지 안 페이지"의 부모가 자리이고, 다른 곳에 보이는 것은 바로가기다. 카테고리를 지우면 자기 항목·묶음은 같이 지워진다(확인 카드 — Q80).
 5. **배치는 재사용한다.** 묶음 소속이 여럿일 수 있으므로 `layoutRegion` 의 Euler 배치(`placeVenn`, `lib/my-life-layout.ts:375`)를 그대로 쓴다. 인물록 모임과 같은 동작이다.
 6. **B 는 사용자에게 보이는 이득이 없다.** B-2 의 진짜 FK 이득(다형 트리거 제거)은 크지만, 모든 생성 경로 이중 쓰기 위험이 더 크다. 코드에서 노드 종류 자체가 계속 늘어날 때 다시 본다.
 
 안 C 의 약점과 대응:
 - **역할(role) 값으로 뜻을 나눈다.** 그래서 역할은 `saveNodeLink` 가 노드 종류로 정하고, 부르는 쪽은 고르지 않는다(§2.3). 정합 점검 14 가 어긋난 행을 잡는다.
-- **사용자 항목에 연도 칸이 없다.** 시간은 시기와의 관련 연결(`LIFE_EVENT>CUSTOM`)로 나타내고, 지도에서 그 시기를 고르면 간선으로 보인다. → Q78.
+- **사용자 항목에 연도·메모 칸이 없다(Q78 결정).** 시간은 시기와의 관련 연결(`LIFE_EVENT>CUSTOM`)로 나타내고(지도에서 그 시기를 고르면 간선으로 보임), 적을 말은 본문(`NodeBody`)에 쓴다.
 
-### 2.3 안 C 스키마 초안 — 설계, 적용 안 함
+### 2.3 안 C 스키마 — 1단계 마이그 초안(부록 A, 적용 안 함)
 
+**모든 노드의 규칙은 하나다(Q74 결정 2026-11-04).** 모든 노드(6종 + 사용자 항목)는 **자리 하나**를 가진다. 다른 카테고리·묶음에는 **넣기 연결(바로가기)** 로 여러 곳에 들어간다.
+
+| 노드 | 자리(한 곳) | 다른 곳에 넣기(바로가기) |
+|---|---|---|
+| 시기·이야기 | 시간 줄기(이야기는 주 소속 시기 `Episode.lifeEventId`) | 사용자 카테고리·사용자 묶음 — `NodeLink` role `MEMBER` |
+| 사람·모임 | 인물록 | 사용자 카테고리·사용자 묶음 — `MEMBER`(모임 안 사람은 지금처럼 `PersonGroupMember`) |
+| 장소·장소 묶음 | 장소록 | 사용자 카테고리·사용자 묶음 — `MEMBER`(장소 묶음 안 장소는 지금처럼 `PlaceGroupMember`) |
+| 사용자 묶음 | 자기 카테고리(`parentId`) | 없음(묶음은 자기 카테고리 안에만) |
+| 사용자 항목 | 자기 카테고리(`parentId`) | 사용자 묶음·다른 사용자 카테고리 — `MEMBER` |
+
+- 넣기는 모두 `saveNodeLink` 입구 하나로 들어간다. 저장 칸만 다르다: 모임·장소 묶음은 구성원 테이블(`ROUTED_PAIRS`), 사용자 카테고리·묶음은 `NodeLink` `MEMBER` 다.
+- 담는 쪽은 사용자 카테고리·사용자 묶음과 모임·장소 묶음(지금처럼 사람·장소만)이다(Q79).
+
+```prisma
+// User 에 한 줄: customNodes CustomNode[]   ·   enum NodeType 맨 뒤에 CUSTOM
+model CustomNode {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String       // "CATEGORY" | "GROUP" | "ITEM" — 값·깊이 규칙은 코드만(Q75·Q96)
+  parentId  String?      // 자리 — GROUP·ITEM = 자기 카테고리, CATEGORY = null
+  parent    CustomNode?  @relation("CustomNodeHome", fields: [parentId], references: [id], onDelete: Cascade)
+  children  CustomNode[] @relation("CustomNodeHome")
+  builtin   String?      // "PEOPLE" | "PLACES" — 기본 카테고리 표시 이름 행(name = 표시 이름, Q76)
+  name      String
+  sortOrder Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([userId, builtin])
+  @@index([parentId])
+}
 ```
-CustomNode   id, userId(→User Cascade),
-             kind String          -- "CATEGORY" | "GROUP" | "ITEM"(Q96 — subjectType·origin 처럼 문자열, 값은 코드가 확인)
-             parentId?(→CustomNode Cascade — 자기 참조) -- 자기 카테고리. CATEGORY 는 null, GROUP·ITEM 은 필수(코드 확인)
-             builtin String?      -- "PEOPLE" | "PLACES": 기본 카테고리 자리 행(CATEGORY 만, 표시 이름·순서만 — Q76)
-             name String(30), memo String?(200), sortOrder Int @default(0), createdAt, updatedAt
-             @@unique([userId, builtin])   -- builtin null 은 여러 행 허용(Postgres NULL)
-             @@index([userId, parentId])
 
-enum NodeType  LIFE_EVENT EPISODE PERSON_GROUP PERSON PLACE_GROUP PLACE CUSTOM
-               -- ALTER TYPE "NodeType" ADD VALUE 'CUSTOM';  (migrate diff 출력 그대로 = 맨 뒤 = 가장 낮은 순위)
+- **표시 이름 칸** = `builtin` + `name` 이다.
+  - 기본 카테고리(인물록·장소록)는 사용자가 처음 이름을 바꿀 때 행을 만든다. 행이 없으면 지금 문구를 쓴다. 바꿀 수 있는 것은 제목 2개뿐이고 "록"을 자동으로 붙이지 않는다(Q76).
+  - 이 행은 자식·넣기를 갖지 않고 지울 수 없다(코드).
+- **메모·연도 칸은 없다(Q78).** 이름은 30자 상한(코드)이고, 적을 말은 본문(`NodeBody`)에 쓴다.
+- **인덱스:**
+  - userId 로 찾는 조회는 유니크 `(userId, builtin)` 의 앞 칸을 쓴다. 그래서 `@@index([userId])` 는 따로 두지 않는다.
+  - `parentId` 인덱스는 카테고리 Cascade 와 자식 조회용이다.
 
-트리거        CREATE TRIGGER "CustomNode_node_graph_cleanup" AFTER DELETE ON "CustomNode"
-               FOR EACH ROW EXECUTE FUNCTION node_graph_cleanup('CUSTOM');
-               -- 함수는 기존 것 재사용(인자는 문자열이라 같은 트랜잭션에서 새 값을 쓰지 않음 — 장소 묶음 마이그 주석과 같은 이유)
-
-NodeLink.role  스키마 변경 없음(문자열 칸, 기본 ""). 값 하나 추가: "" = 관련(지금과 같음) · "MEMBER" = 넣기
-```
-
-**종류별 규칙(저장 함수 한 곳 — `lib/custom-node.ts` 신설 예정 + `saveNodeLink`):**
+**종류별 규칙 — 코드(`lib/custom-node.ts`·`saveNodeLink`)만, DB 제약 없음(Q75):**
 
 | 종류 | 자리(`parentId`) | 넣기(`MEMBER`)의 담는 쪽 | 관련 연결("") | 비고 |
 |---|---|---|---|---|
-| CATEGORY | 없음 | 6종 전부 · 다른 카테고리의 사용자 항목 | 안 됨(카테고리 자체는 이야기에 잇지 않음) | `builtin` 행은 넣기·자식 없음, 지울 수 없음 — 표시 이름·영역 순서만 |
-| GROUP(사용자 묶음) | 자기 카테고리 | 6종 전부 · 사용자 항목(어느 카테고리 것이든) | 안 됨 | 묶음 안 묶음 없음 · 다른 카테고리에 넣을 수 없음 |
-| ITEM(사용자 항목) | 자기 카테고리 | 담지 않음(넣기의 담기는 쪽) | 시기·이야기·사람·장소 · 다른 항목 | 6종에 없는 것만(원칙 §2.0). 종류(항목 ↔ 묶음) 바꾸기는 1차에 없음 |
+| CATEGORY | 없음 | 6종 전부 · 다른 카테고리의 사용자 항목 | 안 됨(카테고리 자체는 이야기에 잇지 않음) | `builtin` 행은 넣기·자식 없음, 지울 수 없음 |
+| GROUP(사용자 묶음) | 자기 카테고리 | 6종 전부 · 사용자 항목(어느 카테고리 것이든) | 안 됨 | 다른 카테고리에 넣을 수 없음 |
+| ITEM(사용자 항목) | 자기 카테고리 | 담지 않음(담기는 쪽) | 시기·이야기·사람·장소 · 다른 항목 | 6종에 없는 것만(원칙 §2.0). 종류(항목 ↔ 묶음) 바꾸기는 1차에 없음 |
 
-**역할 규칙 — `saveNodeLink`·`removeNodeLink` 가 노드 종류로 정한다(부르는 쪽이 role 을 넘기면 `unsupported_option`):**
+**깊이(Q75 결정):**
+- 카테고리 → 묶음 → 칸, 깊이 2다. 이 제한은 **코드 규칙만**이다: `parentId` 는 CATEGORY 만 가리키고, GROUP 은 GROUP 에 넣지 않는다.
+- DB 쪽은 막지 않는다. `parentId` 는 어느 `CustomNode` 든 가리킬 수 있고 `kind` 값 CHECK 도 없다. 나중에 묶음 안 묶음을 열 때 마이그가 필요 없다.
+
+**역할 규칙 — `saveNodeLink`·`removeNodeLink` 가 노드 종류로 정한다.** 부르는 쪽이 계산값과 다른 role 을 넘기면 `unsupported_option` 이다.
 - `X>CUSTOM`(X = 6종)
   - CUSTOM 이 CATEGORY·GROUP 이면 `MEMBER`.
-  - ITEM 이면 ""(관련). 이때 X 는 시기·이야기·사람·장소만이고, 모임·장소 묶음 ↔ 항목 관련은 Q79 에서 정한다.
+  - ITEM 이면 ""(관련). 이때 X 는 시기·이야기·사람·장소만이다(Q79).
   - `builtin` 카테고리는 거부한다.
 - `CUSTOM>CUSTOM`
   - (ITEM, GROUP) → `MEMBER`
   - (ITEM, 자기 카테고리가 아닌 CATEGORY) → `MEMBER`
-  - (ITEM, 자기 카테고리) → 거부(이미 그 자리)
+  - (ITEM, 자기 카테고리) → 거부(이미 자리)
   - (ITEM, ITEM) → ""
   - 그 밖(묶음·카테고리끼리)은 거부한다.
 - 한 쌍의 역할이 늘 하나로 정해지므로 "한 쌍 = 한 곳"이 지켜진다(유니크 `(fromType, fromId, toType, toId, role)` 그대로).
 
-**한 노드가 여러 카테고리·묶음에 들어갈 때(Q74):**
+**한 노드가 여러 카테고리·묶음에 들어갈 때:**
 
 | 예 | 저장 | 지도 |
 |---|---|---|
@@ -194,18 +225,28 @@ NodeLink.role  스키마 변경 없음(문자열 칸, 기본 ""). 값 하나 추
 - **사용자 항목 자리 옮기기**는 `moveCustomNode` 가 `parentId` 를 바꾼다. 새 카테고리로의 넣기 연결이 있었으면 자리와 겹치므로 그 연결은 지운다.
 
 **지우기:**
-- 묶음을 지우면 트리거가 그 묶음의 넣기 연결을 정리한다. 안의 것(사용자 항목·기존 노드)은 남는다. 모임을 지워도 구성원이 남는 것과 같다.
-- 카테고리를 지우면 확인 카드("지워지는 항목 N · 빠지기만 하는 것 M")를 거친 뒤 자기 항목·묶음이 FK Cascade 로 같이 지워진다. 각 행 트리거가 연결을 정리한다. 넣어 둔 기존 노드와 다른 카테고리 항목은 연결만 사라진다(Q80).
-- 기존 노드(사람 등)를 지우면 기존 트리거(`node_graph_cleanup`)가 그 노드의 넣기 연결도 같이 정리한다(변경 없음).
+- 묶음을 지우면 트리거가 그 묶음의 넣기 연결을 정리한다. 안의 것은 남는다(모임을 지워도 구성원이 남는 것과 같음).
+- 카테고리를 지우면 확인 카드("지워지는 항목 N · 빠지기만 하는 것 M")를 거친 뒤 자기 항목·묶음이 FK Cascade 로 같이 지워진다. 각 행 트리거가 연결·본문을 정리하고, 넣어 둔 기존 노드와 다른 카테고리 항목은 연결만 사라진다(Q80).
+- 기존 노드를 지우면 기존 트리거(`node_graph_cleanup`)가 그 노드의 넣기 연결도 같이 정리한다(변경 없음).
 - FK 를 Cascade 로 두는 이유가 있다. 탈퇴할 때 `userId` Cascade 로 한 사용자 행이 한꺼번에 지워지는데, 자기 참조가 RESTRICT 면 지우는 순서에 따라 막힐 수 있다.
+
+**본문(Q78) — `NodeBody` 가 CUSTOM 노드에 붙는지 확인(2026-11-04):**
+
+| 확인 | 결과 |
+|---|---|
+| `NodeBody.nodeType`·`NodeBodyRevision.nodeType` 이 `NodeType` enum 인가 | 그렇다. 역방향 비교(새 스키마 → HEAD)가 두 칸을 enum 재생성 대상으로 낸다. 그래서 `ADD VALUE 'CUSTOM'` 뒤에는 CUSTOM 본문·이전 판 행을 쓸 수 있다 |
+| 노드당 본문 1개 | `@@unique([nodeType, nodeId])` 그대로 |
+| 본문 사진 | 인물 글과 같은 길이다. `createdVia "node_body"` 메모리를 쓰고(`lib/node-body.ts:204-217`), 본문이 지워지면 `NodeBody_cleanup_memory` 트리거가 그 메모리를 지운다. 가족 룸에서는 빠진다(`lib/rooms.ts:165`) |
+| 노드를 지울 때 정리 | `node_graph_cleanup('CUSTOM')` 가 본문·이전 판을 지운다(운영 함수 본문 4줄 확인) |
+| 탈퇴 | `NodeBody`·`NodeBodyRevision`·`CustomNode` 모두 `userId` Cascade |
+| 코드에서 아직 막힌 곳 | 1단계: 정합 점검 5 는 `ownerOf` 에 CUSTOM 이 있어야 본문을 "노드 없는 본문"으로 잘못 지우지 않는다(§6.4) · 2단계(본문 화면): `BodyNodeType`(`lib/node-body-doc.ts:14` "EPISODE"·"PERSON") · 되돌리기 종류 확인(`lib/node-body.ts:303`) · 인물 글 함수에 대응하는 항목 글 함수 |
 
 **방향 CHECK 에 사용자 노드 순위를 두는 법 — 카테고리별 순위는 두지 않는다.**
 - 순위가 하는 일은 같은 쌍을 한 행으로 만드는 **정규화뿐**이다. 카테고리는 행이라 CHECK 가 볼 수도 없다.
-- `CUSTOM` 을 맨 뒤에 두면 기본 종류 ↔ 사용자 노드 연결은 늘 기본 종류가 `from` 이다. 사용자 노드끼리는 기존 "같은 종류 = id 바이트 순" 규칙을 그대로 쓴다. CHECK 식은 그대로이고 기존 행에도 영향이 없다.
-- "무엇이 무엇을 담는가"는 순위가 아니라 **역할(`MEMBER`)과 사용자 노드 종류**에 있다. 담는 쪽은 CATEGORY·GROUP 인 쪽이다. 그래서 정규화가 from·to 를 어느 쪽으로 정해도 뜻이 뒤집히지 않는다.
+- `CUSTOM` 을 맨 뒤에 두면 기본 종류 ↔ 사용자 노드 연결은 늘 기본 종류가 `from` 이다. 사용자 노드끼리는 기존 "같은 종류 = id 바이트 순" 규칙을 그대로 쓴다. CHECK 식은 그대로이고(운영 식 2026-11-04 확인), 기존 행에도 영향이 없다.
+- "무엇이 무엇을 담는가"는 순위가 아니라 **역할(`MEMBER`)과 사용자 노드 종류**에 있다. 담는 쪽은 CATEGORY·GROUP 인 쪽이다.
 
-**같은 커밋에서 고칠 것(1단계):** `NODE_RANK` · `ALLOWED_PAIRS`(+역할 규칙) · `ownsNode`(깊이·종류·`builtin` 확인) · `removeNodeLink` 역할 계산 · **`ownerOf`(정합 점검)** · `test-node-graph` ①(트리거 8개, 순위 7개) · 정합 점검 14 · `test-withdrawal` 시나리오 6 집계 칸 · `lib/account-deletion.ts:16-18` cascade 주석.
-- 정합 점검 14 가 볼 것: 종류·자리 규칙 위반, 역할과 노드 종류가 안 맞는 연결, `builtin` 에 걸린 연결, 사용자 항목의 자기 카테고리로의 넣기 연결.
+**같은 커밋에서 고칠 코드 → §6.4.**
 
 ### 2.4 안 A·B 를 고르지 않는 이유(요약)
 
@@ -234,6 +275,7 @@ NodeLink.role  스키마 변경 없음(문자열 칸, 기본 ""). 값 하나 추
 - **바로가기 탭(Q99):** 원래 노드의 패널이 열리고 지도는 움직이지 않는다("한 번 탭 = 패널" 규칙).
   - 패널에 `[문구 필요: 원래 자리로 가기]`·`[문구 필요: 이 카테고리에서 빼기]` 를 둔다.
   - 바로가기를 고르면 간선은 원래 노드 자리에서 그린다.
+- **항목 패널(Q78):** 이름 + 본문 첫 줄 + `[문구 필요: 글 고치기]` 를 둔다. 편집기는 인물 글 화면(`/my-life/person/[id]/edit`, 2b-3c)과 같은 것을 쓴다. 새 주소는 2단계에서 정하고 `docs/navigation-map.md` 를 갱신한다.
 - **접힘(Q82):**
   - ① 영역의 사용자 항목 + 바로가기가 9개(3줄)를 넘으면 처음 9개 + `[문구 필요: N개 더 보기]` 접힘 칸(시간 줄기 FOLD 와 같은 220×56)을 둔다.
   - ② 사용자 카테고리가 6개 이상이면 사용자 카테고리 영역은 제목 줄(이름·칸 수·`[문구 필요: 펼치기]`)로 시작한다. 펼친 상태는 시간 줄기 접힘과 같은 방식으로 기억한다.
@@ -331,6 +373,11 @@ NodeLink.role  스키마 변경 없음(문자열 칸, 기본 ""). 값 하나 추
 - 한 명령에서 한 일들을 역순으로 되돌린다. 유효 기간은 기존 규칙대로 다음 동작 전까지다.
 - 서버는 되돌릴 때 다시 소유를 확인한다(기존 되돌리기 함수가 이미 그렇게 함).
 
+**AI 편집 기록(Q92 — 보류, 3b 전 결정):**
+- 후보는 한 명령마다 **도구 이름·노드 종류·노드 id·시각만** 남기는 기록이다. 요청 문장·이름·본문은 남기지 않고, 원가 원장 `ChatV3Usage` 와는 따로 둔다.
+- 쓰임은 잘못된 AI 편집 추적과 도그푸딩 집계다.
+- 두지 않으면 원가 원장 + `NodeLink.source "AI"` 만 남는다.
+
 **한 명령은 여러 단계다.** 기존 함수가 각자 트랜잭션을 가지므로 단계마다 원자적이고 명령 전체로는 원자적이지 않다. 중간에 실패하면 "한 일"에 성공한 것만 남고 그것을 되돌릴 수 있다.
 
 ### 4.3 확인 정책 초안
@@ -421,7 +468,7 @@ NodeLink.role  스키마 변경 없음(문자열 칸, 기본 ""). 값 하나 추
 |---|---|
 | 지도 정리 요청·질문 문장 | "입력하신 대화" 안으로 볼 수 있으나 명시 권장 |
 | 시기 이름·연도, 사람 이름·관계, 장소 이름 | 이미 목록 안(제안 카드가 보냄) |
-| 모임·장소 묶음 이름, **직접 만든 분류(카테고리)·묶음·항목 이름과 메모** | **목록 밖** |
+| 모임·장소 묶음 이름, **직접 만든 분류(카테고리)·묶음·항목의 이름과 글(본문)** | **목록 밖** |
 | 이야기 제목·본문 발췌(읽기 도구) | "회상 내용" 안 |
 | 인물에 대해 적은 글·메모(`NodeBody` PERSON·`Person.memo`) | **목록 밖**("인물 이름·관계"만 열거) |
 | 목적: 지도 정리·질문 답변 | "인생 기록 정리"·"AI 회상 보조" 안 |
@@ -433,7 +480,7 @@ NodeLink.role  스키마 변경 없음(문자열 칸, 기본 ""). 값 하나 추
 
 **v1.4 초안 — 항목만, 문장은 확정 전:**
 
-1. 1항 나 목록에 "· 직접 만든 분류: 회원님이 이름 붙인 분류와 그 안의 묶음·항목의 이름과 메모" 추가.
+1. 1항 나 목록에 "· 직접 만든 분류: 회원님이 이름 붙인 분류와 그 안의 묶음·항목의 이름과 글" 추가.
 2. 3항 Anthropic 항목의 기본 정보 괄호에 "모임·장소 묶음·직접 만든 분류와 항목의 이름, 인물에 대해 적으신 글" 추가 + "AI에게 부탁하신 기록 정리 요청과 질문" 추가.
 3. 3항 Anthropic 목적에 "기록 지도 정리·질문 답변" 추가(2항 이용 목적 문장에도 같은 말).
 4. 개정 이력 "v1.4 — [시행일] 시행 (…)" + `lib/policy-notice.ts` `POLICY_NOTICES` 등록: 띠 요약 `short` `[문구 필요: 11자 이내, 기술 용어 금지]`, 상세 `detail`, 공지일, 시행일 = 공지일 + 7일(작업 규칙 11). 회귀 `test-auth` ③이 등록값·개정 이력을 확인한다.
@@ -478,7 +525,7 @@ v1.4 공지(1단계 완료 때) ── 7일 ──▶ v1.4 시행
 
 | 단계 | 내용 | 완료 기준 | 회귀 |
 |---|---|---|---|
-| **1 데이터 층**(화면 변화 0) | 마이그(`CustomNode`(종류·자리·`builtin`)·`NodeType.CUSTOM`·트리거 1, 성민 승인 후 적용) + 같은 커밋에서 `ownerOf`·`NODE_RANK`·`ALLOWED_PAIRS`(+역할 규칙)·`ownsNode`·`removeNodeLink` 역할 계산 + `lib/custom-node.ts`(만들기·이름·옮기기·지우기, 종류·자리 규칙, 같은 이름 판정) + 정합 점검 14 | `migrate diff --from-config-datasource` 빈 결과 · 운영 적용 1건 · 운영 dry-run 점검 1~14 전부 0 · 회귀 20종 exit 0 · **`lib/account-deletion.ts:16-18` cascade 주석에 노드 테이블(`LifeEvent`·`Episode`·`Person`·`Place`·`PlaceGroup`·`PersonGroup`·`NodeLink`·`NodeBody`·`NodeBodyRevision`·`CustomNode`) 반영** | `test-node-graph` ①(트리거 8·순위 7) ③(CUSTOM 쌍·역할 계산·부르는 쪽 role 거부·자기 카테고리로 넣기 거부·`builtin` 거부) ④(CUSTOM CHECK) ⑤(사용자 노드 삭제 → 연결·본문 정리) ⑨ · `test-withdrawal` 시나리오 6 집계 +1 · 새 `test-custom-graph`(종류·자리 규칙 · 묶음 지우기 = 연결만 · 카테고리 지우기 = 자기 항목만 Cascade · 넣어 둔 사람·이야기 보존 · `builtin` 보호 · 같은 이름 판정) |
+| **1 데이터 층**(화면 변화 0) | 부록 A 마이그(성민 승인 후 적용) + 같은 커밋 코드(§6.4) | `migrate diff --from-config-datasource` 빈 결과 · 운영 적용 1건 · 카탈로그 트리거 8개 · 운영 dry-run 점검 1~14 전부 0 · 회귀 21종 exit 0 · **`lib/account-deletion.ts:16-18` cascade 주석에 노드 테이블(`LifeEvent`·`Episode`·`Person`·`Place`·`PlaceGroup`·`PersonGroup`·`NodeLink`·`NodeBody`·`NodeBodyRevision`·`CustomNode`) 반영** | §6.4 7번 |
 | **3a 질문 답하기(그래프만)** — 1단계와 병행 개발 | 시트 · `find_nodes`·`read_node`·`answer` · 별칭·검증(`verifyAnswer`) · 원장 `MAP_ASK` · 사용자당 상한 · 허용 목록 게이트 | 재생 세트에서 정답률 0.8 이상·근거 정밀도 0.9 이상·근거 없는 주장 5% 이하·1회 $0.05 이하(연구실 기준 재사용) · 운영 사용자에게 켜는 것은 v1.4 시행 뒤 | 새 `test-map-agent`(실제 모델 — `db/live-log.ts`, 실패 입출력 보관) + 재생 세트 |
 | **처리방침 v1.4 공지**(1단계 완료 때, 늦어도 3a·2단계 운영 배포 7일 전) | §5 초안 확정 → `POLICY_NOTICES` 등록 | 시행일 = 공지일 + 7 · `test-auth` ③ | `test-auth` |
 | **2 지도**(v1.4 시행 뒤 배포) | §3 영역·묶음·바로가기·접힘·이동 줄 카테고리 시트·목록 보기 · 직접 만들기(`[+ 카테고리]` 머리 줄 `[+ 만들기]` 안 · `[+ 항목]`·`[+ 묶음]`·`[+ 넣기]`) · 같은 이름 안내(§3.4) · 이름 바꾸기(기본 카테고리 표시 이름 포함) · 관련 연결(칩·간선) · 찾기 · `docs/navigation-map.md` 갱신 | §3.3 1~9 · 화면 문구 확정(§8) · 3a 재생 세트 재실행(지도 목록 형식 변경) | `test-my-life`(`F-20-300`·호출 9·종류 `custom`·바로가기) · `test-my-life-edit`(만들기 +2종·`linkSnapshot` 에 `MEMBER` 구분·`deleteImpact` 카테고리 수) · 20종 |
@@ -487,25 +534,77 @@ v1.4 공지(1단계 완료 때) ── 7일 ──▶ v1.4 시행
 | **3d 이야기 본문 근거 질문** | 서버 본문 키워드 찾기 + `locateQuote` 인용 확인 | 3a 기준 + 인용 위치 확인 100%(확인 못 한 인용은 화면에 안 나옴) | `test-map-agent` |
 | **3e(선택) 제안 카드가 사용자 항목·넣기 제안** | 자유 대화 제안 입력에 사용자 노드 이름·카테고리 후보 추가(Q70 후속) · `createFromCard` 에 `EPISODE>CUSTOM`(관련)·`MEMBER`(넣기) | 재생 세트(작업 규칙 9 — 기존 `proposal-replay` 적중률이 변경 전보다 낮아지지 않음) | `test-chat-proposal` · `db/replay-proposals.ts` |
 
-회귀 세트는 20종에서 22종(`test-custom-graph`·`test-map-agent`)이 된다. CLAUDE.md 회귀 목록 갱신은 각 단계 구현 때 한다.
+회귀 세트는 20종에서 1단계 뒤 21종(`test-custom-graph`), 3a 뒤 22종(`test-map-agent`)이 된다. CLAUDE.md 회귀 목록 갱신은 각 단계 구현 때 한다.
+
+### 6.4 1단계 같은 커밋 — 코드 목록(마이그 승인 뒤 구현, 지금은 목록만)
+
+1. **`prisma/schema.prisma`** — 부록 A.1 diff(`CustomNode` · `User.customNodes` · `NodeType.CUSTOM` · 순위 주석).
+2. **`prisma/migrations/<날짜>_custom_node/migration.sql`** — 부록 A.2 원문 그대로.
+3. **정합 점검 `lib/node-graph-reconcile.ts`**
+   - `ownerOf`(`:53-65`) 에 `WHEN 'CUSTOM' THEN (SELECT x."userId" FROM "CustomNode" x WHERE x.id = …)` 를 더한다. 이것이 없으면 점검 1·5 가 CUSTOM 연결·본문을 "끝 없음·노드 없음"으로 잡고 `--apply`(`:182-186`)가 지운다.
+   - 새 점검 14(보고만, 정리 안 함):
+     - ① `kind` 가 세 값 밖
+     - ② 자리 규칙 위반(CATEGORY 에 `parentId` · GROUP·ITEM 에 `parentId` 없음 · 부모가 CATEGORY 아님 · 부모가 남의 것)
+     - ③ `builtin` 이 CATEGORY 아님 · `builtin` 행에 자식
+     - ④ 역할과 종류 불일치(`MEMBER` 인데 담는 쪽이 CATEGORY·GROUP 아님 · "" 인데 CUSTOM 쪽이 ITEM 아님)
+     - ⑤ `builtin` 에 걸린 연결
+     - ⑥ 항목의 자기 카테고리로의 넣기 연결
+   - `db/reconcile-node-links.ts` 출력에 14 를 더한다.
+4. **연결 입구 `lib/node-graph.ts`**
+   - `NODE_RANK` 맨 뒤에 `"CUSTOM"` 을 넣는다(pg_enum 순서와 같게).
+   - `ALLOWED_PAIRS` 에 `LIFE_EVENT>CUSTOM`·`EPISODE>CUSTOM`·`PERSON_GROUP>CUSTOM`·`PERSON>CUSTOM`·`PLACE_GROUP>CUSTOM`·`PLACE>CUSTOM`·`CUSTOM>CUSTOM` 을 더한다(쌍 키 — 허용 여부와 역할은 아래 함수가 정함).
+   - `ownsNode` 에 CUSTOM case 를 더한다. 소유와 함께 `kind`·`parentId`·`builtin` 을 읽는다.
+   - **넣기 역할:** 새 순수 함수 `customPairRole(from, to)` → `"MEMBER"` | `""` | 거부 이유(§2.3 역할 규칙).
+     - `saveNodeLink`: CUSTOM 쌍이면 부르는 쪽 `role` 이 없거나 계산값과 같아야 한다. 같은 값을 허용하는 이유는 되돌리기(`restoreNodeLink`)가 지운 행의 role 을 그대로 다시 넘기기 때문이다.
+     - 거부 이유는 `pair_not_allowed` 로 묶거나 `builtin_category`·`home_category` 를 새로 둔다(구현 때 결정 — 화면 문구가 다르면 나눔).
+   - `removeNodeLink`: CUSTOM 쌍은 같은 계산으로 role 을 정해 그 행만 지운다.
+5. **`lib/custom-node.ts`(새)** — 화면·AI 는 1단계에서 부르지 않는다.
+   - `createCategory`
+   - `createCustomNode`(GROUP·ITEM, 자리 = 카테고리)
+   - `renameCustomNode`
+   - `setBuiltinName`(기본 카테고리 표시 이름 행 upsert)
+   - `moveCustomNode`(자리 바꿈 + 새 카테고리 넣기 연결 정리)
+   - `deleteCustomNode`(묶음·항목 — 행 삭제 → 트리거가 연결·본문 정리)
+   - `deleteCategory`(Cascade)
+   - `sameNameNodes`(Q98·Q100 판정 — 사람은 `findSameNamePeople` 재사용)
+6. **탈퇴 `lib/account-deletion.ts:16-18`** — cascade 목록 주석에 노드 테이블(`LifeEvent`·`Episode`·`Person`·`Place`·`PlaceGroup`·`PersonGroup`·`NodeLink`·`NodeBody`·`NodeBodyRevision`)과 `CustomNode` 를 반영한다. 주석만이고 `deleteAccountTx` 동작은 무변이다(`userId` Cascade).
+7. **회귀**
+   - `db/test-node-graph.ts`
+     - ① 트리거 이름 8개(`CustomNode_node_graph_cleanup` 추가) · pg_enum 순서 = `NODE_RANK` 7개
+     - ③ CUSTOM 쌍 저장 방향 · 역할 계산(카테고리·묶음 = `MEMBER`, 항목 = "") · 다른 role 거부 · `builtin` 거부 · 자기 카테고리 넣기 거부 · 묶음 ↔ 묶음 거부
+     - ③-b CUSTOM `removeNodeLink`·`restoreNodeLink`
+     - ④ CHECK — CUSTOM 이 `from` 인 역방향 직접 삽입 거부
+     - ⑤ 항목 삭제 → `NodeLink`·`NodeBody`·`NodeBodyRevision` 정리 · 카테고리 삭제 → 자기 묶음·항목 Cascade + 행마다 트리거 · 넣어 둔 사람·이야기는 남음
+     - ⑨ 정합 점검 — CUSTOM 연결·본문이 1·5 에 안 잡힘 · 14 = 0
+   - `db/test-withdrawal.ts` 시나리오 6: 카테고리·묶음·항목 + `MEMBER` 연결 + CUSTOM 본문을 만들고 탈퇴 → 집계 0(`CustomNode` 칸 추가).
+   - 새 `db/test-custom-graph.ts`(LLM 0, 자기 픽스처 계정만):
+     - 종류·자리 규칙 · 깊이 2(묶음 안 묶음 거부 — 코드)
+     - `builtin` 표시 이름 upsert · 지우기 거부
+     - 묶음 지우기 = 연결만 · 카테고리 지우기 = 자기 항목만
+     - 자리 옮기기 = 겹치는 넣기 연결 정리
+     - 같은 이름 판정
+   - 회귀 세트 20 → 21종(CLAUDE.md 목록 갱신 — 같은 커밋).
+   - `test-my-life` ②(호출 8)는 1단계에서는 그대로다(지도 변경은 2단계).
+8. **문서** — 이 문서에 1단계 결과 절 + CLAUDE.md phase 표 한 줄.
 
 ---
 
-## 7. 결정 질문(2026-11-04 제기 · 같은 날 보완 — 성민 결정 대기)
+## 7. 결정 질문(2026-11-04 제기·보완·결정 — 결과는 §7.1)
 
 - **★** = 먼저 정해야 1단계 마이그 SQL 을 쓸 수 있다(6개: Q73·Q74·Q76·Q78·Q80·Q96).
 - Q79 는 마이그가 아니라 1단계 코드(역할 규칙)에 필요하다.
 - **〔바뀜〕** = 2026-11-04 보완(원칙 §2.0·단계 조정 §6)으로 내용이 바뀐 것이다. **〔새〕** = 보완 때 새로 생긴 것이다.
+- 표의 추천 칸은 제기 당시의 추천이다. 결정 결과는 §7.1 이다(Q74·Q78 은 추천과 다르게 수정 결정, Q92 는 보류).
 - 없어진 Q 는 없다. 원래 Q74("묶음 소속 한 곳만 / 여럿")는 "넣는 방법·여러 곳 소속"으로 바뀌었고, 답은 "여럿(연결)"이다.
 
 | # | 질문 | 추천 | 근거 |
 |---|---|---|---|
 | Q73 ★ | 데이터 안: A(카테고리·노드·묶음·구성원 4테이블) / B(범용 노드 1테이블) / C(한 테이블, 넣기는 연결) | **C(보완)** | §1.2 영향 0, 테이블 1·enum 1·트리거 1·이관 0, 넣기가 한 방식이라 원칙 §2.0 과 맞음 |
-| Q74 ★ 〔바뀜〕 | 카테고리·묶음에 넣는 방법과 한 노드가 여러 곳에 들어갈 때 | 기존 노드 = `NodeLink` role `MEMBER` 로 넣기(여러 카테고리·묶음 가능) · 사용자 항목 = 자리(자기 카테고리) 하나 + 묶음·다른 카테고리는 같은 넣기 연결 | 넣기가 한 방식, 모임처럼 여러 곳 가능, 빼거나 지워도 원래 노드는 남음 |
+| Q74 ★ 〔바뀜〕 〔결정: 수정 — §7.1〕 | 카테고리·묶음에 넣는 방법과 한 노드가 여러 곳에 들어갈 때 | 기존 노드 = `NodeLink` role `MEMBER` 로 넣기(여러 카테고리·묶음 가능) · 사용자 항목 = 자리(자기 카테고리) 하나 + 묶음·다른 카테고리는 같은 넣기 연결 | 넣기가 한 방식, 모임처럼 여러 곳 가능, 빼거나 지워도 원래 노드는 남음 |
 | Q75 〔바뀜〕 | 깊이 | 카테고리 → 묶음 → 칸(사용자 항목·넣은 노드)으로 고정, 묶음 안 묶음 없음 | 묶음 소속이 연결로 바뀌어 부모-자식은 "자기 카테고리" 한 단계만 남음 |
 | Q76 ★ | 기본 카테고리 표시 이름 바꾸기 범위 · 사용자 카테고리 제목에 "록" 붙이기 | 영역 제목 2개(인물록·장소록)만 · "록" 안 붙임 | 표시 이름을 담는 `builtin` 행이 마이그에 들어감, 종류 이름은 문구 여러 곳에 박혀 있음 |
 | Q77 | 영역 순서 | 기본 2개 위 고정 + 사용자 카테고리만 순서 바꾸기 | `sortOrder` 칸은 어느 쪽이든 같음 — 동선 단순 |
-| Q78 ★ | 사용자 항목 칸 | 이름(30)·메모(200)만, 연도 없음 | 연도 칸 여부가 마이그를 바꿈, 시간은 시기 연결로 보임 |
+| Q78 ★ 〔결정: 수정 — §7.1〕 | 사용자 항목 칸 | 이름(30)·메모(200)만, 연도 없음 | 연도 칸 여부가 마이그를 바꿈, 시간은 시기 연결로 보임 |
 | Q79 〔바뀜〕 | 연결 허용 쌍과 역할 · 사용자 항목 본문 | 넣기(`MEMBER`) = 6종 전부·사용자 항목 → 카테고리·사용자 묶음 / 관련("") = 시기·이야기·사람·장소 ↔ 사용자 항목, 항목 ↔ 항목 / 역할은 `saveNodeLink` 가 노드 종류로 정함 / 본문(`NodeBody` CUSTOM)은 2단계 뒤 | 한 쌍 = 한 역할이라 "한 쌍 = 한 곳" 유지(1단계 코드에 필요) |
 | Q80 ★ 〔바뀜〕 | 카테고리 지우기 | 확인 카드(지워지는 항목 N · 빠지기만 하는 것 M) 뒤 자기 항목·묶음만 같이 지움(FK Cascade) · 넣어 둔 기존 노드는 연결만 사라짐 · 묶음 지우기 = 연결만 정리 | 6종 원본이 카테고리 삭제로 지워지는 일 0, FK 동작이 마이그에 들어감 |
 | Q81 | 상한 | 카테고리 20(기본 2 포함) · 사용자 항목 300 · 넣기 연결은 따로 상한 없음 | §3.2 계산·성능 기준, 넣기는 카테고리 수로 이미 묶임 |
@@ -519,7 +618,7 @@ v1.4 공지(1단계 완료 때) ── 7일 ──▶ v1.4 시행
 | Q89 | 비용 | 도그푸딩 무료 + 원가 기록 + 사용자당 하루 30회 | Q63 연장, 1회 $0.007~0.038(§4.5) |
 | Q90 | 예산 | 같은 전역 하루 예산($5) + 사용자당 상한(원장 purpose `MAP_EDIT`·`MAP_ASK`) | 최근 30일 하루 최대 $1.97, 마이그 0 |
 | Q91 | 질문 답하기 1차 범위 | 그래프 + 이야기 본문 키워드 찾기(임베딩 0) | 임베딩은 처리방침·동의 문구(업체)·운영 동기화가 따로 필요 |
-| Q92 | AI 편집 기록 테이블 | 두지 않음(원가 원장만) | 되돌리기는 다음 동작 전까지 — 기존과 같음, 필요해지면 나중에 |
+| Q92 〔보류 — §7.1〕 | AI 편집 기록 테이블 | 두지 않음(원가 원장만) | 되돌리기는 다음 동작 전까지 — 기존과 같음, 필요해지면 나중에 |
 | Q93 〔바뀜〕 | 처리방침 v1.4 범위·시점 | 1항 + 3항 한 번에, 공지 = 1단계 완료 때(늦어도 3a·2단계 운영 배포 7일 전), 동의 버전 4 유지 | 3a 도 목록 밖 항목(모임·장소 묶음 이름·인물 글)을 보냄, 업체 그대로 |
 | Q94 | 지도 목록 통째 전송 상한 | 노드 400개 넘으면 카테고리별 개수 요약 + `find_nodes` | 1회 원가·입력 길이 |
 | Q95 〔바뀜〕 | 3e(제안 카드) 포함 여부 | 3단계 뒤 도그푸딩 보고 결정 — 범위 = 사용자 항목 제안 + 기존 노드를 카테고리에 넣기 제안 | 제안 카드 재생 세트 적중률을 먼저 지켜야 함 |
@@ -529,6 +628,21 @@ v1.4 공지(1단계 완료 때) ── 7일 ──▶ v1.4 시행
 | Q99 〔새〕 | 카테고리 영역에 넣어 둔 기존 노드 표시 | 바로가기 칸(184×56 같음, 점선 테두리 + 종류 표시) · 탭 = 원래 노드 패널(지도 안 움직임) + 패널에 `[원래 자리로 가기]`·`[이 카테고리에서 빼기]` | 진짜 노드는 지도에 한 번만, 터치 영역·"한 번 탭 = 패널" 규칙 유지 |
 | Q100 〔새〕 | AI 이름 일치 판정 | 사용자 항목·묶음을 만들기 전 서버가 6종 이름과 대조(Q98 과 같은 함수) → 같으면 만들지 않고 넣기로, 여럿이면 기존 동명이인 되묻기 재사용 · 6종인데 지도에 없으면 그 종류로 만든 뒤 넣기 · 사용자가 카드에서 `[새 항목으로 만들기]` 를 누를 때만 새 항목 | 모델 판단에 맡기지 않고 서버가 막음(2026-11-02~03 id 베끼기 사고와 같은 이유) |
 | Q101 〔새〕 | 3a 를 앞당길지 | 1단계와 병행 개발 · 운영 배포는 v1.4 시행 뒤 · 시행 전에는 허용 목록 계정만 | 3a 는 읽기만·기존 6종만 읽어 1단계 마이그와 무관, 다만 목록 밖 항목을 보냄 |
+
+### 7.1 결정(2026-11-04 — 제안: Claude Code·리뷰 채팅 / 결정: 성민)
+
+| # | 결정 |
+|---|---|
+| Q73 | C안 |
+| Q74 | **수정** — 모든 노드(6종 + 사용자 항목)는 자리 하나 + 다른 카테고리·묶음에는 넣기 연결(바로가기)로 여러 곳. 규칙 하나로 통일(§2.3) |
+| Q75 | 깊이 2 는 코드 규칙만, DB 제약 없음(나중에 늘릴 수 있게) |
+| Q76 | 인물록·장소록 제목만 바꿀 수 있음, "록" 자동으로 안 붙임 |
+| Q78 | **수정** — 항목 = 이름 + 본문(`NodeBody` — 사진·이전 판 재사용). 메모 칸 없음, 연도 없음(시간은 시기 연결) |
+| Q79 | 추천안 |
+| Q80 | 추천안 |
+| Q92 | **보류**(3b 전 결정). 후보: 내용 없이 도구·노드 종류·id·시각만 남기는 AI 편집 기록(§4.2) |
+| Q96 | 종류 칸 명시(`kind`) |
+| 그 밖(Q77·Q81~Q91·Q93~Q95·Q97~Q101) | 추천안. 확정은 해당 단계 시작 때 |
 
 ---
 
@@ -542,6 +656,155 @@ v1.4 공지(1단계 완료 때) ── 7일 ──▶ v1.4 시행
 
 ---
 
+## 부록 A — 1단계 마이그 초안(적용·커밋 안 함 — 승인 대기)
+
+**만든 방법:**
+- `prisma migrate diff --from-schema <HEAD 스키마 사본> --to-schema <새 스키마 사본> --script` 로 파일끼리 비교했다(Prisma 7.8.0).
+- 작업 트리의 `prisma/schema.prisma` 는 바꾸지 않았고, `prisma/migrations/` 에 파일도 만들지 않았다. 승인 뒤 `prisma/migrations/<날짜>_custom_node/migration.sql` 로 넣는다.
+
+**확인(2026-11-04):**
+1. **드리프트 0.** 운영 DB ↔ HEAD 스키마 `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script` 결과가 "This is an empty migration" 이다(카탈로그 읽기만).
+2. 새 스키마 `prisma validate` 통과.
+3. 역방향(새 → HEAD)은 정확히 반대다. 테이블 삭제와 enum 재생성이 나오고, enum 재생성 대상은 `NodeLink.fromType`·`toType`·`NodeBody.nodeType`·`NodeBodyRevision.nodeType` 이다.
+4. 아래 SQL 의 enum·테이블·인덱스·FK 부분은 `migrate diff` 출력과 글자 단위로 같다. 손으로 쓴 것은 트리거 1개뿐이다.
+5. 운영 카탈로그(읽기만) 결과:
+   - `node_graph_cleanup()` 본문 4줄(연결 2·본문·이전 판)
+   - 트리거 7개(`*_node_graph_cleanup` 6 + `NodeBody_cleanup_memory`)
+   - `NodeType` 순서 `LIFE_EVENT < EPISODE < PERSON_GROUP < PERSON < PLACE_GROUP < PLACE`
+   - `NodeLink_direction_check` 식 `("fromType" < "toType") OR ("fromType" = "toType" AND "fromId" COLLATE "C" < "toId" COLLATE "C")`
+   - `CustomNode` 테이블 없음
+
+**확인 못 한 것과 대신 할 것:**
+- shadow DB 로 전체 migrations 를 다시 재생하는 확인은 못 했다(Docker 데몬 꺼짐).
+- 적용한 뒤 ① `migrate diff --from-config-datasource` 빈 결과 ② 카탈로그 트리거 8개(`test-node-graph` ①)로 대신한다.
+
+**되돌리기:**
+- 운영에 CUSTOM 행이 생기기 전이라면 역방향 SQL 로 되돌릴 수 있다. 다만 enum 재생성이 방향 CHECK·유니크 인덱스가 걸린 칸의 타입을 바꾸므로 손으로 검토한 뒤 한다.
+- CUSTOM 행이 생긴 뒤에는 되돌리지 않는다. 추가만 하는 마이그라 그대로 두는 것이 안전하다.
+
+### A.1 스키마 변경(`prisma/schema.prisma`)
+
+```diff
+@@ -192,6 +192,8 @@
+   nodeBodyRevisions NodeBodyRevision[]
+   // My Life 개편 3단계(docs/phase/my-life-restructure.md §2) — 장소 묶음. 탈퇴 시 Cascade.
+   placeGroups       PlaceGroup[]
++  // 사용자 카테고리(docs/phase/custom-graph.md §2.3) — 카테고리·묶음·항목. 탈퇴 시 Cascade.
++  customNodes       CustomNode[]
+ }
+ 
+ // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
+@@ -1545,11 +1547,42 @@
+   @@index([personId])
+ }
+ 
++// 사용자 카테고리 — docs/phase/custom-graph.md §2.0·§2.3(결정 2026-11-04 Q73·Q74·Q75·Q76·Q78·Q80·Q96).
++// 한 테이블에 카테고리·묶음·항목. 원칙: 기존 6종(시기·이야기·사람·장소·모임·장소 묶음)은 여기에 새로 만들지 않고
++// 넣기 연결(NodeLink role "MEMBER")로 카테고리·묶음에 넣는다. 항목은 6종에 없는 것만(반려동물·물건·취미 등).
++//   kind     — "CATEGORY" | "GROUP" | "ITEM". 값·깊이(카테고리 → 묶음 → 칸, 깊이 2) 규칙은 코드(lib/custom-node.ts)만 —
++//              DB 제약 없음(Q75: 나중에 늘릴 수 있게).
++//   parentId — 자리. GROUP·ITEM 은 자기 카테고리, CATEGORY 는 null. 카테고리를 지우면 자기 묶음·항목 Cascade
++//              (넣어 둔 다른 노드는 연결만 정리 — 트리거). 다른 카테고리·묶음에 보이는 것은 넣기 연결(바로가기).
++//   builtin  — "PEOPLE" | "PLACES": 기본 카테고리(인물록·장소록)의 표시 이름 행(CATEGORY 만, name = 표시 이름 — Q76).
++//              null 은 사용자 카테고리·묶음·항목(Postgres 유니크는 NULL 끼리 겹쳐도 됨).
++//   본문은 NodeBody(nodeType CUSTOM) — 사진·이전 판 재사용(Q78, 메모·연도 칸 없음).
++// NodeLink·NodeBody·NodeBodyRevision 정리는 트리거 CustomNode_node_graph_cleanup(마이그 SQL 에만 — Prisma 미표현).
++model CustomNode {
++  id        String       @id @default(cuid())
++  userId    String
++  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
++  kind      String
++  parentId  String?
++  parent    CustomNode?  @relation("CustomNodeHome", fields: [parentId], references: [id], onDelete: Cascade)
++  children  CustomNode[] @relation("CustomNodeHome")
++  builtin   String?
++  name      String
++  sortOrder Int          @default(0)
++  createdAt DateTime     @default(now())
++  updatedAt DateTime     @updatedAt
++
++  @@unique([userId, builtin])
++  @@index([parentId])
++}
++
+ // 선언 순서 = NodeLink 방향 순위(위가 상위). DB CHECK(NodeLink_direction_check)가 enum 비교
+ // (선언 순서)로 방향을 강제하므로, 값을 추가할 때는 ALTER TYPE ... ADD VALUE ... BEFORE/AFTER 로
+ // 순위 자리에 넣고 lib 순위표도 같이 고친다. 자아 항목(SELF_ASPECT)은 3단계에서 추가.
+ // PLACE_GROUP 은 마이그 20261102000000_place_group 에서 ADD VALUE ... BEFORE 'PLACE' 로 넣었다
+ // (migrate diff 는 맨 뒤에 붙이는 SQL 을 내므로 손으로 고침 — 묶음이 구성원 위, PERSON_GROUP > PERSON 과 같은 결).
++// CUSTOM(사용자 카테고리·묶음·항목 — CustomNode)은 맨 뒤 = 가장 낮은 순위(docs/phase/custom-graph.md §2.3). 사용자 노드끼리는
++// 같은 종류 규칙(id 바이트 순). "무엇이 무엇을 담는가"는 순위가 아니라 NodeLink.role "MEMBER" + CustomNode.kind 로 정한다.
+ enum NodeType {
+   LIFE_EVENT
+   EPISODE
+@@ -1557,6 +1590,7 @@
+   PERSON
+   PLACE_GROUP
+   PLACE
++  CUSTOM
+ }
+ 
+ enum LinkStatus {
+```
+
+### A.2 `migration.sql`
+
+```sql
+-- 사용자 카테고리 1단계 — 데이터 층(docs/phase/custom-graph.md §2.3 · 부록 A). 추가만(기존 테이블·데이터 무변).
+-- 추가: enum 값 1(NodeType.CUSTOM) · 테이블 1(CustomNode) · 인덱스 2 · FK 2 · 정리 트리거 1.
+-- 맨 아래 트리거만 손으로 쓴 SQL — 나머지는 prisma migrate diff --from-schema(HEAD) --to-schema(새 스키마) 출력 그대로.
+-- 깊이·종류 값(kind)·자리 규칙은 DB 제약으로 두지 않는다(Q75 — 코드 lib/custom-node.ts 만, 나중에 늘릴 수 있게).
+-- AlterEnum — CUSTOM 은 맨 뒤(가장 낮은 순위)가 맞는 자리라 migrate diff 출력(맨 뒤 ADD VALUE) 그대로 둔다. 기존 값끼리의
+--   순서는 그대로라 기존 행·방향 CHECK(NodeLink_direction_check) 무영향. NodeBody·NodeBodyRevision 의 nodeType 도 같은 enum 이라
+--   CUSTOM 노드 본문·이전 판이 그대로 붙는다(Q78). ADD VALUE 는 같은 트랜잭션에서 새 값을 *사용*하지만 않으면 PG12+ 에서 안전 —
+--   아래 트리거는 인자를 문자열로만 넘기고(함수 안에서 실행 때 캐스트) 생성 시점엔 값을 쓰지 않는다(장소 묶음 마이그와 같은 이유).
+
+-- AlterEnum
+ALTER TYPE "NodeType" ADD VALUE 'CUSTOM';
+
+-- CreateTable
+CREATE TABLE "CustomNode" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "parentId" TEXT,
+    "builtin" TEXT,
+    "name" TEXT NOT NULL,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "CustomNode_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "CustomNode_parentId_idx" ON "CustomNode"("parentId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CustomNode_userId_builtin_key" ON "CustomNode"("userId", "builtin");
+
+-- AddForeignKey
+ALTER TABLE "CustomNode" ADD CONSTRAINT "CustomNode_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CustomNode" ADD CONSTRAINT "CustomNode_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "CustomNode"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- 연결 정리 트리거 — 사용자 노드 삭제 시 범용 연결(NodeLink)·본문(NodeBody)·이전 판(NodeBodyRevision) 정리
+--
+-- 목적: 마이그 20261030000000_node_graph 의 노드 테이블들과 같다(다형 연결이라 FK 를 못 건다). 함수 node_graph_cleanup()
+--   은 이미 있어 재사용한다(본문 4줄 — 20261103100000_node_body_revision, 운영 pg_get_functiondef 2026-11-04 확인).
+-- 대상: CustomNode(CUSTOM). 카테고리를 지우면 자기 묶음·항목이 parentId FK Cascade 로 지워지고, 그 행마다 이 트리거가 돌아
+--   넣기 연결(role "MEMBER")·관련 연결·본문을 지운다. 넣어 둔 기존 노드(사람·이야기 등) 자체는 지워지지 않는다(Q80).
+--   본문 사진 메모리(createdVia "node_body")는 기존 트리거 NodeBody_cleanup_memory 가 지운다.
+-- 탈퇴: CustomNode 는 userId FK Cascade 로 지워지고, 이 트리거가 남은 연결을 지운다(0행이어도 무해).
+-- ─────────────────────────────────────────────────────────────────────────
+CREATE TRIGGER "CustomNode_node_graph_cleanup" AFTER DELETE ON "CustomNode"
+  FOR EACH ROW EXECUTE FUNCTION node_graph_cleanup('CUSTOM');
+```
+
+---
+
 ## 결정 로그
 
 - 2026-11-04 — 설계 작성(성민 요청). 결정 질문 Q73~Q95 제기, 결정 대기.
@@ -552,3 +815,6 @@ v1.4 공지(1단계 완료 때) ── 7일 ──▶ v1.4 시행
   - Q74·Q75·Q79·Q80·Q82·Q88·Q93·Q95 변경, Q96~Q101 신규. ★ 6개는 1단계 마이그 선행.
   - 3a 를 1단계와 병행 개발 가능으로 단계 조정, 운영 배포는 v1.4 시행 뒤(§6).
   - `lib/account-deletion.ts` cascade 주석 갱신을 1단계 완료 기준에 넣음.
+- 2026-11-04 — 결정 반영 + 1단계 마이그 초안(성민 결정, 제안: Claude Code·리뷰 채팅).
+  - Q73 C · Q74 수정(모든 노드 = 자리 하나 + 넣기 연결 여러 곳) · Q75 깊이는 코드 규칙만 · Q76 · Q78 수정(이름 + 본문, 메모·연도 없음) · Q79 · Q80 · Q96 결정, Q92 보류, 나머지 추천안(§7.1).
+  - 부록 A: 파일끼리 비교 SQL(드리프트 0 확인, 적용·커밋 안 함). 같은 커밋 코드 목록 §6.4.
