@@ -13,7 +13,8 @@
 import { prisma } from "./db";
 import { isSubstantiveEpisodeContent } from "./episode-text";
 import type { EpisodeKind } from "./generated/prisma/enums";
-import { writeEpisodePlainTx } from "./node-body";
+import { keepUnsavedDraft, writeEpisodePlainTx } from "./node-body";
+import { docFromPlain } from "./node-body-doc";
 import { cleanupStoryPeriodPeople, periodPeoplePairsOfEpisode } from "./node-graph";
 import type { PlaceInfo } from "./place-types";
 import { storedStoryTitle } from "./story-title";
@@ -163,26 +164,40 @@ export async function deleteEpisode(
 // 본문이 실제로 바뀌면 브릿지 행의 다듬기 3필드(refinedText·refinedAt·displayRefined)도
 // 초기화 — 옛 본문 기준 교정본이라 stale(lib/life-events.ts saveMemoryContent 와 같은 정책).
 // 바뀌기 전 본문은 이전 판(NodeBodyRevision)으로 남는다(lib/node-body writeEpisodePlainTx).
-export type UpdateEpisodeContentResult = { ok: true } | { ok: false; error: string };
+// base = 화면이 읽은 본문(글 버전·평문 — My Life 패널, 2026-11-04). 지금과 다르면(그새 다른 창·기기에서 고침) 덮지 않고
+// 고치던 글을 이전 판 "저장되지 않은 글"로 — 글 고치기 화면 저장과 같은 처리(lib/node-body keepUnsavedDraft). version = 저장 뒤
+// 글 버전(패널이 다음 저장의 base 로). base 없이 부르면 예전처럼 그냥 쓴다(회귀가 부르는 꼴).
+export type UpdateEpisodeContentResult =
+  | { ok: true; version: number }
+  | { ok: false; error: string }
+  | { ok: false; conflict: true; kept: boolean };
 
 export async function updateEpisodeContent(
   userId: string,
   episodeId: string,
   content: string,
+  base?: { version: number; content: string },
 ): Promise<UpdateEpisodeContentResult> {
   const trimmed = content.trim();
   if (!trimmed) return { ok: false, error: "내용을 입력해 주세요." };
 
-  const episode = await prisma.episode.findFirst({
-    where: { id: episodeId, memory: { userId } },
-    select: { id: true, memoryId: true, content: true, memory: { select: { content: true } } },
-  });
-  if (!episode) return { ok: false, error: "이야기를 찾을 수 없어요." };
+  const owned = await prisma.episode.findFirst({ where: { id: episodeId, memory: { userId } }, select: { id: true } });
+  if (!owned) return { ok: false, error: "이야기를 찾을 수 없어요." };
 
+  const bodyKey = { nodeType_nodeId: { nodeType: "EPISODE" as const, nodeId: owned.id } };
   // 본문 쓰기는 블로그 저장과 같은 함수(2026-11-03 — 바뀌면 이전 판을 남김, 다듬기 3필드 초기화 규칙 그대로).
-  await prisma.$transaction((tx) => writeEpisodePlainTx(tx, userId, episode, trimmed, null));
-
-  return { ok: true };
+  const version = await prisma.$transaction(async (tx) => {
+    const episode = await tx.episode.findUniqueOrThrow({
+      where: { id: owned.id },
+      select: { id: true, memoryId: true, content: true, memory: { select: { content: true } } },
+    });
+    const body = await tx.nodeBody.findUnique({ where: bodyKey, select: { version: true } });
+    if (base && ((body?.version ?? 0) !== base.version || episode.content !== base.content)) return null;
+    await writeEpisodePlainTx(tx, userId, episode, trimmed, null);
+    return (await tx.nodeBody.findUnique({ where: bodyKey, select: { version: true } }))?.version ?? 0;
+  });
+  if (version === null) return { ok: false, conflict: true, kept: await keepUnsavedDraft(userId, "EPISODE", owned.id, docFromPlain(trimmed)) };
+  return { ok: true, version };
 }
 
 const normPlaceName = (s: string) => s.normalize("NFC").replace(/\s+/g, "");

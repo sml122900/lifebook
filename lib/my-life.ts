@@ -35,6 +35,7 @@ export type MyLifeStory = {
   subjectPersonId: string | null; // 대상 인물(Episode.personId) — 빼기 대상 아님(3단계 패널)
   chips: MyLifeChip[];
   richBody: boolean; // 소제목·사진이 있는 글(평문과 맞는 블로그 문서) — 패널 [이야기 고치기] 대신 글 고치기 화면(2b-3c)
+  bodyVersion: number; // 글 버전(본문 없음 = 0) — 패널 평문 저장이 그새 다른 곳에서 고쳐졌는지 확인(2026-11-04, lib/episode updateEpisodeContent)
 };
 
 export type MyLifeEvent = {
@@ -138,7 +139,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
     }),
     db.place.findMany({ where: { userId }, select: { id: true, name: true, address: true, source: true, lat: true, lng: true } }),
     db.placeGroup.findMany({ where: { userId }, select: { id: true, name: true, members: { select: { placeId: true } } } }),
-    db.nodeBody.findMany({ where: { userId, nodeType: { in: ["EPISODE", "PERSON"] } }, select: { nodeType: true, nodeId: true, doc: true, plainText: true } }),
+    db.nodeBody.findMany({ where: { userId, nodeType: { in: ["EPISODE", "PERSON"] } }, select: { nodeType: true, nodeId: true, doc: true, plainText: true, version: true } }),
   ]);
   const bodyOf = new Map(bodyRows.map((b) => [`${b.nodeType}:${b.nodeId}`, b]));
 
@@ -209,6 +210,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
       subjectPersonId: ep.personId && personById.has(ep.personId) ? ep.personId : null,
       chips,
       richBody: isRichDoc(shownDoc(bodyOf.get(`EPISODE:${ep.id}`) ?? null, ep.content)),
+      bodyVersion: bodyOf.get(`EPISODE:${ep.id}`)?.version ?? 0,
     };
   }
 

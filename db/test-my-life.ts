@@ -189,7 +189,7 @@ function synthetic(o: { events: number; stories: number; people: number; groups:
       ...(people.length ? Array.from({ length: Math.floor(rnd() * 3) }, () => people[Math.floor(rnd() * people.length)]).map((p) => ({ kind: "person" as const, id: p.id, name: p.name })) : []),
       ...(places.length && rnd() < 0.4 ? [places[Math.floor(rnd() * places.length)]].map((q) => ({ kind: "place" as const, id: q.id, name: q.name })) : []),
     ].filter((c, i, arr) => arr.findIndex((d) => d.id === c.id) === i);
-    ev.stories.push({ id: `s${k}`, kind: rnd() < 0.15 ? "SELF" : "STORY", title: null, content: "가".repeat(10 + Math.floor(rnd() * 80)) + ".", primaryEventId: ev.id, otherEventIds: [], subjectPersonId: null, chips, richBody: false });
+    ev.stories.push({ id: `s${k}`, kind: rnd() < 0.15 ? "SELF" : "STORY", title: null, content: "가".repeat(10 + Math.floor(rnd() * 80)) + ".", primaryEventId: ev.id, otherEventIds: [], subjectPersonId: null, chips, richBody: false, bodyVersion: 0 });
   }
   for (const ev of events) if (people.length && rnd() < 0.5) ev.personIds.push(people[Math.floor(rnd() * people.length)].id);
   for (const ev of events) if (places.length && rnd() < 0.3) ev.placeIds.push(places[Math.floor(rnd() * places.length)].id);
@@ -595,8 +595,10 @@ async function main() {
     check("⑫ 카드 — 갭은 있을 때만(진행 중 = [이어서 이야기하기]) · 링크 = 인터뷰·/chat-v3 딥링크",
       sug.includes("if (gaps.length === 0) return null;") &&
         sug.includes("{g.inProgress ? C.gapContinue : C.gapStart}") && sug.includes('href="/interview"') && sug.includes("href={g.href}"));
-    check("⑫ 이야기 패널 [이야기 고치기] — 같은 서버 액션(updateEpisodeContentAction) · 저장 뒤 바로 보임 + 지도 다시 읽기 · 응답 실패도 다시 읽기",
-      view.includes("const r = await updateEpisodeContentAction(story.id, text);") && view.includes("setBody(text);") &&
+    check("⑫ 이야기 패널 [글 고치기] — 같은 서버 액션(updateEpisodeContentAction, 읽은 글 버전·평문 = base — 충돌이면 글 고치기 화면과 같은 [다시 불러오기]) · 저장 뒤 바로 보임 + 지도 다시 읽기 · 응답 실패도 다시 읽기",
+      view.includes("const r = await updateEpisodeContentAction(story.id, text, base);") && view.includes("setBody(text);") &&
+        view.includes("setBase({ version: r.version, content: text.trim() });") && view.includes("{conflict && <ConflictReload kept={conflict.kept} />}") &&
+        view.includes("<StoryPanel key={s.id}") &&
         /setDraft\(null\);\s*router\.refresh\(\);/.test(view) && /setError\(C\.editBodyRetry\);\s*router\.refresh\(\);/.test(view) && view.includes("{C.editBody}") &&
         view.includes("aria-label={C.bodyLabel}"));
 

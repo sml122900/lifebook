@@ -25,13 +25,14 @@ function revalidatePeopleDetail() {
   revalidatePath("/people/[personId]", "page");
 }
 
-// 이야기 고치기(본문). 화면(My Life)은 저장 뒤 router.refresh 로 다시 읽는다.
+// 이야기 고치기(본문). 화면(My Life)은 저장 뒤 router.refresh 로 다시 읽는다. base = 패널이 읽은 글 버전·평문(충돌 확인).
 export async function updateEpisodeContentAction(
   episodeId: string,
   content: string,
+  base: { version: number; content: string },
 ): Promise<UpdateEpisodeContentResult> {
   const userId = await requireUserId();
-  const result = await updateEpisodeContentCore(userId, episodeId, content);
+  const result = await updateEpisodeContentCore(userId, episodeId, content, base);
   if (result.ok) revalidatePeopleDetail();
   return result;
 }

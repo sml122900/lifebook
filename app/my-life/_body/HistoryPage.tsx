@@ -39,6 +39,7 @@ export async function HistoryPage(o: {
           lead: r.plainText.trim() ? shortTitle(displayTitle({ title: "", content: r.plainText })) : C.historyPhoto,
           chars: r.plainText.length,
           doc: r.doc,
+          unsaved: r.unsaved,
         }))}
         version={o.version}
         photos={photos}

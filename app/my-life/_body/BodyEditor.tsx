@@ -15,6 +15,8 @@ import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { BODY_LIMITS, type BodyDoc, type SaveBodyResult } from "@/lib/node-body-doc";
 import { stripGps } from "@/lib/photo-exif";
 
+import { ConflictReload } from "./ConflictReload";
+
 const C = MY_LIFE_COPY.body;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
@@ -63,7 +65,7 @@ export function BodyEditor({
   const [previews, setPreviews] = useState<Record<string, string>>({}); // 방금 올린 사진 — 서버 주소가 오기 전 미리보기
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [conflict, setConflict] = useState(false);
+  const [conflict, setConflict] = useState<{ kept: boolean } | null>(null); // 충돌 — 고치던 글을 이전 판에 남겼는지
   const [askLeave, setAskLeave] = useState(false);
   const [saving, startSave] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -154,10 +156,13 @@ export function BodyEditor({
         router.push(doneHref);
         return;
       }
-      setConflict(r.reason === "conflict");
-      setError(
-        r.reason === "empty" ? C.errEmpty : r.reason === "too_long" ? C.errTooLong : r.reason === "conflict" ? C.errConflict : r.reason === "bad_photo" ? C.errBadPhoto : C.errFailed,
-      );
+      if (r.reason === "conflict") {
+        setConflict({ kept: r.kept });
+        setError(r.kept ? C.errConflict : C.errConflictOnly);
+        return;
+      }
+      setConflict(null);
+      setError(r.reason === "empty" ? C.errEmpty : r.reason === "too_long" ? C.errTooLong : r.reason === "bad_photo" ? C.errBadPhoto : C.errFailed);
     });
   }
 
@@ -288,11 +293,7 @@ export function BodyEditor({
       {error && (
         <div role="alert" className="flex flex-col gap-2">
           <p className="m-0 text-lg text-danger">{error}</p>
-          {conflict && (
-            <Button variant="secondary" size="lg" onClick={() => window.location.reload()}>
-              {C.reload}
-            </Button>
-          )}
+          {conflict && <ConflictReload kept={conflict.kept} />}
         </div>
       )}
 

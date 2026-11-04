@@ -42,6 +42,7 @@ import {
 import { searchMyLife, type SearchResult } from "@/lib/my-life-search";
 import { displayTitle, hasOwnTitle, shortTitle } from "@/lib/story-title";
 
+import { ConflictReload } from "./_body/ConflictReload";
 import { undoCreateAction, undoMoveAction } from "./actions";
 import { CreateSheet, NodeEditor, type CreateKind, type Created, type Notice } from "./EditUI";
 import { GapCards, InterviewEntryCard, type MyLifeSuggest } from "./Suggestions";
@@ -1875,7 +1876,7 @@ function panelInfo(
     const ev = idx.eventById.get(a);
     const s = ev?.stories.find((x) => x.id === b);
     if (!ev || !s) return null;
-    return <StoryPanel ev={ev} story={s} idx={idx} />;
+    return <StoryPanel key={s.id} ev={ev} story={s} idx={idx} />;
   }
 
   if (kind === "pe") {
@@ -2009,22 +2010,33 @@ function panelInfo(
 // 다듬은 글 초기화·제목은 그대로). 저장하면 바로 보이고(로컬) 지도 데이터는 router.refresh 로 다시 읽는다.
 // [본문 보기] = 이야기 상세(/my-life/story/[id] — 2b-3c, 2026-11-03). 소제목·사진이 있는 글은 평문 칸 대신 글 고치기 화면으로
 // (평문으로 고치면 그 자리가 사라지므로 — node-graph-self §2b.2 표시 규칙 3).
+// 충돌(2026-11-04): 패널이 읽은 글(버전·평문)과 지금이 다르면 덮지 않고 고치던 글을 이전 판 "저장되지 않은 글"로 — 글 고치기
+// 화면과 같은 처리·같은 문구·같은 [다시 불러오기](ConflictReload). base 는 저장에 성공하면 그 글로 바뀐다.
 function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; idx: Index }) {
   const router = useRouter();
   const [body, setBody] = useState(story.content);
+  const [base, setBase] = useState({ version: story.bodyVersion, content: story.content });
   const [draft, setDraft] = useState<string | null>(null); // null = 보기, 문자열 = 고치는 중
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<{ kept: boolean } | null>(null);
   const [saving, startSave] = useTransition();
   function save(text: string) {
     setError(null);
+    setConflict(null);
     startSave(async () => {
       try {
-        const r = await updateEpisodeContentAction(story.id, text);
+        const r = await updateEpisodeContentAction(story.id, text, base);
         if (!r.ok) {
+          if ("conflict" in r) {
+            setConflict({ kept: r.kept });
+            setError(r.kept ? C.body.errConflict : C.body.errConflictOnly);
+            return;
+          }
           setError(r.error ?? C.editBodyFailed);
           return;
         }
         setBody(text);
+        setBase({ version: r.version, content: text.trim() });
         setDraft(null);
         router.refresh();
       } catch (e) {
@@ -2084,6 +2096,7 @@ function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; i
               {error}
             </p>
           )}
+          {conflict && <ConflictReload kept={conflict.kept} />}
           <Button variant="primary" size="lg" disabled={saving || !draft.trim()} onClick={() => save(draft)}>
             {saving ? C.savingBody : C.saveBody}
           </Button>
@@ -2094,6 +2107,7 @@ function StoryPanel({ ev, story, idx }: { ev: MyLifeEvent; story: MyLifeStory; i
             onClick={() => {
               setDraft(null);
               setError(null);
+              setConflict(null);
             }}
           >
             {C.edit.cancel}

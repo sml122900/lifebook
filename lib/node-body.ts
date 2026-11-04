@@ -8,6 +8,8 @@
 // - 인물: 평문은 NodeBody.plainText 한 곳(Person.memo 와 무관). 본문 사진은 createdVia "node_body" 메모리.
 // - 사진 캡션은 Photo.caption 한 곳 — 문서에는 넣지 않는다(D3: 이전 판으로 되돌려도 캡션은 지금 값).
 // - 이전 판(NodeBodyRevision): 본문이 실제로 바뀌는 저장마다 바뀌기 직전 판 1행, 노드마다 최근 20판(D1).
+// - 충돌로 저장이 거부되면(2026-11-04) 본문은 그대로 두고 고치던 글을 이전 판 1개("저장되지 않은 글")로 — keepUnsavedDraft.
+//   글 고치기 화면 저장(saveBody)과 My Life 패널 평문 저장(lib/episode updateEpisodeContent) 둘 다 이 함수. 20판 한도 그대로.
 
 import { prisma } from "./db";
 import type { Prisma } from "./generated/prisma/client";
@@ -16,7 +18,9 @@ import {
   CREATED_VIA_NODE_BODY,
   docFromPlain,
   docOrNull,
+  isUnsavedRevision,
   layoutKey,
+  markUnsaved,
   parseDoc,
   plainOf,
   REVISIONS_KEPT,
@@ -34,9 +38,10 @@ const asJson = (doc: BodyDoc) => doc as unknown as Prisma.InputJsonValue;
 
 const nodeKey = (nodeType: BodyNodeType, nodeId: string) => ({ nodeType_nodeId: { nodeType, nodeId } });
 
-// 바뀌기 직전 판 1행 + 노드마다 최근 REVISIONS_KEPT 판만.
-async function keepRevision(tx: Tx, userId: string, nodeType: BodyNodeType, nodeId: string, plainText: string, doc: BodyDoc | null) {
-  await tx.nodeBodyRevision.create({ data: { userId, nodeType, nodeId, plainText, ...(doc ? { doc: asJson(doc) } : {}) } });
+// 바뀌기 직전 판 1행(unsaved = 저장되지 않은 글) + 노드마다 최근 REVISIONS_KEPT 판만.
+async function keepRevision(tx: Tx, userId: string, nodeType: BodyNodeType, nodeId: string, plainText: string, doc: BodyDoc | null, unsaved = false) {
+  const stored = doc && unsaved ? (markUnsaved(doc) as unknown as Prisma.InputJsonValue) : doc ? asJson(doc) : null;
+  await tx.nodeBodyRevision.create({ data: { userId, nodeType, nodeId, plainText, ...(stored ? { doc: stored } : {}) } });
   const old = await tx.nodeBodyRevision.findMany({
     where: { nodeType, nodeId },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -58,13 +63,44 @@ export async function writeEpisodePlainTx(tx: Tx, userId: string, ep: EpisodeRow
   const changed = ep.content !== next || (nextDoc !== null && layoutKey(prevDoc ?? docFromPlain(ep.content)) !== layoutKey(nextDoc));
   if (changed && ep.content.trim()) await keepRevision(tx, userId, "EPISODE", ep.id, ep.content, prevDoc);
   // 평문 저장이 본문을 바꾸면 블로그 문서 버전도 올림 — 그 사이 열어 둔 블로그 편집이 덮어쓰지 않고 충돌로 알게.
-  if (nextDoc === null && changed && body) await tx.nodeBody.update({ where: nodeKey("EPISODE", ep.id), data: { version: { increment: 1 } } });
+  // 본문 행이 없던 이야기면 평문 문단으로 만들고 버전 1(2026-11-04 — 없으면 버전이 0 그대로라 열어 둔 편집이 충돌을 모름).
+  if (nextDoc === null && changed) {
+    if (body) await tx.nodeBody.update({ where: nodeKey("EPISODE", ep.id), data: { version: { increment: 1 } } });
+    else await tx.nodeBody.create({ data: { userId, nodeType: "EPISODE", nodeId: ep.id, doc: asJson(docFromPlain(next)), plainText: next, memoryId: ep.memoryId, version: 1 } });
+  }
   if (ep.content !== next) await tx.episode.update({ where: { id: ep.id }, data: { content: next } });
   if (ep.memory.content !== next) {
     await tx.userMemory.update({
       where: { id: ep.memoryId },
       data: { content: next, refinedText: null, refinedAt: null, displayRefined: false },
     });
+  }
+}
+
+const PERSON_WHERE = (userId: string, personId: string) => ({ id: personId, userId, subjectType: "person", isDraft: false });
+
+// 충돌로 저장이 거부된 글을 이전 판 1개("저장되지 않은 글")로 — 본문·버전은 그대로. 소유 확인은 보통 저장과 같은 조건(이야기 =
+// 내 메모리의 이야기, 인물 = 내 확정 인물). 사진 블록은 부르는 쪽이 보통 저장과 같은 검사로 거른 문서(남의 사진이면 그 전에
+// bad_photo, 지워졌거나 이 글 메모리를 떠난 사진은 그 칸만 빠짐 — 글은 남김). 캡션은 고치던 값 그대로 담는다(되돌리면 그 캡션).
+// 남길 것이 없거나(빈 글) 실패하면 false — 화면은 다시 불러오기 전에 "고치던 글이 사라져요" 확인을 띄운다.
+export async function keepUnsavedDraft(userId: string, nodeType: BodyNodeType, nodeId: string, doc: BodyDoc): Promise<boolean> {
+  if (doc.blocks.length === 0) return false;
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const owned =
+        nodeType === "EPISODE"
+          ? await tx.episode.findFirst({ where: { id: nodeId, memory: { userId } }, select: { id: true } })
+          : await tx.person.findFirst({ where: PERSON_WHERE(userId, nodeId), select: { id: true } });
+      if (!owned) return false;
+      // 충돌 뒤 같은 글로 [저장]을 또 눌러도 한 번만(가장 최근 판이 같은 "저장되지 않은 글"이면 그대로).
+      const last = await tx.nodeBodyRevision.findFirst({ where: { nodeType, nodeId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { doc: true } });
+      if (last && isUnsavedRevision(last.doc) && JSON.stringify(docOrNull(last.doc)?.blocks) === JSON.stringify(doc.blocks)) return true;
+      await keepRevision(tx, userId, nodeType, nodeId, plainOf(doc), doc, true);
+      return true;
+    });
+  } catch (e) {
+    console.error("[node-body] keep unsaved draft", e);
+    return false;
   }
 }
 
@@ -79,6 +115,7 @@ async function saveBody(o: {
   doc: BodyDoc;
   baseVersion: number; // 화면이 읽은 버전(본문이 없으면 0) — 그새 다른 곳에서 저장했으면 충돌
   allowEmpty: boolean;
+  keepOnConflict: boolean; // 충돌 때 고치던 글을 이전 판으로(되돌리기는 false — 그 판이 이미 있음)
   write: (tx: Tx, prev: { doc: unknown; plainText: string } | null, doc: BodyDoc, plain: string) => Promise<void>;
 }): Promise<SaveBodyResult> {
   const ids = o.doc.blocks.flatMap((b) => (b.type === "photo" ? [b.photoId] : []));
@@ -112,12 +149,17 @@ async function saveBody(o: {
       return { ok: true as const, version: o.baseVersion + 1 };
     });
   } catch (e) {
-    if (e instanceof Conflict || (e as { code?: string }).code === "P2002") return { ok: false, reason: "conflict" };
+    if (e instanceof Conflict || (e as { code?: string }).code === "P2002") {
+      const kept = o.keepOnConflict ? await keepUnsavedDraft(o.userId, o.nodeType, o.nodeId, doc) : false;
+      return { ok: false, reason: "conflict", kept };
+    }
     throw e;
   }
 }
 
-export async function saveEpisodeBody(userId: string, episodeId: string, raw: unknown, baseVersion: number): Promise<SaveBodyResult> {
+type SaveOpts = { keepOnConflict?: boolean };
+
+export async function saveEpisodeBody(userId: string, episodeId: string, raw: unknown, baseVersion: number, opts: SaveOpts = {}): Promise<SaveBodyResult> {
   const parsed = parseDoc(raw);
   if (!parsed.ok) return { ok: false, reason: parsed.error };
   const ep = await prisma.episode.findFirst({ where: { id: episodeId, memory: { userId } }, select: EPISODE_SELECT });
@@ -130,13 +172,12 @@ export async function saveEpisodeBody(userId: string, episodeId: string, raw: un
     doc: parsed.doc,
     baseVersion,
     allowEmpty: false, // 이야기를 지우려면 지우기로
+    keepOnConflict: opts.keepOnConflict ?? true,
     write: (tx, _prev, doc, plain) => writeEpisodePlainTx(tx, userId, ep, plain, doc),
   });
 }
 
-const PERSON_WHERE = (userId: string, personId: string) => ({ id: personId, userId, subjectType: "person", isDraft: false });
-
-export async function savePersonBody(userId: string, personId: string, raw: unknown, baseVersion: number): Promise<SaveBodyResult> {
+export async function savePersonBody(userId: string, personId: string, raw: unknown, baseVersion: number, opts: SaveOpts = {}): Promise<SaveBodyResult> {
   const parsed = parseDoc(raw);
   if (!parsed.ok) return { ok: false, reason: parsed.error };
   const person = await prisma.person.findFirst({ where: PERSON_WHERE(userId, personId), select: { id: true } });
@@ -150,6 +191,7 @@ export async function savePersonBody(userId: string, personId: string, raw: unkn
     doc: parsed.doc,
     baseVersion,
     allowEmpty: true, // 인물 글은 비워 둘 수 있음(인물 자체는 그대로)
+    keepOnConflict: opts.keepOnConflict ?? true,
     write: async (tx, prev, doc) => {
       const prevDoc = prev ? (docOrNull(prev.doc) ?? docFromPlain(prev.plainText)) : null;
       if (prev && prevDoc && prevDoc.blocks.length > 0 && layoutKey(prevDoc) !== layoutKey(doc)) {
@@ -234,7 +276,7 @@ export async function getPersonBody(userId: string, personId: string): Promise<(
   };
 }
 
-export type Revision = { id: string; createdAt: Date; plainText: string; doc: BodyDoc };
+export type Revision = { id: string; createdAt: Date; plainText: string; doc: BodyDoc; unsaved: boolean };
 
 export async function listRevisions(userId: string, nodeType: BodyNodeType, nodeId: string): Promise<Revision[]> {
   const rows = await prisma.nodeBodyRevision.findMany({
@@ -242,7 +284,13 @@ export async function listRevisions(userId: string, nodeType: BodyNodeType, node
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: { id: true, createdAt: true, plainText: true, doc: true },
   });
-  return rows.map((r) => ({ id: r.id, createdAt: r.createdAt, plainText: r.plainText, doc: docOrNull(r.doc) ?? docFromPlain(r.plainText) }));
+  return rows.map((r) => ({
+    id: r.id,
+    createdAt: r.createdAt,
+    plainText: r.plainText,
+    doc: docOrNull(r.doc) ?? docFromPlain(r.plainText),
+    unsaved: isUnsavedRevision(r.doc),
+  }));
 }
 
 // 이전 판으로 되돌리기 = 그 판의 문서로 보통 저장(지금 판이 이전 판으로 남아 다시 되돌릴 수 있음). 캡션은 지금 값(D3 — 판에 없음).
@@ -254,6 +302,11 @@ export async function restoreRevision(
   const rev = await prisma.nodeBodyRevision.findFirst({ where: { id: revisionId, userId }, select: { nodeType: true, nodeId: true, doc: true, plainText: true } });
   if (!rev || (rev.nodeType !== "EPISODE" && rev.nodeType !== "PERSON")) return { ok: false, reason: "not_found" };
   const doc = docOrNull(rev.doc) ?? docFromPlain(rev.plainText);
-  const r = rev.nodeType === "EPISODE" ? await saveEpisodeBody(userId, rev.nodeId, doc, baseVersion) : await savePersonBody(userId, rev.nodeId, doc, baseVersion);
+  // 되돌리기가 충돌하면 그 판은 이미 목록에 있으니 다시 남기지 않는다.
+  const opts = { keepOnConflict: false };
+  const r =
+    rev.nodeType === "EPISODE"
+      ? await saveEpisodeBody(userId, rev.nodeId, doc, baseVersion, opts)
+      : await savePersonBody(userId, rev.nodeId, doc, baseVersion, opts);
   return { ...r, nodeType: rev.nodeType, nodeId: rev.nodeId };
 }

@@ -14,6 +14,8 @@
 //   ⑪ 가족 룸 — node_body 메모리 안 보임 · My Life 데이터(richBody·인물 글)
 //   ⑫ 노드 삭제 — 이야기 지우기·인물 지우기 → 본문·이전 판·사진 메모리·사진 파일 0
 //   ⑬ 탈퇴 — 이전 판 Cascade 0 · ⑭ 남의 것 — 저장·되돌리기·목록 막힘
+//   ⑯ 충돌 보존(2026-11-04) — 거부된 글 = 이전 판 "저장되지 않은 글"(본문 그대로·사진 칸 거르기·같은 글 한 번·남·빈 글 안 남김) → 그 판으로 되돌리기 · 인물 글
+//   ⑰ 혼자 두 화면 — 패널 평문 저장(base 버전·평문)과 열어 둔 글 고치기 화면, 본문 없는 이야기도 · ⑱ 20판 한도 경계(저장되지 않은 글 포함)
 //   ⑮ 문구(2026-11-04 확정) — 빈 글 오류의 버튼 이름 = 실제 [이 노드 지우기] · 패널 버튼 = 글 고치기 화면 이름 · 안내 18px · 말로 적기 문구는 문구 파일
 //
 // 실행: npx tsx db/test-node-body.ts
@@ -32,6 +34,7 @@ import {
   CREATED_VIA_NODE_BODY,
   ensurePersonBodyMemory,
   getEpisodeBody,
+  keepUnsavedDraft,
   getPersonBody,
   listRevisions,
   REVISIONS_KEPT,
@@ -303,6 +306,100 @@ async function main() {
         Object.values(VOICE_COPY).every((t) => !voiceSrc.includes(t)) &&
         Object.keys(VOICE_COPY).every((k) => voiceSrc.includes(`VOICE_COPY.${k}`)),
       { errEmpty: B.errEmpty, editBody: MY_LIFE_COPY.editBody });
+
+    // ── ⑯ 충돌 → 고치던 글 = 이전 판("저장되지 않은 글") → 그 판으로 되돌리기(2026-11-04) ─────────────
+    const st16 = (await createEpisodeBridge(a, ev, "충돌", 1974, "처음 글.", "", undefined, false, "STORY", true))!;
+    const ph16 = (await fakePhoto(a, st16.memoryId)).id;
+    const other16 = await saveEpisodeBody(a, st16.episodeId, doc(P("다른 창 글.")), 0); // 다른 창에서 먼저 저장 → 버전 1
+    const c16 = await saveEpisodeBody(a, st16.episodeId, doc(H("고치던"), P("고치던 글."), PH(ph16, "고치던 캡션"), PH(phOther), PH("no-such-photo")), 0);
+    const [v16, revs16, cap16] = await Promise.all([
+      getEpisodeBody(a, st16.episodeId),
+      listRevisions(a, "EPISODE", st16.episodeId),
+      prisma.photo.findUnique({ where: { id: ph16 }, select: { caption: true } }),
+    ]);
+    const unsaved16 = revs16.filter((r) => r.unsaved);
+    check("⑯ 충돌 → 본문·버전 그대로 · 고치던 글 = 이전 판 1개(저장되지 않은 글) · 다른 이야기·없는 사진 칸만 빠지고 글은 남음 · 캡션은 판에만",
+      other16.ok && !c16.ok && c16.reason === "conflict" && c16.kept && v16?.version === 1 && v16.doc.blocks.length === 1 &&
+        revs16[0].unsaved && unsaved16.length === 1 && revs16[0].plainText === "고치던\n\n고치던 글." &&
+        JSON.stringify(revs16[0].doc.blocks) === JSON.stringify([H("고치던"), P("고치던 글."), PH(ph16, "고치던 캡션")]) && cap16?.caption === null &&
+        revs16.filter((r) => !r.unsaved).length === 1,
+      { c16, v: v16?.version, revs: revs16.map((r) => [r.plainText, r.unsaved]), cap16 });
+    const again16 = await saveEpisodeBody(a, st16.episodeId, doc(H("고치던"), P("고치던 글."), PH(ph16, "고치던 캡션")), 0);
+    const badPhoto16 = await saveEpisodeBody(a, st16.episodeId, doc(P("남의 사진이 섞인 글."), PH(phB)), 0);
+    const foreign16 = await saveEpisodeBody(b, st16.episodeId, doc(P("남이 쓴 글.")), 0);
+    const keepForeign = await keepUnsavedDraft(b, "EPISODE", st16.episodeId, { v: 1, blocks: [{ type: "paragraph", text: "남의 판." }] });
+    const keepEmpty = await keepUnsavedDraft(a, "EPISODE", st16.episodeId, { v: 1, blocks: [] });
+    const revs16b = await listRevisions(a, "EPISODE", st16.episodeId);
+    check("⑯ 같은 글로 다시 [저장] → 판 하나 그대로 · 남의 사진 섞임 → bad_photo(판 없음) · 남의 이야기 → not_found(판 없음) · 남·빈 글 남기기 → false",
+      !again16.ok && again16.reason === "conflict" && again16.kept && !badPhoto16.ok && badPhoto16.reason === "bad_photo" &&
+        !foreign16.ok && foreign16.reason === "not_found" && keepForeign === false && keepEmpty === false && revs16b.length === revs16.length,
+      { again16, badPhoto16, foreign16, keepForeign, keepEmpty, n: revs16b.length });
+    const back16 = await restoreRevision(a, revs16[0].id, 1);
+    const [v16c, revs16c, cap16c] = await Promise.all([
+      getEpisodeBody(a, st16.episodeId),
+      listRevisions(a, "EPISODE", st16.episodeId),
+      prisma.photo.findUnique({ where: { id: ph16 }, select: { caption: true } }),
+    ]);
+    const staleBack16 = await restoreRevision(a, revs16[0].id, 1);
+    const n16d = (await listRevisions(a, "EPISODE", st16.episodeId)).length;
+    check("⑯ 저장되지 않은 글로 되돌리기 → 본문 = 고치던 글(소제목·사진·캡션) · 다른 창 글은 보통 판으로 · 되돌리기 충돌은 판을 더 만들지 않음",
+      back16.ok && v16c?.version === 2 && JSON.stringify(v16c.doc.blocks) === JSON.stringify([H("고치던"), P("고치던 글."), PH(ph16)]) && cap16c?.caption === "고치던 캡션" &&
+        revs16c[0].plainText === "다른 창 글." && !revs16c[0].unsaved && revs16c.length === revs16.length + 1 &&
+        !staleBack16.ok && staleBack16.reason === "conflict" && !staleBack16.kept && n16d === revs16c.length,
+      { back16, blocks: v16c?.doc.blocks, cap16c, first: revs16c[0], staleBack16, n16d });
+    const per16 = (await prisma.person.create({ data: { userId: a, name: "[fixture] 충돌 인물", subjectType: "person", isDraft: false }, select: { id: true } })).id;
+    const perOther = await savePersonBody(a, per16, doc(P("다른 창 인물 글.")), 0);
+    const perC = await savePersonBody(a, per16, doc(P("고치던 인물 글.")), 0);
+    const perEmpty = await savePersonBody(a, per16, doc(), 0);
+    const perRevs = await listRevisions(a, "PERSON", per16);
+    check("⑯ 인물 글도 같은 처리 — 충돌 → 저장되지 않은 글 판 · 빈 글 충돌 → 남길 것 없음(kept=false)",
+      perOther.ok && !perC.ok && perC.reason === "conflict" && perC.kept && !perEmpty.ok && perEmpty.reason === "conflict" && !perEmpty.kept &&
+        perRevs.length === 1 && perRevs[0].unsaved && perRevs[0].plainText === "고치던 인물 글.",
+      { perC, perEmpty, perRevs: perRevs.map((r) => [r.plainText, r.unsaved]) });
+
+    // ── ⑰ 혼자 두 화면 — 패널 평문 저장 · 열어 둔 글 고치기 화면(⑦ 계열, 2026-11-04) ─────────────────
+    const st17 = (await createEpisodeBridge(a, ev, "두 화면", 1975, "처음.", "", undefined, false, "STORY", true))!;
+    const s17 = (await getMyLifeData(a)).events.flatMap((e) => e.stories).find((s) => s.id === st17.episodeId)!;
+    const open17 = (await getEpisodeBody(a, st17.episodeId))!.version; // 글 고치기 화면을 먼저 열어 둠(버전 0)
+    const p17 = await updateEpisodeContent(a, st17.episodeId, "패널에서 고친 글.", { version: s17.bodyVersion, content: s17.content });
+    const e17 = await saveEpisodeBody(a, st17.episodeId, doc(P("화면에서 고친 글.")), open17);
+    const p17b = await updateEpisodeContent(a, st17.episodeId, "다른 패널 글.", { version: s17.bodyVersion, content: s17.content }); // 새로 안 읽은 패널
+    const after17 = await prisma.episode.findUnique({ where: { id: st17.episodeId }, select: { content: true } });
+    const revs17 = await listRevisions(a, "EPISODE", st17.episodeId);
+    check("⑰ 본문 없는 이야기 — 패널 저장 → 본문 버전 1 · 먼저 열어 둔 화면 저장 → 충돌·고치던 글 판 · 새로 안 읽은 패널 → 충돌·판 · 본문 = 패널 글",
+      s17.bodyVersion === 0 && open17 === 0 && p17.ok && p17.version === 1 && !e17.ok && e17.reason === "conflict" && e17.kept &&
+        !p17b.ok && "conflict" in p17b && p17b.kept && after17?.content === "패널에서 고친 글." &&
+        JSON.stringify(revs17.map((r) => [r.plainText, r.unsaved])) === JSON.stringify([["다른 패널 글.", true], ["화면에서 고친 글.", true], ["처음.", false]]),
+      { p17, e17, p17b, after17, revs: revs17.map((r) => [r.plainText, r.unsaved]) });
+    const p17c = p17.ok ? await updateEpisodeContent(a, st17.episodeId, "패널 두 번째 글.", { version: p17.version, content: "패널에서 고친 글." }) : null;
+    const screen17 = (await getEpisodeBody(a, st17.episodeId))!.version; // 지금 연 화면
+    const e17b = await saveEpisodeBody(a, st17.episodeId, doc(P("화면 두 번째 글.")), screen17);
+    const p17d = p17c?.ok ? await updateEpisodeContent(a, st17.episodeId, "그사이 패널 글.", { version: p17c.version, content: "패널 두 번째 글." }) : null;
+    const top17 = (await listRevisions(a, "EPISODE", st17.episodeId))[0];
+    check("⑰ 저장 뒤 받은 버전으로 다시 패널 저장 → 됨 · 그 뒤 연 화면 저장 → 됨 · 그사이 패널(낡은 버전) → 충돌·판",
+      !!p17c?.ok && p17c.version === 2 && e17b.ok && e17b.version === 3 && !!p17d && !p17d.ok && "conflict" in p17d && p17d.kept &&
+        top17.plainText === "그사이 패널 글." && top17.unsaved,
+      { p17c, e17b, p17d, top17: [top17?.plainText, top17?.unsaved] });
+
+    // ── ⑱ 20판 한도 경계 — 저장되지 않은 글도 같은 한도(2026-11-04) ─────────────────────────────────
+    const st18 = (await createEpisodeBridge(a, ev, "한도", 1976, "글 0.", "", undefined, false, "STORY", true))!;
+    let ver18 = 0;
+    for (let i = 1; i < REVISIONS_KEPT; i++) {
+      const r = await saveEpisodeBody(a, st18.episodeId, doc(P(`글 ${i}.`)), ver18);
+      if (r.ok) ver18 = r.version;
+    }
+    const revs18a = await listRevisions(a, "EPISODE", st18.episodeId);
+    const c18a = await saveEpisodeBody(a, st18.episodeId, doc(P("한도 앞 고치던 글.")), ver18 - 1);
+    const revs18b = await listRevisions(a, "EPISODE", st18.episodeId);
+    const c18b = await saveEpisodeBody(a, st18.episodeId, doc(P("한도 넘는 고치던 글.")), ver18 - 1);
+    const revs18c = await listRevisions(a, "EPISODE", st18.episodeId);
+    const oldest18 = revs18a.at(-1)!;
+    check(`⑱ 판 ${REVISIONS_KEPT - 1}개 + 충돌 → ${REVISIONS_KEPT}개(지운 것 없음) · 한 번 더 → ${REVISIONS_KEPT}개 그대로(가장 오래된 판 지움) · 최신 = 저장되지 않은 글`,
+      revs18a.length === REVISIONS_KEPT - 1 && !c18a.ok && c18a.reason === "conflict" && c18a.kept &&
+        revs18b.length === REVISIONS_KEPT && revs18b.some((r) => r.id === oldest18.id) && revs18b[0].unsaved &&
+        !c18b.ok && c18b.reason === "conflict" && c18b.kept && revs18c.length === REVISIONS_KEPT && !revs18c.some((r) => r.id === oldest18.id) &&
+        revs18c[0].unsaved && revs18c[0].plainText === "한도 넘는 고치던 글." && revs18c[1].plainText === "한도 앞 고치던 글.",
+      { a: revs18a.length, b: revs18b.length, c: revs18c.length, first: revs18c[0]?.plainText });
   } finally {
     await removeFixtures();
     const left = await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B, EMAIL_C] } } });

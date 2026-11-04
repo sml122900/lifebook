@@ -269,12 +269,12 @@ export function VoiceTextarea({
           </div>
 
           {recording && (
-            <p className="text-base text-rose-700">
+            <p className="text-lg text-rose-700">
               {VOICE_COPY.listening}
             </p>
           )}
           {voiceError && (
-            <p className="text-base text-rose-700" role="alert">
+            <p className="text-lg text-rose-700" role="alert">
               {voiceError}
             </p>
           )}

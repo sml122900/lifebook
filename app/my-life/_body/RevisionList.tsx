@@ -15,7 +15,7 @@ import { BodyView, type PhotoMap } from "./BodyView";
 
 const C = MY_LIFE_COPY.body;
 
-export type RevisionItem = { id: string; when: string; lead: string; chars: number; doc: BodyDoc };
+export type RevisionItem = { id: string; when: string; lead: string; chars: number; doc: BodyDoc; unsaved: boolean };
 
 export function RevisionList({ items, version, photos, doneHref }: { items: RevisionItem[]; version: number; photos: PhotoMap; doneHref: string }) {
   const router = useRouter();
@@ -33,7 +33,8 @@ export function RevisionList({ items, version, photos, doneHref }: { items: Revi
           router.push(doneHref);
           return;
         }
-        setError({ id, text: r.reason === "conflict" ? C.errConflict : r.reason === "empty" ? C.errEmpty : C.errFailed, conflict: r.reason === "conflict" });
+        // 되돌리기 충돌 = 고치던 글이 없음(그 판은 목록에 그대로) — 남겼다는 말 없이.
+        setError({ id, text: r.reason === "conflict" ? C.errConflictOnly : r.reason === "empty" ? C.errEmpty : C.errFailed, conflict: r.reason === "conflict" });
       } catch (e) {
         console.error("[node-body] restore", e);
         setError({ id, text: C.errFailed, conflict: false });
@@ -46,7 +47,7 @@ export function RevisionList({ items, version, photos, doneHref }: { items: Revi
     <ol className="m-0 flex list-none flex-col gap-4 p-0">
       {items.map((it) => (
         <li key={it.id} className="flex flex-col gap-3 rounded-md border-2 border-line bg-surface p-4">
-          <p className="m-0 text-lg font-semibold text-ink">{C.historyWhen(it.when)}</p>
+          <p className="m-0 text-lg font-semibold text-ink">{it.unsaved ? C.historyUnsaved(it.when) : C.historyWhen(it.when)}</p>
           <p className="m-0 text-lg text-ink">
             {it.lead} <span className="text-ink-soft">· {C.historyChars(it.chars)}</span>
           </p>

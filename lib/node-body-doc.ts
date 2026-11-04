@@ -90,6 +90,13 @@ export function shownDoc(body: { doc: unknown; plainText: string } | null, plain
   return docFromPlain(plain);
 }
 
+// 이전 판 중 "저장되지 않은 글"(충돌로 저장이 거부된 글을 남긴 판, 2026-11-04) — 판 문서(JSON)에 표시만 붙인다(칸 추가 없이 — 다음
+// 마이그 때 칸으로 옮길 후보). parseDoc 은 이 표시를 무시하므로 보기·되돌리기는 보통 판과 같다.
+export const markUnsaved = (doc: BodyDoc) => ({ ...doc, unsaved: true as const });
+export const isUnsavedRevision = (raw: unknown): boolean => !!raw && typeof raw === "object" && (raw as { unsaved?: unknown }).unsaved === true;
+
 export type SaveBodyResult =
   | { ok: true; version: number }
-  | { ok: false; reason: "not_found" | "invalid" | "too_long" | "empty" | "bad_photo" | "conflict" };
+  | { ok: false; reason: "not_found" | "invalid" | "too_long" | "empty" | "bad_photo" }
+  // 충돌(그새 다른 창·기기에서 저장) — kept = 고치던 글을 이전 판("저장되지 않은 글")으로 남겼는지.
+  | { ok: false; reason: "conflict"; kept: boolean };
