@@ -3,8 +3,6 @@
 // 대화창에 남는 안내 말을 바꾸면 lib/free-chat.ts 대화창 말 판정(APP_NOTICES)이 새 문구를 따라가고, 옛 문구는
 // LEGACY_APP_NOTICES(·옛 created 꼴)에 남겨 그 전에 쌓인 대화 기록도 알아본다.
 
-import { withJosa } from "./josa";
-
 export const FREE_CHAT_COPY = {
   // ── 자유 대화 ──
   greeting: "편하게 아무 이야기나 들려주세요. 떠오르는 대로 말씀하시면 돼요.",
@@ -58,7 +56,8 @@ export const FREE_CHAT_COPY = {
   same: "같은 분이에요",
   different: "다른 분이에요",
   answerAskFirst: "같은 분인지 먼저 골라 주세요.",
-  samePlaceQuestion: (name: string) => `이미 있는 장소 ${name}${withJosa(name, "과/와")} 같은 곳인가요?`,
+  // 이름 뒤 조사를 쓰지 않는 문장(2026-11-04) — 영문·숫자로 끝나는 장소 이름도 늘 맞게.
+  samePlaceQuestion: (name: string) => `같은 곳인가요? (이미 있는 장소: ${name})`,
   samePlace: "같은 곳이에요",
   separatePlace: "다른 곳이에요",
   answerPlaceAskFirst: "같은 곳인지 먼저 골라 주세요.",

@@ -69,6 +69,7 @@ import {
   substantiveUserTurns,
   type FreeChatReplyResult,
 } from "../lib/free-chat";
+import { splitBold } from "../lib/bold-text";
 import { FREE_CHAT_COPY } from "../lib/free-chat-copy";
 import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { Prisma } from "../lib/generated/prisma/client";
@@ -1245,10 +1246,17 @@ function longTitleChecks() {
 
 function josaChecks() {
   const place = (n: string) => FREE_CHAT_COPY.samePlaceQuestion(n);
-  check("⑬ 같은 곳 되묻기 조사 — 받침 있음 \"과\"(개울·외할머니 댁·역 앞 다방) / 없음 \"와\"(학교·우물가) / 한글 아님 \"와\"(Tokyo Tower) · \"과/와\" 글자 그대로 0",
-    place("개울") === "이미 있는 장소 개울과 같은 곳인가요?" && place("외할머니 댁") === "이미 있는 장소 외할머니 댁과 같은 곳인가요?" &&
-      place("역 앞 다방").includes("다방과 ") && place("학교") === "이미 있는 장소 학교와 같은 곳인가요?" && place("동네 우물가").includes("우물가와 ") &&
-      place("Tokyo Tower").includes("Tower와 ") && !["개울", "학교", "Tokyo Tower"].some((n) => place(n).includes("과/와")));
+  // 2026-11-04 — 이름 뒤 조사를 쓰지 않는 문장으로(영문·숫자로 끝나는 이름도 늘 맞게). 한글·영문·숫자 끝 이름 모두 같은 꼴.
+  check("⑬ 같은 곳 되묻기 — \"같은 곳인가요? (이미 있는 장소: 이름)\" · 한글(개울)·영문(Tokyo Tower)·숫자(아파트 101) 끝 이름 모두 조사 없이",
+    place("개울") === "같은 곳인가요? (이미 있는 장소: 개울)" && place("Tokyo Tower") === "같은 곳인가요? (이미 있는 장소: Tokyo Tower)" &&
+      place("아파트 101") === "같은 곳인가요? (이미 있는 장소: 아파트 101)" && !["개울", "학교", "Tokyo Tower"].some((n) => /[과와]\s*같은/.test(place(n))));
+  // 모델 답 **굵게**(2026-11-04 — lib/bold-text): 한 줄 안 "**…**" 만 굵게, 그 밖의 마크다운·짝 안 맞는 별표는 글자 그대로, HTML 없음.
+  const pieces = splitBold("1) **포스터 만들기**를 누르면 * 별표 하나·# 제목 표시는 그대로 **닫히지 않은 별표");
+  check("㉔ 굵게 — \"**…**\" 만 굵은 조각 · 짝 안 맞는 \"**\"·별표 하나·#·줄 넘김은 글자 그대로 · 그리는 쪽은 글자 노드만(dangerouslySetInnerHTML 0)",
+    JSON.stringify(pieces) === JSON.stringify([{ text: "1) ", bold: false }, { text: "포스터 만들기", bold: true }, { text: "를 누르면 * 별표 하나·# 제목 표시는 그대로 **닫히지 않은 별표", bold: false }]) &&
+      splitBold("**가\n나**").every((p) => !p.bold) && splitBold("<b>x</b> **y**")[0].text === "<b>x</b> " &&
+      !read("app/components/BoldText.tsx").includes("dangerouslySetInnerHTML") &&
+      (read("app/timemachine/[year]/[month]/AssistantPanel.tsx").match(/<BoldText text=\{/g) ?? []).length === 3);
   check("⑬ 같은 분 되묻기 — \"님과\"(님 = 받침 있음, 늘 맞음) · 관계 있으면 괄호",
     FREE_CHAT_COPY.sameNameQuestion("김민수", "친구") === "이미 계신 김민수(친구) 님과 같은 분인가요?" && FREE_CHAT_COPY.sameNameQuestion("정우", null) === "이미 계신 정우 님과 같은 분인가요?");
   // 문구 파일 3개 — 이름(보간) 바로 뒤에 조사를 글자로 박은 곳 0(조사는 withJosa 로). (인물 확인 문구 파일은 2026-11-03 화면과 함께 삭제)

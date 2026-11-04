@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 
 import { BookOpen, Search, ListChecks, type LucideIcon } from "lucide-react";
 
+import { BoldText } from "@/app/components/BoldText";
 import { isComposingEnter } from "@/app/components/chat-input";
 
 import { SongCard } from "./SongCard";
@@ -601,7 +602,9 @@ export function AssistantPanel({
                 </div>
               ) : (
                 <div key={i} className="rounded-md border-2 border-brand bg-surface p-4">
-                  <p className="whitespace-pre-line text-lg leading-relaxed text-ink">{m.text}</p>
+                  <p className="whitespace-pre-line text-lg leading-relaxed text-ink">
+                    <BoldText text={m.text} />
+                  </p>
                 </div>
               ),
             )}
@@ -1070,7 +1073,7 @@ function AssistantTurnView({
         </span>
       </div>
       <p className="whitespace-pre-line text-lg leading-relaxed text-ink">
-        {a.text}
+        <BoldText text={a.text} />
       </p>
 
       {a.source === "db" && a.songs.length > 0 && (
@@ -1235,7 +1238,7 @@ function SavedAnswersList({
             </button>
           </div>
           <p className="whitespace-pre-line text-lg leading-relaxed text-ink">
-            {s.answer.text}
+            <BoldText text={s.answer.text} />
           </p>
           {s.answer.songs.length > 0 && (
             <ul className="flex flex-col gap-3">
