@@ -1080,8 +1080,9 @@ function MapMode({
       </div>
 
       {/* 도구줄 — 지도 위에 떠서 노드를 가리던 가장자리 버튼을 지도 밖으로(3단계 E2E 2026-11-02, §8.4).
-          이동 줄 = 늘 같은 자리 [시간 줄기][인물록][장소록](지금 보는 곳 표시) · 아래 줄 = 확대·축소·전체 보기(오른쪽 = 비서 버튼 자리). */}
-      <nav aria-label={C.moveBarLabel} className="flex items-center gap-2 bg-surface px-4 pt-2">
+          이동 줄 = 늘 같은 자리 [시간 줄기][인물록][장소록](지금 보는 곳 표시) · 아래 줄 = 확대·축소·전체 보기(오른쪽 = 비서 버튼 자리).
+          위아래 여백 4px(2026-11-04 — 8 → 4, 지도 높이 12px 되찾기). */}
+      <nav aria-label={C.moveBarLabel} className="flex items-center gap-2 bg-surface px-4 pt-1">
         {(["timeline", "people", "places"] as const)
           .filter((w) => w === "timeline" || layout.regions[w].h > 0)
           .map((w) => (
@@ -1097,7 +1098,7 @@ function MapMode({
             </Button>
           ))}
       </nav>
-      <div className="flex items-center gap-2 bg-surface py-2 pl-4 pr-[104px]">
+      <div className="flex items-center gap-2 bg-surface py-1 pl-4 pr-[104px]">
         <Button
           variant="secondary"
           size="lg"

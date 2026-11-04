@@ -628,6 +628,8 @@ async function main() {
     check("⑬ 사이드 메뉴 전부 — 이름·설명 18px(메뉴 항목 하나의 부품 MenuItem)",
       side13.includes('<span className="flex items-center gap-1.5 text-lg font-semibold text-ink">') && side13.includes('<span className="mt-0.5 text-lg text-ink-soft">{hint}</span>') &&
         !side13.includes("text-xs text-ink-soft\">{hint}") && !/\blarge\b/.test(side13));
+    check("⑬ 지도 아래 이동 줄·확대 줄 위아래 여백 4px",
+      view.includes('className="flex items-center gap-2 bg-surface px-4 pt-1"') && view.includes('className="flex items-center gap-2 bg-surface py-1 pl-4 pr-[104px]"'));
     check("⑬ 지도 머리 줄 — 390 에서 제목 한 줄(안 꺾음) · 좁은 화면 [찾기]·[목록으로 보기] 좌우 여백 12px",
       view.includes('<h1 className="m-0 shrink-0 whitespace-nowrap text-[28px]">{C.pageTitle}</h1>') &&
         (view.match(/className="px-3! sm:px-4!" onClick={(onOpenFind|onToggleView)}/g) ?? []).length === 2);
