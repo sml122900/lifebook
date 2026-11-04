@@ -30,7 +30,18 @@ export const NOTICE_AFTER_DAYS = 7; // 시행 뒤에도 안내를 남기는 날 
 export const SHORT_MAX = 11;
 
 // 개정 등록 — 첫 사용은 v1.4 부터(2026-11-03 성민 결정: v1.3 은 개정 이력으로만). 새 개정을 맨 뒤에 더한다.
-export const POLICY_NOTICES: readonly PolicyNotice[] = [];
+export const POLICY_NOTICES: readonly PolicyNotice[] = [
+  {
+    // 처리방침 v1.4 — 초안·결정 docs/phase/privacy-v1.4.md(2026-11-05 성민 확정: short·detail 초안 그대로, 공지일 = 확정 당일).
+    doc: "privacy",
+    version: "v1.4",
+    short: "AI 보관 기간 바뀜",
+    detail:
+      "기록 지도에서 직접 만드신 분류와 항목, 모임·장소 묶음, 인물에 대해 적으신 글을 수집 항목에 적고, 인물의 관계 분류·처음 만난 해·메모, 장소 주소, 물건 기록도 빠짐없이 적었습니다. AI가 기록을 정리하거나 기록에 대한 질문에 답할 때 함께 보내는 정보(시기·모임·장소 묶음·분류·항목의 이름, 인물과 항목에 대해 적으신 글, 기록 사이의 연결, AI에게 하신 요청과 질문)를 국외 이전 항목에 더합니다. 또 Anthropic이 보관하는 기간을 업체 공식 안내에 맞춰 \"7일 이내\"에서 \"30일 이내\"로 바로잡습니다. 정보를 받는 곳(Anthropic, 미국)과 쓰는 목적은 그대로입니다.",
+    noticeDay: "2026-11-05",
+    effectiveDay: "2026-11-12",
+  },
+];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
