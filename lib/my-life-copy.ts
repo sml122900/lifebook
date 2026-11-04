@@ -1,4 +1,4 @@
-// My Life 화면 문구 — 메뉴 이름 "My Life"·이야기 상세 body 60키·editBody(2026-11-04)는 성민 확정 문구, 나머지는 전부
+// My Life 화면 문구 — 메뉴 이름 "My Life"·이야기 상세 body 63키·editBody(2026-11-04)는 성민 확정 문구, 나머지는 전부
 // [임시 — 성민 확정 필요]. 설계 docs/phase/node-graph-self.md §4.5 "My Life" 행.
 // 클라이언트에서도 쓰는 순수 모듈.
 
@@ -49,7 +49,7 @@ export const MY_LIFE_COPY = {
   savingBody: "저장 중…",
   editBodyFailed: "고치지 못했어요.",
   editBodyRetry: "처리 중 문제가 있었어요. 화면을 새로고침할게요.",
-  // 이야기 상세·블로그식 글 고치기·이전 판(2b-3c, 2026-11-03 — lib/node-body) — 60키 성민 확정(2026-11-04) · 그 뒤 충돌 보존(2026-11-04)으로 errConflict 새 문구·3키 추가는 임시(아래 표시)
+  // 이야기 상세·블로그식 글 고치기·이전 판(2b-3c, 2026-11-03 — lib/node-body) — 성민 확정(2026-11-04 — 60키 + 충돌 보존 3키·errConflictOnly)
   body: {
     backToMap: "My Life로 돌아가기",
     edit: "글 고치기",
@@ -97,12 +97,12 @@ export const MY_LIFE_COPY = {
     // [이 노드 지우기] = My Life 이야기 패널의 실제 버튼 이름(edit.deleteNode).
     errEmpty: "글이 비어 있어요. 이야기를 지우려면 My Life에서 [이 노드 지우기]를 눌러 주세요.",
     errTooLong: "문단은 3,000자, 소제목은 40자, 사진 설명은 200자까지 적을 수 있어요. 문단·소제목·사진은 모두 60개까지예요.",
-    // 충돌(2026-11-04) — 고치던 글을 이전 판(저장되지 않은 글)으로 남긴 때. [임시 — 성민 확정 필요]
+    // 충돌(2026-11-04) — 고치던 글을 이전 판(저장되지 않은 글)으로 남긴 때.
     errConflict: "다른 창이나 기기에서 먼저 고쳤어요. 고치던 글은 이전 판에 남겨 뒀어요. 다시 불러온 뒤 고쳐 주세요.",
     // 고치던 글을 못 남긴 때(빈 글·실패)와 이전 판 되돌리기 충돌 — 2026-11-04 확정한 옛 errConflict 문구 그대로.
     errConflictOnly: "다른 창이나 기기에서 먼저 고쳤어요. 다시 불러온 뒤 고쳐 주세요.",
     reload: "다시 불러오기",
-    // 고치던 글을 못 남긴 충돌 뒤 [다시 불러오기] — 다시 불러오기 전 확인(버튼 = reload·unsavedStay). [임시 — 성민 확정 필요]
+    // 고치던 글을 못 남긴 충돌 뒤 [다시 불러오기] — 다시 불러오기 전 확인(버튼 = reload·unsavedStay).
     reloadLoseAsk: "고치던 글이 사라져요. 그래도 다시 불러올까요?",
     errBadPhoto: "넣을 수 없는 사진이 있어요. 그 사진을 빼고 다시 저장해 주세요.",
     errFailed: "저장하지 못했어요. 다시 해 주세요.",
@@ -111,7 +111,7 @@ export const MY_LIFE_COPY = {
     historyIntro: "글을 고칠 때마다 바뀌기 전 글을 20개까지 남겨 둬요.",
     historyEmpty: "아직 이전 판이 없어요.",
     historyWhen: (when: string) => `${when}까지의 글`,
-    // 충돌로 저장되지 않은 글을 남긴 판의 머리 줄(2026-11-04). [임시 — 성민 확정 필요]
+    // 충돌로 저장되지 않은 글을 남긴 판의 머리 줄(2026-11-04).
     historyUnsaved: (when: string) => `${when} 저장되지 않은 글`,
     historyChars: (n: number) => `${n}자`,
     historyShow: "보기",

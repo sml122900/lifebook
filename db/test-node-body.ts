@@ -300,11 +300,12 @@ async function main() {
     const B = MY_LIFE_COPY.body;
     const editorSrc = fs.readFileSync("app/my-life/_body/BodyEditor.tsx", "utf8");
     const voiceSrc = fs.readFileSync("app/components/VoiceTextarea.tsx", "utf8");
-    check("⑮ 빈 글 오류 = 실제 [이 노드 지우기] · 패널 버튼 = 글 고치기 화면 이름([글 고치기]) · 사진 안내 2줄 18px · 말로 적기 문구 7개는 문구 파일에서만",
+    check("⑮ 빈 글 오류 = 실제 [이 노드 지우기] · 패널 버튼 = 글 고치기 화면 이름([글 고치기]) · 사진 안내 2줄 18px · 말로 적기 문구 7개는 문구 파일에서만 · 읽어 주기 이름·안내 속 버튼 이름 = 실제 버튼",
       B.errEmpty.includes(`[${MY_LIFE_COPY.edit.deleteNode}]`) && MY_LIFE_COPY.editBody === B.editTitle && B.richNote.includes(`[${B.editTitle}]`) &&
         editorSrc.includes('text-lg text-ink-soft">{C.uploadHint}') && editorSrc.includes('text-lg text-ink-soft">{C.removeNote}') &&
         Object.values(VOICE_COPY).every((t) => !voiceSrc.includes(t)) &&
-        Object.keys(VOICE_COPY).every((k) => voiceSrc.includes(`VOICE_COPY.${k}`)),
+        Object.keys(VOICE_COPY).every((k) => voiceSrc.includes(`VOICE_COPY.${k}`)) &&
+        VOICE_COPY.startAria === VOICE_COPY.start && VOICE_COPY.listening.includes(`[${VOICE_COPY.stop}]`), // 읽어 주기 이름 = 버튼 이름 · 안내의 버튼 이름 = 실제 버튼(2026-11-04 확정)
       { errEmpty: B.errEmpty, editBody: MY_LIFE_COPY.editBody });
 
     // ── ⑯ 충돌 → 고치던 글 = 이전 판("저장되지 않은 글") → 그 판으로 되돌리기(2026-11-04) ─────────────
