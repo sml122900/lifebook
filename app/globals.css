@@ -149,6 +149,40 @@ body[data-proposal-card] [data-assistant-fab] {
     background: radial-gradient(circle at 34% 30%, #f0f8ff 0, #9ccbf5 60%, #6aa6e3 100%);
     color: #06223d;
   }
+  /* 끌어 넣기(U3 — ui-space §4, app/my-life/drag.ts). 끄는 것 = 길게 눌러도 글자 고르기·길게 누르기 메뉴가 안 뜨게. */
+  [data-drag] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* 손가락을 따라오는 그림(원 48 + 이름표, 폭 120) — transform 만 바뀐다(포인터 이벤트당 한 번). */
+  .space-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 70;
+    display: flex;
+    width: 120px;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+    transform-origin: 60px 24px;
+    will-change: transform;
+  }
+  /* 끄는 동안: 놓을 수 있는 행성 = 은은한 빛 · 놓을 행성(자석) = 고리 + 점선(색만 아님 — 1.4.1). 선택 윤곽(인라인)보다 앞서게 !important. */
+  .space-map[data-dragging] [data-drop-ok] {
+    box-shadow: 0 0 0 3px rgb(255 210 122 / 0.55), 0 0 22px 6px rgb(255 210 122 / 0.3) !important;
+  }
+  .space-map[data-dragging] [data-drop-target] {
+    box-shadow: 0 0 0 5px var(--color-glow), 0 0 28px 10px var(--color-glow) !important;
+    outline: 3px dashed var(--color-glow) !important;
+    outline-offset: 10px !important;
+  }
+  /* 패널 "넣을 것" 줄에서 끄는 동안 — 덮개를 걷어 위 행성이 또렷하게 */
+  dialog[data-dragging]::backdrop {
+    background: transparent !important; /* 다이얼로그의 backdrop:bg-scrim 유틸리티보다 앞서게 */
+  }
 }
 
 /* 긴 글 편지지 카드(밤 우주 2단계 — ui-night Q144 (b), components/ui/Paper). 밤하늘 위 밝은 종이 — 안쪽 토큰을 편지지 값으로

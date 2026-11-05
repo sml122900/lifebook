@@ -9,6 +9,7 @@
 // 되돌리기 = 넣기·만들기 직후 패널 맨 위 알림의 [되돌리기] — 다음 동작 전까지(부모가 알림을 들고 있다).
 // 저장은 전부 ./actions(서버 액션) → router.refresh() — 지도 위치·배율·접힘은 그대로(MapMode 상태 유지).
 
+import { MapPin, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 
@@ -23,6 +24,8 @@ import { eventPeoplePlaceList, yearText, type PeriodRef } from "@/lib/my-life-la
 import type { NodeRef } from "@/lib/node-graph";
 import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
 import { displayTitle, shortTitle } from "@/lib/story-title";
+
+import { beginPress, dragJustEnded, type DropResult } from "./drag";
 
 import {
   addLinkAction,
@@ -425,6 +428,7 @@ export function NodeEditor({
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [pending, start] = useTransition();
+  const [showRow, setShowRow] = useState(false); // 행성 패널 "넣을 것" 줄(U3 — Q116)
   const [kind, a, b] = nodeKey.split(":");
 
   // 단계가 바뀌면 패널을 맨 위로(앞 단계 스크롤이 남아 새 단계 제목·첫 항목이 가려지던 것 — 390 실측) +
@@ -577,6 +581,77 @@ export function NodeEditor({
           return u;
         },
       });
+    });
+  }
+
+  async function linkNow(other: NodeRef): Promise<DropResult> {
+    setError(null);
+    setNotice(null);
+    try {
+      const r = await addLinkAction(self!, other);
+      if (!r.ok) {
+        setError(r.error);
+        return "failed";
+      }
+      router.refresh();
+      if (r.created.length === 0) {
+        setNotice({ key: nodeKey, text: E.alreadyLinked });
+        return "already";
+      }
+      const created = r.created;
+      setNotice({
+        key: nodeKey,
+        text: E.linked,
+        undo: async () => {
+          const u = await undoLinksAction(created);
+          router.refresh();
+          return u;
+        },
+      });
+      return "added";
+    } catch {
+      setError(E.failed);
+      return "failed";
+    }
+  }
+
+  // "넣을 것" 줄에서 길게 눌러 위 행성(이 패널의 행성 — 펼쳐져 패널 위에 있음)으로 끌어 올리기. 다른 행성엔 안 놓임.
+  function startRowDrag(e: React.PointerEvent<HTMLButtonElement>, c: { label: string; ref: NodeRef }) {
+    if (!e.isPrimary) return;
+    const dialog = e.currentTarget.closest("dialog");
+    const box = document.querySelector<HTMLElement>(".space-map");
+    const planetEl = (k: string) => box?.querySelector<HTMLElement>(`button[data-node-key="${CSS.escape(k)}"]`) ?? null;
+    const planet = planetEl(nodeKey);
+    if (!dialog || !box || !planet) return; // 목록 보기에서 연 패널 — 누르기만
+    beginPress({
+      kind: c.ref.type === "PLACE" ? "place" : c.ref.type === "PERSON_GROUP" ? "group" : "person",
+      name: c.label,
+      origin: e.currentTarget,
+      pointer: { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp },
+      ghostHost: dialog,
+      edgeBox: null,
+      planets: () => {
+        const r = planet.getBoundingClientRect();
+        return [{ key: nodeKey, cx: r.left + r.width / 2, cy: r.top + r.height / 2, rx: r.width, ry: r.width * 0.75 }];
+      },
+      allowed: new Set([nodeKey]),
+      planetEl,
+      onGrab: () => {
+        dialog.setAttribute("data-dragging", "");
+        box.setAttribute("data-dragging", "");
+        planet.setAttribute("data-drop-ok", "");
+      },
+      onAutoPan: () => {},
+      onDrop: () => linkNow(c.ref),
+      onBounce: (why) => {
+        if (why === "far") setNotice({ key: nodeKey, text: C.space.dropFar });
+        else if (why === "cancel") setNotice({ key: nodeKey, text: C.space.dropCancel });
+      },
+      onEnd: () => {
+        dialog.removeAttribute("data-dragging");
+        box.removeAttribute("data-dragging");
+        planet.removeAttribute("data-drop-ok");
+      },
     });
   }
 
@@ -837,6 +912,14 @@ export function NodeEditor({
         </div>
       )}
       {info}
+      {(kind === "ev" || kind === "st") && (
+        <>
+          <Button variant="secondary" size="lg" aria-expanded={showRow} onClick={() => setShowRow((v) => !v)}>
+            {showRow ? C.space.addRowHide : C.space.addRowShow}
+          </Button>
+          {showRow && <AddRow items={[...candidates("person"), ...candidates("group"), ...candidates("place")]} pending={pending} onPress={startRowDrag} onAdd={(ref) => start(async () => void (await linkNow(ref)))} />}
+        </>
+      )}
       {kind === "ev" && ev && (
         <Button variant="primary" size="lg" onClick={() => setMode({ t: "addStory" })}>
           {E.addStory}
@@ -894,5 +977,62 @@ export function NodeEditor({
         </div>
       )}
     </>
+  );
+}
+
+// "넣을 것" 줄(U3 — ui-space §4.2 Q116) — 이 행성에 아직 없는 사람·모임·장소를 작은 위성 모양 버튼으로.
+// 누르면(Enter·Space 포함) 바로 넣기 = 버튼 경로(2.5.7 대체), 길게 누르면 위 행성으로 끌어 올리기(./drag). 줄은 꺾여 내려가 가로 스크롤 없음.
+function AddRow({
+  items,
+  pending,
+  onPress,
+  onAdd,
+}: {
+  items: { id: string; label: string; ref: NodeRef }[];
+  pending: boolean;
+  onPress: (e: React.PointerEvent<HTMLButtonElement>, c: { label: string; ref: NodeRef }) => void;
+  onAdd: (ref: NodeRef) => void;
+}) {
+  return (
+    <section aria-labelledby="mylife-addrow-title" className="flex flex-col gap-2">
+      <p id="mylife-addrow-title" className="text-lg font-semibold text-ink">
+        {C.space.addRowTitle}
+      </p>
+      <p className="text-lg text-ink-soft">{C.space.addRowHint}</p>
+      {items.length === 0 ? (
+        <p className="text-lg text-ink-soft">{E.pickNone}</p>
+      ) : (
+        <ul className="flex flex-wrap gap-2">
+          {items.map((c) => {
+            const k = c.ref.type === "PLACE" ? "place" : c.ref.type === "PERSON_GROUP" ? "group" : "person";
+            return (
+              <li key={`${c.ref.type}:${c.id}`}>
+                <button
+                  type="button"
+                  data-drag={`${c.ref.type}:${c.id}`}
+                  data-drag-name={c.label}
+                  aria-label={C.space.addRowItem(c.label)}
+                  disabled={pending}
+                  onPointerDown={(e) => onPress(e, c)}
+                  onClick={() => {
+                    if (dragJustEnded()) return; // 끌어 올리고 손을 뗄 때 생긴 클릭
+                    onAdd(c.ref);
+                  }}
+                  className="flex min-h-[56px] w-[104px] flex-col items-center gap-1 rounded-md py-1 hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+                >
+                  <span
+                    aria-hidden
+                    className={`flex h-12 w-12 items-center justify-center rounded-full border-2 text-lg font-bold ${k === "place" ? "moon-place border-place" : "moon-person border-person"} ${k === "group" ? "border-dashed" : ""}`}
+                  >
+                    {k === "place" ? <MapPin size={22} /> : k === "group" ? <Users size={22} /> : c.label.slice(0, 1)}
+                  </span>
+                  <span className="line-clamp-2 w-full text-center text-lg leading-6 text-ink">{c.label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

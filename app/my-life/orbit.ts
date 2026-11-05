@@ -56,6 +56,20 @@ export function syncDelays(sys: Element, now = performance.now()) {
   }
 }
 
+// 배치가 바뀐 뒤(넣기·빼기로 위성 수·자리 data-frac 이 바뀜) 도는 계를 새로 시작 — 돌던 애니메이션은 지연만 바꾸면 시작 시각이
+// 옛 값이라 자리가 어긋나 겹쳐 돈다(U3 실측). 한 번 끄고(스타일 계산 한 번) 새 시계 지연으로 다시 켠다. 배치가 바뀔 때만 — 프레임마다 아님.
+export function resyncOrbits(root: HTMLElement) {
+  const on = [...root.querySelectorAll<HTMLElement>('.orbit-sys[data-orbit="on"]')];
+  if (on.length === 0) return;
+  for (const sys of on) sys.dataset.orbit = "off";
+  void root.offsetWidth;
+  const now = performance.now();
+  for (const sys of on) {
+    syncDelays(sys, now);
+    sys.dataset.orbit = "on";
+  }
+}
+
 // ① 화면 안 계만 공전. root = 지도를 자르는 감싼 상자(그 사이에 자르는 조상이 있으면 여유가 지워짐). 돌려주는 함수로 끊는다
 //    (배치가 바뀌면 다시 붙임 — 이미 도는 계는 그대로).
 export function observeOrbits(root: HTMLElement): () => void {

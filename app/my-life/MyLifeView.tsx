@@ -49,12 +49,16 @@ import {
 } from "@/lib/my-life-layout";
 import { searchMyLife, type SearchResult } from "@/lib/my-life-search";
 import { labelName, labelVisible, orbitCss, orbitName, orbitPoint, orbitShape } from "@/lib/space-orbit";
+import type { DropPlanet } from "@/lib/space-drag";
+import type { CreatedLink } from "@/lib/my-life-edit";
+import type { NodeRef } from "@/lib/node-graph";
 import { displayTitle, hasOwnTitle, shortTitle } from "@/lib/story-title";
 
 import { ConflictReload } from "./_body/ConflictReload";
-import { undoCreateAction, undoMoveAction } from "./actions";
+import { addLinkAction, undoCreateAction, undoLinksAction, undoMoveAction } from "./actions";
+import { beginPress, dragJustEnded, lockPanZoom } from "./drag";
 import { CreateSheet, NodeEditor, type CreateKind, type Created, type Notice } from "./EditUI";
-import { animateClose, animateOpen, observeOrbits, readMotion, snapshotSats, subscribeMotion, writeMotion } from "./orbit";
+import { animateClose, animateOpen, observeOrbits, readMotion, resyncOrbits, snapshotSats, subscribeMotion, writeMotion } from "./orbit";
 import { GapCards, InterviewEntryCard, type MyLifeSuggest } from "./Suggestions";
 
 const MAX_SCALE = 3;
@@ -393,6 +397,24 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
     return () => cancelAnimationFrame(raf);
   }, [data, pendingOpen, goTo, openPanel, layout, view, router]);
 
+  // 끌어 넣기(U3) — 패널 [넣기]와 같은 입구(addLinkAction → saveNodeLink)·같은 되돌리기(undoLinksAction).
+  const linkFromMap = useCallback(
+    async (a: NodeRef, b: NodeRef) => {
+      const r = await addLinkAction(a, b);
+      if (r.ok) router.refresh();
+      return r;
+    },
+    [router],
+  );
+  const undoFromMap = useCallback(
+    async (links: CreatedLink[]) => {
+      const r = await undoLinksAction(links);
+      router.refresh();
+      return r;
+    },
+    [router],
+  );
+
   function openFind() {
     setMapNotice(null);
     setFindOpen(true);
@@ -438,6 +460,8 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
           status={mapNotice}
           tour={tour}
           setTour={setTour}
+          onLink={linkFromMap}
+          onUndoLinks={undoFromMap}
         />
       ) : (
         <ListMode data={data} idx={idx} suggest={suggest} openPanel={openPanel} onToggleView={toggleView} onOpenFind={openFind} onCreate={openCreate} status={mapNotice} />
@@ -452,7 +476,8 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
         aria-labelledby="mylife-panel-title"
         onClose={onDialogClose}
         onClick={(e) => {
-          if (e.target === dialogRef.current && Date.now() - openedAtRef.current > 400) dialogRef.current.close();
+          // 덮개 누름 = 닫기. "넣을 것" 줄에서 끌어 올리고 손을 뗀 클릭은 빼고(U3)
+          if (e.target === dialogRef.current && Date.now() - openedAtRef.current > 400 && !dragJustEnded()) dialogRef.current.close();
         }}
         className={`inset-x-0 bottom-0 top-auto mx-auto mb-0 w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-scrim ${view === "map" ? "max-h-[50dvh]" : "max-h-[75dvh]"}`}
       >
@@ -592,6 +617,8 @@ function MapMode({
   status,
   tour,
   setTour,
+  onLink,
+  onUndoLinks,
 }: {
   data: MyLifeData;
   idx: Index;
@@ -613,6 +640,8 @@ function MapMode({
   status: string | null; // 지운 뒤 알림 — 지도 위 줄에(다음 동작 전까지)
   tour: Tour | null; // 연결된 곳 차례 보기(패널 버튼이 시작, 선택 줄 [다음 연결]이 다음 곳)
   setTour: (t: Tour | null) => void;
+  onLink: (a: NodeRef, b: NodeRef) => Promise<{ ok: true; created: CreatedLink[] } | { ok: false; error: string }>;
+  onUndoLinks: (links: CreatedLink[]) => Promise<{ ok: boolean }>;
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -631,6 +660,13 @@ function MapMode({
   const motionPref = useSyncExternalStore(subscribeMotion, readMotion, () => "run" as const);
   const motion = motionPref === "stop" || scale < OVERVIEW_SCALE ? "hold" : "run";
   const motionRef = useRef(motion);
+  // 끌어 넣기(U3 — ui-space §4): 집은 동안 지도 이동·확대 끔 · 놓은 뒤 알림(+ [되돌리기], 다음 동작 전까지) · 끄는 중 낭독 줄.
+  const [grabbing, setGrabbing] = useState(false);
+  const [dropNotice, setDropNotice] = useState<{ text: string; undo?: () => Promise<{ ok: boolean }> } | null>(null);
+  const [dragStatus, setDragStatus] = useState("");
+  // 손가락으로 누르면 지도 라이브러리의 "화살표 키용 포커스"를 건너뜀(onInit 에서 감쌈) — 큰 문서 전체 스타일 계산(300 노드 4배 감속
+  // 약 175ms)이 탭마다 들던 것. 마우스·키보드는 그대로(누른 뒤 화살표 이동).
+  const lastPointerRef = useRef("mouse");
 
 
   // U1 — 간선은 그리지 않는다(Q114). 연결된 노드(윤곽)·차례 보기 순서만 쓴다.
@@ -767,6 +803,8 @@ function MapMode({
     // 기준 = 지도 라이브러리의 감싼 상자(overflow 로 자르는 가장 가까운 조상 — 지도 상자로 하면 그 자름이 여유를 지움).
     const root = boxRef.current?.querySelector<HTMLElement>(".react-transform-wrapper");
     if (!ready || !root) return;
+    // 이미 도는 계도 위성 수·자리가 바뀌었을 수 있다(넣기·빼기 뒤) — 새 자리(data-frac)로 새로 시작해 겹쳐 돌지 않게(U3 실측).
+    resyncOrbits(root);
     return observeOrbits(root);
   }, [ready, layout]);
   useLayoutEffect(() => {
@@ -869,6 +907,113 @@ function MapMode({
   // 노드 탭과 끌기 구분 — 누른 자리에서 8px 넘게 움직였으면 끌기(패널 안 염).
   function onPointerDown(e: React.PointerEvent) {
     downRef.current = { x: e.clientX, y: e.clientY };
+    lastPointerRef.current = e.pointerType;
+    const src = (e.target as HTMLElement).closest<HTMLElement>("[data-drag]");
+    if (src && e.isPrimary) startDrag(src, e);
+  }
+
+  // 끌어 넣기(U3) — 끄는 것: 인물록·장소록 노드·모임 이름표·펼친 위성(다른 행성에 복사로 넣기). 놓는 곳: 이야기·시기 행성(이미 그
+  // 행성 위성이면 빠짐 — 빛나지 않음). 저장은 패널 넣기와 같은 입구(onLink → addLinkAction → saveNodeLink, 서버가 소유·허용을 다시 확인).
+  function startDrag(src: HTMLElement, e: React.PointerEvent) {
+    const b = boxRef.current;
+    const [type, id] = (src.dataset.drag ?? "").split(":");
+    if (!b || !id || !(type === "PERSON" || type === "PLACE" || type === "PERSON_GROUP")) return;
+    const ref: NodeRef = { type, id };
+    const name = src.dataset.dragName ?? "";
+    const from = src.dataset.dragFrom ?? null;
+    const planetEl = (k: string) => b.querySelector<HTMLElement>(`button[data-node-key="${CSS.escape(k)}"]`);
+    const allowed = new Set(
+      layoutRef.current.nodes.filter((n) => (n.kind === "event" || n.kind === "story") && n.key !== from && !linkedTo(n.key, ref)).map((n) => n.key),
+    );
+    beginPress({
+      kind: type === "PLACE" ? "place" : type === "PERSON_GROUP" ? "group" : "person",
+      name,
+      origin: src,
+      pointer: { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp },
+      ghostHost: document.body,
+      edgeBox: b,
+      planets: screenPlanets,
+      allowed,
+      planetEl,
+      onGrab: () => {
+        lockMap(true);
+        setGrabbing(true);
+        setDropNotice(null);
+        b.setAttribute("data-dragging", "");
+        for (const k of allowed) planetEl(k)?.setAttribute("data-drop-ok", "");
+        setDragStatus(C.space.grabHint(name));
+      },
+      onAutoPan: (dx, dy) => {
+        const api = apiRef.current;
+        if (!api) return;
+        const st = api.instance.state;
+        api.setTransform(st.positionX + dx, st.positionY + dy, st.scale, 0);
+      },
+      onDrop: async (key) => {
+        const [k, e1, s1] = key.split(":");
+        const target: NodeRef = k === "ev" ? { type: "LIFE_EVENT", id: e1 } : { type: "EPISODE", id: s1 };
+        try {
+          const r = await onLink(target, ref);
+          if (!r.ok) {
+            setDropNotice({ text: r.error });
+            return "failed";
+          }
+          if (r.created.length === 0) {
+            setDropNotice({ text: C.edit.alreadyLinked });
+            return "already";
+          }
+          const created = r.created;
+          setDropNotice({ text: C.space.dropped(name, nodeName(key, data, idx)), undo: () => onUndoLinks(created) });
+          return "added";
+        } catch {
+          setDropNotice({ text: C.edit.failed });
+          return "failed";
+        }
+      },
+      onBounce: (why) => {
+        if (why === "far") setDropNotice({ text: C.space.dropFar });
+        else if (why === "already") setDropNotice({ text: C.edit.alreadyLinked });
+        else if (why === "cancel") setDropNotice({ text: C.space.dropCancel });
+      },
+      onEnd: () => {
+        lockMap(false);
+        setGrabbing(false);
+        b.removeAttribute("data-dragging");
+        b.querySelectorAll("[data-drop-ok]").forEach((x) => x.removeAttribute("data-drop-ok"));
+        setDragStatus("");
+      },
+    });
+  }
+
+  // 집는 순간 지도 이동·확대를 바로 끔 — 라이브러리는 움직일 때마다 setup.panning.disabled 를 다시 읽는다(4.2.0). props(grabbing)만
+  // 바꾸면 React 가 다시 그릴 때까지(바쁜 폰·4배 감속) 첫 이동 몇 개가 지도를 끌었다(390×667 실측). 끝나면 되돌림(곧 props 로도 같아짐).
+  function lockMap(on: boolean) {
+    lockPanZoom(apiRef.current?.instance, on);
+  }
+
+  // 그 행성에 이미 이어져 있나(위성으로 보이나) — 시기 = 바로 이은 사람·모임·장소, 이야기 = 작은 물방울(대상 인물 포함).
+  function linkedTo(key: string, ref: NodeRef): boolean {
+    const [k, e, s] = key.split(":");
+    const ev = idx.eventById.get(e);
+    if (!ev) return true;
+    if (k === "ev") return ref.type === "PERSON" ? ev.personIds.includes(ref.id) : ref.type === "PLACE" ? ev.placeIds.includes(ref.id) : ev.groupIds.includes(ref.id);
+    const st = ev.stories.find((x) => x.id === s);
+    if (!st) return true;
+    const ck = ref.type === "PERSON" ? "person" : ref.type === "PLACE" ? "place" : "group";
+    return st.chips.some((c) => c.kind === ck && c.id === ref.id) || (ref.type === "PERSON" && st.subjectPersonId === ref.id);
+  }
+
+  // 놓을 후보 — 행성 가운데·궤도 반지름을 화면 좌표로(배치 값 × 지금 변환, DOM 을 읽지 않음 — 자동 이동 중에도 매번 계산).
+  function screenPlanets(): DropPlanet[] {
+    const api = apiRef.current;
+    const w = boxRef.current?.querySelector(".react-transform-wrapper")?.getBoundingClientRect();
+    if (!api || !w) return [];
+    const st = api.instance.state;
+    return layoutRef.current.nodes.flatMap((n) => {
+      if (n.kind !== "event" && n.kind !== "story") return [];
+      const o = orbitShape(n.planet.d, 0);
+      return [{ key: n.key, cx: w.left + st.positionX + n.planet.cx * st.scale, cy: w.top + st.positionY + n.planet.cy * st.scale, rx: o.rx * st.scale, ry: o.ry * st.scale }];
+    });
   }
 
   // 빈 곳 한 번 = 선택 풀기, 빈 곳 두 번(더블탭·더블클릭) = 그 지점 확대.
@@ -880,6 +1025,7 @@ function MapMode({
       return;
     }
     setSelected(null);
+    setDropNotice(null);
     const now = performance.now();
     const last = lastTapRef.current;
     if (last && now - last.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 30) {
@@ -902,12 +1048,14 @@ function MapMode({
   }
 
   function onWorldClick(e: React.MouseEvent) {
+    if (dragJustEnded()) return; // 끌어 넣기를 마친 손을 뗄 때 생긴 클릭
     const d = downRef.current;
     if (e.detail > 0 && d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > TAP_SLOP) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>("[data-node-key]");
     if (!el) return;
     const { nodeKey, nodeKind, eventId, groupId, region, createKind, targetKey } = el.dataset;
     if (!nodeKey) return;
+    setDropNotice(null);
     // 한 번 탭 = 그 노드의 동작(패널 열기) — 노드 종류·배율과 무관(3단계 E2E 2026-11-02, Q60 보완).
     // 전체 보기 상태면 그 노드로 확대도 같이(패널에 가리지 않게 지도 위쪽에).
     if (stateRef.current.scale < OVERVIEW_SCALE) zoomAbovePanel(el);
@@ -1117,6 +1265,29 @@ function MapMode({
       {/* 공전 키프레임(약 42KB) — 지도가 그려질 때만(서버 HTML 에 싣지 않음) */}
       {init && <style>{ORBIT_CSS}</style>}
       <div ref={boxRef} data-motion={motion} className="space-map relative min-h-0 flex-1 overflow-hidden border-y border-line">
+        {dropNotice && (
+          <div role="status" className="absolute inset-x-0 top-0 z-10 flex min-h-[56px] items-center justify-between gap-3 border-b border-line bg-surface px-6 py-1">
+            <p className="min-w-0 text-lg text-ink">{dropNotice.text}</p>
+            {dropNotice.undo && (
+              <Button
+                variant="secondary"
+                size="lg"
+                className="shrink-0 px-4!"
+                onClick={async () => {
+                  const u = dropNotice.undo!;
+                  setDropNotice(null);
+                  const r = await u();
+                  setDropNotice({ text: r.ok ? C.edit.undone : C.edit.cannotUnlink });
+                }}
+              >
+                {C.edit.undo}
+              </Button>
+            )}
+          </div>
+        )}
+        <p className="sr-only" aria-live="assertive">
+          {dragStatus}
+        </p>
         {init && (
           <TransformWrapper
             ref={apiRef}
@@ -1130,7 +1301,17 @@ function MapMode({
             doubleClick={{ disabled: true }}
             keyboard={{ disabled: false, panStep: 80, zoomStep: 0.25 }}
             onTransform={onTransform}
+            panning={{ disabled: grabbing }}
+            pinch={{ disabled: grabbing }}
             onInit={(ref) => {
+              // 손가락으로 누를 때는 "화살표 키용 포커스"를 건너뜀(위 lastPointerRef — 라이브러리 4.2.0 의 인스턴스 함수를 감쌈, 없으면 그대로)
+              const inst = ref.instance as unknown as { focusForKeyboard?: () => void };
+              const focusForKeyboard = inst.focusForKeyboard;
+              if (typeof focusForKeyboard === "function") {
+                inst.focusForKeyboard = () => {
+                  if (lastPointerRef.current !== "touch") focusForKeyboard();
+                };
+              }
               const r = restoreRef.current;
               if (r) ref.setTransform(r.x, r.y, clamp(r.scale, 0.05, MAX_SCALE), 0);
               setReady(true);
@@ -1339,6 +1520,10 @@ const MapWorld = memo(function MapWorld({
               data-node-key={s.key}
               data-node-kind={target ? "satellite" : "satMore"}
               data-target-key={target ?? n.key}
+              // 펼친 위성 = 길게 눌러 다른 행성에 넣기(복사 — 이 행성에서는 안 빠짐, U3)
+              data-drag={open && s.ref ? `${s.ref.kind === "person" ? "PERSON" : s.ref.kind === "place" ? "PLACE" : "PERSON_GROUP"}:${s.ref.id}` : undefined}
+              data-drag-name={open && s.ref ? name : undefined}
+              data-drag-from={open && s.ref ? n.key : undefined}
               data-frac={s.frac}
               data-pd={n.planet.d}
               data-tilt={s.orbit}
@@ -1487,6 +1672,8 @@ const MapWorld = memo(function MapWorld({
               data-node-key={l.key}
               data-node-kind="groupLabel"
               data-group-id={l.groupId}
+              data-drag={`PERSON_GROUP:${l.groupId}`} // 길게 눌러 이야기·시기 행성에 넣기(U3)
+              data-drag-name={g?.name ?? ""}
               aria-label={C.groupLabelName(g?.name ?? "", g?.memberIds.length ?? 0)}
               className={`absolute flex items-center gap-2 rounded-[10px] border-2 border-person bg-surface px-3 text-lg font-semibold text-ink hover:bg-banner ${FOCUS}`}
               style={{ ...pos(l), ...mark(l.key) }}
@@ -1518,6 +1705,8 @@ const MapWorld = memo(function MapWorld({
                   data-node-key={n.key}
                   data-node-kind="person"
                   data-group-ids={p.groupIds.join(",")}
+                  data-drag={`PERSON:${p.id}`} // 길게 눌러 이야기·시기 행성에 넣기(U3)
+                  data-drag-name={p.name}
                   aria-label={C.personName2(p.name, groupNames, idx.storiesOfPerson.get(p.id)?.length ?? 0)}
                   className={`absolute flex flex-col items-center gap-1.5 rounded-md pt-1 text-center ${FOCUS}`}
                   style={{ ...pos(n), ...mark(n.key) }}
@@ -1608,6 +1797,8 @@ const MapWorld = memo(function MapWorld({
                   data-node-key={n.key}
                   data-node-kind="place"
                   data-group-ids={p.groupIds.join(",")}
+                  data-drag={`PLACE:${p.id}`} // 길게 눌러 이야기·시기 행성에 넣기(U3)
+                  data-drag-name={p.name}
                   aria-label={C.placeName2(p.name, idx.storiesOfPlace.get(p.id)?.length ?? 0)}
                   className={`absolute flex flex-col items-center gap-1.5 rounded-md pt-1 text-center ${FOCUS}`}
                   style={{ ...pos(n), ...mark(n.key) }}

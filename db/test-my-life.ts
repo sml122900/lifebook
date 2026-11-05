@@ -75,6 +75,7 @@ import {
   orbitProgressAt,
   orbitShape,
 } from "../lib/space-orbit";
+import { DRAG_SLOP, DROP_RANGE, EDGE_ARM, LONG_PRESS_MS, isAndroid, pickDropTarget, spiralPath, wobbleScales } from "../lib/space-drag";
 import { saveNodeLink } from "../lib/node-graph";
 import fs from "node:fs";
 import path from "node:path";
@@ -811,6 +812,40 @@ async function main() {
           view.includes('pr-[96px]') && view.includes("{C.space.fitAllShort}") && view.includes("aria-label={motionPref === \"stop\" ? C.space.motionStart : C.space.motionStop}") &&
           orbitSrc.includes('export const MOTION_KEY = "mylife:motion";') && orbitSrc.includes('return reducedMotion() ? "stop" : "run";') &&
           C.space.motionStop === "움직임 멈추기" && C.space.motionStart === "움직이기");
+      // U3 끌어 넣기(ui-space §4) — 계산(순수 함수)
+      const planets = [
+        { key: "st:a", cx: 0, cy: 0, rx: 100, ry: 80 },
+        { key: "st:b", cx: 0, cy: 300, rx: 100, ry: 80 },
+      ];
+      const sp = spiralPath({ x: 200, y: 50 }, { x: 0, y: 0 }, { x: -40, y: 90 });
+      const wb = wobbleScales();
+      check(`⑥ U3 끌기 계산 — 집기 ${LONG_PRESS_MS}ms · 8px 넘게 먼저 움직이면 지도 이동 · 놓을 행성 = 궤도 정규화 거리 ${DROP_RANGE} 안 가장 가까운 허용 행성(없으면 튕김) · 나선 시작 = 놓은 점·끝 = 궤도 점 · 출렁임 끝 1 · 진동 Android 만`,
+        LONG_PRESS_MS === 280 && DRAG_SLOP === 8 && EDGE_ARM === 24 &&
+          pickDropTarget({ x: 50, y: 40 }, planets, new Set(["st:a", "st:b"])) === "st:a" &&
+          pickDropTarget({ x: 0, y: 250 }, planets, new Set(["st:a", "st:b"])) === "st:b" &&
+          pickDropTarget({ x: 50, y: 40 }, planets, new Set(["st:b"])) === null &&
+          pickDropTarget({ x: 400, y: 0 }, planets, new Set(["st:a"])) === null &&
+          Math.hypot(sp[0].x - 200, sp[0].y - 50) < 1e-9 && Math.hypot(sp[sp.length - 1].x + 40, sp[sp.length - 1].y - 90) < 1e-6 &&
+          wb[0] === 1 && Math.abs(wb[wb.length - 1] - 1) < 0.01 &&
+          isAndroid("Mozilla/5.0 (Linux; Android 14; SM-S918N)") && !isAndroid("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"));
+      const dragSrc = fs.readFileSync(path.resolve(__dirname, "../app/my-life/drag.ts"), "utf8");
+      const editSrc = fs.readFileSync(path.resolve(__dirname, "../app/my-life/EditUI.tsx"), "utf8");
+      check("⑬ U3 끌어 넣기 — 끄는 것 = 인물록·장소록 노드·모임 이름표·펼친 위성(data-drag, draggable 안 씀) · 집은 동안 지도 이동·확대 끔 · 저장 = 패널 넣기와 같은 입구(addLinkAction → saveNodeLink)·같은 되돌리기(undoLinksAction) · 끌기 직후 클릭 무시",
+        view.includes("data-drag={`PERSON:${p.id}`}") && view.includes("data-drag={`PLACE:${p.id}`}") && view.includes("data-drag={`PERSON_GROUP:${l.groupId}`}") &&
+          view.includes("data-drag-from={open && s.ref ? n.key : undefined}") && !/draggable/.test(view + dragSrc + editSrc) &&
+          view.includes("panning={{ disabled: grabbing }}") && view.includes("pinch={{ disabled: grabbing }}") &&
+          view.includes("const r = await addLinkAction(a, b);") && view.includes("const r = await undoLinksAction(links);") && view.includes("const r = await onLink(target, ref);") &&
+          view.includes("if (dragJustEnded()) return;") && editSrc.includes("const r = await addLinkAction(self!, other);") && editSrc.includes("onDrop: () => linkNow(c.ref),"));
+      check("⑬ U3 손짓 — 집기 전 실제 이동 시각이 280ms 전이면 집기를 되돌림(바쁜 메인 스레드에서 늦게 온 이동) · 가장자리 자동 이동은 24px 움직인 뒤 · 두 번째 손가락 = 취소 · 이미 있는 행성 위에 놓으면 이미 들어 있어요 문구(멀어서 아님) · 연출 없이(움직임 줄이기·[움직임 멈추기]) · 진동 Android 만 · 터치 누름은 지도 라이브러리 키보드 포커스 건너뜀",
+        dragSrc.includes("if (grabbed && moved && e.timeStamp - o.pointer.t < LONG_PRESS_MS) {") && dragSrc.includes("if (!armed) armed = Math.hypot(last.x - grabAt.x, last.y - grabAt.y) > EDGE_ARM;") &&
+          dragSrc.includes('window.addEventListener("pointerdown", onSecond, true);') && dragSrc.includes('export const stillMotion = () => reduced() || readMotion() === "stop";') &&
+          dragSrc.includes("if (isAndroid(navigator.userAgent)) navigator.vibrate?.(ms);") &&
+          dragSrc.includes('bounce(pickDropTarget(last, all, new Set(all.map((p) => p.key))) ? "already" : "far");') && view.includes('else if (why === "already") setDropNotice({ text: C.edit.alreadyLinked });') &&
+          view.includes('if (lastPointerRef.current !== "touch") focusForKeyboard();'));
+      check("⑬ U3 넣을 것 줄(Q116) — 행성 패널 [넣을 것 보기] · 줄 안 버튼 = 누르면 넣기(키보드·낭독 — 버튼 경로) · 길게 눌러 위 행성으로 · 문구 [임시] 9키",
+        editSrc.includes("{showRow ? C.space.addRowHide : C.space.addRowShow}") && editSrc.includes("aria-label={C.space.addRowItem(c.label)}") &&
+          editSrc.includes("onAdd(c.ref);") && editSrc.includes("onPointerDown={(e) => onPress(e, c)}") &&
+          ["grabHint", "dropped", "dropFar", "dropCancel", "addRowShow", "addRowHide", "addRowTitle", "addRowHint", "addRowItem"].every((k) => k in C.space));
     }
     {
       // 밤 우주 전원(2026-11-05) — 화면 코드에 직접 적은 기본 팔레트 색이 다시 생기지 않게(밤에서 안 뒤집혀 섞인 색이 됨, ui-night §8).
