@@ -135,7 +135,7 @@ export function AddressSearch({
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
           role="dialog"
           aria-modal="true"
           aria-label="우편번호 검색"

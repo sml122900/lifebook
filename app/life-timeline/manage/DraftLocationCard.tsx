@@ -62,7 +62,7 @@ export function DraftLocationCard({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="self-start text-sm font-semibold text-action underline-offset-2 hover:underline focus:outline-none"
+        className="self-start rounded text-sm font-semibold text-action underline-offset-2 hover:underline focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         {expanded ? "▲ 지도 검색 닫기" : "▼ 지도에서 위치 찾기 (선택)"}
       </button>

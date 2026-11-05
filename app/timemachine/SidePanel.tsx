@@ -217,7 +217,7 @@ function SidePanel({
         {/* 3. 토큰 화면 — 잔액·출석·충전 통합 페이지로 (v3.5) */}
         <Link
           href="/account/tokens"
-          className="mt-3 inline-flex w-full min-h-[56px] items-center justify-center rounded-md bg-action px-4 py-3 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="mt-3 inline-flex w-full min-h-[56px] items-center justify-center rounded-md border-2 border-brand bg-surface px-4 py-3 text-lg font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           토큰 화면 열기
         </Link>
@@ -360,7 +360,7 @@ function SidePanel({
         >
           <button
             type="submit"
-            className="text-sm text-ink-soft hover:text-ink hover:underline focus:outline-none focus-visible:underline"
+            className="rounded text-sm text-ink-soft hover:text-ink hover:underline focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             로그아웃
           </button>

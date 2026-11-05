@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 
+import { SELECTED } from "@/components/ui/chip";
 import { buttonClasses } from "@/components/ui/Button";
 import type { EraEvent, EraSong } from "@/lib/era-events";
 import { Search } from "lucide-react";
@@ -214,7 +215,7 @@ export function EraView({
                 className={
                   "min-h-[64px] rounded-md border-2 px-4 py-3 text-lg font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
                   (active
-                    ? "border-brand bg-action text-on-action"
+                    ? SELECTED
                     : "border-line bg-surface text-action hover:bg-banner")
                 }
               >
@@ -490,15 +491,15 @@ function EraEventRow({
 
             {/* 구글 검색 링크 — 모든 사건에 표시. 위키·뉴스·백과 위주라 참사·
                 테러 같은 민감 사건도 안전한 "더 알아보기" 진입. 새 탭. 음악의
-                유튜브(rose)와 구분되는 sky 톤으로 "정보 찾기" 느낌. */}
+                유튜브(music)와 구분되는 info 색으로 "정보 찾기" 느낌(밤 우주 2단계 의미색 복구). */}
             <a
               href={googleSearchHref(event.title)}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`${event.title} Google에서 더 알아보기 (새 탭)`}
-              className="inline-flex min-h-[48px] w-fit items-center gap-2 rounded-md border-2 border-brand bg-banner px-4 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+              className="inline-flex min-h-[48px] w-fit items-center gap-2 rounded-md border-2 border-info bg-info-wash px-4 py-2 text-base font-semibold text-info hover:bg-info-wash focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
-              <Search strokeWidth={1.75} aria-hidden className="h-5 w-5 text-action" />
+              <Search strokeWidth={1.75} aria-hidden className="h-5 w-5 text-info" />
               Google에서 더 알아보기
             </a>
 
@@ -582,7 +583,7 @@ function EraSongCard({ song }: { song: EraSong }) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`${song.title} — ${song.artist} 유튜브에서 찾기`}
-        className="mt-1 inline-flex min-h-[48px] w-fit items-center gap-2 rounded-md border-2 border-danger bg-danger-wash px-4 py-2 text-base font-semibold text-danger hover:bg-danger-wash focus:outline-none focus-visible:ring-4 focus-visible:ring-danger focus-visible:ring-offset-2"
+        className="mt-1 inline-flex min-h-[48px] w-fit items-center gap-2 rounded-md border-2 border-music bg-music-wash px-4 py-2 text-base font-semibold text-music hover:bg-music-wash focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         <span aria-hidden>▶</span>
         유튜브에서 듣기

@@ -184,7 +184,7 @@ export default async function RoomDetailPage({ params }: PageProps) {
           <input type="hidden" name="roomId" value={room.id} />
           <button
             type="submit"
-            className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="rounded-md border-2 border-brand bg-surface text-action hover:bg-banner px-6 py-4 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             새 초대 링크 만들기
           </button>

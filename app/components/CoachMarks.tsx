@@ -295,7 +295,7 @@ export function CoachMarks({
           }}
         />
       ) : (
-        <div aria-hidden className="absolute inset-0 bg-black/60" />
+        <div aria-hidden className="absolute inset-0 bg-scrim" />
       )}
 
       {/* 말풍선 카드 */}
@@ -327,7 +327,7 @@ export function CoachMarks({
           <button
             type="button"
             onClick={finish}
-            className="text-base font-semibold text-ink-soft underline-offset-2 hover:text-ink hover:underline focus:outline-none focus-visible:underline"
+            className="rounded text-base font-semibold text-ink-soft underline-offset-2 hover:text-ink hover:underline focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             건너뛰기
           </button>

@@ -26,6 +26,16 @@
   /* 2026-11-05 밤 전원 — 화면에 직접 적던 emerald-50·rose-50 바탕(성공·위험 안내 상자)을 토큰으로 */
   --color-success-wash: #ecf5ec;
   --color-danger-wash: #fcefee;
+  /* 밤 우주 2단계 — 의미색 복구(전원 적용 때 rose → danger · sky → place 로 합쳐졌던 것, ui-night §9): 음악·영상 링크 = music,
+     정보 찾기·안내 = info, 장소 = place, 위험 = danger 가 서로 다른 색. 시대 둘러보기(/era) 연대 배경 4색 = era-* */
+  --color-music: #881337;
+  --color-music-wash: #fff1f2;
+  --color-info: #075985;
+  --color-info-wash: #f0f9ff;
+  --color-era-1980: #fffbeb;
+  --color-era-1990: #ecfdf5;
+  --color-era-2000: #f0f9ff;
+  --color-era-2010: #f5f3ff;
   --color-banner: #fff8e8; /* 안내·강조 박스 배경 */
   --color-ph: #e9e1d0; /* 이미지 placeholder 슬롯 배경 (실화면 캡처 끼우기 전) */
   /* 밤 우주 1단계(2026-11-05 — docs/phase/ui-night.md §1.1)에 새로 — 밝은 값은 지금 화면과 같은 값 */
@@ -141,6 +151,61 @@ body[data-proposal-card] [data-assistant-fab] {
   }
 }
 
+/* 긴 글 편지지 카드(밤 우주 2단계 — ui-night Q144 (b), components/ui/Paper). 밤하늘 위 밝은 종이 — 안쪽 토큰을 편지지 값으로
+   다시 정의해 글·입력칸·버튼·포커스 고리가 그대로 따라온다(대비: ink 14.07 · ink-soft 6.98 · ink-faint 5.30 · action/brand 5.22 ·
+   danger 5.15 · line 3.73 — 편지지 바탕 기준, ui-night §9). 레이어 밖이라 바깥 [data-theme="night"] 값보다 가까운 이 값이 쓰인다. */
+.paper {
+  color-scheme: light;
+  --color-canvas: var(--color-paper);
+  --color-surface: #fffdf8;
+  --color-banner: #fff8e8;
+  --color-ph: #e9e1d0;
+  --color-ink: var(--color-paper-ink);
+  --color-ink-soft: var(--color-paper-ink-soft);
+  --color-ink-faint: #6e655b;
+  --color-line: var(--color-paper-line);
+  --color-brand: #8a5f1a;
+  --color-action: var(--color-paper-action);
+  --color-action-hover: #6f4c15;
+  --color-on-action: #ffffff;
+  --color-danger: #b3433b;
+  --color-danger-wash: #fcefee;
+  --color-success: #3e6b3e;
+  --color-success-deep: #3e6b3e;
+  --color-success-wash: #ecf5ec;
+  --color-sage: #5f7e50;
+  --color-person: #1f6b45;
+  --color-person-wash: #e6f6ec;
+  --color-place: #24578f;
+  --color-place-wash: #e7f1fb;
+  --color-music: #881337;
+  --color-music-wash: #fff1f2;
+  --color-info: #075985;
+  --color-info-wash: #f0f9ff;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  border-color: #5a52a0;
+}
+/* 편지지 안 본문 줄 간격 — 긴 글 읽기(시안 (b) 1.8) */
+.paper :where(p, li) {
+  line-height: 1.8;
+}
+
+/* 비활성 표시 한 가지(밤 우주 2단계 — ui-night §9.5). 흐리게(opacity-50) 하면 글자 대비가 3:1 안팎으로 떨어져(카카오 3.24 ·
+   주요 버튼 3.05 — 상태 점검 실측) 흐림 대신 바탕 surface · 글자 ink-soft · 테두리 line 점선으로 바꾼다 — 색이 아닌 모양(점선)으로도
+   구분되고, 브랜드 버튼(카카오·네이버)·고른 칩도 비활성일 땐 같은 모양. 마우스 올림 변화도 없앤다. 포커스 고리(box-shadow)는
+   건드리지 않는다(aria-disabled 버튼은 포커스를 받음). 토큰이라 편지지 카드 안에서는 편지지 값(ink-soft 6.98:1)으로 따라온다. */
+:is(button, input, select, textarea):disabled,
+:is(button, a)[aria-disabled="true"] {
+  opacity: 1 !important;
+  background-color: var(--color-surface) !important;
+  background-image: none !important;
+  color: var(--color-ink-soft) !important;
+  border-color: var(--color-line) !important;
+  border-style: dashed !important;
+  cursor: not-allowed;
+}
+
 /* 밤 우주 — Lifebook 단일 테마(2026-11-05 결정, Q142 무효 — 앱 공통 요소도 밤). 1단계는 허용 목록 계정만(html 에 표시).
    토큰 변수만 다시 정의해 토큰을 쓰는 화면은 코드 수정 없이 따라온다(대비 표 docs/phase/ui-night.md §1.2). 검정 금지 — 가장 어두운 값 #221d52. */
 [data-theme="night"] {
@@ -165,6 +230,14 @@ body[data-proposal-card] [data-assistant-fab] {
   --color-success-deep: #a8e2b4;
   --color-success-wash: #1f4536; /* 위 글자 ink 9.38 · success 6.36 */
   --color-danger-wash: #4a2246; /* 위 글자 ink 11.45 · danger 6.62 */
+  --color-music: #f0a6ff; /* 난초색(색상 290°) — danger 산호색(5°)과 구분. canvas 8.50 · surface 7.40 · banner 5.90 */
+  --color-music-wash: #45205a; /* 위 music 7.22 · ink 11.46 */
+  --color-info: #5fd4e8; /* 청록(189°) — place 파랑(208°)과 구분. canvas 8.84 · surface 7.70 · banner 6.14 */
+  --color-info-wash: #163e52; /* 위 info 6.54 · ink 9.98 */
+  --color-era-1980: #4a3424; /* 연대 배경 4색(/era) — 호박·초록·하늘·보라. 위 ink 10.19 · 9.51 · 9.66 · 10.57, 칸 테두리 line 3.37 이상 */
+  --color-era-1990: #1d4438;
+  --color-era-2000: #1f3d63;
+  --color-era-2010: #3b2a6e;
   --color-person: #8fe0b0;
   --color-person-wash: #24434a;
   --color-place: #9ccbf5;
@@ -219,6 +292,11 @@ body[data-proposal-card] [data-assistant-fab] {
   [data-theme="night"] ::before,
   [data-theme="night"] ::after {
     --tw-ring-offset-color: var(--color-canvas);
+  }
+  /* ④ 입력칸 안내 글자(밤 2단계 상태 점검): Tailwind 기본은 글자색 50%(color-mix)라 밤 surface 위 4.1 · banner 위 3.59 —
+     기본을 ink-faint 로(canvas 8.04 · surface 7.00 · banner 5.59 · 편지지 surface 5.62). placeholder:text-{색} 유틸리티를 쓴 곳은 그쪽이 이긴다. */
+  ::placeholder {
+    color: var(--color-ink-faint);
   }
 }
 

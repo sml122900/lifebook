@@ -296,7 +296,7 @@ export default async function LifeTimelinePage() {
             <Link
               href="/poster"
               data-tour="poster"
-              className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-semibold text-on-action hover:bg-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+              className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-brand bg-surface text-action hover:bg-banner px-6 py-3 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               이 연혁으로 포스터 만들기
             </Link>

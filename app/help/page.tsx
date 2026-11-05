@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { Paper } from "@/components/ui/Paper";
 import { BUSINESS_INFO } from "@/lib/commerce/business";
 import { HelpFaq } from "./HelpFaq";
 
@@ -13,7 +14,9 @@ export default function HelpPage() {
   const cs = BUSINESS_INFO.csEmail;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 px-6 py-10">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
+      {/* 긴 글 편지지 카드(밤 우주 2단계 — ui-night Q144 (b)) */}
+      <Paper className="flex flex-col gap-10">
       <header className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold text-ink sm:text-4xl">고객센터</h1>
         <p className="text-lg text-ink-soft">
@@ -61,6 +64,7 @@ export default function HelpPage() {
       >
         ← 인생 연혁으로
       </Link>
+      </Paper>
     </main>
   );
 }

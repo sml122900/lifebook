@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { Paper } from "@/components/ui/Paper";
 import { BUSINESS_INFO } from "@/lib/commerce/business";
 import { activeNotice, NOTICE_ANCHOR } from "@/lib/policy-notice";
 import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
@@ -108,14 +109,16 @@ const P = "text-lg leading-relaxed text-ink-soft";
 export default function PrivacyPage() {
   const notice = activeNotice("privacy");
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6 sm:py-12">
       <p className="text-base text-ink-soft">
         <Link href="/" className="underline hover:text-ink">
           ← Lifebook 홈으로
         </Link>
       </p>
 
-      <h1 className="mt-4 text-ink">개인정보 처리방침</h1>
+{/* 긴 글 편지지 카드(밤 우주 2단계 — ui-night Q144 (b)): 제목부터 사업자 정보까지 밝은 종이 위 */}
+      <Paper className="mt-4">
+      <h1 className="m-0 text-ink">개인정보 처리방침</h1>
       {notice && (
         // scroll-mt-4 — 띠의 문서 버튼(#policy-notice)으로 내려왔을 때 숨 쉴 여백. 로그인한 화면의 머리 줄(Lifebook + [내 정보])은
         // html scroll-padding-top(--app-header-h, app/globals.css)이 비켜 준다(2026-11-04 — 전엔 버튼만큼 scroll-mt-20).
@@ -388,6 +391,7 @@ export default function PrivacyPage() {
         </dl>
         <p className="mt-4">© 2026 Lifebook</p>
       </section>
+      </Paper>
     </main>
   );
 }

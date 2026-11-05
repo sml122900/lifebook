@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { Paper } from "@/components/ui/Paper";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { listRevisions, type BodyNodeType, type BodyPhoto } from "@/lib/node-body";
 import { displayTitle, shortTitle } from "@/lib/story-title";
@@ -32,6 +33,7 @@ export async function HistoryPage(o: {
         <h1 className="m-0 text-[28px]">{C.historyTitle}</h1>
         <p className="m-0 text-lg text-ink-soft">{C.historyIntro}</p>
       </header>
+      <Paper>
       <RevisionList
         items={revs.map((r) => ({
           id: r.id,
@@ -45,6 +47,7 @@ export async function HistoryPage(o: {
         photos={photos}
         doneHref={o.doneHref}
       />
+      </Paper>
     </main>
   );
 }

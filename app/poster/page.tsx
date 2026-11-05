@@ -215,7 +215,7 @@ function TemplateCard({
         {isCustom ? (
           <Link
             href="/poster/custom"
-            className="mt-2 inline-flex min-h-[52px] w-full items-center justify-center rounded-md bg-action px-5 py-3 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="mt-2 inline-flex min-h-[52px] w-full items-center justify-center rounded-md border-2 border-brand bg-surface text-action hover:bg-banner px-5 py-3 text-lg font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             내 취향으로 만들기 →
           </Link>

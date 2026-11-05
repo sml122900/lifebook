@@ -160,7 +160,7 @@ function PhotoModal({
       onClick={onBackdropClick}
       onKeyDown={onKey}
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
     >
       <div className="flex max-h-full max-w-3xl flex-col gap-3 rounded-md bg-surface p-4 sm:p-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}

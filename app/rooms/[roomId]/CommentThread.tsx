@@ -101,7 +101,7 @@ export function CommentThread({
         />
         <button
           type="submit"
-          className="self-end rounded-md bg-action px-5 py-3 text-base font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="self-end rounded-md border-2 border-brand bg-surface text-action hover:bg-banner px-5 py-3 text-base font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           댓글 남기기
         </button>

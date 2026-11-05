@@ -98,7 +98,7 @@ export default async function TokensPage() {
         </p>
         <ButtonLink
           href="/billing"
-          variant="primary"
+          variant="secondary"
           size="lg"
           className="mt-5"
         >

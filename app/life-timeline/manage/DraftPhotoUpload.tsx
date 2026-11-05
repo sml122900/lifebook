@@ -73,21 +73,21 @@ export function DraftPhotoUpload({ memoryId }: { memoryId: string }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="self-start text-sm font-semibold text-place underline-offset-2 hover:underline focus:outline-none"
+          className="self-start rounded text-sm font-semibold text-info underline-offset-2 hover:underline focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           📷 사진 붙이기
           {uploadedCount > 0 && (
-            <span className="ml-1.5 inline-flex items-center rounded-full bg-place-wash px-2 py-0.5 text-xs font-bold text-place">
+            <span className="ml-1.5 inline-flex items-center rounded-full bg-info-wash px-2 py-0.5 text-xs font-bold text-info">
               {uploadedCount}장 올림
             </span>
           )}
         </button>
       ) : (
-        <div className="flex flex-col gap-2 rounded-md border border-place bg-place-wash p-3">
-          <p className="text-sm font-semibold text-place">
+        <div className="flex flex-col gap-2 rounded-md border border-info bg-info-wash p-3">
+          <p className="text-sm font-semibold text-info">
             📷 사진 붙이기
             {uploadedCount > 0 && (
-              <span className="ml-1.5 font-normal text-place">{uploadedCount}장 올렸어요</span>
+              <span className="ml-1.5 font-normal text-info">{uploadedCount}장 올렸어요</span>
             )}
           </p>
           <label className="flex flex-col gap-1">

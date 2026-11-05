@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Paper } from "@/components/ui/Paper";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { getEpisodeBody } from "@/lib/node-body";
 import { displayTitle } from "@/lib/story-title";
@@ -25,6 +26,7 @@ export default async function StoryEditPage({ params }: { params: Promise<{ id: 
         ← {displayTitle(body)}
       </Link>
       <h1 className="m-0 text-[28px]">{C.editTitle}</h1>
+      <Paper>
       <BodyEditor
         kind="story"
         nodeId={id}
@@ -34,6 +36,7 @@ export default async function StoryEditPage({ params }: { params: Promise<{ id: 
         photos={body.photos.map((p) => ({ id: p.id, url: map[p.id]?.url ?? null, caption: p.caption }))}
         doneHref={`/my-life/story/${id}`}
       />
+      </Paper>
     </main>
   );
 }

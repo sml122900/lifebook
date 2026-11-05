@@ -6,6 +6,7 @@
 
 import { useState, useTransition } from "react";
 
+import { SELECTED } from "@/components/ui/chip";
 import { updateAiModel } from "@/app/account/ai-model-actions";
 import {
   AI_MODELS,
@@ -99,12 +100,12 @@ export function AiModelChips({
               className={
                 "inline-flex min-h-[36px] items-center gap-1 rounded-full border-2 px-3 py-1 text-sm font-semibold disabled:opacity-60 " +
                 (selected
-                  ? "border-action bg-action text-on-action"
+                  ? SELECTED
                   : "border-line bg-surface text-ink hover:bg-banner")
               }
             >
               {label.name}
-              <span className={selected ? "text-on-action/80" : "text-ink-soft"}>
+              <span className={"text-ink-soft"}>
                 {multiplierLabel(m)}
               </span>
             </button>

@@ -609,7 +609,7 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
                   : `이야기를 입력하거나 🎤 버튼을 눌러주세요${hasKeyboard ? " (Shift+Enter 줄바꿈)" : ""}`
               }
               rows={2}
-              className="flex-1 resize-none rounded-2xl border-2 border-line bg-canvas px-4 py-3 text-lg text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none disabled:opacity-50"
+              className="flex-1 resize-none rounded-2xl border-2 border-line bg-canvas px-4 py-3 text-lg text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-50"
               style={{ maxHeight: "9rem" }}
             />
 

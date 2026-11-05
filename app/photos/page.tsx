@@ -70,6 +70,7 @@ export default async function PhotosPage() {
             message="아직 사진이 없어요"
             buttonLabel="사진 추가하기"
             href="/photos/bulk"
+            variant="secondary"
           />
         )}
         {photos.length > 0 && <PhotosGrid photos={photos} />}

@@ -89,10 +89,11 @@ export const SECTION_ICON_CLASS: Record<EventSection, string> = {
 // 틴트 위 텍스트는 ink/ink-soft). 기본 팔레트(amber/emerald/sky/violet)
 // 의존 제거.
 export const DECADE_BG_CLASS: Record<Decade, string> = {
-  1980: "bg-decade-1980/10",
-  1990: "bg-decade-1990/10",
-  2000: "bg-decade-2000/10",
-  2010: "bg-decade-2010/10",
+  // 밤 우주 2단계 — 연대 배경 4색 복원(호박·초록·하늘·보라, globals.css era-*). decade-* 10% 워시는 밤 바탕에서 거의 안 보였다.
+  1980: "bg-era-1980",
+  1990: "bg-era-1990",
+  2000: "bg-era-2000",
+  2010: "bg-era-2010",
 };
 
 // EraEventRow 좌측 4px 연대 스트립. Tailwind 정적 추출을 위해 리터럴 클래스 맵.

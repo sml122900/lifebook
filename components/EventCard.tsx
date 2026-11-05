@@ -25,7 +25,7 @@ const DOMAIN_LABEL: Record<Domain, string> = {
 
 // 흰 배경 대비 4.5:1 이상 보장하는 진한 단색 배지 (시니어 고대비).
 const DOMAIN_BADGE: Record<Domain, string> = {
-  kr_politics: "bg-danger text-on-action",
+  kr_politics: "bg-music text-on-action", // 원래 rose — 재난(danger)과 다른 색(밤 우주 2단계)
   kr_society: "bg-action text-on-action",
   disaster: "bg-danger text-on-action",
   sports: "bg-success text-on-action",

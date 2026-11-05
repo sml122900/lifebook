@@ -68,7 +68,7 @@ export function SwitchToV3Banner() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="switch-v3-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim px-6"
           onClick={() => !isPending && setOpen(false)}
         >
           <div

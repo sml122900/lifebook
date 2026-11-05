@@ -58,7 +58,7 @@ export function StoryTimelinePanel({ items }: { items: StoryTimelineItem[] }) {
           role="dialog"
           aria-modal="true"
           aria-label="지금까지의 내 이야기"
-          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/50 lg:hidden"
+          className="fixed inset-0 z-50 flex flex-col justify-end bg-scrim lg:hidden"
           onClick={() => setOpen(false)}
         >
           <div

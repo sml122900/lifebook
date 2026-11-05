@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Paper } from "@/components/ui/Paper";
 import { ButtonLink } from "@/components/ui/Button";
 import { getMyLifeData } from "@/lib/my-life";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
@@ -37,6 +38,7 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
       <Link href={`/my-life?focus=st:${ev.id}:${id}`} className="self-start text-lg text-action underline underline-offset-4">
         ← {C.body.backToMap}
       </Link>
+      <Paper as="article" className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
         <p className="m-0 text-lg text-ink-soft">
           {story.kind === "SELF" ? `${C.selfTag} · ` : ""}
@@ -66,6 +68,8 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
           {C.body.placesTitle}: {places.map((c) => c.name).join(", ")}
         </p>
       )}
+
+      </Paper>
 
       <div className="flex flex-col gap-2">
         <ButtonLink href={`/my-life/story/${id}/edit`} variant="primary" size="lg">

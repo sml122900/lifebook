@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useTransition } from "react";
+import { SELECTED } from "@/components/ui/chip";
 
 import {
   STAMP_KINDS,
@@ -89,7 +90,7 @@ export function StampBar({
                 className={
                   "inline-flex min-h-[56px] items-center gap-2 rounded-md border-2 px-4 py-2 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 " +
                   (active
-                    ? "border-brand bg-banner text-action"
+                    ? SELECTED
                     : "border-line bg-surface text-ink hover:bg-canvas")
                 }
               >
@@ -102,8 +103,8 @@ export function StampBar({
                     className={
                       "ml-1 inline-flex min-w-[28px] justify-center rounded-full px-2 text-base font-bold " +
                       (active
-                        ? "bg-action text-on-action"
-                        : "bg-line text-ink")
+                        ? "bg-surface text-ink"
+                        : "bg-banner text-ink")
                     }
                   >
                     {count}

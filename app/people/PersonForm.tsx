@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { SELECTED } from "@/components/ui/chip";
 import { buttonClasses } from "@/components/ui/Button";
 
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
@@ -196,7 +197,7 @@ export function PersonForm({
                   className={[
                     "min-h-[44px] rounded-full px-4 py-2 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2",
                     category === preset
-                      ? "bg-action text-on-action"
+                      ? SELECTED
                       : "border-2 border-line bg-surface text-ink hover:bg-banner",
                   ].join(" ")}
                 >
@@ -282,7 +283,7 @@ export function PersonForm({
                     setAgeDiffText(e.target.value.replace(/\D/g, "").slice(0, 3))
                   }
                   placeholder="0"
-                  className="w-20 rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-brand focus:outline-none"
+                  className="w-20 rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
                 />
                 <span className="text-base text-ink-soft">살</span>
                 <button
@@ -291,8 +292,8 @@ export function PersonForm({
                   className={[
                     "min-h-[40px] rounded-full px-3 py-1 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand",
                     ageDiffDir === "above"
-                      ? "bg-action text-on-action"
-                      : "border border-line bg-surface text-ink",
+                      ? SELECTED
+                      : "border-2 border-line bg-surface text-ink",
                   ].join(" ")}
                 >
                   위
@@ -303,8 +304,8 @@ export function PersonForm({
                   className={[
                     "min-h-[40px] rounded-full px-3 py-1 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand",
                     ageDiffDir === "below"
-                      ? "bg-action text-on-action"
-                      : "border border-line bg-surface text-ink",
+                      ? SELECTED
+                      : "border-2 border-line bg-surface text-ink",
                   ].join(" ")}
                 >
                   아래

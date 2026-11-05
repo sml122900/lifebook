@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { SELECTED } from "@/components/ui/chip";
 import { calcAge } from "@/lib/age";
 import type { LifeEvent } from "@/lib/life-events";
 
@@ -124,7 +125,7 @@ export function LinkToggleRow({
         className={
           "inline-flex min-h-[48px] min-w-[140px] items-center justify-center rounded-md border-2 px-5 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
           (linked
-            ? "border-brand bg-action text-on-action hover:bg-action"
+            ? SELECTED
             : "border-line bg-surface text-ink hover:border-brand hover:bg-banner")
         }
       >

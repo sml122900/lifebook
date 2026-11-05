@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 
 import { Check, Pencil, Eye } from "lucide-react";
 
+import { SELECTED } from "@/components/ui/chip";
 import type { PosterCandidate } from "@/lib/poster/poster-candidates";
 import {
   savePosterSelections,
@@ -159,7 +160,7 @@ export function PosterSelectClient({
           type="button"
           onClick={save}
           disabled={isSaving}
-          className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:bg-line"
+          className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-brand bg-surface text-action hover:bg-banner px-5 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSaving ? "저장 중…" : "저장하기"}
         </button>
@@ -371,12 +372,8 @@ function ChoiceButton({
   disabled?: boolean;
   describedBy?: string; // 비활성 이유 문구 id
 }) {
-  const activeCls =
-    tone === "action"
-      ? "border-action bg-action text-on-action"
-      : tone === "brand"
-        ? "border-brand bg-brand text-on-action"
-        : "border-line bg-banner text-ink-soft";
+  // 고른 상태 — 노드·메모는 같은 선택 표시(밤 우주 2단계 — components/ui/chip), 제외는 흐린 칸
+  const activeCls = tone === "muted" ? "border-line bg-banner text-ink-soft" : SELECTED;
   return (
     <button
       type="button"

@@ -1441,7 +1441,7 @@ function AttachToEventModal({
       aria-modal="true"
       aria-label="사건에 넣기"
       onClick={onBackdropClick}
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-10"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-scrim p-4 py-10"
     >
       <div className="flex w-full max-w-lg flex-col gap-4 rounded-md bg-surface p-5 sm:p-6">
         <div>
@@ -1550,7 +1550,7 @@ function PhotoPlaceModal({
       aria-modal="true"
       aria-label="사진 장소"
       onClick={onBackdropClick}
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 py-10"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-scrim p-4 py-10"
     >
       <div className="flex w-full max-w-lg flex-col gap-4 rounded-md bg-surface p-5 sm:p-6">
         <h2 className="flex items-center gap-1.5 text-xl font-bold text-ink">
@@ -1683,7 +1683,7 @@ function PhotoLightbox({
       onClick={onBackdropClick}
       onKeyDown={onKey}
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
     >
       <div className="flex max-h-full max-w-3xl flex-col gap-3 rounded-md bg-surface p-4 sm:p-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}

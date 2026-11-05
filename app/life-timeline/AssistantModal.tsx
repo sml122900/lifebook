@@ -123,7 +123,7 @@ export function AssistantModal({
           role="dialog"
           aria-modal="true"
           aria-labelledby="assistant-modal-title"
-          className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-3 sm:items-center sm:p-6"
+          className="fixed inset-0 z-50 flex items-start justify-center bg-scrim p-3 sm:items-center sm:p-6"
           onClick={() => setOpen(false)}
         >
           <div

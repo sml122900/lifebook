@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { Paper } from "@/components/ui/Paper";
 import { ButtonLink } from "@/components/ui/Button";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { getPersonBody } from "@/lib/node-body";
@@ -35,6 +36,7 @@ export default async function PersonBodyEditPage({ params }: { params: Promise<{
           {C.history(body.revisions)}
         </ButtonLink>
       )}
+      <Paper>
       <BodyEditor
         kind="person"
         nodeId={id}
@@ -44,6 +46,7 @@ export default async function PersonBodyEditPage({ params }: { params: Promise<{
         photos={body.photos.map((p) => ({ id: p.id, url: map[p.id]?.url ?? null, caption: p.caption }))}
         doneHref={back}
       />
+      </Paper>
     </main>
   );
 }

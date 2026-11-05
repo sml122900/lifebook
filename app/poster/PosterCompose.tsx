@@ -38,6 +38,7 @@ import {
   type ItemOverride,
   type PosterSelectionFull,
 } from "@/lib/poster/overrides";
+import { SELECTED } from "@/components/ui/chip";
 import { getEraEventsForPoster } from "@/lib/poster/era-events";
 import { exportPosterPng } from "./print-export";
 
@@ -690,7 +691,7 @@ export function PosterCompose({
             className={
               "inline-flex min-h-[44px] items-center justify-center rounded-md px-5 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
               (showYears
-                ? "bg-action text-on-action hover:bg-action-hover"
+                ? SELECTED
                 : "border-2 border-action bg-surface text-action hover:bg-banner")
             }
           >
@@ -722,7 +723,7 @@ export function PosterCompose({
               className={
                 "inline-flex min-h-[44px] items-center justify-center rounded-md px-4 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
                 (eraTier === t
-                  ? "bg-action text-on-action hover:bg-action-hover"
+                  ? SELECTED
                   : "border-2 border-line bg-surface text-ink hover:bg-banner")
               }
             >
