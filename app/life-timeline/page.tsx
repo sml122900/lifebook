@@ -256,7 +256,7 @@ export default async function LifeTimelinePage() {
       {hasEvents && (
         <section
           aria-label="이벤트 추가 / 관리"
-          className="flex flex-col gap-3 rounded-md border-2 border-amber-300 bg-amber-50 px-5 py-5"
+          className="flex flex-col gap-3 rounded-md border-2 border-line bg-banner px-5 py-5"
         >
           <p className="text-lg text-ink">
             연혁을 보다 떠오르는 게 있으시면 한 장면 더 더해주세요.
@@ -296,7 +296,7 @@ export default async function LifeTimelinePage() {
             <Link
               href="/poster"
               data-tour="poster"
-              className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-amber-500 px-6 py-3 text-lg font-semibold text-white hover:bg-amber-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+              className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-semibold text-on-action hover:bg-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               이 연혁으로 포스터 만들기
             </Link>
@@ -335,7 +335,7 @@ export default async function LifeTimelinePage() {
 // 인생 이벤트 0건 — 압박 없는 초대 톤. 큰 버튼 하나만.
 function EmptyState() {
   return (
-    <section className="flex flex-col items-center gap-6 rounded-md border-2 border-amber-200 bg-amber-50 px-6 py-12 text-center">
+    <section className="flex flex-col items-center gap-6 rounded-md border-2 border-line bg-banner px-6 py-12 text-center">
       <p aria-hidden className="text-6xl">
         🌱
       </p>
@@ -350,7 +350,7 @@ function EmptyState() {
       <Link
         href="/life-record"
         prefetch
-        className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-action px-8 py-4 text-2xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+        className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-action px-8 py-4 text-2xl font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         인생 기록 시작하기 →
       </Link>

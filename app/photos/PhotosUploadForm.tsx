@@ -207,7 +207,7 @@ export function PhotosUploadForm() {
                 onChange={(e) =>
                   setYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
                 }
-                className="w-28 rounded-md border-2 border-line bg-surface px-3 py-2 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+                className="w-28 rounded-md border-2 border-line bg-surface px-3 py-2 text-lg text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
                 disabled={isPending}
               />
             </label>
@@ -227,7 +227,7 @@ export function PhotosUploadForm() {
                   setMonthText(e.target.value.replace(/\D/g, "").slice(0, 2))
                 }
                 placeholder="1~12"
-                className="w-24 rounded-md border-2 border-line bg-surface px-3 py-2 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+                className="w-24 rounded-md border-2 border-line bg-surface px-3 py-2 text-lg text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
                 disabled={isPending}
               />
             </label>
@@ -247,7 +247,7 @@ export function PhotosUploadForm() {
               onChange={(e) => setCaption(e.target.value)}
               placeholder="예: 첫 손주 백일잔치"
               maxLength={CAPTION_MAX}
-              className="w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+              className="w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
               disabled={isPending}
             />
           </label>
@@ -266,7 +266,7 @@ export function PhotosUploadForm() {
       {error && (
         <p
           role="alert"
-          className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900"
+          className="rounded-md border-2 border-danger bg-danger-wash px-4 py-3 text-base text-danger"
         >
           {error}
         </p>
@@ -277,7 +277,7 @@ export function PhotosUploadForm() {
           type="button"
           onClick={onUpload}
           disabled={!selectedFile || isPending}
-          className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? "올리는 중…" : "올리기"}
         </button>
@@ -310,14 +310,14 @@ function DateSourceBadge({
   }
   if (source === "exif") {
     return (
-      <p className="inline-flex w-fit items-center gap-1 rounded-md border-2 border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm text-emerald-900">
+      <p className="inline-flex w-fit items-center gap-1 rounded-md border-2 border-success bg-success-wash px-3 py-1.5 text-sm text-success">
         <span aria-hidden>✓</span> 사진에 적힌 날짜예요 (확실)
       </p>
     );
   }
   if (source === "file") {
     return (
-      <p className="inline-flex w-fit items-center gap-1 rounded-md border-2 border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-900">
+      <p className="inline-flex w-fit items-center gap-1 rounded-md border-2 border-line bg-banner px-3 py-1.5 text-sm text-action">
         <span aria-hidden>≈</span> 추정한 날짜예요. 맞는지 확인해 주세요
       </p>
     );

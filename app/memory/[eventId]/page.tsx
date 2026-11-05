@@ -159,15 +159,15 @@ export default async function MemoryPage({ params }: PageProps) {
       </section>
 
       {conversation.pastAnswers.length > 0 && (
-        <section className="rounded-md border-2 border-emerald-200 bg-emerald-50 p-6">
-          <p className="text-lg font-semibold text-emerald-900">
+        <section className="rounded-md border-2 border-success bg-success-wash p-6">
+          <p className="text-lg font-semibold text-success">
             이전에 남긴 추억
           </p>
           <ul className="mt-3 flex flex-col gap-3">
             {conversation.pastAnswers.map((a) => (
               <li
                 key={a.id}
-                className="rounded-md border-2 border-emerald-200 bg-surface px-4 py-3 text-ink"
+                className="rounded-md border-2 border-success bg-surface px-4 py-3 text-ink"
               >
                 {a.content}
               </li>

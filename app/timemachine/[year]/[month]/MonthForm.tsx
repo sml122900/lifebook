@@ -169,9 +169,9 @@ export function MonthForm({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-base" aria-live="polite">
           {error ? (
-            <span className="text-rose-700">{error}</span>
+            <span className="text-danger">{error}</span>
           ) : savedAt ? (
-            <span className="text-emerald-700">
+            <span className="text-success">
               저장됨 · {savedAt.toLocaleTimeString("ko-KR")}
             </span>
           ) : (
@@ -184,7 +184,7 @@ export function MonthForm({
           type="button"
           onClick={handleSave}
           disabled={isPending}
-          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-amber-700 px-8 py-4 text-xl font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-action px-8 py-4 text-xl font-bold text-on-action hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           {isPending ? "저장 중…" : "이 달 저장하기"}
         </button>

@@ -68,7 +68,7 @@ export function AiModelChips({
                 </span>
                 <span className="mt-0.5 block text-sm text-ink-soft">{label.desc}</span>
                 {m === "opus" && (
-                  <span className="mt-1 block text-sm font-semibold text-amber-700">
+                  <span className="mt-1 block text-sm font-semibold text-action">
                     ⚠️ {OPUS_WARNING}
                   </span>
                 )}
@@ -99,12 +99,12 @@ export function AiModelChips({
               className={
                 "inline-flex min-h-[36px] items-center gap-1 rounded-full border-2 px-3 py-1 text-sm font-semibold disabled:opacity-60 " +
                 (selected
-                  ? "border-action bg-action text-white"
+                  ? "border-action bg-action text-on-action"
                   : "border-line bg-surface text-ink hover:bg-banner")
               }
             >
               {label.name}
-              <span className={selected ? "text-white/80" : "text-ink-soft"}>
+              <span className={selected ? "text-on-action/80" : "text-ink-soft"}>
                 {multiplierLabel(m)}
               </span>
             </button>
@@ -112,7 +112,7 @@ export function AiModelChips({
         })}
       </div>
       {value === "opus" && (
-        <p className="text-xs font-semibold text-amber-700">⚠️ {OPUS_WARNING}</p>
+        <p className="text-xs font-semibold text-action">⚠️ {OPUS_WARNING}</p>
       )}
     </div>
   );

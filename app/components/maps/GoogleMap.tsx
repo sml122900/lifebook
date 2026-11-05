@@ -108,7 +108,8 @@ export function GoogleMap({
     const mk = markers[focusedIdx];
     const marker = markerRefs.current[focusedIdx];
     if (!marker || !infoWindowRef.current) return;
-    const html = `<div style="padding:6px 8px;font-size:14px;line-height:1.45;max-width:240px"><b>${escape(mk.name)}</b>${mk.address && mk.address !== mk.name ? `<br><span style="color:#555;font-size:13px">${escape(mk.address)}</span>` : ""}</div>`;
+    // 지도 말풍선은 지도 SDK 의 흰 바탕 — 글자색을 직접 정함(밤 우주에서 페이지 글자색(밝음)을 물려받아 흰 바탕 위 밝은 글자가 되던 것, 2026-11-05).
+    const html = `<div style="color:#2a2520;padding:6px 8px;font-size:14px;line-height:1.45;max-width:240px"><b>${escape(mk.name)}</b>${mk.address && mk.address !== mk.name ? `<br><span style="color:#5c534a;font-size:13px">${escape(mk.address)}</span>` : ""}</div>`;
     infoWindowRef.current.setContent(html);
     infoWindowRef.current.open({ anchor: marker, map: mapRef.current });
     mapRef.current.panTo({ lat: mk.lat, lng: mk.lng });
@@ -127,7 +128,7 @@ export function GoogleMap({
         </p>
       )}
       {error && (
-        <p className="absolute inset-0 z-10 flex items-center justify-center text-sm text-amber-900">
+        <p className="absolute inset-0 z-10 flex items-center justify-center text-sm text-action">
           {error}
         </p>
       )}

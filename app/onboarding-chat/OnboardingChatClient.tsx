@@ -500,14 +500,14 @@ export default function OnboardingChatClient() {
             onClick={() => setTtsOn((v) => !v)}
             className={[
               "relative inline-flex h-6 w-10 items-center rounded-full transition-colors",
-              ttsOn ? "bg-[var(--color-action)]" : "bg-[var(--color-line)]",
+              ttsOn ? "bg-action" : "bg-[var(--color-line)]",
             ].join(" ")}
             aria-pressed={ttsOn}
             aria-label="TTS 켜기/끄기"
           >
             <span
               className={[
-                "inline-block h-4 w-4 rounded-full bg-white shadow transition-transform",
+                "inline-block h-4 w-4 rounded-full bg-surface shadow transition-transform",
                 ttsOn ? "translate-x-5" : "translate-x-1",
               ].join(" ")}
             />
@@ -526,8 +526,8 @@ export default function OnboardingChatClient() {
               className={[
                 "max-w-[82%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-[17px] leading-relaxed",
                 m.role === "u"
-                  ? "rounded-br-sm bg-[var(--color-action)] text-white"
-                  : "rounded-bl-sm bg-white text-[var(--color-ink)] shadow-sm",
+                  ? "rounded-br-sm bg-action text-on-action"
+                  : "rounded-bl-sm bg-surface text-[var(--color-ink)] shadow-sm",
               ].join(" ")}
             >
               {m.text}
@@ -536,7 +536,7 @@ export default function OnboardingChatClient() {
         ))}
         {isParsing && (
           <div className="flex justify-start">
-            <div className="rounded-2xl rounded-bl-sm bg-white px-4 py-3 text-[var(--color-ink-subtle)] shadow-sm">
+            <div className="rounded-2xl rounded-bl-sm bg-surface px-4 py-3 text-[var(--color-ink-subtle)] shadow-sm">
               …
             </div>
           </div>
@@ -557,7 +557,7 @@ export default function OnboardingChatClient() {
           <button
             onClick={() => handleSummaryChoice("later")}
             disabled={isPending}
-            className="flex-1 rounded-xl bg-[var(--color-action)] py-3 text-[17px] font-medium text-white disabled:opacity-50"
+            className="flex-1 rounded-xl bg-action py-3 text-[17px] font-medium text-on-action disabled:opacity-50"
           >
             나중에 할게요
           </button>
@@ -601,12 +601,12 @@ export default function OnboardingChatClient() {
                 data-lpignore="true"
                 data-1p-ignore
                 data-form-type="other"
-                className="flex-1 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
+                className="flex-1 rounded-xl border border-[var(--color-line)] bg-surface px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={!canSend}
-                className="rounded-xl bg-[var(--color-action)] px-5 py-3 text-[17px] font-medium text-white disabled:opacity-40"
+                className="rounded-xl bg-action px-5 py-3 text-[17px] font-medium text-on-action disabled:opacity-40"
               >
                 전송
               </button>

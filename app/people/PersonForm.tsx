@@ -158,7 +158,7 @@ export function PersonForm({
           className="text-lg font-semibold text-ink"
         >
           {labels.name}{" "}
-          <span className="font-normal text-rose-700">*</span>
+          <span className="font-normal text-danger">*</span>
         </label>
         <input
           id="person-name"
@@ -168,7 +168,7 @@ export function PersonForm({
           maxLength={50}
           placeholder={labels.namePlaceholder}
           autoComplete="off"
-          className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         />
         {isPerson && (
           <p className="text-sm text-ink-soft">
@@ -194,9 +194,9 @@ export function PersonForm({
                     setCategory((prev) => (prev === preset ? "" : preset))
                   }
                   className={[
-                    "min-h-[44px] rounded-full px-4 py-2 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2",
+                    "min-h-[44px] rounded-full px-4 py-2 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2",
                     category === preset
-                      ? "bg-amber-500 text-white"
+                      ? "bg-action text-on-action"
                       : "border-2 border-line bg-surface text-ink hover:bg-banner",
                   ].join(" ")}
                 >
@@ -212,7 +212,7 @@ export function PersonForm({
               maxLength={30}
               placeholder="직접 입력 (예: 군대 전우, 교회 지인)"
               autoComplete="off"
-              className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             />
           </section>
 
@@ -233,7 +233,7 @@ export function PersonForm({
               list="person-relation-hints"
               placeholder="관계"
               autoComplete="off"
-              className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             />
             <datalist id="person-relation-hints">
               {RELATION_HINTS.map((h) => (
@@ -261,7 +261,7 @@ export function PersonForm({
                   setPersonBirthYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
                 }
                 placeholder="예: 1950"
-                className="w-40 rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                className="w-40 rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
               />
               {personBirthYear !== null && userBirthYear !== null && (
                 <p className="text-base text-ink-soft">
@@ -282,16 +282,16 @@ export function PersonForm({
                     setAgeDiffText(e.target.value.replace(/\D/g, "").slice(0, 3))
                   }
                   placeholder="0"
-                  className="w-20 rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-amber-500 focus:outline-none"
+                  className="w-20 rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-brand focus:outline-none"
                 />
                 <span className="text-base text-ink-soft">살</span>
                 <button
                   type="button"
                   onClick={() => setAgeDiffDir("above")}
                   className={[
-                    "min-h-[40px] rounded-full px-3 py-1 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
+                    "min-h-[40px] rounded-full px-3 py-1 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand",
                     ageDiffDir === "above"
-                      ? "bg-amber-500 text-white"
+                      ? "bg-action text-on-action"
                       : "border border-line bg-surface text-ink",
                   ].join(" ")}
                 >
@@ -301,9 +301,9 @@ export function PersonForm({
                   type="button"
                   onClick={() => setAgeDiffDir("below")}
                   className={[
-                    "min-h-[40px] rounded-full px-3 py-1 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
+                    "min-h-[40px] rounded-full px-3 py-1 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand",
                     ageDiffDir === "below"
-                      ? "bg-amber-500 text-white"
+                      ? "bg-action text-on-action"
                       : "border border-line bg-surface text-ink",
                   ].join(" ")}
                 >
@@ -313,7 +313,7 @@ export function PersonForm({
                   type="button"
                   onClick={applyAgeDiff}
                   disabled={!ageDiffText || parseIntOrNull(ageDiffText) === null}
-                  className="min-h-[40px] rounded-md border border-amber-400 bg-amber-50 px-3 py-1 text-base text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                  className="min-h-[40px] rounded-md border border-brand bg-banner px-3 py-1 text-base text-action hover:bg-banner disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
                   적용
                 </button>
@@ -341,7 +341,7 @@ export function PersonForm({
                   setMetYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
                 }
                 placeholder="예: 1985"
-                className="w-40 rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                className="w-40 rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
               />
               {ageHint && (
                 <p className="text-base text-ink-soft">
@@ -373,7 +373,7 @@ export function PersonForm({
       {error && (
         <p
           role="alert"
-          className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900"
+          className="rounded-md border-2 border-danger bg-danger-wash px-4 py-3 text-base text-danger"
         >
           {error}
         </p>
@@ -394,7 +394,7 @@ export function PersonForm({
           type="button"
           onClick={handleSubmit}
           disabled={isPending}
-          className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-on-action hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           {isPending ? "저장 중…" : isEdit ? "수정 저장" : "추가하기"}
         </button>

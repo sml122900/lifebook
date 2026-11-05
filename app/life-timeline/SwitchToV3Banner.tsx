@@ -85,7 +85,7 @@ export function SwitchToV3Banner() {
             {error && (
               <p
                 role="alert"
-                className="mt-3 rounded-md border-2 border-rose-300 bg-rose-50 px-3 py-2 text-base text-rose-900"
+                className="mt-3 rounded-md border-2 border-danger bg-danger-wash px-3 py-2 text-base text-danger"
               >
                 {error}
               </p>

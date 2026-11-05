@@ -66,21 +66,21 @@ export function InAppIosBanner() {
   return (
     <div
       role="alert"
-      className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm"
+      className="rounded-lg border border-line bg-banner p-4 text-sm"
     >
-      <p className="font-semibold text-amber-900">Google 로그인은 Safari에서 해주세요</p>
-      <p className="mt-1.5 text-amber-800">
+      <p className="font-semibold text-action">Google 로그인은 Safari에서 해주세요</p>
+      <p className="mt-1.5 text-action">
         화면 하단(또는 상단){" "}
         <span className="font-semibold">···</span> 메뉴 →{" "}
         <span className="font-semibold">Safari로 열기</span>를 눌러주세요.
       </p>
-      <p className="mt-1 font-medium text-emerald-700">
+      <p className="mt-1 font-medium text-success">
         카카오·네이버 로그인은 여기서도 됩니다.
       </p>
       <button
         type="button"
         onClick={copyUrl}
-        className="mt-3 rounded-md bg-amber-200 px-4 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+        className="mt-3 rounded-md bg-banner px-4 py-2 text-xs font-semibold text-action hover:bg-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
         {copied ? "복사됐어요 ✓" : "주소 복사하기"}
       </button>

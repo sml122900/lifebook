@@ -47,9 +47,9 @@ export function PlacesEditor({
           {value.map((p, i) => (
             <li
               key={i}
-              className="flex items-center justify-between gap-3 rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-3"
+              className="flex items-center justify-between gap-3 rounded-md border-2 border-line bg-banner px-4 py-3"
             >
-              <span className="flex min-w-0 items-center gap-2 text-base text-amber-900">
+              <span className="flex min-w-0 items-center gap-2 text-base text-action">
                 <MapPin
                   strokeWidth={1.75}
                   aria-hidden
@@ -57,7 +57,7 @@ export function PlacesEditor({
                 />
                 <b className="truncate">{p.placeName}</b>
                 {p.placeSource && (
-                  <span className="shrink-0 text-sm text-amber-700">
+                  <span className="shrink-0 text-sm text-action">
                     ·{" "}
                     {p.placeSource === "naver"
                       ? "네이버"
@@ -97,7 +97,7 @@ export function PlacesEditor({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="inline-flex min-h-[56px] items-center justify-center gap-2 self-start rounded-md border-2 border-amber-400 bg-amber-50 px-5 py-3 text-lg font-bold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+          className="inline-flex min-h-[56px] items-center justify-center gap-2 self-start rounded-md border-2 border-brand bg-banner px-5 py-3 text-lg font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
         >
           <Plus strokeWidth={2} aria-hidden className="h-5 w-5" />
           {value.length === 0 ? addLabel : "장소 더 추가"}

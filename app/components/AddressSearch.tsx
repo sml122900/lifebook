@@ -114,7 +114,7 @@ export function AddressSearch({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex min-h-[52px] shrink-0 items-center justify-center rounded-md border-2 border-action bg-banner px-5 py-3 text-lg font-bold text-action hover:bg-action hover:text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[52px] shrink-0 items-center justify-center rounded-md border-2 border-action bg-banner px-5 py-3 text-lg font-bold text-action hover:bg-action hover:text-on-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             우편번호 찾기
           </button>
@@ -140,7 +140,7 @@ export function AddressSearch({
           aria-modal="true"
           aria-label="우편번호 검색"
         >
-          <div className="flex w-full max-w-md flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+          <div className="flex w-full max-w-md flex-col overflow-hidden rounded-lg bg-surface shadow-xl">
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <span className="text-lg font-bold text-ink">우편번호 찾기</span>
               <button

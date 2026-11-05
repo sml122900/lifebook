@@ -94,7 +94,7 @@ export function MonthV2({
     <div className="flex flex-col gap-8">
       <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
         {/* 좌(메인): 내 기억 입력칸 — 화면 주인공 */}
-        <section className="flex flex-col gap-4 rounded-md border-2 border-amber-200 bg-surface p-6">
+        <section className="flex flex-col gap-4 rounded-md border-2 border-line bg-surface p-6">
           <div>
             <h2 className="text-2xl font-bold text-ink sm:text-3xl">
               {year}년 {month}월, 당신의 이야기
@@ -112,7 +112,7 @@ export function MonthV2({
             rows={12}
             placeholder="그때 어떤 일이 있었는지, 누구와 어디서 지냈는지…"
             ariaLabel={`${year}년 ${month}월 내 이야기`}
-            textareaClassName="w-full rounded-md border-2 border-line bg-surface px-4 py-4 text-lg leading-relaxed text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 sm:text-xl"
+            textareaClassName="w-full rounded-md border-2 border-line bg-surface px-4 py-4 text-lg leading-relaxed text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 sm:text-xl"
             onCleanup={cleanupVoiceTextAction}
           />
 
@@ -126,9 +126,9 @@ export function MonthV2({
                 {keptEvents.map((k) => (
                   <li
                     key={k.monthEventId}
-                    className="flex items-center justify-between gap-3 rounded-md border-2 border-amber-200 bg-amber-50 px-4 py-2"
+                    className="flex items-center justify-between gap-3 rounded-md border-2 border-line bg-banner px-4 py-2"
                   >
-                    <span className="min-w-0 flex-1 truncate text-base font-semibold text-amber-900 sm:text-lg">
+                    <span className="min-w-0 flex-1 truncate text-base font-semibold text-action sm:text-lg">
                       {k.title}
                     </span>
                     <button
@@ -160,9 +160,9 @@ export function MonthV2({
       <div className="flex flex-col gap-3 border-t-2 border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-base" aria-live="polite">
           {error ? (
-            <span className="text-rose-700">{error}</span>
+            <span className="text-danger">{error}</span>
           ) : savedAt ? (
-            <span className="text-emerald-700">
+            <span className="text-success">
               저장됨 · {savedAt.toLocaleTimeString("ko-KR")}
             </span>
           ) : (
@@ -175,7 +175,7 @@ export function MonthV2({
           type="button"
           onClick={handleSave}
           disabled={isPending}
-          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-amber-700 px-8 py-4 text-xl font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-action px-8 py-4 text-xl font-bold text-on-action hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           {isPending ? "저장 중…" : "이 달 저장하기"}
         </button>

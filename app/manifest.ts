@@ -9,8 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "말로 이야기하면 AI가 인생 포스터를 만들어드려요",
     start_url: "/",
     display: "standalone",
-    background_color: "#faf7f0",
-    theme_color: "#faf7f0",
+    background_color: "#221d52", // 밤 우주(2026-11-05 전원) — 시작 화면·상태 줄
+    theme_color: "#221d52",
     icons: [
       {
         src: "/icons/icon-192.png",

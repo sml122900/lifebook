@@ -28,16 +28,16 @@ type EraPalette = {
 const ERA_PALETTES: Record<string, EraPalette> = {
   // 2020s — 따뜻한 톤. amber 계열을 기반으로 카드에 온기를 준다.
   "2020s": {
-    cardBg: "bg-amber-50",
-    cardBorder: "border-amber-200",
-    badgeFirst: "bg-amber-700",
-    badgeFirstText: "text-white",
-    badgeRest: "bg-amber-100",
-    badgeRestText: "text-amber-900",
+    cardBg: "bg-banner",
+    cardBorder: "border-line",
+    badgeFirst: "bg-action",
+    badgeFirstText: "text-on-action",
+    badgeRest: "bg-banner",
+    badgeRestText: "text-action",
     titleText: "text-ink",
     artistText: "text-ink-soft",
-    playBorder: "border-amber-500",
-    playText: "text-amber-800",
+    playBorder: "border-brand",
+    playText: "text-action",
   },
   // 향후 추가될 시대들 (시드가 과거로 확장될 때):
   //   "2010s": 미니멀 (zinc/white 톤)
@@ -91,7 +91,7 @@ export function SongCard({ rank, title, artist, eraColor }: SongCardProps) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`${title} 유튜브에서 검색 (새 탭 열림)`}
-        className={`flex shrink-0 items-center justify-center rounded-full border-2 bg-surface ${p.playBorder} ${p.playText} hover:bg-canvas focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2`}
+        className={`flex shrink-0 items-center justify-center rounded-full border-2 bg-surface ${p.playBorder} ${p.playText} hover:bg-canvas focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2`}
         style={{ width: 56, height: 56 }}
       >
         <span aria-hidden className="ml-1 text-2xl">▶</span>

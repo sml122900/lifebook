@@ -159,19 +159,19 @@ export function PosterSelectClient({
           type="button"
           onClick={save}
           disabled={isSaving}
-          className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:bg-line"
+          className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:bg-line"
         >
           {isSaving ? "저장 중…" : "저장하기"}
         </button>
       </div>
 
       {warn && (
-        <p role="alert" className="rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+        <p role="alert" className="rounded-md border-2 border-line bg-banner px-4 py-2 text-sm text-action">
           {warn}
         </p>
       )}
       {savedMsg && (
-        <p className="rounded-md border-2 border-emerald-300 bg-emerald-50 px-4 py-2 text-sm text-emerald-900">
+        <p className="rounded-md border-2 border-success bg-success-wash px-4 py-2 text-sm text-success">
           ✓ {savedMsg}
         </p>
       )}
@@ -210,7 +210,7 @@ export function PosterSelectClient({
           data-tour="poster-next"
           onClick={saveAndNext}
           disabled={isNexting}
-          className="inline-flex min-h-[52px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:bg-line"
+          className="inline-flex min-h-[52px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:bg-line"
         >
           {isNexting ? "저장 중…" : "다음: 시안 보기 →"}
         </button>
@@ -273,7 +273,7 @@ function CandidateCard({
             <span className="text-ink-soft">{candidate.year ?? "----"}</span>
             <span className="truncate">{card.title}</span>
             {candidate.recommended && (
-              <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">추천</span>
+              <span className="shrink-0 rounded-full bg-success-wash px-2 py-0.5 text-xs font-semibold text-success">추천</span>
             )}
           </p>
           <p className="mt-0.5 text-sm text-ink-soft">{candidate.gist}</p>
@@ -373,10 +373,10 @@ function ChoiceButton({
 }) {
   const activeCls =
     tone === "action"
-      ? "border-action bg-action text-white"
+      ? "border-action bg-action text-on-action"
       : tone === "brand"
-        ? "border-brand bg-brand text-white"
-        : "border-ink-faint bg-ink-faint text-white";
+        ? "border-brand bg-brand text-on-action"
+        : "border-line bg-banner text-ink-soft";
   return (
     <button
       type="button"
@@ -430,7 +430,7 @@ function EditBlock({
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         maxLength={100}
-        className="w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+        className="w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
       />
       <label className="mt-1 text-sm font-semibold text-ink-soft">내용 (선택)</label>
       <textarea
@@ -438,7 +438,7 @@ function EditBlock({
         onChange={(e) => setContent(e.target.value)}
         rows={3}
         maxLength={2000}
-        className="w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+        className="w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
       />
       {err && <p role="alert" className="text-sm text-danger">{err}</p>}
       <div className="flex gap-2">
@@ -446,7 +446,7 @@ function EditBlock({
           type="button"
           onClick={save}
           disabled={isPending}
-          className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-4 py-1.5 text-sm font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:bg-line"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-4 py-1.5 text-sm font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:bg-line"
         >
           {isPending ? "저장 중…" : "정정 저장"}
         </button>

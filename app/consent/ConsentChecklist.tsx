@@ -64,7 +64,7 @@ export function ConsentChecklist({ checked, onChange }: { checked: ConsentChecke
           type="checkbox"
           checked={allChecked}
           onChange={(e) => onChange(Object.fromEntries(REQUIRED_ITEMS.map((i) => [i.key, e.target.checked])))}
-          className="h-6 w-6 accent-zinc-900"
+          className="h-6 w-6 accent-action"
         />
         <span className="text-lg font-bold text-ink">모두 동의</span>
       </label>
@@ -81,7 +81,7 @@ export function ConsentChecklist({ checked, onChange }: { checked: ConsentChecke
                 name={item.key}
                 checked={checked[item.key] ?? false}
                 onChange={(e) => onChange({ ...checked, [item.key]: e.target.checked })}
-                className="mt-1 h-6 w-6 accent-zinc-900"
+                className="mt-1 h-6 w-6 accent-action"
               />
               <div>
                 <div className="text-lg font-semibold text-ink">

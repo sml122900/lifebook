@@ -32,7 +32,7 @@ export default function HelpPage() {
 
         <a
           href={`mailto:${cs}`}
-          className="inline-flex min-h-[56px] w-full items-center justify-center rounded-md bg-action px-6 py-4 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 sm:w-auto sm:self-start"
+          className="inline-flex min-h-[56px] w-full items-center justify-center rounded-md bg-action px-6 py-4 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 sm:w-auto sm:self-start"
         >
           이메일로 문의하기
         </a>

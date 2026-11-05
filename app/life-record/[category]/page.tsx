@@ -90,7 +90,7 @@ export default async function LifeRecordCategoryPage({
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-10">
       <header>
-        <p className="text-base font-semibold text-amber-700">
+        <p className="text-base font-semibold text-action">
           {stepLabel} · {question.shortLabel}
           {question.optional && (
             <span className="ml-2 font-medium text-ink-faint">(선택)</span>
@@ -104,7 +104,7 @@ export default async function LifeRecordCategoryPage({
         {schoolHint && (
           <aside
             role="note"
-            className="mt-4 rounded-md border-2 border-amber-200 bg-amber-50 px-5 py-4 text-base text-amber-900"
+            className="mt-4 rounded-md border-2 border-line bg-banner px-5 py-4 text-base text-action"
           >
             <p>
               {birthYear}년생이시면 {schoolHint.label}은 보통{" "}
@@ -113,7 +113,7 @@ export default async function LifeRecordCategoryPage({
               </b>
               쯤이에요.
             </p>
-            <p className="mt-1 text-sm text-amber-700">
+            <p className="mt-1 text-sm text-action">
               실제 시기는 본인 기억대로 적어주세요.
             </p>
           </aside>

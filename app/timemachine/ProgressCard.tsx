@@ -27,7 +27,7 @@ export function ProgressCard({
 
   return (
     <section
-      className="flex flex-col gap-5 rounded-md border-2 border-amber-300 bg-surface p-6"
+      className="flex flex-col gap-5 rounded-md border-2 border-line bg-surface p-6"
       aria-labelledby="progress-heading"
     >
       <h2
@@ -41,7 +41,7 @@ export function ProgressCard({
       {filledMonths > 0 ? (
         <p className="text-xl text-ink sm:text-2xl">
           지금까지{" "}
-          <b className="text-3xl font-bold text-amber-800 sm:text-4xl">
+          <b className="text-3xl font-bold text-action sm:text-4xl">
             {filledMonths}개월
           </b>
           의 이야기를 남기셨어요.
@@ -56,17 +56,17 @@ export function ProgressCard({
       {(totalEvents > 0 || totalChars > 0) && (
         <div className="flex flex-wrap gap-3">
           {totalEvents > 0 && (
-            <span className="inline-flex items-baseline gap-1 rounded-md border-2 border-amber-200 bg-amber-50 px-4 py-2">
+            <span className="inline-flex items-baseline gap-1 rounded-md border-2 border-line bg-banner px-4 py-2">
               <span className="text-base text-ink-soft">기록한 사건</span>
-              <b className="text-xl font-bold text-amber-900">
+              <b className="text-xl font-bold text-action">
                 {totalEvents.toLocaleString()}개
               </b>
             </span>
           )}
           {totalChars > 0 && (
-            <span className="inline-flex items-baseline gap-1 rounded-md border-2 border-amber-200 bg-amber-50 px-4 py-2">
+            <span className="inline-flex items-baseline gap-1 rounded-md border-2 border-line bg-banner px-4 py-2">
               <span className="text-base text-ink-soft">직접 쓴 글</span>
-              <b className="text-xl font-bold text-amber-900">
+              <b className="text-xl font-bold text-action">
                 {totalChars.toLocaleString()}자
               </b>
             </span>
@@ -77,7 +77,7 @@ export function ProgressCard({
       {/* 가벼운 이정표 */}
       {milestone && (
         <p
-          className="rounded-md border-2 border-emerald-300 bg-emerald-50 px-4 py-3 text-lg font-semibold text-emerald-900"
+          className="rounded-md border-2 border-success bg-success-wash px-4 py-3 text-lg font-semibold text-success"
           role="status"
         >
           {milestone}
@@ -106,7 +106,7 @@ export function ProgressCard({
               className={
                 "flex min-h-[72px] flex-col items-center justify-center rounded-md border-2 px-2 py-3 text-center " +
                 (c.filled
-                  ? "border-amber-700 bg-amber-700 text-white"
+                  ? "border-brand bg-action text-on-action"
                   : "border-line bg-surface text-ink-faint")
               }
             >

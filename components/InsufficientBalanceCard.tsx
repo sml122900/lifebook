@@ -10,7 +10,7 @@ type Props = {
 
 export function InsufficientBalanceCard({ balance, required }: Props) {
   return (
-    <section className="rounded-md border-2 border-amber-300 bg-amber-50 p-6">
+    <section className="rounded-md border-2 border-line bg-banner p-6">
       <p className="text-2xl font-bold text-ink">
         토큰이 부족해요. 충전하시겠어요?
       </p>
@@ -23,7 +23,7 @@ export function InsufficientBalanceCard({ balance, required }: Props) {
       </p>
       <Link
         href="/billing"
-        className="mt-5 inline-block rounded-md bg-amber-700 px-6 py-4 text-lg font-semibold text-white hover:bg-amber-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-400 focus-visible:ring-offset-2"
+        className="mt-5 inline-block rounded-md bg-action px-6 py-4 text-lg font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         토큰 충전하러 가기
       </Link>

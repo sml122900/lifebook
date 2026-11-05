@@ -59,13 +59,13 @@ export default async function LinkEventsPage({ params }: Params) {
       </header>
 
       {allEvents.length === 0 ? (
-        <section className="flex flex-col items-center gap-4 rounded-md border-2 border-amber-200 bg-amber-50 px-6 py-10 text-center">
+        <section className="flex flex-col items-center gap-4 rounded-md border-2 border-line bg-banner px-6 py-10 text-center">
           <p className="text-lg text-ink">
             아직 인생 사건이 없어요. 먼저 연혁에 한 장면을 더해주세요.
           </p>
           <Link
             href="/life-timeline/add"
-            className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-amber-600 px-6 py-3 text-lg font-bold text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-on-action hover:bg-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             + 인생의 한 장면 추가하기
           </Link>

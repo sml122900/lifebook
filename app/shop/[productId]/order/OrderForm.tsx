@@ -26,7 +26,7 @@ type Props = {
 };
 
 const FIELD =
-  "w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2";
+  "w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2";
 
 export function OrderForm({ productId, clientKey, customerKey, testMode }: Props) {
   const router = useRouter();
@@ -180,7 +180,7 @@ export function OrderForm({ productId, clientKey, customerKey, testMode }: Props
           type="checkbox"
           checked={withdrawalConsent}
           onChange={(e) => setWithdrawalConsent(e.target.checked)}
-          className="mt-1 h-5 w-5 accent-amber-500"
+          className="mt-1 h-5 w-5 accent-action"
         />
         <span className="text-base text-ink">
           본 상품은 고객님의 주문에 따라 개별 제작되는 상품으로, 전자상거래
@@ -192,7 +192,7 @@ export function OrderForm({ productId, clientKey, customerKey, testMode }: Props
       {error && (
         <p
           role="alert"
-          className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900"
+          className="rounded-md border-2 border-danger bg-danger-wash px-4 py-3 text-base text-danger"
         >
           {error}
         </p>
@@ -202,7 +202,7 @@ export function OrderForm({ productId, clientKey, customerKey, testMode }: Props
         type="button"
         onClick={handlePay}
         disabled={submitting || !withdrawalConsent}
-        className="mt-2 inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-4 text-lg font-bold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+        className="mt-2 inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-4 text-lg font-bold text-on-action hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         {submitting
           ? method === "bank_transfer"

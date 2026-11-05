@@ -43,7 +43,7 @@ export default function LoginPage() {
         >
           <button
             type="submit"
-            className="flex min-h-[56px] w-full items-center justify-center gap-3 rounded-md bg-[#FEE500] px-6 py-4 text-lg font-semibold text-[#191600] hover:bg-[#FDD835] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#191600]/30 focus-visible:ring-offset-2"
+            className="flex min-h-[56px] w-full items-center justify-center gap-3 rounded-md bg-[#FEE500] px-6 py-4 text-lg font-semibold text-[#191600] hover:bg-[#FDD835] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <svg
               aria-hidden="true"
@@ -58,8 +58,8 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* 네이버 — 초록 #03C75A + 흰 글자. 네이버 로그인 브랜드 가이드
-            강제라 디자인 토큰 예외. 시니어 규격(min-h 56px, 18px) 유지. */}
+        {/* 네이버 — 흰 바탕 + 초록 N 마크 + 어두운 글자(2026-11-05 밤 우주 전원). 초록 바탕 흰 글자는 글자 대비 2.25:1 로
+            4.5:1 미달이라 흰 버튼형으로 바꿈(마크는 로고라 대비 예외). 브랜드 색은 디자인 토큰 예외, 시니어 규격(56px·18px) 유지. */}
         <form
           action={async () => {
             "use server";
@@ -69,14 +69,14 @@ export default function LoginPage() {
         >
           <button
             type="submit"
-            className="flex min-h-[56px] w-full items-center justify-center gap-3 rounded-md bg-[#03C75A] px-6 py-4 text-lg font-semibold text-white hover:bg-[#02B350] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#03C75A]/40 focus-visible:ring-offset-2"
+            className="flex min-h-[56px] w-full items-center justify-center gap-3 rounded-md bg-[#FFFFFF] px-6 py-4 text-lg font-semibold text-[#1F1F1F] hover:bg-[#F2F2F2] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <svg
               aria-hidden="true"
               width="18"
               height="18"
               viewBox="0 0 24 24"
-              fill="#ffffff"
+              fill="#03C75A"
             >
               <path d="M16.273 12.845 7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845z" />
             </svg>

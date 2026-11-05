@@ -50,12 +50,12 @@ export default async function AdminOrdersPage() {
                       {product?.name ?? o.productId}
                       {option ? ` (${option.name})` : ""}
                       {o.status === "awaiting_payment" && (
-                        <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                        <span className="ml-2 rounded bg-banner px-2 py-0.5 text-xs font-bold text-action">
                           입금대기
                         </span>
                       )}
                       {o.refundRequestedAt && (
-                        <span className="ml-2 rounded bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800">
+                        <span className="ml-2 rounded bg-danger-wash px-2 py-0.5 text-xs font-bold text-danger">
                           환불요청
                         </span>
                       )}

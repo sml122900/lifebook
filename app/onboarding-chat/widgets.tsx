@@ -48,13 +48,13 @@ export function YearWidget({
         data-lpignore="true"
         data-1p-ignore
         data-form-type="other"
-        className="w-0 flex-1 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[22px] font-medium text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
+        className="w-0 flex-1 rounded-xl border border-[var(--color-line)] bg-surface px-4 py-3 text-[22px] font-medium text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
       />
       <button
         type="button"
         onClick={() => valid && onSubmit(year)}
         disabled={!valid || disabled}
-        className="min-h-[56px] rounded-xl bg-[var(--color-action)] px-6 text-[17px] font-medium text-white disabled:opacity-40"
+        className="min-h-[56px] rounded-xl bg-action px-6 text-[17px] font-medium text-on-action disabled:opacity-40"
       >
         확인
       </button>
@@ -101,7 +101,7 @@ export function ChipsWidget({
               "min-h-[56px] rounded-full border px-4 py-2 text-[17px] font-medium transition-colors",
               selected.includes(opt)
                 ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10 text-[var(--color-brand)]"
-                : "border-[var(--color-line)] bg-white text-[var(--color-ink)] hover:border-[var(--color-brand)]/40",
+                : "border-[var(--color-line)] bg-surface text-[var(--color-ink)] hover:border-[var(--color-brand)]/40",
             ].join(" ")}
           >
             {opt}
@@ -112,7 +112,7 @@ export function ChipsWidget({
         type="button"
         onClick={() => onSubmit(selected)}
         disabled={selected.length === 0 || disabled}
-        className="w-full min-h-[56px] rounded-xl bg-[var(--color-action)] py-3 text-[17px] font-medium text-white disabled:opacity-40"
+        className="w-full min-h-[56px] rounded-xl bg-action py-3 text-[17px] font-medium text-on-action disabled:opacity-40"
       >
         선택 완료{selected.length > 0 ? ` (${selected.length})` : ""}
       </button>
@@ -315,8 +315,8 @@ export function PlaceableMultiItemWidget({
               className={[
                 "flex items-center gap-1 rounded-full px-3 py-1.5 text-[15px]",
                 item.place.lat !== null
-                  ? "bg-emerald-100 text-emerald-800"
-                  : "bg-amber-100 text-amber-800",
+                  ? "bg-success-wash text-success"
+                  : "bg-banner text-action",
               ].join(" ")}
             >
               {item.place.lat !== null && <span aria-hidden>📍</span>}
@@ -365,7 +365,7 @@ export function PlaceableMultiItemWidget({
         data-lpignore="true"
         data-1p-ignore
         data-form-type="other"
-        className="w-full rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
+        className="w-full rounded-xl border border-[var(--color-line)] bg-surface px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
       />
 
       {loading && (
@@ -374,7 +374,7 @@ export function PlaceableMultiItemWidget({
       {error && (
         <p
           role="alert"
-          className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[14px] text-amber-900"
+          className="rounded-xl border border-line bg-banner px-3 py-2 text-[14px] text-action"
         >
           {error}
         </p>
@@ -391,7 +391,7 @@ export function PlaceableMultiItemWidget({
                   addWithCoords(r.name, r.address || null, r.lat, r.lng, "naver")
                 }
                 disabled={disabled}
-                className="flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-left hover:border-[var(--color-brand)] hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--color-brand)] disabled:opacity-50"
+                className="flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-[var(--color-line)] bg-surface px-4 py-3 text-left hover:border-[var(--color-brand)] hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--color-brand)] disabled:opacity-50"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block text-[17px] font-medium text-[var(--color-ink)]">
@@ -424,7 +424,7 @@ export function PlaceableMultiItemWidget({
                 type="button"
                 onClick={() => pickSuggestion(s)}
                 disabled={detailLoading || disabled}
-                className="flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-left hover:border-[var(--color-brand)] hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--color-brand)] disabled:opacity-50"
+                className="flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-[var(--color-line)] bg-surface px-4 py-3 text-left hover:border-[var(--color-brand)] hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--color-brand)] disabled:opacity-50"
               >
                 <span className="min-w-0 flex-1 text-[17px] text-[var(--color-ink)]">
                   {s.text}
@@ -459,7 +459,7 @@ export function PlaceableMultiItemWidget({
           type="button"
           onClick={addTextOnly}
           disabled={disabled}
-          className="w-full min-h-[48px] rounded-xl border border-dashed border-[var(--color-line)] bg-white px-4 py-2 text-left text-[15px] text-[var(--color-ink-subtle)] hover:border-[var(--color-brand)] hover:text-[var(--color-ink)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--color-brand)] disabled:opacity-50"
+          className="w-full min-h-[48px] rounded-xl border border-dashed border-[var(--color-line)] bg-surface px-4 py-2 text-left text-[15px] text-[var(--color-ink-subtle)] hover:border-[var(--color-brand)] hover:text-[var(--color-ink)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--color-brand)] disabled:opacity-50"
         >
           📝 &ldquo;{trimmedQuery}&rdquo; 장소 검색 없이 추가
         </button>
@@ -476,7 +476,7 @@ export function PlaceableMultiItemWidget({
           )
         }
         disabled={items.length === 0 || disabled}
-        className="w-full min-h-[56px] rounded-xl bg-[var(--color-action)] py-3 text-[17px] font-medium text-white disabled:opacity-40"
+        className="w-full min-h-[56px] rounded-xl bg-action py-3 text-[17px] font-medium text-on-action disabled:opacity-40"
       >
         완료 ({items.length}개)
       </button>
@@ -511,7 +511,7 @@ export function MultiItemWidget({
           {items.map((item) => (
             <span
               key={item}
-              className="flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-[15px] text-amber-800"
+              className="flex items-center gap-1 rounded-full bg-banner px-3 py-1 text-[15px] text-action"
             >
               {item}
               <button
@@ -519,7 +519,7 @@ export function MultiItemWidget({
                 onClick={() => setItems((prev) => prev.filter((i) => i !== item))}
                 disabled={disabled}
                 aria-label={`${item} 제거`}
-                className="leading-none text-amber-500 hover:text-amber-800"
+                className="leading-none text-brand hover:text-action"
               >
                 ×
               </button>
@@ -540,7 +540,7 @@ export function MultiItemWidget({
           data-lpignore="true"
           data-1p-ignore
           data-form-type="other"
-          className="w-0 flex-1 rounded-xl border border-[var(--color-line)] bg-white px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
+          className="w-0 flex-1 rounded-xl border border-[var(--color-line)] bg-surface px-4 py-3 text-[17px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-subtle)] focus:border-[var(--color-brand)] focus:outline-none disabled:opacity-50"
         />
         <button
           type="button"
@@ -555,7 +555,7 @@ export function MultiItemWidget({
         type="button"
         onClick={() => onSubmit(items)}
         disabled={items.length === 0 || disabled}
-        className="w-full min-h-[56px] rounded-xl bg-[var(--color-action)] py-3 text-[17px] font-medium text-white disabled:opacity-40"
+        className="w-full min-h-[56px] rounded-xl bg-action py-3 text-[17px] font-medium text-on-action disabled:opacity-40"
       >
         완료 ({items.length}개)
       </button>

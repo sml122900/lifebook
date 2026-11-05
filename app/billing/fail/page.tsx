@@ -39,7 +39,7 @@ export default async function BillingFailPage({
       <p className="text-base text-ink-soft">코드: {code}</p>
       <Link
         href="/billing"
-        className="self-start rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+        className="self-start rounded-md bg-action px-6 py-4 text-lg font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         다시 시도하기
       </Link>

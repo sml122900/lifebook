@@ -63,7 +63,7 @@ export default async function LifeTimelineManagePage() {
           </p>
           <Link
             href="/life-timeline/add"
-            className="mt-4 inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="mt-4 inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             첫 이벤트 추가하기
           </Link>
@@ -85,7 +85,7 @@ export default async function LifeTimelineManagePage() {
                       "mt-1.5 inline-block flex-shrink-0 rounded-full border-2 " +
                       (exact
                         ? "h-5 w-5 border-action bg-action"
-                        : "h-4 w-4 border-amber-400 border-dashed bg-amber-100")
+                        : "h-4 w-4 border-brand border-dashed bg-banner")
                     }
                   />
                   <div className="min-w-0 flex-1">
@@ -93,7 +93,7 @@ export default async function LifeTimelineManagePage() {
                       className={
                         "text-base " +
                         (exact
-                          ? "font-semibold text-amber-800"
+                          ? "font-semibold text-action"
                           : "text-ink-soft")
                       }
                     >
@@ -158,7 +158,7 @@ export default async function LifeTimelineManagePage() {
         <div>
           <Link
             href="/life-timeline/add"
-            className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-amber-500 bg-amber-50 px-5 py-3 text-lg font-bold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-brand bg-banner px-5 py-3 text-lg font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             + 이벤트 더 추가하기
           </Link>

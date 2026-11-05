@@ -478,7 +478,7 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
         >
           <span
             className={[
-              "inline-block h-5 w-5 rounded-full bg-white shadow transition-transform",
+              "inline-block h-5 w-5 rounded-full bg-surface shadow transition-transform",
               ttsOn ? "translate-x-6" : "translate-x-1",
             ].join(" ")}
           />
@@ -509,7 +509,7 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
                 className={[
                   "max-w-[82%] rounded-2xl px-5 py-4 text-lg leading-relaxed whitespace-pre-wrap",
                   msg.role === "u"
-                    ? "bg-action text-white rounded-br-sm"
+                    ? "bg-action text-on-action rounded-br-sm"
                     : "bg-surface border border-line text-ink rounded-bl-sm",
                 ].join(" ")}
               >
@@ -540,13 +540,13 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
 
         {/* 세션 상한 배너 */}
         {sessionEndReason && (
-          <div className="rounded-xl bg-amber-50 px-6 py-4 text-center">
-            <p className="text-lg font-semibold text-amber-900">
+          <div className="rounded-xl bg-banner px-6 py-4 text-center">
+            <p className="text-lg font-semibold text-action">
               {sessionEndReason === "turns"
                 ? "오늘 정말 많은 이야기 해주셨어요!"
                 : "30분이 됐어요. 오늘은 여기서 마무리할까요?"}
             </p>
-            <p className="mt-1 text-sm text-amber-700">
+            <p className="mt-1 text-sm text-action">
               저장 후 이어서 새 대화를 시작하시면 이전 이야기를 기억해요.
             </p>
           </div>
@@ -561,7 +561,7 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
           <p className="text-base text-danger mb-2">{errorMsg}</p>
           <button
             onClick={handleRetry}
-            className="rounded-xl bg-action px-6 py-2 text-base font-semibold text-white hover:bg-action-hover"
+            className="rounded-xl bg-action px-6 py-2 text-base font-semibold text-on-action hover:bg-action-hover"
           >
             다시 해볼게요
           </button>
@@ -621,8 +621,8 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
               className={[
                 "flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-xl transition-colors",
                 isRecording
-                  ? "bg-danger text-white animate-pulse"
-                  : "bg-line text-ink hover:bg-ink-soft/20",
+                  ? "bg-danger text-on-action animate-pulse"
+                  : "bg-banner text-ink hover:bg-surface",
                 !isIdle && !isRecording ? "opacity-40 cursor-not-allowed" : "",
               ].join(" ")}
               aria-label={isRecording ? "녹음 종료" : "음성 입력"}
@@ -634,7 +634,7 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
             <button
               onClick={() => void handleSend()}
               disabled={!isIdle || !inputVal.trim()}
-              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-action text-white text-2xl font-bold transition-colors hover:bg-action-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-action text-on-action text-2xl font-bold transition-colors hover:bg-action-hover disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="전송"
             >
               ↑

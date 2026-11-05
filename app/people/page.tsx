@@ -86,7 +86,7 @@ export default async function PeopleListPage({
         </div>
         <Link
           href={`/people/new?type=${activeTab}`}
-          className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-amber-600 px-6 py-3 text-xl font-bold text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-xl font-bold text-on-action hover:bg-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           {tab.addLabel}
         </Link>
@@ -106,7 +106,7 @@ export default async function PeopleListPage({
               key={t.id}
               href={`/people?tab=${t.id}`}
               className={[
-                "flex flex-1 min-h-[48px] items-center justify-center gap-2 rounded px-3 py-2 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500",
+                "flex flex-1 min-h-[48px] items-center justify-center gap-2 rounded px-3 py-2 text-base font-semibold transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-brand",
                 isActive
                   ? "bg-surface text-ink shadow-sm"
                   : "text-ink-soft hover:text-ink",
@@ -115,7 +115,7 @@ export default async function PeopleListPage({
             >
               <Icon size={16} aria-hidden />
               {t.label}
-              <span className={isActive ? "text-amber-700" : "text-ink-faint"}>
+              <span className={isActive ? "text-action" : "text-ink-faint"}>
                 {count}
               </span>
             </Link>
@@ -153,7 +153,7 @@ export default async function PeopleListPage({
                     <li key={p.id}>
                       <Link
                         href={`/people/${p.id}`}
-                        className="flex flex-col gap-1 rounded-md border-2 border-line bg-surface px-5 py-4 hover:border-amber-300 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                        className="flex flex-col gap-1 rounded-md border-2 border-line bg-surface px-5 py-4 hover:border-line hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
                       >
                         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                           <span className="text-2xl font-bold text-ink">
@@ -179,7 +179,7 @@ export default async function PeopleListPage({
                             {p.memo}
                           </p>
                         )}
-                        <p className="text-sm text-amber-800">
+                        <p className="text-sm text-action">
                           {count > 0
                             ? `${count}개 사건과 함께`
                             : "아직 연결된 사건이 없어요"}

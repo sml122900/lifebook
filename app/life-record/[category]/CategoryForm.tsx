@@ -174,7 +174,7 @@ export function CategoryForm({
     <div className="flex flex-col gap-6">
       {hasExisting ? (
         <div
-          className="rounded-md border-2 border-emerald-300 bg-emerald-50 px-5 py-4 text-base text-emerald-900"
+          className="rounded-md border-2 border-success bg-success-wash px-5 py-4 text-base text-success"
           role="status"
         >
           이미 답하신 항목이에요. 수정하시려면 아래를 고친 뒤 저장해 주세요.
@@ -211,7 +211,7 @@ export function CategoryForm({
           onChange={(e) => setTitle(e.target.value)}
           placeholder={question.titlePlaceholder}
           maxLength={80}
-          className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           autoComplete="off"
         />
       </section>
@@ -236,7 +236,7 @@ export function CategoryForm({
               value={yearText}
               onChange={(e) => setYearText(e.target.value.replace(/\D/g, "").slice(0, 4))}
               placeholder="예: 1985"
-              className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             />
             {ageForYear && (
               <p className="mt-1 text-sm text-ink-soft">
@@ -259,7 +259,7 @@ export function CategoryForm({
               value={monthText}
               onChange={(e) => setMonthText(e.target.value.replace(/\D/g, "").slice(0, 2))}
               placeholder="3"
-              className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             />
           </div>
         </div>
@@ -288,7 +288,7 @@ export function CategoryForm({
                   setEndYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
                 }
                 placeholder="예: 1991"
-                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
               />
               {ageForEndYear && (
                 <p className="mt-1 text-sm text-ink-soft">
@@ -314,7 +314,7 @@ export function CategoryForm({
                 }
                 placeholder="2"
                 disabled={endYearText.trim() === ""}
-                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-faint"
+                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-faint"
               />
             </div>
           </div>
@@ -367,7 +367,7 @@ export function CategoryForm({
       {error && (
         <p
           role="alert"
-          className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900"
+          className="rounded-md border-2 border-danger bg-danger-wash px-4 py-3 text-base text-danger"
         >
           {error}
         </p>
@@ -401,7 +401,7 @@ export function CategoryForm({
             type="button"
             onClick={handleSave}
             disabled={isPending}
-            className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-on-action hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             {isPending ? "저장 중…" : "저장하고 다음 →"}
           </button>

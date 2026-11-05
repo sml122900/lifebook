@@ -65,7 +65,7 @@ function Choice({
         name="paymentMethod"
         checked={checked}
         onChange={onSelect}
-        className="mt-1.5 h-5 w-5 accent-amber-500"
+        className="mt-1.5 h-5 w-5 accent-action"
       />
       <span className="flex-1">
         <span className="block text-lg font-bold text-ink">{title}</span>

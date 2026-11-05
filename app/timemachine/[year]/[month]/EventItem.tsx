@@ -56,7 +56,7 @@ export function EventItem({
       className={
         "rounded-md border-2 p-5 " +
         (kept
-          ? "border-amber-300 bg-amber-50"
+          ? "border-line bg-banner"
           : "border-line bg-surface")
       }
     >
@@ -82,7 +82,7 @@ export function EventItem({
               <button
                 type="button"
                 onClick={() => onStatusChange("kept")}
-                className="min-h-[60px] rounded-md border-2 border-emerald-500 bg-emerald-50 px-5 py-3 text-base font-bold text-emerald-900 hover:bg-emerald-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                className="min-h-[60px] rounded-md border-2 border-success bg-success-wash px-5 py-3 text-base font-bold text-success hover:bg-success-wash focus:outline-none focus-visible:ring-4 focus-visible:ring-success focus-visible:ring-offset-2"
                 aria-label={`${item.title} 남기기`}
               >
                 ✓ 남기기

@@ -110,7 +110,7 @@ export default async function EditSharedMemoryPage({ params }: PageProps) {
           </Link>
           <button
             type="submit"
-            className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             저장
           </button>

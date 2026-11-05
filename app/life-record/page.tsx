@@ -94,13 +94,13 @@ export default async function LifeRecordIndexPage({
         </Link>
       </header>
 
-      <section className="rounded-md border-2 border-amber-300 bg-amber-50 p-6">
-        <p className="text-lg font-semibold text-amber-900">
+      <section className="rounded-md border-2 border-line bg-banner p-6">
+        <p className="text-lg font-semibold text-action">
           {allDone
             ? "골격이 모두 채워졌어요!"
             : `${totalCount}개 중 ${doneCount}개 답하셨어요`}
           {skippedCount > 0 && !allDone && (
-            <span className="ml-2 text-base font-medium text-amber-700">
+            <span className="ml-2 text-base font-medium text-action">
               (건너뜀 {skippedCount}개)
             </span>
           )}
@@ -116,7 +116,7 @@ export default async function LifeRecordIndexPage({
           {allDone ? (
             <Link
               href="/life-record/complete"
-              className="inline-flex min-h-[64px] items-center justify-center rounded-md bg-action px-8 py-4 text-xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+              className="inline-flex min-h-[64px] items-center justify-center rounded-md bg-action px-8 py-4 text-xl font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               완료 화면으로 →
             </Link>
@@ -125,7 +125,7 @@ export default async function LifeRecordIndexPage({
               <Link
                 href={`/life-record/${next}`}
                 prefetch
-                className="inline-flex min-h-[64px] items-center justify-center rounded-md bg-action px-8 py-4 text-xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+                className="inline-flex min-h-[64px] items-center justify-center rounded-md bg-action px-8 py-4 text-xl font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
                 {processedCount === 0 ? "시작하기 →" : "이어서 하기 →"}
               </Link>
@@ -156,7 +156,7 @@ export default async function LifeRecordIndexPage({
             // 뱃지 시각: 답함(success-deep 강조) ≠ 건너뜀(zinc 담담) ≠ 아직(zinc
             // 같지만 "아직"문구). X 표시·rose 같은 부정 색 금지(기획 원칙).
             const badgeClass = done
-              ? "bg-[#EAF2EA] text-success-deep"
+              ? "bg-success-wash text-success-deep"
               : isSkipped
                 ? "bg-canvas text-ink-faint"
                 : "bg-canvas text-ink-soft";

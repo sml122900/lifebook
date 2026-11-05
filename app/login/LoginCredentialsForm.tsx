@@ -54,7 +54,7 @@ export function LoginCredentialsForm() {
       <button
         type="submit"
         disabled={isPending}
-        className="min-h-[56px] w-full rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action/90 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-60"
+        className="min-h-[56px] w-full rounded-md bg-action px-6 py-4 text-lg font-semibold text-on-action hover:bg-action/90 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-60"
       >
         {isPending ? "로그인 중…" : "이메일로 로그인"}
       </button>

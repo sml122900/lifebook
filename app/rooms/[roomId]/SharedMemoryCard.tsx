@@ -84,7 +84,7 @@ export function SharedMemoryCard({ memory, viewerId, roomOwnerId }: Props) {
             <input type="hidden" name="memoryId" value={memory.id} />
             <button
               type="submit"
-              className="rounded-md border-2 border-rose-300 bg-surface px-4 py-2 text-base font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-400 focus-visible:ring-offset-2"
+              className="rounded-md border-2 border-danger bg-surface px-4 py-2 text-base font-semibold text-danger hover:bg-danger-wash focus:outline-none focus-visible:ring-4 focus-visible:ring-danger focus-visible:ring-offset-2"
             >
               삭제
             </button>

@@ -25,7 +25,7 @@ export function FamilyNewsCard({ news }: { news: FamilyNews }) {
 
   return (
     <section
-      className="flex flex-col gap-5 rounded-md border-2 border-amber-400 bg-amber-50 p-6"
+      className="flex flex-col gap-5 rounded-md border-2 border-brand bg-banner p-6"
       aria-labelledby="family-news-heading"
     >
       <FamilyNewsSeen
@@ -41,10 +41,10 @@ export function FamilyNewsCard({ news }: { news: FamilyNews }) {
 
       {newReactions.count > 0 && (
         <div className="flex flex-col gap-3">
-          <h3 className="text-xl font-bold text-amber-900">
+          <h3 className="text-xl font-bold text-action">
             가족이 내 이야기에 반응했어요
-            <span className="ml-2 text-base font-bold text-white">
-              <span className="rounded-full bg-amber-700 px-3 py-1">
+            <span className="ml-2 text-base font-bold text-on-action">
+              <span className="rounded-full bg-action px-3 py-1">
                 {newReactions.count}
               </span>
             </span>
@@ -54,7 +54,7 @@ export function FamilyNewsCard({ news }: { news: FamilyNews }) {
               <li key={`${it.memoryId}-${i}`}>
                 <Link
                   href={`/rooms/${it.roomId}#m-${it.memoryId}`}
-                  className="flex flex-col gap-1 rounded-md border-2 border-amber-200 bg-surface px-4 py-3 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                  className="flex flex-col gap-1 rounded-md border-2 border-line bg-surface px-4 py-3 hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
                 >
                   <span className="text-lg text-ink">
                     <b>{it.reactorName}</b>님이{" "}
@@ -79,10 +79,10 @@ export function FamilyNewsCard({ news }: { news: FamilyNews }) {
 
       {newRecords.count > 0 && (
         <div className="flex flex-col gap-3">
-          <h3 className="text-xl font-bold text-amber-900">
+          <h3 className="text-xl font-bold text-action">
             가족이 새 이야기를 남겼어요
-            <span className="ml-2 text-base font-bold text-white">
-              <span className="rounded-full bg-amber-700 px-3 py-1">
+            <span className="ml-2 text-base font-bold text-on-action">
+              <span className="rounded-full bg-action px-3 py-1">
                 {newRecords.count}
               </span>
             </span>
@@ -92,7 +92,7 @@ export function FamilyNewsCard({ news }: { news: FamilyNews }) {
               <li key={`${it.roomId}-${i}`}>
                 <Link
                   href={`/rooms/${it.roomId}`}
-                  className="flex items-center gap-2 rounded-md border-2 border-amber-200 bg-surface px-4 py-3 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                  className="flex items-center gap-2 rounded-md border-2 border-line bg-surface px-4 py-3 hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
                 >
                   <span className="text-lg text-ink">
                     <b>{it.authorName}</b>님이{" "}

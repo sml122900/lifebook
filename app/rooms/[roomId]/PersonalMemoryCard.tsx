@@ -81,11 +81,11 @@ export function PersonalMemoryCard({
   const isSelf = memory.userId === viewerId;
   const { counts, mine } = tallyReactions(reactions, viewerId);
   const tone = isSelf
-    ? { border: "border-amber-300", bg: "bg-amber-50", label: "text-amber-800" }
+    ? { border: "border-line", bg: "bg-banner", label: "text-action" }
     : {
-        border: "border-emerald-300",
-        bg: "bg-emerald-50",
-        label: "text-emerald-800",
+        border: "border-success",
+        bg: "bg-success-wash",
+        label: "text-success",
       };
 
   const isMusic = memory.event?.domain === "music";

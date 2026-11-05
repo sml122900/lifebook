@@ -76,7 +76,7 @@ export function PhotosGrid({ photos }: { photos: UserPhoto[] }) {
       {deleteError && (
         <p
           role="alert"
-          className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+          className="rounded-md border-2 border-danger bg-danger-wash px-4 py-3 text-sm text-danger"
         >
           {deleteError}
         </p>
@@ -91,7 +91,7 @@ export function PhotosGrid({ photos }: { photos: UserPhoto[] }) {
             <button
               type="button"
               onClick={() => setOpenId(p.id)}
-              className="block w-full text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+              className="block w-full text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
               aria-label={`${whenLabel(p)} 사진 크게 보기`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -191,7 +191,7 @@ function PhotoModal({
             type="button"
             onClick={onDelete}
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-rose-400 bg-surface px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-danger bg-surface px-4 py-2 text-sm font-semibold text-danger hover:bg-danger-wash focus:outline-none focus-visible:ring-4 focus-visible:ring-danger disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? "지우는 중…" : "사진 지우기"}
           </button>

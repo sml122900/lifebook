@@ -88,11 +88,11 @@ export default async function TokensPage() {
       </header>
 
       {/* 잔액 — 주인공 */}
-      <section className="rounded-md border-2 border-amber-300 bg-amber-50 p-6 text-center">
+      <section className="rounded-md border-2 border-line bg-banner p-6 text-center">
         <p className="text-base font-semibold text-ink-soft">남은 토큰</p>
-        <p className="mt-2 text-5xl font-bold text-amber-900 sm:text-6xl">
+        <p className="mt-2 text-5xl font-bold text-action sm:text-6xl">
           {balance.toLocaleString()}
-          <span className="ml-2 text-2xl font-semibold text-amber-800">
+          <span className="ml-2 text-2xl font-semibold text-action">
             개
           </span>
         </p>
@@ -115,7 +115,7 @@ export default async function TokensPage() {
         {txs.length === 0 ? (
           <p className="text-lg text-ink-soft">아직 내역이 없어요.</p>
         ) : (
-          <ul className="flex flex-col divide-y-2 divide-zinc-200 overflow-hidden rounded-md border-2 border-line bg-surface">
+          <ul className="flex flex-col divide-y-2 divide-line overflow-hidden rounded-md border-2 border-line bg-surface">
             {txs.map((t) => {
               const positive = t.delta >= 0;
               return (
@@ -134,7 +134,7 @@ export default async function TokensPage() {
                   <p
                     className={
                       "shrink-0 text-2xl font-bold tabular-nums " +
-                      (positive ? "text-emerald-700" : "text-rose-700")
+                      (positive ? "text-success" : "text-danger")
                     }
                   >
                     {positive ? "+" : ""}

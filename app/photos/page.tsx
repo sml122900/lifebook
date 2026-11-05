@@ -43,7 +43,7 @@ export default async function PhotosPage() {
         </p>
         <Link
           href="/photos/bulk"
-          className="mt-4 inline-flex min-h-[52px] items-center justify-center rounded-md border-2 border-amber-500 bg-amber-50 px-5 py-3 text-lg font-bold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="mt-4 inline-flex min-h-[52px] items-center justify-center rounded-md border-2 border-brand bg-banner px-5 py-3 text-lg font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <Camera strokeWidth={1.75} aria-hidden className="mr-1.5 h-5 w-5" />
           여러 장 한꺼번에 올리기
@@ -59,7 +59,7 @@ export default async function PhotosPage() {
         {listError && (
           <p
             role="alert"
-            className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+            className="rounded-md border-2 border-danger bg-danger-wash px-4 py-3 text-sm text-danger"
           >
             {listError}
           </p>

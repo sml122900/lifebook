@@ -144,7 +144,7 @@ function PhotoPicker({
       {error && (
         <p
           role="alert"
-          className="rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-3 text-base text-amber-900"
+          className="rounded-md border-2 border-line bg-banner px-4 py-3 text-base text-action"
         >
           {error}
         </p>

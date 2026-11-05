@@ -298,13 +298,13 @@ export function PlaceSearchInput({
           ? "Google"
           : "지도";
     return (
-      <div className="flex flex-col gap-3 rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-3">
+      <div className="flex flex-col gap-3 rounded-md border-2 border-line bg-banner px-4 py-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="flex items-center gap-1 text-base text-amber-900">
-              <MapPin strokeWidth={1.75} aria-hidden className="h-4 w-4 shrink-0 text-amber-900" />
+            <p className="flex items-center gap-1 text-base text-action">
+              <MapPin strokeWidth={1.75} aria-hidden className="h-4 w-4 shrink-0 text-action" />
               <b>{value.placeName}</b>
-              <span className="ml-1 text-sm text-amber-700">
+              <span className="ml-1 text-sm text-action">
                 · {sourceLabel}
               </span>
             </p>
@@ -318,7 +318,7 @@ export function PlaceSearchInput({
             <button
               type="button"
               onClick={startEditing}
-              className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
             >
               다른 곳으로 바꾸기
             </button>
@@ -408,7 +408,7 @@ export function PlaceSearchInput({
         }
         maxLength={100}
         autoFocus
-        className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+        className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
       />
 
       {loading && <p className="text-sm text-ink-soft">검색 중…</p>}
@@ -416,7 +416,7 @@ export function PlaceSearchInput({
       {error && (
         <p
           role="alert"
-          className="rounded-md border-2 border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          className="rounded-md border-2 border-line bg-banner px-3 py-2 text-sm text-action"
         >
           {error}
         </p>
@@ -431,7 +431,7 @@ export function PlaceSearchInput({
                 type="button"
                 onClick={() => pickSuggestion(s)}
                 disabled={detailLoading}
-                className="flex w-full min-h-[56px] items-center gap-3 rounded-md border-2 border-line bg-surface px-4 py-3 text-left text-base text-ink hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:opacity-50"
+                className="flex w-full min-h-[56px] items-center gap-3 rounded-md border-2 border-line bg-surface px-4 py-3 text-left text-base text-ink hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:opacity-50"
               >
                 <span aria-hidden className="shrink-0 text-ink-faint">○</span>
                 <span className="flex-1 min-w-0 text-base">{s.text}</span>
@@ -460,16 +460,16 @@ export function PlaceSearchInput({
                   onMouseEnter={() => hasCoord && setFocusedIdx(i)}
                   onFocus={() => hasCoord && setFocusedIdx(i)}
                   className={
-                    "flex w-full min-h-[48px] items-start gap-3 rounded-md border-2 px-4 py-2 text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 " +
+                    "flex w-full min-h-[48px] items-start gap-3 rounded-md border-2 px-4 py-2 text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
                     (focused
-                      ? "border-amber-500 bg-amber-100"
-                      : "border-line bg-surface hover:border-amber-400 hover:bg-amber-50")
+                      ? "border-brand bg-banner"
+                      : "border-line bg-surface hover:border-brand hover:bg-banner")
                   }
                 >
                   <span
                     aria-hidden
                     className={
-                      "mt-1 " + (focused ? "text-amber-700" : "text-ink-faint")
+                      "mt-1 " + (focused ? "text-action" : "text-ink-faint")
                     }
                   >
                     {focused ? "●" : "○"}
@@ -533,7 +533,7 @@ function SourcePickButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex min-h-[56px] items-center justify-center gap-2 rounded-md border-2 border-amber-400 bg-amber-50 px-5 py-3 text-lg font-bold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+      className="inline-flex min-h-[56px] items-center justify-center gap-2 rounded-md border-2 border-brand bg-banner px-5 py-3 text-lg font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     >
       {label}
     </button>

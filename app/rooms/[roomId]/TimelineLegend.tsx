@@ -3,8 +3,8 @@
 
 const ITEMS: Array<{ swatch: string; label: string }> = [
   { swatch: "bg-brand border-brand", label: "세상 사건" },
-  { swatch: "bg-amber-300 border-amber-500", label: "나의 추억" },
-  { swatch: "bg-emerald-300 border-emerald-500", label: "다른 분의 추억" },
+  { swatch: "bg-brand border-brand", label: "나의 추억" },
+  { swatch: "bg-success border-success", label: "다른 분의 추억" },
   { swatch: "bg-brand border-brand", label: "우리의 추억" },
 ];
 

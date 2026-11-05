@@ -75,7 +75,7 @@ export default async function AdminOrderDetailPage({
           {order.refundRequestedAt && (
             <>
               <dt className="text-ink-faint">환불요청</dt>
-              <dd className="font-bold text-rose-700">{dt(order.refundRequestedAt)}</dd>
+              <dd className="font-bold text-danger">{dt(order.refundRequestedAt)}</dd>
             </>
           )}
           {order.refundedAt && (
@@ -107,19 +107,19 @@ export default async function AdminOrderDetailPage({
       {/* 무통장 입금 확인 — awaiting_payment 일 때만 */}
       {order.paymentMethod === "bank_transfer" &&
         order.status === "awaiting_payment" && (
-          <section className="rounded-md border-2 border-amber-300 bg-amber-50 px-5 py-4">
-            <h2 className="text-base font-bold text-amber-900">입금 확인</h2>
-            <p className="mt-1 text-sm text-amber-800">
+          <section className="rounded-md border-2 border-line bg-banner px-5 py-4">
+            <h2 className="text-base font-bold text-action">입금 확인</h2>
+            <p className="mt-1 text-sm text-action">
               입금 계좌: {BANK_TRANSFER_INFO.bankName}{" "}
               {BANK_TRANSFER_INFO.accountNumber} · 금액 {won(order.totalKrw)}원
             </p>
-            <p className="text-sm text-amber-800">
+            <p className="text-sm text-action">
               입금자명(주문자): {order.user?.name ?? order.user?.email ?? "—"}
             </p>
             <form action={confirmBankPayment.bind(null, order.id)} className="mt-3">
               <button
                 type="submit"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-bold text-white hover:bg-action-hover"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-bold text-on-action hover:bg-action-hover"
               >
                 입금 확인 (제작 대기로)
               </button>
@@ -191,7 +191,7 @@ export default async function AdminOrderDetailPage({
           </label>
           <button
             type="submit"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-bold text-white hover:bg-action-hover"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-bold text-on-action hover:bg-action-hover"
           >
             저장(발송 처리)
           </button>
@@ -200,9 +200,9 @@ export default async function AdminOrderDetailPage({
 
       {/* 환불(발주 전 = paid 상태만) */}
       {order.status === "paid" && (
-        <section className="rounded-md border-2 border-rose-200 bg-rose-50 px-5 py-4">
-          <h2 className="text-base font-bold text-rose-900">환불 처리</h2>
-          <p className="mt-1 text-sm text-rose-800">
+        <section className="rounded-md border-2 border-danger bg-danger-wash px-5 py-4">
+          <h2 className="text-base font-bold text-danger">환불 처리</h2>
+          <p className="mt-1 text-sm text-danger">
             발주(제작) 전이라 환불할 수 있어요.
             {order.refundRequestedAt && " 사용자가 환불을 요청했어요."}
           </p>
@@ -210,11 +210,11 @@ export default async function AdminOrderDetailPage({
             <input
               name="reason"
               placeholder="환불 사유(선택)"
-              className="flex-1 rounded-md border-2 border-rose-200 bg-white px-3 py-2 text-base text-ink"
+              className="flex-1 rounded-md border-2 border-danger bg-surface px-3 py-2 text-base text-ink"
             />
             <button
               type="submit"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-rose-500 bg-white px-4 py-2 text-sm font-bold text-rose-700 hover:bg-rose-500 hover:text-white"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-danger bg-surface px-4 py-2 text-sm font-bold text-danger hover:bg-danger hover:text-on-action"
             >
               환불 처리
             </button>

@@ -51,7 +51,7 @@ export function DraftLocationCard({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white px-4 py-3">
+    <div className="flex flex-col gap-3 rounded-lg border border-line bg-surface px-4 py-3">
       {/* 장소 정보 */}
       <div>
         <p className="font-semibold text-ink">📍 {name}</p>
@@ -62,19 +62,19 @@ export function DraftLocationCard({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="self-start text-sm font-semibold text-amber-700 underline-offset-2 hover:underline focus:outline-none"
+        className="self-start text-sm font-semibold text-action underline-offset-2 hover:underline focus:outline-none"
       >
         {expanded ? "▲ 지도 검색 닫기" : "▼ 지도에서 위치 찾기 (선택)"}
       </button>
 
       {expanded && (
-        <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-3">
+        <div className="rounded-lg border-2 border-line bg-banner p-3">
           <PlaceSearchInput value={place} onChange={setPlace} />
         </div>
       )}
 
       {error && (
-        <p role="alert" className="text-sm text-rose-700">{error}</p>
+        <p role="alert" className="text-sm text-danger">{error}</p>
       )}
 
       {/* 승인/거절 버튼 */}
@@ -85,7 +85,7 @@ export function DraftLocationCard({
             type="button"
             onClick={onApproveWithPlace}
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-600 bg-emerald-100 px-3 text-sm font-semibold text-emerald-900 hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-success bg-success-wash px-3 text-sm font-semibold text-success hover:bg-success-wash disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? "저장 중…" : "✓ 지도 위치 저장 후 추가"}
           </button>
@@ -95,7 +95,7 @@ export function DraftLocationCard({
           <button
             type="submit"
             disabled={isPending}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-500 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-success bg-success-wash px-3 text-sm font-semibold text-success hover:bg-success-wash disabled:cursor-not-allowed disabled:opacity-50"
           >
             ✓ {hasCoords ? "좌표 없이 추가" : "추가"}
           </button>

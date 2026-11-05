@@ -115,7 +115,7 @@ function StoryList({ items }: { items: StoryTimelineItem[] }) {
           <span className="flex items-center gap-2">
             <span className="text-base font-bold text-action">{it.year}년</span>
             {it.isNew && (
-              <span className="rounded-full bg-action px-2 py-0.5 text-xs font-bold text-white">
+              <span className="rounded-full bg-action px-2 py-0.5 text-xs font-bold text-on-action">
                 새 이야기
               </span>
             )}

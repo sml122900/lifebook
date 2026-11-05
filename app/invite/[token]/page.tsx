@@ -66,7 +66,7 @@ export default async function InvitePage({ params }: PageProps) {
         </p>
       </header>
 
-      <section className="rounded-md border-2 border-amber-200 bg-amber-50 p-5">
+      <section className="rounded-md border-2 border-line bg-banner p-5">
         <p className="text-lg text-ink">
           참여하시면 앞으로 작성하시는 추억이 이 룸의 멤버에게 보입니다.
           기존에 적어두신 추억도 마찬가지로 공유됩니다.

@@ -73,21 +73,21 @@ export function DraftPhotoUpload({ memoryId }: { memoryId: string }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="self-start text-sm font-semibold text-sky-700 underline-offset-2 hover:underline focus:outline-none"
+          className="self-start text-sm font-semibold text-place underline-offset-2 hover:underline focus:outline-none"
         >
           📷 사진 붙이기
           {uploadedCount > 0 && (
-            <span className="ml-1.5 inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-800">
+            <span className="ml-1.5 inline-flex items-center rounded-full bg-place-wash px-2 py-0.5 text-xs font-bold text-place">
               {uploadedCount}장 올림
             </span>
           )}
         </button>
       ) : (
-        <div className="flex flex-col gap-2 rounded-md border border-sky-200 bg-sky-50 p-3">
-          <p className="text-sm font-semibold text-sky-800">
+        <div className="flex flex-col gap-2 rounded-md border border-place bg-place-wash p-3">
+          <p className="text-sm font-semibold text-place">
             📷 사진 붙이기
             {uploadedCount > 0 && (
-              <span className="ml-1.5 font-normal text-sky-600">{uploadedCount}장 올렸어요</span>
+              <span className="ml-1.5 font-normal text-place">{uploadedCount}장 올렸어요</span>
             )}
           </p>
           <label className="flex flex-col gap-1">
@@ -102,7 +102,7 @@ export function DraftPhotoUpload({ memoryId }: { memoryId: string }) {
             />
           </label>
           {isPending && <p className="text-xs text-ink-soft">올리는 중…</p>}
-          {error && <p role="alert" className="text-xs text-rose-700">{error}</p>}
+          {error && <p role="alert" className="text-xs text-danger">{error}</p>}
           <button
             type="button"
             onClick={() => setOpen(false)}

@@ -106,9 +106,9 @@ export function LinkToggleRow({
             className={
               "mt-1 text-sm " +
               (toast.kind === "error"
-                ? "text-rose-700"
+                ? "text-danger"
                 : toast.kind === "ok"
-                  ? "text-emerald-700"
+                  ? "text-success"
                   : "text-ink-soft")
             }
           >
@@ -122,10 +122,10 @@ export function LinkToggleRow({
         disabled={isPending}
         aria-pressed={linked}
         className={
-          "inline-flex min-h-[48px] min-w-[140px] items-center justify-center rounded-md border-2 px-5 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
+          "inline-flex min-h-[48px] min-w-[140px] items-center justify-center rounded-md border-2 px-5 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
           (linked
-            ? "border-amber-600 bg-amber-600 text-white hover:bg-amber-700"
-            : "border-line bg-surface text-ink hover:border-amber-400 hover:bg-amber-50")
+            ? "border-brand bg-action text-on-action hover:bg-action"
+            : "border-line bg-surface text-ink hover:border-brand hover:bg-banner")
         }
       >
         {linked ? "✓ 연결됨" : "+ 연결하기"}

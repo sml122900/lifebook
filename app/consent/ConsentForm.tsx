@@ -36,7 +36,7 @@ export function ConsentForm() {
       <button
         type="submit"
         disabled={!canSubmit || submitting}
-        className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:text-ink-faint"
+        className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-on-action hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:text-ink-faint"
       >
         {submitting ? "저장 중..." : "시작하기"}
       </button>

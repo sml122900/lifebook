@@ -157,7 +157,7 @@ export default async function RoomDetailPage({ params }: PageProps) {
 
       <section>
         <h2 className="text-xl font-bold text-ink">멤버</h2>
-        <ul className="mt-3 flex flex-col divide-y-2 divide-zinc-200 overflow-hidden rounded-md border-2 border-line bg-surface">
+        <ul className="mt-3 flex flex-col divide-y-2 divide-line overflow-hidden rounded-md border-2 border-line bg-surface">
           {room.members.map((m) => (
             <li
               key={m.id}
@@ -184,7 +184,7 @@ export default async function RoomDetailPage({ params }: PageProps) {
           <input type="hidden" name="roomId" value={room.id} />
           <button
             type="submit"
-            className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             새 초대 링크 만들기
           </button>

@@ -293,7 +293,7 @@ export function BulkUploadForm() {
       {notice && (
         <p
           role="alert"
-          className="rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-3 text-base text-amber-900"
+          className="rounded-md border-2 border-line bg-banner px-4 py-3 text-base text-action"
         >
           {notice}
         </p>
@@ -308,14 +308,14 @@ export function BulkUploadForm() {
           {/* 진행 카운트 */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-2xl font-bold text-ink">
-              {total}장 중 <span className="text-emerald-700">{doneCount}장</span>{" "}
+              {total}장 중 <span className="text-success">{doneCount}장</span>{" "}
               올렸어요
             </p>
             <button
               type="button"
               onClick={runUpload}
               disabled={uploading || remaining === 0}
-              className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {uploading
                 ? "올리는 중…"
@@ -326,13 +326,13 @@ export function BulkUploadForm() {
           </div>
 
           {allDone && (
-            <div className="flex flex-col gap-2 rounded-md border-2 border-emerald-300 bg-emerald-50 px-5 py-4">
-              <p className="text-lg font-bold text-emerald-900">
+            <div className="flex flex-col gap-2 rounded-md border-2 border-success bg-success-wash px-5 py-4">
+              <p className="text-lg font-bold text-success">
                 ✓ {total}장 모두 연혁에 담았어요.
               </p>
               <a
                 href="/life-timeline"
-                className="w-fit text-base font-semibold text-emerald-800 underline hover:text-emerald-900"
+                className="w-fit text-base font-semibold text-success underline hover:text-success"
               >
                 인생 연혁에서 보기 →
               </a>
@@ -341,11 +341,11 @@ export function BulkUploadForm() {
 
           {/* 날짜 없는 사진 — 일괄 연도 지정 */}
           {noDateItems.length > 0 && (
-            <section className="flex flex-col gap-3 rounded-md border-2 border-amber-200 bg-amber-50 p-4">
-              <p className="text-lg font-semibold text-amber-900">
+            <section className="flex flex-col gap-3 rounded-md border-2 border-line bg-banner p-4">
+              <p className="text-lg font-semibold text-action">
                 날짜를 못 읽은 사진 {noDateItems.length}장
               </p>
-              <p className="text-base text-amber-900">
+              <p className="text-base text-action">
                 카톡·캡처 사진은 찍은 날짜가 없을 수 있어요. 아래에 연도를
                 적고 <b>일괄 지정</b>을 누르거나, 사진마다 따로 적어주세요.
               </p>
@@ -364,14 +364,14 @@ export function BulkUploadForm() {
                     }
                     placeholder="예: 2005"
                     disabled={uploading}
-                    className="w-32 rounded-md border-2 border-line bg-surface px-3 py-2 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+                    className="w-32 rounded-md border-2 border-line bg-surface px-3 py-2 text-lg text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
                   />
                 </label>
                 <button
                   type="button"
                   onClick={applyBulkYear}
                   disabled={uploading || bulkYear.trim() === ""}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-amber-500 bg-surface px-4 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-brand bg-surface px-4 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {noDateItems.length}장에 일괄 지정
                 </button>
@@ -420,8 +420,8 @@ function StatusChip({ status }: { status: Status }) {
       text: "올리는 중…",
       cls: "border-brand bg-banner text-action",
     },
-    done: { text: "✓ 완료", cls: "border-emerald-300 bg-emerald-50 text-emerald-800" },
-    error: { text: "⚠ 실패", cls: "border-rose-300 bg-rose-50 text-rose-800" },
+    done: { text: "✓ 완료", cls: "border-success bg-success-wash text-success" },
+    error: { text: "⚠ 실패", cls: "border-danger bg-danger-wash text-danger" },
   };
   const s = map[status];
   return (
@@ -462,7 +462,7 @@ function PhotoCard({
         className="aspect-square w-full rounded object-cover"
       />
       <StatusChip status={item.status} />
-      {item.error && <p className="text-xs text-rose-700">{item.error}</p>}
+      {item.error && <p className="text-xs text-danger">{item.error}</p>}
       <div className="flex items-center gap-2">
         <input
           type="text"
@@ -472,7 +472,7 @@ function PhotoCard({
           onChange={(e) => onYear(item.id, e.target.value)}
           placeholder="연도"
           disabled={uploading || item.status === "done"}
-          className="w-20 rounded-md border-2 border-line bg-surface px-2 py-1 text-base text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:bg-canvas"
+          className="w-20 rounded-md border-2 border-line bg-surface px-2 py-1 text-base text-ink focus:border-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:bg-canvas"
         />
         {item.month != null && (
           <span className="text-sm text-ink-faint">{item.month}월</span>
@@ -481,7 +481,7 @@ function PhotoCard({
           <span
             className={
               "text-xs " +
-              (item.source === "exif" ? "text-emerald-700" : "text-amber-700")
+              (item.source === "exif" ? "text-success" : "text-action")
             }
           >
             {sourceLabel}

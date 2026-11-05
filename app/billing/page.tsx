@@ -104,7 +104,7 @@ export default async function BillingPage() {
         {txs.length === 0 ? (
           <p className="text-lg text-ink-soft">아직 내역이 없어요.</p>
         ) : (
-          <ul className="flex flex-col divide-y-2 divide-zinc-200 overflow-hidden rounded-md border-2 border-line bg-surface">
+          <ul className="flex flex-col divide-y-2 divide-line overflow-hidden rounded-md border-2 border-line bg-surface">
             {txs.map((t) => {
               const positive = t.delta >= 0;
               return (
@@ -123,7 +123,7 @@ export default async function BillingPage() {
                   <p
                     className={
                       "shrink-0 text-2xl font-bold tabular-nums " +
-                      (positive ? "text-emerald-700" : "text-rose-700")
+                      (positive ? "text-success" : "text-danger")
                     }
                   >
                     {positive ? "+" : ""}

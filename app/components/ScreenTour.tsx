@@ -32,7 +32,7 @@ export function ScreenTour({
         type="button"
         onClick={() => window.dispatchEvent(new CustomEvent(START_TOUR_EVENT))}
         aria-label="이 화면 둘러보기"
-        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-6 z-40 inline-flex min-h-[52px] items-center gap-2 rounded-full border-2 border-amber-400 bg-surface px-5 text-base font-bold text-amber-900 shadow-lg hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-6 z-40 inline-flex min-h-[52px] items-center gap-2 rounded-full border-2 border-brand bg-surface px-5 text-base font-bold text-action shadow-lg hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         <HelpCircle strokeWidth={1.75} aria-hidden className="h-5 w-5" />
         도움말

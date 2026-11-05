@@ -468,7 +468,7 @@ function DesktopTimeline({
       {/* 중앙 베이스선 (옅은 amber) */}
       <div
         aria-hidden
-        className="absolute top-0 bottom-0 left-1/2 w-1 -translate-x-1/2 rounded-full bg-amber-100"
+        className="absolute top-0 bottom-0 left-1/2 w-1 -translate-x-1/2 rounded-full bg-banner"
       />
 
       {/* 빈 공간 클릭 영역 — 중앙선 좌우 ±20px */}
@@ -532,7 +532,7 @@ function MobileTimeline({
     <ol className="pointer-events-none relative py-3">
       <div
         aria-hidden
-        className="absolute top-0 bottom-0 left-4 w-1 rounded-full bg-amber-100"
+        className="absolute top-0 bottom-0 left-4 w-1 rounded-full bg-banner"
       />
 
       {/* 빈 공간 클릭 영역 — 왼쪽 선 좌우 ±20px */}
@@ -749,13 +749,13 @@ function TimelineRow({
       {flag.topHalf && (
         <div
           aria-hidden
-          className={`absolute top-0 bottom-1/2 ${periodBarAt} w-1 bg-amber-500`}
+          className={`absolute top-0 bottom-1/2 ${periodBarAt} w-1 bg-action`}
         />
       )}
       {flag.bottomHalf && (
         <div
           aria-hidden
-          className={`absolute top-1/2 bottom-0 ${periodBarAt} w-1 bg-amber-500`}
+          className={`absolute top-1/2 bottom-0 ${periodBarAt} w-1 bg-action`}
         />
       )}
 
@@ -764,8 +764,8 @@ function TimelineRow({
         aria-hidden
         className={
           layout === "mobile"
-            ? "absolute top-1/2 left-4 ml-3 h-0.5 w-6 -translate-y-1/2 bg-amber-300"
-            : "absolute top-1/2 h-0.5 w-10 -translate-y-1/2 bg-amber-300 " +
+            ? "absolute top-1/2 left-4 ml-3 h-0.5 w-6 -translate-y-1/2 bg-brand"
+            : "absolute top-1/2 h-0.5 w-10 -translate-y-1/2 bg-brand " +
               (cardSide === "right" ? "left-1/2 ml-3" : "right-1/2 mr-3")
         }
       />
@@ -798,7 +798,7 @@ function TimelineRow({
           <Link
             href={editHref(e)}
             aria-label={aria}
-            className="pointer-events-auto relative block rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="pointer-events-auto relative block rounded-full focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <span
               aria-hidden
@@ -806,7 +806,7 @@ function TimelineRow({
                 "block rounded-full border-2 " +
                 (exact
                   ? "h-6 w-6 border-action bg-action"
-                  : "h-4 w-4 border-amber-400 border-dashed bg-amber-100")
+                  : "h-4 w-4 border-brand border-dashed bg-banner")
               }
             />
           </Link>
@@ -817,7 +817,7 @@ function TimelineRow({
           href={addNearHref(e.eventYear)}
           aria-label={`${e.eventYear}년 즈음에 새 이야기 추가하기`}
           className={
-            "pointer-events-auto absolute top-1/2 left-full z-20 ml-2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border-2 border-amber-400 bg-amber-100 text-2xl font-bold text-amber-800 transition-opacity hover:bg-amber-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
+            "pointer-events-auto absolute top-1/2 left-full z-20 ml-2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border-2 border-brand bg-banner text-2xl font-bold text-action transition-opacity hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
             // 모바일은 항상 표시, 데스크톱은 그룹 호버/포커스 시 표시
             (layout === "mobile"
               ? "opacity-100"
@@ -896,7 +896,7 @@ function EventCard({
         href={editHref(e)}
         aria-label={aria}
         className={
-          "block w-full rounded-md border-[1.5px] border-brand bg-surface px-4 py-3 pr-12 transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2" +
+          "block w-full rounded-md border-[1.5px] border-brand bg-surface px-4 py-3 pr-12 transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2" +
           (align === "right" ? " pl-12 pr-4 text-right" : " text-left")
         }
       >
@@ -936,7 +936,7 @@ function EventCard({
         aria-label={`${displayTitle} — 함께한 인물 연결`}
         title="함께한 인물 연결"
         className={
-          "absolute z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 " +
+          "absolute z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 border-line bg-surface shadow-sm hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
           btnCorner
         }
       >
@@ -1076,7 +1076,7 @@ function EraCard({
                     (align === "right" ? "text-right" : "text-left")
                   }
                 >
-                  <span className="font-semibold text-emerald-700">
+                  <span className="font-semibold text-success">
                     그때 저는 —{" "}
                   </span>
                   {localContent}
@@ -1084,7 +1084,7 @@ function EraCard({
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="inline-flex min-h-[44px] items-center rounded-md border border-emerald-300 bg-surface px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  className="inline-flex min-h-[44px] items-center rounded-md border border-success bg-surface px-3 py-2 text-xs font-semibold text-success hover:bg-success-wash focus:outline-none focus-visible:ring-2 focus-visible:ring-success"
                 >
                   회상 수정
                 </button>
@@ -1124,7 +1124,7 @@ function EraCard({
           </button>
         </div>
         {error && (
-          <p role="alert" className="mt-1 text-xs text-rose-700">
+          <p role="alert" className="mt-1 text-xs text-danger">
             {error}
           </p>
         )}
@@ -1176,7 +1176,7 @@ function PlaceChip({
         ? "Google 지도"
         : "지도";
   const className =
-    "text-xs leading-snug text-ink-soft hover:text-amber-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 " +
+    "text-xs leading-snug text-ink-soft hover:text-action hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand " +
     (align === "right" ? "text-right" : "text-left");
   const content = (
     <>
@@ -1234,7 +1234,7 @@ function PeoplePreview({
       onClick={onClick}
       aria-label={`함께한 분 ${people.length}명 — 인물 연결 열기`}
       className={
-        "mt-1 max-w-[18rem] rounded-md text-xs leading-snug text-ink-soft hover:text-amber-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 " +
+        "mt-1 max-w-[18rem] rounded-md text-xs leading-snug text-ink-soft hover:text-action hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand " +
         (align === "right" ? "text-right" : "text-left")
       }
     >
@@ -1456,7 +1456,7 @@ function AttachToEventModal({
         {error && (
           <p
             role="alert"
-            className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-2 text-sm text-rose-900"
+            className="rounded-md border-2 border-danger bg-danger-wash px-4 py-2 text-sm text-danger"
           >
             {error}
           </p>
@@ -1470,7 +1470,7 @@ function AttachToEventModal({
                   type="button"
                   onClick={() => pick(o.memoryId)}
                   disabled={isPending}
-                  className="flex w-full min-h-[52px] items-center justify-between gap-3 rounded-md border-2 border-line bg-surface px-4 py-2 text-left hover:border-amber-400 hover:bg-amber-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full min-h-[52px] items-center justify-between gap-3 rounded-md border-2 border-line bg-surface px-4 py-2 text-left hover:border-brand hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-base font-semibold text-ink">
@@ -1479,7 +1479,7 @@ function AttachToEventModal({
                     <span className="block text-sm text-ink-faint">{when}</span>
                   </span>
                   {busyId === o.memoryId && (
-                    <span className="text-sm text-amber-700">넣는 중…</span>
+                    <span className="text-sm text-action">넣는 중…</span>
                   )}
                 </button>
               </li>
@@ -1561,7 +1561,7 @@ function PhotoPlaceModal({
         {error && (
           <p
             role="alert"
-            className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-2 text-sm text-rose-900"
+            className="rounded-md border-2 border-danger bg-danger-wash px-4 py-2 text-sm text-danger"
           >
             {error}
           </p>
@@ -1579,7 +1579,7 @@ function PhotoPlaceModal({
             type="button"
             onClick={save}
             disabled={isPending}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-sm font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-line"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-sm font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-line"
           >
             {isPending ? "저장 중…" : "장소 저장"}
           </button>
@@ -1639,7 +1639,7 @@ function PhotoStrip({
             type="button"
             onClick={() => onOpenPhoto({ url, caption: p.caption, label })}
             aria-label={`${label} 사진 크게 보기`}
-            className="block h-16 w-16 overflow-hidden rounded-md border-2 border-amber-200 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+            className="block h-16 w-16 overflow-hidden rounded-md border-2 border-line focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -1652,7 +1652,7 @@ function PhotoStrip({
         );
       })}
       {extra > 0 && (
-        <span className="flex h-16 w-16 items-center justify-center rounded-md border-2 border-amber-200 bg-amber-50 text-sm font-semibold text-amber-800">
+        <span className="flex h-16 w-16 items-center justify-center rounded-md border-2 border-line bg-banner text-sm font-semibold text-action">
           외 {extra}장
         </span>
       )}
@@ -1744,7 +1744,7 @@ function LineClickArea({
       title="이 자리를 눌러 이야기 추가"
       className={
         // pointer-events-auto: ol 의 -none 을 뚫고 클릭 받음.
-        "pointer-events-auto cursor-pointer rounded-md hover:bg-amber-50/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 " +
+        "pointer-events-auto cursor-pointer rounded-md hover:bg-banner/40 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
         position
       }
     />
@@ -1765,21 +1765,21 @@ function Legend() {
       <span className="flex items-center gap-2">
         <span
           aria-hidden
-          className="inline-block h-4 w-4 rounded-full border-2 border-amber-400 border-dashed bg-amber-100"
+          className="inline-block h-4 w-4 rounded-full border-2 border-brand border-dashed bg-banner"
         />
         대략적인 시점
       </span>
       <span className="flex items-center gap-2">
         <span
           aria-hidden
-          className="inline-block h-6 w-1 rounded-full bg-amber-500"
+          className="inline-block h-6 w-1 rounded-full bg-action"
         />
         기간
       </span>
       <span className="flex items-center gap-2">
         <span
           aria-hidden
-          className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-amber-400 bg-amber-100 text-base font-bold text-amber-800"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-brand bg-banner text-base font-bold text-action"
         >
           +
         </span>

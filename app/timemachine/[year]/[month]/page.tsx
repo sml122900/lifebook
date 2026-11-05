@@ -54,7 +54,7 @@ function nextMonth(year: number, month: number) {
 // (죄책감 유발 금지). amber 톤은 어두운/밝은 버튼 양쪽에서 읽힘.
 function FilledBadge() {
   return (
-    <span className="rounded-full bg-amber-100 px-3 py-0.5 text-sm font-semibold text-amber-900">
+    <span className="rounded-full bg-banner px-3 py-0.5 text-sm font-semibold text-action">
       기록 있음
     </span>
   );
@@ -164,7 +164,7 @@ async function _TimemachineMonthPageArchived({ params }: PageProps) {
           <Link
             href={`/timemachine/${prev.year}/${prev.month}`}
             prefetch
-            className="inline-flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md bg-action px-8 py-4 text-xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="inline-flex min-h-[72px] flex-col items-center justify-center gap-1 rounded-md bg-action px-8 py-4 text-xl font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <span>← {prev.year}년 {prev.month}월 보기</span>
             {prevFilled && <FilledBadge />}

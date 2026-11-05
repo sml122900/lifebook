@@ -49,7 +49,7 @@ export default async function PersonDetailPage({ params }: Params) {
       </Link>
 
       {/* 헤더 — 정보 + 수정/삭제 */}
-      <section className="flex flex-col gap-4 rounded-md border-2 border-amber-200 bg-amber-50 px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+      <section className="flex flex-col gap-4 rounded-md border-2 border-line bg-banner px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <h1 className="text-4xl font-bold text-ink sm:text-5xl">
             {person.name}
@@ -58,7 +58,7 @@ export default async function PersonDetailPage({ params }: Params) {
           {person.subjectType === SUBJECT_TYPE.PERSON && (
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
               {person.category && (
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-base font-semibold text-amber-800">
+                <span className="rounded-full bg-banner px-3 py-1 text-base font-semibold text-action">
                   {person.category}
                 </span>
               )}
@@ -123,7 +123,7 @@ export default async function PersonDetailPage({ params }: Params) {
           </h2>
           <Link
             href={`/people/${person.id}/link`}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-amber-600 px-5 py-2 text-base font-bold text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-on-action hover:bg-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             + 이야기 연결하기
           </Link>

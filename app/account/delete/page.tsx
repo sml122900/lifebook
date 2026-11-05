@@ -53,8 +53,8 @@ export default async function AccountDeletePage() {
         </p>
       </header>
 
-      <section className="rounded-md border-2 border-rose-200 bg-rose-50 p-5">
-        <h2 className="text-2xl font-bold text-rose-900">사라지는 것</h2>
+      <section className="rounded-md border-2 border-danger bg-danger-wash p-5">
+        <h2 className="text-2xl font-bold text-danger">사라지는 것</h2>
         <ul className="mt-3 space-y-2 text-lg text-ink">
           <li>· 내가 적은 추억 <b>{memoryCount}건</b> (전부)</li>
           <li>· 남은 토큰 잔액</li>
@@ -63,8 +63,8 @@ export default async function AccountDeletePage() {
         </ul>
       </section>
 
-      <section className="rounded-md border-2 border-amber-200 bg-amber-50 p-5">
-        <h2 className="text-2xl font-bold text-amber-900">가족 룸</h2>
+      <section className="rounded-md border-2 border-line bg-banner p-5">
+        <h2 className="text-2xl font-bold text-action">가족 룸</h2>
         {ownedRooms.length === 0 ? (
           <p className="mt-3 text-lg text-ink">
             소유한 가족 룸이 없어요. 멤버로 있던 룸에서는 자동으로 나갑니다.
@@ -89,8 +89,8 @@ export default async function AccountDeletePage() {
         )}
       </section>
 
-      <section className="rounded-md border-2 border-emerald-200 bg-emerald-50 p-5">
-        <h2 className="text-2xl font-bold text-emerald-900">남는 것</h2>
+      <section className="rounded-md border-2 border-success bg-success-wash p-5">
+        <h2 className="text-2xl font-bold text-success">남는 것</h2>
         <ul className="mt-3 space-y-2 text-lg text-ink">
           {sharedMemoryCount > 0 && (
             <li>

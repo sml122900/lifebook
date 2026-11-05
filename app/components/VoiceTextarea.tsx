@@ -226,7 +226,7 @@ export function VoiceTextarea({
         aria-label={ariaLabel}
         className={
           textareaClassName ??
-          "w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          "w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         }
       />
 
@@ -243,7 +243,7 @@ export function VoiceTextarea({
                 className={
                   "flex items-center justify-center gap-3 min-h-[60px] rounded-md border-2 px-6 py-3 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
                   (recording
-                    ? "border-rose-700 bg-rose-700 text-white hover:bg-rose-800"
+                    ? "border-danger bg-danger text-on-action hover:bg-danger"
                     : "border-brand bg-surface text-action hover:bg-banner")
                 }
               >
@@ -269,22 +269,22 @@ export function VoiceTextarea({
           </div>
 
           {recording && (
-            <p className="text-lg text-rose-700">
+            <p className="text-lg text-danger">
               {VOICE_COPY.listening}
             </p>
           )}
           {voiceError && (
-            <p className="text-lg text-rose-700" role="alert">
+            <p className="text-lg text-danger" role="alert">
               {voiceError}
             </p>
           )}
           {cleanupNote && (
-            <p className="text-base text-emerald-700" aria-live="polite">
+            <p className="text-base text-success" aria-live="polite">
               다듬었어요 · {cleanupNote}
             </p>
           )}
           {cleanupError && (
-            <p className="text-base text-rose-700" role="alert">
+            <p className="text-base text-danger" role="alert">
               {cleanupError}
               {insufficient && (
                 <>

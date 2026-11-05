@@ -42,14 +42,14 @@ export default async function OpengraphImage() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#FAF7F0",
+          backgroundColor: "#221D52", // 밤 우주(2026-11-05 전원) — 앱 첫 화면과 같은 첫인상
         }}
       >
         <div
           style={{
             fontSize: 150,
             fontWeight: 700,
-            color: "#2A2520",
+            color: "#F1EEFF",
             letterSpacing: "0.04em",
           }}
         >
@@ -58,7 +58,7 @@ export default async function OpengraphImage() {
         <div
           style={{
             fontSize: 52,
-            color: "#5C534A",
+            color: "#D3CCF5",
             marginTop: 28,
           }}
         >
@@ -71,7 +71,7 @@ export default async function OpengraphImage() {
             height: 10,
             marginTop: 48,
             borderRadius: 9999,
-            backgroundColor: "#C8923D",
+            backgroundColor: "#FFB884",
           }}
         />
       </div>

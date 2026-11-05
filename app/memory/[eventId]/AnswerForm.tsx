@@ -158,7 +158,7 @@ export function AnswerForm({
             className={
               "flex items-center justify-center gap-3 self-start rounded-md border-2 px-6 py-4 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
               (recording
-                ? "border-rose-700 bg-rose-700 text-white hover:bg-rose-800"
+                ? "border-danger bg-danger text-on-action hover:bg-danger"
                 : "border-line bg-surface text-ink hover:bg-banner")
             }
           >
@@ -168,18 +168,18 @@ export function AnswerForm({
             <span>{recording ? "녹음 멈추기" : "말로 답하기"}</span>
           </button>
           {recording && (
-            <p className="text-base text-rose-700">
+            <p className="text-base text-danger">
               듣고 있어요… 다 말씀하시면 멈추기를 누르세요.
             </p>
           )}
           {voiceError && (
-            <p className="text-base text-rose-700">{voiceError}</p>
+            <p className="text-base text-danger">{voiceError}</p>
           )}
         </div>
       )}
 
       {submitError && (
-        <p className="text-base text-amber-900">
+        <p className="text-base text-action">
           {submitError}{" "}
           <a href="/billing" className="font-semibold underline">
             충전하러 가기
@@ -190,7 +190,7 @@ export function AnswerForm({
       <button
         type="submit"
         disabled={submitting || answer.trim() === ""}
-        className="self-end rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+        className="self-end rounded-md bg-action px-6 py-4 text-lg font-semibold text-on-action hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         {submitting ? "저장 중..." : "추억 남기기"}
       </button>

@@ -120,7 +120,7 @@ export function CustomBackgroundClient({
   }
 
   const FIELD =
-    "w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500";
+    "w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand";
 
   return (
     <div className="flex flex-col gap-6">
@@ -175,7 +175,7 @@ export function CustomBackgroundClient({
           <button
             type="button"
             onClick={() => generate(false, true)}
-            className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-4 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-4 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             배경 만들기 ({tokenCost}토큰)
           </button>
@@ -199,13 +199,13 @@ export function CustomBackgroundClient({
 
       {/* 오류 안내 */}
       {error && !isPending && (
-        <div className="flex flex-col gap-3 rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-3">
-          <p role="alert" className="text-base text-rose-900">{error}</p>
+        <div className="flex flex-col gap-3 rounded-md border-2 border-danger bg-danger-wash px-4 py-3">
+          <p role="alert" className="text-base text-danger">{error}</p>
           <div className="flex flex-wrap gap-2">
             {error.includes("토큰") && (
               <a
                 href="/account/tokens"
-                className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-4 py-2 text-base font-bold text-white hover:bg-action-hover"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-4 py-2 text-base font-bold text-on-action hover:bg-action-hover"
               >
                 토큰 충전하기
               </a>
@@ -225,7 +225,7 @@ export function CustomBackgroundClient({
       {result && !isPending && (
         <section className="flex flex-col gap-4">
           {result.unstable && (
-            <p className="rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-3 text-base text-amber-900">
+            <p className="rounded-md border-2 border-line bg-banner px-4 py-3 text-base text-action">
               그림이 조금 불안정하게 나왔어요. 마음에 안 드시면 다시 만들어 보세요.
             </p>
           )}
@@ -257,14 +257,14 @@ export function CustomBackgroundClient({
               type="button"
               onClick={onDecide}
               disabled={saving}
-              className="inline-flex min-h-[52px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:bg-line"
+              className="inline-flex min-h-[52px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:bg-line"
             >
               {saving ? "저장 중…" : "이 배경으로 결정"}
             </button>
           </div>
 
           {decideError && (
-            <p role="alert" className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-3 text-center text-base text-rose-900">
+            <p role="alert" className="rounded-md border-2 border-danger bg-danger-wash px-4 py-3 text-center text-base text-danger">
               {decideError}
             </p>
           )}
@@ -273,8 +273,8 @@ export function CustomBackgroundClient({
 
       {/* 새 세트 확인 다이얼로그(세트 4장 소진 후 다시 만들기) */}
       {showNewSetConfirm && !isPending && (
-        <div className="flex flex-col gap-3 rounded-md border-2 border-amber-400 bg-amber-50 px-4 py-4">
-          <p className="text-base font-semibold text-amber-900">
+        <div className="flex flex-col gap-3 rounded-md border-2 border-brand bg-banner px-4 py-4">
+          <p className="text-base font-semibold text-action">
             이번 세트의 {imagesPerSet}장을 다 쓰셨어요. {tokenCost}토큰을 더 써서 새로
             만드시겠어요?
           </p>
@@ -282,7 +282,7 @@ export function CustomBackgroundClient({
             <button
               type="button"
               onClick={() => generate(true, false)}
-              className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-white hover:bg-action-hover"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-on-action hover:bg-action-hover"
             >
               {tokenCost}토큰으로 새로 시작
             </button>

@@ -32,8 +32,8 @@ export function TriggerCard({
 }: Props) {
   if (status === "confirmed") {
     return (
-      <article className="rounded-md border-2 border-emerald-400 bg-emerald-50 p-5">
-        <p className="text-base font-bold uppercase tracking-wide text-emerald-800">
+      <article className="rounded-md border-2 border-success bg-success-wash p-5">
+        <p className="text-base font-bold uppercase tracking-wide text-success">
           ✓ 기억나는 곡
         </p>
         <h4 className="mt-3 text-2xl font-bold text-ink">{title}</h4>
@@ -48,7 +48,7 @@ export function TriggerCard({
           <ListenButton title={title} artist={artist} />
           <Link
             href={`/memory/${id}`}
-            className="rounded-md bg-emerald-700 px-5 py-3 text-base font-semibold text-white hover:bg-emerald-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
+            className="rounded-md bg-success px-5 py-3 text-base font-semibold text-on-action hover:bg-success focus:outline-none focus-visible:ring-4 focus-visible:ring-success focus-visible:ring-offset-2"
           >
             이 노래로 추억 남기기 →
           </Link>
@@ -81,7 +81,7 @@ export function TriggerCard({
           <input type="hidden" name="eventId" value={id} />
           <button
             type="submit"
-            className="rounded-md bg-action px-5 py-3 text-base font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="rounded-md bg-action px-5 py-3 text-base font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             기억나요
           </button>
@@ -90,7 +90,7 @@ export function TriggerCard({
           <input type="hidden" name="eventId" value={id} />
           <button
             type="submit"
-            className="rounded-md border-2 border-line bg-surface px-5 py-3 text-base font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
+            className="rounded-md border-2 border-line bg-surface px-5 py-3 text-base font-semibold text-ink-soft hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-line focus-visible:ring-offset-2"
           >
             잘 모르겠어요
           </button>

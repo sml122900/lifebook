@@ -65,21 +65,21 @@ export function ProfileEditForm({ initial }: { initial: ProfileInitial }) {
       ))}
 
       {error && (
-        <p className="text-base text-rose-700" role="alert">
+        <p className="text-base text-danger" role="alert">
           {error}
         </p>
       )}
 
       <div className="flex items-center justify-between gap-4">
         {savedAt && (
-          <p className="text-base text-emerald-700">
+          <p className="text-base text-success">
             저장됨 · {savedAt.toLocaleTimeString("ko-KR")}
           </p>
         )}
         <button
           type="submit"
           disabled={isPending}
-          className="ml-auto min-h-[60px] rounded-md bg-action px-6 py-4 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="ml-auto min-h-[60px] rounded-md bg-action px-6 py-4 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? "저장 중…" : "저장"}
         </button>

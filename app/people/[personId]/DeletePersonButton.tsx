@@ -57,7 +57,7 @@ export function DeletePersonButton({
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`${personName} 삭제`}
-        className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-rose-300 bg-surface px-4 py-2 text-base font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+        className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-danger bg-surface px-4 py-2 text-base font-semibold text-danger hover:bg-danger-wash focus:outline-none focus-visible:ring-4 focus-visible:ring-danger focus-visible:ring-offset-2"
       >
         삭제
       </button>
@@ -72,7 +72,7 @@ export function DeletePersonButton({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-md border-2 border-rose-300 bg-surface p-6 shadow-xl"
+            className="w-full max-w-md rounded-md border-2 border-danger bg-surface p-6 shadow-xl"
           >
             <h2
               id="delete-person-title"
@@ -91,7 +91,7 @@ export function DeletePersonButton({
             {error && (
               <p
                 role="alert"
-                className="mt-3 rounded-md border-2 border-rose-300 bg-rose-50 px-3 py-2 text-base text-rose-900"
+                className="mt-3 rounded-md border-2 border-danger bg-danger-wash px-3 py-2 text-base text-danger"
               >
                 {error}
               </p>

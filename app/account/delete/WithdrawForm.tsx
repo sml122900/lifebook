@@ -44,12 +44,12 @@ export function WithdrawForm() {
           onChange={(e) => setValue(e.target.value)}
           required
           autoComplete="off"
-          className="rounded-md border-2 border-line bg-surface px-4 py-4 text-xl text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+          className="rounded-md border-2 border-line bg-surface px-4 py-4 text-xl text-ink focus:outline-none focus-visible:ring-4 focus-visible:ring-danger focus-visible:ring-offset-2"
         />
       </label>
 
       {error && (
-        <p className="text-base text-rose-700" role="alert">
+        <p className="text-base text-danger" role="alert">
           {error}
         </p>
       )}

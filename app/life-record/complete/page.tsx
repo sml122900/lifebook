@@ -45,7 +45,7 @@ export default async function LifeRecordCompletePage() {
         <Link
           href="/timemachine"
           prefetch
-          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-action px-8 py-4 text-2xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-action px-8 py-4 text-2xl font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           내 인생 연혁 보러 가기 →
         </Link>

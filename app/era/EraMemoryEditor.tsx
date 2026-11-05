@@ -112,17 +112,17 @@ export function EraMemoryEditor({
   const containerClass =
     variant === "compact"
       ? "flex flex-col gap-2 rounded-md border border-line bg-surface/70 p-3"
-      : "flex flex-col gap-3 rounded-md border-2 border-emerald-200 bg-emerald-50/40 p-4";
+      : "flex flex-col gap-3 rounded-md border-2 border-success bg-success-wash/40 p-4";
   const promptClass =
     variant === "compact"
       ? "text-sm font-semibold text-ink"
-      : "text-base font-semibold text-emerald-900";
+      : "text-base font-semibold text-success";
   const subtleClass =
-    variant === "compact" ? "text-xs text-ink-soft" : "text-sm text-emerald-700";
+    variant === "compact" ? "text-xs text-ink-soft" : "text-sm text-success";
   const rows = variant === "compact" ? 2 : 3;
   const textareaClassName =
     variant === "compact"
-      ? "w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+      ? "w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       : undefined; // VoiceTextarea 의 기본 (큰 글씨, 시니어 친화)
 
   return (
@@ -169,20 +169,20 @@ export function EraMemoryEditor({
         </button>
         <span
           className={
-            "text-sm " + (tooLong ? "font-semibold text-rose-700" : "text-ink-faint")
+            "text-sm " + (tooLong ? "font-semibold text-danger" : "text-ink-faint")
           }
           aria-live="polite"
         >
           {trimmed.length} / {ERA_MEMORY_MAX_LENGTH}
         </span>
         {savedFlash && !errorMsg && (
-          <span className="text-sm font-semibold text-emerald-700" aria-live="polite">
+          <span className="text-sm font-semibold text-success" aria-live="polite">
             저장됐어요
           </span>
         )}
       </div>
       {errorMsg && (
-        <p role="alert" className="text-sm text-rose-700">
+        <p role="alert" className="text-sm text-danger">
           {errorMsg}
         </p>
       )}

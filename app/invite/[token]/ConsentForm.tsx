@@ -31,7 +31,7 @@ export function ConsentForm({ token }: { token: string }) {
           name="agree"
           checked={agreed}
           onChange={(e) => setAgreed(e.target.checked)}
-          className="mt-1 h-6 w-6 accent-zinc-900"
+          className="mt-1 h-6 w-6 accent-action"
         />
         <span className="text-lg text-ink">
           이 룸에 참여하면 <strong>내가 작성한 추억이 룸 멤버에게
@@ -49,7 +49,7 @@ export function ConsentForm({ token }: { token: string }) {
         <button
           type="submit"
           disabled={!agreed || submitting}
-          className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-on-action hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           {submitting ? "참여하는 중..." : "동의하고 참여"}
         </button>

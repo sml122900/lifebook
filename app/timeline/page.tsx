@@ -144,7 +144,7 @@ async function _TimelinePageArchived() {
           </div>
         )}
         {triggersFailed && (
-          <div className="mt-5 rounded-md border-2 border-amber-200 bg-amber-50 p-4">
+          <div className="mt-5 rounded-md border-2 border-line bg-banner p-4">
             <p className="text-base text-ink">
               음악 추천을 지금은 가져올 수 없어요. 잠시 후 새로고침 해주세요.
               나머지 기능은 평소처럼 사용하실 수 있어요.
@@ -158,7 +158,7 @@ async function _TimelinePageArchived() {
         <div className="text-base font-bold uppercase tracking-wide text-action">
           세상 사건
         </div>
-        <div className="text-base font-bold uppercase tracking-wide text-amber-800">
+        <div className="text-base font-bold uppercase tracking-wide text-action">
           내 사건
         </div>
       </div>
@@ -219,9 +219,9 @@ async function _TimelinePageArchived() {
               {/* 내 사건 트랙 (Phase 7에서 추억 입력 흐름이 들어옴) */}
               <section
                 aria-label={`${year}년 내 사건`}
-                className="border-l-4 border-amber-500 pl-4 md:pl-6"
+                className="border-l-4 border-brand pl-4 md:pl-6"
               >
-                <h3 className="mb-3 text-base font-bold uppercase tracking-wide text-amber-800 md:hidden">
+                <h3 className="mb-3 text-base font-bold uppercase tracking-wide text-action md:hidden">
                   내 사건
                 </h3>
                 {(memoriesByYear.get(year) ?? []).length > 0 ? (
@@ -234,7 +234,7 @@ async function _TimelinePageArchived() {
                       return (
                         <li
                           key={m.id}
-                          className="rounded-md border-2 border-amber-300 bg-amber-50 p-5"
+                          className="rounded-md border-2 border-line bg-banner p-5"
                         >
                           <div className="text-lg font-semibold text-ink">
                             {m.title}
@@ -255,7 +255,7 @@ async function _TimelinePageArchived() {
                     })}
                   </ul>
                 ) : (
-                  <div className="rounded-md border-2 border-dashed border-amber-300 bg-amber-50 p-5">
+                  <div className="rounded-md border-2 border-dashed border-line bg-banner p-5">
                     <p className="text-ink">
                       이 시절, 당신은 어떤 일이 있었나요?
                     </p>

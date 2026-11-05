@@ -212,10 +212,10 @@ export function EraView({
                 onClick={() => setDecade(d.key)}
                 aria-pressed={active}
                 className={
-                  "min-h-[64px] rounded-md border-2 px-4 py-3 text-lg font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
+                  "min-h-[64px] rounded-md border-2 px-4 py-3 text-lg font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
                   (active
-                    ? "border-amber-700 bg-amber-700 text-white"
-                    : "border-amber-300 bg-surface text-amber-900 hover:bg-amber-50")
+                    ? "border-brand bg-action text-on-action"
+                    : "border-line bg-surface text-action hover:bg-banner")
                 }
               >
                 {d.label}
@@ -241,7 +241,7 @@ export function EraView({
                 aria-checked={active}
                 onClick={() => setSection(opt.key)}
                 className={
-                  "min-h-[48px] rounded-md border-2 px-4 py-2 text-base font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
+                  "min-h-[48px] rounded-md border-2 px-4 py-2 text-base font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
                   (active
                     ? "border-brand bg-banner text-action"
                     : "border-line bg-surface text-ink-soft hover:bg-banner")
@@ -358,9 +358,9 @@ function YearGroup({
 }) {
   return (
     <div>
-      <h3 className="mb-3 text-2xl font-bold text-amber-900">
+      <h3 className="mb-3 text-2xl font-bold text-action">
         {year}년
-        <span className="ml-2 text-base font-semibold text-amber-700">
+        <span className="ml-2 text-base font-semibold text-action">
           · {count}건
         </span>
       </h3>
@@ -406,11 +406,11 @@ function EraEventRow({
   // border-l-4 스트립은 li에 고정 (담김 여부 무관). 배경 워시는 내부 div 분리 —
   // li overflow-hidden 이 left border 4px 를 덮지 않도록.
   const decadeKey = decadeOf(event.year);
-  const stripClass = decadeKey ? DECADE_STRIP_CLASS[decadeKey] : "border-l-zinc-200";
+  const stripClass = decadeKey ? DECADE_STRIP_CLASS[decadeKey] : "border-l-line";
   const borderClass = isStashed
-    ? "border-t-2 border-r-2 border-b-2 border-t-emerald-300 border-r-emerald-300 border-b-emerald-300 border-l-4 " + stripClass
+    ? "border-t-2 border-r-2 border-b-2 border-t-success border-r-success border-b-success border-l-4 " + stripClass
     : "border-t-2 border-r-2 border-b-2 border-t-line border-r-line border-b-line border-l-4 " + stripClass;
-  const bgClass = isStashed ? "bg-emerald-50/60" : "bg-surface";
+  const bgClass = isStashed ? "bg-success-wash/60" : "bg-surface";
   const detailId = `era-detail-${event.id}`;
   const SectionIcon = SECTION_ICON[event.section];
   return (
@@ -422,7 +422,7 @@ function EraEventRow({
         onClick={onToggle}
         aria-expanded={isExpanded}
         aria-controls={detailId}
-        className="flex w-full min-h-[56px] items-center gap-3 px-4 py-3 text-left hover:bg-canvas/70 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-inset"
+        className="flex w-full min-h-[56px] items-center gap-3 px-4 py-3 text-left hover:bg-canvas/70 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-inset"
       >
         <SectionIcon
           aria-hidden="true"
@@ -549,7 +549,7 @@ function EraEventRow({
               )}
             </div>
             {error && (
-              <p role="alert" className="text-sm text-rose-700">
+              <p role="alert" className="text-sm text-danger">
                 {error}
               </p>
             )}
@@ -582,7 +582,7 @@ function EraSongCard({ song }: { song: EraSong }) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`${song.title} — ${song.artist} 유튜브에서 찾기`}
-        className="mt-1 inline-flex min-h-[48px] w-fit items-center gap-2 rounded-md border-2 border-rose-400 bg-rose-50 px-4 py-2 text-base font-semibold text-rose-900 hover:bg-rose-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+        className="mt-1 inline-flex min-h-[48px] w-fit items-center gap-2 rounded-md border-2 border-danger bg-danger-wash px-4 py-2 text-base font-semibold text-danger hover:bg-danger-wash focus:outline-none focus-visible:ring-4 focus-visible:ring-danger focus-visible:ring-offset-2"
       >
         <span aria-hidden>▶</span>
         유튜브에서 듣기

@@ -160,7 +160,7 @@ export function FreeRecorder({
           onClick={startRecording}
           disabled={disabled}
           aria-label="녹음 시작"
-          className="flex min-h-[56px] items-center justify-center gap-3 rounded-md bg-rose-600 px-6 text-lg font-semibold text-white hover:bg-rose-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex min-h-[56px] items-center justify-center gap-3 rounded-md bg-danger px-6 text-lg font-semibold text-on-action hover:bg-danger focus:outline-none focus-visible:ring-4 focus-visible:ring-danger focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span aria-hidden className="text-2xl">●</span>
           <span>녹음 시작</span>
@@ -169,13 +169,13 @@ export function FreeRecorder({
 
       {state === "recording" && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3 rounded-md bg-rose-50 px-5 py-3 text-rose-700">
+          <div className="flex items-center gap-3 rounded-md bg-danger-wash px-5 py-3 text-danger">
             <span aria-hidden className="animate-pulse text-xl">●</span>
             <span className="text-lg font-semibold">녹음 중 {fmtTime(elapsed)}</span>
-            <span className="ml-auto text-base text-rose-500">최대 90분</span>
+            <span className="ml-auto text-base text-danger">최대 90분</span>
           </div>
           {nearLimit && (
-            <p className="text-base text-amber-700" role="alert">
+            <p className="text-base text-action" role="alert">
               곧 자동으로 멈춰요 (남은 시간 {fmtTime(remaining)}).
             </p>
           )}
@@ -183,7 +183,7 @@ export function FreeRecorder({
             type="button"
             onClick={stopRecording}
             aria-label="녹음 멈추기"
-            className="flex min-h-[56px] items-center justify-center gap-3 rounded-md border-2 border-rose-600 px-6 text-lg font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+            className="flex min-h-[56px] items-center justify-center gap-3 rounded-md border-2 border-danger px-6 text-lg font-semibold text-danger hover:bg-danger-wash focus:outline-none focus-visible:ring-4 focus-visible:ring-danger focus-visible:ring-offset-2"
           >
             <span aria-hidden className="text-xl">■</span>
             <span>녹음 멈추기</span>
@@ -203,7 +203,7 @@ export function FreeRecorder({
               type="button"
               onClick={handleSend}
               disabled={disabled}
-              className="flex min-h-[56px] flex-1 items-center justify-center gap-2 rounded-md bg-action px-6 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-h-[56px] flex-1 items-center justify-center gap-2 rounded-md bg-action px-6 text-lg font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               전사 시작
             </button>
@@ -220,7 +220,7 @@ export function FreeRecorder({
       )}
 
       {error && (
-        <p className="text-base text-rose-700" role="alert">
+        <p className="text-base text-danger" role="alert">
           {error}
         </p>
       )}

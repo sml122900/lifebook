@@ -698,7 +698,7 @@ export function ChatV3Client({
             <div
               className={[
                 "max-w-[82%] rounded-2xl px-5 py-4 text-lg leading-relaxed whitespace-pre-wrap",
-                msg.role === "u" ? "bg-action text-white rounded-br-sm" : "bg-surface border border-line text-ink rounded-bl-sm",
+                msg.role === "u" ? "bg-action text-on-action rounded-br-sm" : "bg-surface border border-line text-ink rounded-bl-sm",
               ].join(" ")}
             >
               {msg.text}
@@ -801,7 +801,7 @@ export function ChatV3Client({
             <button
               onClick={() => void handleSend()}
               disabled={!isIdle || !inputVal.trim()}
-              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-action text-white text-2xl font-bold transition-colors hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-action text-on-action text-2xl font-bold transition-colors hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="전송"
             >
               ↑

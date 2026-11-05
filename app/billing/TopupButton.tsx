@@ -60,12 +60,12 @@ export function TopupButton({ packageId, label, clientKey, customerKey }: Props)
         type="button"
         onClick={handleClick}
         disabled={submitting}
-        className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+        className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-on-action hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         {submitting ? "결제 창 여는 중..." : `${label} 충전`}
       </button>
       {error && (
-        <p className="max-w-xs text-right text-sm text-rose-700">{error}</p>
+        <p className="max-w-xs text-right text-sm text-danger">{error}</p>
       )}
     </div>
   );

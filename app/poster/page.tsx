@@ -195,12 +195,12 @@ function TemplateCard({
           </div>
         )}
         {!active && (
-          <span className="absolute right-2 top-2 rounded-full bg-ink/70 px-3 py-1 text-xs font-semibold text-white">
+          <span className="absolute right-2 top-2 rounded-full bg-canvas/85 px-3 py-1 text-xs font-semibold text-ink">
             준비 중
           </span>
         )}
         {selected && ready && (
-          <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
+          <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-success px-3 py-1 text-xs font-semibold text-on-action">
             <Check strokeWidth={2.5} aria-hidden className="h-3.5 w-3.5" />
             지난번 선택
           </span>
@@ -215,7 +215,7 @@ function TemplateCard({
         {isCustom ? (
           <Link
             href="/poster/custom"
-            className="mt-2 inline-flex min-h-[52px] w-full items-center justify-center rounded-md bg-action px-5 py-3 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="mt-2 inline-flex min-h-[52px] w-full items-center justify-center rounded-md bg-action px-5 py-3 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             내 취향으로 만들기 →
           </Link>

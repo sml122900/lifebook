@@ -5,7 +5,7 @@ import { useEffect } from "react";
 // 최후의 에러 경계. 루트 레이아웃 자체가 실패할 때만 발동(이 경우 라우트
 // 세그먼트의 error.tsx 도 못 그림). 레이아웃이 사라진 상태라 공통 헤더가
 // 없으므로 여기서 직접 <html>·<body> 를 그린다(globals.css 도 못 쓰니
-// 인라인 스타일).
+// 인라인 스타일). 색은 밤 우주(2026-11-05 전원 — app/globals.css [data-theme="night"] 값 그대로).
 //
 // error.tsx 와 같은 철칙: 원본 error.message 는 UI 에 노출하지 않는다.
 
@@ -21,15 +21,15 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang="ko">
+    <html lang="ko" data-theme="night">
       <body
         style={{
           margin: 0,
           padding: "3rem 1.5rem",
           fontFamily:
             "system-ui, -apple-system, 'Segoe UI', sans-serif",
-          background: "white",
-          color: "#18181b",
+          background: "#221d52",
+          color: "#f1eeff",
           fontSize: "1.125rem",
           lineHeight: 1.7,
         }}
@@ -55,8 +55,8 @@ export default function GlobalError({
               padding: "1rem 1.5rem",
               fontSize: "1.125rem",
               fontWeight: 600,
-              color: "white",
-              background: "#18181b",
+              color: "#2a1400",
+              background: "#ffc9a3",
               border: "none",
               borderRadius: "0.375rem",
               cursor: "pointer",

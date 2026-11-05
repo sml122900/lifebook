@@ -655,7 +655,7 @@ export function PosterCompose({
             onClick={() => { setEditMode((v) => !v); setSelected(null); setSelectedEra(null); }}
             className={
               "inline-flex min-h-[48px] items-center justify-center rounded-md px-5 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
-              (editMode ? "bg-ink text-white hover:bg-ink/90" : "border-2 border-action bg-surface text-action hover:bg-banner")
+              (editMode ? "bg-ink text-canvas hover:bg-ink/90" : "border-2 border-action bg-surface text-action hover:bg-banner")
             }
           >
             {editMode ? "✓ 편집 끝내기" : "✏️ 편집하기"}
@@ -665,7 +665,7 @@ export function PosterCompose({
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:bg-line"
+              className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:bg-line"
             >
               {saving ? "저장 중…" : "저장하기"}
             </button>
@@ -690,7 +690,7 @@ export function PosterCompose({
             className={
               "inline-flex min-h-[44px] items-center justify-center rounded-md px-5 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
               (showYears
-                ? "bg-action text-white hover:bg-action-hover"
+                ? "bg-action text-on-action hover:bg-action-hover"
                 : "border-2 border-action bg-surface text-action hover:bg-banner")
             }
           >
@@ -722,7 +722,7 @@ export function PosterCompose({
               className={
                 "inline-flex min-h-[44px] items-center justify-center rounded-md px-4 py-2 text-base font-bold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
                 (eraTier === t
-                  ? "bg-action text-white hover:bg-action-hover"
+                  ? "bg-action text-on-action hover:bg-action-hover"
                   : "border-2 border-line bg-surface text-ink hover:bg-banner")
               }
             >
@@ -747,7 +747,7 @@ export function PosterCompose({
               <button
                 type="button"
                 onClick={() => handleRemoveEra(e.id)}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-danger bg-surface px-4 py-2 text-base font-bold text-danger hover:bg-danger hover:text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-danger"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-danger bg-surface px-4 py-2 text-base font-bold text-danger hover:bg-danger hover:text-on-action focus:outline-none focus-visible:ring-4 focus-visible:ring-danger"
               >
                 포스터에서 빼기
               </button>
@@ -777,19 +777,19 @@ export function PosterCompose({
       </div>
 
       {savedMsg && (
-        <p className="rounded-md border-2 border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+        <p className="rounded-md border-2 border-success bg-success-wash px-3 py-2 text-sm text-success">
           {savedMsg}
         </p>
       )}
 
       {anyOut && (
-        <p role="alert" className="rounded-md border-2 border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p role="alert" className="rounded-md border-2 border-brand bg-banner px-3 py-2 text-sm text-action">
           빨간 테두리 글상자가 인쇄 안전여백을 벗어났어요. 안쪽으로 옮기지 않으면 인쇄 때 잘릴 수 있어요.
         </p>
       )}
 
       {model.crowded && !anyOut && (
-        <p className="rounded-md border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p className="rounded-md border-2 border-line bg-banner px-3 py-2 text-sm text-action">
           메모가 공간에 빠듯해요. 긴 메모를 줄이거나 개수를 줄이면 더 깔끔해요.
         </p>
       )}
@@ -990,7 +990,7 @@ export function PosterCompose({
           <button
             type="button"
             onClick={applyPanelText}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-action px-4 py-2 text-sm font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
             내용 적용
           </button>
@@ -1018,7 +1018,7 @@ export function PosterCompose({
             <button
               type="button"
               onClick={() => removeItem(selectedItem.key)}
-              className="ml-auto inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-danger bg-surface px-4 py-2 text-sm font-bold text-danger hover:bg-danger hover:text-white focus:outline-none focus-visible:ring-4 focus-visible:ring-danger"
+              className="ml-auto inline-flex min-h-[44px] items-center justify-center rounded-md border-2 border-danger bg-surface px-4 py-2 text-sm font-bold text-danger hover:bg-danger hover:text-on-action focus:outline-none focus-visible:ring-4 focus-visible:ring-danger"
             >
               포스터에서 빼기
             </button>

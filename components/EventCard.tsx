@@ -25,18 +25,18 @@ const DOMAIN_LABEL: Record<Domain, string> = {
 
 // 흰 배경 대비 4.5:1 이상 보장하는 진한 단색 배지 (시니어 고대비).
 const DOMAIN_BADGE: Record<Domain, string> = {
-  kr_politics: "bg-rose-700 text-white",
-  kr_society: "bg-action text-white",
-  disaster: "bg-red-800 text-white",
-  sports: "bg-emerald-700 text-white",
-  tech: "bg-indigo-700 text-white",
-  economy: "bg-orange-700 text-white",
-  world: "bg-sage text-white",
+  kr_politics: "bg-danger text-on-action",
+  kr_society: "bg-action text-on-action",
+  disaster: "bg-danger text-on-action",
+  sports: "bg-success text-on-action",
+  tech: "bg-place text-on-action",
+  economy: "bg-action text-on-action",
+  world: "bg-sage text-on-action",
 };
 
 // 알 수 없는 도메인은 회색 배지로 폴백(깨지지 않게).
 function badgeClass(domain: string) {
-  return DOMAIN_BADGE[domain as Domain] ?? "bg-zinc-700 text-white";
+  return DOMAIN_BADGE[domain as Domain] ?? "bg-ink text-canvas";
 }
 
 // 매핑에 없는 도메인은 원문 그대로 표시.

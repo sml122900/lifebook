@@ -31,7 +31,7 @@ export function MonthStory({
         rows={8}
         placeholder="기억나는 만큼만 적어도 좋아요."
         ariaLabel={`${year}년 ${month}월 전체 회고`}
-        textareaClassName="w-full rounded-md border-2 border-line bg-surface px-4 py-4 text-lg leading-relaxed text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 sm:text-xl"
+        textareaClassName="w-full rounded-md border-2 border-line bg-surface px-4 py-4 text-lg leading-relaxed text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 sm:text-xl"
         onCleanup={cleanupVoiceTextAction}
       />
     </section>

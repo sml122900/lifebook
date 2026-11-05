@@ -366,7 +366,7 @@ export function EventForm({
           placeholder="예: 친구들과 첫 여행, 큰 병원 입원"
           maxLength={80}
           autoComplete="off"
-          className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         />
       </section>
 
@@ -424,7 +424,7 @@ export function EventForm({
       {error && (
         <p
           role="alert"
-          className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900"
+          className="rounded-md border-2 border-danger bg-danger-wash px-4 py-3 text-base text-danger"
         >
           {error}
         </p>
@@ -444,7 +444,7 @@ export function EventForm({
           type="button"
           onClick={handleSubmit}
           disabled={isPending}
-          className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="inline-flex min-h-[56px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-on-action hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           {isPending ? "저장 중…" : isEdit ? "수정 저장" : "추가하기"}
         </button>
@@ -491,16 +491,16 @@ function ModeRadio({
             aria-checked={selected}
             onClick={() => onChange(o.value)}
             className={
-              "flex flex-col items-start gap-2 rounded-md border-2 px-5 py-4 text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
+              "flex flex-col items-start gap-2 rounded-md border-2 px-5 py-4 text-left focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
               (selected
-                ? "border-amber-600 bg-amber-50"
+                ? "border-brand bg-banner"
                 : "border-line bg-surface hover:border-brand")
             }
           >
             <span
               className={
                 "text-lg font-bold " +
-                (selected ? "text-amber-900" : "text-ink")
+                (selected ? "text-action" : "text-ink")
               }
             >
               {selected ? "● " : "○ "}
@@ -548,8 +548,8 @@ function BetweenSection({
   const ageHint =
     birthYear !== null && yearNum !== null ? calcAge(birthYear, yearNum) : null;
   return (
-    <section className="flex flex-col gap-3 rounded-md border-2 border-amber-200 bg-amber-50 p-5">
-      <p className="text-lg font-semibold text-amber-900">
+    <section className="flex flex-col gap-3 rounded-md border-2 border-line bg-banner p-5">
+      <p className="text-lg font-semibold text-action">
         어느 사건과 어느 사건 사이에 있었나요?
       </p>
       <div className="flex flex-col gap-3">
@@ -560,7 +560,7 @@ function BetweenSection({
           <select
             value={anchorBeforeId}
             onChange={(e) => setAnchorBeforeId(e.target.value)}
-            className="rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <option value="">— 골라주세요 —</option>
             {anchors.map((a) => (
@@ -577,7 +577,7 @@ function BetweenSection({
           <select
             value={anchorAfterId}
             onChange={(e) => setAnchorAfterId(e.target.value)}
-            className="rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="rounded-md border-2 border-line bg-surface px-4 py-3 text-lg text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <option value="">— 골라주세요 —</option>
             {anchors.map((a) => (
@@ -608,10 +608,10 @@ function BetweenSection({
             onYearChange(e.target.value.replace(/\D/g, "").slice(0, 4))
           }
           placeholder="예: 1985"
-          className="w-40 rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          className="w-40 rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         />
         {ageHint && (
-          <p className="mt-1 text-sm text-amber-900">
+          <p className="mt-1 text-sm text-action">
             그때 {formatAge(ageHint)}쯤이에요
           </p>
         )}
@@ -678,7 +678,7 @@ function ExactSection({
               setYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
             }
             placeholder="예: 1985"
-            className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           />
           {startAge && (
             <p className="mt-1 text-sm text-ink-soft">
@@ -703,7 +703,7 @@ function ExactSection({
               setMonthText(e.target.value.replace(/\D/g, "").slice(0, 2))
             }
             placeholder="3"
-            className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+            className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           />
         </div>
       </div>
@@ -718,9 +718,9 @@ function ExactSection({
         aria-checked={isPeriod}
         onClick={() => onTogglePeriod(!isPeriod)}
         className={
-          "flex items-center gap-3 rounded-md border-2 px-4 py-3 text-left text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 " +
+          "flex items-center gap-3 rounded-md border-2 px-4 py-3 text-left text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 " +
           (isPeriod
-            ? "border-amber-500 bg-amber-50 text-amber-900"
+            ? "border-brand bg-banner text-action"
             : "border-line bg-surface text-ink hover:bg-banner")
         }
       >
@@ -753,7 +753,7 @@ function ExactSection({
                   setEndYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
                 }
                 placeholder="예: 1991"
-                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
               />
               {endAge && (
                 <p className="mt-1 text-sm text-ink-soft">
@@ -779,7 +779,7 @@ function ExactSection({
                 }
                 placeholder="2"
                 disabled={endYearText.trim() === ""}
-                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-faint"
+                className="mt-1 w-full rounded-md border-2 border-line bg-surface px-4 py-3 text-xl text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-canvas disabled:text-ink-faint"
               />
             </div>
           </div>

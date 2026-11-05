@@ -285,7 +285,7 @@ export function CoachMarks({
       {onScreen ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute rounded-lg ring-4 ring-amber-300"
+          className="pointer-events-none absolute rounded-lg ring-4 ring-brand"
           style={{
             top: hole.top,
             left: hole.left,
@@ -300,7 +300,7 @@ export function CoachMarks({
 
       {/* 말풍선 카드 */}
       <div
-        className="absolute max-w-[calc(100vw-24px)] rounded-xl border-2 border-amber-300 bg-surface p-5 shadow-2xl"
+        className="absolute max-w-[calc(100vw-24px)] rounded-xl border-2 border-line bg-surface p-5 shadow-2xl"
         style={tipStyle}
       >
         {/* 화살표 — 타겟을 가리키는 삼각형(인접 모드만; 화면 고정 모드는 타겟과
@@ -308,7 +308,7 @@ export function CoachMarks({
         {!pinned && (
           <span
             aria-hidden
-            className="absolute h-4 w-4 rotate-45 border-amber-300 bg-surface"
+            className="absolute h-4 w-4 rotate-45 border-line bg-surface"
             style={
               placeBelow
                 ? { top: -9, left: arrowLeft - 8, borderTopWidth: 2, borderLeftWidth: 2 }
@@ -337,7 +337,7 @@ export function CoachMarks({
               if (isLast) finish();
               else setIndex((i) => i + 1);
             }}
-            className="inline-flex min-h-[52px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="inline-flex min-h-[52px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             {isLast ? "시작하기" : "다음"}
           </button>

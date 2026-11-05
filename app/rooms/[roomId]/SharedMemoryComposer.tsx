@@ -69,7 +69,7 @@ export function SharedMemoryComposer({ roomId }: { roomId: string }) {
 
       <button
         type="submit"
-        className="self-end rounded-md bg-emerald-700 px-6 py-4 text-lg font-semibold text-white hover:bg-emerald-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
+        className="self-end rounded-md bg-success px-6 py-4 text-lg font-semibold text-on-action hover:bg-success focus:outline-none focus-visible:ring-4 focus-visible:ring-success focus-visible:ring-offset-2"
       >
         공동 추억 추가
       </button>

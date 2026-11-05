@@ -94,7 +94,7 @@ function MultiPick({ items, value, onChange, label }: { items: { id: string; lab
                 onClick={() => onChange(on ? value.filter((x) => x !== it.id) : [...value, it.id])}
                 className={`${ROW} ${on ? "border-brand bg-banner" : "border-line"}`}
               >
-                <span aria-hidden className={`flex h-7 w-7 shrink-0 items-center justify-center rounded border-2 ${on ? "border-brand bg-action text-white" : "border-line"}`}>
+                <span aria-hidden className={`flex h-7 w-7 shrink-0 items-center justify-center rounded border-2 ${on ? "border-brand bg-action text-on-action" : "border-line"}`}>
                   {on ? "✓" : ""}
                 </span>
                 <span className="min-w-0">

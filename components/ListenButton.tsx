@@ -17,7 +17,7 @@ export function ListenButton({
       href={youtubeSearchUrl(title, artist)}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-2 rounded-md border-2 border-zinc-400 bg-surface px-5 py-3 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+      className="inline-flex items-center gap-2 rounded-md border-2 border-ink-faint bg-surface px-5 py-3 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
     >
       <span aria-hidden className="text-lg">
         ▶

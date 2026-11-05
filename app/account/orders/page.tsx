@@ -79,7 +79,7 @@ export default async function MyOrdersPage() {
                 )}
 
                 {o.refundRequestedAt && o.status !== "refunded" && (
-                  <p className="mt-2 text-sm font-semibold text-rose-700">
+                  <p className="mt-2 text-sm font-semibold text-danger">
                     환불 요청을 받았어요. 곧 처리해 드릴게요.
                   </p>
                 )}

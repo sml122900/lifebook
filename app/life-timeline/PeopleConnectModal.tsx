@@ -159,10 +159,10 @@ export function PeopleConnectModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full max-w-md flex-col rounded-md border-2 border-amber-300 bg-surface shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-md flex-col rounded-md border-2 border-line bg-surface shadow-xl"
       >
         {/* 헤더 */}
-        <div className="flex items-start justify-between gap-3 border-b-2 border-amber-100 px-5 py-4">
+        <div className="flex items-start justify-between gap-3 border-b-2 border-line px-5 py-4">
           <div className="min-w-0">
             <h2
               id="people-connect-title"
@@ -195,7 +195,7 @@ export function PeopleConnectModal({
               {/* 연결됨 섹션 */}
               {connectedList.length > 0 && (
                 <section className="mb-4">
-                  <h3 className="mb-2 text-sm font-semibold text-emerald-800">
+                  <h3 className="mb-2 text-sm font-semibold text-success">
                     이 사건에 연결된 분 ({connectedList.length})
                   </h3>
                   <ul className="flex flex-col gap-2">
@@ -243,7 +243,7 @@ export function PeopleConnectModal({
           {error && (
             <p
               role="alert"
-              className="mt-3 rounded-md border-2 border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-900"
+              className="mt-3 rounded-md border-2 border-danger bg-danger-wash px-3 py-2 text-sm text-danger"
             >
               {error}
             </p>
@@ -251,10 +251,10 @@ export function PeopleConnectModal({
         </div>
 
         {/* 푸터 — 새 인물 추가 */}
-        <div className="border-t-2 border-amber-100 px-5 py-4">
+        <div className="border-t-2 border-line px-5 py-4">
           <Link
             href={newPersonHref}
-            className="inline-flex w-full min-h-[48px] items-center justify-center rounded-md border-2 border-amber-400 bg-amber-50 px-4 py-2 text-base font-bold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+            className="inline-flex w-full min-h-[48px] items-center justify-center rounded-md border-2 border-brand bg-banner px-4 py-2 text-base font-bold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
           >
             + 새 인물 추가
           </Link>
@@ -283,10 +283,10 @@ function PersonRow({
         disabled={pending}
         aria-pressed={connected}
         className={
-          "flex w-full min-h-[48px] items-center justify-between gap-3 rounded-md border-2 px-4 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 " +
+          "flex w-full min-h-[48px] items-center justify-between gap-3 rounded-md border-2 px-4 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand " +
           (connected
-            ? "border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
-            : "border-line bg-surface text-ink hover:border-amber-300 hover:bg-amber-50")
+            ? "border-success bg-success-wash text-success hover:bg-success-wash"
+            : "border-line bg-surface text-ink hover:border-line hover:bg-banner")
         }
       >
         <span className="truncate text-base font-semibold">
@@ -297,7 +297,7 @@ function PersonRow({
           aria-hidden
           className={
             "flex-shrink-0 text-sm font-semibold " +
-            (connected ? "text-emerald-700" : "text-amber-700")
+            (connected ? "text-success" : "text-action")
           }
         >
           {pending ? "처리 중…" : connected ? "✓ 연결됨" : "+ 연결"}
@@ -319,7 +319,7 @@ function EmptyPeople({ newPersonHref }: { newPersonHref: string }) {
       </p>
       <Link
         href={newPersonHref}
-        className="mt-2 inline-flex min-h-[48px] items-center justify-center rounded-md bg-amber-600 px-5 py-2 text-base font-bold text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+        className="mt-2 inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-on-action hover:bg-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
       >
         + 첫 인물 추가하기
       </Link>

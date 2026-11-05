@@ -92,7 +92,7 @@ export default async function AccountSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-md border-2 border-amber-300 bg-amber-50 p-5">
+      <section className="rounded-md border-2 border-line bg-banner p-5">
         <h2 className="text-2xl font-bold text-ink">토큰</h2>
         <p className="mt-2 text-base text-ink-soft">
           잔액 확인, 매일 출석체크, 충전을 한 화면에서.

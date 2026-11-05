@@ -98,7 +98,7 @@ export default async function BillingSuccessPage({
 function FailureScreen({ title, body }: { title: string; body: string }) {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-6 py-10">
-      <h1 className="text-3xl font-bold text-rose-800">{title}</h1>
+      <h1 className="text-3xl font-bold text-danger">{title}</h1>
       <p className="text-lg text-ink">{body}</p>
       <Link
         href="/billing"

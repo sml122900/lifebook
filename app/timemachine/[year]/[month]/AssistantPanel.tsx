@@ -518,7 +518,7 @@ export function AssistantPanel({
         </div>
 
         <div aria-live="polite">
-          {eraError && <p className="text-base text-rose-700" role="alert">{eraError}</p>}
+          {eraError && <p className="text-base text-danger" role="alert">{eraError}</p>}
         </div>
 
         {eraLoading && <p className="text-base text-ink-soft">목록을 불러오는 중…</p>}
@@ -556,7 +556,7 @@ export function AssistantPanel({
                     type="button"
                     onClick={() => addEraItem(isEvent ? "event" : "song", it.id)}
                     disabled={added}
-                    className="shrink-0 min-h-[48px] rounded-md border-2 border-amber-500 bg-amber-50 px-4 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-line disabled:bg-canvas disabled:text-ink-soft"
+                    className="shrink-0 min-h-[48px] rounded-md border-2 border-brand bg-banner px-4 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-line disabled:bg-canvas disabled:text-ink-soft"
                   >
                     {added ? "✓ 담음" : "기억나요 +"}
                   </button>
@@ -597,7 +597,7 @@ export function AssistantPanel({
           >
             {tutMsgs.map((m, i) =>
               m.role === "user" ? (
-                <div key={i} className="self-end max-w-[90%] rounded-md bg-action px-4 py-3 text-base text-white">
+                <div key={i} className="self-end max-w-[90%] rounded-md bg-action px-4 py-3 text-base text-on-action">
                   {m.text}
                 </div>
               ) : (
@@ -628,7 +628,7 @@ export function AssistantPanel({
         )}
 
         <div aria-live="polite">
-          {tutError && <p className="text-base text-rose-700" role="alert">{tutError}</p>}
+          {tutError && <p className="text-base text-danger" role="alert">{tutError}</p>}
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -653,7 +653,7 @@ export function AssistantPanel({
             type="button"
             onClick={() => { askTutorial(tutInput); setTutInput(""); }}
             disabled={tutIsPending || tutInput.trim() === ""}
-            className="min-h-[52px] rounded-md bg-action px-6 py-3 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-[52px] rounded-md bg-action px-6 py-3 text-lg font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {tutIsPending ? "답하는 중…" : "물어보기"}
           </button>
@@ -731,7 +731,7 @@ export function AssistantPanel({
                 m.role === "user" ? (
                   <div
                     key={m.key}
-                    className="self-end max-w-[90%] rounded-md bg-action px-4 py-3 text-base text-white"
+                    className="self-end max-w-[90%] rounded-md bg-action px-4 py-3 text-base text-on-action"
                   >
                     {m.text}
                   </div>
@@ -781,7 +781,7 @@ export function AssistantPanel({
           {/* 에러 — 입력 바로 위 */}
           <div aria-live="polite">
             {error && (
-              <p className="text-base text-rose-700" role="alert">
+              <p className="text-base text-danger" role="alert">
                 {error}
                 {insufficient && (
                   <>
@@ -820,7 +820,7 @@ export function AssistantPanel({
                 setInputText("");
               }}
               disabled={isPending || inputText.trim() === ""}
-              className="min-h-[52px] rounded-md bg-action px-6 py-3 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-[52px] rounded-md bg-action px-6 py-3 text-lg font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending ? "찾는 중…" : "물어보기"}
             </button>
@@ -1115,7 +1115,7 @@ function AssistantTurnView({
                     onAddEvent({ monthEventId: e.id, title: e.title })
                   }
                   disabled={already}
-                  className="shrink-0 rounded-md border-2 border-amber-500 bg-amber-50 px-4 py-2 text-base font-semibold text-amber-900 hover:bg-amber-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-line disabled:bg-canvas disabled:text-ink-soft"
+                  className="shrink-0 rounded-md border-2 border-brand bg-banner px-4 py-2 text-base font-semibold text-action hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-line disabled:bg-canvas disabled:text-ink-soft"
                 >
                   {already ? "타임라인에 있음" : "내 타임라인에 추가"}
                 </button>

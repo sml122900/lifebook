@@ -55,7 +55,6 @@ import {
   type MyLifeLayout,
 } from "../lib/my-life-layout";
 import { normalizeForSearch, searchMyLife } from "../lib/my-life-search";
-import { isNightThemeUser } from "../lib/night-theme";
 import { saveNodeLink } from "../lib/node-graph";
 import fs from "node:fs";
 import path from "node:path";
@@ -683,15 +682,9 @@ async function main() {
     {
       const layoutSrc = src("app/layout.tsx");
       const css = src("app/globals.css");
-      const before = process.env.NIGHT_THEME_USER_IDS;
-      process.env.NIGHT_THEME_USER_IDS = " u-night1 , u-night2 ";
-      const gate = isNightThemeUser("u-night1") && isNightThemeUser("u-night2") && !isNightThemeUser("u-other") && !isNightThemeUser(null) && !isNightThemeUser("");
-      process.env.NIGHT_THEME_USER_IDS = "";
-      const off = !isNightThemeUser("u-night1");
-      if (before === undefined) delete process.env.NIGHT_THEME_USER_IDS;
-      else process.env.NIGHT_THEME_USER_IDS = before;
-      check("⑬ 밤 1단계 — 허용 목록(NIGHT_THEME_USER_IDS, 쉼표·공백 허용, 미설정 = 아무도 아님) · 루트 레이아웃이 서버에서 html data-theme(깜빡임 0 — 스크립트 없음)",
-        gate && off && layoutSrc.includes("const night = isNightThemeUser(session?.user?.id);") && layoutSrc.includes('data-theme={night ? "night" : undefined}'));
+      check("⑬ 밤 우주 전원(2026-11-05) — 루트 레이아웃이 서버에서 늘 html data-theme=night(깜빡임 0 — 스크립트·허용 목록 없음) · global-error 도 밤 · 허용 목록 판정 파일 없음",
+        layoutSrc.includes("data-theme=\"night\"") && !layoutSrc.includes("isNightThemeUser") && !fs.existsSync(path.resolve(__dirname, "../lib/night-theme.ts")) &&
+          src("app/global-error.tsx").includes("<html lang=\"ko\" data-theme=\"night\">") && src("app/manifest.ts").includes("theme_color: \"#221d52\"") && layoutSrc.includes("themeColor: \"#221d52\""));
       check("⑬ 밤 1단계 — My Life 지도 안 토글·기기 저장값·첫 그림 스크립트 없음 · data-space 없음 · 지도 바탕 = 밝은 .space-map + [data-theme=night] .space-map",
         !/data-space|SPACE_KEY|SPACE_BOOT|toggleSpace|mylife:space/.test(view) && !("toNight" in C.space) && !/data-space/.test(css) &&
           css.includes(".space-map {") && css.includes('[data-theme="night"] .space-map {'));
@@ -744,6 +737,20 @@ async function main() {
         view.includes("if (rTop >= top && rBottom <= bottom) return;") && view.includes("api.setTransform(st.positionX, st.positionY + dy, st.scale, 300);") &&
         view.includes("const open = selected === planetKey;") && view.includes("if (open && target) {") &&
         view.includes('else if (nodeKind === "satellite" && targetKey) openPanel(targetKey);'));
+    {
+      // 밤 우주 전원(2026-11-05) — 화면 코드에 직접 적은 기본 팔레트 색이 다시 생기지 않게(밤에서 안 뒤집혀 섞인 색이 됨, ui-night §8).
+      // 예외 = 포스터 그림·인쇄물(print-export·PosterInteractive)·공유 그림·매니페스트(색 클래스가 아닌 그림 값).
+      const walk = (dir: string): string[] =>
+        fs.readdirSync(path.resolve(__dirname, "..", dir), { withFileTypes: true }).flatMap((d) =>
+          d.isDirectory() ? walk(`${dir}/${d.name}`) : /\.(ts|tsx)$/.test(d.name) ? [`${dir}/${d.name}`] : []);
+      const RAW = /(?:^|[^a-z-])(?:text|bg|border|border-[lrtbxy]|ring|from|to|via|fill|stroke|outline|divide|placeholder|accent|decoration|caret)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/;
+      const hits = ["app", "components"].flatMap(walk)
+        .filter((f) => !/^app\/(poster\/(print-export|PosterInteractive)|opengraph-image|manifest)\./.test(f))
+        .flatMap((f) => src(f).split("\n").map((l, i) => [f, i + 1, l] as const))
+        .filter(([, , l]) => RAW.test(l) || /(?:^|[\s"'`:])bg-white\b/.test(l) || /bg-action\b[^"'`]*\btext-white\b/.test(l))
+        .map(([f, n]) => `${f}:${n}`);
+      check("⑬ 밤 우주 전원 — 화면 코드 Tailwind 기본 팔레트 색·bg-white·\"bg-action … text-white\" 0(토큰만)", hits.length === 0, hits.slice(0, 8));
+    }
     check("⑬ 사이드 패널 첫 진입 = 닫힘(모든 화면 — 2026-11-05 성민 결정) · 연 기록(\"open\")이 있을 때만 열림",
       src("app/timemachine/SidePanel.tsx").includes('const open = choice ?? (mounted && stored === "open");') && !src("app/timemachine/SidePanel.tsx").includes("firstOpen"));
     check("⑬ 꼬리표 \"다른 시기에도\" — 화면 꼬리표가 보이면 낭독 이름 끝에도 · 그때의 나는 그대로 · 이야기 패널 \"다른 시기에도 있어요: …\"",

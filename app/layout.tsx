@@ -12,7 +12,6 @@ import { PolicyNoticeBar } from "@/app/components/PolicyNoticeBar";
 import { ServiceWorkerRegister } from "@/app/components/ServiceWorkerRegister";
 import { SessionProvider } from "@/app/components/SessionProvider";
 import { SidePanelLayout } from "@/app/timemachine/SidePanel";
-import { isNightThemeUser } from "@/lib/night-theme";
 import { activeNotice } from "@/lib/policy-notice";
 import { loadSidePanelData } from "@/lib/side-panel-data";
 
@@ -39,7 +38,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black", // 밤 우주(2026-11-05) — 홈 화면 앱(iOS)의 위 상태 줄을 어둡게("default" = 흰 줄). black-translucent 는 머리 줄이 상태 줄 밑으로 들어가 안 씀
     title: "Lifebook",
   },
   other: {
@@ -50,10 +49,10 @@ export const metadata: Metadata = {
   },
 };
 
-// PWA 홈화면 추가 시 주소창·상태바 색. manifest 의 theme_color/background_color
-// 와 동일 값(--color-canvas)으로 맞춤.
+// PWA 홈화면 추가 시 주소창·상태바 색(안드로이드 상태 줄 포함). manifest 의 theme_color/background_color
+// 와 동일 값(밤 우주 --color-canvas — 2026-11-05 전원 밤)으로 맞춤.
 export const viewport: Viewport = {
-  themeColor: "#faf7f0",
+  themeColor: "#221d52",
 };
 
 // 제목용 명조. globals.css 의 --font-serif(@theme inline)가 이 변수를 참조.
@@ -82,15 +81,14 @@ export default async function RootLayout({
     : null;
   // 처리방침·약관 개정 안내 띠 — 로그인한 화면만(lib/policy-notice, 공지일~시행일 뒤 7일).
   const notice = session?.user ? activeNotice() : null;
-  // 밤 우주(docs/phase/ui-night.md N1) — 허용 목록 계정만. 서버가 html 에 그려 첫 그림부터 밤(깜빡임 0).
-  const night = isNightThemeUser(session?.user?.id);
 
   return (
     <html
       lang="ko"
       className={`h-full antialiased ${notoSerif.variable}`}
       data-app-header={sidePanelData ? "" : undefined}
-      data-theme={night ? "night" : undefined}
+      // 밤 우주 = Lifebook 단일 테마(2026-11-05 전원 — 로그인 안 함·V3·V2 모두, docs/phase/ui-night.md §8). 서버가 늘 그려 첫 그림부터 밤(깜빡임 0).
+      data-theme="night"
     >
       <body className="min-h-full flex flex-col bg-canvas text-ink text-lg leading-relaxed">
         <SessionProvider>

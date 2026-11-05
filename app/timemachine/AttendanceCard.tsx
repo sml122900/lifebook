@@ -61,7 +61,7 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
 
   return (
     <section
-      className="flex flex-col gap-5 rounded-md border-2 border-amber-300 bg-amber-50 p-6"
+      className="flex flex-col gap-5 rounded-md border-2 border-line bg-banner p-6"
       aria-labelledby="attendance-heading"
     >
       {/* 상단 — 제목 + 연속 표시 */}
@@ -72,7 +72,7 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
         >
           출석체크
         </h2>
-        <p className="text-lg font-bold text-amber-900 sm:text-xl">
+        <p className="text-lg font-bold text-action sm:text-xl">
           {streak > 0 ? (
             <>
               <span className="text-2xl sm:text-3xl">{streak}</span>일 연속 출석중
@@ -96,7 +96,7 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
 
       {/* 보상 표 */}
       <div
-        className="rounded-md border-2 border-amber-200 bg-surface p-4"
+        className="rounded-md border-2 border-line bg-surface p-4"
         aria-labelledby="reward-heading"
       >
         <p id="reward-heading" className="text-sm font-semibold text-ink-soft">
@@ -120,7 +120,7 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
       {/* 결과 / 안내 */}
       {justChecked && !justChecked.alreadyChecked && (
         <p
-          className="rounded-md border-2 border-emerald-500 bg-emerald-50 px-4 py-3 text-lg font-semibold text-emerald-900"
+          className="rounded-md border-2 border-success bg-success-wash px-4 py-3 text-lg font-semibold text-success"
           role="status"
         >
           {justChecked.bonusCredit > 0
@@ -129,13 +129,13 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
         </p>
       )}
       {todayChecked && !justChecked && (
-        <p className="rounded-md border-2 border-emerald-300 bg-surface px-4 py-3 text-base text-emerald-900">
+        <p className="rounded-md border-2 border-success bg-surface px-4 py-3 text-base text-success">
           오늘은 이미 받으셨어요. 내일 다시 와주세요.
         </p>
       )}
       {error && (
         <p
-          className="rounded-md border-2 border-rose-300 bg-surface px-4 py-3 text-base text-rose-800"
+          className="rounded-md border-2 border-danger bg-surface px-4 py-3 text-base text-danger"
           role="alert"
         >
           {error}
@@ -157,7 +157,7 @@ export function AttendanceCard({ initial }: { initial: AttendanceInitial }) {
           type="button"
           onClick={onClick}
           disabled={isPending}
-          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-action px-8 py-4 text-xl font-bold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-[72px] items-center justify-center rounded-md bg-action px-8 py-4 text-xl font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending
             ? "처리 중…"
@@ -204,9 +204,9 @@ function CycleDots({
               className={
                 "flex aspect-square w-full max-w-12 items-center justify-center rounded-full border-2 transition-all sm:max-w-14 " +
                 (filled
-                  ? "border-amber-700 bg-amber-700 text-white shadow"
+                  ? "border-brand bg-action text-on-action shadow"
                   : "border-line bg-surface text-ink-faint") +
-                (isToday ? " ring-4 ring-amber-300 ring-offset-2" : "")
+                (isToday ? " ring-4 ring-brand ring-offset-2" : "")
               }
             >
               {filled ? (
@@ -220,7 +220,7 @@ function CycleDots({
               )}
             </div>
             {isBonusSlot && (
-              <span className="text-[10px] font-semibold text-amber-900 sm:text-xs">
+              <span className="text-[10px] font-semibold text-action sm:text-xs">
                 +{BONUS_CREDIT}
               </span>
             )}

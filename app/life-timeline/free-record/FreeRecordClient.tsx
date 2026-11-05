@@ -261,7 +261,7 @@ export function FreeRecordClient({
         <button
           type="button"
           onClick={() => router.push("/life-timeline")}
-          className="mx-auto min-h-[56px] rounded-md bg-action px-8 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="mx-auto min-h-[56px] rounded-md bg-action px-8 text-lg font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           인생 연혁으로 →
         </button>
@@ -310,11 +310,11 @@ export function FreeRecordClient({
       {/* 녹음 UI */}
       {phase === "record" && selectedTopic && (
         <section className="flex flex-col gap-4">
-          <div className="rounded-md border-2 border-amber-300 bg-amber-50 px-5 py-4">
-            <p className="text-lg font-semibold text-amber-900">
+          <div className="rounded-md border-2 border-line bg-banner px-5 py-4">
+            <p className="text-lg font-semibold text-action">
               📢 {selectedTopic.title}
             </p>
-            <p className="mt-1 text-base text-amber-800">
+            <p className="mt-1 text-base text-action">
               편하게 말씀해 주세요. 녹음이 끝난 뒤 다시 들어보실 수 있어요.
             </p>
           </div>
@@ -342,7 +342,7 @@ export function FreeRecordClient({
             {!balanceLoading && balanceInfo && (
               <>
                 {!balanceInfo.chargingEnabled && (
-                  <p className="text-base text-emerald-700">
+                  <p className="text-base text-success">
                     지금은 무료로 전사해 드려요.
                   </p>
                 )}
@@ -359,7 +359,7 @@ export function FreeRecordClient({
                   </p>
                 )}
                 {balanceInfo.chargingEnabled && !balanceInfo.sufficient && (
-                  <div className="rounded-md bg-rose-50 px-4 py-3 text-base text-rose-700">
+                  <div className="rounded-md bg-danger-wash px-4 py-3 text-base text-danger">
                     <p>
                       토큰이 부족해요.{" "}
                       <span className="font-semibold">
@@ -368,7 +368,7 @@ export function FreeRecordClient({
                     </p>
                     <Link
                       href="/billing"
-                      className="mt-2 inline-block text-base font-semibold text-rose-700 underline"
+                      className="mt-2 inline-block text-base font-semibold text-danger underline"
                     >
                       충전하기 →
                     </Link>
@@ -386,7 +386,7 @@ export function FreeRecordClient({
                 balanceLoading ||
                 (balanceInfo !== null && balanceInfo.chargingEnabled && !balanceInfo.sufficient)
               }
-              className="flex min-h-[56px] flex-1 items-center justify-center rounded-md bg-action px-6 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-h-[56px] flex-1 items-center justify-center rounded-md bg-action px-6 text-lg font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               전사 시작
             </button>
@@ -452,7 +452,7 @@ export function FreeRecordClient({
                           value={seg.title}
                           maxLength={50}
                           onChange={(e) => updateSegment(idx, { title: e.target.value })}
-                          className="w-full rounded-md border-2 border-line px-3 py-2 text-lg text-ink focus:border-amber-500 focus:outline-none"
+                          className="w-full rounded-md border-2 border-line px-3 py-2 text-lg text-ink focus:border-brand focus:outline-none"
                         />
                       </div>
 
@@ -469,7 +469,7 @@ export function FreeRecordClient({
                               const v = parseInt(e.target.value, 10);
                               updateSegment(idx, { estimatedYear: isNaN(v) ? null : v });
                             }}
-                            className="w-28 rounded-md border-2 border-line px-3 py-2 text-lg text-ink focus:border-amber-500 focus:outline-none"
+                            className="w-28 rounded-md border-2 border-line px-3 py-2 text-lg text-ink focus:border-brand focus:outline-none"
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -484,7 +484,7 @@ export function FreeRecordClient({
                               const v = parseInt(e.target.value, 10);
                               updateSegment(idx, { estimatedMonth: isNaN(v) ? null : v });
                             }}
-                            className="w-20 rounded-md border-2 border-line px-3 py-2 text-lg text-ink focus:border-amber-500 focus:outline-none"
+                            className="w-20 rounded-md border-2 border-line px-3 py-2 text-lg text-ink focus:border-brand focus:outline-none"
                           />
                         </div>
                         <div className="flex flex-col gap-1">
@@ -492,7 +492,7 @@ export function FreeRecordClient({
                           <select
                             value={seg.category ?? ""}
                             onChange={(e) => updateSegment(idx, { category: e.target.value || null })}
-                            className="rounded-md border-2 border-line px-3 py-2 text-base text-ink focus:border-amber-500 focus:outline-none"
+                            className="rounded-md border-2 border-line px-3 py-2 text-base text-ink focus:border-brand focus:outline-none"
                           >
                             <option value="">선택 안 함</option>
                             {CATEGORY_OPTIONS.map(([v, label]) => (
@@ -508,7 +508,7 @@ export function FreeRecordClient({
                           value={seg.content}
                           rows={5}
                           onChange={(e) => updateSegment(idx, { content: e.target.value })}
-                          className="w-full rounded-md border-2 border-line px-3 py-2 text-lg text-ink focus:border-amber-500 focus:outline-none"
+                          className="w-full rounded-md border-2 border-line px-3 py-2 text-lg text-ink focus:border-brand focus:outline-none"
                         />
                       </div>
 
@@ -516,14 +516,14 @@ export function FreeRecordClient({
                         <button
                           type="button"
                           onClick={() => setEditingIdx(null)}
-                          className="min-h-[48px] rounded-md bg-action px-5 text-base font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+                          className="min-h-[48px] rounded-md bg-action px-5 text-base font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
                         >
                           완료
                         </button>
                         <button
                           type="button"
                           onClick={() => deleteSegment(idx)}
-                          className="min-h-[48px] rounded-md border-2 border-rose-300 px-5 text-base font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-400 focus-visible:ring-offset-2"
+                          className="min-h-[48px] rounded-md border-2 border-danger px-5 text-base font-semibold text-danger hover:bg-danger-wash focus:outline-none focus-visible:ring-4 focus-visible:ring-danger focus-visible:ring-offset-2"
                         >
                           이 장면 삭제
                         </button>
@@ -534,7 +534,7 @@ export function FreeRecordClient({
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-2">
                         {seg.category && (
-                          <span className="rounded-full bg-amber-100 px-3 py-0.5 text-sm font-semibold text-amber-800">
+                          <span className="rounded-full bg-banner px-3 py-0.5 text-sm font-semibold text-action">
                             {CATEGORY_LABELS[seg.category] ?? seg.category}
                           </span>
                         )}
@@ -596,7 +596,7 @@ export function FreeRecordClient({
               type="button"
               onClick={handleSaveSegments}
               disabled={saving || segments.length === 0}
-              className="flex min-h-[56px] flex-1 items-center justify-center rounded-md bg-action px-6 text-lg font-semibold text-white hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-50"
+              className="flex min-h-[56px] flex-1 items-center justify-center rounded-md bg-action px-6 text-lg font-semibold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-50"
             >
               {saving ? "저장 중…" : `${segments.length}개 이야기 저장하기`}
             </button>
@@ -613,7 +613,7 @@ export function FreeRecordClient({
       )}
 
       {error && (
-        <p className="rounded-md bg-rose-50 px-4 py-3 text-base text-rose-700" role="alert">
+        <p className="rounded-md bg-danger-wash px-4 py-3 text-base text-danger" role="alert">
           {error}
         </p>
       )}

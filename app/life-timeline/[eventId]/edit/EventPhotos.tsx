@@ -241,7 +241,7 @@ export function EventPhotos({
           이 이야기와 함께 남기고 싶은 사진을 붙여보세요.
         </p>
         {isPeriod && (
-          <p className="mt-2 rounded-md border-2 border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <p className="mt-2 rounded-md border-2 border-line bg-banner px-3 py-2 text-sm text-action">
             긴 기간의 이야기예요 — 사진마다 <b>시작 무렵</b> / <b>끝 무렵</b> /
             기간 전체 중에서 고를 수 있어요.
           </p>
@@ -251,7 +251,7 @@ export function EventPhotos({
       {error && (
         <p
           role="alert"
-          className="rounded-md border-2 border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900"
+          className="rounded-md border-2 border-danger bg-danger-wash px-4 py-3 text-base text-danger"
         >
           {error}
         </p>
@@ -303,7 +303,7 @@ export function EventPhotos({
                     type="button"
                     onClick={() => onDelete(p.id)}
                     disabled={isPending}
-                    className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-rose-300 bg-surface px-3 py-1 text-sm font-semibold text-rose-700 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-danger bg-surface px-3 py-1 text-sm font-semibold text-danger hover:bg-danger-wash focus:outline-none focus-visible:ring-4 focus-visible:ring-danger disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     사진 지우기
                   </button>
@@ -350,7 +350,7 @@ export function EventPhotos({
                 placeholder="예: 입학식 날 교문 앞에서"
                 maxLength={CAPTION_MAX}
                 disabled={isPending}
-                className="w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-amber-500 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500"
+                className="w-full rounded-md border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
               />
             </label>
 
@@ -373,7 +373,7 @@ export function EventPhotos({
                 type="button"
                 onClick={onAttach}
                 disabled={isPending}
-                className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-amber-600 px-5 py-2 text-base font-bold text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-amber-300"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-on-action hover:bg-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-brand"
               >
                 {isPending ? "붙이는 중…" : "이 이야기에 사진 붙이기"}
               </button>
@@ -423,9 +423,9 @@ function AnchorPicker({
               (size === "sm"
                 ? "min-h-[34px] px-2.5 text-xs "
                 : "min-h-[44px] px-4 text-base ") +
-              "inline-flex items-center justify-center rounded-md border-2 font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50 " +
+              "inline-flex items-center justify-center rounded-md border-2 font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50 " +
               (active
-                ? "border-amber-500 bg-amber-100 text-amber-900"
+                ? "border-brand bg-banner text-action"
                 : "border-line bg-surface text-ink-soft hover:bg-banner")
             }
           >

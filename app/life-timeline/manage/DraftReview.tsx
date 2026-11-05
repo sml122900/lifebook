@@ -103,7 +103,7 @@ export async function DraftReview({ userId }: { userId: string }) {
   return (
     <section className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-action text-sm font-bold text-on-action">
           {totalCount}
         </span>
         <h2 className="text-2xl font-bold text-ink">동반자 대화 — 검토 대기</h2>
@@ -118,11 +118,11 @@ export async function DraftReview({ userId }: { userId: string }) {
         return (
           <div
             key={s.sessionId}
-            className="flex flex-col gap-5 rounded-xl border-2 border-amber-300 bg-amber-50 p-5"
+            className="flex flex-col gap-5 rounded-xl border-2 border-line bg-banner p-5"
           >
             {/* 세션 헤더 + 일괄 승인 버튼 */}
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="font-semibold text-amber-900">
+              <p className="font-semibold text-action">
                 🎙 {dateStr} 대화
               </p>
               <div className="flex flex-wrap gap-2">
@@ -130,7 +130,7 @@ export async function DraftReview({ userId }: { userId: string }) {
                   <form action={approveAllSessionMemoriesAction.bind(null, s.sessionId)}>
                     <button
                       type="submit"
-                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-500 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-success bg-success-wash px-4 text-sm font-semibold text-success hover:bg-success-wash"
                     >
                       이야기 {s.memories.length}개 모두 추가
                     </button>
@@ -140,7 +140,7 @@ export async function DraftReview({ userId }: { userId: string }) {
                   <form action={approveAllSessionPeopleAction.bind(null, s.sessionId)}>
                     <button
                       type="submit"
-                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-500 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-success bg-success-wash px-4 text-sm font-semibold text-success hover:bg-success-wash"
                     >
                       인물 {s.people.length}명 모두 추가
                     </button>
@@ -150,7 +150,7 @@ export async function DraftReview({ userId }: { userId: string }) {
                   <form action={approveAllSessionLocationsAction.bind(null, s.sessionId)}>
                     <button
                       type="submit"
-                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-500 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-success bg-success-wash px-4 text-sm font-semibold text-success hover:bg-success-wash"
                     >
                       장소 {s.locations.length}곳 모두 추가
                     </button>
@@ -160,7 +160,7 @@ export async function DraftReview({ userId }: { userId: string }) {
                   <form action={approveAllSessionThingsAction.bind(null, s.sessionId)}>
                     <button
                       type="submit"
-                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-500 bg-emerald-50 px-4 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-success bg-success-wash px-4 text-sm font-semibold text-success hover:bg-success-wash"
                     >
                       물건 {s.things.length}개 모두 추가
                     </button>
@@ -175,7 +175,7 @@ export async function DraftReview({ userId }: { userId: string }) {
                 {s.memories.map((m) => {
                   const whenText = formatWhenDraft(m.eventYear, m.eventMonth, m.precision);
                   return (
-                    <div key={m.id} className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-white px-4 py-3">
+                    <div key={m.id} className="flex flex-col gap-2 rounded-lg border border-line bg-surface px-4 py-3">
                       <DraftRow
                         approveAction={approveDraftMemoryAction.bind(null, m.id)}
                         editAction={editDraftMemoryAction.bind(null, m.id)}
@@ -274,7 +274,7 @@ function SubjectSection({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-sm font-semibold text-amber-700">{label}</p>
+      <p className="text-sm font-semibold text-action">{label}</p>
       {children}
     </div>
   );
@@ -302,7 +302,7 @@ function DraftRow({
         <form action={approveAction}>
           <button
             type="submit"
-            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-emerald-500 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-success bg-success-wash px-3 text-sm font-semibold text-success hover:bg-success-wash"
           >
             ✓ 추가
           </button>
@@ -312,7 +312,7 @@ function DraftRow({
           <form action={editAction}>
             <button
               type="submit"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-amber-400 bg-white px-3 text-sm font-semibold text-amber-800 hover:bg-amber-50"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-lg border-2 border-brand bg-surface px-3 text-sm font-semibold text-action hover:bg-banner"
             >
               수정
             </button>
@@ -332,7 +332,7 @@ function DraftRow({
 
   if (withBorder) {
     return (
-      <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-white px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-lg border border-line bg-surface px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
         {inner}
       </div>
     );

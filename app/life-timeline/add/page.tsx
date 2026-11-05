@@ -87,7 +87,7 @@ export default async function LifeTimelineAddPage({
       {showHint && (
         <aside
           role="note"
-          className="rounded-md border-2 border-amber-200 bg-amber-50 px-5 py-4 text-base text-amber-900"
+          className="rounded-md border-2 border-line bg-banner px-5 py-4 text-base text-action"
         >
           <b>{defaultYear}년쯤</b>의 이야기를 추가해보세요. 연도는 바꾸실 수
           있어요.

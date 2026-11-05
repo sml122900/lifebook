@@ -13,8 +13,9 @@ type Method = "kakao" | "naver" | "google" | "email";
 
 // 가입 방법 버튼 — 브랜드 색은 로그인 화면과 같은 디자인 토큰 예외(카카오·네이버 가이드), 시니어 규격(56px·18px) 유지.
 const BUTTON: Record<Method, string> = {
-  kakao: "bg-[#FEE500] text-[#191600] hover:bg-[#FDD835] focus-visible:ring-[#191600]/30",
-  naver: "bg-[#03C75A] text-white hover:bg-[#02B350] focus-visible:ring-[#03C75A]/40",
+  kakao: "bg-[#FEE500] text-[#191600] hover:bg-[#FDD835] focus-visible:ring-brand",
+  // 네이버 — 흰 바탕 + 어두운 글자(2026-11-05 밤 우주 전원 — 초록 바탕 흰 글자 2.25:1 미달, 로그인 화면과 같은 꼴)
+  naver: "bg-[#FFFFFF] text-[#1F1F1F] hover:bg-[#F2F2F2] focus-visible:ring-brand",
   google: "border border-brand bg-surface text-action hover:bg-banner focus-visible:ring-brand",
   email: "border border-line bg-surface text-ink hover:bg-banner focus-visible:ring-brand",
 };

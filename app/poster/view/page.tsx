@@ -65,7 +65,7 @@ export default async function PosterViewPage() {
         </p>
         <Link
           href="/poster/select"
-          className="mt-4 inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-white hover:bg-action-hover"
+          className="mt-4 inline-flex min-h-[48px] items-center justify-center rounded-md bg-action px-5 py-2 text-base font-bold text-on-action hover:bg-action-hover"
         >
           담을 이야기 고르기
         </Link>
@@ -99,7 +99,7 @@ export default async function PosterViewPage() {
       <Link
         href="/poster/order"
         data-tour="poster-order"
-        className="mb-5 flex min-h-[60px] w-full items-center justify-center gap-2 rounded-md bg-amber-500 px-6 py-3 text-xl font-bold text-white hover:bg-amber-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+        className="mb-5 flex min-h-[60px] w-full items-center justify-center gap-2 rounded-md bg-action px-6 py-3 text-xl font-bold text-on-action hover:bg-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         <span aria-hidden>🖼️</span> 이 포스터 주문하기
       </Link>
@@ -125,7 +125,7 @@ export default async function PosterViewPage() {
       <div className="mt-6 flex flex-col items-center gap-3">
         <Link
           href="/poster/order"
-          className="inline-flex min-h-[56px] w-full max-w-sm items-center justify-center rounded-md bg-amber-500 px-6 py-3 text-lg font-bold text-white hover:bg-amber-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="inline-flex min-h-[56px] w-full max-w-sm items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-on-action hover:bg-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           이 포스터로 주문하기
         </Link>
