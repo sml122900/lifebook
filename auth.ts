@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { cache } from "react";
 
 import authConfig from "./auth.config";
 import { makeAuthAdapter } from "./lib/auth-adapter";
@@ -20,7 +21,7 @@ async function readSignupConsent() {
   return readSignupConsentToken((await cookies()).get(SIGNUP_CONSENT_COOKIE)?.value);
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const { handlers, auth: authEveryCall, signIn, signOut } = NextAuth({
   adapter: makeAuthAdapter(readSignupConsent), // 소셜 토큰 저장 안 함 · 동의 없이 계정 안 만듦(lib/auth-adapter)
   session: { strategy: "jwt" }, // DB 세션 대신 JWT — Edge 미들웨어가 읽기 쉬움
   ...authConfig,
@@ -122,3 +123,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+export { handlers, signIn, signOut };
+
+// auth() — 한 요청(서버 컴포넌트 그리기) 안에서는 한 번만 부르고 결과를 같이 쓴다(React cache). 위 jwt 콜백이 부를 때마다
+// DB 를 읽어서(동의 상태 — Edge 미들웨어가 쿠키만 보고 판단하게 토큰을 늘 최신으로 · 옛 사용자 지갑 보정) 화면 하나에서
+// 여러 번 부르면 왕복이 그만큼 늘었다(2026-11-05 측정: My Life 첫 화면 auth 조회 7~8 · 이야기 글 저장 11).
+// 그리기 요청마다 새로 한 번은 읽으므로 그 요청이 보는 동의 상태는 지금과 같다. 세션 갱신(/api/auth/session — 동의 직후
+// update()·ConsentSessionSync)은 handlers 가 따로 처리해 이 기억과 무관하다. 인자 없이 부르는 꼴만 쓴다.
+// proxy.ts 는 auth.config 로 만든 Edge 인스턴스 — 이것과 무관.
+export const auth = cache(authEveryCall);

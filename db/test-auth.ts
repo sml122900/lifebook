@@ -8,6 +8,9 @@
 //      화면 연결(/join 공개 · 로그인 회원가입 링크 · /signup 은 동의 없으면 /join)
 //   ③ 처리방침·약관 개정 공지(lib/policy-notice) — 공지 기간 경계(KST) · 시행일 = 공지일 + 7일 미만 거부 · 등록된 개정 규칙 통과 ·
 //      닫기 기록 판마다 · 문구 · 화면 연결(헤더 아래 띠·처리방침 맨 위 줄)
+//   ④ auth() 요청 단위 재사용(2026-11-05) — React cache 로 감싼 Node 인스턴스 · jwt 콜백은 그대로 DB 동의 상태를 읽음 ·
+//      proxy 는 따로(Edge) 인스턴스 · 앱 호출은 전부 인자 없이 · 동의 흐름 코드(폼 → update() → /enter · ConsentSessionSync · /enter 게이트) 그대로.
+//      화면 흐름(게이트·동의 직후 세션 갱신·쿠키만 옛 값·/enter)은 브라우저 실측으로 전후 같음 확인(docs 기록).
 //
 // 자체 픽스처 계정만 만들고 지운다(test30·실고객 접촉 0). 실행: npx tsx db/test-auth.ts
 
@@ -187,6 +190,25 @@ async function main() {
       read("app/layout.tsx").includes("const notice = session?.user ? activeNotice() : null;") && read("app/layout.tsx").includes("{notice && <PolicyNoticeBar notice={notice} />}") &&
         read("app/privacy/page.tsx").includes(`const notice = activeNotice("privacy");`) &&
         read("app/terms/page.tsx").includes(`const notice = activeNotice("terms");`) && read("app/terms/page.tsx").includes("<p id={NOTICE_ANCHOR}"));
+
+    // ── ④ auth() 요청 단위 재사용(2026-11-05) — 한 그리기 요청 안에서는 jwt 콜백(DB 동의 상태·지갑)을 한 번만 ──────
+    const authSrc = read("auth.ts");
+    check("④ auth() = React cache 로 감싼 Node 인스턴스 auth(한 그리기 요청에 한 번) · 세션 갱신 경로(handlers — /api/auth/session)는 같은 인스턴스 그대로",
+      authSrc.includes(`import { cache } from "react";`) && authSrc.includes("const { handlers, auth: authEveryCall, signIn, signOut } = NextAuth({") &&
+        authSrc.includes("export { handlers, signIn, signOut };") && authSrc.includes("export const auth = cache(authEveryCall);") &&
+        read("app/api/auth/[...nextauth]/route.ts").includes(`import { handlers } from "@/auth";`));
+    check("④ jwt 콜백은 그대로 매번 DB 에서 동의 상태를 읽어 토큰에 실음(Edge 미들웨어가 쿠키만 보고 판단) · proxy 는 auth.config 로 만든 따로 인스턴스(auth.ts 안 씀)",
+      authSrc.includes("async jwt({ token }) {") && authSrc.includes("const user = await prisma.user.findUnique({") &&
+        authSrc.includes("token.consentVersion = user?.privacyConsentVersion ?? 0;") && authSrc.includes("await ensureWalletWithSignupGrant(token.sub);") &&
+        !/from "\.\/auth"/.test(read("proxy.ts")) && read("proxy.ts").includes(`import authConfig from "./auth.config";`));
+    // 앱의 auth() 는 모두 인자 없이(cache 기억 열쇠 = 인자 — 미들웨어·핸들러 감싸기 꼴은 쓰지 않음)
+    const withArgs = ["app", "lib", "components"].flatMap(walk).filter((f) => /from "@\/auth"/.test(read(f)) && /[^.\w]auth\([^)]/.test(read(f)));
+    check("④ 앱의 auth() 호출은 전부 인자 없이(cache 열쇠가 하나) · 동의 흐름 코드 그대로(동의 폼 = 저장 → update() → /enter · 쿠키가 옛 값이면 ConsentSessionSync = update() → /enter · /enter = 세션 동의 버전 < 지금 → /consent)",
+      withArgs.length === 0 &&
+        read("app/consent/ConsentForm.tsx").includes("await saveConsent(formData);") && read("app/consent/ConsentForm.tsx").includes("await update();") && read("app/consent/ConsentForm.tsx").includes(`router.push("/enter");`) &&
+        read("app/consent/ConsentSessionSync.tsx").includes(`void update().finally(() => router.replace("/enter"));`) &&
+        read("app/enter/page.tsx").includes(`if ((session.consentVersion ?? 0) < CURRENT_CONSENT_VERSION) redirect("/consent");`),
+      withArgs);
   } finally {
     await removeFixtures();
     await prisma.user.deleteMany({ where: { email: "fixture-auth-short@lifebook.invalid" } });
