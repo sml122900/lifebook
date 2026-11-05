@@ -58,10 +58,10 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* 네이버 — 공식 "화이트 배경 사용 시" 버튼(네이버 로그인 버튼 사용 가이드 developers.naver.com/docs/login/bi/bi.md,
-            2026-11-05 확인: Background #FFFFFF · Logo #03A94D · Label #000000, 로고·레이블 간격 8px, N 로고 16px 이상).
-            지정 녹색(#03A94D) + 흰 글자는 3.09:1 로 글자 4.5:1 미달이라 흰 버튼형(가이드는 다른 버튼이 컬러일 때 흰 버튼을 "지양" — ui-night §9).
-            브랜드 색은 디자인 토큰 예외, 시니어 규격(56px·18px) 유지. */}
+        {/* 네이버 — 공식 권장 녹색형(네이버 로그인 버튼 사용 가이드 developers.naver.com/docs/login/bi/bi.md, 2026-11-05 확인:
+            "권장. Background: #03A94D, Logo: #FFFFFF, Label: #FFFFFF" · 지정 컬러 변경 불가 · 로고·레이블 간격 8px ·
+            "텍스트는 로고 높이보다 작은 크기"). 흰 글자 / #03A94D = 3.09:1 이라 레이블을 큰 글자(굵게 19px — 기준 18.66px bold, 3:1)로,
+            N 로고 22px(레이블보다 크게). 지정 색이라 마우스 올림 색 변화 없음. Q154(2026-11-05 성민) — ui-night §9.0·§10. */}
         <form
           action={async () => {
             "use server";
@@ -71,14 +71,14 @@ export default function LoginPage() {
         >
           <button
             type="submit"
-            className="flex min-h-[56px] w-full items-center justify-center gap-2 rounded-md bg-[#FFFFFF] px-6 py-4 text-lg font-semibold text-[#000000] hover:bg-[#F2F2F2] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="flex min-h-[56px] w-full items-center justify-center gap-2 rounded-md bg-[#03A94D] px-6 py-4 text-[19px] font-bold text-[#FFFFFF] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <svg
               aria-hidden="true"
-              width="18"
-              height="18"
+              width="22"
+              height="22"
               viewBox="0 0 24 24"
-              fill="#03A94D"
+              fill="#FFFFFF"
             >
               <path d="M16.273 12.845 7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845z" />
             </svg>

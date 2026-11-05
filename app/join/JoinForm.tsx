@@ -13,11 +13,12 @@ type Method = "kakao" | "naver" | "google" | "email";
 
 // 가입 방법 버튼 — 브랜드 색은 로그인 화면과 같은 디자인 토큰 예외(카카오·네이버 가이드), 시니어 규격(56px·18px) 유지.
 const BUTTON: Record<Method, string> = {
-  kakao: "bg-[#FEE500] text-[#191600] hover:bg-[#FDD835] focus-visible:ring-brand",
-  // 네이버 — 공식 "화이트 배경 사용 시" 버튼(가이드 2026-11-05 확인 — #FFFFFF · 로고 #03A94D · 레이블 #000000, 간격 8px — 로그인 화면과 같은 꼴)
-  naver: "gap-2 bg-[#FFFFFF] text-[#000000] hover:bg-[#F2F2F2] focus-visible:ring-brand",
-  google: "border border-brand bg-surface text-action hover:bg-banner focus-visible:ring-brand",
-  email: "border border-line bg-surface text-ink hover:bg-banner focus-visible:ring-brand",
+  kakao: "text-lg font-semibold bg-[#FEE500] text-[#191600] hover:bg-[#FDD835] focus-visible:ring-brand",
+  // 네이버 — 공식 권장 녹색형(가이드 2026-11-05 확인 — #03A94D · 로고·레이블 #FFFFFF, 간격 8px — 로그인 화면과 같은 꼴).
+  // 흰 글자 3.09:1 → 레이블 큰 글자(굵게 19px, 3:1 기준), 지정 색이라 마우스 올림 색 변화 없음(Q154)
+  naver: "gap-2 text-[19px] font-bold bg-[#03A94D] text-[#FFFFFF] focus-visible:ring-brand",
+  google: "text-lg font-semibold border border-brand bg-surface text-action hover:bg-banner focus-visible:ring-brand",
+  email: "text-lg font-semibold border border-line bg-surface text-ink hover:bg-banner focus-visible:ring-brand",
 };
 
 function MethodButton({ method, enabled }: { method: Method; enabled: boolean }) {
@@ -28,11 +29,11 @@ function MethodButton({ method, enabled }: { method: Method; enabled: boolean })
       name="method"
       value={method}
       disabled={!enabled || pending}
-      className={`flex min-h-[56px] w-full items-center justify-center rounded-md px-6 py-4 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${BUTTON[method]}`}
+      className={`flex min-h-[56px] w-full items-center justify-center rounded-md px-6 py-4 focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${BUTTON[method]}`}
     >
       {/* 네이버 버튼은 가이드대로 N 로고 + 레이블(아이콘·레이블 구성) */}
       {method === "naver" && !pending && (
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="#03A94D">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="#FFFFFF">
           <path d="M16.273 12.845 7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845z" />
         </svg>
       )}
