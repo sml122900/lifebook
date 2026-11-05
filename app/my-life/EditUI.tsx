@@ -25,7 +25,7 @@ import type { NodeRef } from "@/lib/node-graph";
 import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
 import { displayTitle, shortTitle } from "@/lib/story-title";
 
-import { beginPress, dragJustEnded, type DropResult } from "./drag";
+import { beginPress, dragJustEnded, type DropResult, type OptLinks } from "./drag";
 
 import {
   addLinkAction,
@@ -49,7 +49,8 @@ export const CREATE_KINDS: CreateKind[] = ["period", "story", "self", "person", 
 
 // 패널 맨 위 알림(되돌리기는 다음 동작 전까지) — 부모(MyLifeView)가 들고 있다.
 // undoFail — 되돌리기가 안 됐을 때 문구(없으면 넣기·만들기 되돌리기 문구 cannotUnlink).
-export type Notice = { key: string; text: string; undo?: () => Promise<{ ok: boolean }>; undoFail?: string };
+// saving = 끌어 넣은 뒤 저장 응답 전 — [되돌리기]는 보이되 못 누름(U3 낙관적 반영).
+export type Notice = { key: string; text: string; undo?: () => Promise<{ ok: boolean }>; undoFail?: string; saving?: boolean };
 // 만든 뒤 — 부모가 새 노드로 이동·선택·패널(+ 되돌리기 알림).
 // undoMove — 다른 시절로 옮긴 직후 [되돌리기] 값(3단계 E2E 2026-11-02, lib/episode-move undoMoveEpisode).
 export type Created = { key: string; eventId: string | null; text: string; undo: CreatedNode | null; undoMove?: MoveUndo };
@@ -410,6 +411,7 @@ export function NodeEditor({
   info,
   notice,
   setNotice,
+  links,
   onGo,
   onReopen,
   onDeleted,
@@ -419,6 +421,7 @@ export function NodeEditor({
   info: ReactNode;
   notice: Notice | null;
   setNotice: (n: Notice | null) => void;
+  links: OptLinks; // 끌어 넣기 낙관적 항목(MyLifeView)
   onGo: (key: string, eventId: string | null) => void;
   onReopen: (r: Created) => void; // 새 노드(옮긴 이야기·직접 쓴 이야기)로 이동·패널
   onDeleted: (name: string) => void;
@@ -623,6 +626,8 @@ export function NodeEditor({
     const planetEl = (k: string) => box?.querySelector<HTMLElement>(`button[data-node-key="${CSS.escape(k)}"]`) ?? null;
     const planet = planetEl(nodeKey);
     if (!dialog || !box || !planet) return; // 목록 보기에서 연 패널 — 누르기만
+    let optId = 0; // 궤도에 든 위성(낙관적 항목)
+    let created: CreatedLink[] = [];
     beginPress({
       kind: c.ref.type === "PLACE" ? "place" : c.ref.type === "PERSON_GROUP" ? "group" : "person",
       name: c.label,
@@ -642,7 +647,33 @@ export function NodeEditor({
         planet.setAttribute("data-drop-ok", "");
       },
       onAutoPan: () => {},
-      onDrop: () => linkNow(c.ref),
+      // 저장(서버만) → 나선이 끝나면 위성 바로 보임(onLand) → 결과(onSettled). 지도 끌기와 같은 흐름.
+      onDrop: async (): Promise<DropResult> => {
+        const r = await addLinkAction(self!, c.ref);
+        if (!r.ok) return "failed";
+        created = r.created;
+        return r.created.length === 0 ? "already" : "added";
+      },
+      onLand: () => {
+        setError(null);
+        optId = links.show({ op: "add", planet: self!, sat: c.ref, alsoPeriod: kind === "st" && c.ref.type === "PERSON" });
+        setNotice({ key: nodeKey, text: E.linked, saving: true });
+      },
+      onSettled: (_key, r) => {
+        if (r === "failed") {
+          if (optId) links.hide(optId);
+          setNotice({ key: nodeKey, text: C.space.dropFailed });
+          return;
+        }
+        if (optId) links.saved(optId);
+        links.refresh();
+        if (r === "already") {
+          setNotice({ key: nodeKey, text: E.alreadyLinked });
+          return;
+        }
+        const done = created;
+        setNotice({ key: nodeKey, text: E.linked, undo: () => links.undo(self!, c.ref, done) });
+      },
       onBounce: (why) => {
         if (why === "far") setNotice({ key: nodeKey, text: C.space.dropFar });
         else if (why === "cancel") setNotice({ key: nodeKey, text: C.space.dropCancel });
@@ -891,11 +922,11 @@ export function NodeEditor({
       {notice && notice.key === nodeKey && (
         <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-md border-2 border-brand bg-banner px-4 py-2">
           <p className="text-lg text-ink">{notice.text}</p>
-          {notice.undo && (
+          {(notice.undo || notice.saving) && (
             <Button
               variant="secondary"
               size="lg"
-              disabled={pending}
+              disabled={pending || !notice.undo}
               onClick={() => {
                 const u = notice.undo!;
                 const fail = notice.undoFail ?? E.cannotUnlink;

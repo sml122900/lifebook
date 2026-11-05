@@ -51,12 +51,13 @@ import { searchMyLife, type SearchResult } from "@/lib/my-life-search";
 import { labelName, labelVisible, orbitCss, orbitName, orbitPoint, orbitShape } from "@/lib/space-orbit";
 import type { DropPlanet } from "@/lib/space-drag";
 import type { CreatedLink } from "@/lib/my-life-edit";
+import { applyOptLinks, putOptLink, settleOptLinks, type OptLink } from "@/lib/my-life-optimistic";
 import type { NodeRef } from "@/lib/node-graph";
 import { displayTitle, hasOwnTitle, shortTitle } from "@/lib/story-title";
 
 import { ConflictReload } from "./_body/ConflictReload";
 import { addLinkAction, undoCreateAction, undoLinksAction, undoMoveAction } from "./actions";
-import { beginPress, dragJustEnded, lockPanZoom } from "./drag";
+import { beginPress, dragJustEnded, lockPanZoom, type DropResult, type OptLinks } from "./drag";
 import { CreateSheet, NodeEditor, type CreateKind, type Created, type Notice } from "./EditUI";
 import { animateClose, animateOpen, observeOrbits, readMotion, resyncOrbits, snapshotSats, subscribeMotion, writeMotion } from "./orbit";
 import { GapCards, InterviewEntryCard, type MyLifeSuggest } from "./Suggestions";
@@ -190,8 +191,15 @@ function nodeName(key: string, data: MyLifeData, idx: Index): string {
 
 // ── 화면 ────────────────────────────────────────────────────────────
 
-export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLifeSuggest }) {
+export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; suggest: MyLifeSuggest }) {
   const router = useRouter();
+  // 낙관적 연결(U3 후속 — lib/my-life-optimistic): 끌어 넣은 위성은 저장 응답 전에 보이고, [되돌리기]는 응답 전에 숨긴다.
+  // 화면이 그리는 data = 서버 데이터 + 아직 남은 항목. 저장이 끝나고 서버 데이터에 보이는 항목은 여기서 바로 지운다.
+  const [optLinks, setOptLinks] = useState<readonly OptLink[]>([]);
+  const liveOpt = settleOptLinks(serverData, optLinks);
+  if (liveOpt !== optLinks) setOptLinks(liveOpt);
+  const data = useMemo(() => applyOptLinks(serverData, liveOpt), [serverData, liveOpt]);
+  const optSeqRef = useRef(0);
   const searchParams = useSearchParams();
   const view = searchParams.get("view") === "list" ? "list" : "map";
   // ?focus=<노드 키> — /chat-v3 에서 방금 만든 이야기로 바로 가기(My Life 개편 2단계). 처음 그릴 때 한 번 —
@@ -397,23 +405,33 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
     return () => cancelAnimationFrame(raf);
   }, [data, pendingOpen, goTo, openPanel, layout, view, router]);
 
-  // 끌어 넣기(U3) — 패널 [넣기]와 같은 입구(addLinkAction → saveNodeLink)·같은 되돌리기(undoLinksAction).
-  const linkFromMap = useCallback(
-    async (a: NodeRef, b: NodeRef) => {
-      const r = await addLinkAction(a, b);
-      if (r.ok) router.refresh();
-      return r;
-    },
-    [router],
-  );
-  const undoFromMap = useCallback(
-    async (links: CreatedLink[]) => {
-      const r = await undoLinksAction(links);
-      router.refresh();
-      return r;
-    },
-    [router],
-  );
+  // 끌어 넣기(U3) — 낙관적 항목 입구(지도·패널 "넣을 것" 줄이 같이 씀). 저장은 패널 [넣기]와 같은 입구(addLinkAction → saveNodeLink),
+  // 되돌리기도 같은 것(undoLinksAction) — 되돌리기는 응답 전에 위성을 숨기고 실패하면 다시 보인다.
+  const links = useMemo<OptLinks>(() => {
+    const show = (o: Omit<OptLink, "id" | "saved">) => {
+      const id = ++optSeqRef.current;
+      setOptLinks((l) => putOptLink(l, { ...o, id, saved: false }));
+      return id;
+    };
+    const saved = (id: number) => setOptLinks((l) => l.map((o) => (o.id === id ? { ...o, saved: true } : o)));
+    const hide = (id: number) => setOptLinks((l) => l.filter((o) => o.id !== id));
+    return {
+      show,
+      saved,
+      hide,
+      refresh: () => router.refresh(),
+      undo: async (planet, sat, created) => {
+        // 이야기에 사람 — 그 넣기로 시기 연결이 새로 생겼으면(올린 것 아님) 시기에서도 숨김(서버 undoLinks 와 같게)
+        const alsoPeriod = sat.type === "PERSON" && planet.type === "EPISODE" && created.some((c) => !c.downgrade && (c.a.type === "LIFE_EVENT" || c.b.type === "LIFE_EVENT"));
+        const id = show({ op: "remove", planet, sat, alsoPeriod });
+        const r = await undoLinksAction(created).catch(() => ({ ok: false as const }));
+        if (r.ok) saved(id);
+        else hide(id);
+        router.refresh();
+        return r;
+      },
+    };
+  }, [router]);
 
   function openFind() {
     setMapNotice(null);
@@ -460,8 +478,7 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
           status={mapNotice}
           tour={tour}
           setTour={setTour}
-          onLink={linkFromMap}
-          onUndoLinks={undoFromMap}
+          links={links}
         />
       ) : (
         <ListMode data={data} idx={idx} suggest={suggest} openPanel={openPanel} onToggleView={toggleView} onOpenFind={openFind} onCreate={openCreate} status={mapNotice} />
@@ -497,6 +514,7 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
               fromSat={panelFromSat && view === "map"}
               notice={notice}
               setNotice={setNotice}
+              links={links}
               onReopen={(r) => {
                 setPendingOpen({ ...r, keep: true });
                 router.refresh();
@@ -617,8 +635,7 @@ function MapMode({
   status,
   tour,
   setTour,
-  onLink,
-  onUndoLinks,
+  links,
 }: {
   data: MyLifeData;
   idx: Index;
@@ -640,8 +657,7 @@ function MapMode({
   status: string | null; // 지운 뒤 알림 — 지도 위 줄에(다음 동작 전까지)
   tour: Tour | null; // 연결된 곳 차례 보기(패널 버튼이 시작, 선택 줄 [다음 연결]이 다음 곳)
   setTour: (t: Tour | null) => void;
-  onLink: (a: NodeRef, b: NodeRef) => Promise<{ ok: true; created: CreatedLink[] } | { ok: false; error: string }>;
-  onUndoLinks: (links: CreatedLink[]) => Promise<{ ok: boolean }>;
+  links: OptLinks; // 끌어 넣기 — 낙관적 항목·되돌리기(MyLifeView)
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -662,7 +678,9 @@ function MapMode({
   const motionRef = useRef(motion);
   // 끌어 넣기(U3 — ui-space §4): 집은 동안 지도 이동·확대 끔 · 놓은 뒤 알림(+ [되돌리기], 다음 동작 전까지) · 끄는 중 낭독 줄.
   const [grabbing, setGrabbing] = useState(false);
-  const [dropNotice, setDropNotice] = useState<{ text: string; undo?: () => Promise<{ ok: boolean }> } | null>(null);
+  // 놓은 뒤 알림 — owner = 그 끌기 번호(저장 응답이 뒤 동작의 알림을 덮지 않게) · saving = 저장 응답 전([되돌리기] 아직 못 누름).
+  const [dropNotice, setDropNotice] = useState<{ text: string; undo?: () => Promise<{ ok: boolean }>; saving?: boolean; owner?: number } | null>(null);
+  const dropSeqRef = useRef(0);
   const [dragStatus, setDragStatus] = useState("");
   // 손가락으로 누르면 지도 라이브러리의 "화살표 키용 포커스"를 건너뜀(onInit 에서 감쌈) — 큰 문서 전체 스타일 계산(300 노드 4배 감속
   // 약 175ms)이 탭마다 들던 것. 마우스·키보드는 그대로(누른 뒤 화살표 이동).
@@ -920,6 +938,14 @@ function MapMode({
     if (!b || !id || !(type === "PERSON" || type === "PLACE" || type === "PERSON_GROUP")) return;
     const ref: NodeRef = { type, id };
     const name = src.dataset.dragName ?? "";
+    const planetOf = (key: string): NodeRef => {
+      const [k, e1, s1] = key.split(":");
+      return k === "ev" ? { type: "LIFE_EVENT", id: e1 } : { type: "EPISODE", id: s1 };
+    };
+    const me = ++dropSeqRef.current;
+    let optId = 0; // 궤도에 든 위성(낙관적 항목)
+    let created: CreatedLink[] = [];
+    let text = "";
     const from = src.dataset.dragFrom ?? null;
     const planetEl = (k: string) => b.querySelector<HTMLElement>(`button[data-node-key="${CSS.escape(k)}"]`);
     const allowed = new Set(
@@ -949,26 +975,33 @@ function MapMode({
         const st = api.instance.state;
         api.setTransform(st.positionX + dx, st.positionY + dy, st.scale, 0);
       },
-      onDrop: async (key) => {
-        const [k, e1, s1] = key.split(":");
-        const target: NodeRef = k === "ev" ? { type: "LIFE_EVENT", id: e1 } : { type: "EPISODE", id: s1 };
-        try {
-          const r = await onLink(target, ref);
-          if (!r.ok) {
-            setDropNotice({ text: r.error });
-            return "failed";
-          }
-          if (r.created.length === 0) {
-            setDropNotice({ text: C.edit.alreadyLinked });
-            return "already";
-          }
-          const created = r.created;
-          setDropNotice({ text: C.space.dropped(name, nodeName(key, data, idx)), undo: () => onUndoLinks(created) });
-          return "added";
-        } catch {
-          setDropNotice({ text: C.edit.failed });
-          return "failed";
+      // 저장(서버만) — 화면은 onLand(궤도에 든 순간 위성 보임)·onSettled(결과)
+      onDrop: async (key): Promise<DropResult> => {
+        const r = await addLinkAction(planetOf(key), ref);
+        if (!r.ok) return "failed";
+        created = r.created;
+        return r.created.length === 0 ? "already" : "added";
+      },
+      onLand: (key) => {
+        optId = links.show({ op: "add", planet: planetOf(key), sat: ref, alsoPeriod: type === "PERSON" && key.startsWith("st:") });
+        text = C.space.dropped(name, nodeName(key, data, idx));
+        setDropNotice({ text, saving: true, owner: me });
+      },
+      onSettled: (key, r) => {
+        if (r === "failed") {
+          if (optId) links.hide(optId); // 위성이 빠지고 그림이 튕겨 제자리(drag.ts)
+          setDropNotice({ text: C.space.dropFailed });
+          return;
         }
+        if (optId) links.saved(optId);
+        links.refresh();
+        if (r === "already") {
+          setDropNotice((n) => (!n || n.owner === me ? { text: C.edit.alreadyLinked, owner: me } : n));
+          return;
+        }
+        const planet = planetOf(key);
+        const done = created;
+        setDropNotice((n) => (n?.owner === me ? { text, undo: () => links.undo(planet, ref, done), owner: me } : n));
       },
       onBounce: (why) => {
         if (why === "far") setDropNotice({ text: C.space.dropFar });
@@ -1268,11 +1301,12 @@ function MapMode({
         {dropNotice && (
           <div role="status" className="absolute inset-x-0 top-0 z-10 flex min-h-[56px] items-center justify-between gap-3 border-b border-line bg-surface px-6 py-1">
             <p className="min-w-0 text-lg text-ink">{dropNotice.text}</p>
-            {dropNotice.undo && (
+            {(dropNotice.undo || dropNotice.saving) && (
               <Button
                 variant="secondary"
                 size="lg"
                 className="shrink-0 px-4!"
+                disabled={!dropNotice.undo}
                 onClick={async () => {
                   const u = dropNotice.undo!;
                   setDropNotice(null);
@@ -2163,6 +2197,7 @@ function PanelBody({
   fromSat,
   notice,
   setNotice,
+  links,
   onReopen,
   onDeleted,
   related,
@@ -2177,6 +2212,7 @@ function PanelBody({
   fromSat: boolean;
   notice: Notice | null;
   setNotice: (n: Notice | null) => void;
+  links: OptLinks;
   onReopen: (r: Created) => void;
   onDeleted: (name: string) => void;
   related: { count: number; go: () => void } | null;
@@ -2202,6 +2238,7 @@ function PanelBody({
       }
       notice={notice}
       setNotice={setNotice}
+      links={links}
       onGo={onGo}
       onReopen={onReopen}
       onDeleted={onDeleted}

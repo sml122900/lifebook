@@ -76,6 +76,7 @@ import {
   orbitShape,
 } from "../lib/space-orbit";
 import { DRAG_SLOP, DROP_RANGE, EDGE_ARM, LONG_PRESS_MS, isAndroid, pickDropTarget, spiralPath, wobbleScales } from "../lib/space-drag";
+import { applyOptLinks, hasLink, putOptLink, settleOptLinks, type OptLink } from "../lib/my-life-optimistic";
 import { saveNodeLink } from "../lib/node-graph";
 import fs from "node:fs";
 import path from "node:path";
@@ -834,8 +835,8 @@ async function main() {
         view.includes("data-drag={`PERSON:${p.id}`}") && view.includes("data-drag={`PLACE:${p.id}`}") && view.includes("data-drag={`PERSON_GROUP:${l.groupId}`}") &&
           view.includes("data-drag-from={open && s.ref ? n.key : undefined}") && !/draggable/.test(view + dragSrc + editSrc) &&
           view.includes("panning={{ disabled: grabbing }}") && view.includes("pinch={{ disabled: grabbing }}") &&
-          view.includes("const r = await addLinkAction(a, b);") && view.includes("const r = await undoLinksAction(links);") && view.includes("const r = await onLink(target, ref);") &&
-          view.includes("if (dragJustEnded()) return;") && editSrc.includes("const r = await addLinkAction(self!, other);") && editSrc.includes("onDrop: () => linkNow(c.ref),"));
+          view.includes("const r = await addLinkAction(planetOf(key), ref);") && view.includes("const r = await undoLinksAction(created).catch(() => ({ ok: false as const }));") &&
+          view.includes("if (dragJustEnded()) return;") && editSrc.includes("const r = await addLinkAction(self!, other);") && editSrc.includes("const r = await addLinkAction(self!, c.ref);"));
       check("⑬ U3 손짓 — 집기 전 실제 이동 시각이 280ms 전이면 집기를 되돌림(바쁜 메인 스레드에서 늦게 온 이동) · 가장자리 자동 이동은 24px 움직인 뒤 · 두 번째 손가락 = 취소 · 이미 있는 행성 위에 놓으면 이미 들어 있어요 문구(멀어서 아님) · 연출 없이(움직임 줄이기·[움직임 멈추기]) · 진동 Android 만 · 터치 누름은 지도 라이브러리 키보드 포커스 건너뜀",
         dragSrc.includes("if (grabbed && moved && e.timeStamp - o.pointer.t < LONG_PRESS_MS) {") && dragSrc.includes("if (!armed) armed = Math.hypot(last.x - grabAt.x, last.y - grabAt.y) > EDGE_ARM;") &&
           dragSrc.includes('window.addEventListener("pointerdown", onSecond, true);') && dragSrc.includes('export const stillMotion = () => reduced() || readMotion() === "stop";') &&
@@ -846,6 +847,131 @@ async function main() {
         editSrc.includes("{showRow ? C.space.addRowHide : C.space.addRowShow}") && editSrc.includes("aria-label={C.space.addRowItem(c.label)}") &&
           editSrc.includes("onAdd(c.ref);") && editSrc.includes("onPointerDown={(e) => onPress(e, c)}") &&
           ["grabHint", "dropped", "dropFar", "dropCancel", "addRowShow", "addRowHide", "addRowTitle", "addRowHint", "addRowItem"].every((k) => k in C.space));
+
+      // U3 후속 — 낙관적 반영(lib/my-life-optimistic): 놓는 즉시 궤도(저장 응답 전) · 실패면 빠짐 · 서버 데이터에 보이면 항목 지움 · 순서 꼬임
+      type Story = MyLifeEvent["stories"][number];
+      const ev = (id: string, stories: Story[] = [], personIds: string[] = []): MyLifeEvent => ({ id, type: "CUSTOM" as LifeEventType, label: id, year: 2000, endYear: null, stories, personIds, placeIds: [], groupIds: [] });
+      const story = (id: string, primaryEventId: string, chips: Story["chips"] = [], subjectPersonId: string | null = null) =>
+        ({ id, kind: "STORY", title: "", content: "", primaryEventId, otherEventIds: [], subjectPersonId, chips, richBody: false, bodyVersion: 0 }) as Story;
+      const chips0: Story["chips"] = [{ kind: "person", id: "p0", name: "가" }, { kind: "place", id: "l0", name: "곳" }];
+      const base: MyLifeData = {
+        events: [ev("e1", [story("s1", "e1", chips0, "p9")]), ev("e2", [story("s1", "e1", chips0, "p9")])], // 같은 이야기가 두 시기에
+        people: [
+          { id: "p0", name: "가", relation: null, metYear: null, groupIds: [], body: "" },
+          { id: "p1", name: "나", relation: null, metYear: null, groupIds: [], body: "" },
+          { id: "p9", name: "대상", relation: null, metYear: null, groupIds: [], body: "" },
+        ],
+        groups: [],
+        places: [{ id: "l1", name: "새곳", address: null, source: null, lat: null, lng: null, groupIds: [] }],
+        placeGroups: [],
+      };
+      const S1 = { type: "EPISODE", id: "s1" } as const;
+      const E1 = { type: "LIFE_EVENT", id: "e1" } as const;
+      const P1 = { type: "PERSON", id: "p1" } as const;
+      type Ref = OptLink["planet"];
+      const op = (id: number, o: "add" | "remove", planet: Ref, sat: Ref, saved = false, alsoPeriod = false): OptLink => ({ id, op: o, planet, sat, alsoPeriod, saved });
+      // 서버가 넣은 뒤의 데이터(이야기 칩 + 시기 사람 — addLink 의 STORY 시기 연결)
+      const withP1: MyLifeData = applyOptLinks(base, [op(0, "add", S1, P1, true, true)]);
+      const a1 = applyOptLinks(base, [op(1, "add", S1, P1, false, true)]);
+      const s1chips = (d: MyLifeData, e: number) => d.events[e].stories[0].chips.map((c) => `${c.kind}:${c.id}`).join(",");
+      check("⑬ U3 낙관적 반영 — 이야기에 사람 = 두 시기의 같은 이야기 모두 + 서버 순서 자리(장소 앞) + 그 시기 사람(alsoPeriod) · 장소 = 맨 끝 · 대상 인물은 이미 있음 · 항목 없으면 서버 데이터 그대로",
+        s1chips(a1, 0) === "person:p0,person:p1,place:l0" && s1chips(a1, 1) === "person:p0,person:p1,place:l0" && a1.events[0].personIds.join() === "p1" &&
+          s1chips(applyOptLinks(base, [op(1, "add", S1, { type: "PLACE", id: "l1" })]), 0) === "person:p0,place:l0,place:l1" &&
+          hasLink(base, S1, { type: "PERSON", id: "p9" }) && applyOptLinks(base, [op(1, "add", S1, { type: "PERSON", id: "p9" })]).events[0].stories[0].chips.length === 2 &&
+          applyOptLinks(base, [op(1, "add", E1, P1)]).events[0].personIds.join() === "p1" && applyOptLinks(base, []) === base);
+
+      // 화면 흐름 흉내 — MyLifeView 와 같은 규칙(그릴 때마다 settle, 새 항목은 같은 쌍을 대신, 저장 끝 = saved, 실패 = 지움)
+      const sim = (server: MyLifeData) => {
+        let list: readonly OptLink[] = [];
+        let srv = server;
+        let seq = 0;
+        return {
+          show: (o: "add" | "remove") => {
+            const id = ++seq;
+            list = putOptLink(list, op(id, o, S1, P1, false, true));
+            return id;
+          },
+          saved: (id: number) => {
+            list = list.map((x) => (x.id === id ? { ...x, saved: true } : x));
+          },
+          hide: (id: number) => {
+            list = list.filter((x) => x.id !== id);
+          },
+          refresh: (d: MyLifeData) => {
+            srv = d;
+          },
+          render: () => {
+            list = settleOptLinks(srv, list);
+            return hasLink(applyOptLinks(srv, list), S1, P1);
+          },
+          size: () => list.length,
+        };
+      };
+      // ① 넣기 — 궤도에 든 순간 보임 → 저장 → 새 데이터에 보이면 항목 지움
+      const t1 = sim(base);
+      const i1 = t1.show("add");
+      const r1a = t1.render();
+      t1.saved(i1);
+      const r1b = t1.render() && t1.size() === 1; // 새 데이터 오기 전 — 항목 그대로
+      t1.refresh(withP1);
+      const r1c = t1.render() && t1.size() === 0;
+      // ② 저장 실패 — 위성 빠짐
+      const t2 = sim(base);
+      t2.hide(t2.show("add"));
+      const r2 = !t2.render() && t2.size() === 0;
+      // ③ 되돌리는 중 다시 넣기 — 늦은 되돌리기 응답·새로고침이 다시 넣은 위성을 숨기지 않음
+      const t3 = sim(withP1);
+      const u3 = t3.show("remove");
+      const r3a = !t3.render();
+      const i3 = t3.show("add"); // 같은 쌍 — 되돌리기 항목을 대신
+      t3.saved(u3); // 늦게 온 되돌리기 응답(이미 대신됨 — 영향 없음)
+      t3.refresh(base); // 되돌리기 새로고침(위성 없음)
+      const r3b = t3.render();
+      t3.saved(i3);
+      t3.refresh(withP1);
+      const r3c = t3.render() && t3.size() === 0;
+      // ③-2 되돌리기 응답 뒤 새로고침이 이미 다시 넣은 뒤의 데이터(위성 있음)를 가져와도 — 대신된 되돌리기 항목이 남아 숨기지 않음
+      const t3b = sim(withP1);
+      const u3b = t3b.show("remove");
+      const i3b = t3b.show("add");
+      t3b.saved(u3b);
+      t3b.refresh(withP1);
+      t3b.saved(i3b);
+      const r3d = t3b.render() && t3b.size() === 0;
+      // ④ 저장 응답 전에 새로고침이 먼저 와도 — 보임 유지, 저장 끝나면 바로 정리(남은 항목이 뒤 [빼기]를 뒤집지 않게)
+      const t4 = sim(base);
+      const i4 = t4.show("add");
+      t4.refresh(withP1);
+      const r4a = t4.render() && t4.size() === 1;
+      t4.saved(i4);
+      const r4b = t4.render() && t4.size() === 0;
+      t4.refresh(base); // 그 뒤 패널 [빼기]
+      const r4c = !t4.render();
+      // ⑤ 되돌리기 실패 — 다시 보임
+      const t5 = sim(withP1);
+      const u5 = t5.show("remove");
+      const r5a = !t5.render();
+      t5.hide(u5);
+      const r5b = t5.render() && t5.size() === 0;
+      // ⑥ 넣고 바로 되돌림(저장 끝 뒤) → 넣기 새로고침이 늦게 와도 숨김 유지
+      const t6 = sim(base);
+      const i6 = t6.show("add");
+      t6.saved(i6);
+      const u6 = t6.show("remove");
+      t6.refresh(withP1);
+      const r6a = !t6.render();
+      t6.saved(u6);
+      t6.refresh(base);
+      const r6b = !t6.render() && t6.size() === 0;
+      check("⑬ U3 낙관적 반영 순서 — ① 넣기 보임 → 저장 → 새 데이터에 보이면 정리 ② 실패 = 빠짐 ③ 되돌리는 중 다시 넣기(늦은 되돌리기 응답·새로고침이 안 숨김) ④ 저장 전 새로고침 → 저장 끝 바로 정리(뒤 [빼기] 안 뒤집음) ⑤ 되돌리기 실패 = 다시 보임 ⑥ 넣고 바로 되돌림(늦은 넣기 새로고침이 안 보임)",
+        r1a && r1b && r1c && r2 && r3a && r3b && r3c && r3d && r4a && r4b && r4c && r5a && r5b && r6a && r6b,
+        { r1a, r1b, r1c, r2, r3a, r3b, r3c, r3d, r4a, r4b, r4c, r5a, r5b, r6a, r6b });
+      check("⑬ U3 낙관적 반영 화면 — 나선이 끝나면 onLand(저장 응답 전 위성) · 결과는 onSettled(실패 = 위성 빼고 튕김 + 넣지 못했어요) · 지도 이동은 응답 전 다시 켬 · [되돌리기]는 저장 끝 뒤에만 눌림(지도·패널) · 저장 뒤 새로고침 · 그릴 때 정리",
+        dragSrc.includes(`const landed = early !== "failed" && early !== "already";`) &&
+          dragSrc.includes("    o.onEnd(); // 지도 이동·확대 다시 켬 — 저장 응답과 무관\n    const r = await result;\n    o.onSettled(key, r, landed);") &&
+          view.includes("if (optId) links.hide(optId); // 위성이 빠지고 그림이 튕겨 제자리(drag.ts)") && view.includes("setDropNotice({ text: C.space.dropFailed });") &&
+          view.includes("disabled={!dropNotice.undo}") && editSrc.includes("disabled={pending || !notice.undo}") && editSrc.includes("setNotice({ key: nodeKey, text: E.linked, saving: true });") &&
+          view.includes("const liveOpt = settleOptLinks(serverData, optLinks);") && view.includes("links.refresh();") && typeof C.space.dropFailed === "string");
     }
     {
       // 밤 우주 전원(2026-11-05) — 화면 코드에 직접 적은 기본 팔레트 색이 다시 생기지 않게(밤에서 안 뒤집혀 섞인 색이 됨, ui-night §8).

@@ -4,7 +4,9 @@
 // (지도 이동·패널 스크롤이 그대로), 그만큼 가만히 누르면 집기: 떠 있는 그림(ghost)이 손가락을 따라오고(포인터 이벤트당 transform 한 번),
 // 놓을 수 있는 행성은 은은하게 빛나며(지도 [data-dragging] + 행성 [data-drop-ok]) 놓을 행성은 고리 + 점선(자석 — [data-drop-target]).
 // 놓으면 나선으로 궤도에 들어가고 행성이 출렁인다(Web Animations 한 번씩), 못 넣으면 튕겨 제자리. 두 번째 손가락·취소 = 튕김.
-// 연출 없이(움직임 줄이기·[움직임 멈추기]) = 그림만 바로 치우고 저장은 같음. 진동은 Android 만(집을 때·들어갈 때).
+// 낙관적 반영(U3 후속): 저장은 놓는 순간 시작하되 기다리지 않는다 — 나선이 끝나면 onLand(화면이 위성을 바로 보임), 저장 결과는
+// onSettled(실패면 화면이 위성을 빼고 그림이 궤도에서 튕겨 제자리). 지도 이동은 나선이 끝나면 다시 켜짐(저장 응답과 무관).
+// 연출 없이(움직임 줄이기·[움직임 멈추기]) = 그림만 바로 치우고 놓는 순간 onLand. 진동은 Android 만(집을 때·들어갈 때).
 // rAF 는 집은 채 지도 가장자리에 머물 때(자동 이동)만 돈다 — 공전처럼 늘 도는 코드 없음.
 
 import {
@@ -28,6 +30,10 @@ import {
   type Pt,
 } from "@/lib/space-drag";
 
+import type { CreatedLink } from "@/lib/my-life-edit";
+import type { OptLink } from "@/lib/my-life-optimistic";
+import type { NodeRef } from "@/lib/node-graph";
+
 import { readMotion } from "./orbit";
 
 export type DragKind = "person" | "place" | "group";
@@ -40,7 +46,16 @@ export function lockPanZoom(instance: unknown, on: boolean) {
   inst.setup = { ...inst.setup, panning: { ...inst.setup.panning, disabled: on }, pinch: { ...inst.setup.pinch, disabled: on } };
 }
 export type DropResult = "added" | "already" | "failed";
-export type BounceWhy = "far" | "already" | "cancel" | "failed";
+
+// 낙관적 연결 입구(MyLifeView 가 만듦 — 지도 끌기·패널 "넣을 것" 줄이 같이 씀, lib/my-life-optimistic).
+export type OptLinks = {
+  show: (o: Omit<OptLink, "id" | "saved">) => number; // 위성 바로 보임(항목 번호)
+  saved: (id: number) => void; // 저장 끝 — 서버 데이터에 보이면 항목이 지워짐
+  hide: (id: number) => void; // 저장 실패 — 위성 빠짐
+  refresh: () => void;
+  undo: (planet: NodeRef, sat: NodeRef, created: CreatedLink[]) => Promise<{ ok: boolean }>; // 응답 전에 숨김, 실패면 다시 보임
+};
+export type BounceWhy = "far" | "already" | "cancel";
 
 export type PressOptions = {
   kind: DragKind;
@@ -54,7 +69,9 @@ export type PressOptions = {
   planetEl: (key: string) => HTMLElement | null;
   onGrab: () => void;
   onAutoPan: (dx: number, dy: number) => void;
-  onDrop: (key: string) => Promise<DropResult>;
+  onDrop: (key: string) => Promise<DropResult>; // 저장 시작(서버만 — 화면은 onLand·onSettled)
+  onLand: (key: string) => void; // 궤도에 든 순간(나선 끝 · 연출 없으면 놓는 순간) — 저장 응답 전에 위성을 보임. 그새 실패·이미 있음이 왔으면 안 불림
+  onSettled: (key: string, r: DropResult, landed: boolean) => void; // 저장 결과(onLand 뒤) — 실패면 위성을 빼고 알림
   onBounce: (why: BounceWhy) => void;
   onEnd: () => void;
 };
@@ -210,34 +227,48 @@ export function beginPress(o: PressOptions) {
     cleanup();
     suppressUntil = performance.now() + 500;
     const planet = o.planetEl(key);
-    const result = o.onDrop(key); // 서버 응답을 기다리지 않고 연출 시작(§4.3)
-    if (!ghost || !planet || stillMotion()) {
-      const r = await result;
-      if (r === "failed") o.onBounce("failed");
-      return finish();
-    }
-    // 나선 — 놓은 점에서 행성 둘레를 감아 궤도 위 점으로(궤도 = 행성 지름 + 64 남짓, 화면 배율 그대로)
-    const pr = planet.getBoundingClientRect();
-    const c = { x: pr.left + pr.width / 2, y: pr.top + pr.height / 2 };
-    const a = Math.atan2(last.y - c.y, last.x - c.x) + SPIRAL_TURN;
-    const orbitR = pr.width / 2 + pr.width * 0.25 + 24;
-    const end = { x: c.x + orbitR * Math.cos(a), y: c.y + orbitR * 0.78 * Math.sin(a) };
-    const path = spiralPath(last, c, end);
     const g = ghost;
-    await g.animate(path.map((p, i) => ({ transform: `${at(p)} scale(${(1.14 - (0.14 * i) / (path.length - 1)).toFixed(3)})` })), { duration: SPIRAL_MS, easing: "linear", fill: "forwards" }).finished.catch(() => {});
+    let settled: DropResult | null = null;
+    const result = o.onDrop(key).then(
+      (r) => (settled = r),
+      (): DropResult => (settled = "failed"),
+    );
+    const moving = !!g && !!planet && !stillMotion();
+    let end: Pt | null = null;
+    if (moving) {
+      // 나선 — 놓은 점에서 행성 둘레를 감아 궤도 위 점으로(궤도 = 행성 지름 + 64 남짓, 화면 배율 그대로)
+      const pr = planet!.getBoundingClientRect();
+      const c = { x: pr.left + pr.width / 2, y: pr.top + pr.height / 2 };
+      const a = Math.atan2(last.y - c.y, last.x - c.x) + SPIRAL_TURN;
+      const orbitR = pr.width / 2 + pr.width * 0.25 + 24;
+      end = { x: c.x + orbitR * Math.cos(a), y: c.y + orbitR * 0.78 * Math.sin(a) };
+      const path = spiralPath(last, c, end);
+      await g!.animate(path.map((p, i) => ({ transform: `${at(p)} scale(${(1.14 - (0.14 * i) / (path.length - 1)).toFixed(3)})` })), { duration: SPIRAL_MS, easing: "linear", fill: "forwards" }).finished.catch(() => {});
+    }
+    // 궤도에 듦 — 저장 응답을 기다리지 않고 위성을 보인다(나선 동안 이미 실패·이미 있음이 왔으면 안 들임).
+    const early = settled as DropResult | null; // 콜백이 바꾼 값(타입 좁히기 막음)
+    const landed = early !== "failed" && early !== "already";
+    if (landed) {
+      o.onLand(key);
+      if (moving) {
+        vibrate(VIBRATE_DROP_MS);
+        planet!.animate(wobbleScales().map((s) => ({ transform: `scale(${s})` })), { duration: WOBBLE_MS, easing: "linear" });
+      }
+    }
+    if (g && moving && early !== "failed") await g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: "forwards" }).finished.catch(() => {});
+    setTarget(null);
+    if (!moving) g?.remove(); // 연출 없이 — 그림은 바로 치움(튕길 궤도 자리가 없음)
+    o.onEnd(); // 지도 이동·확대 다시 켬 — 저장 응답과 무관
     const r = await result;
-    if (r === "failed") {
-      // 저장 실패 — 궤도에서 빠져 원래 자리로
-      o.onBounce("failed");
+    o.onSettled(key, r, landed);
+    // 저장 실패 — 궤도에서 빠져 원래 자리로(누른 것이 화면에 남아 있을 때만)
+    if (r === "failed" && g && end && o.origin.isConnected) {
       const or = o.origin.getBoundingClientRect();
       const home = { x: or.left + or.width / 2, y: or.top + Math.min(or.height / 2, 32) };
-      await g.animate([{ transform: at(end) }, { transform: at(home) }], { duration: BOUNCE_MS, easing: BOUNCE_EASING }).finished.catch(() => {});
-      return finish();
+      await g.animate([{ transform: at(end), opacity: 1 }, { transform: at(home), opacity: 1 }], { duration: BOUNCE_MS, easing: BOUNCE_EASING }).finished.catch(() => {});
     }
-    vibrate(VIBRATE_DROP_MS);
-    planet.animate(wobbleScales().map((s) => ({ transform: `scale(${s})` })), { duration: WOBBLE_MS, easing: "linear" });
-    await g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: "forwards" }).finished.catch(() => {});
-    finish();
+    g?.remove();
+    if (ghost === g) ghost = null;
   }
 
   function onUp(e: PointerEvent) {
