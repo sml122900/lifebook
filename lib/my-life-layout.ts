@@ -4,8 +4,9 @@
 // 지도 = 고정 좌표계의 한 장(배율 1 = CSS px). 노드 크기·간격은 화면 크기·접힘·배율과 무관하다.
 //   시간 줄기(U1 — Q104): 세로 한 줄. 시기 행성 → 그 시기 이야기 행성 → 다음 시기. 그림 단위 = "계 상자"(행성 + 위성 + 이름표가
 //   차지하는 고정 사각형, x 56~416 · 폭 360). 계 상자 왼쪽에 연대 색 세로 줄(RAIL_X). 이야기·시기 행성 = 지름 128 / 128·144·160(Q105).
-//   위성(사람·모임·장소 바로가기) = 행성 아래 3칸 줄(U1 은 정지 — 정지 자리 = 펼침 자리, §2.3), 이름표 2줄. 13개부터 11개 + "+N"(Q108).
-//   U1 은 공전이 없어 궤도 자리를 잡지 않는다 — U2 에서 계 상자를 궤도까지 키운다(ui-space §1.2·§7).
+//   위성(사람·모임·장소 바로가기) = 행성 둘레 궤도를 돈다(U2 — lib/space-orbit, 6개 넘으면 기울인 두 번째 궤도). 행성을 고르면
+//   그 행성 위성만 멈추고 행성 아래 3칸 줄(펼침 자리 = U1 정지 자리, 이름표 2줄)로 펼친다. 13개부터 11개 + "+N"(Q108).
+//   계 상자 = 궤도(위성 원 + 이름표)와 펼침 칸 줄이 다 들어가는 크기(ui-space §1.2·§7.2).
 //   인물·장소 행성 모음(인물록·장소록): x 480~ (제목 → [+ 사람][+ 모임] → 모임 칩(4개 이상) → 모임 성운 1~3개 → 모임 없는 분),
 //   장소록은 그 아래 — 같은 모양. 칸 = 작은 행성 64 + 이름(120×124, 3열 384). 키: 모임 gl/gc · 장소 묶음 pgl/pgc.
 // 겹침: 시간 줄기는 계 상자를 쌓기만 하고 배치 뒤 resolveOverlaps 로 한 번 더 검사·해소(위성·행성 중심도 같이 내림).
@@ -18,6 +19,7 @@
 import type { ChipKind, MyLifeData, MyLifeEvent, MyLifeStory } from "./my-life";
 import { MY_LIFE_COPY } from "./my-life-copy";
 import { GROUP_SHAPE, rectInsideShape, rectOutsideShape, shapeAround, SHAPE_PAD, type GroupShape, type GroupShapeKind, type Rect } from "./my-life-group-shape";
+import { LABEL_GAP, LABEL_H, orbitAssign, orbitFrac, orbitHalfHeight, orbitShape, SAT_R } from "./space-orbit";
 
 const PAD = 40;
 const TIME_X = 56; // 계 상자 왼쪽(왼쪽 연대 줄 자리)
@@ -100,9 +102,10 @@ export type LayoutNode =
   | (Box & { kind: "subtitle"; region: "people" | "places" });
 
 // 위성 — 행성의 사람·모임·장소 바로가기(진짜 노드는 인물·장소 행성 모음에 한 번 — Q99). ref null = "+N" 칸(more = 숨은 수).
-// 칸 = 원(cx, cy, SAT_D) + 아래 이름표. key = sat:<행성 키>:<종류>:<id> · "+N" = sat:<행성 키>:more.
+// 칸 = 원(cx, cy, SAT_D) + 아래 이름표 = 펼침 자리(U2). key = sat:<행성 키>:<종류>:<id> · "+N" = sat:<행성 키>:more.
+// 공전(U2) — orbit = 궤도(0 = 첫 궤도, 1 = 60° 기울인 두 번째) · frac = 궤도 안 자리(0~1, 지연·정지 자리 — lib/space-orbit).
 export type SatRef = { kind: ChipKind; id: string };
-export type LayoutSatellite = Box & { planetKey: string; ref: SatRef | null; more: number; cx: number; cy: number };
+export type LayoutSatellite = Box & { planetKey: string; ref: SatRef | null; more: number; cx: number; cy: number; orbit: 0 | 1; frac: number };
 
 export type LayoutShape = GroupShape & { groupId: string; index: number; region: "people" | "places" }; // index = 영역 안 순서(테두리 무늬 구분)
 export type LayoutBand = { eventId: string; top: number; bottom: number; centerMidY: number };
@@ -221,19 +224,24 @@ export function satelliteSlots(n: number): { shown: number; more: number } {
   return n <= L.SAT_MAX ? { shown: n, more: 0 } : { shown: L.SAT_MAX - 1, more: n - (L.SAT_MAX - 1) };
 }
 
-// 궤도 수(U2 공전용 — Q108): 0 · 1~6 = 1 · 7 이상 = 2.
+// 궤도 수(Q108): 0 · 1~6 = 1 · 7 이상 = 2(칸 수 기준 — 13개부터는 11 + "+N" = 12칸이라 2).
 export function orbitCount(n: number): number {
   return n === 0 ? 0 : n <= 6 ? 1 : 2;
 }
 
-// 계 하나 — 행성(상자 위쪽 가운데) + 아래 위성 칸 줄(3칸씩, 줄 폭만큼 가운데 맞춤, 첫 줄이 3칸이면 바깥 두 칸을 ARC_LIFT 만큼 올림).
+// 계 하나 — 행성(가운데) + 궤도(U2 — 행성 둘레, 위성 7개부터 기울인 두 번째 궤도) + 아래 위성 칸 줄(= 펼침 자리, 3칸씩, 줄 폭만큼
+// 가운데 맞춤, 첫 줄이 3칸이면 바깥 두 칸을 ARC_LIFT 만큼 올림). 행성 가운데는 궤도 위쪽(위성 원까지)이 상자 안에 들어오게 내리고,
+// 상자 아래 = 펼침 칸 줄과 궤도 아래(위성 원 + 이름표) 중 더 아래(ui-space §1.2 — 펼침 자리는 U1 칸 줄 그대로, §7.2 설계와 다른 점).
 function placeSystem(planetKey: string, y0: number, d: number, refs: SatRef[]): { h: number; planet: Planet; sats: LayoutSatellite[] } {
   const cx = L.TIME_X + L.SYS_W / 2;
-  const planet: Planet = { cx, cy: y0 + L.SYS_PAD_TOP + d / 2, d };
   const { shown, more } = satelliteSlots(refs.length);
   const cells = shown + (more > 0 ? 1 : 0);
-  if (cells === 0) return { h: L.SYS_PAD_TOP + d + L.SYS_PAD_BOTTOM, planet, sats: [] };
-  const gridTop = y0 + L.SYS_PAD_TOP + d + L.SAT_TOP_GAP;
+  if (cells === 0) return { h: L.SYS_PAD_TOP + d + L.SYS_PAD_BOTTOM, planet: { cx, cy: y0 + L.SYS_PAD_TOP + d / 2, d }, sats: [] };
+  const assign = orbitAssign(cells);
+  const halfH = Math.max(...[...new Set(assign.map((a) => a.orbit))].map((t) => orbitHalfHeight(orbitShape(d, t))));
+  const planet: Planet = { cx, cy: y0 + L.SYS_PAD_TOP + Math.max(d / 2, halfH + SAT_R), d };
+  const orbitBottom = planet.cy + halfH + SAT_R + LABEL_GAP + LABEL_H;
+  const gridTop = planet.cy + d / 2 + L.SAT_TOP_GAP;
   const rows = Math.ceil(cells / L.SAT_PER_ROW);
   const sats: LayoutSatellite[] = [];
   for (let i = 0; i < cells; i++) {
@@ -256,9 +264,12 @@ function placeSystem(planetKey: string, y0: number, d: number, refs: SatRef[]): 
       h: L.SAT_CELL_H,
       cx: x + L.SAT_CELL_W / 2,
       cy: y + L.SAT_D / 2,
+      orbit: assign[i].orbit,
+      frac: orbitFrac(assign[i]),
     });
   }
-  const h = gridTop + rows * L.SAT_CELL_H + (rows - 1) * L.SAT_ROW_GAP + L.SYS_PAD_BOTTOM - y0;
+  const gridBottom = gridTop + rows * L.SAT_CELL_H + (rows - 1) * L.SAT_ROW_GAP;
+  const h = Math.max(gridBottom, orbitBottom) + L.SYS_PAD_BOTTOM - y0;
   return { h, planet, sats };
 }
 

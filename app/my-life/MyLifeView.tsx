@@ -15,15 +15,17 @@
 // 우주 개편 U1(2026-11-05 — docs/phase/ui-space.md): 시기·이야기 = 행성(원), 사람·모임·장소 = 위성(행성 아래 정지 칸 — 바로가기),
 //   인물록·장소록 = 작은 행성 모음. 간선은 그리지 않고(Q114) 선택한 사람·장소의 위성·진짜 자리에 빛 고리. "지금 보는 곳" 줄·
 //   [이야기 거리] 줄은 뺐다(§6.2 — [이야기 거리]는 만들기 시트 맨 아래·목록 보기).
+// 우주 개편 U2(2026-11-05 — ui-space §7.2): 위성이 행성 둘레를 돈다(CSS 키프레임 — lib/space-orbit, 붙이기 ./orbit). 화면 안 계만 ·
+//   전체 보기 배율·[움직임 멈추기]·reduced-motion = 그 자리 멈춤 · 행성 탭 = 그 계만 멈추고 칸 줄로 펼침 + 패널, 다시 탭·다른 곳 = 재개.
 // 밤 우주(2026-11-05 단일 테마 결정 — docs/phase/ui-night.md): 테마는 앱 전체 <html data-theme>(허용 목록 — lib/night-theme)를
 //   따른다. U1 의 지도 안 토글·기기 저장값은 삭제(Q149). 밝은 우주 지도 값(.space-map)은 globals.css 에 남아 허용 목록 밖에서 쓰인다.
 // Q69(/story-review 합치기, 2026-11-02): 목록 보기 = 오늘의 인터뷰(맨 위)·더 들어볼까요?(시간 줄기 아래) — 그때의 나는
 //   시기 아래 꼬리표로만(별도 묶음은 중복이라 뺌, Q69 후속),
 //   지도 보기 = "지금 보는 곳" 줄 [이야기 거리] → 같은 카드 시트(./Suggestions). 이야기 패널 [이야기 고치기](본문).
 
-import { MapPin, MessageCircle, Minus, Plus, Search, UserRound, Users } from "lucide-react";
+import { MapPin, MessageCircle, Minus, Pause, Play, Plus, Search, UserRound, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 
 import { updateEpisodeContentAction } from "@/app/actions/episode";
@@ -46,11 +48,13 @@ import {
   type MyLifeLayout,
 } from "@/lib/my-life-layout";
 import { searchMyLife, type SearchResult } from "@/lib/my-life-search";
+import { labelName, labelVisible, orbitCss, orbitName, orbitPoint, orbitShape } from "@/lib/space-orbit";
 import { displayTitle, hasOwnTitle, shortTitle } from "@/lib/story-title";
 
 import { ConflictReload } from "./_body/ConflictReload";
 import { undoCreateAction, undoMoveAction } from "./actions";
 import { CreateSheet, NodeEditor, type CreateKind, type Created, type Notice } from "./EditUI";
+import { animateClose, animateOpen, observeOrbits, readMotion, snapshotSats, subscribeMotion, writeMotion } from "./orbit";
 import { GapCards, InterviewEntryCard, type MyLifeSuggest } from "./Suggestions";
 
 const MAX_SCALE = 3;
@@ -63,6 +67,9 @@ const DOUBLE_TAP_SCALE = 1.6;
 const OVERVIEW_SCALE = 0.6; // 이 배율 미만 = 전체 보기 상태(노드 탭 = 그 노드로 확대 — Q60)
 const STORE_KEY = "mylife:v3";
 const ALL_EDGES: EdgeToggles = { person: true, place: true }; // U1 — 간선 끄기 토글 없앰(Q114), 연결 계산은 늘 전부
+// 공전 키프레임 + 표식 규칙(U2 — 행성 크기 4종 × 궤도 2) — 지도에 한 번 넣는다(lib/space-orbit).
+const ORBIT_CSS = orbitCss([L.PLANET_STORY, ...L.PLANET_PERIOD]);
+const PLANET_KINDS = new Set(["event", "story"]);
 
 type Saved = { scale: number; x: number; y: number; folded: string[]; shownGroups: string[]; shownPlaceGroups?: string[]; edges: EdgeToggles };
 
@@ -217,6 +224,7 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
   const createRef = useRef<HTMLDialogElement>(null);
   const [selected, setSelected] = useState<string | null>(initialFocus?.key ?? null);
   const [panel, setPanel] = useState<string | null>(null);
+  const [panelFromSat, setPanelFromSat] = useState(false); // 위성(바로가기)에서 연 사람·장소·모임 패널 — [원래 자리로 가기](U2 §2.3)
   const [findOpen, setFindOpen] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false); // 지도 보기 [이야기 거리] 시트(Q69)
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(
@@ -238,11 +246,12 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
     [view, selected, data, layout],
   );
 
-  const openPanel = useCallback((key: string) => {
+  const openPanel = useCallback((key: string, fromSat = false) => {
     setMapNotice(null);
     lastKeyRef.current = key;
     setSelected(key);
     setPanel(key);
+    setPanelFromSat(fromSat);
   }, []);
 
   useEffect(() => {
@@ -460,6 +469,7 @@ export function MyLifeView({ data, suggest }: { data: MyLifeData; suggest: MyLif
                 dialogRef.current?.close();
               }}
               onGo={goTo}
+              fromSat={panelFromSat && view === "map"}
               notice={notice}
               setNotice={setNotice}
               onReopen={(r) => {
@@ -593,7 +603,7 @@ function MapMode({
   setShownGroups: (g: string[]) => void;
   selected: string | null;
   setSelected: (k: string | null) => void;
-  openPanel: (key: string) => void;
+  openPanel: (key: string, fromSat?: boolean) => void;
   onToggleView: () => void;
   onOpenFind: () => void;
   onCreate: (kind: CreateKind | null) => void;
@@ -616,6 +626,12 @@ function MapMode({
   const [area, setArea] = useState<"timeline" | "people" | "places">("timeline");
   const [scale, setScale] = useState(1);
   const [announce, setAnnounce] = useState("");
+  // 공전(U2 — ui-space §2.2): [움직임 멈추기] 기기 기억 · reduced-motion 이면 처음부터 멈춤 · 전체 보기 배율(0.6 미만)도 멈춤.
+  // 멈춤 = 그 자리에서(animation-play-state) — 다시 움직이면 튀지 않고 이어짐.
+  const motionPref = useSyncExternalStore(subscribeMotion, readMotion, () => "run" as const);
+  const motion = motionPref === "stop" || scale < OVERVIEW_SCALE ? "hold" : "run";
+  const motionRef = useRef(motion);
+
 
   // U1 — 간선은 그리지 않는다(Q114). 연결된 노드(윤곽)·차례 보기 순서만 쓴다.
   const { related, connected } = useMemo(() => selectionEdges(data, layout, selected, ALL_EDGES), [data, layout, selected]);
@@ -746,6 +762,33 @@ function MapMode({
     if (dx || dy) apiRef.current?.panBy(dx, dy, 200);
   }, []);
 
+  // 공전 — 화면 안(한 화면 여유) 계만 돎. 배치가 바뀌면(넣기·접기·데이터) 새 계까지 다시 붙임(./orbit, 프레임마다 도는 코드 없음).
+  useEffect(() => {
+    // 기준 = 지도 라이브러리의 감싼 상자(overflow 로 자르는 가장 가까운 조상 — 지도 상자로 하면 그 자름이 여유를 지움).
+    const root = boxRef.current?.querySelector<HTMLElement>(".react-transform-wrapper");
+    if (!ready || !root) return;
+    return observeOrbits(root);
+  }, [ready, layout]);
+  useLayoutEffect(() => {
+    motionRef.current = motion;
+  }, [motion]);
+  // 고른 행성 = 그 계 위성만 멈추고 펼침(Q110), 풀리면 그 자리에서 다시 공전. 다른 계는 계속 돎.
+  // 펼침은 탭 처리 안에서 바로(그 계에 [data-open] + 300ms 이동 — 지도 전체를 다시 그리기 전에 멈춤, 300 노드 탭 → 정지 237~262ms 이던 것).
+  // 이 이펙트는 접힘(앞 행성)만 — 찾기·만들기로 고른 행성은 펼침 자리로 바로(시작점 없음).
+  const openSysRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const prev = openSysRef.current;
+    const next = selected && /^(ev|st):/.test(selected) ? selected : null;
+    if (prev === next) return;
+    openSysRef.current = next;
+    const b = boxRef.current;
+    const sysOf = (k: string) => b?.querySelector(`.orbit-sys[data-sys="${CSS.escape(k)}"]`) ?? null;
+    if (prev) {
+      const el = sysOf(prev);
+      if (el) animateClose(el, motionRef.current === "run");
+    }
+  }, [selected, layout]);
+
   // 검색 결과·"여기로 가기" — 노드를 화면 가운데·배율 1 이상으로(접힌 띠는 부모가 이미 펼침 → 다음 그림에서).
   // 요청 하나(n)는 한 번만 — 처리한 뒤 넣기·빼기로 레이아웃이 바뀌어도 그 노드로 다시 가지 않는다(3단계 E2E 2026-11-02).
   // keep = 확대 없이 보이는 곳 밖일 때만 옮김(패널이 열린 뒤 — 다음 그림에서).
@@ -870,7 +913,9 @@ function MapMode({
     if (stateRef.current.scale < OVERVIEW_SCALE) zoomAbovePanel(el);
     if (nodeKind === "fold" && eventId) toggleFold(eventId);
     // 고른 행성의 위성 = 그 분·곳·모임의 패널(바로가기 — Q99, 지도는 안 움직임)
-    else if (nodeKind === "satellite" && targetKey) openPanel(targetKey);
+    else if (nodeKind === "satellite" && targetKey) openPanel(targetKey, true);
+    // 펼친 "+N" = 그 행성 패널(전체 목록) — 행성 다시 탭(접기)과 구분
+    else if (nodeKind === "satMore" && targetKey) openPanel(targetKey);
     else if (nodeKind === "regionAdd" && createKind) onCreate(createKind as CreateKind);
     else if (nodeKind === "groupChip" && groupId) {
       // 칩(모임·장소 묶음 4개 이상 — 영역은 늘 3개) — 안 보이던 모임이면 영역으로 바꿔 넣고 + 그 모임 패널.
@@ -887,9 +932,28 @@ function MapMode({
       // 새로 들어온 영역 이름표가 보이는 곳(패널 위) 밖이면 그만큼만 — 영역이 다시 그려지고 패널이 열린 다음 그림에서.
       if (stateRef.current.scale >= OVERVIEW_SCALE) requestAnimationFrame(() => requestAnimationFrame(() => ensureVisible(key)));
     } else {
-      openPanel(nodeKey);
-      // 행성 탭 = 펼침 + 패널(Q110) — 펼친 계(행성 + 위성)가 패널·지도 상자 밖에 걸리면 패널 위로(배율 그대로). 다 보이면 안 움직임.
-      if ((nodeKind === "event" || nodeKind === "story") && stateRef.current.scale >= OVERVIEW_SCALE) liftAbovePanel(nodeKey);
+      const planet = !!nodeKind && PLANET_KINDS.has(nodeKind);
+      // 고른 행성을 다시 탭 = 접고 다시 공전(U2 — 고르기 풀기). 패널은 닫혀 있다(열려 있으면 지도는 덮개 밑).
+      if (planet && nodeKey === selected) {
+        setSelected(null);
+        return;
+      }
+      // 탭한 그 순간 그 계만 멈추고 지금 자리 → 펼침 자리로(./orbit animateOpen). [data-open] 은 곧 React 가 같은 값으로 그린다.
+      const sys = planet ? boxRef.current?.querySelector<HTMLElement>(`.orbit-sys[data-sys="${CSS.escape(nodeKey)}"]`) : null;
+      if (sys) {
+        const from = snapshotSats(sys, motionRef.current === "run");
+        sys.setAttribute("data-open", "");
+        animateOpen(sys, from);
+      }
+      const open = () => {
+        openPanel(nodeKey);
+        // 행성 탭 = 펼침 + 패널(Q110) — 펼친 계(행성 + 위성)가 패널·지도 상자 밖에 걸리면 패널 위로(배율 그대로). 다 보이면 안 움직임.
+        if (planet && stateRef.current.scale >= OVERVIEW_SCALE) liftAbovePanel(nodeKey);
+      };
+      // 멈춘 모습을 먼저 한 번 그린 뒤 패널 — 지도 다시 그리기·모달 열기(300 노드 4배 감속 약 0.5초)가 끝날 때까지 정지가 안 보이던 것.
+      // 펼침 이동(300ms)은 합성기라 그동안에도 이어진다.
+      if (sys) requestAnimationFrame(() => setTimeout(open, 0));
+      else open();
     }
   }
 
@@ -1050,7 +1114,9 @@ function MapMode({
         )
       )}
 
-      <div ref={boxRef} className="space-map relative min-h-0 flex-1 overflow-hidden border-y border-line">
+      {/* 공전 키프레임(약 42KB) — 지도가 그려질 때만(서버 HTML 에 싣지 않음) */}
+      {init && <style>{ORBIT_CSS}</style>}
+      <div ref={boxRef} data-motion={motion} className="space-map relative min-h-0 flex-1 overflow-hidden border-y border-line">
         {init && (
           <TransformWrapper
             ref={apiRef}
@@ -1113,7 +1179,8 @@ function MapMode({
             </Button>
           ))}
       </nav>
-      <div className="flex items-center gap-2 bg-surface py-1 pl-4 pr-[104px]">
+      {/* 확대 줄(Q112 A): [−][+][전체][움직임 멈추기] — 비서 버튼 자리 96px(390 에서 쓸 수 있는 폭 278). */}
+      <div className="flex items-center gap-2 bg-surface py-1 pl-4 pr-[96px]">
         <Button
           variant="secondary"
           size="lg"
@@ -1140,8 +1207,23 @@ function MapMode({
         >
           <Plus aria-hidden size={24} className="shrink-0" />
         </Button>
-        <Button variant="secondary" size="lg" onClick={fitAll}>
-          {C.fitAll}
+        <Button variant="secondary" size="lg" className="px-3!" aria-label={C.fitAll} onClick={fitAll}>
+          {C.space.fitAllShort}
+        </Button>
+        {/* 움직임 멈추기(WCAG 2.2.2) — 누르면 [움직이기]로(이름이 바뀌는 버튼이라 aria-pressed 는 안 씀). 기기에 기억 */}
+        <Button
+          variant="secondary"
+          size="lg"
+          className="w-14 px-0!"
+          aria-label={motionPref === "stop" ? C.space.motionStart : C.space.motionStop}
+          data-motion-toggle
+          onClick={() => {
+            const next = motionPref === "stop" ? "run" : "stop";
+            writeMotion(next);
+            setAnnounce(next === "stop" ? C.space.motionStopped : C.space.motionStarted);
+          }}
+        >
+          {motionPref === "stop" ? <Play aria-hidden size={24} className="shrink-0" /> : <Pause aria-hidden size={24} className="shrink-0" />}
         </Button>
         <p className="sr-only" aria-live="polite">
           {announce}
@@ -1217,66 +1299,73 @@ const MapWorld = memo(function MapWorld({
   };
   const placeLabels = labelsOf("places");
   const placeChips = chipsOf("places");
-  // 위성 하나 — ref 의 이름·모양. 고른 행성의 위성만 버튼.
+  // 위성(U2 — ui-space §2) — 행성 둘레를 도는 바로가기. 계 상자 하나(.orbit-sys)에 그 행성 위성을 모아 화면 안일 때만 공전
+  // (./orbit observeOrbits). 위성은 늘 같은 <button>(공전 ↔ 펼침에서 같은 요소라 자리가 이어짐) — 공전 중엔 inert(누르는 곳 아님·
+  // 낭독 안 함, 움직이는 표적 금지 §3.1), 행성을 고르면 그 계만 멈추고 아래 칸 줄로 펼쳐 바로가기 버튼(그 분·곳·모임 패널 — Q99,
+  // "+N" = 행성 패널의 전체 목록). 자리 값: --rx·--ry 정지 자리 · --ex·--ey 펼침 자리 · --lo 정지 때 이름표(lib/space-orbit).
   const satTarget = (s: LayoutSatellite) => (s.ref ? `${s.ref.kind === "person" ? "pe" : s.ref.kind === "place" ? "pl" : "gl"}:${s.ref.id}` : null);
   const satName = (s: LayoutSatellite) =>
     s.ref ? (s.ref.kind === "person" ? idx.personById.get(s.ref.id)?.name : s.ref.kind === "place" ? idx.placeById.get(s.ref.id)?.name : idx.groupById.get(s.ref.id)?.name) ?? "" : "";
-  const satellites = (planetKey: string, planetKind: "event" | "story", eventId: string) => {
-    const list = satsOf.get(planetKey);
+  const satellites = (n: Extract<LayoutNode, { kind: "event" | "story" }>) => {
+    const list = satsOf.get(n.key);
     if (!list) return null;
-    const open = selected === planetKey;
-    return list.map((s) => {
-      const target = satTarget(s);
-      const name = satName(s);
-      const kind = s.ref?.kind ?? "person";
-      const moon = (
-        <>
-          <span
-            aria-hidden
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold ${
-              kind === "place" ? "moon-place border-place" : "moon-person border-person"
-            } ${kind === "group" ? "border-dashed" : ""}`}
-            style={target && target === selected ? GLOW : undefined}
-          >
-            {!s.ref ? `+${s.more}` : kind === "place" ? <MapPin size={22} /> : kind === "group" ? <Users size={22} /> : name.slice(0, 1)}
-          </span>
-          {s.ref && <span className="line-clamp-2 w-full text-center text-lg leading-6 text-ink">{name}</span>}
-        </>
-      );
-      const style = { ...pos(s), zIndex: 2 };
-      // 고른 행성의 위성 = 그 분·곳·모임 패널(바로가기 — Q99). "+N" 은 행성 패널(전체 목록).
-      if (open && target) {
-        return (
-          <button
-            key={s.key}
-            type="button"
-            data-node-key={s.key}
-            data-node-kind="satellite"
-            data-target-key={target}
-            aria-label={C.space.satName(name, kind)}
-            className={`absolute flex flex-col items-center gap-1 rounded-md ${FOCUS}`}
-            style={style}
-          >
-            {moon}
-          </button>
-        );
-      }
-      return (
-        <div
-          key={s.key}
-          aria-hidden={open ? undefined : true}
-          aria-label={open && !s.ref ? C.space.satMore(s.more) : undefined}
-          role={open && !s.ref ? "img" : undefined}
-          data-node-key={planetKey}
-          data-node-kind={planetKind}
-          data-event-id={eventId}
-          className="absolute flex cursor-pointer flex-col items-center gap-1"
-          style={style}
-        >
-          {moon}
-        </div>
-      );
-    });
+    const open = selected === n.key;
+    return (
+      <div className="orbit-sys pointer-events-none absolute" style={pos(n)} data-sys={n.key} data-open={open ? "" : undefined}>
+        {list.map((s) => {
+          const target = satTarget(s);
+          const name = satName(s);
+          const kind = s.ref?.kind ?? "person";
+          const shape = orbitShape(n.planet.d, s.orbit);
+          const rest = orbitPoint(shape, s.frac);
+          const vars = {
+            "--orb": orbitName(shape),
+            "--orbl": labelName(shape),
+            "--rx": `${rest.x.toFixed(2)}px`,
+            "--ry": `${rest.y.toFixed(2)}px`,
+            "--lo": labelVisible(shape, s.frac) ? 1 : 0,
+            "--ex": `${s.cx - n.planet.cx}px`,
+            "--ey": `${s.cy - n.planet.cy}px`,
+            left: n.planet.cx - n.x - L.SAT_CELL_W / 2,
+            top: n.planet.cy - n.y - L.SAT_D / 2,
+            width: L.SAT_CELL_W,
+            height: L.SAT_CELL_H,
+          } as React.CSSProperties;
+          return (
+            <button
+              key={s.key}
+              type="button"
+              inert={!open}
+              data-node-key={s.key}
+              data-node-kind={target ? "satellite" : "satMore"}
+              data-target-key={target ?? n.key}
+              data-frac={s.frac}
+              data-pd={n.planet.d}
+              data-tilt={s.orbit}
+              aria-label={target ? C.space.satName(name, kind) : C.space.satMore(s.more)}
+              className={`orbit-sat absolute flex flex-col items-center gap-1 rounded-md ${open ? "pointer-events-auto" : ""} ${FOCUS}`}
+              style={vars}
+            >
+              <span
+                aria-hidden
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold ${
+                  kind === "place" ? "moon-place border-place" : "moon-person border-person"
+                } ${kind === "group" ? "border-dashed" : ""}`}
+                style={target && target === selected ? GLOW : undefined}
+              >
+                {!s.ref ? `+${s.more}` : kind === "place" ? <MapPin size={22} /> : kind === "group" ? <Users size={22} /> : name.slice(0, 1)}
+              </span>
+              {/* 공전 중 = 한 줄(행성 원판과 겹치는 구간은 숨김 — Q107) · 펼침 = 2줄. .orbit-lbl 은 위성 버튼의 바로 아래 자식(./orbit syncDelays 가 같은 지연을 붙임) */}
+              {s.ref && (
+                <span aria-hidden className={`orbit-lbl w-[104px] text-center text-lg leading-6 text-ink ${open ? "line-clamp-2" : "truncate"}`}>
+                  {name}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    );
   };
   return (
     <>
@@ -1332,7 +1421,7 @@ const MapWorld = memo(function MapWorld({
                 <span className="text-lg leading-6">{yearText(ev)}</span>
                 <span className="line-clamp-2 text-xl font-bold leading-7">{ev.label}</span>
               </button>
-              {satellites(en.key, "event", ev.id)}
+              {satellites(en)}
               {fold && fold.kind === "fold" && (
                 <button
                   type="button"
@@ -1353,7 +1442,7 @@ const MapWorld = memo(function MapWorld({
                     return n && n.kind === "story" ? (
                       <li key={s.id}>
                         <StoryPlanet story={s} node={n} style={{ ...circle(n.planet), ...mark(n.key) }} />
-                        {satellites(n.key, "story", ev.id)}
+                        {satellites(n)}
                       </li>
                     ) : null;
                   })}
@@ -1880,6 +1969,7 @@ function PanelBody({
   showFold,
   onToggleFold,
   onGo,
+  fromSat,
   notice,
   setNotice,
   onReopen,
@@ -1893,13 +1983,14 @@ function PanelBody({
   showFold: boolean;
   onToggleFold: (eventId: string) => void;
   onGo: (key: string, eventId: string | null) => void;
+  fromSat: boolean;
   notice: Notice | null;
   setNotice: (n: Notice | null) => void;
   onReopen: (r: Created) => void;
   onDeleted: (name: string) => void;
   related: { count: number; go: () => void } | null;
 }) {
-  const info = panelInfo(nodeKey, data, idx, folded, showFold, onToggleFold, onGo);
+  const info = panelInfo(nodeKey, data, idx, folded, showFold, onToggleFold, onGo, fromSat);
   if (!info) return null;
   return (
     <NodeEditor
@@ -1936,6 +2027,7 @@ function panelInfo(
   showFold: boolean,
   onToggleFold: (eventId: string) => void,
   onGo: (key: string, eventId: string | null) => void,
+  fromSat: boolean, // 위성(바로가기)에서 연 사람·장소·모임 — [원래 자리로 가기](U2 §2.3)
 ): React.ReactNode | null {
   const [kind, a, b] = nodeKey.split(":");
 
@@ -1979,6 +2071,12 @@ function panelInfo(
         <h2 id="mylife-panel-title" className="m-0">
           {p.name}
         </h2>
+        {/* 위성(바로가기)에서 열었으면 — 인물록의 이분 자리로(U2 §2.3) */}
+        {fromSat && (
+          <Button variant="secondary" size="lg" data-go-origin onClick={() => onGo(nodeKey, null)}>
+            {C.space.goOrigin}
+          </Button>
+        )}
         {p.relation && (
           <p className="text-lg text-ink">
             {C.panelRelation}: {p.relation}
@@ -2032,6 +2130,11 @@ function panelInfo(
         <h2 id="mylife-panel-title" className="m-0">
           {p.name}
         </h2>
+        {fromSat && (
+          <Button variant="secondary" size="lg" data-go-origin onClick={() => onGo(nodeKey, null)}>
+            {C.space.goOrigin}
+          </Button>
+        )}
         {p.address && (
           <p className="text-lg text-ink">
             {C.panelAddress}: {p.address}
@@ -2073,6 +2176,11 @@ function panelInfo(
         <h2 id="mylife-panel-title" className="m-0">
           {g.name}
         </h2>
+        {fromSat && (
+          <Button variant="secondary" size="lg" data-go-origin onClick={() => onGo(nodeKey, null)}>
+            {C.space.goOrigin}
+          </Button>
+        )}
         {g.memberIds.length === 0 && <p className="text-lg text-ink-soft">{C.groupEmpty}</p>}
       </>
     );

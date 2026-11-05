@@ -55,6 +55,26 @@ import {
   type MyLifeLayout,
 } from "../lib/my-life-layout";
 import { normalizeForSearch, searchMyLife } from "../lib/my-life-search";
+import {
+  LABEL_GAP,
+  LABEL_H,
+  LABEL_W,
+  ORBIT_CYCLE_MS,
+  ORBIT_PERIOD_MS,
+  ORBIT_REVS,
+  ORBIT_STEPS,
+  SAT_R,
+  labelKeyframes,
+  labelVisible,
+  orbitAssign,
+  orbitCss,
+  orbitDelayMs,
+  orbitFrac,
+  orbitKeyframes,
+  orbitPoint,
+  orbitProgressAt,
+  orbitShape,
+} from "../lib/space-orbit";
 import { saveNodeLink } from "../lib/node-graph";
 import fs from "node:fs";
 import path from "node:path";
@@ -181,6 +201,17 @@ function satErrors(lay: MyLifeLayout): string[] {
     }
     for (let i = 0; i < sats.length; i++) for (let j = i + 1; j < sats.length; j++) {
       if (Math.hypot(sats[i].cx - sats[j].cx, sats[i].cy - sats[j].cy) < 56) errs.push(`${sats[i].key}~${sats[j].key}:가까움`);
+    }
+    // U2 공전(ui-space §1.2·§1.4 ①②) — 위 칸 = 펼침 자리. 공전 자리 = 행성 가운데 + 궤도 점(36걸음), 원(반지름 24)·이름표(104×24, 원 아래 4)가 상자 안.
+    for (const s of sats) {
+      const sh = orbitShape(n.planet.d, s.orbit);
+      if (sh.ry < n.planet.d / 2 + SAT_R + 8) errs.push(`${s.key}:궤도가원판에`);
+      for (let k = 0; k < ORBIT_STEPS; k++) {
+        const p = orbitPoint(sh, k / ORBIT_STEPS);
+        const cx = n.planet.cx + p.x, cy = n.planet.cy + p.y;
+        const box = { x: Math.min(cx - SAT_R, cx - LABEL_W / 2), y: cy - SAT_R, w: Math.max(2 * SAT_R, LABEL_W), h: 2 * SAT_R + LABEL_GAP + LABEL_H };
+        if (!inside(box, n)) { errs.push(`${s.key}:공전${k}상자밖`); break; }
+      }
     }
   }
   if (new Set(lay.satellites.map((s) => s.key)).size !== lay.satellites.length) errs.push("키중복");
@@ -461,6 +492,33 @@ async function main() {
     check("⑥ 위성 순서 — 이야기 = 작은 물방울 순서 · 시기 = 바로 이은 사람 → 모임 → 장소(이야기에서만 나온 분·곳은 시기 위성 아님)",
       JSON.stringify(storySatRefs(eb.stories[0])) === JSON.stringify(eb.stories[0].chips.map((c) => ({ kind: c.kind, id: c.id }))) &&
         JSON.stringify(eventSatRefs(eh).map((r) => r.kind)) === JSON.stringify(["person", "person", "person", "group", "place"]));
+    {
+      // U2 공전 키프레임·자리(ui-space §2.1 — 걸음 수·타원 위 점·지연 값)
+      const s0 = orbitShape(128, 0), s1 = orbitShape(128, 1), s160 = orbitShape(160, 0);
+      const onEllipse = [0, 0.1, 0.37, 0.5, 0.81].every((p) => { const q = orbitPoint(s0, p); return Math.abs((q.x / s0.rx) ** 2 + (q.y / s0.ry) ** 2 - 1) < 1e-9; });
+      const tilted = [0, 0.2, 0.6].every((p) => { const q = orbitPoint(s1, p); const a = -Math.PI / 3; const x = q.x * Math.cos(a) - q.y * Math.sin(a), y = q.x * Math.sin(a) + q.y * Math.cos(a); return Math.abs((x / s1.rx) ** 2 + (y / s1.ry) ** 2 - 1) < 1e-9; });
+      const kf = orbitKeyframes(s0);
+      const stops = kf.match(/\d+(\.\d+)?%\{/g) ?? [];
+      check("⑥ U2 궤도 — RY = R + 32 · RX = max(128, RY + 16)(128 → 128·96, 160 → 128·112) · 타원 위 점 · 두 번째 궤도 = 60° 기울인 같은 타원 · 짧은 반지름 ≥ R + 24 + 8",
+        s0.rx === 128 && s0.ry === 96 && s160.rx === 128 && s160.ry === 112 && onEllipse && tilted && s0.ry >= 64 + SAT_R + 8 && s160.ry >= 80 + SAT_R + 8);
+      check(`⑥ U2 키프레임 — 한 벌 = ${ORBIT_REVS}바퀴 × ${ORBIT_STEPS}걸음 + 1 칸(0% = 100%) · 바퀴마다 같은 점 · 주기 24초(Q109) · 이름표 = 원판과 겹치는 걸음 0(아래 1·위 0)`,
+        stops.length === ORBIT_STEPS * ORBIT_REVS + 1 && ORBIT_PERIOD_MS === 24_000 && ORBIT_CYCLE_MS === 24_000 * ORBIT_REVS &&
+          kf.includes("0%{transform:translate(128px,0px)}") && kf.includes("100%{transform:translate(128px,0px)}") &&
+          labelVisible(s0, 0.25) && !labelVisible(s0, 0.75) && labelKeyframes(s0).startsWith("@keyframes orbl-96-0{0%{opacity:1}"),
+        { stops: stops.length });
+      const d = orbitDelayMs(0.25, 30_000);
+      check("⑥ U2 지연 — 문서 시계 기준(진행 = 지금/주기 + 자리) · 자리 나누기(6 + 6, 13개 = 11 + \"+N\" = 12칸) · 두 번째 궤도 반 칸 엇갈림",
+        d === -Math.round((30_000 % ORBIT_CYCLE_MS) + 6_000) && Math.abs(orbitProgressAt(0.25, 30_000) - 0.5) < 1e-9 &&
+          JSON.stringify(orbitAssign(12).map((a) => a.orbit)) === JSON.stringify([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]) &&
+          orbitAssign(3).every((a) => a.n === 3) && orbitFrac({ orbit: 0, k: 1, n: 4 }) === 0.25 && orbitFrac({ orbit: 1, k: 0, n: 2 }) === 0.25,
+        { d });
+      const css = orbitCss([128, 128, 144, 160]);
+      check("⑥ U2 CSS — 키프레임 6벌(크기 3 × 궤도 2) + 이름표 6벌 · 공전 = 화면 안 계([data-orbit=on])·안 펼침만 · 멈춤 = 같은 선택자 재생 멈춤 · 이름표 지연 물려받기 없음",
+        (css.match(/@keyframes orb-/g) ?? []).length === 6 && (css.match(/@keyframes orbl-/g) ?? []).length === 6 &&
+          css.includes('.space-map[data-motion] .orbit-sys[data-orbit="on"]:not([data-open]) .orbit-sat{animation:var(--orb) 96000ms linear infinite}') &&
+          css.includes('.space-map[data-motion="hold"] .orbit-sys[data-orbit="on"]:not([data-open]) :is(.orbit-sat,.orbit-lbl){animation-play-state:paused}') &&
+          !css.includes("inherit"));
+    }
     check("⑥ 본문 첫 문장", storyLead("  외가에서 태어났다.  어머니가 말씀하셨다. ") === "외가에서 태어났다." && storyLead("마침표 없는 글") === "마침표 없는 글");
     const mid = (lay.bands[1].top + lay.bands[1].bottom) / 2;
     check("⑥ 지금 보는 곳", bandAt(lay, mid)?.eventId === hs && bandAt(lay, -100)?.eventId === birth);
@@ -732,11 +790,28 @@ async function main() {
       for (const k of ["brand", "line"]) need(`밤 ${k} 테두리`, nt[k], [nt.surface, nt.canvas], 3);
       check("⑬ 대비 — 밝은 우주 행성·위성 테두리·빛 고리 3:1 · 밤 우주 글자 4.5:1·테두리·포커스 3:1·연대 틴트·편지지(globals.css 값으로 계산 — ui-night §1.2)", low.length === 0, low);
     }
-    check("⑬ U1 행성 탭(Q110) — 펼침 + 패널 · 펼친 계(행성 + 위성)가 패널·지도 상자에 걸릴 때만 패널 위로(배율 그대로) · 고른 행성의 위성만 버튼(바로가기)",
-      view.includes('if ((nodeKind === "event" || nodeKind === "story") && stateRef.current.scale >= OVERVIEW_SCALE) liftAbovePanel(nodeKey);') &&
+    check("⑬ U1·U2 행성 탭(Q110) — 펼침 + 패널 · 펼친 계가 패널·지도 상자에 걸릴 때만 패널 위로(배율 그대로) · 고른 행성을 다시 탭 = 접고 다시 공전 · 펼친 위성만 누르는 곳(공전 중 inert) · 위성 = 바로가기 패널 + [원래 자리로 가기]",
+      view.includes("if (planet && stateRef.current.scale >= OVERVIEW_SCALE) liftAbovePanel(nodeKey);") &&
         view.includes("if (rTop >= top && rBottom <= bottom) return;") && view.includes("api.setTransform(st.positionX, st.positionY + dy, st.scale, 300);") &&
-        view.includes("const open = selected === planetKey;") && view.includes("if (open && target) {") &&
-        view.includes('else if (nodeKind === "satellite" && targetKey) openPanel(targetKey);'));
+        view.includes("if (planet && nodeKey === selected) {") && view.includes("const open = selected === n.key;") && view.includes("inert={!open}") &&
+        view.includes('else if (nodeKind === "satellite" && targetKey) openPanel(targetKey, true);') &&
+        view.includes('else if (nodeKind === "satMore" && targetKey) openPanel(targetKey);') && view.includes("{C.space.goOrigin}"));
+    {
+      // U2 공전(ui-space §2.6 ① · §3) — 프레임마다 도는 코드 없음(공전 모듈에 rAF·setInterval·setTimeout 0) · 화면 안 계만(IntersectionObserver, 한 화면 여유) ·
+      // [움직임 멈추기](Q112 A — 확대 줄 · 기기 기억 · reduced-motion 이면 처음부터 멈춤) · 전체 보기 배율(0.6 미만) = 멈춤 · 문구 [임시] copy.
+      const orbitSrc = fs.readFileSync(path.resolve(__dirname, "../app/my-life/orbit.ts"), "utf8");
+      const libSrc = fs.readFileSync(path.resolve(__dirname, "../lib/space-orbit.ts"), "utf8");
+      const noLoop = (t: string) => !/requestAnimationFrame|setInterval|setTimeout/.test(t.replace(/\/\/.*$/gm, ""));
+      check("⑬ U2 공전 — 공전 모듈(lib/space-orbit·app/my-life/orbit)에 rAF·타이머 0 · 화면 안 계만(관찰 기준 = 지도 감싼 상자, 여유 한 화면) · 지연은 위성·이름표에 직접",
+        noLoop(orbitSrc) && noLoop(libSrc) && orbitSrc.includes('rootMargin: "100% 100% 100% 100%"') &&
+          view.includes('const root = boxRef.current?.querySelector<HTMLElement>(".react-transform-wrapper");') &&
+          orbitSrc.includes('const lbl = el.querySelector<HTMLElement>(":scope > .orbit-lbl");'));
+      check("⑬ U2 움직임 멈추기 — 확대 줄 [−][+][전체][멈춤](비서 버튼 자리 96) · 이름 바뀜(움직임 멈추기 ↔ 움직이기) · 기기 기억(mylife:motion) · reduced-motion 기본 멈춤 · 전체 보기 배율 멈춤",
+        view.includes('const motion = motionPref === "stop" || scale < OVERVIEW_SCALE ? "hold" : "run";') && view.includes("data-motion={motion}") &&
+          view.includes('pr-[96px]') && view.includes("{C.space.fitAllShort}") && view.includes("aria-label={motionPref === \"stop\" ? C.space.motionStart : C.space.motionStop}") &&
+          orbitSrc.includes('export const MOTION_KEY = "mylife:motion";') && orbitSrc.includes('return reducedMotion() ? "stop" : "run";') &&
+          C.space.motionStop === "움직임 멈추기" && C.space.motionStart === "움직이기");
+    }
     {
       // 밤 우주 전원(2026-11-05) — 화면 코드에 직접 적은 기본 팔레트 색이 다시 생기지 않게(밤에서 안 뒤집혀 섞인 색이 됨, ui-night §8).
       // 예외 = 포스터 그림·인쇄물(print-export·PosterInteractive)·공유 그림·매니페스트(색 클래스가 아닌 그림 값).
@@ -766,8 +841,9 @@ async function main() {
     check("⑬ 사이드 메뉴 전부 — 이름·설명 18px(메뉴 항목 하나의 부품 MenuItem)",
       side13.includes('<span className="flex items-center gap-1.5 text-lg font-semibold text-ink">') && side13.includes('<span className="mt-0.5 text-lg text-ink-soft">{hint}</span>') &&
         !side13.includes("text-xs text-ink-soft\">{hint}") && !/\blarge\b/.test(side13));
+    // 확대 줄 오른쪽 비서 버튼 자리 104 → 96(U2 — Q112 A [움직임 멈추기]가 들어갈 폭 278)
     check("⑬ 지도 아래 이동 줄·확대 줄 위아래 여백 4px",
-      view.includes('className="flex items-center gap-2 bg-surface px-4 pt-1"') && view.includes('className="flex items-center gap-2 bg-surface py-1 pl-4 pr-[104px]"'));
+      view.includes('className="flex items-center gap-2 bg-surface px-4 pt-1"') && view.includes('className="flex items-center gap-2 bg-surface py-1 pl-4 pr-[96px]"'));
     check("⑬ 지도 머리 줄 — 390 에서 제목 한 줄(안 꺾음) · 좁은 화면 [찾기]·[목록으로 보기] 좌우 여백 12px",
       view.includes('<h1 className="m-0 shrink-0 whitespace-nowrap text-[28px]">{C.pageTitle}</h1>') &&
         (view.match(/className="px-3! sm:px-4!" onClick={(onOpenFind|onToggleView)}/g) ?? []).length === 2);

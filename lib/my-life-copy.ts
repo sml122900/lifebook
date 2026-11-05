@@ -323,5 +323,12 @@ export const MY_LIFE_COPY = {
     satName: (name: string, kind: "person" | "group" | "place") =>
       kind === "place" ? `${name} — 장소록에 있는 곳` : kind === "group" ? `${name} — 모임` : `${name} — 인물록에 있는 분`,
     satMore: (n: number) => `${n}개 더 — 패널에서 모두 보기`,
+    // 공전(U2 — ui-space §2·§9). [임시 — 성민 확정 필요] 아래 6키 전부.
+    motionStop: "움직임 멈추기", // 도구줄 버튼 낭독 이름(Q112 A — 멈춤 아이콘)
+    motionStart: "움직이기", // 멈춘 뒤 같은 버튼(재생 아이콘)
+    motionStopped: "지도의 움직임을 멈췄어요.", // 알림(aria-live)
+    motionStarted: "지도가 다시 움직여요.",
+    fitAllShort: "전체", // 도구줄 [전체 보기] 줄인 글(Q112 A — 낭독 이름은 fitAll 그대로)
+    goOrigin: "원래 자리로 가기", // 위성에서 연 사람·장소·모임 패널 — 인물록·장소록의 그 자리로(§2.3)
   },
 };
