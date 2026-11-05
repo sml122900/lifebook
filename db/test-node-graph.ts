@@ -8,7 +8,7 @@
 //   ③-b My Life 개편 3단계 — 모임↔사람 PersonGroupMember·장소 묶음↔장소 PlaceGroupMember 로 넘김, 되돌리기용 created,
 //      빼기 입구 removeNodeLink(쌍별 그 칸의 행 삭제·멱등·주 소속·대상 인물 거부·남의 노드 거부)
 //   ④ DB CHECK — 역방향·같은 종류 역순·자기 연결 직접 삽입 거부
-//   ⑤ 연쇄 삭제 시 트리거 정리 — 이야기(브릿지 삭제 cascade)·직접 추가 사건(CUSTOM)·인물·그룹·
+//   ⑤ 연쇄 삭제 시 트리거 정리(+ 행성 꾸미기 — 유일·노드 삭제 시 정리, 2026-11-05) — 이야기(브릿지 삭제 cascade)·직접 추가 사건(CUSTOM)·인물·그룹·
 //      장소·장소 묶음 삭제, 본문 사진 메모리 정리(이야기 브릿지는 보존)
 //   ⑥ 일반 이야기(STORY)만 센다 — 갭 판정·포스터 브릿지·인터뷰
 //   ⑦ 같은 유형 중심 2개일 때 인터뷰 계획 — 풀 질문 1번·대상 = 세션과 같은 기준의 첫 사건
@@ -343,6 +343,34 @@ async function main() {
         (await prisma.placeGroupMember.count({ where: { groupId: pgDel } })) === 0 && (await prisma.place.count({ where: { id: pgPlace } })) === 1);
     check("⑤ 그룹 삭제 → 그룹 연결·구성원 정리",
       (await linkCount(touching("PERSON_GROUP", groupA))) === 0 && (await prisma.personGroupMember.count({ where: { groupId: groupA } })) === 0);
+
+    // 행성 꾸미기(U4 — 마이그 20261105000000_node_decoration, docs/phase/ui-space.md 부록 A): 노드 하나에 꾸미기 하나(유일) ·
+    // 노드를 지우면 node_graph_cleanup() 이 그 꾸미기도 지움(함수에 한 줄) · 다른 노드 꾸미기는 그대로.
+    const decoStory = await makeStory(a, hs, "고등학교 입학", "운동회 날 이어달리기에 나갔다.");
+    const decoEvent = await makeEvent(a, "CUSTOM", "[fixture] 꾸밀 시기", 1981, 6);
+    await prisma.nodeDecoration.createMany({
+      data: [
+        { userId: a, nodeType: "EPISODE", nodeId: decoStory.episodeId, shape: "ring" },
+        { userId: a, nodeType: "LIFE_EVENT", nodeId: decoEvent, shape: "aurora" },
+        { userId: a, nodeType: "EPISODE", nodeId: story3.episodeId, shape: "comet" },
+      ],
+    });
+    let decoDup: unknown = null;
+    try {
+      await prisma.nodeDecoration.create({ data: { userId: a, nodeType: "EPISODE", nodeId: decoStory.episodeId, shape: "comet" } });
+    } catch (e) {
+      decoDup = (e as { code?: string }).code ?? "error";
+    }
+    const decoDelS = await deleteEpisode(a, decoStory.episodeId);
+    const decoDelE = await deleteCustomLifeEvent(a, decoEvent);
+    const decoLeft = {
+      story: await prisma.nodeDecoration.count({ where: { nodeType: "EPISODE", nodeId: decoStory.episodeId } }),
+      event: await prisma.nodeDecoration.count({ where: { nodeType: "LIFE_EVENT", nodeId: decoEvent } }),
+      other: await prisma.nodeDecoration.count({ where: { nodeType: "EPISODE", nodeId: story3.episodeId } }),
+    };
+    check("⑤ 행성 꾸미기 — 같은 노드 두 번째 꾸미기 = 유일 위반(P2002) · 이야기·시기 삭제 → 그 꾸미기 정리(트리거) · 다른 노드 꾸미기는 그대로",
+      decoDup === "P2002" && decoDelS.ok && decoDelE.ok && decoLeft.story === 0 && decoLeft.event === 0 && decoLeft.other === 1,
+      { decoDup, decoDelS, decoDelE, decoLeft });
 
     // ── ⑥ 일반 이야기(STORY)만 센다 ───────────────────────────────
     // 별도 계정 C — 갭이 이 시기 하나만 생기게(출생엔 이야기, 두 사건 연도 간격·현재까지 10년 미만)

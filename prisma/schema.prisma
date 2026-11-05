@@ -194,6 +194,8 @@ model User {
   placeGroups       PlaceGroup[]
   // 사용자 카테고리(docs/phase/custom-graph.md §2.3) — 카테고리·묶음·항목. 탈퇴 시 Cascade.
   customNodes       CustomNode[]
+  // 행성 꾸미기(docs/phase/ui-space.md §5 · 부록 A) — 노드 하나에 모양 하나. 탈퇴 시 Cascade.
+  nodeDecorations   NodeDecoration[]
 }
 
 // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
@@ -1661,5 +1663,24 @@ model NodeBodyRevision {
   createdAt DateTime @default(now())
 
   @@index([nodeType, nodeId, createdAt])
+  @@index([userId])
+}
+
+// 행성 꾸미기(우주 개편 U4 — docs/phase/ui-space.md §5.1 안 A · 부록 A). 노드 하나(nodeType + nodeId)에 꾸미기 하나(Q119).
+// 다형 연결이라 FK 없음 — 노드를 지우면 node_graph_cleanup() 이 함께 지운다(정합 점검 15 = 노드 없는 꾸미기).
+// shape = 모양 값(고리·태양풍 등) — 목록은 코드(lib/space-decor.ts 가칭)만, DB CHECK 없음(custom-graph Q75 와 같은 결).
+// source = USER(사용자가 고름) — AI 제안(U5)은 범위 제외(Q121)라 지금은 USER 만. 근거·후보는 저장하지 않는다.
+model NodeDecoration {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodeType  NodeType
+  nodeId    String
+  shape     String
+  source    String   @default("USER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([nodeType, nodeId])
   @@index([userId])
 }

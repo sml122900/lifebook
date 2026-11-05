@@ -833,7 +833,9 @@ custom-graph 3a 운영 배포 ──▶ U6b 튜토리얼 ③
 
 ---
 
-## 부록 A — U4 꾸미기 마이그 초안(적용 안 함, 승인 필요)
+## 부록 A — U4 꾸미기 마이그(2026-11-05 성민 승인 · 운영 적용)
+
+**적용 2026-11-05** — `prisma/migrations/20261105000000_node_decoration`(테이블 + 인덱스 2 + `User` FK Cascade + `node_graph_cleanup()` 꾸미기 줄). 적용 전: 파일끼리 비교(지금 스키마 → 꾸미기 스키마) = 마이그 파일의 표 부분과 같음 · 운영 DB ↔ 새 스키마 차이 = 그 표 부분뿐(다른 드리프트 0) · 대기 마이그 1건. `migrate deploy` 1건. 적용 뒤: 드리프트 0 · 정리 함수 본문 5줄(꾸미기 줄 포함, `pg_get_functiondef`) · 정리 트리거 7개 그대로. 회귀: `test-node-graph` ⑤(같은 노드 두 번째 꾸미기 = 유일 위반 · 이야기·시기 삭제 → 꾸미기 정리 · 다른 노드 꾸미기 그대로) · `test-withdrawal` 시나리오 6(탈퇴 뒤 꾸미기 0). 화면은 아직 없음(꾸미기 목록 확정 대기). 아래 초안 중 정합 점검 15 는 화면 구현 때.
 
 ```prisma
 // User 에 한 줄: nodeDecorations NodeDecoration[]

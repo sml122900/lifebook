@@ -439,6 +439,8 @@ async function scenario6_nodeGraph() {
   if (!member.ok) throw new Error(`saveNodeLink(CUSTOM) failed in setup: ${JSON.stringify(member)}`);
   await prisma.nodeBody.create({ data: { userId: hana.id, nodeType: "CUSTOM", nodeId: item.id, doc: { v: 1, blocks: [] }, plainText: "" } });
   await prisma.nodeBodyRevision.create({ data: { userId: hana.id, nodeType: "CUSTOM", nodeId: item.id, plainText: "[fixture] 옛 글" } });
+  // 행성 꾸미기(U4 — 2026-11-05) — 이야기 행성 하나. 탈퇴 = userId FK Cascade.
+  await prisma.nodeDecoration.create({ data: { userId: hana.id, nodeType: "EPISODE", nodeId: bridge.episodeId, shape: "ring" } });
 
   const count = async () => ({
     places: await prisma.place.count({ where: { userId: hana.id } }),
@@ -451,6 +453,7 @@ async function scenario6_nodeGraph() {
     bodyMemory: await prisma.userMemory.count({ where: { id: bodyMemory.id } }),
     customNodes: await prisma.customNode.count({ where: { userId: hana.id } }),
     bodyRevisions: await prisma.nodeBodyRevision.count({ where: { userId: hana.id } }),
+    decorations: await prisma.nodeDecoration.count({ where: { userId: hana.id } }),
   });
   console.log("before deletion:", await count());
 
