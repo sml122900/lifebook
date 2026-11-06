@@ -62,7 +62,7 @@ import {
   undoRemove,
   updatePersonInfo,
 } from "../lib/my-life-edit";
-import { savePersonBody } from "../lib/node-body";
+import { saveEpisodeBody, savePersonBody } from "../lib/node-body";
 import { MY_LIFE_PEOPLE, MY_LIFE_PLACES, peopleEntryRedirect } from "../lib/people-entry";
 import { saveNodeLink, type NodeRef } from "../lib/node-graph";
 import { cardToEdit, createFromCard, type CardPerson, type ProposalCard } from "../lib/node-proposal";
@@ -109,6 +109,12 @@ async function makeEvent(userId: string, type: LifeEventType, label: string, yea
 }
 
 // 연결 4칸 — 되돌리기가 넣기 전 상태와 같은지 비교.
+// ⑬ — 이야기에 소제목·문단 글을 남긴다(옛 장소 이름이 든 글).
+async function saveStoryBodyWithPlace(userId: string, episodeId: string) {
+  const r = await saveEpisodeBody(userId, episodeId, { v: 1, blocks: [{ type: "heading", text: "[fixture] 옛 이름 장소 앞 골목" }, { type: "paragraph", text: "[fixture] 옛 이름 장소에서 점심마다 밥을 먹었다." }] }, 0);
+  if (!r.ok) throw new Error("⑬ 이야기 글 저장 실패: " + JSON.stringify(r));
+}
+
 async function linkSnapshot(userId: string) {
   const [nl, ple, mp, pgm, plm] = await Promise.all([
     prisma.nodeLink.findMany({ where: { userId }, select: { fromType: true, fromId: true, toType: true, toId: true, status: true }, orderBy: [{ fromId: "asc" }, { toId: "asc" }] }),
@@ -620,7 +626,7 @@ async function main() {
     const nlWriters = libFiles.filter((f) => /nodeLink\.(create|createMany|upsert)\(/.test(read(f)));
     check("⑦ NodeLink 쓰기는 lib/node-graph 하나(입구 — Q44)", JSON.stringify(nlWriters) === JSON.stringify(["lib/node-graph.ts"]), nlWriters);
     check("⑦ proxy.ts 무접촉(my-life 언급 없음)", !/my-life/.test(read("proxy.ts")));
-    check("⑦ 문구 — 3단계 문구는 my-life-copy edit 블록(임시 표기 주석)", /전부 \[임시 — 성민 확정 필요\]\n\s*edit: \{/.test(read("lib/my-life-copy.ts")) && !/"[^"]*\[임시/.test(read("app/my-life/EditUI.tsx")));
+    check("⑦ 문구 — 3단계 문구는 my-life-copy edit 블록(임시 표기 주석)", /전부 \[임시 — 성민 확정 필요\][^\n]*\n\s*edit: \{/.test(read("lib/my-life-copy.ts")) && !/"[^"]*\[임시/.test(read("app/my-life/EditUI.tsx")));
 
     // ── ⑫ 행성 꾸미기(U4 — 2026-11-05, docs/phase/ui-space.md §7.5) ─────────────────────
     {
@@ -744,8 +750,23 @@ async function main() {
       // 장소·모임 [이름 고치기] — 장소는 이야기 장소 행 이름 사본(MemoryPlace.placeName)도 같이
       const PL = await createPlaceNode(a, { name: "[fixture] 옛 이름 장소" });
       const plId = PL.ok ? PL.placeId : "";
-      const st13 = await createStoryNode(a, { lifeEventId: job, kind: "STORY", title: "", content: "[fixture] 점심마다 그 식당에 갔다.", placeIds: [plId] });
+      // 본문·제목에 옛 장소 이름을 일부러 넣는다 — 이름 고치기는 장소 칸만 바꾸고 이야기 글자는 안 건드려야 한다(2026-11-06 성민 확인 요청).
+      const st13 = await createStoryNode(a, { lifeEventId: job, kind: "STORY", title: "[fixture] 옛 이름 장소 점심", content: "[fixture] 옛 이름 장소에서 점심마다 밥을 먹었다.", placeIds: [plId] });
+      if (st13.ok) await saveStoryBodyWithPlace(a, st13.episodeId);
+      const textOf = async () =>
+        st13.ok
+          ? JSON.stringify([
+              await prisma.episode.findUnique({ where: { id: st13.episodeId }, select: { content: true, rawTranscript: true, memory: { select: { title: true, content: true, refinedText: true } } } }),
+              await prisma.nodeBody.findMany({ where: { nodeType: "EPISODE", nodeId: st13.episodeId }, select: { doc: true, plainText: true, version: true } }),
+              await prisma.nodeBodyRevision.count({ where: { nodeType: "EPISODE", nodeId: st13.episodeId } }),
+            ])
+          : "";
+      const textBefore = await textOf();
       const rn1 = await renameNode(a, { type: "PLACE", id: plId }, " [fixture] 새 이름 장소 ");
+      const textAfter = await textOf();
+      check("⑬ 장소 이름을 바꿔도 이야기 본문은 그대로 — 이야기 글·녹취·제목·다듬은 글·블로그식 글(소제목·문단)·이전 판 수 전부 같음(옛 이름 글자 남음)",
+        rn1.ok && textBefore !== "" && textAfter === textBefore && textAfter.includes("옛 이름 장소에서 점심마다") && textAfter.includes("옛 이름 장소 앞 골목") && !textAfter.includes("새 이름 장소"),
+        { textBefore: textBefore.slice(0, 200), textAfter: textAfter.slice(0, 200) });
       const mpNames = await prisma.memoryPlace.findMany({ where: { placeId: plId }, select: { placeName: true } });
       check("⑬ 장소 이름 고치기 — 장소 이름 + 이야기 장소 행 이름 사본 같이",
         st13.ok && rn1.ok && (await prisma.place.findUnique({ where: { id: plId }, select: { name: true } }))?.name === "[fixture] 새 이름 장소" &&
@@ -853,6 +874,13 @@ async function main() {
       const revalidated = ["app/actions/episode.ts", "app/actions/free-chat.ts", "app/actions/node-body.ts", "app/interview/actions.ts"].filter((f) => read(f).includes('revalidatePath("/people/[personId]"'));
       check("⑬ V3 액션의 /people 상세 무효화 삭제(V2 경로 draft-actions·/people 액션은 그대로)",
         revalidated.length === 0 && read("app/life-timeline/manage/draft-actions.ts").includes('revalidatePath("/people")'), revalidated);
+      const copy13 = read("lib/my-life-copy.ts");
+      check("⑬ 문구 12키 확정(2026-11-06) — 값 그대로 · linkPeriods = \"시기 N개\" · 두 묶음 주석 = 확정(임시 표시 없음)",
+        C13.panelBirthYear === "태어난 해" && C13.panelMemo === "메모" && E.linkPeriods(2) === "시기 2개" && E.linkGroups(1) === "모임 1개" &&
+          E.deletePersonBody === "이 분에 대해 적은 글도 함께 지워져요." && E.editInfo === "이름·정보 고치기" && E.editName === "이름 고치기" &&
+          E.fieldBirthYear === "태어난 해 (선택)" && E.fieldMetYear === "처음 만난 해 (선택)" && E.fieldMemo === "메모 (선택)" && E.saveInfo === "저장" && E.infoSaved === "고쳤어요." &&
+          copy13.includes("// 인물록 통합(2026-11-06) — 사람 패널, 값이 있을 때만 — 확정(성민 2026-11-06)") && copy13.includes("// — 아래 10키 확정(성민 2026-11-06") &&
+          !/인물록 통합[^\n]*\[임시/.test(copy13));
       check("⑬ 사용법 챗 — 인물록·장소록 = My Life 지도 안", read("app/api/tutorial-chat/route.ts").includes("- 인물록·장소록: My Life 지도 안에 있음."));
     }
   } finally {

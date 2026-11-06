@@ -138,7 +138,7 @@ export const MY_LIFE_COPY = {
   panelMembers: "모임 사람들",
   panelRelation: "관계",
   panelMetYear: "만난 해",
-  // 인물록 통합(2026-11-06) — 사람 패널, 값이 있을 때만. [임시 — 성민 확정 필요] 아래 2키.
+  // 인물록 통합(2026-11-06) — 사람 패널, 값이 있을 때만 — 확정(성민 2026-11-06)
   panelBirthYear: "태어난 해",
   panelMemo: "메모",
   panelAddress: "주소",
@@ -198,7 +198,7 @@ export const MY_LIFE_COPY = {
   placeGroupLabelName: (name: string, n: number) => `장소 묶음, ${name}, ${n}곳`,
   placeGroupChipName: (name: string, shown: boolean) => (shown ? `장소 묶음 ${name}, 지도에 보이는 중` : `장소 묶음 ${name}, 지도에 보이기`),
 
-  // 지도에서 직접 만들기·넣기·빼기·옮기기·지우기(My Life 개편 3단계) — 전부 [임시 — 성민 확정 필요]
+  // 지도에서 직접 만들기·넣기·빼기·옮기기·지우기(My Life 개편 3단계) — 전부 [임시 — 성민 확정 필요](인물록 통합 10키만 확정 — 2026-11-06)
   edit: {
     create: "만들기", // 머리 줄 [+ 만들기] — 앞의 + 는 아이콘
     createTitle: "무엇을 만들까요?",
@@ -300,7 +300,8 @@ export const MY_LIFE_COPY = {
     deletePlaceGroups: (n: number) => `장소 묶음 ${n}개에서도 빠져요.`,
     deleteSkeletonNote: "처음 정한 시기는 지울 수 없어요.",
     // 인물록 통합(2026-11-06) — 사람 지우기 확인창(시기·모임 수 · 인물 글) · 사람 [이름·정보 고치기] · 장소·모임 [이름 고치기]
-    linkPeriods: (n: number) => `시기 ${n}곳`,
+    // — 아래 10키 확정(성민 2026-11-06 · linkPeriods 는 확인창의 다른 수와 같은 "개")
+    linkPeriods: (n: number) => `시기 ${n}개`,
     linkGroups: (n: number) => `모임 ${n}개`,
     deletePersonBody: "이 분에 대해 적은 글도 함께 지워져요.",
     editInfo: "이름·정보 고치기", // 사람 패널 버튼·고치기 화면 제목
