@@ -30,6 +30,7 @@ import { findSameNamePeople } from "./person-chat";
 import { relationGroup } from "./person-relation";
 import { validatePlace } from "./place-validate";
 import { resolveBirthYear } from "./life-events";
+import { isDecorShape } from "./space-decor";
 
 const E = MY_LIFE_COPY.edit;
 
@@ -93,6 +94,30 @@ export async function addLink(userId: string, a: NodeRef, b: NodeRef): Promise<{
     else if (r.upgraded) created.push({ a: p.a, b: p.b, downgrade: true });
   }
   return { ok: true, created };
+}
+
+// 행성 꾸미기(U4 — docs/phase/ui-space.md §5·§7.5) — 시기·이야기 행성 하나에 모양 하나(NodeDecoration 유일). shape = null 이면 없앰.
+// 내 노드만(시기 = LifeEvent.userId · 이야기 = 소속 시기의 주인 — 정합 점검의 ownerOf 와 같은 기준) · 모양 = lib/space-decor 목록만.
+// previous = 바꾸기 전 모양(되돌리기가 이 값으로 다시 부름). source = USER(사용자가 고름 — AI 제안은 범위 제외, Q121).
+export async function setNodeDecoration(userId: string, node: NodeRef, shape: string | null): Promise<{ ok: true; previous: string | null } | Fail> {
+  if (shape !== null && !isDecorShape(shape)) return { ok: false, error: E.failed };
+  if (node.type !== "LIFE_EVENT" && node.type !== "EPISODE") return { ok: false, error: E.notFound };
+  const owned =
+    node.type === "LIFE_EVENT"
+      ? await prisma.lifeEvent.count({ where: { id: node.id, userId } })
+      : await prisma.episode.count({ where: { id: node.id, lifeEvent: { userId } } });
+  if (!owned) return { ok: false, error: E.notFound };
+  const key = { nodeType_nodeId: { nodeType: node.type, nodeId: node.id } };
+  const prev = await prisma.nodeDecoration.findUnique({ where: key, select: { shape: true, userId: true } });
+  if (prev && prev.userId !== userId) return { ok: false, error: E.notFound }; // 주인 다른 행(점검 15 보고 대상) — 건드리지 않음
+  if (shape === null) await prisma.nodeDecoration.deleteMany({ where: { nodeType: node.type, nodeId: node.id, userId } });
+  else
+    await prisma.nodeDecoration.upsert({
+      where: key,
+      create: { userId, nodeType: node.type, nodeId: node.id, shape, source: "USER" },
+      update: { shape, source: "USER" },
+    });
+  return { ok: true, previous: prev?.shape ?? null };
 }
 
 // 되돌리기 — 넣기에서 새로 생긴 연결만 지운다(이미 있던 연결은 created 에 없음). DIRECT 로 올린 것은 다시 STORY 로.

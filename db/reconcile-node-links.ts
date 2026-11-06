@@ -36,6 +36,7 @@ function print(i: NodeGraphIssues) {
   console.log(
     `14 사용자 노드                 종류 값 ${c.badKind} · 자리 규칙 ${c.badHome} · 남의 자리 ${c.foreignParent} · 자기 자신 부모 ${c.selfParent} · 고리 ${c.cycles} · 기본 카테고리 행 ${c.builtinMisuse} · 같은 종류 넣기 ${c.sameKindMember} · 역할 불일치 ${c.roleMismatch} · 자리와 겹치는 넣기 ${c.homeMember}  [보고만 — 늘 0 이어야]`,
   );
+  console.log(`15 행성 꾸미기 — 노드 없음      ${i.decorMissingNode}  [정리 대상] · 주인 불일치 ${i.decorOwnerMismatch} · 목록 밖 모양 ${i.decorBadShape}  [보고만]`);
 }
 
 async function main() {
@@ -63,7 +64,7 @@ async function main() {
   console.log(`점검 대상: 연결 ${links}행 · 본문 ${bodies}행 · 초안 인물 ${drafts}명`);
   const before = await countNodeGraphIssues(scope);
   print(before);
-  const targets = before.danglingLinks + before.bodyMissingNode + before.orphanDrafts + before.storyPeriodPeopleWithoutStory;
+  const targets = before.danglingLinks + before.bodyMissingNode + before.orphanDrafts + before.storyPeriodPeopleWithoutStory + before.decorMissingNode;
 
   if (!apply) {
     console.log(targets === 0 ? "정리 대상 없음." : `정리 대상 ${targets}건 — 정리하려면 --apply 로 다시 실행.`);
@@ -73,7 +74,7 @@ async function main() {
     throw new Error("User 가 0명으로 읽혀 --apply 중단(DB 연결 확인).");
   }
   const done = await applyNodeGraphCleanup(scope);
-  console.log(`정리 완료: 연결 ${done.danglingLinks} · 본문 ${done.bodiesMissingNode} · 초안 인물 ${done.orphanDrafts} · 이야기 없는 시기↔사람(STORY) ${done.storyPeriodPeople}`);
+  console.log(`정리 완료: 연결 ${done.danglingLinks} · 본문 ${done.bodiesMissingNode} · 초안 인물 ${done.orphanDrafts} · 이야기 없는 시기↔사람(STORY) ${done.storyPeriodPeople} · 꾸미기 ${done.decorationsMissingNode}`);
   print(await countNodeGraphIssues(scope));
 }
 

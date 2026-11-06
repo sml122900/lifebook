@@ -349,3 +349,240 @@ body[data-proposal-card] [data-assistant-fab] {
   }
 }
 
+
+/* 행성 꾸미기(우주 개편 U4 — docs/phase/ui-space.md §5·§7.5, app/my-life/Decor.tsx). CSS 만 — JS 프레임 없음.
+   .decor = 행성 지름 크기 네모(행성 가운데) · .dc-a = 놓는 틀(멈춘 그림 — 멈춰도 모양이 보임) · .dc-b = 움직이는 조각.
+   지도에선 .decor-sys(계 상자)가 행성 버튼 앞 형제라 행성·위성 뒤에 그려진다. 위아래는 행성 밖 14px 안(계 사이 16 — 이웃 계와 안 겹침).
+   레이어 밖(유틸리티보다 앞섬 — 블랙홀 행성 면이 테두리 유틸리티를 이김). */
+.decor {
+  position: absolute;
+  pointer-events: none;
+}
+.decor .dc-a,
+.decor .dc-b {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+.decor .dc-a {
+  left: 50%;
+  top: 50%;
+}
+.decor .dc-b {
+  inset: 0;
+}
+/* 고리 — 기울인 띠(가운데는 행성이 가림). 빛이 띠를 따라 돎. */
+.decor-ring .dc-a {
+  width: 186%;
+  height: 186%;
+  transform: translate(-50%, -50%) rotate(-16deg) scaleY(0.3);
+}
+.decor-ring .dc-b {
+  border-radius: 50%;
+  background: conic-gradient(#fff3c4, #d9a441 25%, #fff3c4 50%, #c48a2c 75%, #fff3c4);
+  -webkit-mask: radial-gradient(closest-side, transparent 70%, #000 72%, #000 93%, transparent 95%);
+  mask: radial-gradient(closest-side, transparent 70%, #000 72%, #000 93%, transparent 95%);
+}
+/* 혜성 꼬리 — 행성에서 왼쪽 아래로 가늘어지는 꼬리. 꼬리가 살짝 늘었다 줄었다. */
+.decor-comet .dc-a {
+  width: 118%;
+  height: 30%;
+  transform: translate(0, -50%) rotate(158deg);
+  transform-origin: 0 50%;
+}
+.decor-comet .dc-b {
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, rgb(255 255 255 / 0.92), rgb(170 225 255 / 0.6) 45%, rgb(170 225 255 / 0));
+  clip-path: polygon(0 0, 100% 44%, 100% 56%, 0 100%);
+}
+/* 오로라 — 행성 위쪽을 감싸는 빛 띠(양옆으로 넓게). 띠가 천천히 일렁임. */
+.decor-aurora .dc-a {
+  width: 168%;
+  height: calc(100% + 28px);
+  transform: translate(-50%, -50%);
+}
+.decor-aurora .dc-b {
+  background: linear-gradient(90deg, rgb(80 240 190 / 0), rgb(80 240 190 / 0.75) 22%, rgb(120 205 255 / 0.7) 50%, rgb(205 140 255 / 0.7) 78%, rgb(205 140 255 / 0));
+  -webkit-mask: radial-gradient(closest-side, transparent 58%, #000 66%, #000 84%, transparent 96%), linear-gradient(#000 0 52%, transparent 72%);
+  -webkit-mask-composite: source-in;
+  mask: radial-gradient(closest-side, transparent 58%, #000 66%, #000 84%, transparent 96%), linear-gradient(#000 0 52%, transparent 72%);
+  mask-composite: intersect;
+}
+/* 별빛 가루 — 행성 둘레의 작은 별(멈춘 6개 + 반짝이는 6개). */
+.decor-stardust .dc-a {
+  width: 176%;
+  height: calc(100% + 28px);
+  transform: translate(-50%, -50%);
+  background:
+    radial-gradient(circle at 6% 30%, #fff 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 15% 78%, #ffe9a8 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 92% 22%, #ffe9a8 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 96% 64%, #fff 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 38% 4%, #fff 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 64% 97%, #ffe9a8 0 1.5px, transparent 2.5px);
+}
+.decor-stardust .dc-b {
+  background:
+    radial-gradient(circle at 10% 52%, #fff 0 2.5px, transparent 3.5px),
+    radial-gradient(circle at 3% 82%, #c9e6ff 0 2px, transparent 3px),
+    radial-gradient(circle at 86% 88%, #fff 0 2.5px, transparent 3.5px),
+    radial-gradient(circle at 89% 44%, #c9e6ff 0 2px, transparent 3px),
+    radial-gradient(circle at 58% 3%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 30% 96%, #fff 0 2px, transparent 3px);
+}
+/* 태양 플레어 — 행성 둘레 빛무리 + 바깥으로 뻗는 빛살. 빛살이 숨 쉬듯 커졌다 작아지며 조금 돎. */
+.decor-flare .dc-a {
+  width: 152%;
+  height: calc(100% + 26px);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(255 205 120 / 0.62) 64%, rgb(255 150 70 / 0.3) 80%, rgb(255 150 70 / 0) 100%);
+}
+.decor-flare .dc-b {
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 6deg, rgb(255 222 150 / 0.9) 0 5deg, transparent 5deg 30deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 62%, #000 70%, transparent 100%);
+  mask: radial-gradient(closest-side, transparent 62%, #000 70%, transparent 100%);
+}
+/* 소용돌이 — 행성 뒤 기울인 원반의 나선 팔. 천천히 돎. */
+.decor-vortex .dc-a {
+  width: 176%;
+  height: 176%;
+  transform: translate(-50%, -50%) rotate(-10deg) scaleY(0.42);
+}
+.decor-vortex .dc-b {
+  border-radius: 50%;
+  /* 팔 셋 — 밝은 앞끝에서 뒤로 흐려지는 쐐기(멈춰도 나선으로 보이게 앞끝을 또렷하게) */
+  background: conic-gradient(rgb(180 160 255 / 0) 0deg, rgb(180 160 255 / 0.95) 34deg, rgb(180 160 255 / 0) 36deg 120deg, rgb(130 210 255 / 0.95) 154deg, rgb(130 210 255 / 0) 156deg 240deg, rgb(220 160 255 / 0.95) 274deg, rgb(220 160 255 / 0) 276deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 46%, #000 56%, #000 86%, transparent 98%);
+  mask: radial-gradient(closest-side, transparent 46%, #000 56%, #000 86%, transparent 98%);
+}
+/* 쌍둥이 별 — 행성 곁의 작은 별 하나가 납작한 타원으로 돎(자리 = 별 크기 비율이라 행성 크기와 무관). 멈춘 그림 = 오른쪽 위. */
+.decor-binary .dc-a {
+  width: 22%;
+  height: 22%;
+  transform: translate(-50%, -50%);
+}
+.decor-binary .dc-b {
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 38%, #fff 0, #ffe6a6 45%, #f2b24c 100%);
+  box-shadow: 0 0 10px 3px rgb(255 220 150 / 0.6);
+  transform: translate(325%, -35%);
+}
+/* 블랙홀 — 행성 뒤 기울인 강착 원반(빛이 돎) + 행성 면을 어둡게(아래 행성 규칙 — 글자는 밝게, 빛 테로 윤곽). */
+.decor-blackhole .dc-a {
+  width: 196%;
+  height: 196%;
+  transform: translate(-50%, -50%) rotate(-12deg) scaleY(0.28);
+}
+.decor-blackhole .dc-b {
+  border-radius: 50%;
+  background: conic-gradient(#ffefc8, #ff9a4a 18%, #7a2f8f 40%, #ffd27a 58%, #ff7a3a 76%, #ffefc8);
+  -webkit-mask: radial-gradient(closest-side, transparent 52%, #000 58%, #000 86%, transparent 100%);
+  mask: radial-gradient(closest-side, transparent 52%, #000 58%, #000 86%, transparent 100%);
+}
+/* 블랙홀 행성 면 — 어두운 면 + 밝은 글자(대비 4.5:1 이상) + 빛 테(밤 바탕 3:1 이상 — 행성이 바탕에 묻히지 않게). 지도·고르기 칸 같이. */
+.planet-period[data-decor="blackhole"],
+.planet-story[data-decor="blackhole"] {
+  background: radial-gradient(circle at 50% 46%, #07061a 0, #110e33 56%, #241e66 100%);
+  color: #f1eeff;
+  border-color: #ffd27a;
+  box-shadow: 0 0 0 2px #ffd27a, 0 0 18px 4px rgb(255 210 122 / 0.5);
+}
+/* 꾸민 행성의 위성 이름표 — 꾸미기 그림 위에서도 글자 대비 4.5:1 이상이 되게 바탕색 테두리(글자 둘레만). */
+.orbit-sys[data-decor] .orbit-lbl {
+  text-shadow: 0 0 2px var(--color-canvas), 0 0 4px var(--color-canvas), 0 0 8px var(--color-canvas);
+}
+/* 한 벌 = 여러 번(돌기 6바퀴 · 오가기 10~20번) — 반복 경계마다 브라우저가 animationiteration 을 보내 메인 스레드가 깨어난다
+   (React 가 뿌리에서 애니메이션 이벤트를 받음 — U2 공전과 같은 이유, ui-space §7.2). 경계를 36초 이상에 한 번으로. alternate 안 씀. */
+@keyframes decor-spin {
+  to {
+    transform: rotate(2160deg);
+  }
+}
+@keyframes decor-comet {
+  0%, 10%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90%, 100% {
+    transform: scaleX(0.88);
+    opacity: 0.72;
+  }
+  5%, 15%, 25%, 35%, 45%, 55%, 65%, 75%, 85%, 95% {
+    transform: scaleX(1.04);
+    opacity: 1;
+  }
+}
+@keyframes decor-aurora {
+  0%, 20%, 40%, 60%, 80%, 100% {
+    transform: translateX(-4%) skewX(-5deg);
+    opacity: 0.65;
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(4%) skewX(5deg);
+    opacity: 1;
+  }
+}
+@keyframes decor-twinkle {
+  0%, 10%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90%, 100% {
+    opacity: 0.25;
+  }
+  5%, 15%, 25%, 35%, 45%, 55%, 65%, 75%, 85%, 95% {
+    opacity: 1;
+  }
+}
+@keyframes decor-flare {
+  0%, 10%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90%, 100% {
+    transform: scale(0.94) rotate(0deg);
+    opacity: 0.7;
+  }
+  5%, 15%, 25%, 35%, 45%, 55%, 65%, 75%, 85%, 95% {
+    transform: scale(1.04) rotate(10deg);
+    opacity: 1;
+  }
+}
+@keyframes decor-binary {
+  0% { transform: translate(325%, -35%); }
+  6.25% { transform: translate(322%, 43%); }
+  12.5% { transform: translate(270%, 115%); }
+  18.75% { transform: translate(177%, 169%); }
+  25% { transform: translate(57%, 197%); }
+  31.25% { transform: translate(-71%, 195%); }
+  37.5% { transform: translate(-189%, 164%); }
+  43.75% { transform: translate(-278%, 107%); }
+  50% { transform: translate(-325%, 35%); }
+  56.25% { transform: translate(-322%, -43%); }
+  62.5% { transform: translate(-270%, -115%); }
+  68.75% { transform: translate(-177%, -169%); }
+  75% { transform: translate(-57%, -197%); }
+  81.25% { transform: translate(71%, -195%); }
+  87.5% { transform: translate(189%, -164%); }
+  93.75% { transform: translate(278%, -107%); }
+  100% { transform: translate(325%, -35%); }
+}
+/* 움직임 — 공전과 같은 규칙: 화면 안(한 화면 여유 — .decor-sys[data-orbit="on"], ./orbit observeOrbits)일 때만. 화면 밖 = 움직임 없음(멈춘 그림). */
+.space-map[data-motion] .decor-sys[data-orbit="on"] .decor-ring .dc-b {
+  animation: decor-spin 96s linear infinite; /* 바퀴당 16초 */
+}
+.space-map[data-motion] .decor-sys[data-orbit="on"] .decor-comet .dc-b {
+  animation: decor-comet 52s ease-in-out infinite; /* 한 번 2.6초 × 20 */
+}
+.space-map[data-motion] .decor-sys[data-orbit="on"] .decor-aurora .dc-b {
+  animation: decor-aurora 50s ease-in-out infinite; /* 한 번 5초 × 10 */
+}
+.space-map[data-motion] .decor-sys[data-orbit="on"] .decor-stardust .dc-b {
+  animation: decor-twinkle 36s ease-in-out infinite; /* 한 번 1.8초 × 20 */
+}
+.space-map[data-motion] .decor-sys[data-orbit="on"] .decor-flare .dc-b {
+  animation: decor-flare 64s ease-in-out infinite; /* 한 번 3.2초 × 20 */
+}
+.space-map[data-motion] .decor-sys[data-orbit="on"] .decor-vortex .dc-b {
+  animation: decor-spin 108s linear infinite; /* 바퀴당 18초 */
+}
+.space-map[data-motion] .decor-sys[data-orbit="on"] .decor-binary .dc-b {
+  animation: decor-binary 14s linear infinite; /* 한 바퀴 — 경계 14초에 한 번(실측 영향 없음) */
+}
+.space-map[data-motion] .decor-sys[data-orbit="on"] .decor-blackhole .dc-b {
+  animation: decor-spin 54s linear infinite; /* 바퀴당 9초 */
+}
+/* 멈춤(전체 보기 배율·[움직임 멈추기]·움직임 줄이기 = data-motion="hold") — 그 자리에서. 위 규칙과 구체성 같음 · 뒤에 있어 이김. */
+.space-map[data-motion="hold"] .decor-sys[data-orbit="on"] .decor .dc-b {
+  animation-play-state: paused;
+}

@@ -15,11 +15,14 @@
 //   14 사용자 노드(CustomNode — docs/phase/custom-graph.md §2.3) — 보고만(늘 0 이어야): 종류 값 밖 · 자리 규칙(카테고리에 자리 /
 //      묶음·항목에 자리 없음·자리가 카테고리 아님·자리가 기본 카테고리 행) · 남의 parentId · 자기 자신 부모(CHECK 가 막음) · 고리 ·
 //      기본 카테고리 행 오용(종류·자리·값·자식·연결) · 같은 종류 넣기(MEMBER) · 역할과 종류 불일치 · 자리와 겹치는 넣기
-// 정리(applyNodeGraphCleanup)는 1·5(노드 없음)·8·12(STORY) 만, 점검과 같은 조건의 DELETE 한 문장씩.
+//   15 행성 꾸미기(NodeDecoration — U4, docs/phase/ui-space.md 부록 A) — 노드 없음(지운 노드의 꾸미기가 남음 — 정리 함수가 늘
+//      지우므로 늘 0 이어야) → 정리 대상 · 주인 불일치 · 목록 밖 모양(lib/space-decor — DB CHECK 없음) — 보고만
+// 정리(applyNodeGraphCleanup)는 1·5(노드 없음)·8·12(STORY)·15(노드 없음) 만, 점검과 같은 조건의 DELETE 한 문장씩.
 
 import { prisma } from "./db";
 import { Prisma } from "./generated/prisma/client";
 import { ALLOWED_PAIRS } from "./node-graph";
+import { DECOR_SHAPES } from "./space-decor";
 
 export type NodeGraphScope = { userId?: string; excludeUserIds?: string[] };
 
@@ -45,6 +48,9 @@ export type NodeGraphIssues = {
   directPeriodPeopleWithoutStory: number; // 12 — 같은 조건, 출처 DIRECT(보고만)
   storyPlacesWithoutNode: number; // 13 — 이야기 기록의 placeId 없는 장소 행(보고만)
   custom: CustomNodeIssues; // 14 — 사용자 노드(보고만)
+  decorMissingNode: number; // 15 — 노드 없는 꾸미기(정리 대상)
+  decorOwnerMismatch: number; // 15 — 꾸미기 주인 ≠ 노드 주인(보고만)
+  decorBadShape: number; // 15 — 목록 밖 모양(보고만)
 };
 
 export type CustomNodeIssues = {
@@ -152,7 +158,7 @@ async function countCustomNodeIssues(s: NodeGraphScope): Promise<CustomNodeIssue
 
 export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<NodeGraphIssues> {
   const linkScope = scope(`nl."userId"`, s);
-  const [ends, [dir], [dup], [body], [stale], [photo], [orphan], [pend], [loc], [mem], [ple], [spl], custom] = await Promise.all([
+  const [ends, [dir], [dup], [body], [stale], [photo], [orphan], [pend], [loc], [mem], [ple], [spl], custom, [deco]] = await Promise.all([
     // 1·2 — 문제 있는 끝만 돌려받는다(정상이면 0행).
     prisma.$queryRaw<{ id: string; t: string; missing: boolean }[]>`
       SELECT nl.id, e.t::text AS t, (e.owner IS NULL) AS missing
@@ -214,6 +220,14 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
       SELECT count(*)::int AS n FROM "MemoryPlace" mp JOIN "UserMemory" m ON m.id = mp."memoryId"
       WHERE ${scope(`m."userId"`, s)} AND m."createdVia" = 'episode' AND mp."placeId" IS NULL`,
     countCustomNodeIssues(s),
+    prisma.$queryRaw<{ missing: number; mismatch: number; bad_shape: number }[]>`
+      SELECT
+        count(*) FILTER (WHERE o.owner IS NULL)::int AS missing,
+        count(*) FILTER (WHERE o.owner IS NOT NULL AND o.owner <> d."userId")::int AS mismatch,
+        count(*) FILTER (WHERE d.shape NOT IN (${Prisma.join(DECOR_SHAPES.map((x) => x.key))}))::int AS bad_shape
+      FROM "NodeDecoration" d
+      CROSS JOIN LATERAL (SELECT ${ownerOf(`d."nodeType"`, `d."nodeId"`)} AS owner) o
+      WHERE ${scope(`d."userId"`, s)}`,
   ]);
 
   const danglingByType: Record<string, number> = {};
@@ -240,10 +254,13 @@ export async function countNodeGraphIssues(s: NodeGraphScope = {}): Promise<Node
     directPeriodPeopleWithoutStory: n(ple.direct),
     storyPlacesWithoutNode: n(spl.n),
     custom,
+    decorMissingNode: n(deco.missing),
+    decorOwnerMismatch: n(deco.mismatch),
+    decorBadShape: n(deco.bad_shape),
   };
 }
 
-export type NodeGraphCleanup = { danglingLinks: number; bodiesMissingNode: number; orphanDrafts: number; storyPeriodPeople: number };
+export type NodeGraphCleanup = { danglingLinks: number; bodiesMissingNode: number; orphanDrafts: number; storyPeriodPeople: number; decorationsMissingNode: number };
 
 // 정리 — 점검 1·5(노드 없음)·8 과 같은 조건으로만 지운다. 본문 삭제는 트리거가 그 본문 전용
 // 사진 메모리(createdVia="node_body")를 같이 지운다.
@@ -257,5 +274,7 @@ export async function applyNodeGraphCleanup(s: NodeGraphScope = {}): Promise<Nod
     DELETE FROM "Person" p WHERE ${scope(`p."userId"`, s)} AND ${ORPHAN_DRAFT}`;
   const storyPeriodPeople = await prisma.$executeRaw`
     DELETE FROM "PersonLifeEvent" x WHERE ${scope(`x."userId"`, s)} AND x.origin = 'STORY' AND ${PERIOD_PERSON_WITHOUT_STORY}`;
-  return { danglingLinks, bodiesMissingNode, orphanDrafts, storyPeriodPeople };
+  const decorationsMissingNode = await prisma.$executeRaw`
+    DELETE FROM "NodeDecoration" d WHERE ${scope(`d."userId"`, s)} AND ${ownerOf(`d."nodeType"`, `d."nodeId"`)} IS NULL`;
+  return { danglingLinks, bodiesMissingNode, orphanDrafts, storyPeriodPeople, decorationsMissingNode };
 }

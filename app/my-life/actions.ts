@@ -25,6 +25,7 @@ import {
   deletePlaceGroupNode,
   deletePlaceNode,
   removeLink,
+  setNodeDecoration,
   undoLinks,
   undoRemove,
   type CreatedLink,
@@ -133,6 +134,14 @@ export async function addLinkAction(a: NodeRef, b: NodeRef): Promise<{ ok: true;
   const rb = ref(b);
   if (!ra || !rb) return { ok: false, error: E.notFound };
   return addLink(userId, ra, rb);
+}
+
+// 행성 꾸미기(U4) — 시기·이야기 행성에 모양 하나 · null = 없앰. 결과 previous = 되돌리기 값.
+export async function setDecorationAction(node: NodeRef, shape: string | null): Promise<{ ok: true; previous: string | null } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const r = ref(node);
+  if (!r) return { ok: false, error: E.notFound };
+  return setNodeDecoration(userId, r, typeof shape === "string" ? shape : null);
 }
 
 export async function undoLinksAction(links: CreatedLink[]): Promise<{ ok: true } | { ok: false; error: string }> {

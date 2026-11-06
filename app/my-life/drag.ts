@@ -54,6 +54,8 @@ export type OptLinks = {
   hide: (id: number) => void; // 저장 실패 — 위성 빠짐
   refresh: () => void;
   undo: (planet: NodeRef, sat: NodeRef, created: CreatedLink[]) => Promise<{ ok: boolean }>; // 응답 전에 숨김, 실패면 다시 보임
+  // 행성 꾸미기(U4) — 고르는 순간 보이고(낙관적) 저장은 뒤에서, 실패면 원래대로. previous = 서버의 바꾸기 전 모양(되돌리기 값).
+  decorate: (planet: NodeRef, shape: string | null) => Promise<{ ok: true; previous: string | null } | { ok: false; error: string }>;
 };
 export type BounceWhy = "far" | "already" | "cancel";
 

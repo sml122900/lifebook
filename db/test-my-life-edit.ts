@@ -16,6 +16,8 @@
 //   ⑨ 3단계 E2E 후속 2(2026-11-02) — 옮기기 되돌리기(옮기기 전 그대로·값 다시 검사) · 장소 지우기 확인창 묶음 수 · 화면(옮긴 뒤 [되돌리기]·지운 뒤 알림)
 //   ⑩ 시기↔사람 출처(2026-11-02) — 재현(넣기→옮기기→지우기 후 시기 연결 0) · 직접 넣은 연결 유지 · STORY→DIRECT 올림과 그 되돌리기 ·
 //      이야기 둘·추가 소속 · 카드(인물 질문·대상 인물 DIRECT, 같이 나온 분 STORY) · 시기↔사람 쓰기 = 입구 하나
+//   ⑫ 행성 꾸미기(U4 — 2026-11-05) — 고르기·바꾸기·빼기(바꾸기 전 모양 = 되돌리기 값 · source USER · 행 하나) · 화면 데이터(시기·이야기 모든 자리) ·
+//      남의 시기·이야기·목록 밖 모양·사람 노드 거부 · 화면 입구(액션 → setNodeDecoration · 패널 낙관적 반영)
 //   ⑪ 출생연도 원본(2026-11-03 — my-life-restructure §16.1) — V3 = 출생 시기(고친 연도 포함)가 신상·User 보다 먼저 ·
 //      setBirthYear = 세 곳 같이 · V2 = 예전 규칙 그대로(getBirthYear = V2 출생 기록, resolveBirthYear = User 먼저) ·
 //      V3 화면 읽는 곳 = resolveBirthYear 하나 · 회원정보·V3 신상 저장 = setBirthYear
@@ -51,6 +53,7 @@ import {
   deletePlaceGroupNode,
   deletePlaceNode,
   removeLink,
+  setNodeDecoration,
   undoLinks,
   undoRemove,
 } from "../lib/my-life-edit";
@@ -611,6 +614,56 @@ async function main() {
     check("⑦ NodeLink 쓰기는 lib/node-graph 하나(입구 — Q44)", JSON.stringify(nlWriters) === JSON.stringify(["lib/node-graph.ts"]), nlWriters);
     check("⑦ proxy.ts 무접촉(my-life 언급 없음)", !/my-life/.test(read("proxy.ts")));
     check("⑦ 문구 — 3단계 문구는 my-life-copy edit 블록(임시 표기 주석)", /전부 \[임시 — 성민 확정 필요\]\n\s*edit: \{/.test(read("lib/my-life-copy.ts")) && !/"[^"]*\[임시/.test(read("app/my-life/EditUI.tsx")));
+
+    // ── ⑫ 행성 꾸미기(U4 — 2026-11-05, docs/phase/ui-space.md §7.5) ─────────────────────
+    {
+      const dA = await getMyLifeData(a);
+      const evD = dA.events.find((e) => e.stories.length > 0)!;
+      const stD = evD.stories[0];
+      const EV: NodeRef = { type: "LIFE_EVENT", id: elem };
+      const ST: NodeRef = { type: "EPISODE", id: stD.id };
+      const row = (n: NodeRef) =>
+        prisma.nodeDecoration.findUnique({ where: { nodeType_nodeId: { nodeType: n.type, nodeId: n.id } }, select: { shape: true, source: true, userId: true } });
+      const rows = (n: NodeRef) => prisma.nodeDecoration.count({ where: { nodeType: n.type, nodeId: n.id } });
+      const s1 = await setNodeDecoration(a, EV, "ring");
+      const r1 = await row(EV);
+      const s2 = await setNodeDecoration(a, EV, "comet");
+      const r2 = await row(EV);
+      const n2 = await rows(EV);
+      const s3 = await setNodeDecoration(a, EV, null);
+      const n3 = await rows(EV);
+      const s4 = await setNodeDecoration(a, EV, null);
+      check("⑫ 꾸미기 고르기·바꾸기·빼기 — 고름(바꾸기 전 없음 · source USER) · 바꿈(바꾸기 전 = 고리 · 행 하나 그대로) · 뺌(행 없음) · 없는데 빼기 = 그대로(바꾸기 전 없음)",
+        s1.ok && s1.previous === null && r1?.shape === "ring" && r1.source === "USER" && r1.userId === a &&
+          s2.ok && s2.previous === "ring" && r2?.shape === "comet" && n2 === 1 &&
+          s3.ok && s3.previous === "comet" && n3 === 0 && s4.ok && s4.previous === null,
+        { s1, r1, s2, r2, n2, s3, n3, s4 });
+      // 화면 데이터 — 시기 행성 · 이야기 행성(같은 이야기가 여러 시기에 보이면 모든 자리)
+      await setNodeDecoration(a, EV, "aurora");
+      await setNodeDecoration(a, ST, "blackhole");
+      const dA2 = await getMyLifeData(a);
+      const copies = dA2.events.flatMap((e) => e.stories.filter((s) => s.id === stD.id));
+      check("⑫ 화면 데이터 — 시기 decor = 오로라 · 이야기의 모든 자리 decor = 블랙홀 · 안 꾸민 행성 = null",
+        dA2.events.find((e) => e.id === elem)?.decor === "aurora" && copies.length >= 1 && copies.every((s) => s.decor === "blackhole") &&
+          dA2.events.find((e) => e.id === high)?.decor === null,
+        { copies: copies.length });
+      // 거부 — 남의 노드(시기·이야기) · 목록 밖 모양 · 꾸밀 수 없는 종류 — 행은 그대로
+      const x1 = await setNodeDecoration(b, EV, "ring");
+      const x2 = await setNodeDecoration(b, ST, null);
+      const x3 = await setNodeDecoration(a, { type: "LIFE_EVENT", id: evB }, "ring");
+      const x4 = await setNodeDecoration(a, EV, "sparkle");
+      const x5 = await setNodeDecoration(a, { type: "PERSON", id: draft }, "ring");
+      check("⑫ 거부 — 남의 시기에 꾸미기 · 남의 이야기 꾸미기 빼기 · 내 꾸미기를 남의 시기에 · 목록 밖 모양 · 사람 노드 = 전부 실패, 행 그대로",
+        !x1.ok && x1.error === E.notFound && !x2.ok && x2.error === E.notFound && !x3.ok && x3.error === E.notFound && !x4.ok && !x5.ok &&
+          (await row(EV))?.shape === "aurora" && (await row(ST))?.shape === "blackhole" && (await rows({ type: "LIFE_EVENT", id: evB })) === 0,
+        { x1, x2, x3, x4, x5 });
+      // 화면 입구 — 패널 고르기(EditUI → links.decorate → setDecorationAction → setNodeDecoration)
+      check("⑫ 화면 입구 — 액션 = 로그인 확인 + 노드 값 검사 뒤 setNodeDecoration · 패널 [꾸미기] → 고르기(./Decor) · 고르면 낙관적 반영(links.decorate)·[되돌리기]는 저장 뒤",
+        read("app/my-life/actions.ts").includes("export async function setDecorationAction(node: NodeRef, shape: string | null)") &&
+          read("app/my-life/actions.ts").includes(`return setNodeDecoration(userId, r, typeof shape === "string" ? shape : null);`) &&
+          read("app/my-life/EditUI.tsx").includes("onPick={decorate}") && read("app/my-life/EditUI.tsx").includes("void links.decorate(self!, shape).then((r) => {") &&
+          read("app/my-life/EditUI.tsx").includes("setNotice({ key: nodeKey, text, saving: true });"));
+    }
 
     // ── ⑪ 출생연도 원본(2026-11-03 — §16.1) ─────────────────────────────────────
     const v3u = await makeUser(EMAIL_C, "[fixture] 출생연도 V3"); // 신상·User 1955

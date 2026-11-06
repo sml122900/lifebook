@@ -88,7 +88,8 @@ export function observeOrbits(root: HTMLElement): () => void {
     },
     { root, rootMargin: "100% 100% 100% 100%" },
   );
-  root.querySelectorAll(".orbit-sys").forEach((el) => io.observe(el));
+  // 꾸미기 계(.decor-sys — U4)도 같은 판정(화면 안일 때만 움직임 · 위성이 없는 행성도 꾸밀 수 있어 따로 둠)
+  root.querySelectorAll(".orbit-sys, .decor-sys").forEach((el) => io.observe(el));
   return () => io.disconnect();
 }
 

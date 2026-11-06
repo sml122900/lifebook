@@ -76,7 +76,8 @@ import {
   orbitShape,
 } from "../lib/space-orbit";
 import { DRAG_SLOP, DROP_RANGE, EDGE_ARM, LONG_PRESS_MS, isAndroid, pickDropTarget, spiralPath, wobbleScales } from "../lib/space-drag";
-import { applyOptLinks, hasLink, putOptLink, settleOptLinks, type OptLink } from "../lib/my-life-optimistic";
+import { applyOptDecor, applyOptLinks, decorOf, hasLink, putOptDecor, putOptLink, settleOptDecor, settleOptLinks, type OptDecor, type OptLink } from "../lib/my-life-optimistic";
+import { DECOR_SHAPES, decorName, isDecorShape } from "../lib/space-decor";
 import { saveNodeLink } from "../lib/node-graph";
 import fs from "node:fs";
 import path from "node:path";
@@ -248,7 +249,7 @@ function synthetic(o: { events: number; stories: number; people: number; groups:
     }
   }
   const events: MyLifeEvent[] = Array.from({ length: o.events }, (_, i) => ({
-    id: `e${i}`, type: "CUSTOM", label: `시기 ${i}`, year: i % 7 === 3 ? null : 1950 + i * (rnd() < 0.2 ? 12 : 3), endYear: null,
+    id: `e${i}`, type: "CUSTOM", label: `시기 ${i}`, year: i % 7 === 3 ? null : 1950 + i * (rnd() < 0.2 ? 12 : 3), endYear: null, decor: null,
     stories: [], personIds: [], placeIds: [], groupIds: [],
   }));
   for (let k = 0; k < o.stories; k++) {
@@ -257,7 +258,7 @@ function synthetic(o: { events: number; stories: number; people: number; groups:
       ...(people.length ? Array.from({ length: Math.floor(rnd() * 3) }, () => people[Math.floor(rnd() * people.length)]).map((p) => ({ kind: "person" as const, id: p.id, name: p.name })) : []),
       ...(places.length && rnd() < 0.4 ? [places[Math.floor(rnd() * places.length)]].map((q) => ({ kind: "place" as const, id: q.id, name: q.name })) : []),
     ].filter((c, i, arr) => arr.findIndex((d) => d.id === c.id) === i);
-    ev.stories.push({ id: `s${k}`, kind: rnd() < 0.15 ? "SELF" : "STORY", title: null, content: "가".repeat(10 + Math.floor(rnd() * 80)) + ".", primaryEventId: ev.id, otherEventIds: [], subjectPersonId: null, chips, richBody: false, bodyVersion: 0 });
+    ev.stories.push({ id: `s${k}`, kind: rnd() < 0.15 ? "SELF" : "STORY", title: null, content: "가".repeat(10 + Math.floor(rnd() * 80)) + ".", primaryEventId: ev.id, otherEventIds: [], subjectPersonId: null, chips, richBody: false, bodyVersion: 0, decor: null });
   }
   for (const ev of events) if (people.length && rnd() < 0.5) ev.personIds.push(people[Math.floor(rnd() * people.length)].id);
   for (const ev of events) if (places.length && rnd() < 0.3) ev.placeIds.push(places[Math.floor(rnd() * places.length)].id);
@@ -361,7 +362,7 @@ async function main() {
     }
     ops = 0;
     const big = await getMyLifeData(a, counted);
-    check("② Prisma 호출 수 = 8 고정(기록 8건·인물 8명·연결 16건 늘려도 — 3단계 장소 묶음 +1 · 2b-3c 노드 본문 +1)", opsSmall === 8 && ops === 8 && big.people.length === 13, { opsSmall, ops, people: big.people.length });
+    check("② Prisma 호출 수 = 9 고정(기록 8건·인물 8명·연결 16건 늘려도 — 3단계 장소 묶음 +1 · 2b-3c 노드 본문 +1 · U4 꾸미기 +1, 같은 병렬 묶음)", opsSmall === 9 && ops === 9 && big.people.length === 13, { opsSmall, ops, people: big.people.length });
 
     // ── ③ 배치 ───────────────────────────────────────────────────
     const lay = layoutMyLife(d);
@@ -850,9 +851,9 @@ async function main() {
 
       // U3 후속 — 낙관적 반영(lib/my-life-optimistic): 놓는 즉시 궤도(저장 응답 전) · 실패면 빠짐 · 서버 데이터에 보이면 항목 지움 · 순서 꼬임
       type Story = MyLifeEvent["stories"][number];
-      const ev = (id: string, stories: Story[] = [], personIds: string[] = []): MyLifeEvent => ({ id, type: "CUSTOM" as LifeEventType, label: id, year: 2000, endYear: null, stories, personIds, placeIds: [], groupIds: [] });
+      const ev = (id: string, stories: Story[] = [], personIds: string[] = []): MyLifeEvent => ({ id, type: "CUSTOM" as LifeEventType, label: id, year: 2000, endYear: null, decor: null, stories, personIds, placeIds: [], groupIds: [] });
       const story = (id: string, primaryEventId: string, chips: Story["chips"] = [], subjectPersonId: string | null = null) =>
-        ({ id, kind: "STORY", title: "", content: "", primaryEventId, otherEventIds: [], subjectPersonId, chips, richBody: false, bodyVersion: 0 }) as Story;
+        ({ id, kind: "STORY", title: "", content: "", primaryEventId, otherEventIds: [], subjectPersonId, chips, richBody: false, bodyVersion: 0, decor: null }) as Story;
       const chips0: Story["chips"] = [{ kind: "person", id: "p0", name: "가" }, { kind: "place", id: "l0", name: "곳" }];
       const base: MyLifeData = {
         events: [ev("e1", [story("s1", "e1", chips0, "p9")]), ev("e2", [story("s1", "e1", chips0, "p9")])], // 같은 이야기가 두 시기에
@@ -972,6 +973,59 @@ async function main() {
           view.includes("if (optId) links.hide(optId); // 위성이 빠지고 그림이 튕겨 제자리(drag.ts)") && view.includes("setDropNotice({ text: C.space.dropFailed });") &&
           view.includes("disabled={!dropNotice.undo}") && editSrc.includes("disabled={pending || !notice.undo}") && editSrc.includes("setNotice({ key: nodeKey, text: E.linked, saving: true });") &&
           view.includes("const liveOpt = settleOptLinks(serverData, optLinks);") && view.includes("links.refresh();") && typeof C.space.dropFailed === "string");
+
+      // U4 — 행성 꾸미기(docs/phase/ui-space.md §5·§7.5)
+      const css = fs.readFileSync(path.resolve(__dirname, "../app/globals.css"), "utf8");
+      const decorSrc = fs.readFileSync(path.resolve(__dirname, "../app/my-life/Decor.tsx"), "utf8");
+      check("⑬ U4 꾸미기 목록 — 확정 8종 키·이름·순서(고리·혜성 꼬리·오로라·별빛 가루·태양 플레어·소용돌이·쌍둥이 별·블랙홀) · 목록 밖 값 거름 · dropFailed 확정 문구",
+        DECOR_SHAPES.map((d) => `${d.key}:${d.name}`).join(",") ===
+          "ring:고리,comet:혜성 꼬리,aurora:오로라,stardust:별빛 가루,flare:태양 플레어,vortex:소용돌이,binary:쌍둥이 별,blackhole:블랙홀" &&
+          isDecorShape("vortex") && !isDecorShape("sparkle") && !isDecorShape(null) && decorName("binary") === "쌍둥이 별" &&
+          C.space.dropFailed === "넣지 못했어요. 다시 해 주세요.");
+      const runAt = DECOR_SHAPES.map((d) => css.indexOf(`.space-map[data-motion] .decor-sys[data-orbit="on"] .decor-${d.key} .dc-b {`));
+      const holdAt = css.indexOf(`.space-map[data-motion="hold"] .decor-sys[data-orbit="on"] .decor .dc-b {\n  animation-play-state: paused;`);
+      check("⑬ U4 꾸미기 그림 — CSS 만(Decor.tsx 에 rAF·타이머·animate 0) · 8종 모두 멈춘 그림(.dc-a)·움직임 규칙(화면 안 계만) · 멈춤 규칙(전체 보기·[움직임 멈추기]·움직임 줄이기 = 그 자리, 구체성 같고 뒤) · 화면 밖 판정 = 공전 관찰이 .decor-sys 도",
+        !/requestAnimationFrame|setInterval|setTimeout|\.animate\(/.test(decorSrc) &&
+          DECOR_SHAPES.every((d) => css.includes(`.decor-${d.key} .dc-a {`)) && runAt.every((i) => i > 0) && holdAt > Math.max(...runAt) &&
+          orbitSrc.includes(`root.querySelectorAll(".orbit-sys, .decor-sys").forEach((el) => io.observe(el));`),
+        { runAt, holdAt });
+      // 반복 경계마다 animationiteration 이 메인 스레드를 깨움(React 뿌리 수신 — U2 와 같은 이유) — 한 벌 14초 이상 · alternate 안 씀(2026-11-05 실측: 1.8초 반짝임 = 메인 13.9ms/초 → 36초 한 벌 1.5)
+      const runRules = DECOR_SHAPES.map((d) => {
+        const i = css.indexOf(`.decor-sys[data-orbit="on"] .decor-${d.key} .dc-b {\n  animation: `);
+        const m = /animation: (decor-[a-z]+) ([\d.]+)s ([a-z-]+) infinite([^;]*);/.exec(css.slice(i, i + 200));
+        return i > 0 && m ? { name: m[1], secs: Number(m[2]), rest: m[4] } : null;
+      });
+      check("⑬ U4 꾸미기 움직임 한 벌 14초 이상 · alternate 0(반복 경계가 메인 스레드를 깨우지 않게)", runRules.every((r) => r && r.secs >= 14 && !/alternate/.test(r.rest)), runRules);
+      check("⑬ U4 블랙홀·이름표 — 블랙홀 행성 면 = 어두운 면 + 밝은 글자 + 빛 테(지도·고르기 칸) · 꾸민 행성의 위성 이름표 = 바탕색 테두리(그림 위 글자 대비)",
+        css.includes(`.planet-period[data-decor="blackhole"],\n.planet-story[data-decor="blackhole"] {`) && css.includes("  color: #f1eeff;\n  border-color: #ffd27a;") &&
+          css.includes(".orbit-sys[data-decor] .orbit-lbl {\n  text-shadow: 0 0 2px var(--color-canvas)"));
+      check("⑬ U4 지도·고르기 — 꾸미기 계가 행성 버튼 앞(행성·위성 뒤에 그림) · 행성 버튼·위성 계 data-decor · 고르기 = SELECTED 한 가지 + aria-pressed · 칸 높이 104 · [꾸미기 없애기]",
+        view.includes("              {decorSys(en, ev.decor)}\n              <button") && view.includes("                        {decorSys(n, s.decor)}\n                        <StoryPlanet") &&
+          view.includes("                data-decor={ev.decor ?? undefined}") && view.includes("      data-decor={story.decor ?? undefined}") &&
+          view.includes("data-decor={decor ?? undefined}>") && decorSrc.includes("on ? SELECTED :") && decorSrc.includes("aria-pressed={on}") &&
+          decorSrc.includes("min-h-[104px]") && decorSrc.includes("{C.space.decorClear}"));
+      // 낙관적 반영 — 고르는 순간 보임 · 실패면 원래대로 · 빠르게 두 번 고르면 뒤 것 · 늦은 새로고침이 뒤집지 않음 · 이야기 모든 자리
+      const dBase: MyLifeData = { ...base, events: base.events.map((e) => ({ ...e, decor: null, stories: e.stories.map((s) => ({ ...s, decor: null })) })) };
+      const withDecor = (d: MyLifeData, k: "ev" | "st", shape: string | null): MyLifeData => ({
+        ...d,
+        events: d.events.map((e) => (k === "ev" && e.id === "e1" ? { ...e, decor: shape } : k === "st" ? { ...e, stories: e.stories.map((s) => (s.id === "s1" ? { ...s, decor: shape } : s)) } : e)),
+      });
+      const od = (id: number, planet: OptDecor["planet"], shape: string | null, saved = false): OptDecor => ({ id, planet, shape, saved });
+      let ld: readonly OptDecor[] = putOptDecor([], od(1, E1, "ring"));
+      const q1 = decorOf(applyOptDecor(dBase, ld), E1) === "ring";
+      ld = putOptDecor(ld, od(2, E1, "comet")); // 저장 전에 다시 고름 — 앞 항목을 대신
+      const q2 = ld.length === 1 && decorOf(applyOptDecor(dBase, ld), E1) === "comet";
+      ld = settleOptDecor(withDecor(dBase, "ev", "ring"), ld); // 앞 고르기 새로고침(고리)이 먼저 와도
+      const q3 = decorOf(applyOptDecor(withDecor(dBase, "ev", "ring"), ld), E1) === "comet";
+      ld = settleOptDecor(withDecor(dBase, "ev", "comet"), ld.map((o) => ({ ...o, saved: true })));
+      const q4 = ld.length === 0;
+      let lf: readonly OptDecor[] = putOptDecor([], od(3, E1, "vortex"));
+      lf = lf.filter((o) => o.id !== 3); // 실패
+      const q5 = decorOf(applyOptDecor(dBase, lf), E1) === null;
+      const st2 = applyOptDecor(dBase, [od(4, S1, "blackhole")]);
+      const q6 = st2.events.every((e) => e.stories.every((s) => s.decor === "blackhole")) && applyOptDecor(dBase, []) === dBase;
+      check("⑬ U4 꾸미기 낙관적 반영 — 고르는 순간 보임 · 저장 전 다시 고르면 뒤 것 · 앞 고르기 새로고침이 먼저 와도 뒤 것 유지 · 저장 끝 + 서버 같음 = 정리 · 실패 = 원래대로 · 같은 이야기 모든 자리",
+        q1 && q2 && q3 && q4 && q5 && q6, { q1, q2, q3, q4, q5, q6 });
     }
     {
       // 밤 우주 전원(2026-11-05) — 화면 코드에 직접 적은 기본 팔레트 색이 다시 생기지 않게(밤에서 안 뒤집혀 섞인 색이 됨, ui-night §8).

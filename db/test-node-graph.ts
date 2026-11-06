@@ -8,6 +8,7 @@
 //   ③-b My Life 개편 3단계 — 모임↔사람 PersonGroupMember·장소 묶음↔장소 PlaceGroupMember 로 넘김, 되돌리기용 created,
 //      빼기 입구 removeNodeLink(쌍별 그 칸의 행 삭제·멱등·주 소속·대상 인물 거부·남의 노드 거부)
 //   ④ DB CHECK — 역방향·같은 종류 역순·자기 연결 직접 삽입 거부
+//   ⑨ 에 정합 점검 15(행성 꾸미기 — 노드 없음 = 정리 대상 · 주인 불일치·목록 밖 모양 = 보고만, 2026-11-05)
 //   ⑤ 연쇄 삭제 시 트리거 정리(+ 행성 꾸미기 — 유일·노드 삭제 시 정리, 2026-11-05) — 이야기(브릿지 삭제 cascade)·직접 추가 사건(CUSTOM)·인물·그룹·
 //      장소·장소 묶음 삭제, 본문 사진 메모리 정리(이야기 브릿지는 보존)
 //   ⑥ 일반 이야기(STORY)만 센다 — 갭 판정·포스터 브릿지·인터뷰
@@ -553,7 +554,12 @@ async function main() {
     await prisma.placeGroupMember.create({ data: { groupId: mmGroup, placeId: placeB, userId: a } }); // 남(B)의 장소를 직접 넣음
     await prisma.memoryPlace.create({ data: { memoryId: story1.memoryId, placeName: "[fixture] 노드 없는 장소", sortOrder: 9 } }); // 13 — 만드는 경로 0, 일부러 만든 이상 행
     await prisma.userMemory.create({ data: { userId: a, createdVia: "life_event", year: 1975, title: "[fixture] 옛 연혁", places: { create: [{ placeName: "[fixture] 옛 연혁 장소" }] } } }); // V2 기록 — 13 아님
+    // 15 — 행성 꾸미기 이상 행(직접 삽입 — 정리 함수·저장 함수가 막는 상황의 흉내): 노드 없음 1 · 목록 밖 모양 1 · 주인 불일치 1(내 행이 남(B)의 시기)
+    const decoGhost = await prisma.nodeDecoration.create({ data: { userId: a, nodeType: "EPISODE", nodeId: "ghost-episode", shape: "ring" }, select: { id: true } });
+    await prisma.nodeDecoration.create({ data: { userId: a, nodeType: "LIFE_EVENT", nodeId: mil, shape: "sparkle" } });
+    await prisma.nodeDecoration.create({ data: { userId: a, nodeType: "LIFE_EVENT", nodeId: job1, shape: "comet" } });
     const dirty = await countNodeGraphIssues({ userId: a });
+    check("⑨ 15 행성 꾸미기 — 노드 없음 1 · 주인 불일치 1 · 목록 밖 모양 1", dirty.decorMissingNode === 1 && dirty.decorOwnerMismatch === 1 && dirty.decorBadShape === 1, dirty);
     check("⑨ 13 장소 노드 없는 이야기 장소 +1(V2 기록의 이름만 남은 장소는 안 셈)", dirty.storyPlacesWithoutNode === clean0.storyPlacesWithoutNode + 1, { dirty: dirty.storyPlacesWithoutNode, clean0: clean0.storyPlacesWithoutNode });
     check("⑨ 11 구성원 행 주인 불일치 1(남의 장소가 내 묶음 구성원)", dirty.memberOwnerMismatch === 1, dirty.memberOwnerMismatch);
     check("⑨ 1 끝 없는 연결 1(없는 끝 = PERSON)", dirty.danglingLinks === 1 && dirty.danglingByType.PERSON === 1, dirty.danglingByType);
@@ -569,6 +575,10 @@ async function main() {
     const linksBefore = await prisma.nodeLink.count({ where: { userId: a } });
     const applied = await applyNodeGraphCleanup({ userId: a });
     const after = await countNodeGraphIssues({ userId: a });
+    check("⑨ 15 정리 = 노드 없는 꾸미기 1 → 0(다른 사용자 범위 0) · 주인 불일치·목록 밖 모양은 보고만(무변)",
+      applied.decorationsMissingNode === 1 && otherScope.decorationsMissingNode === 0 && after.decorMissingNode === 0 &&
+        after.decorOwnerMismatch === 1 && after.decorBadShape === 1 && (await prisma.nodeDecoration.count({ where: { id: decoGhost.id } })) === 0,
+      { applied, after: { m: after.decorMissingNode, o: after.decorOwnerMismatch, s: after.decorBadShape } });
     check("⑨ 정리 = 4종(끝 없는 연결·노드 없는 본문·고아 초안·이야기 없는 STORY 시기↔사람) 각 1건 → 다시 세면 0",
       applied.danglingLinks === 1 && applied.bodiesMissingNode === 1 && applied.orphanDrafts === 1 && applied.storyPeriodPeople === 1 + clean0.storyPeriodPeopleWithoutStory &&
         after.danglingLinks === 0 && after.bodyMissingNode === 0 && after.orphanDrafts === 0 && after.storyPeriodPeopleWithoutStory === 0 &&

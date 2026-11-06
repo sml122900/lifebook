@@ -23,8 +23,10 @@ import type { CreatedLink, DeleteImpact, SameNamePerson } from "@/lib/my-life-ed
 import { eventPeoplePlaceList, yearText, type PeriodRef } from "@/lib/my-life-layout";
 import type { NodeRef } from "@/lib/node-graph";
 import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
+import { decorName } from "@/lib/space-decor";
 import { displayTitle, shortTitle } from "@/lib/story-title";
 
+import { DecorPicker } from "./Decor";
 import { beginPress, dragJustEnded, type DropResult, type OptLinks } from "./drag";
 
 import {
@@ -432,6 +434,7 @@ export function NodeEditor({
   const [filter, setFilter] = useState("");
   const [pending, start] = useTransition();
   const [showRow, setShowRow] = useState(false); // 행성 패널 "넣을 것" 줄(U3 — Q116)
+  const [showDecor, setShowDecor] = useState(false); // 행성 패널 꾸미기 고르기(U4 — ui-space §5.1)
   const [kind, a, b] = nodeKey.split(":");
 
   // 단계가 바뀌면 패널을 맨 위로(앞 단계 스크롤이 남아 새 단계 제목·첫 항목이 가려지던 것 — 390 실측) +
@@ -616,6 +619,22 @@ export function NodeEditor({
       setError(E.failed);
       return "failed";
     }
+  }
+
+  // 행성 꾸미기(U4) — 고르는 순간 행성에 보이고(낙관적 — MyLifeView links.decorate) 저장은 뒤에서. [되돌리기]는 저장이 끝난 뒤에만
+  // 눌림(그 전엔 보이되 비활성 — U3 낙관적 반영과 같음) · 되돌리기 = 서버가 알려 준 바꾸기 전 모양으로 다시 · 실패면 원래대로 + 알림.
+  function decorate(shape: string | null) {
+    setError(null);
+    const text = shape ? C.space.decorSet(decorName(shape)) : C.space.decorCleared;
+    setNotice({ key: nodeKey, text, saving: true });
+    void links.decorate(self!, shape).then((r) => {
+      if (!r.ok) {
+        setNotice({ key: nodeKey, text: C.space.decorFailed });
+        return;
+      }
+      const prev = r.previous;
+      setNotice({ key: nodeKey, text, undo: async () => ({ ok: (await links.decorate(self!, prev)).ok }) });
+    });
   }
 
   // "넣을 것" 줄에서 길게 눌러 위 행성(이 패널의 행성 — 펼쳐져 패널 위에 있음)으로 끌어 올리기. 다른 행성엔 안 놓임.
@@ -949,6 +968,16 @@ export function NodeEditor({
             {showRow ? C.space.addRowHide : C.space.addRowShow}
           </Button>
           {showRow && <AddRow items={[...candidates("person"), ...candidates("group"), ...candidates("place")]} pending={pending} onPress={startRowDrag} onAdd={(ref) => start(async () => void (await linkNow(ref)))} />}
+          <Button variant="secondary" size="lg" aria-expanded={showDecor} onClick={() => setShowDecor((v) => !v)}>
+            {showDecor ? C.space.decorateHide : C.space.decorate}
+          </Button>
+          {showDecor && (
+            <DecorPicker
+              current={(kind === "ev" ? ev?.decor : story?.decor) ?? null}
+              planetClass={kind === "ev" ? "planet-period border-period-edge" : "planet-story border-planet-edge"}
+              onPick={decorate}
+            />
+          )}
         </>
       )}
       {kind === "ev" && ev && (

@@ -330,16 +330,24 @@ export const MY_LIFE_COPY = {
     motionStarted: "지도가 다시 움직여요.",
     fitAllShort: "전체", // 도구줄 [전체 보기] 줄인 글(Q112 A — 낭독 이름은 fitAll 그대로)
     goOrigin: "원래 자리로 가기", // 위성에서 연 사람·장소·모임 패널 — 인물록·장소록의 그 자리로(§2.3)
-    // 끌어 넣기(U3 — ui-space §4·§9). [임시 — 성민 확정 필요] 아래 10키 전부(dropFailed = U3 후속 낙관적 반영).
+    // 끌어 넣기(U3 — ui-space §4·§9). [임시 — 성민 확정 필요] 아래 10키 중 dropFailed 만 확정(2026-11-05 성민), 나머지 9키 임시.
     grabHint: (name: string) => `${name} — 넣을 이야기나 시기 위에 놓으세요`, // 집었을 때 낭독(aria-live)
     dropped: (name: string, target: string) => `${target}에 ${name}${withJosa(name, "을/를")} 넣었어요.`, // 지도 위 알림(+ [되돌리기])
     dropFar: "놓을 곳이 멀어서 제자리로 돌아왔어요.",
     dropCancel: "넣지 않았어요.", // 끄는 중 두 번째 손가락·취소
-    dropFailed: "넣지 못했어요.", // 낙관적 반영 — 궤도에 든 뒤 저장이 실패해 위성이 빠지고 튕겨 제자리(U3 후속)
+    dropFailed: "넣지 못했어요. 다시 해 주세요.", // 확정 2026-11-05 — 낙관적 반영에서 궤도에 든 뒤 저장이 실패해 위성이 빠지고 튕겨 제자리(U3 후속)
     addRowShow: "넣을 것 보기", // 행성 패널 — "넣을 것" 줄 펼치기(Q116)
     addRowHide: "넣을 것 접기",
     addRowTitle: "넣을 것",
     addRowHint: "누르면 바로 넣어요. 길게 눌러 위 행성으로 끌어 올려도 돼요.",
     addRowItem: (name: string) => `${name} 넣기`, // 줄 안 버튼 낭독 이름
+    // 행성 꾸미기(U4 — ui-space §5·§7.5). [임시 — 성민 확정 필요] 아래 7키 전부. 꾸미기 이름 8개는 확정 — lib/space-decor.ts.
+    decorate: "꾸미기", // 행성 패널 — 꾸미기 고르기 펼치기
+    decorateHide: "꾸미기 접기",
+    decorHint: "고르면 바로 행성에 달려요. 하나만 달 수 있어요.",
+    decorClear: "꾸미기 없애기",
+    decorSet: (name: string) => `${name} 꾸미기를 달았어요.`, // 패널 알림(+ [되돌리기])
+    decorCleared: "꾸미기를 없앴어요.",
+    decorFailed: "꾸미지 못했어요. 다시 해 주세요.", // 낙관적 반영 — 저장이 실패해 원래대로
   },
 };

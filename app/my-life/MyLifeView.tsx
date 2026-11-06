@@ -51,12 +51,13 @@ import { searchMyLife, type SearchResult } from "@/lib/my-life-search";
 import { labelName, labelVisible, orbitCss, orbitName, orbitPoint, orbitShape } from "@/lib/space-orbit";
 import type { DropPlanet } from "@/lib/space-drag";
 import type { CreatedLink } from "@/lib/my-life-edit";
-import { applyOptLinks, putOptLink, settleOptLinks, type OptLink } from "@/lib/my-life-optimistic";
+import { applyOptDecor, applyOptLinks, putOptDecor, putOptLink, settleOptDecor, settleOptLinks, type OptDecor, type OptLink } from "@/lib/my-life-optimistic";
 import type { NodeRef } from "@/lib/node-graph";
 import { displayTitle, hasOwnTitle, shortTitle } from "@/lib/story-title";
 
 import { ConflictReload } from "./_body/ConflictReload";
-import { addLinkAction, undoCreateAction, undoLinksAction, undoMoveAction } from "./actions";
+import { addLinkAction, setDecorationAction, undoCreateAction, undoLinksAction, undoMoveAction } from "./actions";
+import { DecorArt } from "./Decor";
 import { beginPress, dragJustEnded, lockPanZoom, type DropResult, type OptLinks } from "./drag";
 import { CreateSheet, NodeEditor, type CreateKind, type Created, type Notice } from "./EditUI";
 import { animateClose, animateOpen, observeOrbits, readMotion, resyncOrbits, snapshotSats, subscribeMotion, writeMotion } from "./orbit";
@@ -198,7 +199,11 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
   const [optLinks, setOptLinks] = useState<readonly OptLink[]>([]);
   const liveOpt = settleOptLinks(serverData, optLinks);
   if (liveOpt !== optLinks) setOptLinks(liveOpt);
-  const data = useMemo(() => applyOptLinks(serverData, liveOpt), [serverData, liveOpt]);
+  // 행성 꾸미기(U4) — 같은 규칙(노드 하나 = 항목 하나 · 저장 끝 + 서버 데이터에 보이면 정리 · 실패면 지움)
+  const [optDecor, setOptDecor] = useState<readonly OptDecor[]>([]);
+  const liveDecor = settleOptDecor(serverData, optDecor);
+  if (liveDecor !== optDecor) setOptDecor(liveDecor);
+  const data = useMemo(() => applyOptDecor(applyOptLinks(serverData, liveOpt), liveDecor), [serverData, liveOpt, liveDecor]);
   const optSeqRef = useRef(0);
   const searchParams = useSearchParams();
   const view = searchParams.get("view") === "list" ? "list" : "map";
@@ -428,6 +433,16 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
         if (r.ok) saved(id);
         else hide(id);
         router.refresh();
+        return r;
+      },
+      decorate: async (planet, shape) => {
+        const id = ++optSeqRef.current;
+        setOptDecor((l) => putOptDecor(l, { id, planet, shape, saved: false }));
+        const r = await setDecorationAction(planet, shape).catch(() => ({ ok: false as const, error: "" }));
+        if (r.ok) {
+          setOptDecor((l) => l.map((o) => (o.id === id ? { ...o, saved: true } : o)));
+          router.refresh();
+        } else setOptDecor((l) => l.filter((o) => o.id !== id));
         return r;
       },
     };
@@ -1521,12 +1536,12 @@ const MapWorld = memo(function MapWorld({
   const satTarget = (s: LayoutSatellite) => (s.ref ? `${s.ref.kind === "person" ? "pe" : s.ref.kind === "place" ? "pl" : "gl"}:${s.ref.id}` : null);
   const satName = (s: LayoutSatellite) =>
     s.ref ? (s.ref.kind === "person" ? idx.personById.get(s.ref.id)?.name : s.ref.kind === "place" ? idx.placeById.get(s.ref.id)?.name : idx.groupById.get(s.ref.id)?.name) ?? "" : "";
-  const satellites = (n: Extract<LayoutNode, { kind: "event" | "story" }>) => {
+  const satellites = (n: Extract<LayoutNode, { kind: "event" | "story" }>, decor: string | null) => {
     const list = satsOf.get(n.key);
     if (!list) return null;
     const open = selected === n.key;
     return (
-      <div className="orbit-sys pointer-events-none absolute" style={pos(n)} data-sys={n.key} data-open={open ? "" : undefined}>
+      <div className="orbit-sys pointer-events-none absolute" style={pos(n)} data-sys={n.key} data-open={open ? "" : undefined} data-decor={decor ?? undefined}>
         {list.map((s) => {
           const target = satTarget(s);
           const name = satName(s);
@@ -1586,6 +1601,13 @@ const MapWorld = memo(function MapWorld({
       </div>
     );
   };
+  // 행성 꾸미기(U4 — ./Decor) — 계 상자(.decor-sys)를 행성 버튼 앞에 두어 행성·위성 뒤에 그림. 화면 안 판정은 공전과 같은 관찰(./orbit).
+  const decorSys = (n: Extract<LayoutNode, { kind: "event" | "story" }>, decor: string | null) =>
+    decor ? (
+      <div aria-hidden className="decor-sys pointer-events-none absolute" style={pos(n)} data-decor-of={n.key}>
+        <DecorArt shape={decor} style={{ left: n.planet.cx - n.x - n.planet.d / 2, top: n.planet.cy - n.y - n.planet.d / 2, width: n.planet.d, height: n.planet.d }} />
+      </div>
+    ) : null;
   return (
     <>
       {layout.shapes.map((s) => (
@@ -1627,11 +1649,13 @@ const MapWorld = memo(function MapWorld({
           const open = !folded.has(ev.id);
           return (
             <li key={ev.id}>
+              {decorSys(en, ev.decor)}
               <button
                 type="button"
                 data-node-key={en.key}
                 data-node-kind="event"
                 data-event-id={ev.id}
+                data-decor={ev.decor ?? undefined}
                 aria-label={eventAriaLabel(ev)}
                 aria-current={current === ev.id ? "location" : undefined}
                 className={`planet-period absolute flex flex-col items-center justify-center rounded-full px-3 text-center ${current === ev.id ? "border-[4px] border-ink" : "border-2 border-period-edge"} ${FOCUS}`}
@@ -1640,7 +1664,7 @@ const MapWorld = memo(function MapWorld({
                 <span className="text-lg leading-6">{yearText(ev)}</span>
                 <span className="line-clamp-2 text-xl font-bold leading-7">{ev.label}</span>
               </button>
-              {satellites(en)}
+              {satellites(en, ev.decor)}
               {fold && fold.kind === "fold" && (
                 <button
                   type="button"
@@ -1660,8 +1684,9 @@ const MapWorld = memo(function MapWorld({
                     const n = byKey.get(`st:${ev.id}:${s.id}`);
                     return n && n.kind === "story" ? (
                       <li key={s.id}>
+                        {decorSys(n, s.decor)}
                         <StoryPlanet story={s} node={n} style={{ ...circle(n.planet), ...mark(n.key) }} />
-                        {satellites(n)}
+                        {satellites(n, s.decor)}
                       </li>
                     ) : null;
                   })}
@@ -1882,6 +1907,7 @@ function StoryPlanet({ story, node, style }: { story: MyLifeStory; node: Extract
       data-node-key={node.key}
       data-node-kind="story"
       data-event-id={node.eventId}
+      data-decor={story.decor ?? undefined}
       aria-label={storyAriaLabel(story)}
       className={`planet-story absolute flex flex-col items-center justify-center rounded-full px-3 text-center ${story.kind === "SELF" ? "border-[3px] border-sage" : "border-2 border-planet-edge"} ${FOCUS}`}
       style={style}

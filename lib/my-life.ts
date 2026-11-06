@@ -36,6 +36,7 @@ export type MyLifeStory = {
   chips: MyLifeChip[];
   richBody: boolean; // 소제목·사진이 있는 글(평문과 맞는 블로그 문서) — 패널 [이야기 고치기] 대신 글 고치기 화면(2b-3c)
   bodyVersion: number; // 글 버전(본문 없음 = 0) — 패널 평문 저장이 그새 다른 곳에서 고쳐졌는지 확인(2026-11-04, lib/episode updateEpisodeContent)
+  decor: string | null; // 행성 꾸미기 모양 키(U4 — lib/space-decor, NodeDecoration). 없음 = null
 };
 
 export type MyLifeEvent = {
@@ -45,6 +46,7 @@ export type MyLifeEvent = {
   year: number | null;
   endYear: number | null;
   stories: MyLifeStory[];
+  decor: string | null; // 행성 꾸미기 모양 키(U4 — lib/space-decor, NodeDecoration). 없음 = null
   // 중심 직접 연결(간선용 — 중심을 선택했을 때만 그림)
   personIds: string[];
   placeIds: string[];
@@ -128,7 +130,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
 
   // 초안 인물(말동무 초안 검토 대기)은 안 보임. 확인 대기(PROPOSED) 연결도 안 그림 — 그걸 확인하던 화면은
   // 2026-11-03 삭제(확인 대기 0·만드는 경로 0, docs/phase/my-life-restructure.md §15.6).
-  const [peopleRows, groupRows, placeRows, placeGroupRows, bodyRows] = await Promise.all([
+  const [peopleRows, groupRows, placeRows, placeGroupRows, bodyRows, decorRows] = await Promise.all([
     db.person.findMany({
       where: { userId, subjectType: "person", isDraft: false },
       select: { id: true, name: true, relation: true, metYear: true },
@@ -140,8 +142,11 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
     db.place.findMany({ where: { userId }, select: { id: true, name: true, address: true, source: true, lat: true, lng: true } }),
     db.placeGroup.findMany({ where: { userId }, select: { id: true, name: true, members: { select: { placeId: true } } } }),
     db.nodeBody.findMany({ where: { userId, nodeType: { in: ["EPISODE", "PERSON"] } }, select: { nodeType: true, nodeId: true, doc: true, plainText: true, version: true } }),
+    // 행성 꾸미기(U4) — 시기·이야기 행성만(1차 Q120)
+    db.nodeDecoration.findMany({ where: { userId, nodeType: { in: ["LIFE_EVENT", "EPISODE"] } }, select: { nodeType: true, nodeId: true, shape: true } }),
   ]);
   const bodyOf = new Map(bodyRows.map((b) => [`${b.nodeType}:${b.nodeId}`, b]));
+  const decorOf = new Map(decorRows.map((d) => [`${d.nodeType}:${d.nodeId}`, d.shape]));
 
   const personById = new Map(peopleRows.map((p) => [p.id, p]));
   const groupById = new Map(groupRows.map((g) => [g.id, g]));
@@ -211,6 +216,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
       chips,
       richBody: isRichDoc(shownDoc(bodyOf.get(`EPISODE:${ep.id}`) ?? null, ep.content)),
       bodyVersion: bodyOf.get(`EPISODE:${ep.id}`)?.version ?? 0,
+      decor: decorOf.get(`EPISODE:${ep.id}`) ?? null,
     };
   }
 
@@ -226,6 +232,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
       label: e.correctedLabel ?? e.label,
       year: e.correctedYear ?? e.year,
       endYear: e.endYear,
+      decor: decorOf.get(`LIFE_EVENT:${e.id}`) ?? null,
       stories: [
         ...e.episodes.map((ep) => buildStory(ep.id, e.id)),
         ...(extraStories.get(e.id) ?? []).filter((id) => episodeById.get(id)?.lifeEventId !== e.id).map((id) => buildStory(id, e.id)),

@@ -94,3 +94,44 @@ export function settleOptLinks(data: MyLifeData, list: readonly OptLink[]): read
   const next = list.filter((o) => !(o.saved && hasLink(data, o.planet, o.sat) === (o.op === "add")));
   return next.length === list.length ? list : next;
 }
+
+// ── 행성 꾸미기(U4) — 고르면 저장 응답 전에 바로 보이고, 실패면 원래대로. 노드 하나 = 항목 하나(새 고르기가 앞 항목을 대신). ──
+export type OptDecor = {
+  id: number;
+  planet: NodeRef; // LIFE_EVENT | EPISODE
+  shape: string | null; // null = 없앰
+  saved: boolean;
+};
+
+const sameNode = (x: OptDecor, y: OptDecor) => x.planet.type === y.planet.type && x.planet.id === y.planet.id;
+export function putOptDecor(list: readonly OptDecor[], o: OptDecor): OptDecor[] {
+  return [...list.filter((x) => !sameNode(x, o)), o];
+}
+
+export function decorOf(data: MyLifeData, planet: NodeRef): string | null {
+  if (planet.type === "LIFE_EVENT") return data.events.find((e) => e.id === planet.id)?.decor ?? null;
+  for (const ev of data.events) {
+    const st = ev.stories.find((s) => s.id === planet.id);
+    if (st) return st.decor;
+  }
+  return null;
+}
+
+// 같은 이야기가 여러 시기에 같이 보이면 모든 자리에.
+export function applyOptDecor(data: MyLifeData, list: readonly OptDecor[]): MyLifeData {
+  if (list.length === 0) return data;
+  let events = data.events;
+  for (const o of list) {
+    events = events.map((ev) => {
+      if (o.planet.type === "LIFE_EVENT") return ev.id === o.planet.id && ev.decor !== o.shape ? { ...ev, decor: o.shape } : ev;
+      if (!ev.stories.some((s) => s.id === o.planet.id && s.decor !== o.shape)) return ev;
+      return { ...ev, stories: ev.stories.map((s) => (s.id === o.planet.id ? { ...s, decor: o.shape } : s)) };
+    });
+  }
+  return events === data.events ? data : { ...data, events };
+}
+
+export function settleOptDecor(data: MyLifeData, list: readonly OptDecor[]): readonly OptDecor[] {
+  const next = list.filter((o) => !(o.saved && decorOf(data, o.planet) === o.shape));
+  return next.length === list.length ? list : next;
+}
