@@ -15,10 +15,10 @@ import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 // v1.3(2026-11-03 시행) — 1-가 소셜 로그인 인증 토큰 "함께 저장" → "로그인 처리에만 쓰고 저장하지 않음(회원 식별값만)".
 //   새 로그인은 토큰을 저장하지 않고(lib/auth-adapter) 기존 행 토큰 칸도 비움(db/clear-oauth-tokens.ts — 남은 행 0 확인 뒤
 //   바꿈). 수집 축소라 동의 버전은 올리지 않음(성민 결정 — 결정 로그 2026-11-03 "처리방침 v1.3").
-// v1.4(2026-11-12 시행, 2026-11-05 공지 — lib/policy-notice) — 1항 나 수집 항목 정비(인물 관계 분류·만난 해·메모·인물 글, 장소 주소·메모,
+// v1.4(2026-11-06 시행 — 11-12 예정에서 대기 해제(성민 2026-11-06), 2026-11-05 공지 — lib/policy-notice) — 1항 나 수집 항목 정비(인물 관계 분류·만난 해·메모·인물 글, 장소 주소·메모,
 //   물건·모임·장소 묶음·직접 만든 분류), 2·3항 목적 괄호 보충, 3항 Anthropic 이전 항목 추가(기록 정리 요청·질문, 시기·묶음·분류 이름,
 //   기록 사이의 연결, 인물·항목 글)와 보유 기간 정정(7일 → 30일 — Anthropic 공식 안내), 표기 정리(Google·Lifebook·Chrome).
-//   초안·근거 docs/phase/privacy-v1.4.md. 동의 버전은 공지 기간엔 4 그대로, 시행일 배포 때 5로(2026-11-05 성민 결정 — CLAUDE.md 열린 항목).
+//   초안·근거 docs/phase/privacy-v1.4.md. 동의 버전 5(시행일 2026-11-06 배포 — 재동의, 2026-11-05 성민 결정).
 
 export const metadata = {
   title: "개인정보 처리방침 — Lifebook",
@@ -356,7 +356,7 @@ export default function PrivacyPage() {
             이 개인정보 처리방침의 내용에 추가·삭제·수정이 있을 경우 시행 전
             서비스 내 공지를 통해 안내합니다.
           </p>
-          <p className={"mt-1 " + P}>· 시행일: 2026년 11월 12일</p>
+          <p className={"mt-1 " + P}>· 시행일: 2026년 11월 6일</p>
           <p className={P}>· 개정 이력</p>
           <ul className="flex flex-col gap-1 pl-4">
             <li className={P}>- v1.0 — 2026년 9월 10일 시행</li>
@@ -372,7 +372,7 @@ export default function PrivacyPage() {
               변경)
             </li>
             <li className={P}>
-              - v1.4 — 2026년 11월 12일 시행 (수집 항목 정비, AI 기록 정리·질문
+              - v1.4 — 2026년 11월 6일 시행 (수집 항목 정비, AI 기록 정리·질문
               답변 때 함께 보내는 정보를 국외 이전 항목에 추가, Anthropic 보유 기간
               정정)
             </li>

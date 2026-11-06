@@ -175,6 +175,10 @@ async function main() {
         activeNotice(undefined, new Date("2030-03-02T00:00:00+09:00"), [{ ...sample, doc: "faq" } as unknown as PolicyNotice]) === null && activeNotice(undefined, new Date("2030-03-02T00:00:00+09:00"), [tooSoon]) === null &&
         activeNotice("terms", new Date("2030-03-02T00:00:00+09:00"), [sample]) === null &&
         activeNotice(undefined, new Date("2030-03-03T00:00:00+09:00"), [sample, { ...sample, version: "v9.10", noticeDay: "2030-03-02", effectiveDay: "2030-03-09" }])?.version === "v9.10");
+    check("③ 7일 간격 예외 — 성민 승인 사유(leadException)가 있을 때만 7일 미만 허용 · 빈 사유 = 예외 아님 · 시행일 < 공지일은 예외여도 거부 · 예외 등록 = 사유 있음",
+      noticeProblem({ ...tooSoon, leadException: "예시 승인" }) === null && noticeProblem({ ...sample, effectiveDay: "2030-03-01", leadException: "예시 승인" }) === null &&
+        noticeProblem({ ...tooSoon, leadException: " " }) !== null && noticeProblem({ ...sample, effectiveDay: "2030-02-28", leadException: "예시 승인" }) !== null &&
+        POLICY_NOTICES.filter((n) => Date.parse(`${n.effectiveDay}T00:00:00+09:00`) - Date.parse(`${n.noticeDay}T00:00:00+09:00`) < 7 * 86400000).every((n) => (n.leadException ?? "").includes("성민")));
     check("③ 등록된 개정(POLICY_NOTICES) 전부 규칙 통과 · 처리방침 개정이면 개정 이력에 그 판·시행일",
       POLICY_NOTICES.every((n) => noticeProblem(n) === null) &&
         POLICY_NOTICES.filter((n) => n.doc === "privacy").every((n) => read("app/privacy/page.tsx").includes(`${n.version} — ${formatNoticeDay(n.effectiveDay)} 시행`)),

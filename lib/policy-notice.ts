@@ -2,6 +2,7 @@
 //
 // 규칙(CLAUDE.md 작업 규칙 11): 개정은 여기 POLICY_NOTICES 에 먼저 등록 → 시행일 = 공지일 + 7일 이상. 배포일 즉시 시행 금지
 // (수집 축소 개정도 예외 없음 — 법령상 즉시 필요한 경우만 성민 승인). 회귀 test-auth ③ 이 등록값을 확인한다.
+// 성민이 승인한 예외만 leadException(승인 날짜·사유)에 적어 7일 간격 검사를 건너뛴다 — 시행일이 공지일보다 이른 것은 예외 없이 거부.
 //
 // 보이는 곳: 공지일 0시(KST)부터 시행일 뒤 7일까지 —
 //   - 로그인한 화면 헤더 아래 안내 띠(app/components/PolicyNoticeBar — 390 에서 한 줄(최대 두 줄): 짧은 요약 + 시행일 +
@@ -19,6 +20,7 @@ export type PolicyNotice = {
   detail: string; // 처리방침 맨 위 "개정 안내" 줄의 상세(바뀌는 점)
   noticeDay: string; // 공지일(KST, YYYY-MM-DD) = 배포일
   effectiveDay: string; // 시행일(KST, YYYY-MM-DD) — 공지일 + 7일 이상
+  leadException?: string; // 7일 간격 예외 — 성민 승인 날짜·사유(있을 때만 공지일 ~ 공지일 + 6일 시행 허용)
 };
 
 export type ActiveNotice = PolicyNotice & { phase: "before" | "after" };
@@ -39,7 +41,9 @@ export const POLICY_NOTICES: readonly PolicyNotice[] = [
     detail:
       "기록 지도에서 직접 만드신 분류와 항목, 모임·장소 묶음, 인물에 대해 적으신 글을 수집 항목에 적고, 인물의 관계 분류·처음 만난 해·메모, 장소 주소, 물건 기록도 빠짐없이 적었습니다. AI가 기록을 정리하거나 기록에 대한 질문에 답할 때 함께 보내는 정보(시기·모임·장소 묶음·분류·항목의 이름, 인물과 항목에 대해 적으신 글, 기록 사이의 연결, AI에게 하신 요청과 질문)를 국외 이전 항목에 더합니다. 또 Anthropic이 보관하는 기간을 업체 공식 안내에 맞춰 \"7일 이내\"에서 \"30일 이내\"로 바로잡습니다. 정보를 받는 곳(Anthropic, 미국)과 쓰는 목적은 그대로입니다.",
     noticeDay: "2026-11-05",
-    effectiveDay: "2026-11-12",
+    // 2026-11-12 예정이던 시행을 앞당김 — 대기 해제(성민 2026-11-06, 실사용자 0). 동의 버전 5 와 같은 배포.
+    effectiveDay: "2026-11-06",
+    leadException: "2026-11-06 성민 결정 — 실사용자 0명이라 시행일(11-12) 대기 해제",
   },
 ];
 
@@ -58,7 +62,8 @@ export function noticeProblem(n: PolicyNotice): string | null {
   if (!n.short.trim()) return "띠용 짧은 요약 비어 있음";
   if (n.short.length > SHORT_MAX) return `띠용 짧은 요약 ${SHORT_MAX}자 넘음`;
   if (!n.detail.trim()) return "처리방침 상단 상세 비어 있음";
-  if (kstMidnight(n.effectiveDay) - kstMidnight(n.noticeDay) < NOTICE_LEAD_DAYS * DAY_MS) return `시행일이 공지일 + ${NOTICE_LEAD_DAYS}일보다 이름`;
+  if (kstMidnight(n.effectiveDay) < kstMidnight(n.noticeDay)) return "시행일이 공지일보다 이름";
+  if (!n.leadException?.trim() && kstMidnight(n.effectiveDay) - kstMidnight(n.noticeDay) < NOTICE_LEAD_DAYS * DAY_MS) return `시행일이 공지일 + ${NOTICE_LEAD_DAYS}일보다 이름`;
   return null;
 }
 
