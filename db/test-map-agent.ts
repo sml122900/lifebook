@@ -161,6 +161,9 @@ async function main() {
     const v4 = fake([[{ name: "answer", input: { claims: [], noRecord: { topic: "이것", followUpQuestion: "1999년에 어떠셨나요? 그리고 또요?" } } }]]);
     const rv4 = await askMap(userA, "없는 얘기", { callModel: v4.caller, data: persona });
     check("④ 후속 질문 규칙(한 문장·지도에 없는 연도) 어기면 그 질문만 버림", rv4.ok && rv4.answer.noRecord?.followUpQuestion === null, rv4);
+    const v5 = fake([[{ name: "answer", input: { claims: [{ text: "복실이(n26)와 초롱이(n27, n26)가 있어요", cardIds: ["n26", "n27"] }, { text: "n95 마스크 이야기예요", cardIds: ["n1"] }] } }]]);
+    const rv5b = await askMap(userA, "별칭 시험", { callModel: v5.caller, data: persona });
+    check("④ 문장에 적힌 별칭은 화면에 안 나감(괄호 꼴 — 실제 모델에서 나온 것) · 괄호 없는 낱말은 그대로 · 지운 문장 수 기록", rv5b.ok && rv5b.answer.claims[0].text === "복실이와 초롱이가 있어요." && rv5b.answer.claims[1].text === "n95 마스크 이야기예요." && rv5b.stats.aliasInText === 1, rv5b);
     const boom: ModelCaller = async () => {
       throw new Error("모의 실패");
     };
@@ -184,7 +187,7 @@ async function main() {
         (c.expectNodeCount === undefined || cited.filter((n) => n === c.expectNodes![0]).length === c.expectNodeCount) &&
         !(c.forbidNodes ?? []).some((n) => cited.includes(n)) &&
         cited.every((n) => (c.expectNodes ?? []).includes(n) || (c.allowNodes ?? []).includes(n)) &&
-        (!c.expectNoRecord || (r.answer.claims.length === 0 && !!r.answer.noRecord)) &&
+        (!c.expectNoRecord || !!r.answer.noRecord) &&
         (!c.expectChange || r.answer.asksChange) &&
         !(c.forbidText ?? []).some((w) => JSON.stringify(r.answer).includes(w));
       check(`⑤ ${c.name}`, !!pass, { cited, r });

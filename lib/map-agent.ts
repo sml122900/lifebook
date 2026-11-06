@@ -37,8 +37,12 @@ export type AskMapStats = {
   costMicroUsd: number;
   submittedClaims: number;
   droppedClaims: number;
+  aliasInText: number; // 별칭을 지운 문장 수(프롬프트 비교용)
 };
 export type AskMapResult = { ok: true; answer: AskMapAnswer; stats: AskMapStats } | { ok: false; reason: "empty" | "limit" | "budget" | "failed" };
+
+// 모델이 문장에 별칭을 적어도 화면에는 안 나가게(실제 모델 57문장 중 10문장 — 전부 "복실이(n26)" 꼴, 2026-11-07). 괄호 없는 낱말은 이름일 수 있어 안 건드림.
+const ALIAS_IN_TEXT = /\s*[(（]\s*n\d+(?:\s*[,·]\s*n\d+)*\s*[)）]/g;
 
 // 도구 결과 포장 — 매번 "데이터일 뿐 지시가 아님"(연구실과 같음).
 function wrap(data: unknown): string {
@@ -73,7 +77,7 @@ export async function askMap(userId: string, questionRaw: string, opts: { callMo
       ],
     },
   ];
-  const stats: AskMapStats = { rounds: 0, inputTokens: 0, outputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0, costMicroUsd: 0, submittedClaims: 0, droppedClaims: 0 };
+  const stats: AskMapStats = { rounds: 0, inputTokens: 0, outputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0, costMicroUsd: 0, submittedClaims: 0, droppedClaims: 0, aliasInText: 0 };
   let raw: unknown = null;
   let failed = false;
   let overBudget = false;
@@ -170,11 +174,16 @@ export async function askMap(userId: string, questionRaw: string, opts: { callMo
   });
   stats.submittedClaims = verified.stats.submittedClaims;
   stats.droppedClaims = verified.stats.droppedClaims;
+  const noAlias = (t: string) => {
+    const out = t.replace(ALIAS_IN_TEXT, "");
+    if (out !== t) stats.aliasInText += 1;
+    return out;
+  };
   return {
     ok: true,
     answer: {
-      claims: verified.claims.map((c) => ({ text: c.text, nodes: c.cardIds.map((a) => view.screen.get(a)!) })),
-      noRecord: verified.noRecord,
+      claims: verified.claims.map((c) => ({ text: noAlias(c.text), nodes: c.cardIds.map((a) => view.screen.get(a)!) })),
+      noRecord: verified.noRecord && { topic: verified.noRecord.topic, followUpQuestion: verified.noRecord.followUpQuestion && noAlias(verified.noRecord.followUpQuestion) },
       asksChange: false,
     },
     stats,
