@@ -78,6 +78,7 @@ import {
 import { DRAG_SLOP, DROP_RANGE, EDGE_ARM, LONG_PRESS_MS, isAndroid, pickDropTarget, spiralPath, wobbleScales } from "../lib/space-drag";
 import { applyOptDecor, applyOptLinks, decorOf, hasLink, putOptDecor, putOptLink, settleOptDecor, settleOptLinks, type OptDecor, type OptLink } from "../lib/my-life-optimistic";
 import { DECOR_SHAPES, decorName, isDecorShape } from "../lib/space-decor";
+import { withJosa } from "../lib/josa";
 import { saveNodeLink } from "../lib/node-graph";
 import fs from "node:fs";
 import path from "node:path";
@@ -1000,6 +1001,12 @@ async function main() {
             "운동회에 김민준을 넣었어요.|운동회에 최영희를 넣었어요.|운동회에 Tom을 넣었어요.|운동회에 Paul을 넣었어요.|운동회에 Jack을 넣었어요.|운동회에 Mike를 넣었어요.|운동회에 Peter를 넣었어요.|운동회에 James를 넣었어요.|운동회에 친구1을 넣었어요.|운동회에 친구2를 넣었어요.|운동회에 반 10을 넣었어요.|운동회에 반 5를 넣었어요." &&
           C.space.decorHint === "고르면 바로 행성에 붙어요. 하나만 달 수 있어요.",
         dj);
+      // 으로/로 — ㄹ 받침이면 "로"(2026-11-05 성민): 한글 ㄹ · 영문 l · 숫자 1·7·8 = "로" · 그 밖 받침 = "으로" · 받침 없음 = "로". 화면 = 만들기 재사용 알림·옮기기 확인
+      const ro = ["서울", "부산", "대구", "Paul", "Tom", "1", "3"].map((w) => w + withJosa(w, "으로/로"));
+      check("⑬ 조사 으로/로 — 서울로·부산으로·대구로·Paul로·Tom으로·1로·3으로 · 화면 문구(만들기 재사용·옮기기 확인)도 같은 함수",
+        ro.join(" ") === "서울로 부산으로 대구로 Paul로 Tom으로 1로 3으로" &&
+          C.edit.reused("교실") === "이미 있는 교실로 했어요." && C.edit.moveConfirm("소풍", "1971 고등학교 입학").endsWith("1971 고등학교 입학으로 옮길까요?"),
+        ro);
       check("⑬ U4 꾸미기 목록 — 확정 8종 키·이름·순서(고리·혜성 꼬리·오로라·별빛 가루·태양 플레어·소용돌이·쌍둥이 별·블랙홀) · 목록 밖 값 거름 · dropFailed 확정 문구",
         DECOR_SHAPES.map((d) => `${d.key}:${d.name}`).join(",") ===
           "ring:고리,comet:혜성 꼬리,aurora:오로라,stardust:별빛 가루,flare:태양 플레어,vortex:소용돌이,binary:쌍둥이 별,blackhole:블랙홀" &&
