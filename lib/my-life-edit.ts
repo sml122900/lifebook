@@ -25,7 +25,7 @@ import {
   type RemovedLink,
 } from "./node-graph";
 import { createCustomLifeEvent } from "./open-chat-promote";
-import { createPerson } from "./people";
+import { createPerson, deletePerson, updatePerson } from "./people";
 import { findSameNamePeople } from "./person-chat";
 import { relationGroup } from "./person-relation";
 import { validatePlace } from "./place-validate";
@@ -327,7 +327,8 @@ export async function createPlaceGroupNode(userId: string, input: { name: unknow
 // 지우기 확인창에 보일 수 — 지울 노드에 이어진 이야기·사람·장소, 가족이 남긴 댓글·반응(이야기·시기만 — 함께 지워짐).
 // 시기(직접 추가)는 그 안의 이야기가 함께 지워진다(lib/life-event-delete). 남의 노드·없는 노드 = null.
 // placeGroups — 장소를 지우면 함께 빠지는 장소 묶음 수(확인창 "묶음 N개에서도 빠져요" — 3단계 E2E 2026-11-02).
-export type DeleteImpact = { stories: number; people: number; places: number; familyActivity: number; storiesDeleted: boolean; placeGroups: number };
+// periods·groups·personBody = 사람 지우기(인물록 통합 2026-11-06) — 그 분이 있는 시기·모임 수 · 이 분에 대해 적은 글이 있는지.
+export type DeleteImpact = { stories: number; people: number; places: number; familyActivity: number; storiesDeleted: boolean; placeGroups: number; periods: number; groups: number; personBody: boolean };
 
 async function familyActivityOf(memoryIds: string[]): Promise<number> {
   if (memoryIds.length === 0) return 0;
@@ -337,7 +338,7 @@ async function familyActivityOf(memoryIds: string[]): Promise<number> {
 }
 
 export async function deleteImpact(userId: string, ref: NodeRef): Promise<DeleteImpact | null> {
-  const zero: DeleteImpact = { stories: 0, people: 0, places: 0, familyActivity: 0, storiesDeleted: false, placeGroups: 0 };
+  const zero: DeleteImpact = { stories: 0, people: 0, places: 0, familyActivity: 0, storiesDeleted: false, placeGroups: 0, periods: 0, groups: 0, personBody: false };
   if (ref.type === "LIFE_EVENT") {
     const ev = await prisma.lifeEvent.findFirst({ where: { id: ref.id, userId, type: "CUSTOM" }, select: { episodes: { select: { memoryId: true } } } });
     if (!ev) return null;
@@ -373,10 +374,88 @@ export async function deleteImpact(userId: string, ref: NodeRef): Promise<Delete
     if ((await prisma.placeGroup.count({ where: { id: ref.id, userId } })) === 0) return null;
     return { ...zero, places: await prisma.placeGroupMember.count({ where: { groupId: ref.id } }) };
   }
+  if (ref.type === "PERSON") {
+    if ((await prisma.person.count({ where: { id: ref.id, userId } })) === 0) return null;
+    const [subject, linked, periods, groups, places, body] = await Promise.all([
+      prisma.episode.findMany({ where: { personId: ref.id, lifeEvent: { userId } }, select: { id: true } }),
+      prisma.nodeLink.findMany({ where: { userId, fromType: "EPISODE", toType: "PERSON", toId: ref.id }, select: { fromId: true } }),
+      prisma.personLifeEvent.count({ where: { personId: ref.id, userId } }),
+      prisma.personGroupMember.count({ where: { personId: ref.id, group: { userId } } }),
+      prisma.nodeLink.count({ where: { userId, fromType: "PERSON", fromId: ref.id, toType: "PLACE" } }),
+      prisma.nodeBody.count({ where: { userId, nodeType: "PERSON", nodeId: ref.id } }),
+    ]);
+    return { ...zero, stories: new Set([...subject.map((e) => e.id), ...linked.map((l) => l.fromId)]).size, periods, groups, places, personBody: body > 0 };
+  }
   return null;
 }
 
-// 장소·모임·장소 묶음 지우기.
+// 장소·모임·장소 묶음·사람 지우기.
+
+// 사람 — 기존 /people 지우기와 같은 함수(lib/people deletePerson — 내 사람만 · 인물 글 사진 파일까지). 연결(NodeLink)·인물 글·이전 판은
+// 트리거, 시기↔사람·모임 구성원·옛 연혁 연결은 FK Cascade, 이야기의 대상 인물(Episode.personId)은 SetNull(이야기는 남음).
+export async function deletePersonNode(userId: string, personId: string): Promise<{ ok: true } | Fail> {
+  return (await deletePerson(userId, personId)) ? { ok: true } : { ok: false, error: E.notFound };
+}
+
+// 인물록 통합(2026-11-06) — 사람 패널 [이름·정보 고치기]. 저장 = 기존 /people 고치기와 같은 함수(lib/people updatePerson — 같은 검사·문구).
+// 확정 인물(종류 사람)만. 분류(category)는 V3 화면에서 안 쓰지만 데이터는 그대로 — 지금 값을 그대로 넘긴다.
+export async function updatePersonInfo(
+  userId: string,
+  personId: string,
+  input: { name?: unknown; relation?: unknown; birthYear?: unknown; metYear?: unknown; memo?: unknown },
+): Promise<{ ok: true } | Fail> {
+  const cur = await prisma.person.findFirst({ where: { id: personId, userId, isDraft: false, subjectType: "person" }, select: { category: true } });
+  if (!cur) return { ok: false, error: E.notFound };
+  const text = (v: unknown) => (typeof v === "string" ? v : "");
+  const year = (v: unknown): number | null | undefined => {
+    const s = typeof v === "number" ? String(v) : text(v).trim();
+    if (s === "") return null;
+    return /^\d{4}$/.test(s) ? Number(s) : undefined;
+  };
+  const birthYear = year(input.birthYear);
+  const metYear = year(input.metYear);
+  if (birthYear === undefined || metYear === undefined) return { ok: false, error: E.badYear };
+  const relation = text(input.relation).trim();
+  const memo = text(input.memo).trim();
+  try {
+    const r = await updatePerson(userId, personId, {
+      subjectType: "person",
+      name: text(input.name),
+      relation: relation === "" ? null : relation,
+      birthYear,
+      category: cur.category,
+      metYear,
+      memo: memo === "" ? null : memo,
+    });
+    return r ? { ok: true } : { ok: false, error: E.notFound };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : E.failed }; // lib/people 검사 문구(이름 비었음·너무 김·연도 범위)
+  }
+}
+
+// 장소·모임 이름 고치기(인물록 통합 2026-11-06) — 만들기와 같은 길이 검사. 장소는 이야기 장소 행(MemoryPlace.placeName — 옛 화면·포스터가
+// 읽는 이름 사본)도 같이 바꾼다(내 기록의 그 장소 행만).
+export async function renameNode(userId: string, node: NodeRef, rawName: unknown): Promise<{ ok: true } | Fail> {
+  if (node.type === "PLACE") {
+    const name = clean(rawName, EDIT_LIMITS.placeName + 1);
+    if (!name) return { ok: false, error: E.needName };
+    if (name.length > EDIT_LIMITS.placeName) return { ok: false, error: E.tooLong(EDIT_LIMITS.placeName) };
+    const [r] = await prisma.$transaction([
+      prisma.place.updateMany({ where: { id: node.id, userId }, data: { name } }),
+      prisma.memoryPlace.updateMany({ where: { placeId: node.id, place: { userId }, memory: { userId } }, data: { placeName: name } }),
+    ]);
+    return r.count > 0 ? { ok: true } : { ok: false, error: E.notFound };
+  }
+  if (node.type === "PERSON_GROUP") {
+    const name = clean(rawName, EDIT_LIMITS.groupName + 1);
+    if (!name) return { ok: false, error: E.needName };
+    if (name.length > EDIT_LIMITS.groupName) return { ok: false, error: E.tooLong(EDIT_LIMITS.groupName) };
+    const r = await prisma.personGroup.updateMany({ where: { id: node.id, userId }, data: { name } });
+    return r.count > 0 ? { ok: true } : { ok: false, error: E.notFound };
+  }
+  return { ok: false, error: E.notFound };
+}
+
 
 // 장소 — 이야기 안의 그 장소 행(이야기 브릿지 MemoryPlace)도 같이 지운다(지도에서 지운 곳이 이야기 칩으로 남지 않게).
 // 옛 연혁·사진 메모리의 장소 행은 FK SetNull 로 이름만 남는다(v2 화면 무수정). 연결(NodeLink)은 트리거, 묶음 구성원은 FK.

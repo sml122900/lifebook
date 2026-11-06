@@ -22,12 +22,11 @@ async function requireUserId(): Promise<string> {
   return userId;
 }
 
-// My Life 지도(본문 첫 줄·글 있음 표시)와 이 노드의 상세·편집·이전 판. 이야기 본문은 /people 상세도 읽는다(app/actions/episode 와 같은 이유).
+// My Life 지도(본문 첫 줄·글 있음 표시)와 이 노드의 상세·편집·이전 판. (/people 상세 무효화는 2026-11-06 인물록 통합으로 삭제 — V3 → My Life)
 function revalidateNode(nodeType: BodyNodeType, nodeId: string) {
   revalidatePath("/my-life");
   if (nodeType === "EPISODE") {
     revalidatePath(`/my-life/story/${nodeId}`, "layout");
-    revalidatePath("/people/[personId]", "page");
   } else {
     revalidatePath(`/my-life/person/${nodeId}`, "layout");
   }

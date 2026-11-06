@@ -122,7 +122,6 @@ export const MY_LIFE_COPY = {
     restoring: "되돌리는 중…",
   },
   // 패널 이동·빈 화면 — 확정(성민 2026-11-04)
-  openPerson: "이 분 자세히 보기", // 사람 패널 → /people/[id]
   openMap: "지도 앱에서 열기", // 장소 패널 → 네이버·구글 지도 새 창(뒤 "↗" 는 화면 코드)
   emptyTitle: "아직 지도에 담을 이야기가 없어요",
   emptyDesc: "이야기를 나누면 인생의 시기들이 여기에 하나씩 생겨요.",
@@ -139,6 +138,9 @@ export const MY_LIFE_COPY = {
   panelMembers: "모임 사람들",
   panelRelation: "관계",
   panelMetYear: "만난 해",
+  // 인물록 통합(2026-11-06) — 사람 패널, 값이 있을 때만. [임시 — 성민 확정 필요] 아래 2키.
+  panelBirthYear: "태어난 해",
+  panelMemo: "메모",
   panelAddress: "주소",
   // 버튼 이름(화면 낭독용) — 종류 + 이름 + 수 — 확정(성민 2026-11-04)
   eventName: (yearText: string, label: string, stories: number, others: number) =>
@@ -297,8 +299,17 @@ export const MY_LIFE_COPY = {
     deletedName: (name: string) => `${name}${withJosa(name, "을/를")} 지웠어요.`,
     deletePlaceGroups: (n: number) => `장소 묶음 ${n}개에서도 빠져요.`,
     deleteSkeletonNote: "처음 정한 시기는 지울 수 없어요.",
-    personDeleteNote: "사람은 인물록에서 지울 수 있어요.",
-    personDeleteLink: "인물록에서 지우기",
+    // 인물록 통합(2026-11-06) — 사람 지우기 확인창(시기·모임 수 · 인물 글) · 사람 [이름·정보 고치기] · 장소·모임 [이름 고치기]
+    linkPeriods: (n: number) => `시기 ${n}곳`,
+    linkGroups: (n: number) => `모임 ${n}개`,
+    deletePersonBody: "이 분에 대해 적은 글도 함께 지워져요.",
+    editInfo: "이름·정보 고치기", // 사람 패널 버튼·고치기 화면 제목
+    editName: "이름 고치기", // 장소·모임 패널 버튼·고치기 화면 제목
+    fieldBirthYear: "태어난 해 (선택)",
+    fieldMetYear: "처음 만난 해 (선택)",
+    fieldMemo: "메모 (선택)",
+    saveInfo: "저장",
+    infoSaved: "고쳤어요.",
     // 오류(lib/my-life-edit)
     notFound: "찾을 수 없어요. 화면을 닫았다가 다시 열어 주세요.",
     alreadyPrimary: "이 이야기가 이미 속한 시기예요.",

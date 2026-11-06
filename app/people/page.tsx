@@ -3,6 +3,7 @@ import { Landmark, Package, User } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { peopleEntryRedirect } from "@/lib/people-entry";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SUBJECT_TYPE, countEventsPerPerson, listPeople, type Person, type SubjectType } from "@/lib/people";
 
@@ -54,6 +55,9 @@ export default async function PeopleListPage({
   const userId = session.user.id;
 
   const sp = await searchParams;
+  // 인물록 통합(2026-11-06) — V3 사용자는 My Life 인물록·장소록으로(lib/people-entry). V2 는 이 화면 그대로.
+  const toMyLife = await peopleEntryRedirect(userId, { page: "list", tab: sp.tab });
+  if (toMyLife) redirect(toMyLife);
   const activeTab: Tab =
     sp.tab === "location" || sp.tab === "thing" ? sp.tab : "person";
 

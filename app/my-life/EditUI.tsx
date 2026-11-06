@@ -36,9 +36,11 @@ import {
   deleteNodeAction,
   moveStoryAction,
   removeLinkAction,
+  renameNodeAction,
   undoCreateAction,
   undoLinksAction,
   undoRemoveAction,
+  updatePersonInfoAction,
   type CreateInput,
   type CreatedNode,
 } from "./actions";
@@ -390,7 +392,8 @@ type Mode =
   | { t: "remove"; other: NodeRef; name: string }
   | { t: "move" }
   | { t: "moveConfirm"; target: MyLifeEvent }
-  | { t: "delete"; impact: DeleteImpact | null; loading: boolean };
+  | { t: "delete"; impact: DeleteImpact | null; loading: boolean }
+  | { t: "editInfo" }; // 인물록 통합 — 사람 [이름·정보 고치기] · 장소·모임 [이름 고치기]
 
 // fromStory = 시기 패널에서 이야기에서만 나온 분·곳(시기에 바로 잇지 않음 — [넣기] 후보에서 안 뺌).
 type LinkItem = { ref: NodeRef; name: string; sub?: string; go: { key: string; eventId: string | null }; removable: boolean; note?: string; fromStory?: boolean };
@@ -401,6 +404,8 @@ function deleteLinkedText(im: DeleteImpact): string {
     ...(!im.storiesDeleted && im.stories > 0 ? [E.linkStories(im.stories)] : []),
     ...(im.people > 0 ? [E.linkPeople(im.people)] : []),
     ...(im.places > 0 ? [E.linkPlaces(im.places)] : []),
+    ...(im.periods > 0 ? [E.linkPeriods(im.periods)] : []),
+    ...(im.groups > 0 ? [E.linkGroups(im.groups)] : []),
   ];
   return parts.length > 0 ? E.deleteLinked(parts) : E.deleteNoLinks;
 }
@@ -417,6 +422,7 @@ export function NodeEditor({
   onGo,
   onReopen,
   onDeleted,
+  startEdit = false,
 }: {
   nodeKey: string;
   data: MyLifeData;
@@ -427,9 +433,10 @@ export function NodeEditor({
   onGo: (key: string, eventId: string | null) => void;
   onReopen: (r: Created) => void; // 새 노드(옮긴 이야기·직접 쓴 이야기)로 이동·패널
   onDeleted: (name: string) => void;
+  startEdit?: boolean; // 옛 /people/[id]/edit 로 온 사람 패널 — [이름·정보 고치기]로 시작(인물록 통합)
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>({ t: "view" });
+  const [mode, setMode] = useState<Mode>(startEdit ? { t: "editInfo" } : { t: "view" });
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [pending, start] = useTransition();
@@ -918,6 +925,7 @@ export function NodeEditor({
             <p className="text-lg text-ink">{deleteLinkedText(im)}</p>
             {im.placeGroups > 0 && <p className="text-lg text-ink">{E.deletePlaceGroups(im.placeGroups)}</p>}
             {im.familyActivity > 0 && <p className="text-lg text-ink">{E.deleteFamily(im.familyActivity)}</p>}
+            {im.personBody && <p className="text-lg text-ink">{E.deletePersonBody}</p>}
             <p className="text-lg text-ink-soft">{E.deleteIrreversible}</p>
           </>
         ) : (
@@ -934,8 +942,38 @@ export function NodeEditor({
     );
   }
 
+  if (mode.t === "editInfo" && (person || place || group)) {
+    return (
+      <InfoEditForm
+        key={nodeKey}
+        person={person ?? null}
+        name={person?.name ?? place?.name ?? group?.name ?? ""}
+        title={person ? E.editInfo : E.editName}
+        nameMax={person ? 50 : group ? 30 : 50}
+        pending={pending}
+        error={error}
+        onBack={() => {
+          setError(null);
+          setMode({ t: "view" });
+        }}
+        onSave={(v) =>
+          run(async () => {
+            const r = person ? await updatePersonInfoAction(person.id, v) : await renameNodeAction(self!, v.name);
+            if (!r.ok) {
+              setError(r.error);
+              return;
+            }
+            setMode({ t: "view" });
+            router.refresh();
+            setNotice({ key: nodeKey, text: E.infoSaved });
+          })
+        }
+      />
+    );
+  }
+
   // ── 기본(정보 + 고치기) ──
-  const canDelete = (kind === "ev" && ev?.type === "CUSTOM") || !!story || !!place || !!group || !!placeGroup;
+  const canDelete = (kind === "ev" && ev?.type === "CUSTOM") || !!story || !!person || !!place || !!group || !!placeGroup;
   return (
     <>
       {notice && notice.key === nodeKey && (
@@ -1020,15 +1058,12 @@ export function NodeEditor({
           {E.moveStory}
         </Button>
       )}
-      <ErrorLine text={error} />
-      {person && (
-        <div className="flex flex-col gap-2 border-t border-line pt-4">
-          <p className="text-lg text-ink-soft">{E.personDeleteNote}</p>
-          <ButtonLink href={`/people/${person.id}`} variant="tertiary" size="lg">
-            {E.personDeleteLink}
-          </ButtonLink>
-        </div>
+      {(person || place || group) && (
+        <Button variant="secondary" size="lg" onClick={() => setMode({ t: "editInfo" })}>
+          {person ? E.editInfo : E.editName}
+        </Button>
       )}
+      <ErrorLine text={error} />
       {canDelete && (
         <div className="border-t border-line pt-4">
           <Button variant="destructive" size="lg" className="w-full" onClick={openDelete}>
@@ -1037,6 +1072,78 @@ export function NodeEditor({
         </div>
       )}
     </>
+  );
+}
+
+// 인물록 통합(2026-11-06) — 사람: 이름·관계·태어난 해·처음 만난 해·메모(옛 /people 고치기 칸, 분류는 V3 화면에서 안 씀) ·
+// 장소·모임: 이름만. 저장 검사는 서버(lib/my-life-edit updatePersonInfo·renameNode)가 한다 — 여기는 길이·숫자만 막는다.
+type InfoValues = { name: string; relation: string; birthYear: string; metYear: string; memo: string };
+function InfoEditForm({
+  person,
+  name: initialName,
+  title,
+  nameMax,
+  pending,
+  error,
+  onBack,
+  onSave,
+}: {
+  person: { relation: string | null; birthYear: number | null; metYear: number | null; memo: string | null } | null;
+  name: string;
+  title: string;
+  nameMax: number;
+  pending: boolean;
+  error: string | null;
+  onBack: () => void;
+  onSave: (v: InfoValues) => void;
+}) {
+  const [v, setV] = useState<InfoValues>(() => ({
+    name: initialName,
+    relation: person?.relation ?? "",
+    birthYear: person?.birthYear != null ? String(person.birthYear) : "",
+    metYear: person?.metYear != null ? String(person.metYear) : "",
+    memo: person?.memo ?? "",
+  }));
+  const set = (k: keyof InfoValues) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setV((x) => ({ ...x, [k]: k === "birthYear" || k === "metYear" ? e.target.value.replace(/[^0-9]/g, "").slice(0, 4) : e.target.value }));
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(v);
+      }}
+    >
+      <h2 id="mylife-panel-title" className="m-0 text-2xl">
+        {title}
+      </h2>
+      <Field label={E.fieldName} htmlFor="mylife-info-name">
+        <input id="mylife-info-name" className={INPUT} value={v.name} onChange={set("name")} maxLength={nameMax} autoComplete="off" />
+      </Field>
+      {person && (
+        <>
+          <Field label={E.fieldRelation} htmlFor="mylife-info-rel">
+            <input id="mylife-info-rel" className={INPUT} value={v.relation} onChange={set("relation")} maxLength={30} autoComplete="off" />
+          </Field>
+          <Field label={E.fieldBirthYear} htmlFor="mylife-info-birth">
+            <input id="mylife-info-birth" className={INPUT} inputMode="numeric" value={v.birthYear} onChange={set("birthYear")} autoComplete="off" />
+          </Field>
+          <Field label={E.fieldMetYear} htmlFor="mylife-info-met">
+            <input id="mylife-info-met" className={INPUT} inputMode="numeric" value={v.metYear} onChange={set("metYear")} autoComplete="off" />
+          </Field>
+          <Field label={E.fieldMemo} htmlFor="mylife-info-memo">
+            <textarea id="mylife-info-memo" className={`${INPUT} min-h-[120px] py-3`} rows={4} value={v.memo} onChange={set("memo")} />
+          </Field>
+        </>
+      )}
+      <ErrorLine text={error} />
+      <Button type="submit" variant="primary" size="lg" disabled={pending}>
+        {pending ? E.saving : E.saveInfo}
+      </Button>
+      <Button variant="tertiary" size="lg" disabled={pending} onClick={onBack}>
+        {E.back}
+      </Button>
+    </form>
   );
 }
 

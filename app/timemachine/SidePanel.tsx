@@ -12,6 +12,7 @@ import {
 } from "@/lib/attendance-policy";
 import type { OnboardingTrack } from "@/lib/generated/prisma/enums";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
+import { MY_LIFE_PEOPLE } from "@/lib/my-life-paths";
 import { SIDE_PANEL_EVENT, START_TOUR_EVENT } from "@/lib/tours";
 
 import { checkInAction } from "./attendance-actions";
@@ -286,10 +287,12 @@ function SidePanel({
                 />
               </>
             )}
+            {/* 인물록 통합(2026-11-06) — V3 = My Life 인물록 영역(완전 동적 화면이라 prefetch 끔), V2 = 옛 /people 그대로 */}
             <MenuItem
-              href="/people"
+              href={data.onboardingTrack === "V3" ? MY_LIFE_PEOPLE : "/people"}
               label="인물록"
               hint="인생에 등장한 분들"
+              prefetch={data.onboardingTrack === "V3" ? false : undefined}
             />
             <MenuItem
               href="/photos"

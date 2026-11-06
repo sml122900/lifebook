@@ -22,12 +22,15 @@ import {
   createStoryNode,
   deleteGroupNode,
   deleteImpact,
+  deletePersonNode,
   deletePlaceGroupNode,
   deletePlaceNode,
   removeLink,
+  renameNode,
   setNodeDecoration,
   undoLinks,
   undoRemove,
+  updatePersonInfo,
   type CreatedLink,
   type DeleteImpact,
   type RemovedLink,
@@ -188,7 +191,7 @@ export async function deleteImpactAction(node: NodeRef): Promise<DeleteImpact | 
   return r ? deleteImpact(userId, r) : null;
 }
 
-// 지우기 — 이야기·직접 추가 시기·장소·모임·장소 묶음(사람은 /people 기존 삭제로 안내 — 여기서 받지 않음).
+// 지우기 — 이야기·직접 추가 시기·장소·모임·장소 묶음·사람(인물록 통합 2026-11-06 — 기존 /people 삭제와 같은 함수).
 export async function deleteNodeAction(node: NodeRef): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await requireUserId();
   const r = ref(node);
@@ -206,5 +209,21 @@ export async function deleteNodeAction(node: NodeRef): Promise<{ ok: true } | { 
   if (r.type === "PLACE") return deletePlaceNode(userId, r.id);
   if (r.type === "PERSON_GROUP") return deleteGroupNode(userId, r.id);
   if (r.type === "PLACE_GROUP") return deletePlaceGroupNode(userId, r.id);
-  return { ok: false, error: E.personDeleteNote };
+  if (r.type === "PERSON") return deletePersonNode(userId, r.id);
+  return { ok: false, error: E.notFound };
+}
+
+// 인물록 통합(2026-11-06) — 사람 패널 [이름·정보 고치기](lib/people updatePerson 재사용) · 장소·모임 패널 [이름 고치기].
+type PersonInfoInput = { name: string; relation: string; birthYear: string; metYear: string; memo: string };
+export async function updatePersonInfoAction(personId: string, input: PersonInfoInput): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  if (typeof personId !== "string" || !personId) return { ok: false, error: E.notFound };
+  return updatePersonInfo(userId, personId, input ?? {});
+}
+
+export async function renameNodeAction(node: NodeRef, name: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const r = ref(node);
+  if (!r) return { ok: false, error: E.notFound };
+  return renameNode(userId, r, name);
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { peopleEntryRedirect } from "@/lib/people-entry";
 import { getBirthYear } from "@/lib/life-events";
 import type { SubjectType } from "@/lib/people";
 
@@ -57,6 +58,9 @@ export default async function NewPersonPage({
     getBirthYear(session.user.id),
   ]);
   const returnTo = safeReturnTo(sp.returnTo);
+  // 인물록 통합(2026-11-06) — V3 사용자는 My Life 인물록·장소록으로(lib/people-entry). V2 는 이 화면 그대로.
+  const toMyLife = await peopleEntryRedirect(session.user.id, { page: "new", tab: sp.type });
+  if (toMyLife) redirect(toMyLife);
   const subjectType: SubjectType =
     sp.type === "location" || sp.type === "thing" ? sp.type : "person";
 

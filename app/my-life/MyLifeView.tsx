@@ -216,6 +216,15 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
     if (eventId && !data.events.some((e) => e.id === eventId)) return null;
     return { key, eventId };
   });
+  // 인물록 통합(2026-11-06) — ?area=people|places = 처음 그릴 때 그 영역으로(사이드 패널 인물록·옛 /people — lib/people-entry) ·
+  // ?focus=pe:<id>&edit=1 = 그 사람 패널을 [이름·정보 고치기]로 열고 시작(옛 /people/[id]/edit). 없는 사람이면 패널 안 엶.
+  const [initialArea] = useState<"people" | "places" | null>(() => {
+    const a = searchParams.get("area");
+    return a === "people" || a === "places" ? a : null;
+  });
+  const [editKey, setEditKey] = useState<string | null>(() =>
+    searchParams.get("edit") === "1" && initialFocus?.key.startsWith("pe:") && data.people.some((p) => `pe:${p.id}` === initialFocus.key) ? initialFocus.key : null,
+  );
   // 접기 기본값(Q41) — 시간 줄기 노드가 많으면 전부 접힘. 같은 탭의 저장값은 지도가 열릴 때 덮는다.
   const [folded, setFolded] = useState<Set<string>>(
     () =>
@@ -240,14 +249,15 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
   const [pendingOpen, setPendingOpen] = useState<(Created & { keep?: boolean }) | null>(null);
   const createRef = useRef<HTMLDialogElement>(null);
   const [selected, setSelected] = useState<string | null>(initialFocus?.key ?? null);
-  const [panel, setPanel] = useState<string | null>(null);
+  const [panel, setPanel] = useState<string | null>(editKey);
+  if (editKey && panel !== editKey) setEditKey(null); // 고치기로 연 패널을 닫거나 다른 노드로 옮기면 끝(다시 열면 보통 패널)
   const [panelFromSat, setPanelFromSat] = useState(false); // 위성(바로가기)에서 연 사람·장소·모임 패널 — [원래 자리로 가기](U2 §2.3)
   const [findOpen, setFindOpen] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false); // 지도 보기 [이야기 거리] 시트(Q69)
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(
     initialFocus ? { key: initialFocus.key, n: 1 } : null,
   );
-  const lastKeyRef = useRef<string | null>(null);
+  const lastKeyRef = useRef<string | null>(editKey);
   const openedAtRef = useRef(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const findRef = useRef<HTMLDialogElement>(null);
@@ -277,6 +287,12 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
     if (panel && !d.open) {
       openedAtRef.current = Date.now();
       d.showModal();
+      // ?edit=1 로 [이름·정보 고치기]부터 연 패널 — 첫 입력칸 대신 제목에 포커스(키보드가 바로 안 뜨게 · 패널 안 단계 바뀜과 같은 규칙)
+      const h = d.querySelector("#mylife-info-name") ? d.querySelector<HTMLElement>("#mylife-panel-title") : null;
+      if (h) {
+        h.tabIndex = -1;
+        h.focus({ preventScroll: true });
+      }
     }
     if (!panel && d.open) d.close();
   }, [panel]);
@@ -494,6 +510,7 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
           tour={tour}
           setTour={setTour}
           links={links}
+          initialArea={initialArea}
         />
       ) : (
         <ListMode data={data} idx={idx} suggest={suggest} openPanel={openPanel} onToggleView={toggleView} onOpenFind={openFind} onCreate={openCreate} status={mapNotice} />
@@ -530,6 +547,7 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
               notice={notice}
               setNotice={setNotice}
               links={links}
+              startEdit={panel === editKey}
               onReopen={(r) => {
                 setPendingOpen({ ...r, keep: true });
                 router.refresh();
@@ -651,6 +669,7 @@ function MapMode({
   tour,
   setTour,
   links,
+  initialArea,
 }: {
   data: MyLifeData;
   idx: Index;
@@ -673,6 +692,7 @@ function MapMode({
   tour: Tour | null; // 연결된 곳 차례 보기(패널 버튼이 시작, 선택 줄 [다음 연결]이 다음 곳)
   setTour: (t: Tour | null) => void;
   links: OptLinks; // 끌어 넣기 — 낙관적 항목·되돌리기(MyLifeView)
+  initialArea: "people" | "places" | null; // ?area= — 준비된 뒤 한 번 그 영역으로(인물록 통합)
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -902,6 +922,19 @@ function MapMode({
     api.setTransform((b.clientWidth - layoutRef.current.width * s) / 2, Math.max(0, (b.clientHeight - layoutRef.current.height * s) / 2), s, 250);
     setAnnounce(C.zoomAnnounce(Math.round(s * 100)));
   }, []);
+
+  // 인물록 통합(2026-11-06) — ?area=people|places 로 들어오면 준비된 뒤 한 번 그 영역으로(아래 goRegion 과 같은 자리, 움직임 없이).
+  // 그 영역이 비었으면(사람·장소 0) 시간 줄기 그대로.
+  const areaDoneRef = useRef(false);
+  useEffect(() => {
+    if (!ready || !initialArea || areaDoneRef.current) return;
+    areaDoneRef.current = true;
+    const api = apiRef.current;
+    const r = layoutRef.current.regions[initialArea];
+    if (!api || r.h === 0) return;
+    const s = stateRef.current.scale < OVERVIEW_SCALE ? 1 : stateRef.current.scale;
+    api.setTransform(24 - r.x * s, 24 - r.y * s, s, 0);
+  }, [ready, initialArea]);
 
   // 가장자리 버튼 — 인물록·장소록은 그 영역 제목이 화면 왼쪽 위에 오게, 시간 줄기는 줄기가 가운데 오게(높이 유지).
   // 전체 보기 배율(0.6 미만)에서 누르면 배율 1 로.
@@ -2224,6 +2257,7 @@ function PanelBody({
   notice,
   setNotice,
   links,
+  startEdit,
   onReopen,
   onDeleted,
   related,
@@ -2239,6 +2273,7 @@ function PanelBody({
   notice: Notice | null;
   setNotice: (n: Notice | null) => void;
   links: OptLinks;
+  startEdit: boolean; // 인물록 통합 — ?edit=1 로 연 사람 패널은 [이름·정보 고치기]로 시작
   onReopen: (r: Created) => void;
   onDeleted: (name: string) => void;
   related: { count: number; go: () => void } | null;
@@ -2265,6 +2300,7 @@ function PanelBody({
       notice={notice}
       setNotice={setNotice}
       links={links}
+      startEdit={startEdit}
       onGo={onGo}
       onReopen={onReopen}
       onDeleted={onDeleted}
@@ -2341,6 +2377,17 @@ function panelInfo(
             {C.panelMetYear}: {p.metYear}
           </p>
         )}
+        {/* 인물록 통합(2026-11-06) — 옛 /people 칸, 값이 있을 때만 */}
+        {p.birthYear !== null && (
+          <p className="text-lg text-ink">
+            {C.panelBirthYear}: {p.birthYear}
+          </p>
+        )}
+        {p.memo && (
+          <p className="whitespace-pre-line text-lg text-ink">
+            {C.panelMemo}: {p.memo}
+          </p>
+        )}
         {/* 이 분에 대해 적은 글(인물 본문 — 2b-3c, 2026-11-03) */}
         {p.body && <p className="line-clamp-3 whitespace-pre-line text-lg text-ink">{p.body}</p>}
         <ButtonLink href={`/my-life/person/${p.id}/edit`} variant="secondary" size="lg">
@@ -2366,9 +2413,6 @@ function panelInfo(
             </ul>
           </div>
         )}
-        <ButtonLink href={`/people/${p.id}`} variant="secondary" size="lg">
-          {C.openPerson}
-        </ButtonLink>
       </>
     );
   }

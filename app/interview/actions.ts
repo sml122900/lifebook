@@ -67,9 +67,8 @@ export async function decideInterviewProposalAction(
   const userId = await requireUserId();
   const result = await decideInterviewProposal(userId, itemId, decision);
   if (result.ok && result.title !== null) {
-    // 새 이야기·사람·장소가 My Life·인물 상세에 보이게(/story-review 는 Q69 에 /my-life 로 합침).
+    // 새 이야기·사람·장소가 My Life 에 보이게(/story-review 는 Q69 에 /my-life 로 합침 · /people 은 2026-11-06 인물록 통합으로 V3 → My Life).
     revalidatePath("/my-life");
-    revalidatePath("/people/[personId]", "page");
   }
   return result;
 }

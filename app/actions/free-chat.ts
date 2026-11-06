@@ -57,9 +57,8 @@ export async function createProposalAction(edit?: CardEdit): Promise<DecideFreeC
   const userId = await requireUserId();
   const result = await createFromFreeChatProposal(userId, edit);
   if (result.ok) {
-    // 만든 노드가 My Life 지도·목록·인물 상세에 바로 보이게(/story-review 는 Q69 에 /my-life 로 합침).
+    // 만든 노드가 My Life 지도·목록에 바로 보이게(/story-review 는 Q69 에 /my-life 로 합침 · /people 은 2026-11-06 인물록 통합으로 V3 → My Life).
     revalidatePath("/my-life");
-    revalidatePath("/people/[personId]", "page");
   }
   return result;
 }

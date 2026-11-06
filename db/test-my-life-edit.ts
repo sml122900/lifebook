@@ -22,6 +22,8 @@
 //      setBirthYear = 세 곳 같이 · V2 = 예전 규칙 그대로(getBirthYear = V2 출생 기록, resolveBirthYear = User 먼저) ·
 //      V3 화면 읽는 곳 = resolveBirthYear 하나 · 회원정보·V3 신상 저장 = setBirthYear
 //   ⑦ 정적 — 서버 액션 전부 첫 줄 auth · NodeLink 쓰기는 lib/node-graph 만 · proxy.ts 무접촉 · 문구 임시 표기
+//   ⑬ 인물록 통합(2026-11-06) — 사람 [이름·정보 고치기](저장·비우기·거부·분류 그대로) · 장소·모임 [이름 고치기](장소 = 이야기 장소 행 사본도) ·
+//      사람 지우기(확인창 수·연결 정리·이야기 남음·남의 사람 거부) · 옛 /people 진입(V3 = My Life 자리, V2 = 그대로) · 정적(입구·화면·문구·무효화)
 //
 // 자체 픽스처 계정 2개만 만들고 지운다(test30·실고객 접촉 0). 실행: npx tsx db/test-my-life-edit.ts
 
@@ -51,12 +53,17 @@ import {
   deleteGroupNode,
   deleteImpact,
   deletePlaceGroupNode,
+  deletePersonNode,
   deletePlaceNode,
   removeLink,
+  renameNode,
   setNodeDecoration,
   undoLinks,
   undoRemove,
+  updatePersonInfo,
 } from "../lib/my-life-edit";
+import { savePersonBody } from "../lib/node-body";
+import { MY_LIFE_PEOPLE, MY_LIFE_PLACES, peopleEntryRedirect } from "../lib/people-entry";
 import { saveNodeLink, type NodeRef } from "../lib/node-graph";
 import { cardToEdit, createFromCard, type CardPerson, type ProposalCard } from "../lib/node-proposal";
 
@@ -698,6 +705,156 @@ async function main() {
       read("app/account/profile/page.tsx").includes("birthYear: v3BirthYear ?? user?.birthYear ?? null") && prof.includes("if (birthYear !== null) await setBirthYear(userId, birthYear);") &&
         prof.includes("else if ((await getV3BirthYear(userId)) === null)") && /await setBirthYear\(userId, input\.birthYear\);\s*return \{ status: "ALREADY_DONE" \};/.test(read("app/actions/onboarding.ts")) &&
         /await setBirthYear\(userId, input\.birthYear\);\s*return \{ status: "CREATED"/.test(read("app/actions/onboarding.ts")));
+    // ── ⑬ 인물록 통합(2026-11-06 — V3 = My Life 인물록·장소록, V2 = /people 그대로) ─────────────────────
+    {
+      const C13 = MY_LIFE_COPY;
+      // 사람 [이름·정보 고치기] — 저장 = lib/people updatePerson(같은 검사·문구) · 분류(category)는 V3 화면에서 안 쓰지만 그대로
+      const P = await createPersonNode(a, { name: "[fixture] 고칠 분", relation: "이웃" });
+      const pid = P.ok ? P.personId : "";
+      await prisma.person.update({ where: { id: pid }, data: { category: "[fixture] 옛 분류" } });
+      const sel = { name: true, relation: true, birthYear: true, metYear: true, memo: true, category: true, isDraft: true, subjectType: true } as const;
+      const u1 = await updatePersonInfo(a, pid, { name: " [fixture] 고친 분 ", relation: " 옆집 이웃 ", birthYear: "1950", metYear: "1970", memo: " [fixture] 웃음이 많은 분 " });
+      const r1 = await prisma.person.findUnique({ where: { id: pid }, select: sel });
+      check("⑬ 사람 고치기 — 이름·관계·태어난 해·만난 해·메모 저장(앞뒤 공백 정리) · 분류 그대로 · 확정 사람 그대로",
+        u1.ok && r1?.name === "[fixture] 고친 분" && r1.relation === "옆집 이웃" && r1.birthYear === 1950 && r1.metYear === 1970 && r1.memo === "[fixture] 웃음이 많은 분" &&
+          r1.category === "[fixture] 옛 분류" && r1.isDraft === false && r1.subjectType === "person",
+        { u1, r1 });
+      const shown = (await getMyLifeData(a)).people.find((p) => p.id === pid);
+      check("⑬ 화면 데이터 — 사람 패널에 태어난 해·메모(값이 있을 때만 보임)", shown?.birthYear === 1950 && shown.memo === "[fixture] 웃음이 많은 분", shown);
+      const u2 = await updatePersonInfo(a, pid, { name: "[fixture] 고친 분", relation: "", birthYear: "", metYear: "", memo: "" });
+      const r2 = await prisma.person.findUnique({ where: { id: pid }, select: sel });
+      check("⑬ 사람 고치기 — 칸을 비우면 비움(관계·연도·메모 = 없음) · 분류는 그대로",
+        u2.ok && r2?.relation === null && r2.birthYear === null && r2.metYear === null && r2.memo === null && r2.category === "[fixture] 옛 분류", { u2, r2 });
+      const bads = [
+        await updatePersonInfo(a, pid, { name: "  ", relation: "", birthYear: "", metYear: "", memo: "" }),
+        await updatePersonInfo(a, pid, { name: "[fixture] x", relation: "", birthYear: "19x5", metYear: "", memo: "" }),
+        await updatePersonInfo(a, pid, { name: "[fixture] x", relation: "", birthYear: "", metYear: "1800", memo: "" }),
+        await updatePersonInfo(a, pid, { name: "[fixture] x", relation: "가".repeat(31), birthYear: "", metYear: "", memo: "" }),
+        await updatePersonInfo(b, pid, { name: "[fixture] 남이 고침", relation: "", birthYear: "", metYear: "", memo: "" }),
+        await updatePersonInfo(a, draft, { name: "[fixture] 초안 고침", relation: "", birthYear: "", metYear: "", memo: "" }),
+      ];
+      const errs = bads.map((r) => (r.ok ? "ok" : r.error));
+      check("⑬ 사람 고치기 거부 — 이름 빔·연도 꼴·연도 범위·관계 31자(lib/people 문구) · 남의 사람·초안 = 찾을 수 없음 · 행 그대로",
+        errs[0] === "이름을 입력해주세요." && errs[1] === E.badYear && errs[2].startsWith("처음 만난 연도는") && errs[3] === "관계는 30자 이하로 적어주세요." &&
+          errs[4] === E.notFound && errs[5] === E.notFound &&
+          (await prisma.person.findUnique({ where: { id: pid }, select: { name: true } }))?.name === "[fixture] 고친 분" &&
+          (await prisma.person.findUnique({ where: { id: draft }, select: { name: true } }))?.name === "[fixture] 초안 분",
+        errs);
+
+      // 장소·모임 [이름 고치기] — 장소는 이야기 장소 행 이름 사본(MemoryPlace.placeName)도 같이
+      const PL = await createPlaceNode(a, { name: "[fixture] 옛 이름 장소" });
+      const plId = PL.ok ? PL.placeId : "";
+      const st13 = await createStoryNode(a, { lifeEventId: job, kind: "STORY", title: "", content: "[fixture] 점심마다 그 식당에 갔다.", placeIds: [plId] });
+      const rn1 = await renameNode(a, { type: "PLACE", id: plId }, " [fixture] 새 이름 장소 ");
+      const mpNames = await prisma.memoryPlace.findMany({ where: { placeId: plId }, select: { placeName: true } });
+      check("⑬ 장소 이름 고치기 — 장소 이름 + 이야기 장소 행 이름 사본 같이",
+        st13.ok && rn1.ok && (await prisma.place.findUnique({ where: { id: plId }, select: { name: true } }))?.name === "[fixture] 새 이름 장소" &&
+          mpNames.length === 1 && mpNames[0].placeName === "[fixture] 새 이름 장소",
+        { rn1, mpNames });
+      const G = await createGroupNode(a, { name: "[fixture] 옛 모임", memberIds: [] });
+      const gId = G.ok ? G.groupId : "";
+      const rn2 = await renameNode(a, { type: "PERSON_GROUP", id: gId }, "[fixture] 새 모임");
+      const rnBad = [
+        await renameNode(a, { type: "PLACE", id: plId }, ""),
+        await renameNode(a, { type: "PLACE", id: plId }, "가".repeat(51)),
+        await renameNode(a, { type: "PERSON_GROUP", id: gId }, "가".repeat(31)),
+        await renameNode(b, { type: "PLACE", id: plId }, "[fixture] 남이 고침"),
+        await renameNode(b, { type: "PERSON_GROUP", id: gId }, "[fixture] 남이 고침"),
+        await renameNode(a, { type: "PLACE", id: placeB }, "[fixture] 남의 장소 고침"),
+        await renameNode(a, { type: "PERSON", id: pid }, "[fixture] 종류 밖"),
+      ].map((r) => (r.ok ? "ok" : r.error));
+      check("⑬ 모임 이름 고치기 · 거부 — 빈 이름·장소 51자·모임 31자 · 남의 장소·모임·내가 남의 장소 · 종류 밖 = 거부, 이름 그대로",
+        rn2.ok && (await prisma.personGroup.findUnique({ where: { id: gId }, select: { name: true } }))?.name === "[fixture] 새 모임" &&
+          rnBad.join("|") === [E.needName, E.tooLong(50), E.tooLong(30), E.notFound, E.notFound, E.notFound, E.notFound].join("|") &&
+          (await prisma.place.findUnique({ where: { id: plId }, select: { name: true } }))?.name === "[fixture] 새 이름 장소" &&
+          (await prisma.place.findUnique({ where: { id: placeB }, select: { name: true } }))?.name === "[fixture] B 장소",
+        rnBad);
+
+      // 사람 지우기 — [이 노드 지우기] 확인창 수 · 연결 정리 · 이야기는 남음
+      const X = await createPersonNode(a, { name: "[fixture] 지울 분", relation: "친구" });
+      const xId = X.ok ? X.personId : "";
+      const sx1 = await createStoryNode(a, { lifeEventId: high, kind: "STORY", title: "", content: "[fixture] 둘이 자전거를 탔다.", personIds: [xId] });
+      const sx2 = await createStoryNode(a, { lifeEventId: job, kind: "STORY", title: "", content: "[fixture] 그 친구가 회사에 찾아왔다." });
+      if (sx2.ok) await prisma.episode.update({ where: { id: sx2.episodeId }, data: { personId: xId } }); // 대상 인물(이야기의 주인공)
+      const GX = await createGroupNode(a, { name: "[fixture] 자전거 모임", memberIds: [xId] });
+      await saveNodeLink(a, { type: "PERSON", id: xId }, { type: "PLACE", id: plId });
+      const body = await savePersonBody(a, xId, { v: 1, blocks: [{ type: "paragraph", text: "[fixture] 늘 먼저 연락하던 친구." }] }, 0);
+      const im = await deleteImpact(a, { type: "PERSON", id: xId });
+      check("⑬ 사람 지우기 확인창 수 — 이야기 2(함께 나온 1 + 주인공 1) · 시기 1 · 모임 1 · 장소 1 · 인물 글 있음 · 남의 사람 = 없음",
+        sx1.ok && sx2.ok && GX.ok && body.ok && im?.stories === 2 && im.periods === 1 && im.groups === 1 && im.places === 1 && im.personBody === true && im.storiesDeleted === false &&
+          (await deleteImpact(b, { type: "PERSON", id: xId })) === null,
+        im);
+      const dB = await deletePersonNode(b, xId);
+      const stillThere = await prisma.person.count({ where: { id: xId } });
+      const dA = await deletePersonNode(a, xId);
+      const left = await Promise.all([
+        prisma.person.count({ where: { id: xId } }),
+        prisma.nodeLink.count({ where: { OR: [{ fromId: xId }, { toId: xId }] } }),
+        prisma.personLifeEvent.count({ where: { personId: xId } }),
+        prisma.personGroupMember.count({ where: { personId: xId } }),
+        prisma.nodeBody.count({ where: { nodeType: "PERSON", nodeId: xId } }),
+        prisma.nodeBodyRevision.count({ where: { nodeType: "PERSON", nodeId: xId } }),
+      ]);
+      const sx2Row = sx2.ok ? await prisma.episode.findUnique({ where: { id: sx2.episodeId }, select: { personId: true } }) : null;
+      const sx1Row = sx1.ok ? await prisma.episode.count({ where: { id: sx1.episodeId } }) : 0;
+      check("⑬ 사람 지우기 — 남이 지우기 = 찾을 수 없음(그대로) · 내가 지우기 = 사람·연결·시기↔사람·모임 구성원·인물 글·이전 판 0 · 이야기 둘 다 남음(주인공 칸 비움) · 모임 남음",
+        !dB.ok && dB.error === E.notFound && stillThere === 1 && dA.ok && JSON.stringify(left) === "[0,0,0,0,0,0]" &&
+          sx2Row !== null && sx2Row.personId === null && sx1Row === 1 && (await prisma.personGroup.count({ where: { id: GX.ok ? GX.groupId : "" } })) === 1,
+        { dB, dA, left, sx2Row, sx1Row });
+
+      // 옛 /people 진입 — V3 = My Life 자리, V2 = null(그대로)
+      const loc = (await prisma.person.create({ data: { userId: a, name: "[fixture] 옛 장소형", subjectType: "location", isDraft: false }, select: { id: true } })).id;
+      const pBid = (await prisma.person.create({ data: { userId: b, name: "[fixture] B 의 분", isDraft: false }, select: { id: true } })).id;
+      const focus = (id: string) => "/my-life?focus=" + encodeURIComponent("pe:" + id);
+      const got = [
+        await peopleEntryRedirect(a, { page: "list" }),
+        await peopleEntryRedirect(a, { page: "list", tab: "location" }),
+        await peopleEntryRedirect(a, { page: "new" }),
+        await peopleEntryRedirect(a, { page: "new", tab: "location" }),
+        await peopleEntryRedirect(a, { page: "detail", personId: pid }),
+        await peopleEntryRedirect(a, { page: "edit", personId: pid }),
+        await peopleEntryRedirect(a, { page: "link", personId: pid }),
+        await peopleEntryRedirect(a, { page: "detail", personId: pBid }),
+        await peopleEntryRedirect(a, { page: "edit", personId: draft }),
+        await peopleEntryRedirect(a, { page: "detail", personId: loc }),
+        await peopleEntryRedirect(a, { page: "detail", personId: "no-such-person" }),
+      ];
+      const want = [MY_LIFE_PEOPLE, MY_LIFE_PLACES, MY_LIFE_PEOPLE, MY_LIFE_PLACES, focus(pid), focus(pid) + "&edit=1", focus(pid), MY_LIFE_PEOPLE, MY_LIFE_PEOPLE, MY_LIFE_PLACES, MY_LIFE_PEOPLE];
+      check("⑬ V3 /people 진입 — 목록·새로 = 인물록 영역(장소 탭 = 장소록) · 상세·연결 = 그 사람 · 고치기 = 그 사람 + edit=1 · 남의 사람·초안·없는 사람 = 인물록 · 옛 장소형 = 장소록",
+        JSON.stringify(got) === JSON.stringify(want), { got, want });
+      const v2got = [
+        await peopleEntryRedirect(v2u, { page: "list" }),
+        await peopleEntryRedirect(v2u, { page: "detail", personId: pid }),
+        await peopleEntryRedirect(v2u, { page: "edit", personId: pid }),
+      ];
+      check("⑬ V2 /people 진입 — 보내지 않음(지금 그대로)", v2got.every((x) => x === null), v2got);
+
+      // 정적 — 입구·화면·문구
+      const pages = ["app/people/page.tsx", "app/people/new/page.tsx", "app/people/[personId]/page.tsx", "app/people/[personId]/edit/page.tsx", "app/people/[personId]/link/page.tsx"];
+      check("⑬ /people 화면 5개 — 로그인 확인 바로 뒤 peopleEntryRedirect → redirect(V3 만)",
+        pages.every((f) => /const toMyLife = await peopleEntryRedirect\([^\n]+\);\n\s*if \(toMyLife\) redirect\(toMyLife\);/.test(read(f).replace(/\r\n/g, "\n"))),
+        pages.filter((f) => !read(f).includes("peopleEntryRedirect(")));
+      const side = read("app/timemachine/SidePanel.tsx");
+      check("⑬ 사이드 패널 인물록 — V3 = /my-life?area=people · V2 = /people",
+        side.includes('href={data.onboardingTrack === "V3" ? MY_LIFE_PEOPLE : "/people"}') && MY_LIFE_PEOPLE === "/my-life?area=people" && MY_LIFE_PLACES === "/my-life?area=places");
+      const myLifeFiles = walkLib("app/my-life");
+      check("⑬ My Life 화면에 /people 링크·이동 없음(자세히 보기·인물록에서 지우기 삭제)",
+        myLifeFiles.every((f) => !/(href=\{?[\x60"]\/people|redirect\([\x60"]\/people|push\([\x60"]\/people)/.test(read(f))) &&
+          !("openPerson" in C13) && !("personDeleteNote" in E) && !("personDeleteLink" in E),
+        myLifeFiles.filter((f) => /[\x60"]\/people/.test(read(f))));
+      const view13 = read("app/my-life/MyLifeView.tsx");
+      const edit13 = read("app/my-life/EditUI.tsx");
+      const act13 = read("app/my-life/actions.ts");
+      check("⑬ 화면 — ?area= 처음 한 번 그 영역 · ?edit=1 사람 패널 고치기로 시작 · 사람 [이름·정보 고치기]·장소·모임 [이름 고치기] · 사람도 [이 노드 지우기] · 지우기 = deletePersonNode",
+        view13.includes('const a = searchParams.get("area");') && view13.includes('searchParams.get("edit") === "1"') && view13.includes("startEdit={panel === editKey}") &&
+          edit13.includes('useState<Mode>(startEdit ? { t: "editInfo" } : { t: "view" })') && edit13.includes("{person ? E.editInfo : E.editName}") &&
+          edit13.includes("!!story || !!person || !!place") && edit13.includes("{im.personBody && <p") &&
+          act13.includes("return deletePersonNode(userId, r.id);") && act13.includes("export async function updatePersonInfoAction(") && act13.includes("export async function renameNodeAction("));
+      const revalidated = ["app/actions/episode.ts", "app/actions/free-chat.ts", "app/actions/node-body.ts", "app/interview/actions.ts"].filter((f) => read(f).includes('revalidatePath("/people/[personId]"'));
+      check("⑬ V3 액션의 /people 상세 무효화 삭제(V2 경로 draft-actions·/people 액션은 그대로)",
+        revalidated.length === 0 && read("app/life-timeline/manage/draft-actions.ts").includes('revalidatePath("/people")'), revalidated);
+      check("⑬ 사용법 챗 — 인물록·장소록 = My Life 지도 안", read("app/api/tutorial-chat/route.ts").includes("- 인물록·장소록: My Life 지도 안에 있음."));
+    }
   } finally {
     await removeFixtures();
     console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B, EMAIL_C, EMAIL_D] } } }));

@@ -228,7 +228,7 @@ function synthetic(o: { events: number; stories: number; people: number; groups:
   const rnd = () => (x = (x * 1103515245 + 12345) % 2147483648) / 2147483648;
   const names = ["김민수", "박영수", "이순자", "정미숙", "한상철", "최영희", "강동원", "윤정아", "조성호", "임하늘", "송미란", "오세훈"];
   const people: MyLifePerson[] = Array.from({ length: o.people }, (_, i) => ({
-    id: `p${i}`, name: `${names[i % names.length]}${i >= names.length ? i : ""}`, relation: null, metYear: null, groupIds: [], body: "",
+    id: `p${i}`, name: `${names[i % names.length]}${i >= names.length ? i : ""}`, relation: null, metYear: null, birthYear: null, memo: null, groupIds: [], body: "",
   }));
   const groups = Array.from({ length: o.groups }, (_, g) => ({ id: `g${g}`, name: `모임${g}`, memberIds: [] as string[] }));
   for (const p of people) {
@@ -859,9 +859,9 @@ async function main() {
       const base: MyLifeData = {
         events: [ev("e1", [story("s1", "e1", chips0, "p9")]), ev("e2", [story("s1", "e1", chips0, "p9")])], // 같은 이야기가 두 시기에
         people: [
-          { id: "p0", name: "가", relation: null, metYear: null, groupIds: [], body: "" },
-          { id: "p1", name: "나", relation: null, metYear: null, groupIds: [], body: "" },
-          { id: "p9", name: "대상", relation: null, metYear: null, groupIds: [], body: "" },
+          { id: "p0", name: "가", relation: null, metYear: null, birthYear: null, memo: null, groupIds: [], body: "" },
+          { id: "p1", name: "나", relation: null, metYear: null, birthYear: null, memo: null, groupIds: [], body: "" },
+          { id: "p9", name: "대상", relation: null, metYear: null, birthYear: null, memo: null, groupIds: [], body: "" },
         ],
         groups: [],
         places: [{ id: "l1", name: "새곳", address: null, source: null, lat: null, lng: null, groupIds: [] }],
@@ -1077,11 +1077,11 @@ async function main() {
       C.alsoElsewhereShort === "다른 시기에도" && C.storyName("수학여행", ["철수"], C.alsoElsewhereShort) === "이야기, 수학여행, 함께: 철수, 다른 시기에도" &&
         C.storyName("수학여행", []) === "이야기, 수학여행" && view.includes("C.storyName(displayTitle(s), names, tagText(s))") &&
         C.panelAlsoIn("1971 고등학교 입학, 1975 대학교 입학") === "다른 시기에도 있어요: 1971 고등학교 입학, 1975 대학교 입학");
-    check("⑬ 패널 목록 제목 — 시기 패널 \"이 시기의 분들\"·\"이 시기의 장소\" / 이야기 패널 \"함께 나온 분\"·\"이야기에 나온 곳\"(이야기 상세와 같은 글) · 사람·장소 패널 이동 버튼",
+    check("⑬ 패널 목록 제목 — 시기 패널 \"이 시기의 분들\"·\"이 시기의 장소\" / 이야기 패널 \"함께 나온 분\"·\"이야기에 나온 곳\"(이야기 상세와 같은 글) · 장소 패널 지도 앱 버튼 · 사람 패널 /people 링크 없음(인물록 통합 2026-11-06)",
       edit.includes("sections.push({ title: C.panelPeriodPeople,") && edit.includes("sections.push({ title: C.panelPeriodPlaces,") &&
         edit.includes("title: C.panelWithPeople,") && edit.includes("sections.push({ title: C.panelWithPlaces, items: nn(story.chips") &&
         C.panelWithPeople === C.body.peopleTitle && C.panelWithPlaces === C.body.placesTitle &&
-        C.openPerson === "이 분 자세히 보기" && C.openMap === "지도 앱에서 열기" && view.includes("{C.openMap} ↗"));
+        !("openPerson" in C) && !view.includes("href={`/people/") && C.openMap === "지도 앱에서 열기" && view.includes("{C.openMap} ↗"));
     const side13 = src("app/timemachine/SidePanel.tsx");
     check("⑬ 사이드 메뉴 전부 — 이름·설명 18px(메뉴 항목 하나의 부품 MenuItem)",
       side13.includes('<span className="flex items-center gap-1.5 text-lg font-semibold text-ink">') && side13.includes('<span className="mt-0.5 text-lg text-ink-soft">{hint}</span>') &&

@@ -60,6 +60,9 @@ export type MyLifePerson = {
   metYear: number | null;
   groupIds: string[];
   body: string; // 이 분에 대해 적은 글(인물 본문 평문 — 없으면 빈 문자열, 2b-3c)
+  // 인물록 통합(2026-11-06) — 옛 /people 고치기 칸. 패널에 값이 있을 때만 보이고 [이름·정보 고치기]에서 고침. 분류(category)는 V3 화면에서 안 씀.
+  birthYear: number | null;
+  memo: string | null;
 };
 
 // 모임(memberIds = 사람 id)·장소 묶음(memberIds = 장소 id) 같은 모양.
@@ -133,7 +136,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
   const [peopleRows, groupRows, placeRows, placeGroupRows, bodyRows, decorRows] = await Promise.all([
     db.person.findMany({
       where: { userId, subjectType: "person", isDraft: false },
-      select: { id: true, name: true, relation: true, metYear: true },
+      select: { id: true, name: true, relation: true, metYear: true, birthYear: true, memo: true },
     }),
     db.personGroup.findMany({
       where: { userId },
@@ -242,7 +245,7 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
       groupIds: [...new Set(eventGroups.get(e.id) ?? [])],
     })),
     people: peopleRows
-      .map((p) => ({ id: p.id, name: p.name, relation: p.relation, metYear: p.metYear, groupIds: memberGroups.get(p.id) ?? [], body: bodyOf.get(`PERSON:${p.id}`)?.plainText ?? "" }))
+      .map((p) => ({ id: p.id, name: p.name, relation: p.relation, metYear: p.metYear, birthYear: p.birthYear, memo: p.memo, groupIds: memberGroups.get(p.id) ?? [], body: bodyOf.get(`PERSON:${p.id}`)?.plainText ?? "" }))
       .sort(byName),
     groups: groupRows.map((g) => ({ id: g.id, name: g.name, memberIds: g.members.map((m) => m.personId).filter((id) => personById.has(id)) })).sort(byName),
     places: placeRows.map((p) => ({ ...p, groupIds: placeGroupsOf.get(p.id) ?? [] })).sort(byName),

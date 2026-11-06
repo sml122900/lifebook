@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { peopleEntryRedirect } from "@/lib/people-entry";
 import { getBirthYear } from "@/lib/life-events";
 import { getPerson } from "@/lib/people";
 
@@ -18,6 +19,9 @@ export default async function EditPersonPage({ params }: Params) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
+  // 인물록 통합(2026-11-06) — V3 사용자는 My Life 인물록·장소록으로(lib/people-entry). V2 는 이 화면 그대로.
+  const toMyLife = await peopleEntryRedirect(userId, { page: "edit", personId });
+  if (toMyLife) redirect(toMyLife);
 
   const [person, birthYear] = await Promise.all([
     getPerson(userId, personId),
