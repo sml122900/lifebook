@@ -396,6 +396,25 @@ export const MY_LIFE_COPY = {
     kindOf: { LIFE_EVENT: "시기", EPISODE: "이야기", PERSON: "사람", PERSON_GROUP: "모임", PLACE: "장소", PLACE_GROUP: "장소 묶음", CATEGORY: "카테고리", GROUP: "묶음", ITEM: "항목" },
   },
 
+  // 지도 질문 답하기(custom-graph 3a — 2026-11-07, docs/phase/custom-graph.md §4.4·§6.8) — 전부 [임시 — 성민 확정 필요]
+  ask: {
+    open: "AI에게 물어보기", // 찾기 시트 안 버튼
+    title: "AI에게 물어보기",
+    hint: "지도에 적어 두신 것 안에서만 답해요. 지도를 바꾸지는 않아요.",
+    placeholder: "예: 고향 친구가 누구였지?",
+    submit: "물어보기",
+    pending: "지도를 살펴보는 중…",
+    asksChange: "지도를 고치는 일은 아직 못 해요. 지도에서 직접 고쳐 주세요.",
+    noRecord: "지도에 아직 없는 이야기예요.",
+    noRecordAbout: (topic: string) => `${topic}${withJosa(topic, "은/는")} 지도에 아직 없는 이야기예요.`,
+    errors: {
+      empty: "물어보실 말을 적어 주세요.",
+      limit: "오늘 물어보실 수 있는 만큼 다 물어보셨어요. 내일 다시 물어봐 주세요.",
+      budget: "오늘은 AI 답하기를 쉬어요. 찾기와 직접 고치기는 그대로 돼요.",
+      failed: "답을 가져오지 못했어요. 다시 해 주세요.",
+    },
+  },
+
   // 우주 개편 U1(2026-11-05 — docs/phase/ui-space.md §1·§3) — 확정 2026-11-05(성민). 아래 space 전부 확정.
   space: {
     regionAt: (period: string) => `My Life 지도 — 지금 보는 시기: ${period}`, // "지금 보는 곳" 줄을 뺀 대신(§6.2)

@@ -755,7 +755,7 @@ async function main() {
       check("⑬ 밤 1단계 — 뜻이 뒤집히는 곳 공통 값 한 곳: 주요 버튼 text-on-action(+ 밤 bg-action 글자 규칙) · 덮개 bg-scrim(My Life 대화상자 bg-ink 덮개 0) · 포커스 여백 = canvas(base 층) · 그림자 → 테두리 빛",
         src("components/ui/Button.tsx").includes('primary: "bg-action text-on-action hover:bg-action-hover",') &&
           /\[data-theme="night"\] \.bg-action \{\s*color: var\(--color-on-action\);/.test(css) &&
-          (view.match(/backdrop:bg-scrim/g) ?? []).length === 4 && !/bg-ink\//.test(view) &&
+          (view.match(/backdrop:bg-scrim/g) ?? []).length === 5 && !/bg-ink\//.test(view) &&
           /@layer base \{[\s\S]*\[data-theme="night"\] \*,[\s\S]*--tw-ring-offset-color: var\(--color-canvas\);/.test(css) &&
           css.includes('[data-theme="night"] :is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {') &&
           css.includes("--color-on-action: #ffffff;") && css.includes("--color-scrim: rgb(42 37 32 / 0.4);"));

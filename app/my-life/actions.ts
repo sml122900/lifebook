@@ -13,6 +13,7 @@ import { moveEpisodeToLifeEvent, undoMoveEpisode, type MoveUndo } from "@/lib/ep
 import type { SameNameNode } from "@/lib/custom-node";
 import type { NodeType } from "@/lib/generated/prisma/enums";
 import { deleteCustomLifeEvent } from "@/lib/life-event-delete";
+import { askMap, type AskMapAnswer, type AskMapResult } from "@/lib/map-agent";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import {
   addLink,
@@ -48,6 +49,9 @@ import { NODE_RANK, type NodeRef } from "@/lib/node-graph";
 import { deletePerson } from "@/lib/people";
 
 const E = MY_LIFE_COPY.edit;
+
+// 지도 질문 답하기(custom-graph 3a) — 읽기만. 화면에는 답만(원가·토큰은 원장에).
+export type AskMapView = { ok: true; answer: AskMapAnswer } | Extract<AskMapResult, { ok: false }>;
 
 async function requireUserId(): Promise<string> {
   const session = await auth();
@@ -274,4 +278,11 @@ export async function takeOutAction(categoryId: string, node: NodeRef): Promise<
   const r = ref(node);
   if (typeof categoryId !== "string" || !categoryId || !r) return { ok: false, error: E.notFound };
   return takeOutOfCategory(userId, categoryId, r);
+}
+
+// 지도 질문 답하기(custom-graph 3a — §4.4). 지도를 바꾸지 않는다(도구 = 찾기·읽기·답). 사용자는 세션에서만.
+export async function askMapAction(question: string): Promise<AskMapView> {
+  const userId = await requireUserId();
+  const r = await askMap(userId, question);
+  return r.ok ? { ok: true, answer: r.answer } : r;
 }

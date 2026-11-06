@@ -10,7 +10,7 @@
 
 import { prisma } from "./db";
 
-export type ChatUsagePurpose = "REPLY" | "PROPOSAL" | "INTERVIEW_PROPOSAL";
+export type ChatUsagePurpose = "REPLY" | "PROPOSAL" | "INTERVIEW_PROPOSAL" | "MAP_ASK"; // MAP_ASK = 지도 질문 하나에 한 줄(사용자당 하루 상한이 이 줄 수를 셈 — lib/map-agent)
 
 const DEFAULT_DAILY_BUDGET_USD = 5;
 const DEFAULT_TEST_BUDGET_USD = 10;

@@ -58,6 +58,7 @@ import { displayTitle, hasOwnTitle, shortTitle } from "@/lib/story-title";
 
 import { ConflictReload } from "./_body/ConflictReload";
 import { addLinkAction, setDecorationAction, undoCreateAction, undoLinksAction, undoMoveAction } from "./actions";
+import { AskSheet } from "./AskSheet";
 import { builtinName, CategoryListSections, CategoryRegions, CategorySheet, customName, customPanelInfo } from "./Custom";
 import { DecorArt } from "./Decor";
 import { beginPress, dragJustEnded, lockPanZoom, type DropResult, type OptLinks } from "./drag";
@@ -262,6 +263,8 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
   if (pickKey && panel !== pickKey) setPickKey(null);
   const [panelFromSat, setPanelFromSat] = useState(false); // 위성(바로가기)에서 연 사람·장소·모임 패널 — [원래 자리로 가기](U2 §2.3)
   const [findOpen, setFindOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
+  const [askSeed, setAskSeed] = useState<string | null>(null); // 한 번 연 뒤로 시트 내용을 남김(칩으로 지도에 갔다 다시 열어도 답이 보임)
   const [suggestOpen, setSuggestOpen] = useState(false); // 지도 보기 [이야기 거리] 시트(Q69)
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(
     initialFocus ? { key: initialFocus.key, n: 1 } : null,
@@ -270,6 +273,7 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
   const openedAtRef = useRef(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const findRef = useRef<HTMLDialogElement>(null);
+  const askRef = useRef<HTMLDialogElement>(null);
   const suggestRef = useRef<HTMLDialogElement>(null);
 
   const layout = useMemo(
@@ -313,6 +317,13 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
     if (findOpen && !d.open) d.showModal();
     if (!findOpen && d.open) d.close();
   }, [findOpen]);
+
+  useEffect(() => {
+    const d = askRef.current;
+    if (!d) return;
+    if (askOpen && !d.open) d.showModal();
+    if (!askOpen && d.open) d.close();
+  }, [askOpen]);
 
   useEffect(() => {
     const d = suggestRef.current;
@@ -492,6 +503,13 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
     setFindOpen(true);
   }
 
+  // 지도 질문 답하기(custom-graph 3a) — 찾기 시트에 적던 말을 이어서. 적은 말 없이 다시 열면 지난 답 그대로.
+  function openAsk(q: string) {
+    setFindOpen(false);
+    if (q.trim() || askSeed === null) setAskSeed(q);
+    setAskOpen(true);
+  }
+
   function openSuggest() {
     setMapNotice(null);
     setSuggestOpen(true);
@@ -622,7 +640,29 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
         }}
         className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[75dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-scrim"
       >
-        {findOpen && <FindSheet data={data} onPick={(r) => goTo(r.key, r.eventId)} onClose={() => findRef.current?.close()} />}
+        {findOpen && <FindSheet data={data} onPick={(r) => goTo(r.key, r.eventId)} onAsk={openAsk} onClose={() => findRef.current?.close()} />}
+      </dialog>
+
+      <dialog
+        ref={askRef}
+        aria-labelledby="mylife-ask-title"
+        onClose={() => setAskOpen(false)}
+        onClick={(e) => {
+          if (e.target === askRef.current) askRef.current.close();
+        }}
+        className="inset-x-0 bottom-0 top-auto mx-auto mb-0 max-h-[75dvh] w-full max-w-2xl overflow-y-auto rounded-t-md border-2 border-b-0 border-line bg-surface p-0 text-ink backdrop:bg-scrim"
+      >
+        {askSeed !== null && (
+          <AskSheet
+            key={askSeed}
+            seed={askSeed}
+            onGo={(key, eventId) => {
+              setAskOpen(false);
+              goTo(key, eventId);
+            }}
+            onClose={() => askRef.current?.close()}
+          />
+        )}
       </dialog>
 
       <dialog
@@ -942,7 +982,9 @@ function MapMode({
     focusDoneRef.current = focusRequest.n;
     const key = focusRequest.key;
     if (focusRequest.keep) requestAnimationFrame(() => ensureVisible(key));
-    else apiRef.current?.zoomToElement(el, Math.max(stateRef.current.scale, 1), 300);
+    // 두 프레임 뒤 — 첫 선택이면 선택 줄이 생겨 지도 상자 높이가 바뀌고(ResizeObserver → 다시 그림) 그때 이동 애니메이션이 끊겼다
+    // (2026-11-07 실측: 찾기·AI 답 칩 → 선택은 되는데 화면 밖 노드로 안 감).
+    else requestAnimationFrame(() => requestAnimationFrame(() => apiRef.current?.zoomToElement(el, Math.max(stateRef.current.scale, 1), 300)));
     // 검색 시트·패널(<dialog>)이 닫히며 포커스를 연 버튼으로 되돌리므로, 그 뒤에 노드로 옮긴다.
     setTimeout(() => el.focus({ preventScroll: true }), 60);
   }, [focusRequest, layout, ready, ensureVisible]);
@@ -2286,7 +2328,7 @@ const KIND_LABEL: Record<SearchResult["kind"], string> = {
   item: C.custom.kindItem,
 };
 
-function FindSheet({ data, onPick, onClose }: { data: MyLifeData; onPick: (r: SearchResult) => void; onClose: () => void }) {
+function FindSheet({ data, onPick, onAsk, onClose }: { data: MyLifeData; onPick: (r: SearchResult) => void; onAsk: (q: string) => void; onClose: () => void }) {
   const [q, setQ] = useState("");
   const [query, setQuery] = useState("");
   useEffect(() => {
@@ -2308,6 +2350,9 @@ function FindSheet({ data, onPick, onClose }: { data: MyLifeData; onPick: (r: Se
         aria-label={C.findTitle}
         className="min-h-[56px] w-full rounded-md border-2 border-line bg-surface px-4 text-lg text-ink placeholder:text-ink-soft focus:border-brand focus:outline-none"
       />
+      <Button variant="secondary" size="lg" onClick={() => onAsk(q)}>
+        {C.ask.open}
+      </Button>
       {query.trim() !== "" && (
         <p className="text-lg text-ink-soft" aria-live="polite">
           {results.length === 0 ? C.findNone : C.findCount(results.length)}

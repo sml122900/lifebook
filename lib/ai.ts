@@ -161,6 +161,11 @@ export async function chat(
   };
 }
 
+// 도구 루프(지도 질문 답하기 — lib/map-agent)용 — 응답을 그대로 돌려준다. 같은 운영 키. 토큰 차감 없음(도그푸딩 — 원가는 호출자가 원장에).
+export function sendMessage(params: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message> {
+  return getClient().messages.create(params);
+}
+
 // Phase V1 — 타임머신 비서가 사용하는 웹 검색 경로.
 //
 // chat() 과 분리한 이유:

@@ -20,6 +20,9 @@ import type { MyLifeSuggest } from "./Suggestions";
 // 여기서 만든다 — 목록 보기에 보이고, 지도 보기는 [이야기 거리] 시트. 정리할 것(인물 확인 대기) 카드는 2026-11-03
 // 인물 확인 화면과 함께 삭제(docs/phase/my-life-restructure.md §15.6).
 
+// 지도 질문 답하기(custom-graph 3a) 서버 액션이 이 화면 함수에서 돈다 — 모델을 여러 라운드 부르니 기본 시간 상한보다 길게(/lab/memory/ask 와 같음).
+export const maxDuration = 60;
+
 export default async function MyLifePage() {
   const session = await auth();
   if (!session?.user?.id) {
