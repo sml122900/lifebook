@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useFormStatus } from "react-dom";
 
 import { allConsentChecked, ConsentChecklist, type ConsentChecked } from "@/app/consent/ConsentChecklist";
@@ -20,6 +20,9 @@ const BUTTON: Record<Method, string> = {
   google: "text-lg font-semibold border border-brand bg-surface text-action hover:bg-banner focus-visible:ring-brand",
   email: "text-lg font-semibold border border-line bg-surface text-ink hover:bg-banner focus-visible:ring-brand",
 };
+
+// 하이드레이션 여부만 보는 useSyncExternalStore 용 — 바뀌는 외부 값이 없어 구독할 것도 없다.
+const noopSubscribe = () => () => {};
 
 function MethodButton({ method, enabled }: { method: Method; enabled: boolean }) {
   const { pending } = useFormStatus();
@@ -45,11 +48,12 @@ function MethodButton({ method, enabled }: { method: Method; enabled: boolean })
 export function JoinForm({ first, consentError }: { first: Method | null; consentError: boolean }) {
   const [checked, setChecked] = useState<ConsentChecked>({});
   const ok = allConsentChecked(checked);
+  const ready = useSyncExternalStore(noopSubscribe, () => true, () => false); // 하이드레이션 전 false — 체크칸 잠금(ConsentChecklist)
   const order: Method[] = ["kakao", "naver", "google", "email"];
   const methods = first ? [first, ...order.filter((m) => m !== first)] : order;
   return (
     <form action={joinAction} className="flex flex-col gap-8">
-      <ConsentChecklist checked={checked} onChange={setChecked} />
+      <ConsentChecklist checked={checked} onChange={setChecked} ready={ready} />
       <section className="flex flex-col gap-4" aria-labelledby="join-methods">
         <h2 id="join-methods" className="m-0 text-2xl font-bold text-ink">
           {C.methodsTitle}
@@ -61,7 +65,7 @@ export function JoinForm({ first, consentError }: { first: Method | null; consen
               {C.consentError}
             </p>
           ) : (
-            <p className="m-0 text-lg text-ink-soft">{C.needAll}</p>
+            <p className="m-0 text-lg text-ink-soft">{ready ? C.needAll : C.preparing}</p>
           ))}
         {methods.map((m) => (
           <div key={m} className="flex flex-col gap-2">

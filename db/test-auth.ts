@@ -11,6 +11,8 @@
 //   ④ auth() 요청 단위 재사용(2026-11-05) — React cache 로 감싼 Node 인스턴스 · jwt 콜백은 그대로 DB 동의 상태를 읽음 ·
 //      proxy 는 따로(Edge) 인스턴스 · 앱 호출은 전부 인자 없이 · 동의 흐름 코드(폼 → update() → /enter · ConsentSessionSync · /enter 게이트) 그대로.
 //      화면 흐름(게이트·동의 직후 세션 갱신·쿠키만 옛 값·/enter)은 브라우저 실측으로 전후 같음 확인(docs 기록).
+//   ⑤ 동의 화면 준비 전 잠금(2026-11-06) — 서버 그림의 체크칸 4개가 잠겨 있음(준비 전 클릭 무시) · /consent 준비 = 첫 세션 응답 뒤(update() 가
+//      첫 세션을 받는 중이면 아무것도 안 함) · /join 준비 = 하이드레이션 뒤. 0초 제출 3회는 브라우저 실측(회귀 세트에 브라우저가 없어 docs 기록).
 //
 // 자체 픽스처 계정만 만들고 지운다(test30·실고객 접촉 0). 실행: npx tsx db/test-auth.ts
 
@@ -19,6 +21,10 @@ import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
 
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import { ConsentChecklist } from "../app/consent/ConsentChecklist";
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
 import { makeAuthAdapter } from "../lib/auth-adapter";
@@ -213,6 +219,15 @@ async function main() {
         read("app/consent/ConsentSessionSync.tsx").includes(`void update().finally(() => router.replace("/enter"));`) &&
         read("app/enter/page.tsx").includes(`if ((session.consentVersion ?? 0) < CURRENT_CONSENT_VERSION) redirect("/consent");`),
       withArgs);
+
+    // ── ⑤ 동의 화면 준비 전 잠금 ──────
+    const countDisabled = (ready: boolean) =>
+      (renderToStaticMarkup(createElement(ConsentChecklist, { checked: {}, onChange: () => {}, ready })).match(/<input[^>]*type="checkbox"[^>]*>/g) ?? []).filter((t) => t.includes(` disabled=""`)).length;
+    check("⑤ 준비 전 그림 — 체크칸 4개 전부 잠김(브라우저가 클릭을 받지 않음) · 준비 뒤 0개", countDisabled(false) === 4 && countDisabled(true) === 0, [countDisabled(false), countDisabled(true)]);
+    const consentSrc = read("app/consent/ConsentForm.tsx");
+    check("⑤ /consent — 준비 = 첫 세션 응답 뒤 · 제출 가능 = 준비 + 모두 동의 · 체크칸에 전달", consentSrc.includes(`const ready = status !== "loading";`) && consentSrc.includes("const canSubmit = ready && allConsentChecked(checked);") && consentSrc.includes("ready={ready}"));
+    const joinSrc = read("app/join/JoinForm.tsx");
+    check("⑤ /join — 준비 = 하이드레이션 뒤(서버 그림 false) · 체크칸에 전달 · 안내 문구", joinSrc.includes("const ready = useSyncExternalStore(noopSubscribe, () => true, () => false);") && joinSrc.includes("ready={ready}") && joinSrc.includes("C.preparing"));
   } finally {
     await removeFixtures();
     await prisma.user.deleteMany({ where: { email: "fixture-auth-short@lifebook.invalid" } });

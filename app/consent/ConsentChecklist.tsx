@@ -47,7 +47,9 @@ export const REQUIRED_ITEMS = [
 export type ConsentChecked = Record<string, boolean>;
 export const allConsentChecked = (checked: ConsentChecked) => REQUIRED_ITEMS.every((i) => checked[i.key]);
 
-export function ConsentChecklist({ checked, onChange }: { checked: ConsentChecked; onChange: (next: ConsentChecked) => void }) {
+// ready = 화면이 눌림을 받을 준비가 됐는지(하이드레이션 전 false). 준비 전에는 체크칸을 잠근다 — 잠그지 않으면 브라우저가 칸을 체크해 보여
+// 주지만 React 는 모르는 값이라 하이드레이션 때 조용히 풀렸다(2026-11-06 실측: 0.06초 클릭 → 체크 표시 → 사라짐).
+export function ConsentChecklist({ checked, onChange, ready }: { checked: ConsentChecked; onChange: (next: ConsentChecked) => void; ready: boolean }) {
   const allChecked = allConsentChecked(checked);
   return (
     <>
@@ -63,6 +65,7 @@ export function ConsentChecklist({ checked, onChange }: { checked: ConsentChecke
         <input
           type="checkbox"
           checked={allChecked}
+          disabled={!ready}
           onChange={(e) => onChange(Object.fromEntries(REQUIRED_ITEMS.map((i) => [i.key, e.target.checked])))}
           className="h-6 w-6 accent-action"
         />
@@ -80,6 +83,7 @@ export function ConsentChecklist({ checked, onChange }: { checked: ConsentChecke
                 type="checkbox"
                 name={item.key}
                 checked={checked[item.key] ?? false}
+                disabled={!ready}
                 onChange={(e) => onChange({ ...checked, [item.key]: e.target.checked })}
                 className="mt-1 h-6 w-6 accent-action"
               />

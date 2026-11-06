@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { saveConsent } from "./actions";
+import { JOIN_COPY } from "@/lib/join-copy";
+
 import { allConsentChecked, ConsentChecklist, type ConsentChecked } from "./ConsentChecklist";
 
 // 동의 폼(클라) — 이미 있는 계정의 동의(이전 버전 동의자 재동의·동의 전 옛 계정). 새 가입은 계정을 만들기 전에
@@ -13,10 +15,13 @@ import { allConsentChecked, ConsentChecklist, type ConsentChecked } from "./Cons
 export function ConsentForm() {
   const [checked, setChecked] = useState<ConsentChecked>({});
   const [submitting, setSubmitting] = useState(false);
-  const { update } = useSession();
+  const { status, update } = useSession();
   const router = useRouter();
 
-  const canSubmit = allConsentChecked(checked);
+  // 준비 = 하이드레이션 + 첫 세션 응답(서버 그림·하이드레이션 때 status 는 "loading"). update() 는 첫 세션을 받는 중이면 아무것도 안 하고
+  // 돌아온다 — 그때 제출하면 저장은 되는데 쿠키가 옛 값이라 /enter → /consent 로 돌아와 "저장 중..." 에 멈췄다(2026-11-06 실측 3/3).
+  const ready = status !== "loading";
+  const canSubmit = ready && allConsentChecked(checked);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,14 +36,14 @@ export function ConsentForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-8">
-      <ConsentChecklist checked={checked} onChange={setChecked} />
+      <ConsentChecklist checked={checked} onChange={setChecked} ready={ready} />
 
       <button
         type="submit"
         disabled={!canSubmit || submitting}
         className="rounded-md bg-action px-6 py-4 text-lg font-semibold text-on-action hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50 disabled:text-ink-faint"
       >
-        {submitting ? "저장 중..." : "시작하기"}
+        {submitting ? "저장 중..." : ready ? "시작하기" : JOIN_COPY.preparing}
       </button>
     </form>
   );
