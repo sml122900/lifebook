@@ -384,3 +384,17 @@
 | 항목 글 화면(2) | `itemTitle(이름)` "○○ — 글" · `itemIntro` | /my-life/item/[id]/edit·history |
 | 오류(1) | `limit` "더 만들 수 없어요. 카테고리는 18개, 항목과 묶음은 300개까지예요." | 만들기 |
 | 종류 이름표(`kindOf` 9) | 시기·이야기·사람·모임·장소·장소 묶음·카테고리·묶음·항목 | 고르기 목록 아래 줄·되묻기 후보 |
+
+**조사 점검(2026-11-06 — 62키 전부, 회귀 `test-my-life` ⑬: 실제 값 + 변수 바로 뒤 조사 글자 0).** 받침에 따라 갈리는 조사는 `moved`·`sameNameTitle` 둘이고 둘 다 `lib/josa`. 문구 자체 확정은 도그푸딩 직전에 이 문서로 한꺼번에(CLAUDE.md 열린 결정).
+
+| 키 | 변수 뒤 | 판정 |
+|---|---|---|
+| `moved(이름)` | `withJosa(이름, "으로/로")` | OK — 취미로·물건으로·서울로·Paul로·3으로 |
+| `sameNameTitle(이름)` | `‘이름’` + `withJosa(이름, "이/가")` | OK — ‘초롱이’가·‘사진첩’이·‘Paul’이·‘2’가 |
+| `addName(라벨, 카테고리)` | `카테고리` 뒤 "에" · `라벨` 뒤 " 추가" | OK — "에"는 받침 무관 |
+| `refIn(카테고리)` | `‘카테고리’` 뒤 "에" | OK — 받침 무관 |
+| `refName(이름, 자리)` | `이름` 뒤 "," · `자리` 뒤 "에" | OK — 받침 무관 |
+| `titleName(이름, n)` · `groupLabelName(이름, n)` · `itemName(이름, 카테고리)` · `groupChipName(이름, 보임)` | 이름·카테고리 뒤 "," 또는 끝 | OK — 조사 없음 |
+| `itemTitle(이름)` | `이름` 뒤 " — 글" | OK — 조사 없음 |
+| `count(n)` · `more(n)` · `deleteCatNote(n, m)` · `deleteGroupNote(n)` · `deleteItemNote(n)` | 수 뒤 단위 "개"·"곳" | OK — 조사는 단위 뒤라 고정 |
+| 나머지 47키(`custom` 41 — `kindCategory`·`kindGroup`·`kindItem`·`addItem`·`addGroup`·`putIn`·`putInHint`·`unfold`·`fold`·`less`·`noGroup`·`empty`·`groupEmpty`·`toCategories`·`categoriesTitle`·`rename`·`builtinNote`·`moveTo`·`moveTitle`·`deleteItemBody`·`goOrigin`·`takeOut`·`takenOut`·`where`·`sameNameHint`·`putThis`·`makeNewItem`·`makeNewGroup`·`sectionContains`·`sectionRelated`·`sectionIn`·`sectionItems`·`sectionCats`·`relate`·`intoGroup`·`intoCategory`·`itemWrite`·`itemEdit`·`itemIntro`·`limit`·`kindOf` · `edit.kinds` 3 · `edit.kindHints` 3) | 변수 없음 | OK |

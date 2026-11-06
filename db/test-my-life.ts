@@ -1009,6 +1009,21 @@ async function main() {
         ro.join(" ") === "서울로 부산으로 대구로 Paul로 Tom으로 1로 3으로" &&
           C.edit.reused("교실") === "이미 있는 교실로 했어요." && C.edit.moveConfirm("소풍", "1971 고등학교 입학").endsWith("1971 고등학교 입학으로 옮길까요?"),
         ro);
+      // custom-graph 2단계 임시 문구 62키 조사 점검(2026-11-06 — 점검 표 docs/temp-copy-inventory.md). 이름 바로 뒤 조사는 lib/josa 로.
+      const X13 = C.custom;
+      const same = ["초롱이", "강아지", "사진첩", "물건", "Paul", "Tom", "Mary", "7", "2"].map((w) => X13.sameNameTitle(w));
+      const movedTo = ["취미", "물건", "서울", "Paul", "Tom", "1", "3"].map((w) => X13.moved(w));
+      check("⑬ 사용자 카테고리 조사 — sameNameTitle 이/가(받침·읽는 소리) · moved 으로/로(ㄹ 받침 = 로)",
+        same.join("|") ===
+          "지도에 ‘초롱이’가 이미 있어요|지도에 ‘강아지’가 이미 있어요|지도에 ‘사진첩’이 이미 있어요|지도에 ‘물건’이 이미 있어요|지도에 ‘Paul’이 이미 있어요|지도에 ‘Tom’이 이미 있어요|지도에 ‘Mary’가 이미 있어요|지도에 ‘7’이 이미 있어요|지도에 ‘2’가 이미 있어요" &&
+          movedTo.join("|") === "취미로 옮겼어요.|물건으로 옮겼어요.|서울로 옮겼어요.|Paul로 옮겼어요.|Tom으로 옮겼어요.|1로 옮겼어요.|3으로 옮겼어요.",
+        [same, movedTo]);
+      // 받침에 따라 갈리는 조사가 변수 바로 뒤에 글자로 적힌 곳 0(문구 파일·My Life 화면) — 있으면 withJosa 로.
+      const rawJosa = ["lib/my-life-copy.ts", ...fs.readdirSync(path.resolve(__dirname, "..", "app/my-life")).filter((f) => /[.]tsx?$/.test(f)).map((f) => `app/my-life/${f}`)]
+        .flatMap((f) => src(f).split(String.fromCharCode(10)).map((l, i) => [f, i + 1, l] as const))
+        .filter(([, , l]) => new RegExp("[$][{][^}]+[}][’'\"”)]?(이|가|을|를|은|는|과|와|으로|로|이랑|랑|아|야)(?![가-힣])").test(l))
+        .map(([f, n]) => `${f}:${n}`);
+      check("⑬ 변수 바로 뒤 조사 글자 0(lib/my-life-copy·app/my-life) — 받침 따라 갈리는 조사는 lib/josa 만", rawJosa.length === 0, rawJosa);
       check("⑬ U4 꾸미기 목록 — 확정 8종 키·이름·순서(고리·혜성 꼬리·오로라·별빛 가루·태양 플레어·소용돌이·쌍둥이 별·블랙홀) · 목록 밖 값 거름 · dropFailed 확정 문구",
         DECOR_SHAPES.map((d) => `${d.key}:${d.name}`).join(",") ===
           "ring:고리,comet:혜성 꼬리,aurora:오로라,stardust:별빛 가루,flare:태양 플레어,vortex:소용돌이,binary:쌍둥이 별,blackhole:블랙홀" &&
