@@ -13,6 +13,7 @@
 //      화면 흐름(게이트·동의 직후 세션 갱신·쿠키만 옛 값·/enter)은 브라우저 실측으로 전후 같음 확인(docs 기록).
 //   ⑤ 동의 화면 준비 전 잠금(2026-11-06) — 서버 그림의 체크칸 4개가 잠겨 있음(준비 전 클릭 무시) · /consent 준비 = 첫 세션 응답 뒤(update() 가
 //      첫 세션을 받는 중이면 아무것도 안 함) · /join 준비 = 하이드레이션 뒤. 0초 제출 3회는 브라우저 실측(회귀 세트에 브라우저가 없어 docs 기록).
+//      제출 뒤 실패(2026-11-07) — 세션 갱신 실패 = 오류 문구 + [다시 시도](갱신만 — 다시 저장 안 함) · 저장 실패 = 오류 문구 + 다시 제출. 네트워크를 끊은 경우는 브라우저 실측.
 //
 // 자체 픽스처 계정만 만들고 지운다(test30·실고객 접촉 0). 실행: npx tsx db/test-auth.ts
 
@@ -215,7 +216,7 @@ async function main() {
     const withArgs = ["app", "lib", "components"].flatMap(walk).filter((f) => /from "@\/auth"/.test(read(f)) && /[^.\w]auth\([^)]/.test(read(f)));
     check("④ 앱의 auth() 호출은 전부 인자 없이(cache 열쇠가 하나) · 동의 흐름 코드 그대로(동의 폼 = 저장 → update() → /enter · 쿠키가 옛 값이면 ConsentSessionSync = update() → /enter · /enter = 세션 동의 버전 < 지금 → /consent)",
       withArgs.length === 0 &&
-        read("app/consent/ConsentForm.tsx").includes("await saveConsent(formData);") && read("app/consent/ConsentForm.tsx").includes("await update();") && read("app/consent/ConsentForm.tsx").includes(`router.push("/enter");`) &&
+        read("app/consent/ConsentForm.tsx").includes("await saveConsent(formData);") && read("app/consent/ConsentForm.tsx").includes("const session = await update();") && read("app/consent/ConsentForm.tsx").includes(`router.push("/enter");`) &&
         read("app/consent/ConsentSessionSync.tsx").includes(`void update().finally(() => router.replace("/enter"));`) &&
         read("app/enter/page.tsx").includes(`if ((session.consentVersion ?? 0) < CURRENT_CONSENT_VERSION) redirect("/consent");`),
       withArgs);
@@ -225,7 +226,11 @@ async function main() {
       (renderToStaticMarkup(createElement(ConsentChecklist, { checked: {}, onChange: () => {}, ready })).match(/<input[^>]*type="checkbox"[^>]*>/g) ?? []).filter((t) => t.includes(` disabled=""`)).length;
     check("⑤ 준비 전 그림 — 체크칸 4개 전부 잠김(브라우저가 클릭을 받지 않음) · 준비 뒤 0개", countDisabled(false) === 4 && countDisabled(true) === 0, [countDisabled(false), countDisabled(true)]);
     const consentSrc = read("app/consent/ConsentForm.tsx");
-    check("⑤ /consent — 준비 = 첫 세션 응답 뒤 · 제출 가능 = 준비 + 모두 동의 · 체크칸에 전달", consentSrc.includes(`const ready = status !== "loading";`) && consentSrc.includes("const canSubmit = ready && allConsentChecked(checked);") && consentSrc.includes("ready={ready}"));
+    check("⑤ /consent — 준비 = 첫 세션 응답 뒤 · 제출 가능 = 준비 + 모두 동의 · 체크칸에 전달", consentSrc.includes(`const ready = status !== "loading";`) && consentSrc.includes("const canSubmit = ready && allConsentChecked(checked);") && consentSrc.includes(`ready={ready && phase !== "syncFailed"}`));
+    check("⑤ /consent 제출 뒤 실패 — 세션 갱신 실패 = syncFailed(저장은 한 번만, 다시 시도 = syncSession 만) · 저장 실패 = saveFailed · 멈춤 없음 · 문구 [임시]",
+      (consentSrc.match(/saveConsent\(/g) ?? []).length === 1 && consentSrc.includes("if (!session) {") && consentSrc.includes('setPhase("syncFailed");') && consentSrc.includes('setPhase("saveFailed");') &&
+        consentSrc.includes("onClick={syncSession}") && consentSrc.includes("{JOIN_COPY.retry}") &&
+        read("lib/join-copy.ts").split("\n").filter((l) => /^  (saveFailed|syncFailed|retry):/.test(l) && l.includes("[임시")).length === 3);
     const joinSrc = read("app/join/JoinForm.tsx");
     check("⑤ /join — 준비 = 하이드레이션 뒤(서버 그림 false) · 체크칸에 전달 · 안내 문구", joinSrc.includes("const ready = useSyncExternalStore(noopSubscribe, () => true, () => false);") && joinSrc.includes("ready={ready}") && joinSrc.includes("C.preparing"));
   } finally {
