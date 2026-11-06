@@ -149,6 +149,11 @@ body[data-proposal-card] [data-assistant-fab] {
     background: radial-gradient(circle at 34% 30%, #f0f8ff 0, #9ccbf5 60%, #6aa6e3 100%);
     color: #06223d;
   }
+  /* 사용자 항목(custom-graph 2단계 — §6.6 P3): 난초색 계열 — 사람(초록)·장소(파랑)와 구분, 테두리 music */
+  .moon-custom {
+    background: radial-gradient(circle at 34% 30%, #fbf0ff 0, #dcb4f0 60%, #b98ad8 100%);
+    color: #34114a;
+  }
   /* 끌어 넣기(U3 — ui-space §4, app/my-life/drag.ts). 끄는 것 = 길게 눌러도 글자 고르기·길게 누르기 메뉴가 안 뜨게. */
   [data-drag] {
     -webkit-touch-callout: none;

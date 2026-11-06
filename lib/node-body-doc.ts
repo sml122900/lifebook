@@ -11,7 +11,7 @@ export type BodyBlock =
   | { type: "heading"; text: string }
   | { type: "photo"; photoId: string; caption?: string }; // caption 없음 = 지금 캡션 그대로
 export type BodyDoc = { v: 1; blocks: BodyBlock[] };
-export type BodyNodeType = "EPISODE" | "PERSON";
+export type BodyNodeType = "EPISODE" | "PERSON" | "CUSTOM"; // CUSTOM = 사용자 항목(custom-graph 2단계 — Q78)
 
 // 평문 → 문단(빈 줄 기준).
 export function paragraphsOf(plain: string): string[] {

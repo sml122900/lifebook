@@ -31,6 +31,7 @@ import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from 
 import { updateEpisodeContentAction } from "@/app/actions/episode";
 import { Button, ButtonLink, buttonClasses } from "@/components/ui/Button";
 import type { MyLifeChip, MyLifeData, MyLifeEvent, MyLifeGroup, MyLifePerson, MyLifePlace, MyLifeStory } from "@/lib/my-life";
+import { customOf } from "@/lib/my-life-custom";
 import { MY_LIFE_COPY as C } from "@/lib/my-life-copy";
 import { selectionEdges, type EdgeToggles } from "@/lib/my-life-edges";
 import { shapeRadiusCss } from "@/lib/my-life-group-shape";
@@ -57,9 +58,10 @@ import { displayTitle, hasOwnTitle, shortTitle } from "@/lib/story-title";
 
 import { ConflictReload } from "./_body/ConflictReload";
 import { addLinkAction, setDecorationAction, undoCreateAction, undoLinksAction, undoMoveAction } from "./actions";
+import { builtinName, CategoryListSections, CategoryRegions, CategorySheet, customName, customPanelInfo } from "./Custom";
 import { DecorArt } from "./Decor";
 import { beginPress, dragJustEnded, lockPanZoom, type DropResult, type OptLinks } from "./drag";
-import { CreateSheet, NodeEditor, type CreateKind, type Created, type Notice } from "./EditUI";
+import { CreateSheet, NodeEditor, type CreateKind, type Created, type CreatePreset, type Notice } from "./EditUI";
 import { animateClose, animateOpen, observeOrbits, readMotion, resyncOrbits, snapshotSats, subscribeMotion, writeMotion } from "./orbit";
 import { GapCards, InterviewEntryCard, type MyLifeSuggest } from "./Suggestions";
 
@@ -77,7 +79,7 @@ const ALL_EDGES: EdgeToggles = { person: true, place: true }; // U1 — 간선 �
 const ORBIT_CSS = orbitCss([L.PLANET_STORY, ...L.PLANET_PERIOD]);
 const PLANET_KINDS = new Set(["event", "story"]);
 
-type Saved = { scale: number; x: number; y: number; folded: string[]; shownGroups: string[]; shownPlaceGroups?: string[]; edges: EdgeToggles };
+type Saved = { scale: number; x: number; y: number; folded: string[]; shownGroups: string[]; shownPlaceGroups?: string[]; openCats?: string[]; edges: EdgeToggles };
 
 function readSaved(): Saved | null {
   try {
@@ -186,8 +188,7 @@ function nodeName(key: string, data: MyLifeData, idx: Index): string {
   if (kind === "pl") return idx.placeById.get(a)?.name ?? "";
   if (kind === "gl" || kind === "gc") return idx.groupById.get(a)?.name ?? "";
   if (kind === "pgl" || kind === "pgc") return idx.placeGroupById.get(a)?.name ?? "";
-  void data;
-  return "";
+  return customName(key, data) ?? ""; // 사용자 카테고리·묶음·항목·기본 카테고리(custom-graph 2단계)
 }
 
 // ── 화면 ────────────────────────────────────────────────────────────
@@ -211,7 +212,7 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
   // 그 띠는 펼치고, 선택 + 지도 이동(MapMode 의 focusRequest 이펙트가 준비된 뒤 옮긴다).
   const [initialFocus] = useState(() => {
     const key = searchParams.get("focus");
-    if (!key || !/^(ev|st|pe|pl|gl|pgl):/.test(key)) return null;
+    if (!key || !/^(ev|st|pe|pl|gl|pgl|cat|cgl|cn):/.test(key)) return null;
     const eventId = key.startsWith("st:") || key.startsWith("ev:") ? key.split(":")[1] : null;
     if (eventId && !data.events.some((e) => e.id === eventId)) return null;
     return { key, eventId };
@@ -236,6 +237,13 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
   );
   const [shownGroups, setShownGroups] = useState<string[]>([]);
   const [shownPlaceGroups, setShownPlaceGroups] = useState<string[]>([]);
+  // 사용자 카테고리(custom-graph 2단계): 펼친 카테고리(6개 이상일 때 — 같은 탭 기억) · [N개 더 보기]를 연 카테고리 · 칩으로 고른 묶음.
+  const [openCats, setOpenCats] = useState<Set<string>>(new Set());
+  const [moreCats, setMoreCats] = useState<Set<string>>(new Set());
+  const [shownCustomGroups, setShownCustomGroups] = useState<string[]>([]);
+  const [panelFromCat, setPanelFromCat] = useState<string | null>(null); // 바로가기로 연 원래 노드 패널 — 그 카테고리
+  const [pickKey, setPickKey] = useState<string | null>(null); // 카테고리 영역 [+ 넣기] — 그 카테고리 패널을 넣기 고르기로
+  const [createPreset, setCreatePreset] = useState<CreatePreset | undefined>(undefined);
   // 3단계 — 패널 맨 위 알림(넣었어요·만들었어요 + [되돌리기], 다음 동작 전까지) · 만들기 시트 · 만든 뒤 갈 노드.
   const [notice, setNotice] = useState<Notice | null>(null);
   // 지운 뒤 알림("○○을 지웠어요") — 패널이 닫혀서 지도 머리 줄·목록 위에. 다음 동작(패널·찾기·만들기·보기 바꾸기) 전까지.
@@ -251,6 +259,7 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
   const [selected, setSelected] = useState<string | null>(initialFocus?.key ?? null);
   const [panel, setPanel] = useState<string | null>(editKey);
   if (editKey && panel !== editKey) setEditKey(null); // 고치기로 연 패널을 닫거나 다른 노드로 옮기면 끝(다시 열면 보통 패널)
+  if (pickKey && panel !== pickKey) setPickKey(null);
   const [panelFromSat, setPanelFromSat] = useState(false); // 위성(바로가기)에서 연 사람·장소·모임 패널 — [원래 자리로 가기](U2 §2.3)
   const [findOpen, setFindOpen] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false); // 지도 보기 [이야기 거리] 시트(Q69)
@@ -264,8 +273,8 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
   const suggestRef = useRef<HTMLDialogElement>(null);
 
   const layout = useMemo(
-    () => layoutMyLife(data, { folded, shownGroupIds: shownGroups, shownPlaceGroupIds: shownPlaceGroups }),
-    [data, folded, shownGroups, shownPlaceGroups],
+    () => layoutMyLife(data, { folded, shownGroupIds: shownGroups, shownPlaceGroupIds: shownPlaceGroups, openCats, moreCats, shownCustomGroupIds: shownCustomGroups }),
+    [data, folded, shownGroups, shownPlaceGroups, openCats, moreCats, shownCustomGroups],
   );
   const idx = useMemo(() => buildIndex(data), [data]);
   const relatedCount = useMemo(
@@ -273,12 +282,13 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
     [view, selected, data, layout],
   );
 
-  const openPanel = useCallback((key: string, fromSat = false) => {
+  const openPanel = useCallback((key: string, fromSat = false, fromCat: string | null = null) => {
     setMapNotice(null);
     lastKeyRef.current = key;
     setSelected(key);
     setPanel(key);
     setPanelFromSat(fromSat);
+    setPanelFromCat(fromCat);
   }, []);
 
   useEffect(() => {
@@ -367,17 +377,27 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
           return next;
         });
       }
+      // 사용자 카테고리 노드 — 접힌 카테고리면 펼치고 [N개 더 보기]도 연다(custom-graph 2단계)
+      const [ck, cid] = key.split(":");
+      const cat =
+        ck === "cat" ? cid : ck === "cn" ? customOf(data).items.find((i) => i.id === cid)?.categoryId : ck === "cgl" ? customOf(data).groups.find((g) => g.id === cid)?.categoryId : undefined;
+      if (cat) {
+        setOpenCats((prev) => (prev.has(cat) ? prev : new Set([...prev, cat])));
+        if (ck !== "cat") setMoreCats((prev) => (prev.has(cat) ? prev : new Set([...prev, cat])));
+      }
       // 모임·장소 묶음 이름이 영역에 없으면(4개 이상 — 숨은 모임) 칩으로
       const target =
         key.startsWith("gl:") && !layout.nodes.some((n) => n.key === key)
           ? `gc:${key.slice(3)}`
           : key.startsWith("pgl:") && !layout.nodes.some((n) => n.key === key)
           ? `pgc:${key.slice(4)}`
+          : key.startsWith("cgl:") && !layout.nodes.some((n) => n.key === key) && layout.nodes.some((n) => n.key === `cgc:${key.slice(4)}`)
+          ? `cgc:${key.slice(4)}`
           : key;
       setSelected(target);
       setFocusRequest((r) => ({ key: target, n: (r?.n ?? 0) + 1, keep }));
     },
-    [view, layout],
+    [view, layout, data],
   );
 
   // 만든 뒤·옮긴 뒤 — 새 데이터(router.refresh)에 그 노드가 생기면 이동·선택·패널 + 알림.
@@ -391,6 +411,9 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
       : k === "pl" ? data.places.some((p) => p.id === x)
       : k === "gl" ? data.groups.some((g) => g.id === x)
       : k === "pgl" ? data.placeGroups.some((g) => g.id === x)
+      : k === "cat" ? customOf(data).categories.some((c) => c.id === x)
+      : k === "cgl" ? customOf(data).groups.some((g) => g.id === x)
+      : k === "cn" ? customOf(data).items.some((i) => i.id === x)
       : false;
     if (!has) return;
     const done = pendingOpen;
@@ -474,8 +497,9 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
     setSuggestOpen(true);
   }
 
-  function openCreate(k: CreateKind | null) {
+  function openCreate(k: CreateKind | null, preset?: CreatePreset) {
     setMapNotice(null);
+    setCreatePreset(preset);
     setCreateKind(k);
   }
 
@@ -511,6 +535,16 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
           setTour={setTour}
           links={links}
           initialArea={initialArea}
+          cats={{
+            open: openCats,
+            setOpen: setOpenCats,
+            setMore: setMoreCats,
+            setShownGroups: setShownCustomGroups,
+            onPutIn: (categoryId) => {
+              setPickKey(`cat:${categoryId}`);
+              openPanel(`cat:${categoryId}`);
+            },
+          }}
         />
       ) : (
         <ListMode data={data} idx={idx} suggest={suggest} openPanel={openPanel} onToggleView={toggleView} onOpenFind={openFind} onCreate={openCreate} status={mapNotice} />
@@ -548,6 +582,8 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
               setNotice={setNotice}
               links={links}
               startEdit={panel === editKey}
+              startPick={panel === pickKey}
+              fromCategory={panelFromCat}
               onReopen={(r) => {
                 setPendingOpen({ ...r, keep: true });
                 router.refresh();
@@ -623,6 +659,7 @@ export function MyLifeView({ data: serverData, suggest }: { data: MyLifeData; su
             key={createKind ?? "pick"}
             data={data}
             initialKind={createKind}
+            preset={createPreset}
             onDone={afterCreate}
             onClose={() => createRef.current?.close()}
             // [이야기 거리] — 지도 머리 줄에서 옮김(ui-space §6.2): 만들기 시트 맨 아래 → 같은 시트(오늘의 인터뷰·더 들어볼까요?)
@@ -670,6 +707,7 @@ function MapMode({
   setTour,
   links,
   initialArea,
+  cats,
 }: {
   data: MyLifeData;
   idx: Index;
@@ -681,10 +719,10 @@ function MapMode({
   setShownGroups: (g: string[]) => void;
   selected: string | null;
   setSelected: (k: string | null) => void;
-  openPanel: (key: string, fromSat?: boolean) => void;
+  openPanel: (key: string, fromSat?: boolean, fromCat?: string | null) => void;
   onToggleView: () => void;
   onOpenFind: () => void;
-  onCreate: (kind: CreateKind | null) => void;
+  onCreate: (kind: CreateKind | null, preset?: CreatePreset) => void;
   shownPlaceGroups: string[];
   setShownPlaceGroups: (g: string[]) => void;
   focusRequest: FocusRequest | null;
@@ -693,6 +731,14 @@ function MapMode({
   setTour: (t: Tour | null) => void;
   links: OptLinks; // 끌어 넣기 — 낙관적 항목·되돌리기(MyLifeView)
   initialArea: "people" | "places" | null; // ?area= — 준비된 뒤 한 번 그 영역으로(인물록 통합)
+  // 사용자 카테고리(custom-graph 2단계) — 펼침(Q82 ②)·[더 보기](①)·묶음 칩·[+ 넣기]
+  cats: {
+    open: Set<string>;
+    setOpen: (f: (prev: Set<string>) => Set<string>) => void;
+    setMore: (f: (prev: Set<string>) => Set<string>) => void;
+    setShownGroups: (f: (prev: string[]) => string[]) => void;
+    onPutIn: (categoryId: string) => void;
+  };
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -703,7 +749,8 @@ function MapMode({
   const [ready, setReady] = useState(false);
   const [current, setCurrent] = useState<string | null>(data.events[0]?.id ?? null);
   // 화면 가운데가 인물록·장소록 쪽이면 "지금 보는 곳"을 시간 줄기 대신 그 이름으로.
-  const [area, setArea] = useState<"timeline" | "people" | "places">("timeline");
+  const [area, setArea] = useState<"timeline" | "people" | "places" | "categories">("timeline");
+  const [catSheet, setCatSheet] = useState(false); // 이동 줄 [다른 카테고리] 시트
   const [scale, setScale] = useState(1);
   const [announce, setAnnounce] = useState("");
   // 공전(U2 — ui-space §2.2): [움직임 멈추기] 기기 기억 · reduced-motion 이면 처음부터 멈춤 · 전체 보기 배율(0.6 미만)도 멈춤.
@@ -727,7 +774,7 @@ function MapMode({
 
   // 콜백이 읽는 최신 값(렌더 중에는 읽지도 쓰지도 않는다).
   const layoutRef = useRef(layout);
-  const savedRef = useRef({ folded, shownGroups, shownPlaceGroups });
+  const savedRef = useRef({ folded, shownGroups, shownPlaceGroups, openCats: cats.open });
   const stateRef = useRef({ scale: 1, positionX: 0, positionY: 0 });
   const downRef = useRef<{ x: number; y: number } | null>(null);
   const lastTapRef = useRef<{ t: number; x: number; y: number } | null>(null);
@@ -737,8 +784,8 @@ function MapMode({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useLayoutEffect(() => {
     layoutRef.current = layout;
-    savedRef.current = { folded, shownGroups, shownPlaceGroups };
-  }, [layout, folded, shownGroups, shownPlaceGroups]);
+    savedRef.current = { folded, shownGroups, shownPlaceGroups, openCats: cats.open };
+  }, [layout, folded, shownGroups, shownPlaceGroups, cats.open]);
 
   // 페이지 자체 스크롤을 잠근다 — 지도 영역의 끌기·확대가 페이지 스크롤·브라우저 확대와 다투지 않게.
   useLayoutEffect(() => {
@@ -768,6 +815,9 @@ function MapMode({
         setFolded(new Set(saved.folded.filter((id) => id !== focusEvent && data.events.some((e) => e.id === id))));
         setShownGroups(saved.shownGroups.filter((id) => data.groups.some((g) => g.id === id)));
         setShownPlaceGroups((saved.shownPlaceGroups ?? []).filter((id) => data.placeGroups.some((g) => g.id === id)));
+        const catIds = new Set(customOf(data).categories.map((c) => c.id));
+        const open = (saved.openCats ?? []).filter((id) => catIds.has(id));
+        if (open.length > 0) cats.setOpen((prev) => new Set([...prev, ...open]));
       }
     };
     measure();
@@ -786,7 +836,7 @@ function MapMode({
   const save = useCallback(() => {
     const st = stateRef.current;
     const v = savedRef.current;
-    writeSaved({ scale: st.scale, x: st.positionX, y: st.positionY, folded: [...v.folded], shownGroups: v.shownGroups, shownPlaceGroups: v.shownPlaceGroups, edges: ALL_EDGES });
+    writeSaved({ scale: st.scale, x: st.positionX, y: st.positionY, folded: [...v.folded], shownGroups: v.shownGroups, shownPlaceGroups: v.shownPlaceGroups, openCats: [...v.openCats], edges: ALL_EDGES });
   }, []);
 
   // 자유 이동이라 경계 제한은 두지 않되, 움직임이 멈추면 지도가 화면에서 다 사라지지 않게 되돌린다.
@@ -821,7 +871,8 @@ function MapMode({
         const lay = layoutRef.current;
         const cx = (w / 2 - s.positionX) / s.scale;
         const cy = (h / 2 - s.positionY) / s.scale;
-        setArea(cx < lay.regions.people.x ? "timeline" : cy < lay.regions.places.y ? "people" : "places");
+        const firstCat = lay.regions.categories[0]?.rect.y ?? Infinity;
+        setArea(cx < lay.regions.people.x ? "timeline" : cy < lay.regions.places.y ? "people" : cy < firstCat ? "places" : "categories");
         setCurrent(bandAt(lay, cy)?.eventId ?? null);
         setScale(s.scale);
         if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -938,6 +989,22 @@ function MapMode({
 
   // 가장자리 버튼 — 인물록·장소록은 그 영역 제목이 화면 왼쪽 위에 오게, 시간 줄기는 줄기가 가운데 오게(높이 유지).
   // 전체 보기 배율(0.6 미만)에서 누르면 배율 1 로.
+  // 사용자 카테고리 영역 — [다른 카테고리] 시트에서 고름. 접혀 있으면 펼친 다음 그림에서(영역 자리가 바뀌므로).
+  function goCategory(id: string) {
+    const go = () => {
+      const api = apiRef.current;
+      const r = layoutRef.current.regions.categories.find((c) => c.id === id)?.rect;
+      if (!api || !r) return;
+      const st = stateRef.current;
+      const s = st.scale < OVERVIEW_SCALE ? 1 : st.scale;
+      api.setTransform(24 - r.x * s, 24 - r.y * s, s, 300);
+    };
+    if (layoutRef.current.nodes.some((n) => n.kind === "catTitle" && n.categoryId === id && n.collapsed)) {
+      cats.setOpen((prev) => new Set([...prev, id]));
+      requestAnimationFrame(() => requestAnimationFrame(go));
+    } else go();
+  }
+
   function goRegion(which: "people" | "places" | "timeline") {
     const api = apiRef.current;
     const b = boxRef.current;
@@ -1146,6 +1213,24 @@ function MapMode({
     // 펼친 "+N" = 그 행성 패널(전체 목록) — 행성 다시 탭(접기)과 구분
     else if (nodeKind === "satMore" && targetKey) openPanel(targetKey);
     else if (nodeKind === "regionAdd" && createKind) onCreate(createKind as CreateKind);
+    // 사용자 카테고리(custom-graph 2단계 — §6.6): 펼치기·접기 · [N개 더 보기] · [+ 항목]·[+ 묶음]·[+ 넣기] · 묶음 칩 · 바로가기(원래 노드 패널)
+    else if ((nodeKind === "catFold" || nodeKind === "catMore") && el.dataset.categoryId) {
+      const id = el.dataset.categoryId;
+      const flip = (prev: Set<string>) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      };
+      if (nodeKind === "catFold") cats.setOpen(flip);
+      else cats.setMore(flip);
+    } else if (nodeKind === "catAdd" && el.dataset.categoryId) {
+      if (createKind === "putIn") cats.onPutIn(el.dataset.categoryId);
+      else onCreate(createKind as CreateKind, { categoryId: el.dataset.categoryId });
+    } else if (nodeKind === "catGroupChip" && groupId) {
+      cats.setShownGroups((prev) => [groupId, ...prev.filter((g) => g !== groupId)]);
+      openPanel(`cgl:${groupId}`);
+    } else if (nodeKind === "catRef" && targetKey) openPanel(targetKey, false, el.dataset.categoryId ?? null);
     else if (nodeKind === "groupChip" && groupId) {
       // 칩(모임·장소 묶음 4개 이상 — 영역은 늘 3개) — 안 보이던 모임이면 영역으로 바꿔 넣고 + 그 모임 패널.
       // (예전 칩 탭 = 보이기·끄기였지만 끄면 레이아웃이 다른 모임으로 다시 3개를 채워 실제로는 바꾸기였다.)
@@ -1438,10 +1523,23 @@ function MapMode({
               aria-current={area === w ? "true" : undefined}
               onClick={() => goRegion(w)}
             >
-              {w === "timeline" ? C.toTimeline : w === "people" ? C.toPeople : C.toPlaces}
+              {w === "timeline" ? C.toTimeline : w === "people" ? builtinName(data, "PEOPLE") : builtinName(data, "PLACES")}
             </Button>
           ))}
+        {customOf(data).categories.length > 0 && (
+          <Button
+            variant="secondary"
+            size="lg"
+            className={`px-3! ${area === "categories" ? "border-ink! bg-banner!" : ""}`}
+            aria-current={area === "categories" ? "true" : undefined}
+            aria-haspopup="dialog"
+            onClick={() => setCatSheet(true)}
+          >
+            {C.custom.toCategories}
+          </Button>
+        )}
       </nav>
+      <CategorySheet open={catSheet} data={data} onPick={goCategory} onClose={() => setCatSheet(false)} />
       {/* 확대 줄(Q112 A): [−][+][전체][움직임 멈추기] — 비서 버튼 자리 96px(390 에서 쓸 수 있는 폭 278). */}
       <div className="flex items-center gap-2 bg-surface py-1 pl-4 pr-[96px]">
         <Button
@@ -1648,7 +1746,7 @@ const MapWorld = memo(function MapWorld({
           key={`shape:${s.groupId}`}
           aria-hidden
           data-group-id={s.groupId}
-          className={`pointer-events-none absolute border-2 ${s.region === "places" ? "border-place bg-place-wash/60" : "border-person bg-person-wash/60"}`}
+          className={`pointer-events-none absolute border-2 ${s.region === "places" ? "border-place bg-place-wash/60" : s.region === "custom" ? "border-music bg-music-wash/60" : "border-person bg-person-wash/60"}`}
           style={{ left: s.x, top: s.y, width: s.w, height: s.h, borderRadius: shapeRadiusCss(s), borderStyle: GROUP_BORDER[s.index % GROUP_BORDER.length] }}
         />
       ))}
@@ -1732,8 +1830,11 @@ const MapWorld = memo(function MapWorld({
 
       <section aria-labelledby="mylife-people-title" className="relative" style={{ zIndex: 2 }}>
         {titleOf("people") && (
-          <h2 id="mylife-people-title" className="absolute m-0 flex items-center text-[26px]" style={pos(titleOf("people")!)}>
-            {C.peopleTitle}
+          <h2 id="mylife-people-title" className="absolute m-0 flex items-center" style={{ ...pos(titleOf("people")!), width: "auto", minWidth: titleOf("people")!.w }}>
+            {/* 기본 카테고리 제목 = 버튼(누르면 이름 바꾸기 패널 — custom-graph 2단계 §6.6 P7) */}
+            <button type="button" data-node-key="bcat:PEOPLE" data-node-kind="bcat" className={`flex min-h-[48px] items-center rounded-md px-1 text-[26px] hover:bg-banner ${FOCUS}`}>
+              {builtinName(data, "PEOPLE")}
+            </button>
           </h2>
         )}
         {regionAdd("people")}
@@ -1825,8 +1926,10 @@ const MapWorld = memo(function MapWorld({
 
       <section aria-labelledby="mylife-places-title" className="relative" style={{ zIndex: 2 }}>
         {titleOf("places") && (
-          <h2 id="mylife-places-title" className="absolute m-0 flex items-center text-[26px]" style={pos(titleOf("places")!)}>
-            {C.placesTitle}
+          <h2 id="mylife-places-title" className="absolute m-0 flex items-center" style={{ ...pos(titleOf("places")!), width: "auto", minWidth: titleOf("places")!.w }}>
+            <button type="button" data-node-key="bcat:PLACES" data-node-kind="bcat" className={`flex min-h-[48px] items-center rounded-md px-1 text-[26px] hover:bg-banner ${FOCUS}`}>
+              {builtinName(data, "PLACES")}
+            </button>
           </h2>
         )}
         {regionAdd("places")}
@@ -1909,6 +2012,8 @@ const MapWorld = memo(function MapWorld({
           })}
         </ul>
       </section>
+
+      <CategoryRegions data={data} layout={layout} selected={selected} mark={mark} glow={GLOW} />
     </>
   );
 });
@@ -1969,7 +2074,7 @@ function ListMode({
   data: MyLifeData;
   idx: Index;
   suggest: MyLifeSuggest;
-  openPanel: (key: string) => void;
+  openPanel: (key: string, fromSat?: boolean, fromCat?: string | null) => void;
   onToggleView: () => void;
   onOpenFind: () => void;
   onCreate: (kind: CreateKind | null) => void;
@@ -2149,6 +2254,8 @@ function ListMode({
           </div>
         )}
       </section>
+
+      <CategoryListSections data={data} openPanel={openPanel} />
     </main>
   );
 }
@@ -2174,6 +2281,9 @@ const KIND_LABEL: Record<SearchResult["kind"], string> = {
   place: C.kindPlace,
   group: C.kindGroup,
   placeGroup: C.kindPlaceGroup,
+  category: C.custom.kindCategory,
+  customGroup: C.custom.kindGroup,
+  item: C.custom.kindItem,
 };
 
 function FindSheet({ data, onPick, onClose }: { data: MyLifeData; onPick: (r: SearchResult) => void; onClose: () => void }) {
@@ -2258,6 +2368,8 @@ function PanelBody({
   setNotice,
   links,
   startEdit,
+  startPick,
+  fromCategory,
   onReopen,
   onDeleted,
   related,
@@ -2274,6 +2386,8 @@ function PanelBody({
   setNotice: (n: Notice | null) => void;
   links: OptLinks;
   startEdit: boolean; // 인물록 통합 — ?edit=1 로 연 사람 패널은 [이름·정보 고치기]로 시작
+  startPick: boolean; // 카테고리 영역 [+ 넣기] — 넣기 고르기로 시작(custom-graph 2단계)
+  fromCategory: string | null; // 바로가기로 연 원래 노드 패널 — 그 카테고리
   onReopen: (r: Created) => void;
   onDeleted: (name: string) => void;
   related: { count: number; go: () => void } | null;
@@ -2301,6 +2415,8 @@ function PanelBody({
       setNotice={setNotice}
       links={links}
       startEdit={startEdit}
+      startPick={startPick}
+      fromCategory={fromCategory}
       onGo={onGo}
       onReopen={onReopen}
       onDeleted={onDeleted}
@@ -2320,6 +2436,7 @@ function panelInfo(
   fromSat: boolean, // 위성(바로가기)에서 연 사람·장소·모임 — [원래 자리로 가기](U2 §2.3)
 ): React.ReactNode | null {
   const [kind, a, b] = nodeKey.split(":");
+  if (kind === "cat" || kind === "bcat" || kind === "cgl" || kind === "cgc" || kind === "cn") return customPanelInfo(nodeKey, data); // custom-graph 2단계
 
   if (kind === "ev") {
     const ev = idx.eventById.get(a);

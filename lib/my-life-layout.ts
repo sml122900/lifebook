@@ -9,6 +9,10 @@
 //   계 상자 = 궤도(위성 원 + 이름표)와 펼침 칸 줄이 다 들어가는 크기(ui-space §1.2·§7.2).
 //   인물·장소 행성 모음(인물록·장소록): x 480~ (제목 → [+ 사람][+ 모임] → 모임 칩(4개 이상) → 모임 성운 1~3개 → 모임 없는 분),
 //   장소록은 그 아래 — 같은 모양. 칸 = 작은 행성 64 + 이름(120×124, 3열 384). 키: 모임 gl/gc · 장소 묶음 pgl/pgc.
+//   사용자 카테고리(custom-graph 2단계 — §3.1): 장소록 아래 카테고리마다 영역 하나(제목 → [+ 항목][+ 묶음][+ 넣기] → 묶음 칩(4개 이상) →
+//   묶음 성운 1~3개 → 묶음에 없는 것). 칸 = 사용자 항목(진짜 노드 cn:) · 바로가기(넣어 둔 6종·다른 카테고리 항목·묶음 —
+//   ref:<카테고리>:<종류>:<id>, 한 카테고리 안에서 한 번). 묶음에 없는 칸 9개 넘으면 9개 + [N개 더 보기](Q82 ①), 사용자 카테고리
+//   6개 이상이면 펼치지 않은 카테고리는 제목 줄 하나(Q82 ②). 키: 영역 제목 cat:<id>(누르면 카테고리 패널) · 묶음 cgl/cgc.
 // 겹침: 시간 줄기는 계 상자를 쌓기만 하고 배치 뒤 resolveOverlaps 로 한 번 더 검사·해소(위성·행성 중심도 같이 내림).
 //   위성은 nodes 가 아니라 satellites 에 따로 둔다(자기 계 상자 안 — 회귀가 상자 안·서로 간격을 검사).
 //   인물록·장소록은 x 480 오른쪽에만 놓여 시간 줄기와 가로로 만날 수 없고, 안쪽은 칸 격자(구성상 0). 모임 영역은 "각 칸이
@@ -17,6 +21,7 @@
 // 클라이언트에서도 쓰므로 prisma 를 import 하지 않는다(타입만).
 
 import type { ChipKind, MyLifeData, MyLifeEvent, MyLifeStory } from "./my-life";
+import { customOf, type MyLifeCategory, type MyLifeCustom, type MyLifeRef } from "./my-life-custom";
 import { MY_LIFE_COPY } from "./my-life-copy";
 import { GROUP_SHAPE, rectInsideShape, rectOutsideShape, shapeAround, SHAPE_PAD, type GroupShape, type GroupShapeKind, type Rect } from "./my-life-group-shape";
 import { LABEL_GAP, LABEL_H, orbitAssign, orbitFrac, orbitHalfHeight, orbitShape, SAT_R } from "./space-orbit";
@@ -81,6 +86,12 @@ export const L = {
   EMPTY_GROUP_H: 80,
   MAX_SHOWN_GROUPS: 3,
   CHIP_ROW_MAX: 640,
+  // 사용자 카테고리(custom-graph 2단계)
+  CAT_W: 384, // 3열 칸 폭 = 제목·접힘 칸 폭
+  CAT_ADD_W: 330, // 제목 줄([펼치기]·[접기] 포함)·[+ 항목][+ 묶음][+ 넣기] — 390 에서 영역을 왼쪽 24 에 맞췄을 때 셋째 버튼이 화면 안(384 는 잘림 — 실측)
+  CAT_FOLD_AT: 9, // 묶음에 없는 칸이 이보다 많으면 9개 + [N개 더 보기](Q82 ①)
+  CAT_COLLAPSE_FROM: 6, // 사용자 카테고리가 이 수 이상이면 펼치지 않은 카테고리는 제목 줄(Q82 ②)
+  CAT_TITLE_H: 56, // 영역 제목(누르면 카테고리 패널) — 제목 줄로 접힐 때도 같은 높이
 } as const;
 
 type Box = { key: string; x: number; y: number; w: number; h: number };
@@ -99,7 +110,17 @@ export type LayoutNode =
   | (Box & { kind: "groupChip"; groupId: string; shown: boolean; region: "people" | "places" })
   | (Box & { kind: "regionAdd"; region: "people" | "places" }) // 영역 제목 옆 [+ 사람][+ 모임] / [+ 장소][+ 묶음]
   | (Box & { kind: "title"; region: "people" | "places" })
-  | (Box & { kind: "subtitle"; region: "people" | "places" });
+  | (Box & { kind: "subtitle"; region: "people" | "places" })
+  // 사용자 카테고리(custom-graph 2단계) — 제목(collapsed = 제목 줄만 · foldable = [펼치기]/[접기] 버튼 · count = 칸 수)
+  | (Box & { kind: "catTitle"; categoryId: string; collapsed: boolean; foldable: boolean; count: number })
+  | (Box & { kind: "catAdd"; categoryId: string })
+  | (Box & { kind: "catGroupLabel"; groupId: string; categoryId: string })
+  | (Box & { kind: "catGroupChip"; groupId: string; categoryId: string; shown: boolean })
+  | (Box & { kind: "catItem"; itemId: string; categoryId: string; hiddenGroups: number })
+  | (Box & { kind: "catRef"; ref: MyLifeRef; categoryId: string; hiddenGroups: number })
+  | (Box & { kind: "catMore"; categoryId: string; count: number; open: boolean })
+  | (Box & { kind: "catSub"; categoryId: string })
+  | (Box & { kind: "catEmpty"; categoryId: string });
 
 // 위성 — 행성의 사람·모임·장소 바로가기(진짜 노드는 인물·장소 행성 모음에 한 번 — Q99). ref null = "+N" 칸(more = 숨은 수).
 // 칸 = 원(cx, cy, SAT_D) + 아래 이름표 = 펼침 자리(U2). key = sat:<행성 키>:<종류>:<id> · "+N" = sat:<행성 키>:more.
@@ -107,7 +128,7 @@ export type LayoutNode =
 export type SatRef = { kind: ChipKind; id: string };
 export type LayoutSatellite = Box & { planetKey: string; ref: SatRef | null; more: number; cx: number; cy: number; orbit: 0 | 1; frac: number };
 
-export type LayoutShape = GroupShape & { groupId: string; index: number; region: "people" | "places" }; // index = 영역 안 순서(테두리 무늬 구분)
+export type LayoutShape = GroupShape & { groupId: string; index: number; region: "people" | "places" | "custom" }; // index = 영역 안 순서(테두리 무늬 구분)
 export type LayoutBand = { eventId: string; top: number; bottom: number; centerMidY: number };
 export type TrunkSegment = { y1: number; y2: number; decade: number | null };
 export type Edge = { x1: number; y1: number; x2: number; y2: number };
@@ -123,7 +144,8 @@ export type MyLifeLayout = {
   shapes: LayoutShape[];
   shownGroupIds: string[];
   shownPlaceGroupIds: string[];
-  regions: { timeline: Rect; people: Rect; places: Rect };
+  regions: { timeline: Rect; people: Rect; places: Rect; categories: { id: string; rect: Rect }[] };
+  shownCustomGroupIds: string[]; // 사용자 카테고리마다 영역에 보이는 묶음(최대 3개씩)
   cellGap: number; // 모임 영역 칸 사이(소속 검사로 넓혀졌으면 56 보다 큼)
   shifted: number; // 시간 줄기 겹침 해소로 내린 횟수(정상 배치 = 0)
 };
@@ -602,10 +624,119 @@ function layoutRegion(
   return { nodes, shapes, rect, shownGroupIds: shown, cellGap };
 }
 
+// ── 사용자 카테고리 영역(custom-graph 2단계 — docs/phase/custom-graph.md §3.1) ─────────────────────
+
+// 카테고리 영역의 칸 — 사용자 항목(자리 = 이 카테고리) 먼저, 그다음 바로가기(카테고리에 바로 넣은 것 + 그 안 묶음에 넣은 것,
+// 같은 노드는 한 번). groupIds = 이 카테고리 묶음 중 그 칸이 든 것.
+export type CatEntry = { key: string; itemId: string | null; ref: MyLifeRef | null; groupIds: string[] };
+export function categoryEntries(cat: Pick<MyLifeCategory, "id" | "refs">, custom: MyLifeCustom): CatEntry[] {
+  const groups = custom.groups.filter((g) => g.categoryId === cat.id);
+  const inGroups = (r: MyLifeRef) => groups.filter((g) => g.memberRefs.some((m) => m.type === r.type && m.id === r.id)).map((g) => g.id);
+  const homeOf = new Map(custom.items.map((i) => [i.id, i.categoryId]));
+  const out: CatEntry[] = [];
+  const seen = new Set<string>();
+  for (const it of custom.items) {
+    if (it.categoryId !== cat.id) continue;
+    seen.add(`CUSTOM:${it.id}`);
+    out.push({ key: `cn:${it.id}`, itemId: it.id, ref: null, groupIds: inGroups({ type: "CUSTOM", id: it.id }) });
+  }
+  for (const r of [...cat.refs, ...groups.flatMap((g) => g.memberRefs)]) {
+    const k = `${r.type}:${r.id}`;
+    if (seen.has(k) || (r.type === "CUSTOM" && homeOf.get(r.id) === cat.id)) continue;
+    seen.add(k);
+    out.push({ key: `ref:${cat.id}:${r.type}:${r.id}`, itemId: null, ref: r, groupIds: inGroups(r) });
+  }
+  return out;
+}
+
+type CatOpts = { collapsed: boolean; foldable: boolean; moreOpen: boolean; shownIn: readonly string[]; kind: GroupShapeKind };
+
+function layoutCategory(cat: MyLifeCategory, custom: MyLifeCustom, top: number, o: CatOpts): RegionOut & { shownGroupIds: string[] } {
+  const x0 = L.REGION_X;
+  const nodes: LayoutNode[] = [];
+  const shapes: LayoutShape[] = [];
+  const entries = categoryEntries(cat, custom);
+  const groups = custom.groups.filter((g) => g.categoryId === cat.id);
+  let y = top;
+  nodes.push({ key: `cat:${cat.id}`, kind: "catTitle", categoryId: cat.id, collapsed: o.collapsed, foldable: o.foldable, count: entries.length, x: x0, y, w: L.CAT_ADD_W, h: L.CAT_TITLE_H });
+  if (o.collapsed) return { nodes, shapes, rect: bboxOf(nodes), shownGroupIds: [] };
+  y += L.CAT_TITLE_H + L.ADD_GAP;
+  nodes.push({ key: `add:cat:${cat.id}`, kind: "catAdd", categoryId: cat.id, x: x0, y, w: L.CAT_ADD_W, h: L.ADD_H });
+  y += L.ADD_H + L.SECTION_GAP;
+
+  const valid = new Set(groups.map((g) => g.id));
+  const size = (g: { id: string }) => entries.filter((e) => e.groupIds.includes(g.id)).length;
+  const bySize = [...groups].sort((a, b) => size(b) - size(a) || a.name.localeCompare(b.name, "ko"));
+  const shown = [...new Set([...o.shownIn.filter((id) => valid.has(id)), ...bySize.map((g) => g.id)])].slice(0, L.MAX_SHOWN_GROUPS);
+  if (groups.length > L.MAX_SHOWN_GROUPS) {
+    let cx = x0;
+    for (const g of groups) {
+      const w = labelWidth(g.name) + 32;
+      if (cx > x0 && cx + w > x0 + L.CHIP_ROW_MAX) {
+        cx = x0;
+        y += L.GROUP_CHIP_H + L.ITEM_GAP;
+      }
+      nodes.push({ key: `cgc:${g.id}`, kind: "catGroupChip", groupId: g.id, categoryId: cat.id, shown: shown.includes(g.id), x: cx, y, w, h: L.GROUP_CHIP_H });
+      cx += w + L.ITEM_GAP;
+    }
+    y += L.GROUP_CHIP_H + L.SECTION_GAP;
+  }
+  const cell = (e: CatEntry, x: number, yy: number): LayoutNode => {
+    const hiddenGroups = e.groupIds.filter((g) => !shown.includes(g)).length;
+    return e.itemId
+      ? { key: e.key, kind: "catItem", itemId: e.itemId, categoryId: cat.id, hiddenGroups, x, y: yy, w: L.ITEM_W, h: L.ITEM_H }
+      : { key: e.key, kind: "catRef", ref: e.ref!, categoryId: cat.id, hiddenGroups, x, y: yy, w: L.ITEM_W, h: L.ITEM_H };
+  };
+  const placed = new Set<string>();
+  if (shown.length > 0) {
+    const v = placeVenn(entries.map((e) => ({ id: e.key, groupIds: e.groupIds })), shown, o.kind);
+    const labels = placeLabels(v.shapes, new Map(groups.map((g) => [g.id, g.name])));
+    const bb = bboxOf([...v.shapes, ...labels.map((l) => l.rect)]);
+    const dx = x0 - bb.x;
+    const dy = y - bb.y;
+    for (const s of v.shapes) shapes.push({ ...s, region: "custom", x: s.x + dx, y: s.y + dy });
+    for (const l of labels) nodes.push({ key: `cgl:${l.groupId}`, kind: "catGroupLabel", groupId: l.groupId, categoryId: cat.id, x: l.rect.x + dx, y: l.rect.y + dy, w: l.rect.w, h: l.rect.h });
+    for (const e of entries) {
+      const p = v.pos.get(e.key);
+      if (!p) continue;
+      placed.add(e.key);
+      nodes.push(cell(e, p.x + dx, p.y + dy));
+    }
+    y += bb.h + L.SECTION_GAP;
+  }
+  const rest = entries.filter((e) => !placed.has(e.key));
+  if (rest.length > 0) {
+    if (groups.length > 0) {
+      nodes.push({ key: `sub:cat:${cat.id}`, kind: "catSub", categoryId: cat.id, x: x0, y, w: L.CAT_W, h: L.SUBTITLE_H });
+      y += L.SUBTITLE_H + L.ITEM_GAP;
+    }
+    const folds = rest.length > L.CAT_FOLD_AT;
+    const shownRest = folds && !o.moreOpen ? rest.slice(0, L.CAT_FOLD_AT) : rest;
+    shownRest.forEach((e, j) => nodes.push(cell(e, x0 + (j % L.GRID_COLS) * (L.ITEM_W + L.ITEM_GAP), y + Math.floor(j / L.GRID_COLS) * (L.ITEM_H + L.ITEM_GAP))));
+    y += Math.ceil(shownRest.length / L.GRID_COLS) * (L.ITEM_H + L.ITEM_GAP);
+    if (folds) {
+      nodes.push({ key: `more:cat:${cat.id}`, kind: "catMore", categoryId: cat.id, count: rest.length - L.CAT_FOLD_AT, open: o.moreOpen, x: x0, y, w: L.CAT_W, h: L.FOLD_H });
+      y += L.FOLD_H + L.ITEM_GAP;
+    }
+  } else if (groups.length === 0) {
+    nodes.push({ key: `empty:cat:${cat.id}`, kind: "catEmpty", categoryId: cat.id, x: x0, y, w: L.CAT_W, h: L.SUBTITLE_H });
+  }
+  return { nodes, shapes, rect: bboxOf([...nodes, ...shapes]), shownGroupIds: shown };
+}
+
 export function layoutMyLife(
   data: MyLifeData,
   // shapeKind — 회귀가 원 모양으로도 소속 검사를 돌릴 때만. 화면은 결정 지점(GROUP_SHAPE) 그대로.
-  opts: { folded?: ReadonlySet<string>; shownGroupIds?: readonly string[]; shownPlaceGroupIds?: readonly string[]; shapeKind?: GroupShapeKind } = {},
+  // openCats — 사용자 카테고리 6개 이상일 때 펼친 카테고리(Q82 ②) · moreCats — [N개 더 보기]를 연 카테고리(Q82 ①) · shownCustomGroupIds — 묶음 칩으로 고른 묶음.
+  opts: {
+    folded?: ReadonlySet<string>;
+    shownGroupIds?: readonly string[];
+    shownPlaceGroupIds?: readonly string[];
+    shapeKind?: GroupShapeKind;
+    openCats?: ReadonlySet<string>;
+    moreCats?: ReadonlySet<string>;
+    shownCustomGroupIds?: readonly string[];
+  } = {},
 ): MyLifeLayout {
   const kind = opts.shapeKind ?? GROUP_SHAPE;
   const t = layoutTimeline(data, opts.folded ?? new Set<string>());
@@ -625,13 +756,28 @@ export function layoutMyLife(
     people.rect.y + people.rect.h + L.REGION_GAP,
     kind,
   );
+  const custom = customOf(data);
+  const foldable = custom.categories.length >= L.CAT_COLLAPSE_FROM;
+  let catTop = places.rect.y + places.rect.h + L.REGION_GAP;
+  const cats = custom.categories.map((cat) => {
+    const r = layoutCategory(cat, custom, catTop, {
+      collapsed: foldable && !(opts.openCats?.has(cat.id) ?? false),
+      foldable,
+      moreOpen: opts.moreCats?.has(cat.id) ?? false,
+      shownIn: opts.shownCustomGroupIds ?? [],
+      kind,
+    });
+    catTop = r.rect.y + r.rect.h + (foldable ? L.ITEM_GAP : L.REGION_GAP);
+    return { id: cat.id, ...r };
+  });
   const timelineRect: Rect = { x: L.TIME_X, y: L.TOP_PAD, w: L.SYS_W, h: Math.max(t.height - L.TOP_PAD, L.PLANET_STORY) };
-  const nodes = [...t.nodes, ...people.nodes, ...places.nodes];
-  const shapes = [...people.shapes, ...places.shapes];
+  const nodes = [...t.nodes, ...people.nodes, ...places.nodes, ...cats.flatMap((c) => c.nodes)];
+  const shapes = [...people.shapes, ...places.shapes, ...cats.flatMap((c) => c.shapes)];
+  const rightBottom = cats.length > 0 ? cats[cats.length - 1].rect.y + cats[cats.length - 1].rect.h : places.rect.y + places.rect.h;
   const right = bboxOf([...nodes, ...shapes, timelineRect]);
   return {
     width: right.x + right.w + L.PAD,
-    height: Math.max(t.height, places.rect.y + places.rect.h) + L.BOTTOM_PAD,
+    height: Math.max(t.height, rightBottom) + L.BOTTOM_PAD,
     nodes,
     satellites: t.satellites,
     edges: t.edges,
@@ -640,7 +786,8 @@ export function layoutMyLife(
     shapes,
     shownGroupIds: people.shownGroupIds,
     shownPlaceGroupIds: places.shownGroupIds,
-    regions: { timeline: timelineRect, people: people.rect, places: places.rect },
+    regions: { timeline: timelineRect, people: people.rect, places: places.rect, categories: cats.map((c) => ({ id: c.id, rect: c.rect })) },
+    shownCustomGroupIds: cats.flatMap((c) => c.shownGroupIds),
     cellGap: people.cellGap,
     shifted: t.shifted,
   };

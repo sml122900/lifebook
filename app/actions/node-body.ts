@@ -7,9 +7,11 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import {
+  ensureItemBodyMemory,
   ensurePersonBodyMemory,
   restoreRevision,
   saveEpisodeBody,
+  saveItemBody,
   savePersonBody,
   type BodyNodeType,
   type SaveBodyResult,
@@ -27,8 +29,10 @@ function revalidateNode(nodeType: BodyNodeType, nodeId: string) {
   revalidatePath("/my-life");
   if (nodeType === "EPISODE") {
     revalidatePath(`/my-life/story/${nodeId}`, "layout");
-  } else {
+  } else if (nodeType === "PERSON") {
     revalidatePath(`/my-life/person/${nodeId}`, "layout");
+  } else {
+    revalidatePath(`/my-life/item/${nodeId}`, "layout"); // 사용자 항목 글(custom-graph 2단계)
   }
 }
 
@@ -50,6 +54,20 @@ export async function savePersonBodyAction(personId: string, doc: unknown, baseV
 export async function preparePersonBodyPhotoAction(personId: string): Promise<{ ok: true; memoryId: string } | { ok: false }> {
   const userId = await requireUserId();
   const memoryId = await ensurePersonBodyMemory(userId, personId);
+  return memoryId ? { ok: true, memoryId } : { ok: false };
+}
+
+// 사용자 항목 글(custom-graph 2단계 — Q78) — 인물 글과 같은 두 액션.
+export async function saveItemBodyAction(itemId: string, doc: unknown, baseVersion: number): Promise<SaveBodyResult> {
+  const userId = await requireUserId();
+  const r = await saveItemBody(userId, itemId, doc, baseVersion);
+  if (r.ok) revalidateNode("CUSTOM", itemId);
+  return r;
+}
+
+export async function prepareItemBodyPhotoAction(itemId: string): Promise<{ ok: true; memoryId: string } | { ok: false }> {
+  const userId = await requireUserId();
+  const memoryId = await ensureItemBodyMemory(userId, itemId);
   return memoryId ? { ok: true, memoryId } : { ok: false };
 }
 

@@ -30,6 +30,7 @@ import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEpisodeBridge } from "../lib/episode";
 import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { getMyLifeData, type MyLifeData, type MyLifeEvent, type MyLifePerson } from "../lib/my-life";
+import type { MyLifeCustom, MyLifeRef } from "../lib/my-life-custom";
 import { edgeSamples, selectionEdges } from "../lib/my-life-edges";
 import { MY_LIFE_COPY as C } from "../lib/my-life-copy";
 import { rectInsideShape, rectOutsideShape, type GroupShapeKind } from "../lib/my-life-group-shape";
@@ -37,6 +38,7 @@ import {
   FOLD_ALL_ABOVE,
   L,
   bandAt,
+  categoryEntries,
   eventPeoplePlaceList,
   eventPeoplePlaceRefs,
   eventPeoplePlaces,
@@ -363,7 +365,7 @@ async function main() {
     }
     ops = 0;
     const big = await getMyLifeData(a, counted);
-    check("② Prisma 호출 수 = 9 고정(기록 8건·인물 8명·연결 16건 늘려도 — 3단계 장소 묶음 +1 · 2b-3c 노드 본문 +1 · U4 꾸미기 +1, 같은 병렬 묶음)", opsSmall === 9 && ops === 9 && big.people.length === 13, { opsSmall, ops, people: big.people.length });
+    check("② Prisma 호출 수 = 10 고정(기록 8건·인물 8명·연결 16건 늘려도 — 3단계 장소 묶음 +1 · 2b-3c 노드 본문 +1 · U4 꾸미기 +1 · custom-graph 2단계 사용자 카테고리 +1, 같은 병렬 묶음)", opsSmall === 10 && ops === 10 && big.people.length === 13, { opsSmall, ops, people: big.people.length });
 
     // ── ③ 배치 ───────────────────────────────────────────────────
     const lay = layoutMyLife(d);
@@ -1115,6 +1117,107 @@ async function main() {
         findOverlaps(ly.nodes).length === 0 && membershipErrors(syn, ly).length === 0 && placeShapes === Math.min(pg, 3) && placeChips === (pg > 3 ? pg : 0) &&
           ly.nodes.filter((n) => n.kind === "place").length === 14 && ly.shifted === 0,
         { o: findOverlaps(ly.nodes).slice(0, 3), m: membershipErrors(syn, ly).slice(0, 3), placeShapes, placeChips });
+    }
+    // ── ⑭ 사용자 카테고리 배치(custom-graph 2단계 — docs/phase/custom-graph.md §3.2·§3.3 9 · §6.6) ─────────────────────
+    {
+      // F-20-300: 시간 줄기 100(시기 20·이야기 80) · 인물록 64(사람 60·모임 4) · 장소록 42(장소 40·묶음 2) · 사용자 카테고리 18 · 항목·묶음 94 · 넣기 60
+      const base = synthetic({ events: 20, stories: 80, people: 60, groups: 4, places: 40, placeGroups: 2, seed: 11 });
+      let x = 5;
+      const rnd = () => (x = (x * 1103515245 + 12345) % 2147483648) / 2147483648;
+      const cats = Array.from({ length: 18 }, (_, i) => ({ id: `cat${i}`, name: `카테고리 ${i}`, refs: [] as MyLifeRef[] }));
+      const cgroups: MyLifeCustom["groups"] = [];
+      const items: MyLifeCustom["items"] = [];
+      for (let k = 0; k < 94; k++) {
+        const c = cats[k % 18];
+        if (k % 6 === 0) cgroups.push({ id: `cg${k}`, name: `묶음 ${k}`, categoryId: c.id, memberRefs: [] });
+        else items.push({ id: `it${k}`, name: `항목 ${k}`, categoryId: c.id, body: "", related: [] });
+      }
+      const sixes: MyLifeRef[] = [
+        ...base.people.map((p) => ({ type: "PERSON" as const, id: p.id })),
+        ...base.places.map((p) => ({ type: "PLACE" as const, id: p.id })),
+        ...base.events.flatMap((e) => e.stories.map((s) => ({ type: "EPISODE" as const, id: s.id }))),
+      ];
+      for (let k = 0; k < 60; k++) {
+        const c = cats[Math.floor(rnd() * 18)];
+        const r = sixes[Math.floor(rnd() * sixes.length)];
+        const gs = cgroups.filter((g) => g.categoryId === c.id);
+        if (gs.length > 0 && rnd() < 0.5) {
+          const g = gs[Math.floor(rnd() * gs.length)];
+          if (!g.memberRefs.some((m) => m.type === r.type && m.id === r.id)) g.memberRefs.push(r);
+        } else if (!c.refs.some((m) => m.type === r.type && m.id === r.id)) c.refs.push(r);
+      }
+      // 항목 일부는 자기 카테고리 묶음에 · 다른 카테고리에도 넣기(바로가기)
+      for (const it of items) {
+        const gs = cgroups.filter((g) => g.categoryId === it.categoryId);
+        if (gs.length > 0 && rnd() < 0.4) gs[0].memberRefs.push({ type: "CUSTOM", id: it.id });
+        if (rnd() < 0.15) cats[(Number(it.categoryId.slice(3)) + 1) % 18].refs.push({ type: "CUSTOM", id: it.id });
+      }
+      const custom: MyLifeCustom = { categories: cats, groups: cgroups, items, builtinNames: { PEOPLE: null, PLACES: null } };
+      const d14: MyLifeData = { ...base, custom };
+      const all = new Set(cats.map((c) => c.id));
+      const closedL = layoutMyLife(d14);
+      check("⑭ 사용자 카테고리 18개(6개 이상) — 처음엔 전부 제목 줄(칸 0) · 제목마다 [펼치기]",
+        closedL.nodes.filter((n) => n.kind === "catTitle" && n.collapsed && n.foldable).length === 18 && !closedL.nodes.some((n) => n.kind === "catItem" || n.kind === "catRef"));
+      const openL = layoutMyLife(d14, { openCats: all, moreCats: all });
+      const keys = openL.nodes.map((n) => n.key);
+      check("⑭ F-20-300 전부 펼침 — 노드 교차 0 · 키 중복 0 · 세계 안",
+        findOverlaps(openL.nodes).length === 0 && new Set(keys).size === keys.length && openL.nodes.every((n) => n.x >= 0 && n.y >= 0 && n.x + n.w <= openL.width && n.y + n.h <= openL.height),
+        findOverlaps(openL.nodes).slice(0, 3));
+      // 소속 — 칸은 자기 묶음 성운 안·같은 카테고리 다른 묶음 성운 밖
+      const memberErrs: string[] = [];
+      for (const s of openL.shapes.filter((x) => x.region === "custom")) {
+        const g = cgroups.find((y) => y.id === s.groupId)!;
+        const cat = cats.find((c) => c.id === g.categoryId)!;
+        for (const e of categoryEntries(cat, custom)) {
+          const n = openL.nodes.find((m) => m.key === e.key);
+          if (!n) continue;
+          const member = e.groupIds.includes(g.id);
+          if (member ? !rectInsideShape(s, n) : !rectOutsideShape(s, n)) memberErrs.push(`${e.key}:${g.id}`);
+        }
+      }
+      check("⑭ 묶음 성운 소속 오류 0(Euler — 인물록 모임과 같은 배치)", memberErrs.length === 0, memberErrs.slice(0, 5));
+      // 진짜 노드는 한 번 · 바로가기는 카테고리마다 한 칸
+      const itemCells = openL.nodes.filter((n) => n.kind === "catItem").map((n) => n.key);
+      const refPerCat = new Map<string, number>();
+      for (const n of openL.nodes) if (n.kind === "catRef") refPerCat.set(`${n.categoryId}:${n.ref.type}:${n.ref.id}`, (refPerCat.get(`${n.categoryId}:${n.ref.type}:${n.ref.id}`) ?? 0) + 1);
+      check("⑭ 사용자 항목 = 지도에 한 번(자리) · 바로가기 = 한 카테고리 안에서 한 칸 · 6종 진짜 노드는 그대로 한 번",
+        new Set(itemCells).size === items.length && [...refPerCat.values()].every((v) => v === 1) &&
+          openL.nodes.filter((n) => n.kind === "person").length === base.people.length && openL.nodes.filter((n) => n.kind === "place").length === base.places.length);
+      // 종류별 x 범위 — 사용자 카테고리는 오른쪽 열(REGION_X 부터), 장소록 아래
+      const catNodes = openL.nodes.filter((n) => "categoryId" in n);
+      const placesBottom = openL.regions.places.y + openL.regions.places.h;
+      check("⑭ 사용자 카테고리 칸 = 오른쪽 열(x ≥ REGION_X) · 장소록 아래 · 영역 18개",
+        catNodes.every((n) => n.x >= L.REGION_X && n.y >= placesBottom) && openL.regions.categories.length === 18);
+      // 접힘 ① — 묶음에 없는 칸 9개 넘으면 9 + [N개 더 보기](펼치지 않은 [더 보기])
+      const big: MyLifeCustom = { ...custom, categories: [{ id: "catB", name: "많은 카테고리", refs: [] }], groups: [], items: Array.from({ length: 12 }, (_, i) => ({ id: `b${i}`, name: `칸 ${i}`, categoryId: "catB", body: "", related: [] })) };
+      const bl = layoutMyLife({ ...base, custom: big });
+      const more = bl.nodes.find((n) => n.kind === "catMore");
+      const blOpen = layoutMyLife({ ...base, custom: big }, { moreCats: new Set(["catB"]) });
+      check("⑭ 접힘 ① — 묶음 없는 칸 12 → 9칸 + [3개 더 보기] · 열면 12칸 + [접기]",
+        bl.nodes.filter((n) => n.kind === "catItem").length === 9 && more?.kind === "catMore" && more.count === 3 && !more.open &&
+          blOpen.nodes.filter((n) => n.kind === "catItem").length === 12 && blOpen.nodes.some((n) => n.kind === "catMore" && n.open));
+      // 390 — 제목 줄([펼치기]·[접기])·추가 줄은 영역을 왼쪽 24 에 맞췄을 때 화면 안(330 + 24 ≤ 366)
+      check("⑭ 390 — 제목 줄·[+ 항목][+ 묶음][+ 넣기] 폭 330(영역 왼쪽 24 → 오른쪽 끝 354 ≤ 390)",
+        openL.nodes.filter((n) => n.kind === "catTitle" || n.kind === "catAdd").every((n) => n.w === L.CAT_ADD_W) && L.CAT_ADD_W + 24 <= 366);
+      // 배치 시간 — 50ms 이하(5번 중 가운데)
+      const times = Array.from({ length: 5 }, () => {
+        const t0 = performance.now();
+        layoutMyLife(d14, { openCats: all, moreCats: all });
+        return performance.now() - t0;
+      }).sort((p, q) => p - q);
+      check("⑭ layoutMyLife(F-20-300 전부 펼침) 50ms 이하", times[2] <= 50, { median: Math.round(times[2] * 10) / 10 });
+      // 찾기 — 카테고리·묶음·항목(이름·글)
+      const s14 = searchMyLife({ ...d14, custom: { ...custom, items: [...items, { id: "itx", name: "초롱이", categoryId: "cat0", body: "진돗개 강아지", related: [] }] } }, "진돗개");
+      check("⑭ 찾기 — 항목 글(진돗개) · 카테고리 이름 · 묶음 이름",
+        s14.some((r) => r.kind === "item" && r.key === "cn:itx") && searchMyLife(d14, "카테고리 3").some((r) => r.kind === "category" && r.key === "cat:cat3") &&
+          searchMyLife(d14, "묶음 6").some((r) => r.kind === "customGroup"));
+      // 화면 입구(정적)
+      const view14 = src("app/my-life/MyLifeView.tsx");
+      const cust14 = src("app/my-life/Custom.tsx");
+      check("⑭ 화면 — 지도 영역(CategoryRegions)·이동 줄 [다른 카테고리](CategorySheet)·목록 보기 절·패널 정보·찾기 종류·기본 카테고리 제목 버튼",
+        view14.includes("<CategoryRegions data={data} layout={layout}") && view14.includes("<CategorySheet open={catSheet}") && view14.includes("<CategoryListSections data={data}") &&
+          view14.includes("return customPanelInfo(nodeKey, data);") && view14.includes('data-node-key="bcat:PEOPLE"') && view14.includes("C.custom.toCategories") &&
+          cust14.includes('data-node-kind="catRef"') && cust14.includes("data-target-key={info.key}") && !/"[^"]*\[임시/.test(cust14));
     }
   } finally {
     await removeFixtures();

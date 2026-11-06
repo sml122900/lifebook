@@ -5,29 +5,37 @@
 // revalidatePath 없음 — /my-life 는 auth() 로 늘 동적 렌더, 화면이 router.refresh() 로 다시 그린다
 // (옛 /story-review 지우기 P20-1 과 같은 이유 — 액션 응답에 무거운 화면 재계산을 싣지 않는다).
 // 지도 노드 키: 시기 ev:<id> · 이야기 st:<시기>:<이야기> · 사람 pe: · 장소 pl: · 모임 gl: · 장소 묶음 pgl:.
+// 사용자 카테고리(custom-graph 2단계 2026-11-06): 카테고리 cat:<id> · 묶음 cgl: · 항목 cn: · 기본 카테고리 bcat:PEOPLE|PLACES.
 
 import { auth } from "@/auth";
 import { deleteEpisode } from "@/lib/episode";
 import { moveEpisodeToLifeEvent, undoMoveEpisode, type MoveUndo } from "@/lib/episode-move";
+import type { SameNameNode } from "@/lib/custom-node";
 import type { NodeType } from "@/lib/generated/prisma/enums";
 import { deleteCustomLifeEvent } from "@/lib/life-event-delete";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import {
   addLink,
+  createCategoryNode,
+  createCustomChild,
   createGroupNode,
   createPeriodNode,
   createPersonNode,
   createPlaceGroupNode,
   createPlaceNode,
   createStoryNode,
+  deleteCustom,
   deleteGroupNode,
   deleteImpact,
   deletePersonNode,
   deletePlaceGroupNode,
   deletePlaceNode,
+  moveCustom,
   removeLink,
+  renameBuiltin,
   renameNode,
   setNodeDecoration,
+  takeOutOfCategory,
   undoLinks,
   undoRemove,
   updatePersonInfo,
@@ -55,7 +63,7 @@ function ref(v: unknown): NodeRef | null {
 }
 
 // 만든 것을 되돌릴 때 지울 대상(이미 있던 것을 다시 쓴 경우 = null — 되돌릴 게 없음).
-export type CreatedNode = { kind: "period" | "story" | "person" | "place" | "group" | "placeGroup"; id: string };
+export type CreatedNode = { kind: "period" | "story" | "person" | "place" | "group" | "placeGroup" | "custom"; id: string };
 
 export type CreateInput =
   | { kind: "period"; label: string; year: number | null; endYear: number | null }
@@ -63,12 +71,16 @@ export type CreateInput =
   | { kind: "person"; name: string; relation: string; groupIds: string[]; decision?: "same" | "different"; samePersonId?: string; contextEventId?: string | null }
   | { kind: "place"; name: string; address: string | null; lat: number | null; lng: number | null; source: string | null }
   | { kind: "group"; name: string; memberIds: string[] }
-  | { kind: "placeGroup"; name: string; placeIds: string[] };
+  | { kind: "placeGroup"; name: string; placeIds: string[] }
+  // 사용자 카테고리(custom-graph 2단계) — 항목·묶음은 자리 카테고리 · decision "new" = 같은 이름 안내(Q98)를 보고도 새로
+  | { kind: "category"; name: string }
+  | { kind: "item" | "customGroup"; name: string; categoryId: string; decision?: "new" };
 
 export type CreateResult =
   | { ok: true; key: string; eventId: string | null; undo: CreatedNode | null; reused: boolean }
   | { ok: false; error: string }
-  | { ok: false; ask: SameNamePerson[] };
+  | { ok: false; ask: SameNamePerson[] }
+  | { ok: false; askSame: SameNameNode[] };
 
 export async function createNodeAction(input: CreateInput): Promise<CreateResult> {
   const userId = await requireUserId();
@@ -100,6 +112,16 @@ export async function createNodeAction(input: CreateInput): Promise<CreateResult
       const r = await createPlaceGroupNode(userId, input);
       return r.ok ? { ok: true, key: `pgl:${r.groupId}`, eventId: null, undo: { kind: "placeGroup", id: r.groupId }, reused: false } : r;
     }
+    case "category": {
+      const r = await createCategoryNode(userId, input.name);
+      return r.ok ? { ok: true, key: `cat:${r.id}`, eventId: null, undo: { kind: "custom", id: r.id }, reused: false } : r;
+    }
+    case "item":
+    case "customGroup": {
+      const r = await createCustomChild(userId, { kind: input.kind === "item" ? "ITEM" : "GROUP", name: input.name, categoryId: input.categoryId, decision: input.decision });
+      if (!r.ok) return r;
+      return { ok: true, key: `${input.kind === "item" ? "cn" : "cgl"}:${r.id}`, eventId: null, undo: { kind: "custom", id: r.id }, reused: false };
+    }
     default:
       return { ok: false, error: E.failed };
   }
@@ -126,6 +148,8 @@ export async function undoCreateAction(node: CreatedNode): Promise<{ ok: true } 
       return deleteGroupNode(userId, node.id);
     case "placeGroup":
       return deletePlaceGroupNode(userId, node.id);
+    case "custom":
+      return deleteCustom(userId, node.id);
     default:
       return { ok: false, error: E.notFound };
   }
@@ -210,6 +234,7 @@ export async function deleteNodeAction(node: NodeRef): Promise<{ ok: true } | { 
   if (r.type === "PERSON_GROUP") return deleteGroupNode(userId, r.id);
   if (r.type === "PLACE_GROUP") return deletePlaceGroupNode(userId, r.id);
   if (r.type === "PERSON") return deletePersonNode(userId, r.id);
+  if (r.type === "CUSTOM") return deleteCustom(userId, r.id); // 사용자 카테고리·묶음·항목(custom-graph 2단계)
   return { ok: false, error: E.notFound };
 }
 
@@ -226,4 +251,27 @@ export async function renameNodeAction(node: NodeRef, name: string): Promise<{ o
   const r = ref(node);
   if (!r) return { ok: false, error: E.notFound };
   return renameNode(userId, r, name);
+}
+
+// ── 사용자 카테고리(custom-graph 2단계 — docs/phase/custom-graph.md §3·§6.6) ─────────────────────
+
+// 기본 카테고리(인물록·장소록) 표시 이름(Q76 — 영역 제목만, "록" 자동으로 안 붙임).
+export async function renameBuiltinAction(builtin: string, name: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  return renameBuiltin(userId, builtin, name);
+}
+
+// 묶음·항목의 자리를 다른 사용자 카테고리로. undo = 원래 카테고리(되돌리기는 같은 액션으로 다시 옮김).
+export async function moveCustomAction(nodeId: string, categoryId: string): Promise<{ ok: true; undo: { nodeId: string; categoryId: string } | null } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  if (typeof nodeId !== "string" || !nodeId) return { ok: false, error: E.notFound };
+  return moveCustom(userId, nodeId, categoryId);
+}
+
+// 바로가기 [이 카테고리에서 빼기] — 이 카테고리와 그 안 묶음의 넣기 연결을 모두(원래 노드는 그대로). undo = 빼기 되돌리기 값.
+export async function takeOutAction(categoryId: string, node: NodeRef): Promise<{ ok: true; removed: number; undo: RemovedLink[] } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  const r = ref(node);
+  if (typeof categoryId !== "string" || !categoryId || !r) return { ok: false, error: E.notFound };
+  return takeOutOfCategory(userId, categoryId, r);
 }

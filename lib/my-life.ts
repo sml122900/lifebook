@@ -1,8 +1,9 @@
 // My Life 마인드맵 — 화면 데이터. 읽기 전용, auth 없음(회귀가 같은 함수를 부른다).
 // docs/phase/my-life-restructure.md §1(1단계 지도 개편) · node-graph-self.md §6 2b.1 의 1(포함 규칙).
 //
-// Prisma 호출 수는 기록 양과 무관하게 고정 8회(중심+이야기 1 · 중심↔인물 1 · NodeLink 1 · 인물·모임·장소·장소 묶음 4 ·
-// 노드 본문 1 — 2026-11-03 2b-3c: 이야기 "소제목·사진 있는 글" 표시·인물 글 첫 줄).
+// Prisma 호출 수는 기록 양과 무관하게 고정 10회(중심+이야기 1 · 중심↔인물 1 · NodeLink 1 · 인물·모임·장소·장소 묶음 4 ·
+// 노드 본문 1 — 2026-11-03 2b-3c: 이야기 "소제목·사진 있는 글" 표시·인물 글 첫 줄 · 행성 꾸미기 1 — U4 ·
+// 사용자 카테고리 1 — custom-graph 2단계 2026-11-06: 카테고리·묶음·항목, 넣기·관련 연결은 같은 NodeLink 읽기의 role).
 // 중심 = 확정(CONFIRMED·CORRECTED) LifeEvent, sequenceOrder·id 순(/story-review·갭·인터뷰와 같은 기준).
 //   왼쪽 가지 = 이야기(STORY)·그때의 나(SELF) — 주 소속 + NodeLink(LIFE_EVENT→EPISODE) 추가 소속.
 //   이야기 안 작은 물방울 = 대상 인물 + NodeLink(EPISODE→PERSON·PERSON_GROUP, 확정만) + 브릿지 MemoryPlace.
@@ -78,15 +79,72 @@ export type MyLifePlace = {
   groupIds: string[]; // 장소 묶음
 };
 
+// 사용자 카테고리 모양·customOf = 순수 모듈(lib/my-life-custom — 클라이언트 지도·패널이 같이 씀). 여기서 다시 내보낸다.
+import { type MyLifeCustom, type MyLifeRef, type MyLifeRefType } from "./my-life-custom";
+export { customOf, EMPTY_CUSTOM, type MyLifeCategory, type MyLifeCustom, type MyLifeCustomGroup, type MyLifeCustomItem, type MyLifeRef, type MyLifeRefType } from "./my-life-custom";
+
 export type MyLifeData = {
   events: MyLifeEvent[];
   people: MyLifePerson[];
   groups: MyLifeGroup[];
   places: MyLifePlace[];
   placeGroups: MyLifeGroup[];
+  custom?: MyLifeCustom; // 없으면 비어 있음(회귀의 합성 데이터 — customOf)
 };
 
 type Db = typeof prisma;
+
+type CustomRow = { id: string; kind: string; parentId: string | null; builtin: string | null; name: string };
+type LinkRow = { fromType: string; fromId: string; toType: string; toId: string; status: string; role: string };
+const KIND_RANK: Record<string, number> = { CATEGORY: 2, GROUP: 1, ITEM: 0 };
+
+// 사용자 카테고리 화면 데이터 — 보이는 것만(확정 시기·보이는 이야기·확정 사람·장소·모임·장소 묶음·사용자 카테고리 안의 묶음·항목).
+// 사용자↔사용자 연결은 id 순으로 저장돼 방향이 담는 쪽을 말하지 않는다 — 담는 쪽 = 종류 순서가 높은 쪽(카테고리 > 묶음 > 항목, lib/node-graph customPairRole).
+function buildCustom(
+  rows: CustomRow[],
+  links: LinkRow[],
+  bodyOf: Map<string, { plainText: string }>,
+  visible6: (r: MyLifeRef) => boolean,
+): MyLifeCustom {
+  const cats = rows.filter((r) => r.kind === "CATEGORY" && r.builtin === null);
+  const catIds = new Set(cats.map((c) => c.id));
+  const homed = rows.filter((r) => (r.kind === "GROUP" || r.kind === "ITEM") && r.parentId !== null && catIds.has(r.parentId));
+  const byId = new Map([...cats, ...homed].map((r) => [r.id, r]));
+  const visible = (r: MyLifeRef) => (r.type === "CUSTOM" ? byId.has(r.id) : visible6(r));
+  const catRefs = new Map<string, MyLifeRef[]>();
+  const groupRefs = new Map<string, MyLifeRef[]>();
+  const related = new Map<string, MyLifeRef[]>();
+  const add = (m: Map<string, MyLifeRef[]>, k: string, r: MyLifeRef) => {
+    const arr = m.get(k) ?? [];
+    if (!arr.some((x) => x.type === r.type && x.id === r.id)) arr.push(r);
+    m.set(k, arr);
+  };
+  for (const l of links) {
+    if (l.status !== "CONFIRMED" || (l.fromType !== "CUSTOM" && l.toType !== "CUSTOM")) continue;
+    const a: MyLifeRef = { type: l.fromType as MyLifeRefType, id: l.fromId };
+    const b: MyLifeRef = { type: l.toType as MyLifeRefType, id: l.toId };
+    if (!visible(a) || !visible(b)) continue;
+    if (l.role === "MEMBER") {
+      const rank = (r: MyLifeRef) => (r.type === "CUSTOM" ? KIND_RANK[byId.get(r.id)!.kind] : -1);
+      const [container, member] = rank(a) >= rank(b) ? [a, b] : [b, a];
+      const ck = byId.get(container.id)?.kind;
+      if (container.type !== "CUSTOM" || (ck !== "CATEGORY" && ck !== "GROUP")) continue;
+      add(ck === "CATEGORY" ? catRefs : groupRefs, container.id, member);
+    } else if (l.role === "") {
+      // 관련 — 항목 ↔ 시기·이야기·사람·장소·다른 항목(양쪽 다 항목이면 서로)
+      if (a.type === "CUSTOM" && byId.get(a.id)?.kind === "ITEM") add(related, a.id, b);
+      if (b.type === "CUSTOM" && byId.get(b.id)?.kind === "ITEM") add(related, b.id, a);
+    }
+  }
+  return {
+    categories: cats.map((c) => ({ id: c.id, name: c.name, refs: catRefs.get(c.id) ?? [] })),
+    groups: homed.filter((r) => r.kind === "GROUP").map((g) => ({ id: g.id, name: g.name, categoryId: g.parentId!, memberRefs: groupRefs.get(g.id) ?? [] })),
+    items: homed
+      .filter((r) => r.kind === "ITEM")
+      .map((it) => ({ id: it.id, name: it.name, categoryId: it.parentId!, body: bodyOf.get(`CUSTOM:${it.id}`)?.plainText ?? "", related: related.get(it.id) ?? [] })),
+    builtinNames: { PEOPLE: rows.find((r) => r.builtin === "PEOPLE")?.name ?? null, PLACES: rows.find((r) => r.builtin === "PLACES")?.name ?? null },
+  };
+}
 
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, "ko");
 
@@ -127,13 +185,13 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
     db.nodeLink.findMany({
       where: { userId },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      select: { fromType: true, fromId: true, toType: true, toId: true, status: true },
+      select: { fromType: true, fromId: true, toType: true, toId: true, status: true, role: true },
     }),
   ]);
 
   // 초안 인물(말동무 초안 검토 대기)은 안 보임. 확인 대기(PROPOSED) 연결도 안 그림 — 그걸 확인하던 화면은
   // 2026-11-03 삭제(확인 대기 0·만드는 경로 0, docs/phase/my-life-restructure.md §15.6).
-  const [peopleRows, groupRows, placeRows, placeGroupRows, bodyRows, decorRows] = await Promise.all([
+  const [peopleRows, groupRows, placeRows, placeGroupRows, bodyRows, decorRows, customRows] = await Promise.all([
     db.person.findMany({
       where: { userId, subjectType: "person", isDraft: false },
       select: { id: true, name: true, relation: true, metYear: true, birthYear: true, memo: true },
@@ -144,9 +202,15 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
     }),
     db.place.findMany({ where: { userId }, select: { id: true, name: true, address: true, source: true, lat: true, lng: true } }),
     db.placeGroup.findMany({ where: { userId }, select: { id: true, name: true, members: { select: { placeId: true } } } }),
-    db.nodeBody.findMany({ where: { userId, nodeType: { in: ["EPISODE", "PERSON"] } }, select: { nodeType: true, nodeId: true, doc: true, plainText: true, version: true } }),
+    db.nodeBody.findMany({ where: { userId, nodeType: { in: ["EPISODE", "PERSON", "CUSTOM"] } }, select: { nodeType: true, nodeId: true, doc: true, plainText: true, version: true } }),
     // 행성 꾸미기(U4) — 시기·이야기 행성만(1차 Q120)
     db.nodeDecoration.findMany({ where: { userId, nodeType: { in: ["LIFE_EVENT", "EPISODE"] } }, select: { nodeType: true, nodeId: true, shape: true } }),
+    // 사용자 카테고리·묶음·항목 + 기본 카테고리 표시 이름 행(custom-graph 2단계)
+    db.customNode.findMany({
+      where: { userId },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+      select: { id: true, kind: true, parentId: true, builtin: true, name: true },
+    }),
   ]);
   const bodyOf = new Map(bodyRows.map((b) => [`${b.nodeType}:${b.nodeId}`, b]));
   const decorOf = new Map(decorRows.map((d) => [`${d.nodeType}:${d.nodeId}`, d.shape]));
@@ -228,7 +292,18 @@ export async function getMyLifeData(userId: string, db: Db = prisma): Promise<My
   const placeGroupsOf = new Map<string, string[]>();
   for (const g of placeGroupRows) for (const m of g.members) if (placeById.has(m.placeId)) push(placeGroupsOf, m.placeId, g.id);
 
+  const custom = buildCustom(customRows, links, bodyOf, (r) => {
+    if (r.type === "LIFE_EVENT") return eventIds.has(r.id);
+    if (r.type === "EPISODE") return episodeById.has(r.id);
+    if (r.type === "PERSON") return personById.has(r.id);
+    if (r.type === "PLACE") return placeById.has(r.id);
+    if (r.type === "PERSON_GROUP") return groupById.has(r.id);
+    if (r.type === "PLACE_GROUP") return placeGroupRows.some((g) => g.id === r.id);
+    return false; // CUSTOM 은 buildCustom 이 자기 행으로 판단
+  });
+
   return {
+    custom,
     events: events.map((e) => ({
       id: e.id,
       type: e.type,

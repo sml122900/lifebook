@@ -26,6 +26,18 @@ import {
 } from "./node-graph";
 import { createCustomLifeEvent } from "./open-chat-promote";
 import { createPerson, deletePerson, updatePerson } from "./people";
+import {
+  createCategory,
+  createCustomNode,
+  CUSTOM_LIMITS,
+  deleteCustomNode,
+  moveCustomNode,
+  renameCustomNode,
+  sameNameNodes,
+  setBuiltinName,
+  type CustomNodeReject,
+  type SameNameNode,
+} from "./custom-node";
 import { findSameNamePeople } from "./person-chat";
 import { relationGroup } from "./person-relation";
 import { validatePlace } from "./place-validate";
@@ -328,7 +340,23 @@ export async function createPlaceGroupNode(userId: string, input: { name: unknow
 // 시기(직접 추가)는 그 안의 이야기가 함께 지워진다(lib/life-event-delete). 남의 노드·없는 노드 = null.
 // placeGroups — 장소를 지우면 함께 빠지는 장소 묶음 수(확인창 "묶음 N개에서도 빠져요" — 3단계 E2E 2026-11-02).
 // periods·groups·personBody = 사람 지우기(인물록 통합 2026-11-06) — 그 분이 있는 시기·모임 수 · 이 분에 대해 적은 글이 있는지.
-export type DeleteImpact = { stories: number; people: number; places: number; familyActivity: number; storiesDeleted: boolean; placeGroups: number; periods: number; groups: number; personBody: boolean };
+// custom* = 사용자 카테고리(custom-graph 2단계): customKind 종류 · customDeleted 같이 지워지는 묶음·항목(카테고리) · customOut 빠지기만 하는 것
+// (카테고리·묶음에 넣어 둔 것 — 원래 노드는 남음) · customLinks 항목의 이어진 것·넣어 둔 곳 수.
+export type DeleteImpact = {
+  stories: number;
+  people: number;
+  places: number;
+  familyActivity: number;
+  storiesDeleted: boolean;
+  placeGroups: number;
+  periods: number;
+  groups: number;
+  personBody: boolean;
+  customKind: "CATEGORY" | "GROUP" | "ITEM" | null;
+  customDeleted: number;
+  customOut: number;
+  customLinks: number;
+};
 
 async function familyActivityOf(memoryIds: string[]): Promise<number> {
   if (memoryIds.length === 0) return 0;
@@ -338,7 +366,7 @@ async function familyActivityOf(memoryIds: string[]): Promise<number> {
 }
 
 export async function deleteImpact(userId: string, ref: NodeRef): Promise<DeleteImpact | null> {
-  const zero: DeleteImpact = { stories: 0, people: 0, places: 0, familyActivity: 0, storiesDeleted: false, placeGroups: 0, periods: 0, groups: 0, personBody: false };
+  const zero: DeleteImpact = { stories: 0, people: 0, places: 0, familyActivity: 0, storiesDeleted: false, placeGroups: 0, periods: 0, groups: 0, personBody: false, customKind: null, customDeleted: 0, customOut: 0, customLinks: 0 };
   if (ref.type === "LIFE_EVENT") {
     const ev = await prisma.lifeEvent.findFirst({ where: { id: ref.id, userId, type: "CUSTOM" }, select: { episodes: { select: { memoryId: true } } } });
     if (!ev) return null;
@@ -373,6 +401,30 @@ export async function deleteImpact(userId: string, ref: NodeRef): Promise<Delete
   if (ref.type === "PLACE_GROUP") {
     if ((await prisma.placeGroup.count({ where: { id: ref.id, userId } })) === 0) return null;
     return { ...zero, places: await prisma.placeGroupMember.count({ where: { groupId: ref.id } }) };
+  }
+  if (ref.type === "CUSTOM") {
+    const node = await prisma.customNode.findFirst({ where: { id: ref.id, userId }, select: { kind: true, builtin: true } });
+    if (!node || node.builtin !== null || (node.kind !== "CATEGORY" && node.kind !== "GROUP" && node.kind !== "ITEM")) return null;
+    const kind = node.kind as "CATEGORY" | "GROUP" | "ITEM";
+    const touching = (ids: string[]) => prisma.nodeLink.count({ where: { userId, OR: [{ fromType: "CUSTOM", fromId: { in: ids } }, { toType: "CUSTOM", toId: { in: ids } }] } });
+    if (kind === "CATEGORY") {
+      const kids = await prisma.customNode.findMany({ where: { parentId: ref.id, userId }, select: { id: true, kind: true } });
+      const groupIds = kids.filter((k) => k.kind === "GROUP").map((k) => k.id);
+      // 빠지기만 하는 것 = 이 카테고리·그 묶음에 넣어 둔 것 중 이 카테고리 자기 항목이 아닌 것
+      const own = new Set(kids.map((k) => k.id));
+      const rows = await prisma.nodeLink.findMany({
+        where: { userId, role: "MEMBER", OR: [{ toType: "CUSTOM", toId: { in: [ref.id, ...groupIds] } }, { fromType: "CUSTOM", fromId: { in: [ref.id, ...groupIds] } }] },
+        select: { fromType: true, fromId: true, toType: true, toId: true },
+      });
+      const containers = new Set([ref.id, ...groupIds]);
+      const out = new Set(rows.map((r) => (containers.has(r.toId) && r.toType === "CUSTOM" ? `${r.fromType}:${r.fromId}` : `${r.toType}:${r.toId}`)).filter((k) => !own.has(k.split(":")[1])));
+      return { ...zero, customKind: kind, customDeleted: kids.length, customOut: out.size };
+    }
+    if (kind === "GROUP") {
+      const members = await prisma.nodeLink.count({ where: { userId, role: "MEMBER", OR: [{ toType: "CUSTOM", toId: ref.id }, { fromType: "CUSTOM", fromId: ref.id }] } });
+      return { ...zero, customKind: kind, customOut: members };
+    }
+    return { ...zero, customKind: kind, customLinks: await touching([ref.id]), personBody: (await prisma.nodeBody.count({ where: { userId, nodeType: "CUSTOM", nodeId: ref.id } })) > 0 };
   }
   if (ref.type === "PERSON") {
     if ((await prisma.person.count({ where: { id: ref.id, userId } })) === 0) return null;
@@ -433,6 +485,71 @@ export async function updatePersonInfo(
   }
 }
 
+// ── 사용자 카테고리(custom-graph 2단계 — docs/phase/custom-graph.md §3) ─────────────────────
+// 본체는 lib/custom-node(규칙·상한·고리·깊이). 여기는 화면 문구로 바꾸고, 같은 이름 안내(Q98)·카테고리에서 빼기를 더한다.
+const X = MY_LIFE_COPY.custom;
+function customError(reason: CustomNodeReject): string {
+  if (reason === "need_name") return E.needName;
+  if (reason === "too_long") return E.tooLong(CUSTOM_LIMITS.name);
+  if (reason === "limit") return X.limit;
+  if (reason === "not_found" || reason === "builtin") return E.notFound;
+  return E.failed;
+}
+
+export async function createCategoryNode(userId: string, name: unknown): Promise<{ ok: true; id: string } | Fail> {
+  const r = await createCategory(userId, { name });
+  return r.ok ? r : { ok: false, error: customError(r.reason) };
+}
+
+// 항목·묶음 — 자리 = 사용자 카테고리. decision 없이 6종과 같은 이름이면(공백 무시 — sameNameNodes) 만들지 않고 되묻는다(Q98):
+// 화면이 [이것 넣기](= 그 노드를 이 카테고리에 넣기 연결, 새 항목 0) / [새로 만들기](decision "new")를 보인다.
+export async function createCustomChild(
+  userId: string,
+  input: { kind: unknown; name: unknown; categoryId: unknown; decision?: unknown },
+): Promise<{ ok: true; id: string } | Fail | { ok: false; askSame: SameNameNode[] }> {
+  if (input.kind !== "ITEM" && input.kind !== "GROUP") return { ok: false, error: E.failed };
+  if (input.decision !== "new" && typeof input.name === "string") {
+    const same = await sameNameNodes(userId, input.name);
+    if (same.length > 0) return { ok: false, askSame: same.slice(0, 10) };
+  }
+  const r = await createCustomNode(userId, { kind: input.kind, name: input.name, parentId: input.categoryId });
+  return r.ok ? r : { ok: false, error: customError(r.reason) };
+}
+
+// 기본 카테고리(인물록·장소록) 표시 이름 — 영역 제목만 바뀐다(Q76, "록" 자동으로 안 붙임).
+export async function renameBuiltin(userId: string, builtin: unknown, name: unknown): Promise<{ ok: true } | Fail> {
+  const r = await setBuiltinName(userId, builtin, name);
+  return r.ok ? { ok: true } : { ok: false, error: customError(r.reason) };
+}
+
+// 자리 옮기기(묶음·항목 → 다른 사용자 카테고리). undo = 원래 카테고리(새 카테고리로의 넣기 연결을 지웠으면 되돌리지 않음 — null).
+export async function moveCustom(userId: string, nodeId: string, categoryId: unknown): Promise<{ ok: true; undo: { nodeId: string; categoryId: string } | null } | Fail> {
+  const r = await moveCustomNode(userId, nodeId, categoryId);
+  if (!r.ok) return { ok: false, error: customError(r.reason) };
+  return { ok: true, undo: r.prevParentId && r.removedLinks === 0 && r.prevParentId !== categoryId ? { nodeId, categoryId: r.prevParentId } : null };
+}
+
+export async function deleteCustom(userId: string, nodeId: string): Promise<{ ok: true } | Fail> {
+  const r = await deleteCustomNode(userId, nodeId);
+  return r.ok ? r : { ok: false, error: customError(r.reason) };
+}
+
+// 바로가기 [이 카테고리에서 빼기] — 그 노드를 이 카테고리와 그 안 묶음에서 모두 뺀다(넣기 연결만 — 원래 노드는 그대로). undo = 빼기 되돌리기 값.
+export async function takeOutOfCategory(userId: string, categoryId: string, node: NodeRef): Promise<{ ok: true; removed: number; undo: RemovedLink[] } | Fail> {
+  const cat = await prisma.customNode.findFirst({ where: { id: categoryId, userId, kind: "CATEGORY", builtin: null }, select: { id: true } });
+  if (!cat) return { ok: false, error: E.notFound };
+  const groups = await prisma.customNode.findMany({ where: { parentId: categoryId, userId, kind: "GROUP" }, select: { id: true } });
+  let removed = 0;
+  const undo: RemovedLink[] = [];
+  for (const c of [cat.id, ...groups.map((g) => g.id)]) {
+    const r = await removeLink(userId, node, { type: "CUSTOM", id: c });
+    if (!r.ok) continue; // 그 묶음에는 없던 것
+    removed += r.removed;
+    if (r.undo) undo.push(...r.undo);
+  }
+  return removed > 0 ? { ok: true, removed, undo } : { ok: false, error: E.notFound };
+}
+
 // 장소·모임 이름 고치기(인물록 통합 2026-11-06) — 만들기와 같은 길이 검사. 장소는 이야기 장소 행(MemoryPlace.placeName — 옛 화면·포스터가
 // 읽는 이름 사본)도 같이 바꾼다(내 기록의 그 장소 행만).
 export async function renameNode(userId: string, node: NodeRef, rawName: unknown): Promise<{ ok: true } | Fail> {
@@ -452,6 +569,11 @@ export async function renameNode(userId: string, node: NodeRef, rawName: unknown
     if (name.length > EDIT_LIMITS.groupName) return { ok: false, error: E.tooLong(EDIT_LIMITS.groupName) };
     const r = await prisma.personGroup.updateMany({ where: { id: node.id, userId }, data: { name } });
     return r.count > 0 ? { ok: true } : { ok: false, error: E.notFound };
+  }
+  if (node.type === "CUSTOM") {
+    // 사용자 카테고리·묶음·항목(custom-graph 2단계) — 기본 카테고리 행은 renameBuiltin
+    const r = await renameCustomNode(userId, node.id, rawName);
+    return r.ok ? { ok: true } : { ok: false, error: customError(r.reason) };
   }
   return { ok: false, error: E.notFound };
 }

@@ -22,6 +22,8 @@
 //      setBirthYear = 세 곳 같이 · V2 = 예전 규칙 그대로(getBirthYear = V2 출생 기록, resolveBirthYear = User 먼저) ·
 //      V3 화면 읽는 곳 = resolveBirthYear 하나 · 회원정보·V3 신상 저장 = setBirthYear
 //   ⑦ 정적 — 서버 액션 전부 첫 줄 auth · NodeLink 쓰기는 lib/node-graph 만 · proxy.ts 무접촉 · 문구 임시 표기
+//   ⑭ 사용자 카테고리 지도(custom-graph 2단계 2026-11-06) — 만들기(같은 이름 안내)·넣기·잇기·빼기(되돌리기)·옮기기(되돌리기)·이름·기본 카테고리 이름·
+//      항목 글·지우기 확인 수·남의 노드 거부·정합 점검 14·카테고리 지우기(자기 항목만) · 정적(액션·고르기·항목 글 화면)
 //   ⑬ 인물록 통합(2026-11-06) — 사람 [이름·정보 고치기](저장·비우기·거부·분류 그대로) · 장소·모임 [이름 고치기](장소 = 이야기 장소 행 사본도) ·
 //      사람 지우기(확인창 수·연결 정리·이야기 남음·남의 사람 거부) · 옛 /people 진입(V3 = My Life 자리, V2 = 그대로) · 정적(입구·화면·문구·무효화)
 //
@@ -44,25 +46,33 @@ import { getMyLifeData } from "../lib/my-life";
 import { MY_LIFE_COPY } from "../lib/my-life-copy";
 import {
   addLink,
+  createCategoryNode,
+  createCustomChild,
   createGroupNode,
   createPeriodNode,
   createPersonNode,
   createPlaceGroupNode,
   createPlaceNode,
   createStoryNode,
+  deleteCustom,
   deleteGroupNode,
   deleteImpact,
   deletePlaceGroupNode,
   deletePersonNode,
   deletePlaceNode,
+  moveCustom,
   removeLink,
+  renameBuiltin,
   renameNode,
   setNodeDecoration,
+  takeOutOfCategory,
   undoLinks,
   undoRemove,
   updatePersonInfo,
 } from "../lib/my-life-edit";
-import { saveEpisodeBody, savePersonBody } from "../lib/node-body";
+import { getItemBody, saveEpisodeBody, saveItemBody, savePersonBody } from "../lib/node-body";
+import { categoryEntries } from "../lib/my-life-layout";
+import { countNodeGraphIssues } from "../lib/node-graph-reconcile";
 import { MY_LIFE_PEOPLE, MY_LIFE_PLACES, peopleEntryRedirect } from "../lib/people-entry";
 import { saveNodeLink, type NodeRef } from "../lib/node-graph";
 import { cardToEdit, createFromCard, type CardPerson, type ProposalCard } from "../lib/node-proposal";
@@ -868,8 +878,8 @@ async function main() {
       const act13 = read("app/my-life/actions.ts");
       check("⑬ 화면 — ?area= 처음 한 번 그 영역 · ?edit=1 사람 패널 고치기로 시작 · 사람 [이름·정보 고치기]·장소·모임 [이름 고치기] · 사람도 [이 노드 지우기] · 지우기 = deletePersonNode",
         view13.includes('const a = searchParams.get("area");') && view13.includes('searchParams.get("edit") === "1"') && view13.includes("startEdit={panel === editKey}") &&
-          edit13.includes('useState<Mode>(startEdit ? { t: "editInfo" } : { t: "view" })') && edit13.includes("{person ? E.editInfo : E.editName}") &&
-          edit13.includes("!!story || !!person || !!place") && edit13.includes("{im.personBody && <p") &&
+          edit13.includes('useState<Mode>(startEdit ? { t: "editInfo" } : startPick ? { t: "pick", what: "putIn" } : { t: "view" })') && edit13.includes("{person ? E.editInfo : place || group ? E.editName : X.rename}") &&
+          edit13.includes("!!story || !!person || !!place") && edit13.includes("im.personBody && <p className=\"text-lg text-ink\">{E.deletePersonBody}") &&
           act13.includes("return deletePersonNode(userId, r.id);") && act13.includes("export async function updatePersonInfoAction(") && act13.includes("export async function renameNodeAction("));
       const revalidated = ["app/actions/episode.ts", "app/actions/free-chat.ts", "app/actions/node-body.ts", "app/interview/actions.ts"].filter((f) => read(f).includes('revalidatePath("/people/[personId]"'));
       check("⑬ V3 액션의 /people 상세 무효화 삭제(V2 경로 draft-actions·/people 액션은 그대로)",
@@ -882,6 +892,136 @@ async function main() {
           copy13.includes("// 인물록 통합(2026-11-06) — 사람 패널, 값이 있을 때만 — 확정(성민 2026-11-06)") && copy13.includes("// — 아래 10키 확정(성민 2026-11-06") &&
           !/인물록 통합[^\n]*\[임시/.test(copy13));
       check("⑬ 사용법 챗 — 인물록·장소록 = My Life 지도 안", read("app/api/tutorial-chat/route.ts").includes("- 인물록·장소록: My Life 지도 안에 있음."));
+    }
+    // ── ⑭ 사용자 카테고리 지도(custom-graph 2단계 — docs/phase/custom-graph.md §3·§6.6) — 만들기·넣기·빼기·잇기·옮기기·이름·지우기·글 · 남의 노드 거부 · 정합 점검 ─────
+    {
+      const okId = <T extends { ok: boolean }>(r: T, k: "id" | "personId"): string => (r.ok ? ((r as unknown as Record<string, string>)[k] ?? "") : "");
+      const momC = okId(await createPersonNode(a, { name: "[fixture] 카테고리 어머니", relation: "어머니" }), "personId");
+      const mateC = okId(await createPersonNode(a, { name: "[fixture] 산책 짝꿍", relation: "친구" }), "personId");
+      const stC = await createStoryNode(a, { lifeEventId: job, kind: "STORY", title: "", content: "[fixture] 강아지와 뒷산을 걸었다.", personIds: [] });
+      const stCId = stC.ok ? stC.episodeId : "";
+      const cat = await createCategoryNode(a, " [fixture]  반려동물 ");
+      const hob = await createCategoryNode(a, "[fixture] 취미");
+      const catId = cat.ok ? cat.id : "";
+      const hobId = hob.ok ? hob.id : "";
+      check("⑭ 카테고리 만들기 — 이름 공백 정리 · 빈 이름·31자 거부(문구)",
+        cat.ok && (await prisma.customNode.findUnique({ where: { id: catId }, select: { name: true, kind: true } }))?.name === "[fixture] 반려동물" &&
+          JSON.stringify([await createCategoryNode(a, " "), await createCategoryNode(a, "가".repeat(31))].map((r) => (r.ok ? "ok" : r.error))) === JSON.stringify([E.needName, E.tooLong(30)]));
+      // 같은 이름 안내(Q98) — 6종과 같은 이름이면 만들지 않고 되묻기 · decision "new" 면 만듦
+      const ask = await createCustomChild(a, { kind: "ITEM", name: "[fixture] 산책  짝꿍", categoryId: catId });
+      const askNodes = !ask.ok && "askSame" in ask ? ask.askSame : [];
+      const before = await prisma.customNode.count({ where: { userId: a, parentId: catId } });
+      const forced = await createCustomChild(a, { kind: "ITEM", name: "[fixture] 산책 짝꿍", categoryId: catId, decision: "new" });
+      check("⑭ 같은 이름 안내 — 사람과 같은 이름(공백 무시) = 되묻기(그 사람) · 만든 것 0 · [새 항목으로 만들기] = 만듦",
+        askNodes.some((n) => n.type === "PERSON" && n.id === mateC) && before === 0 && forced.ok, { askNodes, forced });
+      const dog = await createCustomChild(a, { kind: "ITEM", name: "[fixture] 초롱이", categoryId: catId });
+      const grp = await createCustomChild(a, { kind: "GROUP", name: "[fixture] 산책 친구", categoryId: catId });
+      const fish = await createCustomChild(a, { kind: "ITEM", name: "[fixture] 낚시", categoryId: hobId });
+      const dogId = dog.ok ? dog.id : "";
+      const grpId = grp.ok ? grp.id : "";
+      const fishId = fish.ok ? fish.id : "";
+      const C_ = (id: string): NodeRef => ({ type: "CUSTOM", id });
+      // 넣기·잇기 — 입구 addLink(saveNodeLink): 6종·다른 카테고리 항목 → 카테고리 MEMBER · 항목·사람 → 묶음 MEMBER · 항목 ↔ 이야기 = 관련("")
+      const puts = [
+        await addLink(a, { type: "PERSON", id: momC }, C_(catId)),
+        await addLink(a, C_(fishId), C_(catId)),
+        await addLink(a, C_(dogId), C_(grpId)),
+        await addLink(a, { type: "PERSON", id: mateC }, C_(grpId)),
+        await addLink(a, { type: "EPISODE", id: stCId }, C_(dogId)),
+      ];
+      const role = async (x: NodeRef, y: NodeRef) =>
+        (await prisma.nodeLink.findFirst({ where: { userId: a, OR: [{ fromType: x.type, fromId: x.id, toType: y.type, toId: y.id }, { fromType: y.type, fromId: y.id, toType: x.type, toId: x.id }] }, select: { role: true } }))?.role ?? null;
+      check("⑭ 넣기 MEMBER 4 · 잇기 관련 1(역할은 saveNodeLink 가 종류로) · 다시 넣기 = 새로 0 · 자기 카테고리에 넣기·묶음끼리 거부",
+        puts.every((r) => r.ok && r.created.length === 1) &&
+          (await role({ type: "PERSON", id: momC }, C_(catId))) === "MEMBER" && (await role(C_(fishId), C_(catId))) === "MEMBER" && (await role(C_(dogId), C_(grpId))) === "MEMBER" &&
+          (await role({ type: "EPISODE", id: stCId }, C_(dogId))) === "" &&
+          (await addLink(a, { type: "PERSON", id: momC }, C_(catId))).ok && ((await addLink(a, { type: "PERSON", id: momC }, C_(catId))) as { created: unknown[] }).created.length === 0 &&
+          !(await addLink(a, C_(dogId), C_(catId))).ok && !(await addLink(a, C_(grpId), C_(grpId))).ok,
+        puts.map((r) => (r.ok ? r.created.length : r.error)));
+      // 화면 데이터
+      const d14 = await getMyLifeData(a);
+      const cu = d14.custom!;
+      const catD = cu.categories.find((c) => c.id === catId)!;
+      const grpD = cu.groups.find((g) => g.id === grpId)!;
+      const dogD = cu.items.find((i) => i.id === dogId)!;
+      const entries = categoryEntries(catD, cu);
+      check("⑭ 화면 데이터 — 카테고리 refs(어머니·낚시) · 묶음 memberRefs(초롱이·짝꿍) · 초롱이 related(이야기) · 칸 = 항목 2(초롱이·새 항목) + 바로가기 3(어머니·낚시·짝꿍)",
+        catD.refs.some((r) => r.type === "PERSON" && r.id === momC) && catD.refs.some((r) => r.type === "CUSTOM" && r.id === fishId) &&
+          grpD.memberRefs.length === 2 && dogD.related.some((r) => r.type === "EPISODE" && r.id === stCId) &&
+          entries.filter((e) => e.itemId).length === 2 && entries.filter((e) => e.ref).length === 3 && entries.find((e) => e.itemId === dogId)?.groupIds[0] === grpId,
+        entries.map((e) => e.key));
+      // 바로가기 빼기 — 카테고리와 그 안 묶음 모두 · 되돌리기
+      await addLink(a, { type: "PERSON", id: momC }, C_(grpId));
+      const out = await takeOutOfCategory(a, catId, { type: "PERSON", id: momC });
+      const momLinks = () => prisma.nodeLink.count({ where: { userId: a, fromType: "PERSON", fromId: momC, toType: "CUSTOM" } });
+      const left = await momLinks();
+      const und = out.ok ? await undoRemove(a, out.undo) : null;
+      check("⑭ [이 카테고리에서 빼기] — 카테고리·묶음 넣기 2행 지움(사람은 그대로) · [되돌리기] 2행 다시 · 없는 것 빼기 = 찾을 수 없음",
+        out.ok && out.removed === 2 && left === 0 && (await prisma.person.count({ where: { id: momC } })) === 1 && !!und?.ok && (await momLinks()) === 2 &&
+          !(await takeOutOfCategory(a, catId, { type: "PLACE", id: placeB })).ok, { out, left });
+      // 옮기기 + 되돌리기(묶음 소속은 그대로 — 다른 카테고리 묶음에도 들 수 있음)
+      const mv = await moveCustom(a, dogId, hobId);
+      const parentAfter = (await prisma.customNode.findUnique({ where: { id: dogId }, select: { parentId: true } }))?.parentId;
+      const back = mv.ok && mv.undo ? await moveCustom(a, mv.undo.nodeId, mv.undo.categoryId) : null;
+      check("⑭ 다른 카테고리로 옮기기 — 자리 바뀜 · 묶음 넣기 그대로 · [되돌리기] = 원래 카테고리 · 기본 카테고리·묶음으로는 거부",
+        mv.ok && parentAfter === hobId && (await role(C_(dogId), C_(grpId))) === "MEMBER" && !!back?.ok &&
+          (await prisma.customNode.findUnique({ where: { id: dogId }, select: { parentId: true } }))?.parentId === catId && !(await moveCustom(a, dogId, grpId)).ok);
+      // 이름 — 카테고리·묶음·항목 · 기본 카테고리 표시 이름
+      const rn = [await renameNode(a, C_(dogId), "[fixture] 초롱이(진돗개)"), await renameNode(a, C_(grpId), "[fixture] 산책 모임"), await renameNode(a, C_(catId), "[fixture] 우리 강아지")];
+      const bn = await renameBuiltin(a, "PEOPLE", "[fixture] 우리 가족");
+      const d14b = await getMyLifeData(a);
+      check("⑭ 이름 바꾸기 — 항목·묶음·카테고리 · 기본 카테고리(인물록 → 표시 이름, 화면 데이터 builtinNames) · 31자 거부",
+        rn.every((r) => r.ok) && bn.ok && d14b.custom!.builtinNames.PEOPLE === "[fixture] 우리 가족" && d14b.custom!.items.find((i) => i.id === dogId)?.name === "[fixture] 초롱이(진돗개)" &&
+          !(await renameNode(a, C_(dogId), "가".repeat(31))).ok && !(await renameBuiltin(a, "PEOPLE", " ")).ok);
+      // 항목 글(Q78 — NodeBody CUSTOM, 인물 글과 같은 길)
+      const ib = await saveItemBody(a, dogId, { v: 1, blocks: [{ type: "paragraph", text: "[fixture] 진돗개, 2010년에 데려왔다." }] }, 0);
+      const ibView = await getItemBody(a, dogId);
+      check("⑭ 항목 글 — 저장(버전 1) · 화면 데이터 첫 줄 · 카테고리·묶음에는 글 없음 · 남의 항목 = 찾을 수 없음",
+        ib.ok && ibView?.version === 1 && (await getMyLifeData(a)).custom!.items.find((i) => i.id === dogId)?.body.includes("진돗개") === true &&
+          (await getItemBody(a, catId)) === null && !(await saveItemBody(a, grpId, { v: 1, blocks: [] }, 0)).ok && (await getItemBody(b, dogId)) === null);
+      // 지우기 확인 수
+      const imCat = await deleteImpact(a, C_(catId));
+      const imGrp = await deleteImpact(a, C_(grpId));
+      const imDog = await deleteImpact(a, C_(dogId));
+      check("⑭ 지우기 확인 — 카테고리(함께 지워지는 항목·묶음 3 · 빠지기만 하는 것: 어머니·낚시·짝꿍 3) · 묶음(안의 3) · 항목(이어진 2 · 글 있음)",
+        imCat?.customKind === "CATEGORY" && imCat.customDeleted === 3 && imCat.customOut === 3 && imGrp?.customKind === "GROUP" && imGrp.customOut === 3 &&
+          imDog?.customKind === "ITEM" && imDog.customLinks === 2 && imDog.personBody === true,
+        { imCat, imGrp, imDog });
+      // 남의 노드 거부 — b 는 a 의 카테고리·묶음·항목을 고치거나 지우거나 넣거나 뺄 수 없음
+      const foreign = [
+        await renameNode(b, C_(catId), "[fixture] 남이 고침"),
+        await moveCustom(b, dogId, hobId),
+        await deleteCustom(b, catId),
+        await takeOutOfCategory(b, catId, { type: "PERSON", id: momC }),
+        await addLink(b, { type: "PLACE", id: placeB }, C_(catId)),
+        await createCustomChild(b, { kind: "ITEM", name: "[fixture] 남의 항목", categoryId: catId, decision: "new" }),
+      ];
+      const bOwnBuiltin = await renameBuiltin(b, "PEOPLE", "[fixture] B 의 이름");
+      check("⑭ 남의 노드 거부 — 이름·옮기기·지우기·빼기·넣기·그 카테고리에 만들기 = 실패(찾을 수 없음) · 확인창 수 = 없음 · 기본 카테고리 이름은 자기 것만",
+        foreign.every((r) => !r.ok) && (await deleteImpact(b, C_(catId))) === null && bOwnBuiltin.ok &&
+          (await getMyLifeData(a)).custom!.builtinNames.PEOPLE === "[fixture] 우리 가족" && (await prisma.customNode.count({ where: { id: catId } })) === 1 &&
+          (await prisma.customNode.findUnique({ where: { id: catId }, select: { name: true } }))?.name === "[fixture] 우리 강아지",
+        foreign.map((r) => (r.ok ? "ok" : "error" in r ? r.error : "ask")));
+      // 정합 점검 — 사용자 노드 연결·본문이 끝 없음·노드 없음에 안 잡히고 점검 14 = 0
+      const iss = await countNodeGraphIssues({ userId: a });
+      check("⑭ 정합 점검 — 점검 14(사용자 노드) 전부 0 · 끝 없는 연결 0 · 노드 없는 본문 0", Object.values(iss.custom).every((v) => v === 0) && iss.danglingLinks === 0 && iss.bodyMissingNode === 0, iss);
+      // 카테고리 지우기 — 자기 항목·묶음만(Cascade), 넣어 둔 사람·다른 카테고리 항목은 남고 연결만 정리
+      const del = await deleteCustom(a, catId);
+      const touching = await prisma.nodeLink.count({ where: { userId: a, OR: [{ toId: { in: [catId, grpId, dogId] } }, { fromId: { in: [catId, grpId, dogId] } }] } });
+      check("⑭ 카테고리 지우기 — 자기 항목·묶음 지워짐 · 어머니·짝꿍·낚시(취미)·이야기 남음 · 연결·항목 글 정리 · 기본 카테고리는 못 지움",
+        del.ok && (await prisma.customNode.count({ where: { id: { in: [catId, grpId, dogId] } } })) === 0 && touching === 0 &&
+          (await prisma.person.count({ where: { id: { in: [momC, mateC] } } })) === 2 && (await prisma.customNode.count({ where: { id: fishId } })) === 1 &&
+          (await prisma.episode.count({ where: { id: stCId } })) === 1 && (await prisma.nodeBody.count({ where: { nodeType: "CUSTOM", nodeId: dogId } })) === 0 &&
+          !(await deleteCustom(a, (await prisma.customNode.findFirstOrThrow({ where: { userId: a, builtin: "PEOPLE" }, select: { id: true } })).id)).ok);
+      const iss2 = await countNodeGraphIssues({ userId: a });
+      check("⑭ 지운 뒤 정합 점검 14 = 0", Object.values(iss2.custom).every((v) => v === 0) && iss2.danglingLinks === 0, iss2.custom);
+      // 정적 — 화면 입구
+      const act14 = read("app/my-life/actions.ts");
+      const edit14 = read("app/my-life/EditUI.tsx");
+      check("⑭ 화면 입구 — 만들기 3종(카테고리·항목·묶음)·기본 카테고리 이름·옮기기·카테고리에서 빼기 액션(첫 줄 auth) · 패널 넣기·잇기·묶음에·다른 카테고리에 고르기 · 항목 글 화면",
+        act14.includes('case "category": {') && act14.includes('case "customGroup": {') && act14.includes("export async function renameBuiltinAction(") && act14.includes("export async function moveCustomAction(") &&
+          act14.includes("export async function takeOutAction(") && edit14.includes("function customCandidates(") && edit14.includes('{ what: "putIn", label: X.putIn }') &&
+          fs.existsSync(path.join(ROOT, "app/my-life/item/[id]/edit/page.tsx")) && read("app/my-life/item/[id]/edit/page.tsx").includes("getItemBody(userId, id)"));
     }
   } finally {
     await removeFixtures();

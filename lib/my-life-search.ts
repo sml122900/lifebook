@@ -1,13 +1,15 @@
 // My Life 글자 검색 — 브라우저 안(서버·인덱스 0). docs/phase/my-life-restructure.md §5. 순수(클라이언트도 씀).
 //
-// 대상: 중심 이름 · 이야기 본문 · 인물 이름·관계 · 장소 이름·주소 · 모임 이름 · 장소 묶음 이름(3단계).
+// 대상: 중심 이름 · 이야기 본문 · 인물 이름·관계 · 장소 이름·주소 · 모임 이름 · 장소 묶음 이름(3단계) ·
+// 사용자 카테고리·묶음 이름 · 항목 이름·글(custom-graph 2단계 — 카테고리 결과 = 그 영역 제목, 바로가기는 따로 안 나옴).
 // 맞추기: 양쪽 NFC + 소문자 + 공백 제거 후 부분 일치("김 민수" = "김민수"). 초성 검색은 1차 제외(Q61).
 // 순서: 이름 일치(0) > 본문·관계·주소 일치(1), 같은 순위는 시간 줄기 순서 → 인물록 → 장소록. 최대 30개.
 
 import type { MyLifeData } from "./my-life";
+import { customOf } from "./my-life-custom";
 import { displayTitle } from "./story-title";
 
-export type SearchKind = "event" | "story" | "person" | "place" | "group" | "placeGroup";
+export type SearchKind = "event" | "story" | "person" | "place" | "group" | "placeGroup" | "category" | "customGroup" | "item";
 
 export type SearchResult = {
   kind: SearchKind;
@@ -103,6 +105,23 @@ export function searchMyLife(data: MyLifeData, query: string): SearchResult[] {
     hit({ kind: "place", key: `pl:${p.id}`, eventId: null, title: p.name }, [
       { text: p.name, rank: 0, snip: false },
       { text: p.address, rank: 1, snip: true },
+    ]);
+  }
+  // 사용자 카테고리(custom-graph 2단계) — 장소록 뒤 순서
+  const custom = customOf(data);
+  for (const c of custom.categories) {
+    order++;
+    hit({ kind: "category", key: `cat:${c.id}`, eventId: null, title: c.name }, [{ text: c.name, rank: 0, snip: false }]);
+  }
+  for (const g of custom.groups) {
+    order++;
+    hit({ kind: "customGroup", key: `cgl:${g.id}`, eventId: null, title: g.name }, [{ text: g.name, rank: 0, snip: false }]);
+  }
+  for (const it of custom.items) {
+    order++;
+    hit({ kind: "item", key: `cn:${it.id}`, eventId: null, title: it.name }, [
+      { text: it.name, rank: 0, snip: false },
+      { text: it.body, rank: 1, snip: true },
     ]);
   }
   return out

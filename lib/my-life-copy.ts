@@ -210,6 +210,10 @@ export const MY_LIFE_COPY = {
       place: "장소",
       group: "모임",
       placeGroup: "장소 묶음",
+      // 사용자 카테고리(custom-graph 2단계 2026-11-06) [임시]
+      category: "카테고리",
+      item: "항목",
+      customGroup: "묶음",
     },
     kindHints: {
       period: "이사·직장처럼 인생의 한 시기",
@@ -219,6 +223,9 @@ export const MY_LIFE_COPY = {
       place: "기억 속 장소",
       group: "사람 여럿을 한 모임으로",
       placeGroup: "장소 여럿을 한 묶음으로",
+      category: "반려동물·취미처럼 직접 이름 붙여 모으는 곳",
+      item: "카테고리 안 하나",
+      customGroup: "카테고리 안 여럿을 한 묶음으로",
     },
     regionAddPerson: "사람",
     regionAddGroup: "모임",
@@ -327,6 +334,66 @@ export const MY_LIFE_COPY = {
     pickPeriod: "시기를 골라 주세요.",
     repickSame: "같은 분을 다시 골라 주세요.",
     failed: "저장하지 못했어요. 다시 해 주세요.",
+  },
+
+  // 사용자 카테고리(custom-graph 2단계 — 2026-11-06, docs/phase/custom-graph.md §3·§6.6·§8) — 전부 [임시 — 성민 확정 필요]
+  custom: {
+    kindCategory: "카테고리",
+    kindGroup: "묶음",
+    kindItem: "항목",
+    addItem: "항목", // 영역 추가 줄 [+ 항목]
+    addGroup: "묶음", // [+ 묶음]
+    putIn: "넣기", // [+ 넣기] — 지도에 있는 것을 바로가기로
+    addName: (label: string, cat: string) => `${cat}에 ${label} 추가`, // 추가 줄 버튼 낭독 이름
+    putInHint: "고르면 바로가기로 들어가요. 원래 자리는 그대로예요.",
+    titleName: (name: string, n: number) => `카테고리 ${name}, ${n}개`, // 영역 제목 버튼 낭독
+    count: (n: number) => `${n}개`,
+    unfold: "펼치기",
+    fold: "접기",
+    more: (n: number) => `${n}개 더 보기`,
+    less: "접기",
+    noGroup: "묶음에 없는 것",
+    empty: "아직 비어 있어요",
+    groupEmpty: "아직 넣은 것이 없어요",
+    toCategories: "다른 카테고리", // 이동 줄
+    categoriesTitle: "어느 카테고리로 갈까요?",
+    rename: "이름 바꾸기",
+    builtinNote: "영역 제목만 바뀌어요.",
+    moveTo: "다른 카테고리로 옮기기",
+    moveTitle: "어느 카테고리로 옮길까요?",
+    moved: (name: string) => `${name}${withJosa(name, "으로/로")} 옮겼어요.`,
+    deleteCatNote: (n: number, m: number) => `안의 항목·묶음 ${n}개가 함께 지워져요. 넣어 둔 ${m}개는 이 카테고리에서 빠지기만 하고 원래 자리에 남아요.`,
+    deleteGroupNote: (n: number) => `안의 ${n}개는 그대로 남아요. 이 묶음에서만 빠져요.`,
+    deleteItemNote: (n: number) => (n > 0 ? `이어진 ${n}곳과의 연결도 사라져요.` : "이어진 것이 없어요."),
+    deleteItemBody: "이 항목에 적은 글도 함께 지워져요.",
+    refIn: (cat: string) => `‘${cat}’에 넣어 둔 바로가기예요.`,
+    goOrigin: "원래 자리로 가기",
+    takeOut: "이 카테고리에서 빼기",
+    takenOut: "카테고리에서 뺐어요.",
+    refName: (name: string, where: string) => `${name}, ${where}에 있는 것으로 가는 바로가기`, // 바로가기 칸 낭독
+    where: { LIFE_EVENT: "시간 줄기", EPISODE: "시간 줄기", PERSON: "인물록", PERSON_GROUP: "인물록", PLACE: "장소록", PLACE_GROUP: "장소록" },
+    itemName: (name: string, cat: string) => `항목 ${name}, ${cat}`, // 항목 칸 낭독
+    groupLabelName: (name: string, n: number) => `묶음 ${name}, ${n}개`,
+    groupChipName: (name: string, shown: boolean) => (shown ? `묶음 ${name}, 지도에 보이는 중` : `묶음 ${name}, 지도에 보이기`),
+    sameNameTitle: (name: string) => `지도에 ‘${name}’${withJosa(name, "이/가")} 이미 있어요`,
+    sameNameHint: "같은 것이면 넣기만 하면 돼요.",
+    putThis: "이것 넣기",
+    makeNewItem: "새 항목으로 만들기",
+    makeNewGroup: "새 묶음으로 만들기",
+    sectionContains: "들어 있는 것",
+    sectionRelated: "이어진 것",
+    sectionIn: "넣어 둔 곳",
+    sectionItems: "이어진 항목", // 시기·이야기·사람·장소 패널
+    sectionCats: "넣어 둔 카테고리", // 6종 패널
+    relate: "다른 것과 잇기",
+    intoGroup: "묶음에 넣기",
+    intoCategory: "다른 카테고리에도 넣기",
+    itemWrite: "이 항목 글 쓰기",
+    itemEdit: "이 항목 글 고치기",
+    itemTitle: (name: string) => `${name} — 글`, // 항목 글 화면 제목
+    itemIntro: "이 항목에 대해 적어 두세요. 사진도 넣을 수 있어요.",
+    limit: "더 만들 수 없어요. 카테고리는 18개, 항목과 묶음은 300개까지예요.",
+    kindOf: { LIFE_EVENT: "시기", EPISODE: "이야기", PERSON: "사람", PERSON_GROUP: "모임", PLACE: "장소", PLACE_GROUP: "장소 묶음", CATEGORY: "카테고리", GROUP: "묶음", ITEM: "항목" },
   },
 
   // 우주 개편 U1(2026-11-05 — docs/phase/ui-space.md §1·§3) — 확정 2026-11-05(성민). 아래 space 전부 확정.

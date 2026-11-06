@@ -17,15 +17,18 @@ import { PlaceSearchInput } from "@/app/components/PlaceSearchInput";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import type { MyLifeData, MyLifeEvent, MyLifeStory } from "@/lib/my-life";
+import { customOf, type MyLifeRef } from "@/lib/my-life-custom";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import type { MoveUndo } from "@/lib/episode-move";
+import type { SameNameNode } from "@/lib/custom-node";
 import type { CreatedLink, DeleteImpact, SameNamePerson } from "@/lib/my-life-edit";
-import { eventPeoplePlaceList, yearText, type PeriodRef } from "@/lib/my-life-layout";
+import { categoryEntries, eventPeoplePlaceList, yearText, type PeriodRef } from "@/lib/my-life-layout";
 import type { NodeRef } from "@/lib/node-graph";
 import { EMPTY_PLACE, type PlaceInfo } from "@/lib/place-types";
 import { decorName } from "@/lib/space-decor";
 import { displayTitle, shortTitle } from "@/lib/story-title";
 
+import { builtinName, refInfo } from "./Custom";
 import { DecorPicker } from "./Decor";
 import { beginPress, dragJustEnded, type DropResult, type OptLinks } from "./drag";
 
@@ -34,9 +37,12 @@ import {
   createNodeAction,
   deleteImpactAction,
   deleteNodeAction,
+  moveCustomAction,
   moveStoryAction,
   removeLinkAction,
+  renameBuiltinAction,
   renameNodeAction,
+  takeOutAction,
   undoCreateAction,
   undoLinksAction,
   undoRemoveAction,
@@ -47,9 +53,11 @@ import {
 
 const C = MY_LIFE_COPY;
 const E = MY_LIFE_COPY.edit;
+const X = MY_LIFE_COPY.custom; // 사용자 카테고리(custom-graph 2단계)
 
-export type CreateKind = "period" | "story" | "self" | "person" | "place" | "group" | "placeGroup";
-export const CREATE_KINDS: CreateKind[] = ["period", "story", "self", "person", "place", "group", "placeGroup"];
+// category·item·customGroup = 사용자 카테고리(custom-graph 2단계). 항목·묶음은 카테고리 안에서만 만든다(preset.categoryId) — 시트 목록엔 카테고리만.
+export type CreateKind = "period" | "story" | "self" | "person" | "place" | "group" | "placeGroup" | "category" | "item" | "customGroup";
+export const CREATE_KINDS: CreateKind[] = ["period", "story", "self", "person", "place", "group", "placeGroup", "category"];
 
 // 패널 맨 위 알림(되돌리기는 다음 동작 전까지) — 부모(MyLifeView)가 들고 있다.
 // undoFail — 되돌리기가 안 됐을 때 문구(없으면 넣기·만들기 되돌리기 문구 cannotUnlink).
@@ -120,7 +128,7 @@ function MultiPick({ items, value, onChange, label }: { items: { id: string; lab
 
 // ── 만들기 입력 ──────────────────────────────────────────────────
 
-export type CreatePreset = { eventId?: string; groupIds?: string[]; contextEventId?: string | null };
+export type CreatePreset = { eventId?: string; groupIds?: string[]; contextEventId?: string | null; categoryId?: string };
 
 export function CreateForm({
   kind,
@@ -152,13 +160,14 @@ export function CreateForm({
   const [placeMode, setPlaceMode] = useState<"name" | "search">("name");
   const [place, setPlace] = useState<PlaceInfo>(EMPTY_PLACE);
   const [ask, setAsk] = useState<SameNamePerson[] | null>(null);
+  const [askSame, setAskSame] = useState<SameNameNode[] | null>(null); // 사용자 항목·묶음 — 6종과 같은 이름(Q98)
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const kindLabel = E.kinds[kind];
   const fixedEvent = preset?.eventId ? data.events.find((e) => e.id === preset.eventId) : undefined;
 
-  function input(decision?: "same" | "different", samePersonId?: string): CreateInput {
+  function input(decision?: "same" | "different" | "new", samePersonId?: string): CreateInput {
     const num = (s: string) => (s.trim() === "" ? null : Number(s.trim()));
     switch (kind) {
       case "period":
@@ -167,7 +176,7 @@ export function CreateForm({
       case "self":
         return { kind, lifeEventId: eventId, title, content: body, personIds, groupIds: kind === "self" ? groupIds : [], placeIds: kind === "story" ? placeIds : [] };
       case "person":
-        return { kind, name, relation, groupIds, decision, samePersonId, contextEventId: preset?.contextEventId ?? null };
+        return { kind, name, relation, groupIds, decision: decision === "new" ? undefined : decision, samePersonId, contextEventId: preset?.contextEventId ?? null };
       case "place":
         return placeMode === "search" && place.placeName
           ? { kind, name: place.placeName, address: place.placeAddress, lat: place.lat, lng: place.lng, source: place.placeSource }
@@ -176,15 +185,24 @@ export function CreateForm({
         return { kind, name, memberIds: personIds };
       case "placeGroup":
         return { kind, name, placeIds };
+      case "category":
+        return { kind, name };
+      case "item":
+      case "customGroup":
+        return { kind, name, categoryId: preset?.categoryId ?? "", decision: decision === "new" ? "new" : undefined };
     }
   }
 
-  function submit(decision?: "same" | "different", samePersonId?: string) {
+  function submit(decision?: "same" | "different" | "new", samePersonId?: string) {
     setError(null);
     start(async () => {
       const r = await createNodeAction(input(decision, samePersonId));
       if ("ask" in r) {
         setAsk(r.ask);
+        return;
+      }
+      if ("askSame" in r) {
+        setAskSame(r.askSame);
         return;
       }
       if (!r.ok) {
@@ -194,6 +212,53 @@ export function CreateForm({
       const shown = kind === "place" && placeMode === "search" && place.placeName ? place.placeName : kind === "story" || kind === "self" ? kindLabel : name || kindLabel;
       onDone({ key: r.key, eventId: r.eventId, text: r.reused ? E.reused(shown) : E.created(kindLabel), undo: r.undo });
     });
+  }
+
+  // 사용자 항목·묶음 — 지도에 같은 이름이 있으면(6종) 그것을 이 카테고리에 넣을지·새로 만들지(§3.4 · §6.6 P15).
+  if (askSame && preset?.categoryId) {
+    const catRef: NodeRef = { type: "CUSTOM", id: preset.categoryId };
+    return (
+      <div className="flex flex-col gap-4">
+        <h2 id={titleId} className="m-0 text-2xl">
+          {X.sameNameTitle(name.trim())}
+        </h2>
+        <p className="m-0 text-lg text-ink-soft">{X.sameNameHint}</p>
+        <ul className="flex flex-col gap-2">
+          {askSame.map((n) => (
+            <li key={`${n.type}:${n.id}`}>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  start(async () => {
+                    const r = await addLinkAction(catRef, { type: n.type, id: n.id });
+                    if (!r.ok) {
+                      setError(r.error);
+                      return;
+                    }
+                    onDone({ key: `cat:${preset.categoryId}`, eventId: null, text: E.linked, undo: null });
+                  })
+                }
+                className={`${ROW} border-line`}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate">{n.name}</span>
+                  <span className="block text-ink-soft">{X.kindOf[n.type]}</span>
+                </span>
+                <span className="ml-auto shrink-0 text-action">{X.putThis}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <Button variant="secondary" size="lg" disabled={pending} onClick={() => submit("new")}>
+          {kind === "customGroup" ? X.makeNewGroup : X.makeNewItem}
+        </Button>
+        <ErrorLine text={error} />
+        <Button variant="tertiary" size="lg" disabled={pending} onClick={() => setAskSame(null)}>
+          {E.back}
+        </Button>
+      </div>
+    );
   }
 
   if (ask) {
@@ -239,9 +304,9 @@ export function CreateForm({
         {kindLabel}
       </h2>
 
-      {(kind === "period" || kind === "person" || kind === "group" || kind === "placeGroup" || (kind === "place" && placeMode === "name")) && (
+      {(kind === "period" || kind === "person" || kind === "group" || kind === "placeGroup" || kind === "category" || kind === "item" || kind === "customGroup" || (kind === "place" && placeMode === "name")) && (
         <Field label={E.fieldName} htmlFor={id("name")}>
-          <input id={id("name")} className={INPUT} value={name} onChange={(e) => setName(e.target.value)} maxLength={kind === "period" || kind === "group" || kind === "placeGroup" ? 30 : 50} autoComplete="off" />
+          <input id={id("name")} className={INPUT} value={name} onChange={(e) => setName(e.target.value)} maxLength={kind === "person" || kind === "place" ? 50 : 30} autoComplete="off" />
         </Field>
       )}
 
@@ -334,12 +399,14 @@ export function CreateForm({
 export function CreateSheet({
   data,
   initialKind,
+  preset,
   onDone,
   onClose,
   onSuggest,
 }: {
   data: MyLifeData;
   initialKind: CreateKind | null;
+  preset?: CreatePreset; // 카테고리 영역 [+ 항목]·[+ 묶음] = 그 카테고리(custom-graph 2단계)
   onDone: (r: Created) => void;
   onClose: () => void;
   onSuggest?: () => void;
@@ -348,7 +415,7 @@ export function CreateSheet({
   return (
     <div className="flex flex-col gap-4 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6">
       {kind ? (
-        <CreateForm kind={kind} data={data} titleId="mylife-create-title" onDone={onDone} onBack={initialKind ? onClose : () => setKind(null)} backLabel={initialKind ? E.cancel : E.back} />
+        <CreateForm kind={kind} data={data} preset={preset} titleId="mylife-create-title" onDone={onDone} onBack={initialKind ? onClose : () => setKind(null)} backLabel={initialKind ? E.cancel : E.back} />
       ) : (
         <>
           <h2 id="mylife-create-title" className="m-0">
@@ -382,7 +449,8 @@ export function CreateSheet({
 
 // ── 노드 패널의 고치기 부분 ──────────────────────────────────────────
 
-type PickWhat = "person" | "place" | "group" | "placeGroup" | "member" | "placeMember";
+// putIn = 카테고리·묶음에 넣기(6종 + 다른 카테고리 항목·묶음) · relate = 항목과 잇기 · intoGroup·intoCategory = 항목·묶음을 넣을 곳(custom-graph 2단계)
+type PickWhat = "person" | "place" | "group" | "placeGroup" | "member" | "placeMember" | "putIn" | "relate" | "intoGroup" | "intoCategory";
 type Mode =
   | { t: "view" }
   | { t: "addStory" }
@@ -393,7 +461,9 @@ type Mode =
   | { t: "move" }
   | { t: "moveConfirm"; target: MyLifeEvent }
   | { t: "delete"; impact: DeleteImpact | null; loading: boolean }
-  | { t: "editInfo" }; // 인물록 통합 — 사람 [이름·정보 고치기] · 장소·모임 [이름 고치기]
+  | { t: "editInfo" } // 인물록 통합 — 사람 [이름·정보 고치기] · 장소·모임 [이름 고치기] · 사용자 카테고리·묶음·항목 [이름 바꾸기]
+  | { t: "newIn"; kind: "item" | "customGroup" } // 카테고리 패널 [+ 항목]·[+ 묶음]
+  | { t: "moveCat" }; // 묶음·항목 [다른 카테고리로 옮기기]
 
 // fromStory = 시기 패널에서 이야기에서만 나온 분·곳(시기에 바로 잇지 않음 — [넣기] 후보에서 안 뺌).
 type LinkItem = { ref: NodeRef; name: string; sub?: string; go: { key: string; eventId: string | null }; removable: boolean; note?: string; fromStory?: boolean };
@@ -410,7 +480,7 @@ function deleteLinkedText(im: DeleteImpact): string {
   return parts.length > 0 ? E.deleteLinked(parts) : E.deleteNoLinks;
 }
 
-const PICK_CREATE_KIND: Record<PickWhat, CreateKind> = { person: "person", member: "person", place: "place", placeMember: "place", group: "group", placeGroup: "placeGroup" };
+const PICK_CREATE_KIND: Partial<Record<PickWhat, CreateKind>> = { person: "person", member: "person", place: "place", placeMember: "place", group: "group", placeGroup: "placeGroup" };
 
 export function NodeEditor({
   nodeKey,
@@ -423,6 +493,8 @@ export function NodeEditor({
   onReopen,
   onDeleted,
   startEdit = false,
+  startPick = false,
+  fromCategory = null,
 }: {
   nodeKey: string;
   data: MyLifeData;
@@ -434,14 +506,17 @@ export function NodeEditor({
   onReopen: (r: Created) => void; // 새 노드(옮긴 이야기·직접 쓴 이야기)로 이동·패널
   onDeleted: (name: string) => void;
   startEdit?: boolean; // 옛 /people/[id]/edit 로 온 사람 패널 — [이름·정보 고치기]로 시작(인물록 통합)
+  startPick?: boolean; // 카테고리 영역 [+ 넣기]로 연 카테고리 패널 — 넣기 고르기로 시작(custom-graph 2단계)
+  fromCategory?: string | null; // 카테고리 영역의 바로가기로 연 원래 노드 패널 — 그 카테고리 id(Q99 — [원래 자리로 가기]·[이 카테고리에서 빼기])
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>(startEdit ? { t: "editInfo" } : { t: "view" });
+  const [mode, setMode] = useState<Mode>(startEdit ? { t: "editInfo" } : startPick ? { t: "pick", what: "putIn" } : { t: "view" });
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [pending, start] = useTransition();
   const [showRow, setShowRow] = useState(false); // 행성 패널 "넣을 것" 줄(U3 — Q116)
   const [showDecor, setShowDecor] = useState(false); // 행성 패널 꾸미기 고르기(U4 — ui-space §5.1)
+  const [takenOut, setTakenOut] = useState(false); // 바로가기 패널 — 이 카테고리에서 뺀 뒤(안내 줄 숨김)
   const [kind, a, b] = nodeKey.split(":");
 
   // 단계가 바뀌면 패널을 맨 위로(앞 단계 스크롤이 남아 새 단계 제목·첫 항목이 가려지던 것 — 390 실측) +
@@ -465,20 +540,29 @@ export function NodeEditor({
       place: new Map(data.places.map((p) => [p.id, p])),
       group: new Map(data.groups.map((g) => [g.id, g])),
       placeGroup: new Map(data.placeGroups.map((g) => [g.id, g])),
+      category: new Map(customOf(data).categories.map((c) => [c.id, c])),
+      customGroup: new Map(customOf(data).groups.map((g) => [g.id, g])),
+      item: new Map(customOf(data).items.map((i) => [i.id, i])),
     }),
     [data],
   );
 
   // 이 노드 = 연결의 한 끝.
   const self: NodeRef | null =
-    kind === "ev" ? { type: "LIFE_EVENT", id: a } : kind === "st" ? { type: "EPISODE", id: b } : kind === "pe" ? { type: "PERSON", id: a } : kind === "pl" ? { type: "PLACE", id: a } : kind === "gl" || kind === "gc" ? { type: "PERSON_GROUP", id: a } : kind === "pgl" || kind === "pgc" ? { type: "PLACE_GROUP", id: a } : null;
+    kind === "ev" ? { type: "LIFE_EVENT", id: a } : kind === "st" ? { type: "EPISODE", id: b } : kind === "pe" ? { type: "PERSON", id: a } : kind === "pl" ? { type: "PLACE", id: a } : kind === "gl" || kind === "gc" ? { type: "PERSON_GROUP", id: a } : kind === "pgl" || kind === "pgc" ? { type: "PLACE_GROUP", id: a } : kind === "cat" || kind === "cgl" || kind === "cgc" || kind === "cn" ? { type: "CUSTOM", id: a } : null;
   const ev = kind === "ev" || kind === "st" ? look.event.get(a) : undefined;
   const story: MyLifeStory | undefined = kind === "st" ? ev?.stories.find((s) => s.id === b) : undefined;
   const person = kind === "pe" ? look.person.get(a) : undefined;
   const place = kind === "pl" ? look.place.get(a) : undefined;
   const group = kind === "gl" || kind === "gc" ? look.group.get(a) : undefined;
   const placeGroup = kind === "pgl" || kind === "pgc" ? look.placeGroup.get(a) : undefined;
-  if (!self) return <>{info}</>;
+  // 사용자 카테고리(custom-graph 2단계) · 기본 카테고리(인물록·장소록 — 이름 바꾸기만)
+  const category = kind === "cat" ? look.category.get(a) : undefined;
+  const cgroup = kind === "cgl" || kind === "cgc" ? look.customGroup.get(a) : undefined;
+  const item = kind === "cn" ? look.item.get(a) : undefined;
+  const builtin = kind === "bcat" && (a === "PEOPLE" || a === "PLACES") ? (a as "PEOPLE" | "PLACES") : null;
+  const custom = customOf(data);
+  if (!self && !builtin) return <>{info}</>;
 
   const personItem = (id: string, removable = true, note?: string): LinkItem | null => {
     const p = look.person.get(id);
@@ -497,6 +581,11 @@ export function NodeEditor({
     return g ? { ref: { type: "PLACE_GROUP", id }, name: g.name, go: { key: `pgl:${id}`, eventId: null }, removable: true } : null;
   };
   const nn = <T,>(xs: (T | null)[]) => xs.filter((x): x is T => x !== null);
+  // 사용자 카테고리 목록 줄 — 넣어 둔 것·이어진 것(바로가기 대상). 이름 아래 = 원래 자리.
+  const refItem = (r: MyLifeRef): LinkItem | null => {
+    const info = refInfo(data, r);
+    return info ? { ref: { type: r.type, id: r.id }, name: info.name, sub: info.where, go: { key: info.key, eventId: info.eventId }, removable: true } : null;
+  };
 
   // 이어진 것(빼기 목록)과 넣기 버튼 — 노드 종류별.
   const sections: { title: string; items: LinkItem[] }[] = [];
@@ -540,10 +629,40 @@ export function NodeEditor({
   } else if (placeGroup) {
     sections.push({ title: C.panelPlaceMembers, items: nn(placeGroup.memberIds.map((id) => placeItem(id))) });
     adds.push({ what: "placeMember", label: E.addPlace });
+  } else if (cgroup) {
+    sections.push({ title: X.sectionContains, items: nn(cgroup.memberRefs.map(refItem)) });
+    adds.push({ what: "putIn", label: X.putIn });
+    if (custom.categories.length > 1) adds.push({ what: "intoCategory", label: X.intoCategory });
+  } else if (item) {
+    sections.push({ title: X.sectionRelated, items: nn(item.related.map(refItem)) });
+    adds.push({ what: "relate", label: X.relate });
+    if (custom.groups.length > 0) adds.push({ what: "intoGroup", label: X.intoGroup });
+    if (custom.categories.length > 1) adds.push({ what: "intoCategory", label: X.intoCategory });
+  } else if (category) {
+    adds.push({ what: "putIn", label: X.putIn });
+  }
+  // 넣어 둔 카테고리·묶음(바로가기가 있는 곳) — [빼기] = 그 넣기 연결만(§6.6 P13). 사용자 항목·묶음은 자리(자기 카테고리) 말고 다른 곳.
+  if (self && !category) {
+    const inCats = custom.categories.filter((c) => c.refs.some((r) => r.type === self.type && r.id === self.id));
+    const inGroups = custom.groups.filter((g) => g.memberRefs.some((r) => r.type === self.type && r.id === self.id));
+    const catName = (id: string) => look.category.get(id)?.name ?? "";
+    sections.push({
+      title: item || cgroup ? X.sectionIn : X.sectionCats,
+      items: [
+        ...inCats.map((c): LinkItem => ({ ref: { type: "CUSTOM", id: c.id }, name: c.name, sub: X.kindCategory, go: { key: `cat:${c.id}`, eventId: null }, removable: true })),
+        ...inGroups.map((g): LinkItem => ({ ref: { type: "CUSTOM", id: g.id }, name: g.name, sub: `${X.kindGroup} · ${catName(g.categoryId)}`, go: { key: `cgl:${g.id}`, eventId: null }, removable: true })),
+      ],
+    });
+  }
+  // 이어진 항목(관련 — 시기·이야기·사람·장소, §6.6 P1·P13)
+  if (self && (self.type === "LIFE_EVENT" || self.type === "EPISODE" || self.type === "PERSON" || self.type === "PLACE")) {
+    const rel = custom.items.filter((i) => i.related.some((r) => r.type === self.type && r.id === self.id));
+    sections.push({ title: X.sectionItems, items: nn(rel.map((i) => refItem({ type: "CUSTOM", id: i.id }))) });
   }
 
   // 고르기 목록 — 아직 이어지지 않은 것만(확정 인물만).
   function candidates(what: PickWhat): { id: string; label: string; sub?: string; ref: NodeRef }[] {
+    if (what === "putIn" || what === "relate" || what === "intoGroup" || what === "intoCategory") return customCandidates(what);
     const linked = new Set(sections.flatMap((s) => s.items.filter((i) => !i.fromStory).map((i) => `${i.ref.type}:${i.ref.id}`)));
     if (story?.subjectPersonId) linked.add(`PERSON:${story.subjectPersonId}`);
     if (what === "person" || what === "member") {
@@ -554,6 +673,91 @@ export function NodeEditor({
     }
     if (what === "group") return data.groups.filter((g) => !linked.has(`PERSON_GROUP:${g.id}`)).map((g) => ({ id: g.id, label: g.name, ref: { type: "PERSON_GROUP", id: g.id } }));
     return data.placeGroups.filter((g) => !linked.has(`PLACE_GROUP:${g.id}`)).map((g) => ({ id: g.id, label: g.name, ref: { type: "PLACE_GROUP", id: g.id } }));
+  }
+
+  // 사용자 카테고리 고르기(custom-graph 2단계 — §6.6 P9·P11): 넣기 = 6종 + 다른 카테고리 항목(카테고리면 다른 카테고리 묶음도) ·
+  // 잇기 = 시기·이야기·사람·장소·다른 항목 · 묶음에 넣기 = 사용자 묶음 · 다른 카테고리에 넣기 = 자리 말고 다른 카테고리. 이미 든 것은 뺀다.
+  function customCandidates(what: "putIn" | "relate" | "intoGroup" | "intoCategory"): { id: string; label: string; sub?: string; ref: NodeRef }[] {
+    const catName = (id: string) => look.category.get(id)?.name ?? "";
+    const c = (type: NodeRef["type"], id: string, label: string, sub?: string) => ({ id: `${type}:${id}`, label, sub, ref: { type, id } });
+    const sixes = (withGroups: boolean) => [
+      ...data.events.map((e) => c("LIFE_EVENT", e.id, `${yearText(e)} ${e.label}`, X.kindOf.LIFE_EVENT)),
+      ...data.events.flatMap((e) => e.stories.filter((s) => s.primaryEventId === e.id).map((s) => c("EPISODE", s.id, shortTitle(displayTitle(s)), `${X.kindOf.EPISODE} · ${e.label}`))),
+      ...data.people.map((p) => c("PERSON", p.id, p.name, p.relation ?? X.kindOf.PERSON)),
+      ...data.places.map((p) => c("PLACE", p.id, p.name, p.address ?? X.kindOf.PLACE)),
+      ...(withGroups ? [...data.groups.map((g) => c("PERSON_GROUP", g.id, g.name, X.kindOf.PERSON_GROUP)), ...data.placeGroups.map((g) => c("PLACE_GROUP", g.id, g.name, X.kindOf.PLACE_GROUP))] : []),
+    ];
+    const items = (except: (i: { id: string; categoryId: string }) => boolean) =>
+      custom.items.filter((i) => !except(i)).map((i) => c("CUSTOM", i.id, i.name, `${X.kindItem} · ${catName(i.categoryId)}`));
+    let all: ReturnType<typeof c>[] = [];
+    let has = new Set<string>();
+    if (what === "putIn" && category) {
+      has = new Set(categoryEntries(category, custom).map((e) => (e.itemId ? `CUSTOM:${e.itemId}` : `${e.ref!.type}:${e.ref!.id}`)));
+      all = [...sixes(true), ...items((i) => i.categoryId === category.id), ...custom.groups.filter((g) => g.categoryId !== category.id).map((g) => c("CUSTOM", g.id, g.name, `${X.kindGroup} · ${catName(g.categoryId)}`))];
+    } else if (what === "putIn" && cgroup) {
+      has = new Set(cgroup.memberRefs.map((r) => `${r.type}:${r.id}`));
+      all = [...sixes(true), ...items(() => false)];
+    } else if (what === "relate" && item) {
+      has = new Set([...item.related.map((r) => `${r.type}:${r.id}`), `CUSTOM:${item.id}`]);
+      all = [...sixes(false), ...items(() => false)];
+    } else if (what === "intoGroup" && item) {
+      all = custom.groups.filter((g) => !g.memberRefs.some((r) => r.type === "CUSTOM" && r.id === item.id)).map((g) => c("CUSTOM", g.id, g.name, `${X.kindGroup} · ${catName(g.categoryId)}`));
+    } else if (what === "intoCategory" && (item || cgroup)) {
+      const me = (item ?? cgroup)!;
+      all = custom.categories.filter((k) => k.id !== me.categoryId && !k.refs.some((r) => r.type === "CUSTOM" && r.id === me.id)).map((k) => c("CUSTOM", k.id, k.name, X.kindCategory));
+    }
+    return all.filter((x) => !has.has(x.id));
+  }
+
+  // 묶음·항목 자리 옮기기 — 옮긴 뒤 [되돌리기] = 원래 카테고리로 다시(같은 액션).
+  function moveTo(target: { id: string; name: string }) {
+    run(async () => {
+      const r = await moveCustomAction(a, target.id);
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      setMode({ t: "view" });
+      router.refresh();
+      const u = r.undo;
+      setNotice({
+        key: nodeKey,
+        text: X.moved(target.name),
+        undo: u
+          ? async () => {
+              const x = await moveCustomAction(u.nodeId, u.categoryId);
+              router.refresh();
+              return { ok: x.ok };
+            }
+          : undefined,
+        undoFail: E.cannotUndo,
+      });
+    });
+  }
+
+  // 바로가기로 연 패널 [이 카테고리에서 빼기](Q99 — 그 카테고리와 그 안 묶음의 넣기 연결을 모두) + [되돌리기].
+  function takeOut() {
+    run(async () => {
+      const r = await takeOutAction(fromCategory!, self!);
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      setTakenOut(true);
+      router.refresh();
+      const u = r.undo;
+      setNotice({
+        key: nodeKey,
+        text: X.takenOut,
+        undo: async () => {
+          const x = await undoRemoveAction(u);
+          router.refresh();
+          if (x.ok) setTakenOut(false);
+          return x;
+        },
+        undoFail: E.cannotUndo,
+      });
+    });
   }
 
   // 모든 저장 — 앞 알림(되돌리기)은 지운다(다음 동작 전까지).
@@ -778,9 +982,80 @@ export function NodeEditor({
       {E.back}
     </Button>
   );
-  const nodeName = ev && kind === "ev" ? ev.label : story ? shortTitle(displayTitle(story)) : person?.name ?? place?.name ?? group?.name ?? placeGroup?.name ?? "";
+  const nodeName = ev && kind === "ev" ? ev.label : story ? shortTitle(displayTitle(story)) : person?.name ?? place?.name ?? group?.name ?? placeGroup?.name ?? category?.name ?? cgroup?.name ?? item?.name ?? "";
 
   // ── 단계별 화면 ──
+  // 기본 카테고리(인물록·장소록) — 이름 바꾸기만(Q76, §6.6 P7)
+  if (builtin) {
+    if (mode.t === "editInfo") {
+      return (
+        <InfoEditForm
+          key={nodeKey}
+          person={null}
+          name={builtinName(data, builtin)}
+          title={X.rename}
+          nameMax={30}
+          pending={pending}
+          error={error}
+          onBack={() => {
+            setError(null);
+            setMode({ t: "view" });
+          }}
+          onSave={(v) =>
+            run(async () => {
+              const r = await renameBuiltinAction(builtin, v.name);
+              if (!r.ok) {
+                setError(r.error);
+                return;
+              }
+              setMode({ t: "view" });
+              router.refresh();
+              setNotice({ key: nodeKey, text: E.infoSaved });
+            })
+          }
+        />
+      );
+    }
+    return (
+      <>
+        {notice && notice.key === nodeKey && (
+          <p role="status" className="rounded-md border-2 border-brand bg-banner px-4 py-2 text-lg text-ink">
+            {notice.text}
+          </p>
+        )}
+        {info}
+        <Button variant="secondary" size="lg" onClick={() => setMode({ t: "editInfo" })}>
+          {X.rename}
+        </Button>
+        <ErrorLine text={error} />
+      </>
+    );
+  }
+  if (mode.t === "newIn" && category) {
+    return <CreateForm kind={mode.kind} data={data} preset={{ categoryId: category.id }} titleId="mylife-panel-title" onDone={onReopen} onBack={() => setMode({ t: "view" })} />;
+  }
+  if (mode.t === "moveCat" && (item || cgroup)) {
+    const home = (item ?? cgroup)!.categoryId;
+    return (
+      <>
+        <h2 id="mylife-panel-title" className="m-0 text-2xl">
+          {X.moveTitle}
+        </h2>
+        <ul className="flex flex-col gap-2">
+          {custom.categories.map((c) => (
+            <li key={c.id}>
+              <button type="button" disabled={pending || c.id === home} onClick={() => moveTo(c)} className={`${ROW} border-line disabled:cursor-not-allowed disabled:opacity-60`}>
+                <span className="min-w-0 truncate">{c.name}</span>
+                {c.id === home && <span className="ml-auto shrink-0 text-ink-soft">{E.hereNow}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+        <ErrorLine text={error} />
+        {back}
+      </>
+    );
+  }
   if (mode.t === "addStory" && ev) {
     return (
       <>
@@ -813,6 +1088,7 @@ export function NodeEditor({
         <h2 id="mylife-panel-title" className="m-0 text-2xl">
           {E.pickTitle(label)}
         </h2>
+        {mode.what === "putIn" && <p className="m-0 text-lg text-ink-soft">{X.putInHint}</p>}
         {all.length > 10 && <input className={INPUT} value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={E.pickSearch} aria-label={E.pickSearch} />}
         {list.length === 0 ? (
           <p className="text-lg text-ink-soft">{E.pickNone}</p>
@@ -831,15 +1107,17 @@ export function NodeEditor({
           </ul>
         )}
         <ErrorLine text={error} />
-        <Button variant="secondary" size="lg" disabled={pending} onClick={() => setMode({ t: "new", what: mode.what })}>
-          {E.pickNew}
-        </Button>
+        {PICK_CREATE_KIND[mode.what] && (
+          <Button variant="secondary" size="lg" disabled={pending} onClick={() => setMode({ t: "new", what: mode.what })}>
+            {E.pickNew}
+          </Button>
+        )}
         {back}
       </>
     );
   }
-  if (mode.t === "new") {
-    const ck = PICK_CREATE_KIND[mode.what];
+  if (mode.t === "new" && PICK_CREATE_KIND[mode.what]) {
+    const ck = PICK_CREATE_KIND[mode.what]!;
     const contextEventId = ev?.id ?? null;
     return (
       <CreateForm
@@ -922,10 +1200,14 @@ export function NodeEditor({
         ) : im ? (
           <>
             {im.storiesDeleted && im.stories > 0 && <p className="text-lg font-semibold text-ink">{E.deleteStoriesToo(im.stories)}</p>}
-            <p className="text-lg text-ink">{deleteLinkedText(im)}</p>
+            {im.customKind === "CATEGORY" && <p className="text-lg text-ink">{X.deleteCatNote(im.customDeleted, im.customOut)}</p>}
+            {im.customKind === "GROUP" && <p className="text-lg text-ink">{X.deleteGroupNote(im.customOut)}</p>}
+            {im.customKind === "ITEM" && <p className="text-lg text-ink">{X.deleteItemNote(im.customLinks)}</p>}
+            {im.customKind === "ITEM" && im.personBody && <p className="text-lg text-ink">{X.deleteItemBody}</p>}
+            {!im.customKind && <p className="text-lg text-ink">{deleteLinkedText(im)}</p>}
             {im.placeGroups > 0 && <p className="text-lg text-ink">{E.deletePlaceGroups(im.placeGroups)}</p>}
             {im.familyActivity > 0 && <p className="text-lg text-ink">{E.deleteFamily(im.familyActivity)}</p>}
-            {im.personBody && <p className="text-lg text-ink">{E.deletePersonBody}</p>}
+            {!im.customKind && im.personBody && <p className="text-lg text-ink">{E.deletePersonBody}</p>}
             <p className="text-lg text-ink-soft">{E.deleteIrreversible}</p>
           </>
         ) : (
@@ -942,14 +1224,14 @@ export function NodeEditor({
     );
   }
 
-  if (mode.t === "editInfo" && (person || place || group)) {
+  if (mode.t === "editInfo" && (person || place || group || category || cgroup || item)) {
     return (
       <InfoEditForm
         key={nodeKey}
         person={person ?? null}
-        name={person?.name ?? place?.name ?? group?.name ?? ""}
-        title={person ? E.editInfo : E.editName}
-        nameMax={person ? 50 : group ? 30 : 50}
+        name={person?.name ?? place?.name ?? group?.name ?? category?.name ?? cgroup?.name ?? item?.name ?? ""}
+        title={person ? E.editInfo : place || group ? E.editName : X.rename}
+        nameMax={person || place ? 50 : 30}
         pending={pending}
         error={error}
         onBack={() => {
@@ -973,7 +1255,7 @@ export function NodeEditor({
   }
 
   // ── 기본(정보 + 고치기) ──
-  const canDelete = (kind === "ev" && ev?.type === "CUSTOM") || !!story || !!person || !!place || !!group || !!placeGroup;
+  const canDelete = (kind === "ev" && ev?.type === "CUSTOM") || !!story || !!person || !!place || !!group || !!placeGroup || !!category || !!cgroup || !!item;
   return (
     <>
       {notice && notice.key === nodeKey && (
@@ -999,7 +1281,29 @@ export function NodeEditor({
           )}
         </div>
       )}
+      {/* 카테고리 영역의 바로가기로 연 패널(Q99 — §6.6 P12) */}
+      {fromCategory && !takenOut && (
+        <div className="flex flex-col gap-2 rounded-md border-2 border-dashed border-music px-4 py-3">
+          <p className="m-0 text-lg text-ink">{X.refIn(look.category.get(fromCategory)?.name ?? "")}</p>
+          <Button variant="secondary" size="lg" onClick={() => onGo(nodeKey, kind === "ev" || kind === "st" ? a : null)}>
+            {X.goOrigin}
+          </Button>
+          <Button variant="secondary" size="lg" disabled={pending} onClick={takeOut}>
+            {X.takeOut}
+          </Button>
+        </div>
+      )}
       {info}
+      {category && (
+        <div className="flex gap-2">
+          <Button variant="secondary" size="lg" className="flex-1 px-3!" onClick={() => setMode({ t: "newIn", kind: "item" })}>
+            + {X.addItem}
+          </Button>
+          <Button variant="secondary" size="lg" className="flex-1 px-3!" onClick={() => setMode({ t: "newIn", kind: "customGroup" })}>
+            + {X.addGroup}
+          </Button>
+        </div>
+      )}
       {(kind === "ev" || kind === "st") && (
         <>
           <Button variant="secondary" size="lg" aria-expanded={showRow} onClick={() => setShowRow((v) => !v)}>
@@ -1058,9 +1362,14 @@ export function NodeEditor({
           {E.moveStory}
         </Button>
       )}
-      {(person || place || group) && (
+      {(person || place || group || category || cgroup || item) && (
         <Button variant="secondary" size="lg" onClick={() => setMode({ t: "editInfo" })}>
-          {person ? E.editInfo : E.editName}
+          {person ? E.editInfo : place || group ? E.editName : X.rename}
+        </Button>
+      )}
+      {(item || cgroup) && custom.categories.length > 1 && (
+        <Button variant="secondary" size="lg" onClick={() => setMode({ t: "moveCat" })}>
+          {X.moveTo}
         </Button>
       )}
       <ErrorLine text={error} />

@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
-import { preparePersonBodyPhotoAction, saveEpisodeBodyAction, savePersonBodyAction } from "@/app/actions/node-body";
+import { prepareItemBodyPhotoAction, preparePersonBodyPhotoAction, saveEpisodeBodyAction, saveItemBodyAction, savePersonBodyAction } from "@/app/actions/node-body";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { BODY_LIMITS, type BodyDoc, type SaveBodyResult } from "@/lib/node-body-doc";
 import { stripGps } from "@/lib/photo-exif";
@@ -42,7 +42,7 @@ export function BodyEditor({
   photos,
   doneHref,
 }: {
-  kind: "story" | "person";
+  kind: "story" | "person" | "item"; // item = 사용자 항목 글(custom-graph 2단계)
   nodeId: string;
   memoryId: string | null;
   initialDoc: BodyDoc;
@@ -111,7 +111,7 @@ export function BodyEditor({
     try {
       let mid = memoryId;
       if (!mid) {
-        const r = await preparePersonBodyPhotoAction(nodeId);
+        const r = kind === "item" ? await prepareItemBodyPhotoAction(nodeId) : await preparePersonBodyPhotoAction(nodeId);
         if (!r.ok) return setError(C.uploadFailed);
         mid = r.memoryId;
         setMemoryId(mid);
@@ -145,7 +145,7 @@ export function BodyEditor({
     startSave(async () => {
       let r: SaveBodyResult;
       try {
-        r = kind === "story" ? await saveEpisodeBodyAction(nodeId, doc, version) : await savePersonBodyAction(nodeId, doc, version);
+        r = kind === "story" ? await saveEpisodeBodyAction(nodeId, doc, version) : kind === "item" ? await saveItemBodyAction(nodeId, doc, version) : await savePersonBodyAction(nodeId, doc, version);
       } catch (err) {
         console.error("[node-body] save", err);
         setError(C.errFailed);
