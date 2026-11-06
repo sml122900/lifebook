@@ -977,6 +977,29 @@ async function main() {
       // U4 — 행성 꾸미기(docs/phase/ui-space.md §5·§7.5)
       const css = fs.readFileSync(path.resolve(__dirname, "../app/globals.css"), "utf8");
       const decorSrc = fs.readFileSync(path.resolve(__dirname, "../app/my-life/Decor.tsx"), "utf8");
+      // 우주 문구 확정(2026-11-05 성민) — [임시] 표시 0 · dropped 의 을/를 = 넣은 것 이름의 받침·읽는 소리(lib/josa 한 곳) · decorHint 새 문구
+      const copySrc = fs.readFileSync(path.resolve(__dirname, "../lib/my-life-copy.ts"), "utf8");
+      const spaceBlock = copySrc.slice(copySrc.indexOf("  // 우주 개편 U1"), copySrc.lastIndexOf("};"));
+      const dj = [
+        C.space.dropped("김민준", "운동회"), // 받침 있음 → 을
+        C.space.dropped("최영희", "운동회"), // 받침 없음 → 를
+        C.space.dropped("Tom", "운동회"), // 영문 m(톰) → 을
+        C.space.dropped("Paul", "운동회"), // 영문 l(폴) → 을
+        C.space.dropped("Jack", "운동회"), // 영문 ck(잭) → 을
+        C.space.dropped("Mike", "운동회"), // 영문 모음 끝(마이크) → 를
+        C.space.dropped("Peter", "운동회"), // 영문 r(피터) → 를
+        C.space.dropped("James", "운동회"), // 영문 s(제임스 — 판단 어려움) → 를
+        C.space.dropped("친구1", "운동회"), // 숫자 1(일) → 을
+        C.space.dropped("친구2", "운동회"), // 숫자 2(이) → 를
+        C.space.dropped("반 10", "운동회"), // 숫자 0(십) → 을
+        C.space.dropped("반 5", "운동회"), // 숫자 5(오) → 를
+      ];
+      check("⑬ 우주 문구 확정 — space 블록 [임시] 0 · dropped 을/를 = 받침 있음 을·없음 를 · 영문 끝 읽는 소리(톰·폴·잭 을 / 마이크·피터 를 · 제임스 = 판단 어려움 를) · 숫자 끝 읽는 소리(1 일·0 십 을 / 2 이·5 오 를) · decorHint 새 문구",
+        !/임시/.test(spaceBlock) &&
+          dj.join("|") ===
+            "운동회에 김민준을 넣었어요.|운동회에 최영희를 넣었어요.|운동회에 Tom을 넣었어요.|운동회에 Paul을 넣었어요.|운동회에 Jack을 넣었어요.|운동회에 Mike를 넣었어요.|운동회에 Peter를 넣었어요.|운동회에 James를 넣었어요.|운동회에 친구1을 넣었어요.|운동회에 친구2를 넣었어요.|운동회에 반 10을 넣었어요.|운동회에 반 5를 넣었어요." &&
+          C.space.decorHint === "고르면 바로 행성에 붙어요. 하나만 달 수 있어요.",
+        dj);
       check("⑬ U4 꾸미기 목록 — 확정 8종 키·이름·순서(고리·혜성 꼬리·오로라·별빛 가루·태양 플레어·소용돌이·쌍둥이 별·블랙홀) · 목록 밖 값 거름 · dropFailed 확정 문구",
         DECOR_SHAPES.map((d) => `${d.key}:${d.name}`).join(",") ===
           "ring:고리,comet:혜성 꼬리,aurora:오로라,stardust:별빛 가루,flare:태양 플레어,vortex:소용돌이,binary:쌍둥이 별,blackhole:블랙홀" &&
