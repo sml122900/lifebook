@@ -375,7 +375,7 @@ async function main() {
     }
     check("⑥ \"use server\" 액션 파일에 type 재수출 없음(빌드는 통과하고 실행 때 ReferenceError — 2026-11-07 화면 확인에서 잡음)", !/export type \{/.test(actions));
     check("⑥ 화면에서 온 계획 — 없는 도구·지우기·상한 넘음·빈 계획·모양 틀림 거부", parsePlan([{ tool: "delete_node", node: {} }]) === null && parsePlan([]) === null && parsePlan("x") === null && parsePlan(Array.from({ length: MAP_EDIT_PLAN_MAX + 1 }, () => ({ tool: "rename_region", region: "PEOPLE", prevLabel: "x", newName: "y" }))) === null && parsePlan([{ tool: "link", a: { ref: { type: "PERSON", id: "x" }, name: "n", kind: "사람" }, b: {} }]) === null && parsePlan([{ tool: "rename_region", region: "EVIL", prevLabel: "x", newName: "y" }]) === null);
-    const sheet = read("app/my-life/AskSheet.tsx");
+    const sheet = read("app/my-life/AskSheet.tsx") + read("app/my-life/AskCards.tsx") // 카드는 AI 시트·튜토리얼이 같이 쓰는 ./AskCards;
     check("⑥ 화면 — 확인 카드(이대로 하기·그만두기) → 결과 카드(지도에서 보기·되돌리기) · 카드 전 실행 없음 · 문구 [임시]", sheet.includes('data-map-edit-card="plan"') && sheet.includes('data-map-edit-card="result"') && sheet.includes("onClick={() => apply(plan)}") && sheet.includes("onClick={clear}") && sheet.includes("onClick={() => undo(result.commandId, result.undo)}") && /AI 지도 편집[^\n]*\[임시/.test(read("lib/my-life-copy.ts")) && read("docs/navigation-map.md").includes("이대로 하기"));
 
     // ── ⑨ 넣을 곳 — 묶음을 골랐는데 요청엔 위 카테고리 이름만(고침안 2) · 되묻기 내부 용어(고침안 3) ──────────
@@ -425,7 +425,7 @@ async function main() {
       d1.plan.length === 1 && d1Item.tool === "delete_node" && d1Item.impact.customLinks === 1 && planLine(d1Item, "will") === "‘지울 항목’을 지워요." && planNotes(d1Item).some((t) => t.includes("1곳")) && (await snapshot(a)) === before7 && (await logs(a)).length === logs7,
       d1);
     // 지도 패널과 같은 문장
-    const sheetSrc = read("app/my-life/AskSheet.tsx");
+    const sheetSrc = read("app/my-life/AskSheet.tsx") + read("app/my-life/AskCards.tsx") // 카드는 AI 시트·튜토리얼이 같이 쓰는 ./AskCards;
     check("⑦ 확인 카드 — 영향 줄 + 되돌릴 수 없음 + [지우기]·[합치기] destructive", sheetSrc.includes("planNotes") && sheetSrc.includes("A.plan.irreversible") && sheetSrc.includes('"destructive"') && sheetSrc.includes("E.deleteDo") && sheetSrc.includes("A.plan.mergeDo"));
 
     // 실행 때 다시 셈

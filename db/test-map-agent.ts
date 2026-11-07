@@ -255,7 +255,7 @@ async function main() {
 
     // ── ⑧ 화면 연결 ──────────
     const view2 = read("app/my-life/MyLifeView.tsx");
-    check("⑧ 찾기 시트 안 입구 → 시트 · 칩 = 찾기와 같은 goTo · 지도 편집 버튼 없음", view2.includes("onAsk={openAsk}") && view2.includes("<AskSheet") && view2.includes('aria-labelledby="mylife-ask-title"') && read("app/my-life/AskSheet.tsx").includes("onGo(n.key, n.eventId)") && !read("app/my-life/AskSheet.tsx").includes("saveNodeLink"));
+    check("⑧ 찾기 시트 안 입구 → 시트 · 칩 = 찾기와 같은 goTo · 지도 편집 버튼 없음", view2.includes("onAsk={openAsk}") && view2.includes("<AskSheet") && view2.includes('aria-labelledby="mylife-ask-title"') && (read("app/my-life/AskSheet.tsx") + read("app/my-life/AskCards.tsx")).includes("onGo(n.key, n.eventId)") && read("app/my-life/AskSheet.tsx").includes("<AnswerClaims claims={view.answer.claims} onGo={onGo} />") && !(read("app/my-life/AskSheet.tsx") + read("app/my-life/AskCards.tsx")).includes("saveNodeLink")); // 답 칩은 AI 시트·튜토리얼이 같이 쓰는 ./AskCards
     check("⑧ 칩·찾기 → 지도 이동은 선택 줄이 생긴 뒤에(첫 선택에 지도 상자 높이가 바뀌며 이동이 끊기던 것 — 2026-11-07 실측)", view2.includes("requestAnimationFrame(() => requestAnimationFrame(() => apiRef.current?.zoomToElement(el, Math.max(stateRef.current.scale, 1), 300)))"));
     check("⑧ 서버 함수 시간 상한(여러 라운드) · 이동 지도 · 문구 [임시]", read("app/my-life/page.tsx").includes("export const maxDuration = 60;") && read("docs/navigation-map.md").includes("AI에게 부탁하기") && /지도 질문 답하기[^\n]*\[임시/.test(read("lib/my-life-copy.ts")));
     check("⑧ 안 보내는 칸은 화면에는 그대로(만난 해 등은 패널·찾기가 씀 — getMyLifeData 무변)", read("lib/my-life.ts").includes("metYear: p.metYear"));

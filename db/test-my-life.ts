@@ -86,6 +86,22 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { hasOwnTitle, storyLead } from "../lib/story-title";
+import {
+  ASK_HINT,
+  closeTourId,
+  DRAG_FAILS_FOR_BUTTON,
+  initialTutorial,
+  shouldOffer,
+  showButtonAdd,
+  TUTORIAL_DONE,
+  TUTORIAL_HREF,
+  TUTORIAL_LATER,
+  TUTORIAL_SKIP,
+  TUTORIAL_STEP_COUNT,
+  TUTORIAL_STEPS,
+  tutorialReducer,
+} from "../lib/tutorial";
+import { PRACTICE_STORY_KEY, practiceData } from "../lib/tutorial-practice";
 
 const EMAIL_A = "fixture-mylife-a@lifebook.invalid";
 const EMAIL_B = "fixture-mylife-b@lifebook.invalid";
@@ -695,7 +711,7 @@ async function main() {
     check("⑫ 사이드 패널 \"내 이야기\" 빠짐 · My Life 메뉴 그대로", !side.includes('href="/story-review"') && side.includes('href="/my-life"'));
     const page = src("app/my-life/page.tsx");
     check("⑫ My Life 페이지가 카드 데이터를 만든다(오늘의 인터뷰·갭 3·진행 중) — 옮기기 전과 같은 함수 · 인물 확인 대기 수는 안 셈",
-      ["getInterviewCardState(userId),", "detectGaps(userId),", "getFreeChatTopic(userId),", "pickTopGaps(gaps, 3)", "<MyLifeView data={data} suggest={suggest} />"].every((x) => page.includes(x)) &&
+      ["getInterviewCardState(userId),", "detectGaps(userId),", "getFreeChatTopic(userId),", "pickTopGaps(gaps, 3)", "<MyLifeView data={data} suggest={suggest} completedTours={completedTours} />"].every((x) => page.includes(x)) &&
         !page.includes("countPendingPeople"));
     const listStart = view.indexOf("function ListMode(");
     const list = view.slice(listStart, view.indexOf("function PersonRow("));
@@ -1246,6 +1262,62 @@ async function main() {
         view14.includes("<CategoryRegions data={data} layout={layout}") && view14.includes("<CategorySheet open={catSheet}") && view14.includes("<CategoryListSections data={data}") &&
           view14.includes("return customPanelInfo(nodeKey, data);") && view14.includes('data-node-key="bcat:PEOPLE"') && view14.includes("C.custom.toCategories") &&
           cust14.includes('data-node-kind="catRef"') && cust14.includes("data-target-key={info.key}") && !/"[^"]*\[임시/.test(cust14));
+    }
+    // ── ⑯ 튜토리얼(docs/phase/tutorial.md — T1~T8 2026-11-08) — 흐름(순수) · 다시 보기 입구 · 연습 판 = 실제 그리기 · DB·모델 0 ──
+    {
+      check("⑯ 첫 진입 카드 — 마침·건너뜀·나중에 기록이 없을 때만(T1)",
+        shouldOffer([]) && shouldOffer(["main", ASK_HINT]) && !shouldOffer([TUTORIAL_DONE]) && !shouldOffer([TUTORIAL_SKIP]) && !shouldOffer([TUTORIAL_LATER]));
+      check("⑯ 닫을 때 기록 — 끝내기 = 마침 · 건너뛰기 = 건너뜀(T8 — 둘을 가름)", closeTourId("finish") === TUTORIAL_DONE && closeTourId("skip") === TUTORIAL_SKIP);
+      let st = initialTutorial();
+      check("⑯ 처음 = ① 지도 읽기 · 아직 안 펼침", st.step === "read" && !st.opened);
+      st = tutorialReducer(tutorialReducer(st, { t: "openPlanet" }), { t: "next" });
+      check("⑯ ① 펼침 → [다음] = ② 직접 넣기", st.opened && st.step === "drag" && !showButtonAdd(st));
+      const f1 = tutorialReducer(st, { t: "dropFail" });
+      const f2 = tutorialReducer(f1, { t: "dropFail" });
+      check(`⑯ ② 끌기 ${DRAG_FAILS_FOR_BUTTON}번 실패 → [버튼으로 넣기](1번은 아직)`, !showButtonAdd(f1) && showButtonAdd(f2) && DRAG_FAILS_FOR_BUTTON === 2);
+      const ok = tutorialReducer(f2, { t: "dropped" });
+      check("⑯ ② 넣으면 버튼 사라짐 · 넣은 뒤 실패는 안 셈", !showButtonAdd(ok) && ok.dropped && tutorialReducer(ok, { t: "dropFail" }).dragFails === 2);
+      let ai = tutorialReducer(ok, { t: "next" });
+      ai = tutorialReducer(tutorialReducer(tutorialReducer(ai, { t: "ask" }), { t: "editPlan" }), { t: "editApply" });
+      check("⑯ ③ 물어보기 예시 · 고치기 예시 확인 카드 → 결과 → 되돌리기", ai.step === "ai" && ai.askShown && ai.edit === "done" && tutorialReducer(ai, { t: "editUndo" }).edit === "undone" && tutorialReducer(tutorialReducer(ai, { t: "editUndo" }), { t: "editUndo" }).edit === "undone");
+      const end = tutorialReducer(ai, { t: "next" });
+      check("⑯ 끝 카드에서 [다음]은 더 안 감 · 단계 3 + 끝", end.step === "end" && tutorialReducer(end, { t: "next" }).step === "end" && TUTORIAL_STEPS.length === 4 && TUTORIAL_STEP_COUNT === 3);
+      check("⑯ 체험 안 해도 [다음]으로 넘어감(강제 아님)", tutorialReducer(tutorialReducer(initialTutorial(), { t: "next" }), { t: "next" }).step === "ai");
+
+      // 연습 판 = 실제 배치·그리기(T4) — 가짜 데이터로 layoutMyLife → 이야기 행성 + 위성
+      const lay0 = layoutMyLife(practiceData({ added: false, title: C.tutorial.fakeStory }));
+      const lay1 = layoutMyLife(practiceData({ added: true, title: C.tutorial.fakeStory }));
+      const sats = (l: MyLifeLayout) => l.satellites.filter((x) => x.planetKey === PRACTICE_STORY_KEY && x.ref).length;
+      check("⑯ 연습 판 — 실제 배치로 이야기 행성 1 · 위성 2 → 넣으면 3", lay0.nodes.some((n) => n.key === PRACTICE_STORY_KEY && n.kind === "story") && sats(lay0) === 2 && sats(lay1) === 3);
+      const tut = src("app/my-life/Tutorial.tsx");
+      check("⑯ 연습 판 — 실제 그리기 코드(StoryPlanet · OrbitSystem · ORBIT_CSS · 공전 관찰 · 끌기 beginPress · 실제 카드 부품)",
+        /import \{ ORBIT_CSS, OrbitSystem, StoryPlanet \} from "\.\/MyLifeView"/.test(tut) && tut.includes("beginPress({") && tut.includes("observeOrbits(root)") &&
+          tut.includes("layoutMyLife(data)") && /import \{ AnswerClaims, PlanCard, ResultCard \} from "\.\/AskCards"/.test(tut) && src("app/my-life/MyLifeView.tsx").includes("return <OrbitSystem n={n} list={list}"));
+      const tutLibs = [tut, src("lib/tutorial.ts"), src("lib/tutorial-practice.ts")].join("\n");
+      check("⑯ 연습 = DB 쓰기·모델 호출 0 — 서버 액션은 투어 기록 하나뿐 · DB·AI 모듈 안 씀",
+        !/from "\.\/actions"|@\/lib\/db|lib\/ai"|sendMessage|planMapEdit|applyMapEdit|askMap\(/.test(tutLibs) && (tut.match(/Action\(/g) ?? []).every(() => true) &&
+          [...tut.matchAll(/(\w+Action)\(/g)].every((m) => m[1] === "markTourCompletedAction"));
+      // 다시 보기 입구(T3) — 사이드 패널(V3) · [찾기] 시트 맨 아래 · ?tutorial=1
+      const side = src("app/timemachine/SidePanel.tsx");
+      const view16 = src("app/my-life/MyLifeView.tsx");
+      check("⑯ 다시 보기 — 사이드 패널(V3: 같은 화면이면 신호 · 아니면 /my-life?tutorial=1) · [찾기] 시트 맨 아래 · 튜토리얼이 둘 다 들음",
+        side.includes("if (pathname === \"/my-life\") window.dispatchEvent(new Event(TUTORIAL_EVENT));") && side.includes("else router.push(TUTORIAL_HREF);") && TUTORIAL_HREF === "/my-life?tutorial=1" &&
+          view16.includes("window.dispatchEvent(new Event(TUTORIAL_EVENT));") && view16.includes("{C.tutorial.again}") &&
+          tut.includes("window.addEventListener(TUTORIAL_EVENT, on)") && tut.includes("searchParams.get(TUTORIAL_QUERY)"));
+      check("⑯ 건너뛰기·Esc = 건너뜀 기록 · [나중에] = 나중에 기록 · [끝내기] 뒤 [찾기] 한 번 가리키기(data-tour)",
+        tut.includes('close("skip")') && tut.includes("onCancel={(e) => {") && tut.includes("markTourCompletedAction(TUTORIAL_LATER)") && tut.includes("markTourCompletedAction(closeTourId(how))") &&
+          tut.includes('target: "mylife-find"') && view16.includes('data-tour="mylife-find"'));
+      check("⑯ AI 시트 첫 안내(T2) — 처음 연 때만 · 그때 기록", view16.includes("markTourCompletedAction(ASK_HINT)") && src("app/my-life/AskSheet.tsx").includes("{hint && <p") && src("app/my-life/page.tsx").includes("completedTours"));
+      // 가짜 이름 = 픽스처·재생 세트·실제 대화 낱말과 안 겹침(작업 규칙 8 취지) · 조작 안내에 "행성·위성" 없음(T7 (나)) · 문구 [임시]
+      const fakes = [C.tutorial.fakeEvent, C.tutorial.fakeStory, C.tutorial.fakeStoryRenamed, C.tutorial.fakePerson, C.tutorial.fakePlace, C.tutorial.fakeCandidate];
+      const fixtureText = [
+        ...fs.readdirSync(path.resolve(__dirname, "test-fixtures/map-agent-replay")).map((f) => src(`db/test-fixtures/map-agent-replay/${f}`)),
+        src("db/test-chat-proposal.ts"),
+        src("db/test-my-life-edit.ts"),
+      ].join("\n");
+      check("⑯ 연습 판 가짜 이름이 픽스처·재생 세트 낱말과 안 겹침", fakes.every((w) => !fixtureText.includes(w)), fakes.filter((w) => fixtureText.includes(w)));
+      const guide = Object.entries(C.tutorial).filter(([k, v]) => k !== "mood" && typeof v === "string").map(([, v]) => v as string).join("\n");
+      check("⑯ 조작 안내에 \"행성·위성\" 없음(분위기 한 줄만 예외 — T7 (나)) · 문구 [임시] 표시", !/행성|위성/.test(guide) && /튜토리얼[^\n]*\[임시/.test(src("lib/my-life-copy.ts")));
     }
   } finally {
     await removeFixtures();

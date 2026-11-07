@@ -14,6 +14,7 @@ import type { OnboardingTrack } from "@/lib/generated/prisma/enums";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { MY_LIFE_PEOPLE } from "@/lib/my-life-paths";
 import { SIDE_PANEL_EVENT, START_TOUR_EVENT } from "@/lib/tours";
+import { TUTORIAL_EVENT, TUTORIAL_HREF } from "@/lib/tutorial";
 
 import { checkInAction } from "./attendance-actions";
 import { logoutAction } from "./logout-action";
@@ -352,7 +353,7 @@ function SidePanel({
               hint="자주 묻는 질문·이메일 문의"
               icon={<LifeBuoy size={16} aria-hidden />}
             />
-            <RerunTourItem />
+            <RerunTourItem track={data.onboardingTrack} />
           </MenuGroup>
         </nav>
 
@@ -376,11 +377,18 @@ function SidePanel({
 // "둘러보기 다시 보기" — 같은 페이지면 이벤트로 즉시 재시작(begin 이 패널을
 // 닫고 시작), 다른 페이지면 /life-timeline?tour=main 로 이동해 마운트 시 자동
 // 시작. 패널 닫기는 CoachMarks.begin 의 SIDE_PANEL_EVENT 가 처리(비영속).
-function RerunTourItem() {
+// V3 = My Life 지도 튜토리얼 다시 보기(docs/phase/tutorial.md T3 — 같은 화면이면 신호, 아니면 /my-life?tutorial=1) · 그 밖 = 옛 연혁 둘러보기.
+function RerunTourItem({ track }: { track: SidePanelData["onboardingTrack"] }) {
   const router = useRouter();
   const pathname = usePathname();
+  const v3 = track === "V3";
 
   function onClick() {
+    if (v3) {
+      if (pathname === "/my-life") window.dispatchEvent(new Event(TUTORIAL_EVENT));
+      else router.push(TUTORIAL_HREF);
+      return;
+    }
     if (pathname === "/life-timeline") {
       window.dispatchEvent(new CustomEvent(START_TOUR_EVENT));
     } else {
@@ -398,9 +406,9 @@ function RerunTourItem() {
         <span className="text-ink-soft">
           <Compass size={16} aria-hidden />
         </span>
-        둘러보기 다시 보기
+        {v3 ? MY_LIFE_COPY.tutorial.again : "둘러보기 다시 보기"}
       </span>
-      <span className="mt-0.5 text-xs text-ink-soft">처음 안내를 다시 봐요</span>
+      <span className="mt-0.5 text-xs text-ink-soft">{v3 ? MY_LIFE_COPY.tutorial.againHint : "처음 안내를 다시 봐요"}</span>
     </button>
   );
 }

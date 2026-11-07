@@ -3,6 +3,7 @@ import { Map as MapIcon } from "lucide-react";
 
 import { auth } from "@/auth";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { prisma } from "@/lib/db";
 import { gapMatchesTopic, getFreeChatTopic } from "@/lib/free-chat";
 import { detectGaps, gapChatHref, pickTopGaps } from "@/lib/gap-detector";
 import { getInterviewCardState } from "@/lib/interview/session";
@@ -11,6 +12,7 @@ import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { getOnboardingTrack } from "@/lib/onboarding-track";
 
 import { MyLifeView } from "./MyLifeView";
+import { MyLifeTutorial } from "./Tutorial";
 import type { MyLifeSuggest } from "./Suggestions";
 
 // 노드 그래프 2b-3a — My Life 마인드맵(보기 전용). docs/phase/node-graph-self.md §6 2b.1.
@@ -34,12 +36,14 @@ export default async function MyLifePage() {
   }
 
   // 오늘의 인터뷰(오늘 기록만) · 갭 · 지금 자유 대화 주제("진행 중") — 옮기기 전 /story-review 와 같은 함수.
-  const [data, interview, gaps, chatTopic] = await Promise.all([
+  const [data, interview, gaps, chatTopic, tours] = await Promise.all([
     getMyLifeData(userId),
     getInterviewCardState(userId),
     detectGaps(userId),
     getFreeChatTopic(userId),
+    prisma.user.findUnique({ where: { id: userId }, select: { completedTours: true } }), // 튜토리얼(docs/phase/tutorial.md)
   ]);
+  const completedTours = tours?.completedTours ?? [];
   const C = MY_LIFE_COPY;
 
   if (data.events.length === 0) {
@@ -63,5 +67,10 @@ export default async function MyLifePage() {
     })),
   };
 
-  return <MyLifeView data={data} suggest={suggest} />;
+  return (
+    <>
+      <MyLifeView data={data} suggest={suggest} completedTours={completedTours} />
+      <MyLifeTutorial completed={completedTours} />
+    </>
+  );
 }

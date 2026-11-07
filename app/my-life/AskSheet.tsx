@@ -10,30 +10,16 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { MAP_QUESTION_MAX } from "@/lib/map-agent-view";
 import type { MapEditApplyResult, MapEditPlanResult } from "@/lib/map-edit";
-import { isDestructive, planLine, planNotes, type MapPlanItem } from "@/lib/map-edit-plan";
+import type { MapPlanItem } from "@/lib/map-edit-plan";
 import { MY_LIFE_COPY as C } from "@/lib/my-life-copy";
-import type { SearchKind } from "@/lib/my-life-search";
 
 import { applyMapEditAction, askMapAction, planMapEditAction, undoMapEditAction, type AskMapView } from "./actions";
+import { AnswerClaims, PlanCard, ResultCard } from "./AskCards";
 
 const A = C.ask;
-const E = C.edit;
 
-const KIND_LABEL: Record<SearchKind, string> = {
-  event: C.kindEvent,
-  story: C.kindStory,
-  person: C.kindPerson,
-  place: C.kindPlace,
-  group: C.kindGroup,
-  placeGroup: C.kindPlaceGroup,
-  category: C.custom.kindCategory,
-  customGroup: C.custom.kindGroup,
-  item: C.custom.kindItem,
-};
-
-const CHIP = "min-h-[48px] rounded-full border-2 border-line bg-surface px-4 py-1 text-left text-lg text-ink hover:bg-banner focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand";
-
-export function AskSheet({ seed, onGo, onClose }: { seed: string; onGo: (key: string, eventId: string | null) => void; onClose: () => void }) {
+// hint = 이 계정이 AI 시트를 처음 연 때 한 줄 안내(튜토리얼 T2 — docs/phase/tutorial.md)
+export function AskSheet({ seed, hint, onGo, onClose }: { seed: string; hint: boolean; onGo: (key: string, eventId: string | null) => void; onClose: () => void }) {
   const router = useRouter();
   const [q, setQ] = useState(seed);
   const [view, setView] = useState<AskMapView | null>(null);
@@ -86,7 +72,6 @@ export function AskSheet({ seed, onGo, onClose }: { seed: string; onGo: (key: st
   }
 
   const plan = planView?.ok ? planView.plan : [];
-  const destructive = plan.length === 1 && isDestructive(plan[0]); // 지우기·합치기(§6.10)
 
   return (
     <div className="flex flex-col gap-4 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6">
@@ -94,6 +79,7 @@ export function AskSheet({ seed, onGo, onClose }: { seed: string; onGo: (key: st
         {A.title}
       </h2>
       <p className="m-0 text-lg text-ink-soft">{A.hint}</p>
+      {hint && <p className="m-0 rounded-md border-2 border-line bg-banner px-4 py-3 text-lg text-ink">{C.tutorial.askHint}</p>}
       <form onSubmit={ask} className="flex flex-col gap-3">
         <input
           type="text"
@@ -123,22 +109,7 @@ export function AskSheet({ seed, onGo, onClose }: { seed: string; onGo: (key: st
             </Button>
           </div>
         )}
-        {view?.ok &&
-          view.answer.claims.map((c, i) => (
-            <div key={i} className="flex flex-col gap-2 rounded-md border-2 border-line bg-surface p-4">
-              <p className="m-0 text-lg text-ink">{c.text}</p>
-              <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
-                {c.nodes.map((n) => (
-                  <li key={n.key}>
-                    <button type="button" onClick={() => onGo(n.key, n.eventId)} className={CHIP}>
-                      <span className="text-ink-soft">{KIND_LABEL[n.kind]} · </span>
-                      {n.title}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        {view?.ok && <AnswerClaims claims={view.answer.claims} onGo={onGo} />}
         {view?.ok && view.answer.noRecord && (
           <p className="m-0 text-lg text-ink">
             {view.answer.noRecord.topic && view.answer.claims.length > 0 ? A.noRecordAbout(view.answer.noRecord.topic) : A.noRecord}
@@ -149,59 +120,10 @@ export function AskSheet({ seed, onGo, onClose }: { seed: string; onGo: (key: st
         {/* 고치기 — 확인 전에는 아무것도 안 바뀐다 */}
         {planView && !planView.ok && <p className="m-0 text-lg text-ink">{A.errors[planView.reason]}</p>}
         {planView?.ok && plan.length === 0 && <p className="m-0 text-lg text-ink">{planView.question ?? (planView.unsupported ? (planView.note ?? A.plan.unsupported) : A.plan.empty)}</p>}
-        {plan.length > 0 && (
-          <div data-map-edit-card="plan" className="flex flex-col gap-3 rounded-md border-2 border-brand bg-banner p-4">
-            <h3 className="m-0 text-xl font-bold text-ink">{A.plan.title}</h3>
-            <ul className="m-0 flex list-none flex-col gap-2 p-0">
-              {plan.map((item, i) => (
-                <li key={i} className="text-lg text-ink">
-                  {planLine(item, "will")}
-                </li>
-              ))}
-            </ul>
-            {/* 지우기·합치기 — 영향 수 + 되돌릴 수 없음(§6.10) */}
-            {plan.flatMap(planNotes).map((note, i) => (
-              <p key={i} className="m-0 text-lg text-ink">
-                {note}
-              </p>
-            ))}
-            {destructive && <p className="m-0 text-lg text-ink-soft">{A.plan.irreversible}</p>}
-            <Button variant={destructive ? "destructive" : "primary"} size="lg" disabled={pending} onClick={() => apply(plan)}>
-              {pending ? A.plan.applying : destructive ? (plan[0].tool === "delete_node" ? E.deleteDo : A.plan.mergeDo) : A.plan.apply}
-            </Button>
-            <Button variant="tertiary" size="lg" disabled={pending} onClick={clear}>
-              {A.plan.cancel}
-            </Button>
-          </div>
-        )}
+        {plan.length > 0 && <PlanCard plan={plan} pending={pending} apply={apply} clear={clear} />}
 
         {result && !result.ok && <p className="m-0 text-lg text-danger">{result.error}</p>}
-        {result?.ok && (
-          <div data-map-edit-card="result" className="flex flex-col gap-3 rounded-md border-2 border-line bg-surface p-4">
-            {result.done.length > 0 && <h3 className="m-0 text-xl font-bold text-ink">{undoState === "done" ? A.plan.undone : A.plan.doneTitle}</h3>}
-            {undoState !== "done" && (
-              <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                {result.done.map((d, i) => (
-                  <li key={i} className="flex flex-col items-start gap-2">
-                    <span className="text-lg text-ink">{d.line}</span>
-                    {d.key && (
-                      <button type="button" onClick={() => onGo(d.key as string, d.eventId)} className={CHIP}>
-                        {A.plan.go}
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {result.failed && <p role="alert" className="m-0 text-lg text-danger">{A.plan.stopped(result.failed.line, result.failed.error)}</p>}
-            {undoState === "failed" && <p role="alert" className="m-0 text-lg text-danger">{A.plan.undoFailed}</p>}
-            {undoState !== "done" && result.undo.length > 0 && (
-              <Button variant="secondary" size="lg" disabled={pending} onClick={() => undo(result.commandId, result.undo)}>
-                {pending ? A.plan.undoing : A.plan.undo}
-              </Button>
-            )}
-          </div>
-        )}
+        {result?.ok && <ResultCard result={result} undoState={undoState} pending={pending} onGo={onGo} undo={undo} />}
       </div>
 
       <Button variant="tertiary" size="lg" onClick={onClose}>
