@@ -27,6 +27,7 @@ import { applyMapEdit, planMapEdit, undoMapEdit, type UndoStep } from "../lib/ma
 import { MAP_EDIT_PLAN_MAX, parsePlan, planLine, type MapPlanItem, type PlanNode } from "../lib/map-edit-plan";
 import { getMyLifeData, type MyLifeData } from "../lib/my-life";
 import { customOf } from "../lib/my-life-custom";
+import { MY_LIFE_COPY } from "../lib/my-life-copy";
 import { addLink, renameBuiltin } from "../lib/my-life-edit";
 import type { NodeRef } from "../lib/node-graph";
 import { MAP_AGENT_TOOLS } from "../lib/prompts/map-agent";
@@ -283,7 +284,7 @@ async function main() {
     check("④ 이미 되어 있으면 그대로 — 결과 카드에 그렇게 말함 · 되돌릴 것·기록 없음", twice.done[0].line.includes("이미") && twice.undo.length === 0 && (await logs(a, twice.commandId)).length === 0, twice);
     await undoMapEdit(a, once.commandId, once.undo);
     const reusedPlace = await run([{ tool: "create_node", newKey: "new1", kind: "장소", name: "가상 장소", relation: null, year: null, endYear: null, parent: null, body: null, decision: null }]);
-    check("④ 이미 있는 장소를 다시 쓰면 새로 안 만듦 · 되돌릴 것·기록 없음", reusedPlace.undo.length === 0 && (await logs(a, reusedPlace.commandId)).length === 0 && (await snapshot(a)) === start, reusedPlace);
+    check("④ 이미 있는 장소를 다시 쓰면 새로 안 만듦 · 되돌릴 것·기록 없음", reusedPlace.undo.length === 0 && reusedPlace.done[0]?.line === MY_LIFE_COPY.ask.plan.already && (await logs(a, reusedPlace.commandId)).length === 0 && (await snapshot(a)) === start, reusedPlace);
     const noLink = await run([{ tool: "unlink", a: N("PERSON", pe1, "가상 이웃", "사람"), b: N("PLACE", pl1, "가상 장소", "장소") }]);
     check("④ 끊을 연결이 없으면 멈추고 알림 · 기록 없음", !!noLink.failed && noLink.done.length === 0 && (await logs(a, noLink.commandId)).length === 0, noLink);
     check("④ 여기까지 지도 처음과 같음", (await snapshot(a)) === start);

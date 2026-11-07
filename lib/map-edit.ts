@@ -255,7 +255,7 @@ async function createStep(userId: string, item: Extract<MapPlanItem, { tool: "cr
   const done = (ref: NodeRef, key: string, eventId: string | null, node: CreatedNode | null): StepResult => {
     made.set(item.newKey, { ref, key, eventId });
     // 이미 있던 것을 다시 쓴 경우(같은 이름·주소 장소) — 바뀐 것 없음, 기록·되돌리기 없음.
-    return { ok: true, tool: "create_node", node: node ? ref : null, key, eventId, undo: node ? { t: "node", node } : null };
+    return { ok: true, tool: "create_node", node: node ? ref : null, key, eventId, undo: node ? { t: "node", node } : null, ...(node ? {} : { line: A.plan.already }) };
   };
   switch (item.kind) {
     case "시기": {
