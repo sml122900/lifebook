@@ -160,7 +160,7 @@ export default function OnboardingChatClient() {
       ? "말씀하신 분들을 인물록에 추가해 드릴게요. 😊\n\n"
       : "";
     const question = c.name
-      ? `${c.name}님(${c.relation}) 추가할까요? 이름을 바꾸시려면 새 이름을 입력해주세요.`
+      ? `${c.name} 님(${c.relation}) 추가할까요? 이름을 바꾸시려면 새 이름을 입력해주세요.`
       : `${c.relation}분 말씀하셨는데, 성함이 어떻게 되세요? 별명이나 이니셜도 괜찮아요.`;
     addBot(preamble + question);
   }

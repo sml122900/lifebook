@@ -57,7 +57,7 @@ export function FamilyNewsCard({ news }: { news: FamilyNews }) {
                   className="flex flex-col gap-1 rounded-md border-2 border-line bg-surface px-4 py-3 hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
                 >
                   <span className="text-lg text-ink">
-                    <b>{it.reactorName}</b>님이{" "}
+                    <b>{it.reactorName}</b> 님이{" "}
                     <b>{monthLabel(it.year, it.month)}</b> 이야기에{" "}
                     {it.kind === "stamp" ? (
                       <>‘{it.detail}’{objectJosa(it.detail)} 남겼어요</>
@@ -95,7 +95,7 @@ export function FamilyNewsCard({ news }: { news: FamilyNews }) {
                   className="flex items-center gap-2 rounded-md border-2 border-line bg-surface px-4 py-3 hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
                 >
                   <span className="text-lg text-ink">
-                    <b>{it.authorName}</b>님이{" "}
+                    <b>{it.authorName}</b> 님이{" "}
                     <b>{monthLabel(it.year, it.month)}</b> 이야기를 남겼어요.
                     함께 보고 가볍게 반응해 보세요.
                   </span>

@@ -225,7 +225,7 @@ export default async function LifeTimelinePage() {
             내 인생 연혁
           </h1>
           <p className="mt-3 text-xl text-ink sm:text-2xl">
-            <b>{userName}</b>님의 큰 줄기예요.
+            <b>{userName}</b> 님의 큰 줄기예요.
           </p>
         </div>
         <div data-tour="assistant" className="flex-shrink-0">

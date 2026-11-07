@@ -79,7 +79,7 @@ export default async function LifeRecordIndexPage({
             인생 기록하기
           </h1>
           <p className="mt-4 text-xl text-ink sm:text-2xl">
-            <b>{userName}</b>님의 인생 큰 줄기를 한 번 잡아볼까요?
+            <b>{userName}</b> 님의 인생 큰 줄기를 한 번 잡아볼까요?
           </p>
           <p className="mt-2 text-lg text-ink-soft">
             한 번에 한 가지씩, 떠오르는 만큼만 적으셔도 괜찮아요.

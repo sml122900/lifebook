@@ -148,7 +148,7 @@ async function _TimemachineMonthPageArchived({ params }: PageProps) {
           {year}년 {month}월
         </h1>
         <p className="mt-5 text-xl text-ink sm:text-2xl">
-          <b>{userName}</b>님, 이 달은 어떤 달이었나요?
+          <b>{userName}</b> 님, 이 달은 어떤 달이었나요?
         </p>
       </header>
 

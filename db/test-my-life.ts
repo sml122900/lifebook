@@ -1087,6 +1087,13 @@ async function main() {
         .filter(([, , l]) => RAW.test(l) || /(?:^|[\s"'`:])bg-white\b/.test(l) || /bg-action\b[^"'`]*\btext-white\b/.test(l))
         .map(([f, n]) => `${f}:${n}`);
       check("⑬ 밤 우주 전원 — 화면 코드 Tailwind 기본 팔레트 색·bg-white·\"bg-action … text-white\" 0(토큰만)", hits.length === 0, hits.slice(0, 8));
+      // 이름 뒤 "님" = 띄어 씀(2026-11-07 성민). 직함 뒤 붙여 쓰는 곳은 lib/person-honorific 한 곳.
+      const nim = ["app", "components", "lib"].flatMap(walk)
+        .filter((f) => !f.startsWith("lib/generated/") && f !== "lib/person-honorific.ts")
+        .flatMap((f) => src(f).split("\n").map((l, i) => [f, i + 1, l] as const))
+        .filter(([, , l]) => /(?:\}|<\/b>|<\/span>)님/.test(l))
+        .map(([f, n]) => `${f}:${n}`);
+      check("⑬ 이름 뒤 \"님\" 띄어 씀 — 값 바로 뒤에 붙인 고정 문구 0", nim.length === 0, nim.slice(0, 8));
     }
     check("⑬ 사이드 패널 첫 진입 = 닫힘(모든 화면 — 2026-11-05 성민 결정) · 연 기록(\"open\")이 있을 때만 열림",
       src("app/timemachine/SidePanel.tsx").includes('const open = choice ?? (mounted && stored === "open");') && !src("app/timemachine/SidePanel.tsx").includes("firstOpen"));

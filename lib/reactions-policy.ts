@@ -19,7 +19,7 @@ export function isStampKind(v: unknown): v is StampKind {
   return typeof v === "string" && (STAMP_KINDS as readonly string[]).includes(v);
 }
 
-// "○○님이 '뭉클해요'를 남겼어요" 식 표시용 — 이모지+라벨.
+// "○○ 님이 '뭉클해요'를 남겼어요" 식 표시용 — 이모지+라벨.
 export function stampText(stamp: StampKind): string {
   const s = STAMPS[stamp];
   return `${s.emoji} ${s.label}`;
