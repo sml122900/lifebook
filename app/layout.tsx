@@ -1,5 +1,5 @@
 ﻿import type { Metadata, Viewport } from "next";
-import { Noto_Serif_KR } from "next/font/google";
+import localFont from "next/font/local";
 import Link from "next/link";
 
 import "pretendard/dist/web/variable/pretendardvariable.css";
@@ -55,12 +55,27 @@ export const viewport: Viewport = {
   themeColor: "#221d52",
 };
 
-// 제목용 명조. globals.css 의 --font-serif(@theme inline)가 이 변수를 참조.
-const notoSerif = Noto_Serif_KR({
-  subsets: ["latin"],
-  weight: ["400", "700"],
+// 제목용 명조(app/fonts/noto-serif-kr — OFL). globals.css 의 --font-serif(@theme inline)가 두 변수를 차례로 쓴다.
+// core 에 없는 글자(드문 한글·한자)가 나올 때만 rest(굵기당 약 2.9MB)를 받는다. preload 끔 — 파일이 커서 첫 화면을 안 막는다.
+const notoSerif = localFont({
+  src: [
+    { path: "./fonts/noto-serif-kr/NotoSerifKR-Regular-core.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/noto-serif-kr/NotoSerifKR-Bold-core.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-noto-serif-kr",
   display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+});
+const notoSerifRest = localFont({
+  src: [
+    { path: "./fonts/noto-serif-kr/NotoSerifKR-Regular-rest.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/noto-serif-kr/NotoSerifKR-Bold-rest.woff2", weight: "700", style: "normal" },
+  ],
+  variable: "--font-noto-serif-kr-rest",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
 });
 
 export default async function RootLayout({
@@ -85,7 +100,7 @@ export default async function RootLayout({
   return (
     <html
       lang="ko"
-      className={`h-full antialiased ${notoSerif.variable}`}
+      className={`h-full antialiased ${notoSerif.variable} ${notoSerifRest.variable}`}
       data-app-header={sidePanelData ? "" : undefined}
       // 밤 우주 = Lifebook 단일 테마(2026-11-05 전원 — 로그인 안 함·V3·V2 모두, docs/phase/ui-night.md §8). 서버가 늘 그려 첫 그림부터 밤(깜빡임 0).
       data-theme="night"

@@ -91,7 +91,7 @@
 /* next/font(Noto Serif KR)가 html 요소에 정의하는 변수를 참조해야 해서
    inline — 빌드 시 값 복사 대신 var() 참조를 유지한다. */
 @theme inline {
-  --font-serif: var(--font-noto-serif-kr), "Noto Serif KR", Georgia, serif;
+  --font-serif: var(--font-noto-serif-kr), var(--font-noto-serif-kr-rest), "Noto Serif KR", Georgia, serif;
 }
 
 /* 기본 = 밝은 화면(OS 설정과 무관). 밤 우주 단일 테마(2026-11-05 결정 — docs/phase/ui-night.md)는 허용 목록 계정만

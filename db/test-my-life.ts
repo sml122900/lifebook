@@ -1094,6 +1094,12 @@ async function main() {
         .filter(([, , l]) => /(?:\}|<\/b>|<\/span>)님/.test(l))
         .map(([f, n]) => `${f}:${n}`);
       check("⑬ 이름 뒤 \"님\" 띄어 씀 — 값 바로 뒤에 붙인 고정 문구 0", nim.length === 0, nim.slice(0, 8));
+      // 제목 글꼴 = 저장소 파일(2026-11-07 — 빌드가 Google 글꼴 받기에 기대지 않게, docs/troubleshooting/next-font-google-build.md)
+      const fontDir = path.resolve(__dirname, "..", "app/fonts/noto-serif-kr");
+      check("⑬ 제목 글꼴 = 저장소 파일 — next/font/google 없음 · 글꼴 4개 · 라이선스 파일",
+        !["app", "components", "lib"].flatMap(walk).some((f) => !f.startsWith("lib/generated/") && src(f).includes('from "next/font/google"')) &&
+          ["Regular-core", "Bold-core", "Regular-rest", "Bold-rest"].every((n) => fs.existsSync(path.join(fontDir, `NotoSerifKR-${n}.woff2`))) &&
+          fs.existsSync(path.join(fontDir, "OFL.txt")));
     }
     check("⑬ 사이드 패널 첫 진입 = 닫힘(모든 화면 — 2026-11-05 성민 결정) · 연 기록(\"open\")이 있을 때만 열림",
       src("app/timemachine/SidePanel.tsx").includes('const open = choice ?? (mounted && stored === "open");') && !src("app/timemachine/SidePanel.tsx").includes("firstOpen"));
