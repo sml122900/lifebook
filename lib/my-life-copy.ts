@@ -428,7 +428,7 @@ export const MY_LIFE_COPY = {
       undoFailed: "되돌리지 못했어요. 지도에서 직접 고쳐 주세요.",
       stopped: (line: string, error: string) => `여기서 멈췄어요 — ${line} ${error}`,
       empty: "어떻게 고칠지 잘 모르겠어요. 조금 더 자세히 말씀해 주세요.",
-      unsupported: "지우기와 합치기는 아직 부탁하실 수 없어요. 지도에서 직접 해 주세요.",
+      unsupported: "그 일은 여기서 할 수 없어요. 지도에서 직접 해 주세요.", // 3c 2단계(2026-11-07) — 지우기·합치기가 되면서 바뀜
       already: "이미 그렇게 되어 있어서 그대로 뒀어요.",
       notLinked: "이어져 있지 않아서 뺄 것이 없어요.",
       cannotMove: "이 둘 사이로는 옮길 수 없어요.",
@@ -451,7 +451,9 @@ export const MY_LIFE_COPY = {
       mergeDo: "합치기",
       irreversible: "되돌릴 수 없어요.",
       staleImpact: "그사이 기록이 바뀌어서 하지 않았어요. 다시 부탁해 주세요.",
-      personDelete: "사람은 여기서 지울 수 없어요. 지도에서 그분을 눌러 [이 노드 지우기]로 지워 주세요.",
+      personDelete: (name: string) => `‘${name}’ 님은 여기서 지울 수 없어요. 지도에서 ‘${name}’ 님을 눌러 [이 노드 지우기]로 지워 주세요.`,
+      // 넣을 곳 — 묶음을 두 번 골랐는데 요청엔 위 카테고리 이름만 있을 때 코드가 되묻는다(2026-11-07 성민)
+      askWhere: (member: string, category: string, group: string) => `‘${member}’${withJosa(member, "을/를")} ‘${category}’에 바로 넣을까요, ‘${group}’ 묶음에 넣을까요?`,
       oneAtATime: "지우기와 합치기는 다른 일과 따로 부탁해 주세요.",
       mergeKinds: "사람끼리, 장소끼리, 항목끼리, 또는 항목을 사람·장소에만 합칠 수 있어요.",
       mergeSelf: "같은 것끼리는 합칠 수 없어요.",

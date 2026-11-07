@@ -56,7 +56,11 @@ type PlanCtx = {
   plan: MapPlanItem[];
   created: Map<string, { name: string; kind: string }>;
   mixed: boolean; // 지우기·합치기를 다른 일과 같이 시켰음(§6.10 ③)
-  personDelete: boolean; // 사람 지우기를 시켰음(Q87)
+  destructiveCalled: boolean; // 지우기·합치기 도구를 불렀음(막혔어도) — 그 뒤 다른 일 = 섞임
+  personDelete: string | null; // 사람 지우기를 시켰음(Q87) — 그 사람 이름(안내 문장)
+  refused: string | null; // 처음 정한 시기·기본 카테고리 지우기가 막힘 — 안내 문장(모델 답과 관계없이 "못 함")
+  groupRedirects: number; // 넣을 곳 묶음 → 카테고리로 돌려보낸 수
+  askWhere: string | null; // 두 번째도 묶음이면 코드가 되묻는 문장
 };
 
 const same = (a: string, b: string) => normalizeForSearch(a) === normalizeForSearch(b);
@@ -103,8 +107,24 @@ function containerRule(container: PlanNode, member: PlanNode): string | null {
 }
 
 // 쓰기 도구 하나 → 계획 한 줄 또는 오류(모델에게 돌려줌). DB 쓰기 0.
+// 넣을 곳(2026-11-07 성민): 묶음을 골랐는데 요청엔 그 묶음 이름이 없고 위 카테고리 이름만 있으면 — 모델에게 한 번 돌려보낸다(도구 결과 — 사용자에게 안 보임).
+// 두 번째도 같으면 계획을 버리고 코드가 되묻는다(물음표 한 문장).
+function groupRedirect(ctx: PlanCtx, container: PlanNode, member: PlanNode): { error: string } | null {
+  if (container.kind !== "묶음" || !("ref" in container)) return null;
+  const row = ctx.view.nodes.find((x) => x.kind === "묶음" && ctx.view.refs.get(x.alias)?.id === container.ref.id);
+  const cat = row?.links["자리"]?.[0] ? ctx.view.byAlias.get(row.links["자리"][0]) : undefined;
+  const said = (s: string) => normalizeForSearch(ctx.text).includes(normalizeForSearch(s));
+  if (!cat || said(container.name) || !said(cat.name)) return null;
+  ctx.groupRedirects += 1;
+  if (ctx.groupRedirects >= 2) {
+    ctx.askWhere = A.plan.askWhere(member.name, cat.name, container.name);
+    return { error: "더 담지 말고 answer 를 부르세요." };
+  }
+  return { error: `사용자가 말한 곳은 ‘${cat.name}’ 카테고리(${cat.alias})예요. 그 안 묶음 ‘${container.name}’이 아니라 ‘${cat.name}’에 넣는 계획으로 다시 부르세요.` };
+}
+
 function planTool(ctx: PlanCtx, name: string, input: Record<string, unknown>): unknown {
-  if (ctx.plan.some(isDestructive)) {
+  if (ctx.plan.some(isDestructive) || ctx.destructiveCalled) {
     ctx.mixed = true;
     return { error: "지우기·합치기는 다른 일과 같이 담을 수 없어요. 더 담지 말고 answer 를 부르세요." };
   }
@@ -186,6 +206,10 @@ function planTool(ctx: PlanCtx, name: string, input: Record<string, unknown>): u
     if (isErr(member)) return member;
     const bad = containerRule(container, member);
     if (bad) return { error: bad };
+    if (name === "put_in") {
+      const redirect = groupRedirect(ctx, container, member);
+      if (redirect) return redirect;
+    }
     return push(ctx, name === "put_in" ? { tool: "put_in", container, member } : { tool: "take_out", container, member });
   }
 
@@ -209,9 +233,14 @@ function labelOf(ctx: PlanCtx, n: ExistingNode): string {
   return same.length > 1 && row?.relation ? `${row.relation} ${n.name}` : n.name;
 }
 
+// 섞인 요청 C안(2026-11-08 성민) — A: 지우기·합치기가 담기는 순간 이 알림(도구 결과 — 사용자에게 안 보임) · B: 끝낼 때 answer.otherWork.
+// 어느 쪽이든 섞인 요청이면 아무것도 담지 않는다(일부만 실행되는 일 0).
+const OTHER_WORK_NOTE = "요청에 다른 일도 있으면 그 일도 도구로 부르세요(같이 담을 수 없으면 코드가 알려 줘요). 없으면 answer 를 부르세요.";
+
 // 지우기·합치기 — 영향 수를 세므로 DB 를 읽는다(쓰기 0). 수를 못 세면 카드를 만들지 않는다(§6.10 ①).
 async function planDestructive(userId: string, ctx: PlanCtx, name: "delete_node" | "merge_nodes", input: Record<string, unknown>): Promise<unknown> {
   if (!saidOk(ctx, input.said)) return { error: "said 가 요청에 없어요. 시키지 않은 일은 담지 않아요." };
+  ctx.destructiveCalled = true;
   if (ctx.plan.length > 0) {
     ctx.mixed = true;
     return { error: "지우기·합치기는 다른 일과 같이 담을 수 없어요. 더 담지 말고 answer 를 부르세요." };
@@ -221,12 +250,15 @@ async function planDestructive(userId: string, ctx: PlanCtx, name: "delete_node"
     if (isErr(n)) return n;
     if ("newKey" in n) return { error: "없는 노드예요. find_nodes 로 찾아 주세요." };
     if (n.ref.type === "PERSON") {
-      ctx.personDelete = true;
-      return { error: "사람은 여기서 지울 수 없어요. 담지 말고 answer 에 unsupported 를 true 로 하세요." };
+      ctx.personDelete = n.name;
+      return { error: "사람은 여기서 지울 수 없어요(코드가 안내를 보여 줘요). 더 담지 말고 answer 를 부르세요." };
     }
     const impact = await deleteImpact(userId, n.ref);
-    if (!impact) return { error: "지울 수 없는 것이에요(기본 시기·기본 카테고리). 담지 말고 answer 에 unsupported 를 true 로 하세요." };
-    return push(ctx, { tool: "delete_node", node: n, impact });
+    if (!impact) {
+      ctx.refused = n.ref.type === "LIFE_EVENT" ? E.deleteSkeletonNote : A.plan.unsupported;
+      return { error: "지울 수 없는 것이에요(처음 정한 시기·기본 카테고리 — 코드가 안내를 보여 줘요). 더 담지 말고 answer 를 부르세요." };
+    }
+    return push(ctx, { tool: "delete_node", node: n, impact }, { 알림: OTHER_WORK_NOTE });
   }
   const from = resolve(ctx, input.from);
   if (isErr(from)) return from;
@@ -235,7 +267,7 @@ async function planDestructive(userId: string, ctx: PlanCtx, name: "delete_node"
   if ("newKey" in from || "newKey" in to) return { error: "없는 노드예요. find_nodes 로 찾아 주세요." };
   const c = await mergeCheck(userId, from.ref, to.ref);
   if (!c.ok) return { error: c.error };
-  return push(ctx, { tool: "merge_nodes", from, to, fromLabel: labelOf(ctx, from), toLabel: labelOf(ctx, to), impact: c.impact });
+  return push(ctx, { tool: "merge_nodes", from, to, fromLabel: labelOf(ctx, from), toLabel: labelOf(ctx, to), impact: c.impact }, { 알림: OTHER_WORK_NOTE });
 }
 
 export type MapEditPlanResult =
@@ -250,7 +282,7 @@ export async function planMapEdit(userId: string, textRaw: string, opts: { callM
 
   const view = buildMapView(opts.data ?? (await getMyLifeData(userId)));
   const list = mapListText(view);
-  const ctx: PlanCtx = { text, view, shown: new Set(list.shown), plan: [], created: new Map(), mixed: false, personDelete: false };
+  const ctx: PlanCtx = { text, view, shown: new Set(list.shown), plan: [], created: new Map(), mixed: false, destructiveCalled: false, personDelete: null, refused: null, groupRedirects: 0, askWhere: null };
   const loop = await runMapLoop({
     userId,
     purpose: "MAP_EDIT",
@@ -269,20 +301,20 @@ export async function planMapEdit(userId: string, textRaw: string, opts: { callM
   if (loop.overBudget) return { ok: false, reason: "budget" };
   if (loop.failed || loop.raw === null) return { ok: false, reason: "failed" };
 
-  const finish = loop.raw as { question?: unknown; unsupported?: unknown };
+  const finish = loop.raw as { question?: unknown; unsupported?: unknown; otherWork?: unknown };
+  if (ctx.destructiveCalled && finish.otherWork === true) ctx.mixed = true; // C안 B — 모델이 다른 일도 있었다고 하면 섞인 요청
   const q = typeof finish.question === "string" ? stripAlias(finish.question).text.replace(/\s+/g, " ").trim() : "";
-  const question = q && /\?$/.test(q) && q.length <= QUESTION_MAX ? q : null;
+  // 되묻기 문장에 내부 용어가 들어가면 그 문장 대신 일반 안내(고침안 3 — 계획은 여전히 안 보임).
+  const question = q && /\?$/.test(q) && q.length <= QUESTION_MAX ? (/노드|별칭/.test(q) ? A.plan.empty : q) : null;
   // 지우기·합치기를 다른 일과 같이 시켰으면 아무것도 담지 않는다 — 한쪽만 조용히 하지 않게(§6.10 ③).
   if (ctx.mixed) return { ok: true, plan: [], question: A.plan.oneAtATime, unsupported: false, note: null, usage: loop.usage };
+  // 넣을 곳을 두 번 묶음으로 골랐으면 계획을 버리고 코드가 되묻는다.
+  if (ctx.askWhere) return { ok: true, plan: [], question: ctx.askWhere, unsupported: false, note: null, usage: loop.usage };
+  // 사람·처음 정한 시기 지우기 — 안내는 코드가 고른다(모델이 무엇이라고 답했든 — 고침안 1).
+  const note = ctx.personDelete ? A.plan.personDelete(ctx.personDelete) : ctx.refused;
+  if (note) return { ok: true, plan: [], question: null, unsupported: true, note, usage: loop.usage };
   // 되묻는 답이면 담긴 계획은 안 보여 준다(어느 것인지 모르는 채 실행하지 않게).
-  return {
-    ok: true,
-    plan: question ? [] : ctx.plan,
-    question,
-    unsupported: finish.unsupported === true || ctx.personDelete,
-    note: ctx.personDelete ? A.plan.personDelete : null,
-    usage: loop.usage,
-  };
+  return { ok: true, plan: question ? [] : ctx.plan, question, unsupported: finish.unsupported === true, note: null, usage: loop.usage };
 }
 
 // ── 실행 — 사용자가 확인 카드에서 누른 뒤 ─────────────────────────
@@ -360,7 +392,7 @@ async function createStep(userId: string, item: Extract<MapPlanItem, { tool: "cr
 // 지우기·합치기 — 되돌리기 없음(§6.10 ④). 카드에 보인 수와 지금 수가 다르면 안 한다(②).
 async function deleteStep(userId: string, item: Extract<MapPlanItem, { tool: "delete_node" }>): Promise<StepResult> {
   const ref = item.node.ref;
-  if (ref.type === "PERSON") return { ok: false, error: A.plan.personDelete }; // Q87 — 고쳐 보낸 계획도
+  if (ref.type === "PERSON") return { ok: false, error: A.plan.personDelete(item.node.name) }; // Q87 — 고쳐 보낸 계획도
   const now = await deleteImpact(userId, ref);
   if (!now) return { ok: false, error: E.notFound };
   if (JSON.stringify(now) !== JSON.stringify(item.impact)) return { ok: false, error: A.plan.staleImpact };

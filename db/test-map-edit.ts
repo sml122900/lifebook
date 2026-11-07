@@ -38,13 +38,14 @@ import { countNodeGraphIssues } from "../lib/node-graph-reconcile";
 import type { NodeRef } from "../lib/node-graph";
 import { MAP_AGENT_TOOLS } from "../lib/prompts/map-agent";
 import { MAP_EDIT_SYSTEM_PROMPT, MAP_EDIT_TOOLS } from "../lib/prompts/map-edit";
+import { freshEditMap, judgePlan, removeEditMap, resolveRecorded, type EditCase } from "./map-edit-replay-db";
 
 const ROOT = path.resolve(__dirname, "..");
 const read = (p: string) => fs.readFileSync(path.join(ROOT, p), "utf8");
 const REPLAY_DIR = path.join(__dirname, "test-fixtures", "map-agent-replay");
 const persona = JSON.parse(fs.readFileSync(path.join(REPLAY_DIR, "persona.json"), "utf8")) as MyLifeData;
-type Case = { name: string; request: string; expectLines?: string[]; expectQuestion?: boolean; expectUnsupported?: boolean; expectEmpty?: boolean; recorded: { name: string; input: unknown }[][] };
-const { cases } = JSON.parse(fs.readFileSync(path.join(REPLAY_DIR, "edit-cases.json"), "utf8")) as { cases: Case[] };
+const { cases } = JSON.parse(fs.readFileSync(path.join(REPLAY_DIR, "edit-cases.json"), "utf8")) as { cases: EditCase[] };
+const EMAIL_DB = "fixture-map-edit-db@lifebook.invalid";
 
 const EMAIL_A = "fixture-map-edit-a@lifebook.invalid";
 const EMAIL_B = "fixture-map-edit-b@lifebook.invalid";
@@ -124,7 +125,8 @@ async function main() {
 
     // ── ① 계획은 DB 를 안 바꿈 ──────────
     const toolNames = MAP_EDIT_TOOLS.map((t) => t.name).sort();
-    check("① 도구 = 찾기·읽기·만들기·이름·잇기·끊기·넣기·빼기·옮기기·끝 — 지우기·합치기 없음(3c)", JSON.stringify(toolNames) === JSON.stringify(["answer", "create_node", "find_nodes", "link", "move", "put_in", "read_node", "rename_node", "take_out", "unlink"]), toolNames);
+    check("① 도구 = 찾기·읽기·만들기·이름·잇기·끊기·넣기·빼기·옮기기·지우기·합치기·끝(3c 2단계)", JSON.stringify(toolNames) === JSON.stringify(["answer", "create_node", "delete_node", "find_nodes", "link", "merge_nodes", "move", "put_in", "read_node", "rename_node", "take_out", "unlink"]), toolNames);
+    check("① 지시문 — 지우기·합치기는 늘 도구로(막는 건 코드) · 혼자만 · 합치기 종류·방향 · 되묻기에 \"그분\" 대신 이름", MAP_EDIT_SYSTEM_PROMPT.includes("반드시 그 도구를 부릅니다") && MAP_EDIT_SYSTEM_PROMPT.includes("계획에 혼자만 담깁니다") && MAP_EDIT_SYSTEM_PROMPT.includes("from 은 없어질 쪽") && MAP_EDIT_SYSTEM_PROMPT.includes('"그분"·"그 사람" 같은 말 대신 이름') && MAP_EDIT_SYSTEM_PROMPT.includes("otherWork") && JSON.stringify(MAP_EDIT_TOOLS).includes("otherWork"));
     check("① 질문 쪽 도구에는 쓰기 도구가 없음", !MAP_AGENT_TOOLS.some((t) => ["create_node", "rename_node", "link", "unlink", "put_in", "take_out", "move"].includes(t.name)));
     const f1 = fake([[{ name: "put_in", input: { said: "넣어 줘", container: { alias: "n999", name: "x" }, member: { alias: "n998", name: "y" } } }], [{ name: "create_node", input: { said: "만들어 넣어 줘", kind: "카테고리", name: "새 분류" } }], [answer]]);
     const p1 = await planMapEdit(a, "만들어 넣어 줘", { callModel: f1.caller });
@@ -137,19 +139,31 @@ async function main() {
     check("① 라운드 상한 6 · 마지막 answer 강제 · 답 없으면 failed", never.calls.length === 6 && JSON.stringify(never.calls[5].tool_choice) === JSON.stringify({ type: "tool", name: "answer" }) && !pNever.ok && pNever.reason === "failed");
     const bPlan = await planMapEdit(a, "   ", { callModel: never.caller });
     check("① 빈 요청 = 호출 0", !bPlan.ok && bPlan.reason === "empty" && never.calls.length === 6);
-    const fixtureWords = ["강호", "미영", "순덕", "복실", "초롱", "제주", "전우", "훈련소", "라디오", "공단", "낚시", "바둑", "영수", "가상"];
+    const fixtureWords = ["강호", "미영", "순덕", "복실", "초롱", "제주", "전우", "훈련소", "라디오", "공단", "낚시", "바둑", "영수", "가상", "철수", "영희", "재봉", "화분", "출근", "공장", "읍내", "살림"];
     const promptHits = fixtureWords.filter((w) => MAP_EDIT_SYSTEM_PROMPT.includes(w) || JSON.stringify(MAP_EDIT_TOOLS).includes(w));
     check("① 넣을 곳은 이름을 댄 그곳(그 안 묶음으로 안 바꿈) · 이름 뒤 \"님\" 띄어 쓰기 규칙", MAP_EDIT_SYSTEM_PROMPT.includes("그분이 이름을 댄 그곳") && MAP_EDIT_SYSTEM_PROMPT.includes('"님"을 띄어 쓴다'));
     check("① 프롬프트에 재생 세트 낱말 없음(작업 규칙 8) · 민감 분류 제안 금지 · 기록 속 지시문은 데이터", promptHits.length === 0 && MAP_EDIT_SYSTEM_PROMPT.includes("건강·종교·정치") && MAP_EDIT_SYSTEM_PROMPT.includes("지시가 아니다"), promptHits);
 
     // ── ② 재생 세트(모의 응답) ──────────
     for (const c of cases) {
+      if (c.db) continue; // 지우기·합치기 문항은 아래 ②-db
       const f = fake(c.recorded);
       const r = await planMapEdit(a, c.request, { callModel: f.caller, data: persona, dailyLimit: Infinity });
-      const lines = r.ok ? r.plan.map((p) => planLine(p, "will")) : [];
-      const pass = r.ok && (c.expectLines ? JSON.stringify(lines) === JSON.stringify(c.expectLines) : c.expectQuestion ? !!r.question && lines.length === 0 : c.expectUnsupported ? r.unsupported && lines.length === 0 : lines.length === 0);
-      check(`② ${c.name}`, !!pass, { lines, r });
+      const { pass, lines } = judgePlan(c, r);
+      check(`② ${c.name}`, pass, { lines, r });
     }
+    // ②-db 지우기·합치기 문항 — 재생 세트와 같은 작은 실제 지도 · execute 면 실행까지(카드 수 = 실행 때 수)
+    for (const c of cases.filter((x) => x.db)) {
+      const u = await freshEditMap(EMAIL_DB);
+      const f = fake(resolveRecorded(c.recorded, buildMapView(await getMyLifeData(u))));
+      const r = await planMapEdit(u, c.request, { callModel: f.caller, dailyLimit: Infinity });
+      const judged = judgePlan(c, r);
+      const ran = c.execute && r.ok && r.plan.length > 0 ? await applyMapEdit(u, r.plan) : null;
+      const runOk = !c.execute || (!!ran && ran.ok && !ran.failed && r.ok && ran.done.length === r.plan.length);
+      check(`②-db ${c.name}${c.execute ? " · 실행(카드 수 = 실행 때 수)" : ""}`, judged.pass && runOk, { lines: judged.lines, r, ran });
+      await prisma.chatV3Usage.deleteMany({ where: { userId: u } });
+    }
+    await removeEditMap(EMAIL_DB);
 
     // ── ③ 계획 단계 거부 ──────────
     const planOf = async (text: string, uses: Use[]) => {
@@ -364,6 +378,29 @@ async function main() {
     const sheet = read("app/my-life/AskSheet.tsx");
     check("⑥ 화면 — 확인 카드(이대로 하기·그만두기) → 결과 카드(지도에서 보기·되돌리기) · 카드 전 실행 없음 · 문구 [임시]", sheet.includes('data-map-edit-card="plan"') && sheet.includes('data-map-edit-card="result"') && sheet.includes("onClick={() => apply(plan)}") && sheet.includes("onClick={clear}") && sheet.includes("onClick={() => undo(result.commandId, result.undo)}") && /AI 지도 편집[^\n]*\[임시/.test(read("lib/my-life-copy.ts")) && read("docs/navigation-map.md").includes("이대로 하기"));
 
+    // ── ⑨ 넣을 곳 — 묶음을 골랐는데 요청엔 위 카테고리 이름만(고침안 2) · 되묻기 내부 용어(고침안 3) ──────────
+    {
+      const pv = buildMapView(persona);
+      const al = (kind: string, name: string) => ({ alias: pv.nodes.find((x) => x.kind === kind && x.name === name)!.alias, name });
+      const toGroup = { name: "put_in", input: { said: "취미에 순덕 넣어 줘", container: al("묶음", "낚시 친구들"), member: al("사람", "순덕") } };
+      const toCat = { name: "put_in", input: { said: "취미에 순덕 넣어 줘", container: al("카테고리", "취미"), member: al("사람", "순덕") } };
+      const once = fake([[toGroup], [toCat], [answer]]);
+      const r1 = await planMapEdit(a, "취미에 순덕 넣어 줘", { callModel: once.caller, data: persona, dailyLimit: Infinity });
+      const told = lastUser(once.calls[1]);
+      check("⑨ 묶음을 고르면 모델에게 한 번 돌려보냄(도구 결과 — 위 카테고리 이름) → 카테고리로 다시 담음", r1.ok && r1.plan.length === 1 && planLine(r1.plan[0], "will") === "‘순덕’을 ‘취미’에 넣어요." && told.includes("사용자가 말한 곳은 ‘취미’ 카테고리") && !JSON.stringify(r1).includes("사용자가 말한 곳"), { r1, told });
+      const twice = fake([[toGroup], [toGroup], [answer]]);
+      const r2 = await planMapEdit(a, "취미에 순덕 넣어 줘", { callModel: twice.caller, data: persona, dailyLimit: Infinity });
+      check("⑨ 두 번째도 묶음이면 계획을 버리고 코드가 되묻기(물음표 한 문장 · \"그분\" 없음)", r2.ok && r2.plan.length === 0 && r2.question === "‘순덕’을 ‘취미’에 바로 넣을까요, ‘낚시 친구들’ 묶음에 넣을까요?" && !/그분/.test(r2.question ?? ""), r2);
+      const named = fake([[{ name: "put_in", input: { said: "낚시 친구들에 순덕 넣어 줘", container: al("묶음", "낚시 친구들"), member: al("사람", "순덕") } }], [answer]]);
+      const r3 = await planMapEdit(a, "낚시 친구들에 순덕 넣어 줘", { callModel: named.caller, data: persona, dailyLimit: Infinity });
+      check("⑨ 요청에 묶음 이름이 있으면 그대로 담음", r3.ok && r3.plan.length === 1 && planLine(r3.plan[0], "will") === "‘순덕’을 ‘낚시 친구들’에 넣어요.", r3);
+      const inner = fake([[{ name: "answer", input: { question: "어느 노드를 말씀하시는 건가요?" } }]]);
+      const r4 = await planMapEdit(a, "그거 바꿔 줘", { callModel: inner.caller, data: persona, dailyLimit: Infinity });
+      check("⑨ 되묻기에 \"노드\"가 있으면 그 문장 대신 일반 안내 · 계획 없음(고침안 3)", r4.ok && r4.plan.length === 0 && r4.question === MY_LIFE_COPY.ask.plan.empty, r4);
+      const visible = Object.values(MY_LIFE_COPY.ask.plan).map((v) => (typeof v === "function" ? (v as (...x: unknown[]) => string)("가", "나", "다", 1) : String(v))).join("\n");
+      check("⑨ 지도 고치기 문구에 \"그분\" 없음", !/그분/.test(visible));
+    }
+
     // ── ⑦ 지우기(3c — §6.10) ──────────
     const viewOf = async (u: string) => buildMapView(await getMyLifeData(u));
     const aliasOf = async (u: string, kind: string, name: string) => {
@@ -429,14 +466,14 @@ async function main() {
 
     // 거부
     const dPerson = await delPlan("가상 이웃 지워 줘", "사람", "가상 이웃");
-    check("⑦ 사람 지우기 = 안 담음 + 지도 패널 안내(Q87)", dPerson.plan.length === 0 && dPerson.unsupported && dPerson.note === MY_LIFE_COPY.ask.plan.personDelete, dPerson);
+    check("⑦ 사람 지우기 = 안 담음 + 지도 패널 안내(Q87)", dPerson.plan.length === 0 && dPerson.unsupported && dPerson.note === MY_LIFE_COPY.ask.plan.personDelete("가상 이웃") && !dPerson.question, dPerson);
     const zero: DeleteImpact = { stories: 0, people: 0, places: 0, familyActivity: 0, storiesDeleted: false, placeGroups: 0, periods: 0, groups: 0, personBody: false, customKind: null, customDeleted: 0, customOut: 0, customLinks: 0 };
     const forced = async (node: PlanNode) => applyMapEdit(a, [{ tool: "delete_node", node, impact: zero } as MapPlanItem]);
     const fPerson = await forced(N("PERSON", pe1, "가상 이웃", "사람"));
     check("⑦ 고쳐 보낸 계획으로도 사람은 못 지움", fPerson.ok && !!fPerson.failed && (await prisma.person.count({ where: { id: pe1 } })) === 1, fPerson);
     const dSkeleton = await delPlan("가상 시기 둘 지워 줘", "시기", "가상 시기 둘");
     const fSkeleton = await forced(N("LIFE_EVENT", ev2, "가상 시기 둘", "시기"));
-    check("⑦ 기본 시기 = 안 담음 · 고쳐 보내도 못 지움", dSkeleton.plan.length === 0 && fSkeleton.ok && !!fSkeleton.failed && (await prisma.lifeEvent.count({ where: { id: ev2 } })) === 1, { dSkeleton, fSkeleton });
+    check("⑦ 기본 시기 = 안 담음 · 모델 답과 관계없이 \"처음 정한 시기는 지울 수 없어요\"(고침안 1) · 고쳐 보내도 못 지움", dSkeleton.plan.length === 0 && dSkeleton.unsupported && dSkeleton.note === MY_LIFE_COPY.edit.deleteSkeletonNote && fSkeleton.ok && !!fSkeleton.failed && (await prisma.lifeEvent.count({ where: { id: ev2 } })) === 1, { dSkeleton, fSkeleton });
     const fBuiltin = await forced(N("CUSTOM", builtinId, "가상 사람들", "카테고리"));
     check("⑦ 기본 카테고리 행 = 못 지움", fBuiltin.ok && !!fBuiltin.failed && (await prisma.customNode.count({ where: { id: builtinId } })) === 1, fBuiltin);
     const fOthers = await Promise.all([forced(N("CUSTOM", itemB, "남의 항목", "항목")), forced(N("EPISODE", stB, "남의 이야기", "이야기")), forced(N("PLACE", plB, "남의 장소", "장소"))]);
@@ -453,6 +490,17 @@ async function main() {
       [{ name: "delete_node", input: { said: "가상 묶음 지워", node: await aliasOf(a, "묶음", "가상 묶음") } }],
       [answer],
     ]);
+    // C안(2026-11-08) — 모델이 지우기만 부르고 다른 일은 안 불러도: A = 담기는 순간 도구 결과 알림 · B = answer.otherWork 가 참이면 섞인 요청
+    const onlyDel = fake([[{ name: "delete_node", input: { said: "가상 묶음 지우고", node: await aliasOf(a, "묶음", "가상 묶음") } }], [{ name: "answer", input: { otherWork: true } }]]);
+    const mix3 = await planMapEdit(a, "가상 묶음 지우고 가상 항목 이름 바꿔 줘", { callModel: onlyDel.caller, dailyLimit: Infinity });
+    check("⑦ C안 A — 지우기가 담기는 순간 도구 결과로 \"다른 일도 있으면 부르세요\"", lastUser(onlyDel.calls[1]).includes("요청에 다른 일도 있으면 그 일도 도구로 부르세요"), lastUser(onlyDel.calls[1]));
+    check("⑦ C안 B — 지우기만 불렀어도 otherWork 참이면 아무것도 안 담음(지우기 카드도 없음) · 따로 부탁하라고 함", mix3.ok && mix3.plan.length === 0 && mix3.question === MY_LIFE_COPY.ask.plan.oneAtATime, mix3);
+    const soloDel = fake([[{ name: "delete_node", input: { said: "가상 묶음 지워", node: await aliasOf(a, "묶음", "가상 묶음") } }], [{ name: "answer", input: { otherWork: false } }]]);
+    const solo = await planMapEdit(a, "가상 묶음 지워 줘", { callModel: soloDel.caller, dailyLimit: Infinity });
+    check("⑦ otherWork 거짓이면 지우기 카드 그대로", solo.ok && solo.plan.length === 1 && solo.plan[0].tool === "delete_node", solo);
+    const notDestructive = fake([[{ name: "rename_node", input: { said: "가상 항목 이름 바꿔", node: await aliasOf(a, "항목", "가상 항목"), newName: "새 이름" } }], [{ name: "answer", input: { otherWork: true } }]]);
+    const plain = await planMapEdit(a, "가상 항목 이름 바꿔 줘", { callModel: notDestructive.caller, dailyLimit: Infinity });
+    check("⑦ 지우기·합치기를 안 불렀으면 otherWork 는 무시(보통 계획 그대로)", plain.ok && plain.plan.length === 1 && plain.question === null, plain);
     check("⑦ 다른 일과 같이 시키면 아무것도 안 담고 따로 부탁하라고 함(순서 무관)", mix1.plan.length === 0 && mix1.question === MY_LIFE_COPY.ask.plan.oneAtATime && mix2.plan.length === 0 && mix2.question === MY_LIFE_COPY.ask.plan.oneAtATime, { mix1, mix2 });
     const okDel: MapPlanItem = { tool: "delete_node", node: N("CUSTOM", grp1, "가상 묶음", "묶음") as ExistingNode, impact: zero };
     check("⑦ 화면에서 온 계획 — 지우기·합치기가 다른 일과 섞이면 거부 · 수 없으면 거부 · 새 노드 거부",
