@@ -99,7 +99,7 @@ async function main() {
         }
         if (r.ok) cost += r.usage.costMicroUsd;
         const projected = cost + (cost / total) * (requests - total);
-        if (total >= 3 && projected / 1e6 > maxUsd) {
+        if (total >= 10 && projected / 1e6 > maxUsd) { // 첫 호출은 캐시 쓰기로 비싸 앞 몇 번 평균은 합계를 부풀린다
           console.log(`멈춤 — 지금까지 $${(cost / 1e6).toFixed(4)}, 예상 합계 $${(projected / 1e6).toFixed(2)} > $${maxUsd}`);
           stopped = true;
           break outer;

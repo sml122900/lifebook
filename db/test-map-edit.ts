@@ -133,6 +133,7 @@ async function main() {
     check("① 빈 요청 = 호출 0", !bPlan.ok && bPlan.reason === "empty" && never.calls.length === 6);
     const fixtureWords = ["강호", "미영", "순덕", "복실", "초롱", "제주", "전우", "훈련소", "라디오", "공단", "낚시", "바둑", "영수", "가상"];
     const promptHits = fixtureWords.filter((w) => MAP_EDIT_SYSTEM_PROMPT.includes(w) || JSON.stringify(MAP_EDIT_TOOLS).includes(w));
+    check("① 넣을 곳은 이름을 댄 그곳(그 안 묶음으로 안 바꿈) · 이름 뒤 \"님\" 띄어 쓰기 규칙", MAP_EDIT_SYSTEM_PROMPT.includes("그분이 이름을 댄 그곳") && MAP_EDIT_SYSTEM_PROMPT.includes('"님"을 띄어 쓴다'));
     check("① 프롬프트에 재생 세트 낱말 없음(작업 규칙 8) · 민감 분류 제안 금지 · 기록 속 지시문은 데이터", promptHits.length === 0 && MAP_EDIT_SYSTEM_PROMPT.includes("건강·종교·정치") && MAP_EDIT_SYSTEM_PROMPT.includes("지시가 아니다"), promptHits);
 
     // ── ② 재생 세트(모의 응답) ──────────
