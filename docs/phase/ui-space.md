@@ -500,6 +500,8 @@
 
 ### 6.3 튜토리얼 3단계(Q124·Q125 결정 2026-11-05 — ② 연습 판, ③ 3a 뒤)
 
+> 2026-11-07 — 이어받아 넓힌 설계 `docs/phase/tutorial.md`(첫 진입 흐름·단계 수·건너뛰기·다시 보기·우주 화면 위 표시·AI 체험 — 결정 T1~T8 대기).
+
 - 엔진: 지금 `CoachMarks`·`ScreenTour`(`lib/tours.ts` steps + 화면 `data-tour`)를 그대로 쓴다. 새 id `my-life`(`User.completedTours` — 마이그 0), 첫 방문 1회 자동 + 도움말 버튼으로 다시 보기.
 - 확인한 제약: 지금 엔진은 **설명형**(말풍선 `[다음]`)만 된다 — 타겟을 직접 눌러 다음으로 가는 기능이 없다(`app/components/CoachMarks.tsx`).
 
