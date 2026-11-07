@@ -440,6 +440,7 @@ async function scenario6_nodeGraph() {
   await prisma.nodeBody.create({ data: { userId: hana.id, nodeType: "CUSTOM", nodeId: item.id, doc: { v: 1, blocks: [] }, plainText: "" } });
   await prisma.nodeBodyRevision.create({ data: { userId: hana.id, nodeType: "CUSTOM", nodeId: item.id, plainText: "[fixture] 옛 글" } });
   // 행성 꾸미기(U4 — 2026-11-05) — 이야기 행성 하나. 탈퇴 = userId FK Cascade.
+  await prisma.mapEditLog.create({ data: { userId: hana.id, commandId: "fixture-command", tool: "link", nodeType: "EPISODE", nodeId: bridge.episodeId } });
   await prisma.nodeDecoration.create({ data: { userId: hana.id, nodeType: "EPISODE", nodeId: bridge.episodeId, shape: "ring" } });
 
   const count = async () => ({
@@ -454,6 +455,7 @@ async function scenario6_nodeGraph() {
     customNodes: await prisma.customNode.count({ where: { userId: hana.id } }),
     bodyRevisions: await prisma.nodeBodyRevision.count({ where: { userId: hana.id } }),
     decorations: await prisma.nodeDecoration.count({ where: { userId: hana.id } }),
+    mapEditLogs: await prisma.mapEditLog.count({ where: { userId: hana.id } }),
   });
   console.log("before deletion:", await count());
 

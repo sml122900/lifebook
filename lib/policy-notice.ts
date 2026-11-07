@@ -45,6 +45,17 @@ export const POLICY_NOTICES: readonly PolicyNotice[] = [
     effectiveDay: "2026-11-06",
     leadException: "2026-11-06 성민 결정 — 실사용자 0명이라 시행일(11-12) 대기 해제",
   },
+  {
+    // 처리방침 v1.5 — 1항 마에 AI 지도 편집 기록(custom-graph Q92 B안). 동의 버전 5 유지(근거 docs/phase/privacy-v1.4.md 끝 "v1.5").
+    doc: "privacy",
+    version: "v1.5",
+    short: "AI 편집 기록 보관",
+    detail:
+      "AI에게 기록 지도를 고쳐 달라고 부탁하신 경우, 어떤 작업을 어느 기록에 언제 했는지를 90일 동안 보관합니다. 잘못 바뀐 것을 되짚고 기능을 고치는 데 씁니다. 부탁하신 말씀과 기록 내용은 이 기록에 남기지 않습니다. 그 밖의 수집 항목·업체·국가는 그대로입니다.",
+    noticeDay: "2026-11-07",
+    effectiveDay: "2026-11-07",
+    leadException: "2026-11-07 성민 승인 — 실사용자 0명이라 공지 + 7일 대기 없이 오늘 시행",
+  },
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;

@@ -16,6 +16,7 @@
 // - Account/Session/Wallet/Transaction/AIConversation/TriggerResponse/
 //   LifeEvent/Episode/OnboardingProfile/OnboardingChatMessage: 기존
 //   cascade로 자동 정리.
+// - AI 지도 편집 기록 MapEditLog(Q92 B안): userId FK Cascade.
 // - 노드 그래프(docs/phase/node-graph-self.md · custom-graph.md): Person·Place·PlaceGroup·
 //   PersonGroup·NodeLink·NodeBody·NodeBodyRevision·CustomNode 도 userId FK Cascade(구성원
 //   PersonGroupMember·PlaceGroupMember 는 묶음·구성원 FK Cascade). 다형 연결(NodeLink·NodeBody·

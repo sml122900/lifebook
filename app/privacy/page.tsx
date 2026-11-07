@@ -5,7 +5,7 @@ import { BUSINESS_INFO } from "@/lib/commerce/business";
 import { activeNotice, NOTICE_ANCHOR } from "@/lib/policy-notice";
 import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 
-// 개인정보 처리방침 v1.4. 공개 정적 페이지(비로그인 접근,
+// 개인정보 처리방침 v1.5. 공개 정적 페이지(비로그인 접근,
 // proxy.ts PUBLIC_PATHS 등록). 2026-09-10 — 토스페이먼츠 PG 심사 대응으로
 // placeholder([시행일] 배너·10항 시행일) 제거, 정식 시행일로 확정.
 // v1.1(2026-10-24 시행) —가입·로그인 수단과 수집 항목 정비, 국외 이전 대상 추가, 처리위탁 목록 갱신.
@@ -19,6 +19,7 @@ import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 //   물건·모임·장소 묶음·직접 만든 분류), 2·3항 목적 괄호 보충, 3항 Anthropic 이전 항목 추가(기록 정리 요청·질문, 시기·묶음·분류 이름,
 //   기록 사이의 연결, 인물·항목 글)와 보유 기간 정정(7일 → 30일 — Anthropic 공식 안내), 표기 정리(Google·Lifebook·Chrome).
 //   초안·근거 docs/phase/privacy-v1.4.md. 동의 버전 5(시행일 2026-11-06 배포 — 재동의, 2026-11-05 성민 결정).
+// v1.5(2026-11-07 시행 — 공지 당일, 성민 승인·실사용자 0 — lib/policy-notice leadException) — 1항 마에 AI 지도 편집 기록(Q92 B안). 동의 버전 5 유지.
 
 export const metadata = {
   title: "개인정보 처리방침 — Lifebook",
@@ -220,7 +221,11 @@ export default function PrivacyPage() {
               <strong className="text-ink">마. 자동 생성·접속</strong> —
               로그인 유지를 위한 세션 쿠키만 사용하며, 분석·광고 목적의 쿠키는
               사용하지 않습니다. 서버·인프라 운영 과정에서 접속 기록(IP 등)이
-              클라우드 사업자에 의해 자동 생성·보관될 수 있습니다.
+              클라우드 사업자에 의해 자동 생성·보관될 수 있습니다. AI에게 기록
+              지도를 고쳐 달라고 부탁하신 경우, 잘못 바뀐 것을 되짚고 기능을
+              고치기 위해 어떤 작업을 어느 기록에 언제 했는지(작업 이름·기록
+              종류·기록 번호·시각·되돌린 시각)를 90일 동안 보관한 뒤 지웁니다.
+              부탁하신 말씀과 기록 내용은 이 기록에 남기지 않습니다.
             </li>
           </ul>
           <p
@@ -356,7 +361,7 @@ export default function PrivacyPage() {
             이 개인정보 처리방침의 내용에 추가·삭제·수정이 있을 경우 시행 전
             서비스 내 공지를 통해 안내합니다.
           </p>
-          <p className={"mt-1 " + P}>· 시행일: 2026년 11월 6일</p>
+          <p className={"mt-1 " + P}>· 시행일: 2026년 11월 7일</p>
           <p className={P}>· 개정 이력</p>
           <ul className="flex flex-col gap-1 pl-4">
             <li className={P}>- v1.0 — 2026년 9월 10일 시행</li>
@@ -375,6 +380,10 @@ export default function PrivacyPage() {
               - v1.4 — 2026년 11월 6일 시행 (수집 항목 정비, AI 기록 정리·질문
               답변 때 함께 보내는 정보를 국외 이전 항목에 추가, Anthropic 보유 기간
               정정)
+            </li>
+            <li className={P}>
+              - v1.5 — 2026년 11월 7일 시행 (AI 기록 지도 고치기 이용 기록 보관
+              추가)
             </li>
           </ul>
         </Article>

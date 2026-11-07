@@ -9,6 +9,7 @@
 //   ⑥ 원장·상한·예산 — 질문당 한 줄 TEST_MAP_ASK · 하루 30회 · 예산 넘음 = 호출 0 · 라운드 중 넘으면 멈춤
 //   ⑦ 읽기 전용·남의 노드 — 실제 DB 지도로 돌려 전후 같음 · 다른 사용자 이름 안 나옴 · 쓰기 코드 없음 · 액션 첫 줄 auth
 //   ⑧ 화면 연결 — 찾기 시트 입구 · 시간 상한 · 이동 지도 · 문구 [임시]
+//   ⑨ AI 편집 기록(Q92 B안) — 칸 = 명령·도구·노드 종류·노드 id·시각만 · 90일 지난 행은 쓸 때 삭제(내 행만) · 되돌린 시각(내 행만) · 처리방침 v1.5·공지 예외·동의 버전 유지
 //
 // 자기 픽스처 계정만 만들고 지운다(test30 접촉 0). 실제 모델 확인은 db/replay-map-agent.ts --run(작업 규칙 10 — 여기서는 안 부름).
 // 실행: npx tsx db/test-map-agent.ts
@@ -25,6 +26,9 @@ import { prisma } from "../lib/db";
 import { askMap, MAP_AGENT_MAX_ROUNDS, MAP_AGENT_MODEL, MAP_ASK_DAILY_LIMIT, type AskMapResult, type ModelCaller } from "../lib/map-agent";
 import { buildMapView, EXCERPT_MAX, findNodes, LIST_NODE_LIMIT, mapListText, nodeLine, readNodeData, SENT_FIELDS, SENT_KINDS, SENT_LINKS } from "../lib/map-agent-view";
 import { modelId } from "../lib/ai-model";
+import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
+import { MAP_EDIT_LOG_DAYS, markMapEditUndone, recordMapEdit } from "../lib/map-edit-log";
+import { noticeProblem, POLICY_NOTICES } from "../lib/policy-notice";
 import { getMyLifeData, type MyLifeData } from "../lib/my-life";
 import { MAP_AGENT_SYSTEM_PROMPT, MAP_AGENT_TOOLS } from "../lib/prompts/map-agent";
 import { saveNodeLink } from "../lib/node-graph";
@@ -254,6 +258,28 @@ async function main() {
     check("⑧ 칩·찾기 → 지도 이동은 선택 줄이 생긴 뒤에(첫 선택에 지도 상자 높이가 바뀌며 이동이 끊기던 것 — 2026-11-07 실측)", view2.includes("requestAnimationFrame(() => requestAnimationFrame(() => apiRef.current?.zoomToElement(el, Math.max(stateRef.current.scale, 1), 300)))"));
     check("⑧ 서버 함수 시간 상한(여러 라운드) · 이동 지도 · 문구 [임시]", read("app/my-life/page.tsx").includes("export const maxDuration = 60;") && read("docs/navigation-map.md").includes("AI에게 물어보기") && /지도 질문 답하기[^\n]*\[임시/.test(read("lib/my-life-copy.ts")));
     check("⑧ 안 보내는 칸은 화면에는 그대로(만난 해 등은 패널·찾기가 씀 — getMyLifeData 무변)", read("lib/my-life.ts").includes("metYear: p.metYear"));
+
+    // ── ⑨ AI 편집 기록(Q92 B안) ──────────
+    const DAY = 86400000;
+    const old = (userId: string, days: number) => prisma.mapEditLog.create({ data: { userId, commandId: `old-${days}`, tool: "link", nodeType: "PERSON", nodeId: "x", createdAt: new Date(Date.now() - days * DAY) } });
+    await old(userA, MAP_EDIT_LOG_DAYS + 1);
+    await old(userB, MAP_EDIT_LOG_DAYS + 1);
+    await old(userA, MAP_EDIT_LOG_DAYS - 1);
+    await recordMapEdit(userA, { commandId: "c1", tool: "put_in", node: { type: "PERSON", id: peA.id } });
+    await recordMapEdit(userA, { commandId: "c1", tool: "link", node: { type: "PLACE", id: plA.id } });
+    const logsA = await prisma.mapEditLog.findMany({ where: { userId: userA }, orderBy: { createdAt: "asc" } });
+    const row = logsA.find((l) => l.tool === "put_in")!;
+    check("⑨ 기록 칸 = 명령·도구·노드 종류·노드 id·시각·되돌린 시각뿐(문장·이름·본문 칸 없음)", sameSet(Object.keys(row), ["id", "userId", "commandId", "tool", "nodeType", "nodeId", "createdAt", "undoneAt"]) && row.commandId === "c1" && row.nodeType === "PERSON" && row.nodeId === peA.id && row.undoneAt === null, Object.keys(row));
+    check("⑨ 90일 — 쓸 때 지난 행 삭제 · 안 지난 행은 그대로 · 다른 사용자 행은 안 건드림", !logsA.some((l) => l.commandId === `old-${MAP_EDIT_LOG_DAYS + 1}`) && logsA.some((l) => l.commandId === `old-${MAP_EDIT_LOG_DAYS - 1}`) && (await prisma.mapEditLog.count({ where: { userId: userB, commandId: `old-${MAP_EDIT_LOG_DAYS + 1}` } })) === 1, logsA.map((l) => l.commandId));
+    await markMapEditUndone(userB, "c1");
+    const notMine = await prisma.mapEditLog.count({ where: { userId: userA, commandId: "c1", undoneAt: { not: null } } });
+    await markMapEditUndone(userA, "c1");
+    check("⑨ 되돌린 시각 — 그 명령의 내 행만", notMine === 0 && (await prisma.mapEditLog.count({ where: { userId: userA, commandId: "c1", undoneAt: { not: null } } })) === 2);
+    const v15 = POLICY_NOTICES.find((n) => n.version === "v1.5");
+    const privacyNow = read("app/privacy/page.tsx").replace(/\s+/g, " ");
+    check("⑨ 처리방침 v1.5 — 1항 마에 90일·남기지 않는 것 · 공지 등록(오늘 시행 = 성민 승인 사유) · 동의 버전 5 유지 · 칸 설명이 스키마와 같음",
+      !!v15 && noticeProblem(v15) === null && v15.noticeDay === v15.effectiveDay && (v15.leadException ?? "").includes("성민") && (v15.leadException ?? "").includes("실사용자 0") && CURRENT_CONSENT_VERSION === 5 &&
+        privacyNow.includes("(작업 이름·기록 종류·기록 번호·시각·되돌린 시각)를 90일 동안 보관한 뒤 지웁니다. 부탁하신 말씀과 기록 내용은 이 기록에 남기지 않습니다.") && privacyNow.includes("· 시행일: 2026년 11월 7일"));
   } finally {
     await removeFixtures();
     console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B] } } }));
