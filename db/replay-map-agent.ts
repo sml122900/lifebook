@@ -1,7 +1,7 @@
 // 지도 질문 답하기 재생 세트 — 실제 모델로 db/test-fixtures/map-agent-replay 를 N회 돌려 3a 완료 기준(custom-graph §6.3)을 낸다.
-// 작업 규칙 9(프롬프트 바꾸면 변경 전후 비교)·10(--run 없으면 계획만). 실행: npx tsx db/replay-map-agent.ts [--n 3] [--case <이름 일부>] [--max-usd 1] [--run]
+// 작업 규칙 9(프롬프트 바꾸면 변경 전후 비교)·10(--run 없으면 계획만). 실행: npx tsx db/replay-map-agent.ts [--n 3] [--case <이름 일부>] [--max-usd 1] [--compare-to <로그 또는 기준선 파일>] [--save-baseline] [--run]
 // 기준: 정답률 ≥ 0.8 · 근거 정밀도 ≥ 0.9 · 근거 없는 주장 ≤ 5% · 1회 ≤ $0.05.
-// 비용: 지금까지 평균으로 낸 예상 합계가 --max-usd 를 넘으면 멈춤. 결과 전부 = db/test-logs/map-replay/(커밋 안 함) · 전 문항 전체 실행이 기준을 넘으면 baseline.json(작업 규칙 9 의 변경 전 값).
+// 비용: 지금까지 평균으로 낸 예상 합계가 --max-usd 를 넘으면 멈춤. 결과 전부 = db/test-logs/map-replay/(커밋 안 함) · 비교 대상(기본 baseline.json)보다 정답률·근거 정밀도·근거 없는 주장이 나빠졌는지 출력 · --save-baseline = 전 문항 전체 실행이 기준을 넘고 비교 대상보다 안 나쁠 때만 baseline.json 저장.
 // 원가는 픽스처 계정(fixture-map-replay@lifebook.invalid)으로 원장에 TEST_MAP_ASK 로 남고, 시작 때 테스트 한도(db/live-log)를 본다.
 
 import "dotenv/config";
@@ -60,7 +60,7 @@ async function main() {
   let cost = 0;
   let stopped = false;
   // 기준 밖이지만 화면에 보이는 문장 — 프롬프트 비교용(화자·딱딱한 말투·지운 별칭)
-  const seen = { sentences: 0, aliasSentences: 0, speakerWord: 0, formalEnding: 0, politeEnding: 0 };
+  const seen = { sentences: 0, aliasSentences: 0, speakerWord: 0, internalWord: 0, formalEnding: 0, politeEnding: 0 };
   const runs: Record<string, unknown>[] = [];
   const perCase: Record<string, string> = {};
   try {
@@ -83,7 +83,8 @@ async function main() {
         for (const t of [...r.answer.claims.map((cl) => cl.text), r.answer.noRecord?.followUpQuestion ?? "", r.answer.noRecord?.topic ?? ""].filter(Boolean)) {
           seen.sentences += 1;
           if (t.includes("화자")) seen.speakerWord += 1;
-          if (/(습니다|입니다|합니다)[.]?$/.test(t)) seen.formalEnding += 1;
+          if (/노드|별칭|지도 목록|사용자/.test(t)) seen.internalWord += 1;
+          if (/니다[.!]?$|니까\?$/.test(t)) seen.formalEnding += 1;
           else if (/요[.?]?$/.test(t)) seen.politeEnding += 1;
         }
         const cited = r.answer.claims.flatMap((cl) => cl.nodes.map((x) => `${KIND[x.kind]}:${x.title}`));
@@ -123,17 +124,21 @@ async function main() {
   const usdPerQuestion = cost / Math.max(total, 1) / 1e6;
   console.log(`\n정답률 ${pct(right, total)}(기준 ≥ 0.8) · 근거 정밀도 ${pct(citedGood, citedAll)}(≥ 0.9) · 근거 없는 주장 ${pct(dropped, submitted)}(≤ 0.05) · 1회 $${usdPerQuestion.toFixed(4)}(≤ $0.05) · 합계 $${(cost / 1e6).toFixed(4)}`);
   const metrics = { questions: total, accuracy: right / Math.max(total, 1), evidencePrecision: citedAll ? citedGood / citedAll : null, unsupportedClaimRate: submitted ? dropped / submitted : 0, usdPerQuestion, usdTotal: cost / 1e6, visibleText: seen };
-  console.log(`보이는 문장 ${seen.sentences} — 별칭 ${seen.aliasSentences} · 화자 ${seen.speakerWord} · -습니다 ${seen.formalEnding} · -요 ${seen.politeEnding}`);
+  console.log(`보이는 문장 ${seen.sentences} — 별칭 ${seen.aliasSentences} · 화자 ${seen.speakerWord} · 그 밖 내부 낱말 ${seen.internalWord} · -니다 ${seen.formalEnding} · -요 ${seen.politeEnding}`);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   fs.mkdirSync(LOG_DIR, { recursive: true });
   const logFile = path.join(LOG_DIR, `${stamp}.json`);
   fs.writeFileSync(logFile, JSON.stringify({ metrics, perCase, runs }, null, 1));
   console.log(`결과 전부: ${path.relative(process.cwd(), logFile)}`);
   const passed = metrics.accuracy >= 0.8 && (metrics.evidencePrecision ?? 0) >= 0.9 && metrics.unsupportedClaimRate <= 0.05 && usdPerQuestion <= 0.05;
-  if (passed && !stopped && cases.length === all.length) {
+  const compareFile = arg("compare-to", path.join(DIR, "baseline.json"));
+  const ref = fs.existsSync(compareFile) ? (JSON.parse(fs.readFileSync(compareFile, "utf8")) as { metrics: typeof metrics }).metrics : null;
+  const notWorse = !ref || (metrics.accuracy >= ref.accuracy && (metrics.evidencePrecision ?? 0) >= (ref.evidencePrecision ?? 0) && metrics.unsupportedClaimRate <= ref.unsupportedClaimRate);
+  if (ref) console.log(`비교(${path.basename(compareFile)}): 정답률 ${pct(ref.accuracy, 1)} → ${pct(metrics.accuracy, 1)} · 근거 정밀도 ${pct(ref.evidencePrecision ?? 0, 1)} → ${pct(metrics.evidencePrecision ?? 0, 1)} · 근거 없는 주장 ${pct(ref.unsupportedClaimRate, 1)} → ${pct(metrics.unsupportedClaimRate, 1)} — ${notWorse ? "안 나빠짐" : "나빠짐"}`);
+  if (process.argv.includes("--save-baseline") && passed && notWorse && !stopped && cases.length === all.length) {
     const promptHash = createHash("sha256").update(MAP_AGENT_SYSTEM_PROMPT + JSON.stringify(MAP_AGENT_TOOLS)).digest("hex").slice(0, 16);
     fs.writeFileSync(path.join(DIR, "baseline.json"), `${JSON.stringify({ at: new Date().toISOString(), model: MAP_AGENT_MODEL, n, promptHash, metrics, perCase }, null, 2)}\n`);
-    console.log("기준 통과 — baseline.json 저장");
+    console.log("기준 통과·안 나빠짐 — baseline.json 저장");
   }
 }
 

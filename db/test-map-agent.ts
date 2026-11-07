@@ -175,6 +175,7 @@ async function main() {
     const fixtureWords = ["강호", "미영", "순덕", "복실", "초롱", "제주", "전우", "훈련소", "라디오", "공단", "낚시", "유럽"];
     const promptHits = fixtureWords.filter((w) => MAP_AGENT_SYSTEM_PROMPT.includes(w) || JSON.stringify(MAP_AGENT_TOOLS).includes(w));
     check("④ 프롬프트에 재생 세트 낱말 없음(작업 규칙 8)", promptHits.length === 0, promptHits);
+    check("④ 답 문장 규칙 — \"화자\"는 금지 목록에만 · \"-요\" 말투 · 번호는 cardIds 에만", (MAP_AGENT_SYSTEM_PROMPT.match(/화자/g) ?? []).length === 1 && MAP_AGENT_SYSTEM_PROMPT.includes('모든 문장을 "-요"로 끝낸다') && MAP_AGENT_SYSTEM_PROMPT.includes("번호는 cardIds 에만 넣는다"));
 
     // ── ⑤ 재생 세트(모의 응답 — 코드 경로만) ──────────
     for (const c of cases) {

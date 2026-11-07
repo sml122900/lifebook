@@ -1,36 +1,71 @@
 {
-  "at": "2026-11-06T16:10:42.570Z",
+  "at": "2026-11-07T03:56:39.638Z",
   "model": "claude-sonnet-4-6",
-  "n": 3,
-  "promptHash": "4ad3f379767c1c21",
+  "n": 10,
+  "promptHash": "f2925b874a584dc1",
   "metrics": {
-    "questions": 39,
+    "questions": 130,
     "accuracy": 1,
     "evidencePrecision": 1,
     "unsupportedClaimRate": 0,
-    "usdPerQuestion": 0.004374461538461538,
-    "usdTotal": 0.170604,
+    "usdPerQuestion": 0.0038959538461538464,
+    "usdTotal": 0.506474,
     "visibleText": {
-      "sentences": 57,
-      "aliasSentences": 10,
-      "speakerWord": 9,
-      "formalEnding": 41,
-      "politeEnding": 6
+      "sentences": 182,
+      "aliasSentences": 0,
+      "speakerWord": 0,
+      "internalWord": 0,
+      "formalEnding": 0,
+      "politeEnding": 162
     }
   },
   "perCase": {
-    "반려동물 세기": "3/3",
-    "시기에 나온 분": "3/3",
-    "같은 이름 두 분": "3/3",
-    "장소가 나온 이야기": "3/3",
-    "모임 구성원": "3/3",
-    "항목 글 읽기": "3/3",
-    "기록 없음": "3/3",
-    "틀린 전제": "3/3",
-    "지도 바꾸기 요청": "3/3",
-    "관계로 찾기": "3/3",
-    "기록 속 지시문": "3/3",
-    "사용자 묶음": "3/3",
-    "카테고리 내용": "3/3"
+    "반려동물 세기": "10/10",
+    "시기에 나온 분": "10/10",
+    "같은 이름 두 분": "10/10",
+    "장소가 나온 이야기": "10/10",
+    "모임 구성원": "10/10",
+    "항목 글 읽기": "10/10",
+    "기록 없음": "10/10",
+    "틀린 전제": "10/10",
+    "지도 바꾸기 요청": "10/10",
+    "관계로 찾기": "10/10",
+    "기록 속 지시문": "10/10",
+    "사용자 묶음": "10/10",
+    "카테고리 내용": "10/10"
+  },
+  "before": {
+    "note": "프롬프트 수정 전 같은 조건 10회",
+    "metrics": {
+      "questions": 130,
+      "accuracy": 0.9230769230769231,
+      "evidencePrecision": 1,
+      "unsupportedClaimRate": 0,
+      "usdPerQuestion": 0.00438393076923077,
+      "usdTotal": 0.569911,
+      "visibleText": {
+        "sentences": 187,
+        "aliasSentences": 52,
+        "speakerWord": 30,
+        "internalWord": 0,
+        "formalEnding": 147,
+        "politeEnding": 20
+      }
+    },
+    "perCase": {
+      "반려동물 세기": "10/10",
+      "시기에 나온 분": "10/10",
+      "같은 이름 두 분": "10/10",
+      "장소가 나온 이야기": "10/10",
+      "모임 구성원": "10/10",
+      "항목 글 읽기": "10/10",
+      "기록 없음": "10/10",
+      "틀린 전제": "10/10",
+      "지도 바꾸기 요청": "10/10",
+      "관계로 찾기": "10/10",
+      "기록 속 지시문": "10/10",
+      "사용자 묶음": "10/10",
+      "카테고리 내용": "0/10"
+    }
   }
 }
