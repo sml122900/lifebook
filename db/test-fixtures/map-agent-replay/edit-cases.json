@@ -17,6 +17,7 @@
       "name": "6종 이름은 항목으로 안 만듦",
       "request": "취미에 순덕 항목 만들어 줘",
       "expectLines": ["‘순덕’을 ‘취미’에 넣어요."],
+      "alsoQuestion": true,
       "recorded": [
         [{ "name": "create_node", "input": { "said": "취미에 순덕 항목 만들어 줘", "kind": "항목", "name": "순덕", "parent": { "alias": "n24", "name": "취미" } } }],
         [{ "name": "put_in", "input": { "said": "취미에 순덕", "container": { "alias": "n24", "name": "취미" }, "member": { "alias": "n15", "name": "순덕" } } }],
