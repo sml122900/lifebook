@@ -880,7 +880,7 @@ async function main() {
         view13.includes('const a = searchParams.get("area");') && view13.includes('searchParams.get("edit") === "1"') && view13.includes("startEdit={panel === editKey}") &&
           edit13.includes('useState<Mode>(startEdit ? { t: "editInfo" } : startPick ? { t: "pick", what: "putIn" } : { t: "view" })') && edit13.includes("{person ? E.editInfo : place || group ? E.editName : X.rename}") &&
           edit13.includes("!!story || !!person || !!place") && edit13.includes("im.personBody && <p className=\"text-lg text-ink\">{E.deletePersonBody}") &&
-          act13.includes("return deletePersonNode(userId, r.id);") && act13.includes("export async function updatePersonInfoAction(") && act13.includes("export async function renameNodeAction("));
+          act13.includes("return deleteNode(userId, r);") && read("lib/my-life-edit.ts").includes('if (r.type === "PERSON") return deletePersonNode(userId, r.id);') && act13.includes("export async function updatePersonInfoAction(") && act13.includes("export async function renameNodeAction("));
       const revalidated = ["app/actions/episode.ts", "app/actions/free-chat.ts", "app/actions/node-body.ts", "app/interview/actions.ts"].filter((f) => read(f).includes('revalidatePath("/people/[personId]"'));
       check("⑬ V3 액션의 /people 상세 무효화 삭제(V2 경로 draft-actions·/people 액션은 그대로)",
         revalidated.length === 0 && read("app/life-timeline/manage/draft-actions.ts").includes('revalidatePath("/people")'), revalidated);

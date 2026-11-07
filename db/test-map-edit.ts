@@ -5,6 +5,8 @@
 //   ③ 계획 단계 거부 — said 없음 · 없는 별칭 · 이름 안 맞음 · 6종 이름의 항목(Q100) · 종류 규칙 · 10개 상한 · 되묻기 답이면 계획 버림 · 질문 쪽엔 쓰기 도구 없음
 //   ④ 실행 → 결과 → 되돌리기 — 도구 7종 + 영역 이름 전부 DB 실제 값 확인 · 한 명령 되돌리면 지도 처음과 같음 · 편집 기록 도구마다 1행·되돌린 시각 · NodeLink.source AI
 //   ⑤ 거부(실행 단계 — 화면에서 고쳐 보낸 계획 포함) — 남의 노드(도구마다) · builtin 행 · 깊이 규칙 · 앞에서 실패하면 멈춤(앞 일은 남고 되돌릴 수 있음)
+//   ⑦ 지우기(3c) — 카드 영향 수 · 실행 때 다시 셈 · 패널과 같은 입구 · 사람·기본 시기·기본 카테고리·남의 노드 거부 · 계획에 혼자만
+//   ⑧ 합치기(3c) — 연결 수 보존(중복 한 행) · 글·사진 · 빈 칸 채움 · 종류 규칙·남의 노드 거부 · 정합 점검 0
 //   ⑥ 입구 — lib/map-edit 에 prisma 직접 쓰기 없음(기존 입구만) · 액션 첫 줄 auth · 계획 모양 검사 · 화면 카드·문구 [임시]
 //
 // 자기 픽스처 계정만 만들고 지운다(test30 접촉 0). 실제 모델 확인은 db/replay-map-edit.ts --run(작업 규칙 10 — 여기서는 안 부름).
@@ -24,11 +26,15 @@ import { prisma } from "../lib/db";
 import { createEpisodeBridge } from "../lib/episode";
 import type { ModelCaller } from "../lib/map-agent";
 import { applyMapEdit, planMapEdit, undoMapEdit, type UndoStep } from "../lib/map-edit";
-import { MAP_EDIT_PLAN_MAX, parsePlan, planLine, type MapPlanItem, type PlanNode } from "../lib/map-edit-plan";
+import { buildMapView } from "../lib/map-agent-view";
+import { MAP_EDIT_PLAN_MAX, parsePlan, planLine, planNotes, type ExistingNode, type MapPlanItem, type PlanNode } from "../lib/map-edit-plan";
+import { mergeCheck, mergeNodes } from "../lib/map-merge";
 import { getMyLifeData, type MyLifeData } from "../lib/my-life";
 import { customOf } from "../lib/my-life-custom";
 import { MY_LIFE_COPY } from "../lib/my-life-copy";
-import { addLink, renameBuiltin } from "../lib/my-life-edit";
+import { addLink, removeLink, renameBuiltin, type DeleteImpact } from "../lib/my-life-edit";
+import { ensurePersonBodyMemory, saveItemBody, savePersonBody } from "../lib/node-body";
+import { countNodeGraphIssues } from "../lib/node-graph-reconcile";
 import type { NodeRef } from "../lib/node-graph";
 import { MAP_AGENT_TOOLS } from "../lib/prompts/map-agent";
 import { MAP_EDIT_SYSTEM_PROMPT, MAP_EDIT_TOOLS } from "../lib/prompts/map-edit";
@@ -357,6 +363,273 @@ async function main() {
     check("⑥ 화면에서 온 계획 — 없는 도구·지우기·상한 넘음·빈 계획·모양 틀림 거부", parsePlan([{ tool: "delete_node", node: {} }]) === null && parsePlan([]) === null && parsePlan("x") === null && parsePlan(Array.from({ length: MAP_EDIT_PLAN_MAX + 1 }, () => ({ tool: "rename_region", region: "PEOPLE", prevLabel: "x", newName: "y" }))) === null && parsePlan([{ tool: "link", a: { ref: { type: "PERSON", id: "x" }, name: "n", kind: "사람" }, b: {} }]) === null && parsePlan([{ tool: "rename_region", region: "EVIL", prevLabel: "x", newName: "y" }]) === null);
     const sheet = read("app/my-life/AskSheet.tsx");
     check("⑥ 화면 — 확인 카드(이대로 하기·그만두기) → 결과 카드(지도에서 보기·되돌리기) · 카드 전 실행 없음 · 문구 [임시]", sheet.includes('data-map-edit-card="plan"') && sheet.includes('data-map-edit-card="result"') && sheet.includes("onClick={() => apply(plan)}") && sheet.includes("onClick={clear}") && sheet.includes("onClick={() => undo(result.commandId, result.undo)}") && /AI 지도 편집[^\n]*\[임시/.test(read("lib/my-life-copy.ts")) && read("docs/navigation-map.md").includes("이대로 하기"));
+
+    // ── ⑦ 지우기(3c — §6.10) ──────────
+    const viewOf = async (u: string) => buildMapView(await getMyLifeData(u));
+    const aliasOf = async (u: string, kind: string, name: string) => {
+      const n = (await viewOf(u)).nodes.find((x) => x.kind === kind && x.name === name);
+      if (!n) throw new Error(`별칭 없음 ${kind} ${name}`);
+      return { alias: n.alias, name };
+    };
+    const planReal = async (u: string, text: string, rounds: Use[][]) => {
+      const r = await planMapEdit(u, text, { callModel: fake(rounds).caller, dailyLimit: Infinity });
+      if (!r.ok) throw new Error(`계획 실패 ${r.reason}`);
+      return r;
+    };
+    const delPlan = async (text: string, kind: string, name: string) => planReal(a, text, [[{ name: "delete_node", input: { said: text, node: await aliasOf(a, kind, name) } }], [answer]]);
+
+    const delItem = await childOf(a, "ITEM", "지울 항목", cat2);
+    await addLink(a, { type: "CUSTOM", id: delItem }, { type: "PLACE", id: pl1 });
+    const before7 = await snapshot(a);
+    const logs7 = (await logs(a)).length;
+    const d1 = await delPlan("지울 항목 지워 줘", "항목", "지울 항목");
+    const d1Item = d1.plan[0];
+    check("⑦ 지우기 계획 — 카드에 영향 수(연결 1곳) · 그때까지 지도·기록 그대로",
+      d1.plan.length === 1 && d1Item.tool === "delete_node" && d1Item.impact.customLinks === 1 && planLine(d1Item, "will") === "‘지울 항목’을 지워요." && planNotes(d1Item).some((t) => t.includes("1곳")) && (await snapshot(a)) === before7 && (await logs(a)).length === logs7,
+      d1);
+    // 지도 패널과 같은 문장
+    const sheetSrc = read("app/my-life/AskSheet.tsx");
+    check("⑦ 확인 카드 — 영향 줄 + 되돌릴 수 없음 + [지우기]·[합치기] destructive", sheetSrc.includes("planNotes") && sheetSrc.includes("A.plan.irreversible") && sheetSrc.includes('"destructive"') && sheetSrc.includes("E.deleteDo") && sheetSrc.includes("A.plan.mergeDo"));
+
+    // 실행 때 다시 셈
+    await addLink(a, { type: "CUSTOM", id: delItem }, { type: "PERSON", id: pe1 });
+    const stale = await applyMapEdit(a, d1.plan);
+    check("⑦ 카드 뒤 수가 바뀌면 안 함 — 항목 그대로 · 기록 없음", stale.ok && !!stale.failed && stale.failed.error === MY_LIFE_COPY.ask.plan.staleImpact && (await prisma.customNode.count({ where: { id: delItem } })) === 1 && (await logs(a)).length === logs7, stale);
+    await removeLink(a, { type: "CUSTOM", id: delItem }, { type: "PERSON", id: pe1 });
+    const tampered = await applyMapEdit(a, [{ ...d1Item, impact: { ...(d1Item as { impact: object }).impact, customLinks: 0 } }]);
+    check("⑦ 화면이 수를 고쳐 보내도 안 함", tampered.ok && !!tampered.failed && (await prisma.customNode.count({ where: { id: delItem } })) === 1, tampered);
+    const d1Done = await applyMapEdit(a, d1.plan);
+    const d1Logs = d1Done.ok ? await logs(a, d1Done.commandId) : [];
+    check("⑦ 실행 — 지워짐 · 되돌릴 것 없음 · [지도에서 보기] 없음 · 기록 1행(되돌린 시각 없음)",
+      d1Done.ok && !d1Done.failed && d1Done.undo.length === 0 && d1Done.done[0].key === null && d1Done.done[0].line === "‘지울 항목’을 지웠어요." && (await prisma.customNode.count({ where: { id: delItem } })) === 0 && d1Logs.length === 1 && d1Logs[0].tool === "delete_node" && d1Logs[0].nodeId === delItem && d1Logs[0].undoneAt === null,
+      { d1Done, d1Logs });
+
+    // 이야기·직접 추가 시기·장소·모임·장소 묶음·카테고리 — 패널과 같은 입구
+    const delEv = (await prisma.lifeEvent.create({ data: { userId: a, type: "CUSTOM", label: "지울 시기", year: 1999, status: "CONFIRMED", confirmedAt: now, sequenceOrder: 50 }, select: { id: true } })).id;
+    const delSt = (await createEpisodeBridge(a, delEv, "지울 시기의 이야기", 1999, "지울 시기의 이야기 본문이에요.", ""))!.episodeId;
+    const dEv = await delPlan("지울 시기 지워 줘", "시기", "지울 시기");
+    const dEvItem = dEv.plan[0];
+    check("⑦ 시기 지우기 — 카드에 같이 지워지는 이야기 수", dEvItem?.tool === "delete_node" && dEvItem.impact.storiesDeleted && dEvItem.impact.stories === 1 && planNotes(dEvItem).some((t) => t.includes("이야기 1개")), dEv);
+    const dEvDone = await applyMapEdit(a, dEv.plan);
+    check("⑦ 시기 지우기 실행 — 시기·이야기 모두 지워짐", dEvDone.ok && !dEvDone.failed && (await prisma.lifeEvent.count({ where: { id: delEv } })) === 0 && (await prisma.episode.count({ where: { id: delSt } })) === 0, dEvDone);
+
+    const delSt2 = (await createEpisodeBridge(a, ev1, "지울 이야기", 1970, "지울 이야기 본문이에요.", ""))!.episodeId;
+    const dSt = await delPlan("지울 이야기 지워 줘", "이야기", "지울 이야기");
+    const dStDone = await applyMapEdit(a, dSt.plan);
+    check("⑦ 이야기 지우기 — 지워짐", dStDone.ok && !dStDone.failed && (await prisma.episode.count({ where: { id: delSt2 } })) === 0, dStDone);
+
+    const delCat = await catOf(a, "지울 분류");
+    await childOf(a, "ITEM", "분류 안 항목", delCat);
+    await addLink(a, { type: "CUSTOM", id: delCat }, { type: "PERSON", id: pe1 });
+    const dCat = await delPlan("지울 분류 지워 줘", "카테고리", "지울 분류");
+    const dCatItem = dCat.plan[0];
+    check("⑦ 카테고리 지우기 — 카드에 지워지는 항목 수·빠지기만 하는 수", dCatItem?.tool === "delete_node" && dCatItem.impact.customDeleted === 1 && dCatItem.impact.customOut === 1 && planNotes(dCatItem)[0] === MY_LIFE_COPY.custom.deleteCatNote(1, 1), dCat);
+    const dCatDone = await applyMapEdit(a, dCat.plan);
+    check("⑦ 카테고리 지우기 실행 — 안 항목 같이 · 넣어 둔 사람은 남음", dCatDone.ok && !dCatDone.failed && (await prisma.customNode.count({ where: { id: delCat } })) === 0 && (await prisma.person.count({ where: { id: pe1 } })) === 1, dCatDone);
+
+    // 거부
+    const dPerson = await delPlan("가상 이웃 지워 줘", "사람", "가상 이웃");
+    check("⑦ 사람 지우기 = 안 담음 + 지도 패널 안내(Q87)", dPerson.plan.length === 0 && dPerson.unsupported && dPerson.note === MY_LIFE_COPY.ask.plan.personDelete, dPerson);
+    const zero: DeleteImpact = { stories: 0, people: 0, places: 0, familyActivity: 0, storiesDeleted: false, placeGroups: 0, periods: 0, groups: 0, personBody: false, customKind: null, customDeleted: 0, customOut: 0, customLinks: 0 };
+    const forced = async (node: PlanNode) => applyMapEdit(a, [{ tool: "delete_node", node, impact: zero } as MapPlanItem]);
+    const fPerson = await forced(N("PERSON", pe1, "가상 이웃", "사람"));
+    check("⑦ 고쳐 보낸 계획으로도 사람은 못 지움", fPerson.ok && !!fPerson.failed && (await prisma.person.count({ where: { id: pe1 } })) === 1, fPerson);
+    const dSkeleton = await delPlan("가상 시기 둘 지워 줘", "시기", "가상 시기 둘");
+    const fSkeleton = await forced(N("LIFE_EVENT", ev2, "가상 시기 둘", "시기"));
+    check("⑦ 기본 시기 = 안 담음 · 고쳐 보내도 못 지움", dSkeleton.plan.length === 0 && fSkeleton.ok && !!fSkeleton.failed && (await prisma.lifeEvent.count({ where: { id: ev2 } })) === 1, { dSkeleton, fSkeleton });
+    const fBuiltin = await forced(N("CUSTOM", builtinId, "가상 사람들", "카테고리"));
+    check("⑦ 기본 카테고리 행 = 못 지움", fBuiltin.ok && !!fBuiltin.failed && (await prisma.customNode.count({ where: { id: builtinId } })) === 1, fBuiltin);
+    const fOthers = await Promise.all([forced(N("CUSTOM", itemB, "남의 항목", "항목")), forced(N("EPISODE", stB, "남의 이야기", "이야기")), forced(N("PLACE", plB, "남의 장소", "장소"))]);
+    check("⑦ 남의 노드 = 못 지움(항목·이야기·장소)", fOthers.every((r) => r.ok && !!r.failed) && (await prisma.customNode.count({ where: { id: itemB } })) === 1 && (await prisma.episode.count({ where: { id: stB } })) === 1 && (await prisma.place.count({ where: { id: plB } })) === 1, fOthers);
+
+    // 계획에 혼자만
+    const mix1 = await planReal(a, "가상 묶음 지우고 가상 항목 이름 바꿔 줘", [
+      [{ name: "delete_node", input: { said: "가상 묶음 지우고", node: await aliasOf(a, "묶음", "가상 묶음") } }],
+      [{ name: "rename_node", input: { said: "가상 항목 이름 바꿔", node: await aliasOf(a, "항목", "가상 항목"), newName: "새 이름" } }],
+      [answer],
+    ]);
+    const mix2 = await planReal(a, "가상 항목 이름 바꾸고 가상 묶음 지워 줘", [
+      [{ name: "rename_node", input: { said: "가상 항목 이름 바꾸고", node: await aliasOf(a, "항목", "가상 항목"), newName: "새 이름" } }],
+      [{ name: "delete_node", input: { said: "가상 묶음 지워", node: await aliasOf(a, "묶음", "가상 묶음") } }],
+      [answer],
+    ]);
+    check("⑦ 다른 일과 같이 시키면 아무것도 안 담고 따로 부탁하라고 함(순서 무관)", mix1.plan.length === 0 && mix1.question === MY_LIFE_COPY.ask.plan.oneAtATime && mix2.plan.length === 0 && mix2.question === MY_LIFE_COPY.ask.plan.oneAtATime, { mix1, mix2 });
+    const okDel: MapPlanItem = { tool: "delete_node", node: N("CUSTOM", grp1, "가상 묶음", "묶음") as ExistingNode, impact: zero };
+    check("⑦ 화면에서 온 계획 — 지우기·합치기가 다른 일과 섞이면 거부 · 수 없으면 거부 · 새 노드 거부",
+      parsePlan([okDel, { tool: "rename_node", node: N("CUSTOM", item1, "가상 항목", "항목"), newName: "x" }]) === null && parsePlan([{ tool: "delete_node", node: N("CUSTOM", grp1, "가상 묶음", "묶음") }]) === null && parsePlan([{ tool: "delete_node", node: { newKey: "new1", name: "x", kind: "항목" }, impact: zero }]) === null && parsePlan([okDel]) !== null);
+
+    // ── ⑧ 합치기(3c — §6.10) ──────────
+    const P8 = (text: string) => ({ v: 1 as const, blocks: [{ type: "paragraph" as const, text }] });
+    const person = async (name: string, data: { relation?: string; memo?: string; metYear?: number; birthYear?: number } = {}) => (await prisma.person.create({ data: { userId: a, name, ...data }, select: { id: true } })).id;
+    const pFrom = await person("합칠 분 하나", { relation: "친구", memo: "원본 메모", birthYear: 1950 });
+    const pTo = await person("합칠 분 둘", { metYear: 1980 });
+    const pEv = (await prisma.lifeEvent.create({ data: { userId: a, type: "CUSTOM", label: "합치기 시기", year: 1975, status: "CONFIRMED", confirmedAt: now, sequenceOrder: 60 }, select: { id: true } })).id;
+    const story = async (title: string) => (await createEpisodeBridge(a, pEv, title, 1975, `${title} 본문이에요.`, ""))!.episodeId;
+    const sSubject = await story("대상 인물 이야기");
+    await prisma.episode.update({ where: { id: sSubject }, data: { personId: pFrom } });
+    const sLinked = await story("함께 나온 이야기");
+    await addLink(a, { type: "EPISODE", id: sLinked }, { type: "PERSON", id: pFrom });
+    const sBoth = await story("둘 다 나온 이야기");
+    await addLink(a, { type: "EPISODE", id: sBoth }, { type: "PERSON", id: pFrom });
+    await addLink(a, { type: "EPISODE", id: sBoth }, { type: "PERSON", id: pTo });
+    const sToSubject = await story("대상의 이야기");
+    await prisma.episode.update({ where: { id: sToSubject }, data: { personId: pTo } });
+    await addLink(a, { type: "EPISODE", id: sToSubject }, { type: "PERSON", id: pFrom });
+    await addLink(a, { type: "PERSON_GROUP", id: gr1 }, { type: "PERSON", id: pFrom });
+    await addLink(a, { type: "PERSON", id: pFrom }, { type: "PLACE", id: pl1 });
+    await addLink(a, { type: "CUSTOM", id: cat1 }, { type: "PERSON", id: pFrom });
+    await addLink(a, { type: "LIFE_EVENT", id: ev2 }, { type: "PERSON", id: pFrom }); // DIRECT
+    await addLink(a, { type: "LIFE_EVENT", id: ev2 }, { type: "PERSON", id: pTo });
+    await prisma.personLifeEvent.updateMany({ where: { lifeEventId: ev2, personId: pTo }, data: { origin: "STORY" } });
+    await savePersonBody(a, pFrom, P8("원본 글이에요."), 0);
+    await savePersonBody(a, pTo, P8("대상 글이에요."), 0);
+    const memFrom = await ensurePersonBodyMemory(a, pFrom);
+    const memTo = await ensurePersonBodyMemory(a, pTo);
+    const photo8 = (await prisma.photo.create({ data: { userId: a, memoryId: memFrom!, storagePath: `${a}/fixture-merge.jpg`, mimeType: "image/jpeg", fileBytes: 1 }, select: { id: true } })).id;
+    const before8 = await snapshot(a);
+    const logs8 = (await logs(a)).length;
+    const mPlan = await planReal(a, "합칠 분 하나랑 합칠 분 둘은 같은 분이야 합쳐 줘", [[{ name: "merge_nodes", input: { said: "합쳐 줘", from: await aliasOf(a, "사람", "합칠 분 하나"), to: await aliasOf(a, "사람", "합칠 분 둘") } }], [answer]]);
+    const mItem = mPlan.plan[0];
+    check("⑧ 합치기 계획 — 카드에 옮겨지는 연결 수·글 · 확인 전 DB 변화 0",
+      mItem?.tool === "merge_nodes" && mItem.impact.body === "kept" && mItem.impact.links === 8 && planLine(mItem, "will") === "‘합칠 분 하나’를 ‘합칠 분 둘’에 합쳐요." && planNotes(mItem).length === 2 && planNotes(mItem)[0].includes("8개") && (await snapshot(a)) === before8 && (await logs(a)).length === logs8,
+      mPlan);
+    await addLink(a, { type: "PERSON", id: pFrom }, { type: "CUSTOM", id: cat2 });
+    const mStale = await applyMapEdit(a, mPlan.plan);
+    check("⑧ 카드 뒤 수가 바뀌면 안 함", mStale.ok && !!mStale.failed && mStale.failed.error === MY_LIFE_COPY.ask.plan.staleImpact && (await prisma.person.count({ where: { id: pFrom } })) === 1, mStale);
+    await removeLink(a, { type: "PERSON", id: pFrom }, { type: "CUSTOM", id: cat2 });
+    const mDone = await applyMapEdit(a, mPlan.plan);
+    const mLogs = mDone.ok ? await logs(a, mDone.commandId) : [];
+    check("⑧ 실행 — 원본 지워짐 · 되돌릴 것 없음 · [지도에서 보기] = 대상 · 기록 1행", mDone.ok && !mDone.failed && mDone.undo.length === 0 && mDone.done[0].key !== null && (await prisma.person.count({ where: { id: pFrom } })) === 0 && mLogs.length === 1 && mLogs[0].tool === "merge_nodes" && mLogs[0].nodeId === pFrom, { mDone, mLogs });
+    const linkCount = (where: object) => prisma.nodeLink.count({ where: { userId: a, ...where } });
+    check("⑧ 대상 인물 칸·함께 나온 이야기 옮겨짐", (await prisma.episode.findUniqueOrThrow({ where: { id: sSubject }, select: { personId: true } })).personId === pTo && (await linkCount({ fromType: "EPISODE", fromId: sLinked, toType: "PERSON", toId: pTo })) === 1);
+    check("⑧ 중복은 한 행 — 둘 다 나온 이야기 1행 · 대상이 대상 인물인 이야기엔 연결 안 둠", (await linkCount({ fromType: "EPISODE", fromId: sBoth, toType: "PERSON", toId: pTo })) === 1 && (await linkCount({ fromType: "EPISODE", fromId: sToSubject, toType: "PERSON", toId: pTo })) === 0);
+    check("⑧ 모임·장소·카테고리 연결 옮겨짐", (await prisma.personGroupMember.count({ where: { groupId: gr1, personId: pTo } })) === 1 && (await linkCount({ fromType: "PERSON", fromId: pTo, toType: "PLACE", toId: pl1 })) === 1 && (await linkCount({ fromType: "PERSON", fromId: pTo, toType: "CUSTOM", toId: cat1, role: "MEMBER" })) === 1);
+    const ple = await prisma.personLifeEvent.findMany({ where: { personId: pTo, lifeEventId: ev2 }, select: { origin: true } });
+    check("⑧ 시기↔사람 = 한 행, DIRECT 우선", ple.length === 1 && ple[0].origin === "DIRECT", ple);
+    check("⑧ 원본을 가리키는 연결 0", (await prisma.nodeLink.count({ where: { OR: [{ fromType: "PERSON", fromId: pFrom }, { toType: "PERSON", toId: pFrom }] } })) === 0);
+    const pToRow = await prisma.person.findUniqueOrThrow({ where: { id: pTo }, select: { relation: true, memo: true, metYear: true, birthYear: true } });
+    check("⑧ 대상의 빈 칸만 채움(있던 값 안 바꿈)", pToRow.relation === "친구" && pToRow.memo === "원본 메모" && pToRow.birthYear === 1950 && pToRow.metYear === 1980, pToRow);
+    const bodyTo = await prisma.nodeBody.findUnique({ where: { nodeType_nodeId: { nodeType: "PERSON", nodeId: pTo } }, select: { plainText: true, memoryId: true } });
+    const revs = await prisma.nodeBodyRevision.findMany({ where: { nodeType: "PERSON", nodeId: pTo }, select: { plainText: true } });
+    check("⑧ 글 둘 다 있으면 대상 글 그대로 · 원본 글 = 대상의 이전 판(Q88)", bodyTo?.plainText === "대상 글이에요." && revs.some((r) => r.plainText === "원본 글이에요."), { bodyTo, revs });
+    const photoRow = await prisma.photo.findUnique({ where: { id: photo8 }, select: { memoryId: true } });
+    check("⑧ 원본 글 사진 = 대상 글 쪽으로(지우지 않음) · 원본 글 메모리 정리", photoRow?.memoryId === memTo && bodyTo?.memoryId === memTo && (await prisma.userMemory.count({ where: { id: memFrom! } })) === 0, { photoRow, memTo });
+
+    // 대상에 글이 없으면 통째로
+    const pA = await person("글 있는 분");
+    const pB = await person("글 없는 분");
+    await savePersonBody(a, pA, P8("옮길 글이에요."), 0);
+    await savePersonBody(a, pA, P8("옮길 글 고침이에요."), 1);
+    const mBody = await mergeCheck(a, { type: "PERSON", id: pA }, { type: "PERSON", id: pB });
+    const mBodyOk = mBody.ok && mBody.impact.body === "moved" ? await mergeNodes(a, { type: "PERSON", id: pA }, { type: "PERSON", id: pB }, mBody.impact) : null;
+    const moved = await prisma.nodeBody.findUnique({ where: { nodeType_nodeId: { nodeType: "PERSON", nodeId: pB } }, select: { plainText: true } });
+    check("⑧ 대상에 글이 없으면 글·이전 판 통째로 옮김", mBodyOk?.ok === true && moved?.plainText === "옮길 글 고침이에요." && (await prisma.nodeBodyRevision.count({ where: { nodeType: "PERSON", nodeId: pB } })) === 1, { mBody, moved });
+
+    // 대상 글에 사진 메모리가 없으면 원본 메모리를 그대로 넘겨받음(사진 안 잃음) · 빈 글은 글로 안 침
+    const pC = await person("사진 있는 분");
+    const pD = await person("사진 없는 분");
+    await savePersonBody(a, pC, P8("사진 있는 글이에요."), 0);
+    await savePersonBody(a, pD, P8("사진 없는 글이에요."), 0);
+    const memC = await ensurePersonBodyMemory(a, pC);
+    const photoC = (await prisma.photo.create({ data: { userId: a, memoryId: memC!, storagePath: `${a}/fixture-merge2.jpg`, mimeType: "image/jpeg", fileBytes: 1 }, select: { id: true } })).id;
+    const cChk = await mergeCheck(a, { type: "PERSON", id: pC }, { type: "PERSON", id: pD });
+    const cOk = cChk.ok ? await mergeNodes(a, { type: "PERSON", id: pC }, { type: "PERSON", id: pD }, cChk.impact) : null;
+    const bodyD = await prisma.nodeBody.findUnique({ where: { nodeType_nodeId: { nodeType: "PERSON", nodeId: pD } }, select: { memoryId: true, plainText: true } });
+    const photoCRow = await prisma.photo.findUnique({ where: { id: photoC }, select: { memoryId: true } });
+    check("⑧ 대상 글에 사진 메모리가 없으면 원본 메모리를 넘겨받음 — 사진 안 잃음", cOk?.ok === true && bodyD?.memoryId === memC && photoCRow?.memoryId === memC && bodyD?.plainText === "사진 없는 글이에요.", { cChk, bodyD, photoCRow });
+    const pE = await person("빈 글 분");
+    const pF = await person("글 받을 분");
+    await prisma.nodeBody.create({ data: { userId: a, nodeType: "PERSON", nodeId: pE, doc: { v: 1, blocks: [] }, plainText: "" } });
+    const eChk = await mergeCheck(a, { type: "PERSON", id: pE }, { type: "PERSON", id: pF });
+    check("⑧ 빈 글 행은 글로 안 침", eChk.ok && eChk.impact.body === "none", eChk);
+
+    // 장소+장소
+    const place = async (name: string, data: { address?: string; lat?: number; lng?: number; source?: string } = {}) => (await prisma.place.create({ data: { userId: a, name, ...data }, select: { id: true } })).id;
+    const plFrom = await place("합칠 곳 하나", { address: "가상 주소", lat: 37.5, lng: 127.1, source: "naver" });
+    const plTo = await place("합칠 곳 둘");
+    const sP1 = await story("장소 이야기 하나");
+    const sP2 = await story("장소 이야기 둘");
+    await addLink(a, { type: "EPISODE", id: sP1 }, { type: "PLACE", id: plFrom });
+    await addLink(a, { type: "EPISODE", id: sP2 }, { type: "PLACE", id: plFrom });
+    await addLink(a, { type: "EPISODE", id: sP2 }, { type: "PLACE", id: plTo });
+    await addLink(a, { type: "PLACE_GROUP", id: pg1 }, { type: "PLACE", id: plFrom });
+    const pChk = await mergeCheck(a, { type: "PLACE", id: plFrom }, { type: "PLACE", id: plTo });
+    const pMerged = pChk.ok ? await mergeNodes(a, { type: "PLACE", id: plFrom }, { type: "PLACE", id: plTo }, pChk.impact) : null;
+    const memOf = async (id: string) => (await prisma.episode.findUniqueOrThrow({ where: { id }, select: { memoryId: true } })).memoryId;
+    const rowsP1 = await prisma.memoryPlace.findMany({ where: { memoryId: await memOf(sP1) }, select: { placeId: true, placeName: true, placeAddress: true } });
+    const rowsP2 = await prisma.memoryPlace.findMany({ where: { memoryId: await memOf(sP2) }, select: { placeId: true } });
+    const plToRow = await prisma.place.findUniqueOrThrow({ where: { id: plTo }, select: { address: true, lat: true, source: true } });
+    check("⑧ 장소 합치기 — 이야기 장소 행 옮김(이름·주소 대상 값) · 같은 이야기 한 행 · 묶음 옮김 · 빈 칸 채움 · 원본 지움",
+      pMerged?.ok === true && rowsP1.length === 1 && rowsP1[0].placeId === plTo && rowsP1[0].placeName === "합칠 곳 둘" && rowsP1[0].placeAddress === "가상 주소" && rowsP2.length === 1 && rowsP2[0].placeId === plTo && (await prisma.placeGroupMember.count({ where: { groupId: pg1, placeId: plTo } })) === 1 && plToRow.address === "가상 주소" && plToRow.lat === 37.5 && plToRow.source === "naver" && (await prisma.place.count({ where: { id: plFrom } })) === 0,
+      { pChk, rowsP1, rowsP2, plToRow });
+
+    // 항목+항목 · 항목→사람 · 항목→장소
+    const itFrom = await childOf(a, "ITEM", "합칠 항목 하나", cat1);
+    const itTo = await childOf(a, "ITEM", "합칠 항목 둘", cat2);
+    await addLink(a, { type: "CUSTOM", id: itFrom }, { type: "PLACE", id: pl1 });
+    await saveItemBody(a, itFrom, P8("항목 글이에요."), 0);
+    const iChk = await mergeCheck(a, { type: "CUSTOM", id: itFrom }, { type: "CUSTOM", id: itTo });
+    const iMerged = iChk.ok ? await mergeNodes(a, { type: "CUSTOM", id: itFrom }, { type: "CUSTOM", id: itTo }, iChk.impact) : null;
+    const itBody = await prisma.nodeBody.findUnique({ where: { nodeType_nodeId: { nodeType: "CUSTOM", nodeId: itTo } }, select: { plainText: true } });
+    check("⑧ 항목+항목 — 연결 옮김 · 원본 자리 = 대상의 넣기 연결 · 글 옮김 · 원본 지움",
+      iMerged?.ok === true && (await linkCount({ fromType: "PLACE", fromId: pl1, toType: "CUSTOM", toId: itTo })) === 1 && (await linkCount({ fromType: "CUSTOM", toType: "CUSTOM", role: "MEMBER", OR: [{ fromId: cat1, toId: itTo }, { fromId: itTo, toId: cat1 }] })) === 1 && itBody?.plainText === "항목 글이에요." && (await prisma.customNode.count({ where: { id: itFrom } })) === 0,
+      { iChk, itBody });
+
+    const itSame = await childOf(a, "ITEM", "같은 분류 항목", cat2);
+    const sameChk = await mergeCheck(a, { type: "CUSTOM", id: itSame }, { type: "CUSTOM", id: itTo });
+    check("⑧ 같은 카테고리 항목끼리 — 자리를 넣기로 안 옮김(수 0)", sameChk.ok && sameChk.impact.links === 0, sameChk);
+
+    const itPerson = await childOf(a, "ITEM", "사람이던 항목", cat1);
+    const sItem = await story("항목과 이어진 이야기");
+    await addLink(a, { type: "EPISODE", id: sItem }, { type: "CUSTOM", id: itPerson });
+    const ipChk = await mergeCheck(a, { type: "CUSTOM", id: itPerson }, { type: "PERSON", id: pTo });
+    const ipMerged = ipChk.ok ? await mergeNodes(a, { type: "CUSTOM", id: itPerson }, { type: "PERSON", id: pTo }, ipChk.impact) : null;
+    check("⑧ 항목→사람 — 이야기 연결·시기↔사람(STORY)·넣기 연결 · 항목 지움",
+      ipMerged?.ok === true && (await linkCount({ fromType: "EPISODE", fromId: sItem, toType: "PERSON", toId: pTo })) === 1 && (await prisma.personLifeEvent.count({ where: { lifeEventId: pEv, personId: pTo } })) === 1 && (await linkCount({ fromType: "PERSON", fromId: pTo, toType: "CUSTOM", toId: cat1, role: "MEMBER" })) === 1 && (await prisma.customNode.count({ where: { id: itPerson } })) === 0,
+      ipChk);
+
+    const itPlace = await childOf(a, "ITEM", "장소이던 항목", cat1);
+    const plChk = await mergeCheck(a, { type: "CUSTOM", id: itPlace }, { type: "PLACE", id: plTo });
+    const plMerged = plChk.ok ? await mergeNodes(a, { type: "CUSTOM", id: itPlace }, { type: "PLACE", id: plTo }, plChk.impact) : null;
+    check("⑧ 항목→장소 — 넣기 연결 · 항목 지움", plMerged?.ok === true && (await linkCount({ fromType: "PLACE", fromId: plTo, toType: "CUSTOM", toId: cat1, role: "MEMBER" })) === 1 && (await prisma.customNode.count({ where: { id: itPlace } })) === 0, plChk);
+    const itBodyPlace = await childOf(a, "ITEM", "글 있는 항목", cat1);
+    await saveItemBody(a, itBodyPlace, P8("이 글은 잃으면 안 돼요."), 0);
+    const bpChk = await mergeCheck(a, { type: "CUSTOM", id: itBodyPlace }, { type: "PLACE", id: plTo });
+    check("⑧ 글 있는 항목→장소 = 거부(글을 잃음) · 항목 그대로", !bpChk.ok && bpChk.error === MY_LIFE_COPY.ask.plan.mergeBodyPlace && (await prisma.customNode.count({ where: { id: itBodyPlace } })) === 1, bpChk);
+
+    // 합칠 수 없는 것
+    const refused = async (label: string, from: NodeRef, to: NodeRef) => {
+      const r = await mergeCheck(a, from, to);
+      const applied = await applyMapEdit(a, [{ tool: "merge_nodes", from: N(from.type, from.id, "x", "x") as ExistingNode, to: N(to.type, to.id, "y", "y") as ExistingNode, fromLabel: "x", toLabel: "y", impact: { links: 0, body: "none" } }]);
+      check(`⑧ ${label} = 거부`, !r.ok && applied.ok && !!applied.failed && applied.done.length === 0, { r, applied });
+    };
+    await refused("자기 자신", { type: "PERSON", id: pTo }, { type: "PERSON", id: pTo });
+    await refused("시기끼리", { type: "LIFE_EVENT", id: ev1 }, { type: "LIFE_EVENT", id: pEv });
+    await refused("이야기끼리", { type: "EPISODE", id: sLinked }, { type: "EPISODE", id: sBoth });
+    await refused("모임", { type: "PERSON_GROUP", id: gr1 }, { type: "PERSON_GROUP", id: gr1 + "x" });
+    await refused("카테고리끼리", { type: "CUSTOM", id: cat1 }, { type: "CUSTOM", id: cat2 });
+    await refused("묶음끼리", { type: "CUSTOM", id: grp1 }, { type: "CUSTOM", id: grp2 });
+    await refused("기본 카테고리 행", { type: "CUSTOM", id: builtinId }, { type: "CUSTOM", id: cat1 });
+    await refused("사람→장소(다른 종류)", { type: "PERSON", id: pTo }, { type: "PLACE", id: plTo });
+    await refused("사람→항목(거꾸로)", { type: "PERSON", id: pTo }, { type: "CUSTOM", id: itTo });
+    await refused("남의 사람에게", { type: "PERSON", id: pTo }, { type: "PERSON", id: peB });
+    await refused("남의 사람을", { type: "PERSON", id: peB }, { type: "PERSON", id: pTo });
+    await refused("남의 항목을", { type: "CUSTOM", id: itemB }, { type: "CUSTOM", id: itTo });
+    check("⑧ 거부 뒤 남의 노드 그대로", (await prisma.person.count({ where: { id: peB } })) === 1 && (await prisma.customNode.count({ where: { id: itemB } })) === 1);
+
+    const twoGang = [await person("같은 이름", { relation: "전우" }), await person("같은 이름", { relation: "사촌" })];
+    const gv = await viewOf(a);
+    const gA = gv.nodes.find((n) => n.name === "같은 이름" && n.relation === "전우")!.alias;
+    const gB = gv.nodes.find((n) => n.name === "같은 이름" && n.relation === "사촌")!.alias;
+    const gPlan = await planReal(a, "같은 이름 두 분 합쳐 줘", [[{ name: "merge_nodes", input: { said: "합쳐 줘", from: { alias: gA, name: "같은 이름" }, to: { alias: gB, name: "같은 이름" } } }], [answer]]);
+    check("⑧ 같은 이름 두 분 — 카드에 관계로 가려 보임", gPlan.plan[0] && planLine(gPlan.plan[0], "will") === "‘전우 같은 이름’을 ‘사촌 같은 이름’에 합쳐요.", gPlan);
+    await prisma.person.deleteMany({ where: { id: { in: twoGang } } });
+
+    const issues = await countNodeGraphIssues({ userId: a });
+    // directPeriodPeopleWithoutStory = 보고만(직접 넣은 시기↔사람 — 정상), oldestPendingDays = 날짜 값
+    const issueTotal = Object.entries(issues).filter(([k, v]) => typeof v === "number" && k !== "directPeriodPeopleWithoutStory").reduce((s, [, v]) => s + (v as number), 0);
+    const customTotal = Object.values(issues.custom).reduce((s: number, v) => s + (typeof v === "number" ? v : 0), 0);
+    check("⑧ 지우기·합치기 뒤 정합 점검 전부 0", issueTotal === 0 && customTotal === 0, issues);
   } finally {
     await removeFixtures();
     console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B] } } }));

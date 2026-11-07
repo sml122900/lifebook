@@ -78,6 +78,26 @@ function yearOk(y: unknown, birthYear: number | null, now = new Date()): y is nu
 
 // ── 넣기·빼기·되돌리기 ─────────────────────────────────────────────
 
+// 지우기 입구 한 곳 — 지도 패널(deleteNodeAction)·AI 지도 편집(3c)이 같이 부른다.
+export async function deleteNode(userId: string, r: NodeRef): Promise<{ ok: true } | Fail> {
+  if (r.type === "EPISODE") {
+    const d = await deleteEpisode(userId, r.id);
+    console.log("[my-life-delete]", { userId, type: r.type, id: r.id, ok: d.ok });
+    return d.ok ? { ok: true } : { ok: false, error: E.notFound };
+  }
+  if (r.type === "LIFE_EVENT") {
+    const d = await deleteCustomLifeEvent(userId, r.id);
+    console.log("[my-life-delete]", { userId, type: r.type, id: r.id, ok: d.ok });
+    return d.ok ? { ok: true } : { ok: false, error: E.deleteSkeletonNote };
+  }
+  if (r.type === "PLACE") return deletePlaceNode(userId, r.id);
+  if (r.type === "PERSON_GROUP") return deleteGroupNode(userId, r.id);
+  if (r.type === "PLACE_GROUP") return deletePlaceGroupNode(userId, r.id);
+  if (r.type === "PERSON") return deletePersonNode(userId, r.id);
+  if (r.type === "CUSTOM") return deleteCustom(userId, r.id); // 사용자 카테고리·묶음·항목(custom-graph 2단계)
+  return { ok: false, error: E.notFound };
+}
+
 async function isConfirmedPerson(userId: string, id: string): Promise<boolean> {
   return (await prisma.person.count({ where: { id, userId, subjectType: "person", isDraft: false } })) > 0;
 }

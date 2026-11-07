@@ -9,7 +9,7 @@ import type { NodeRef } from "./node-graph";
 export const MAP_EDIT_LOG_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type MapEditTool = "create_node" | "rename_node" | "link" | "unlink" | "put_in" | "take_out" | "move";
+export type MapEditTool = "create_node" | "rename_node" | "link" | "unlink" | "put_in" | "take_out" | "move" | "delete_node" | "merge_nodes";
 
 export async function recordMapEdit(userId: string, entry: { commandId: string; tool: MapEditTool; node: NodeRef }, now: Date = new Date()): Promise<void> {
   try {

@@ -8,11 +8,9 @@
 // 사용자 카테고리(custom-graph 2단계 2026-11-06): 카테고리 cat:<id> · 묶음 cgl: · 항목 cn: · 기본 카테고리 bcat:PEOPLE|PLACES.
 
 import { auth } from "@/auth";
-import { deleteEpisode } from "@/lib/episode";
 import { moveEpisodeToLifeEvent, undoMoveEpisode, type MoveUndo } from "@/lib/episode-move";
 import type { SameNameNode } from "@/lib/custom-node";
 import type { NodeType } from "@/lib/generated/prisma/enums";
-import { deleteCustomLifeEvent } from "@/lib/life-event-delete";
 import { askMap, type AskMapAnswer, type AskMapResult } from "@/lib/map-agent";
 import { applyMapEdit, planMapEdit, undoMapEdit, type MapEditApplyResult, type MapEditPlanResult } from "@/lib/map-edit";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
@@ -26,12 +24,8 @@ import {
   createPlaceGroupNode,
   createPlaceNode,
   createStoryNode,
-  deleteCustom,
-  deleteGroupNode,
+  deleteNode,
   deleteImpact,
-  deletePersonNode,
-  deletePlaceGroupNode,
-  deletePlaceNode,
   moveCustom,
   removeLink,
   renameBuiltin,
@@ -204,22 +198,7 @@ export async function deleteNodeAction(node: NodeRef): Promise<{ ok: true } | { 
   const userId = await requireUserId();
   const r = ref(node);
   if (!r) return { ok: false, error: E.notFound };
-  if (r.type === "EPISODE") {
-    const d = await deleteEpisode(userId, r.id);
-    console.log("[my-life-delete]", { userId, type: r.type, id: r.id, ok: d.ok });
-    return d.ok ? d : { ok: false, error: E.notFound };
-  }
-  if (r.type === "LIFE_EVENT") {
-    const d = await deleteCustomLifeEvent(userId, r.id);
-    console.log("[my-life-delete]", { userId, type: r.type, id: r.id, ok: d.ok });
-    return d.ok ? d : { ok: false, error: E.deleteSkeletonNote };
-  }
-  if (r.type === "PLACE") return deletePlaceNode(userId, r.id);
-  if (r.type === "PERSON_GROUP") return deleteGroupNode(userId, r.id);
-  if (r.type === "PLACE_GROUP") return deletePlaceGroupNode(userId, r.id);
-  if (r.type === "PERSON") return deletePersonNode(userId, r.id);
-  if (r.type === "CUSTOM") return deleteCustom(userId, r.id); // 사용자 카테고리·묶음·항목(custom-graph 2단계)
-  return { ok: false, error: E.notFound };
+  return deleteNode(userId, r);
 }
 
 // 인물록 통합(2026-11-06) — 사람 패널 [이름·정보 고치기](lib/people updatePerson 재사용) · 장소·모임 패널 [이름 고치기].

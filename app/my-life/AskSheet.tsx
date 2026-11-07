@@ -10,13 +10,14 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { MAP_QUESTION_MAX } from "@/lib/map-agent-view";
 import type { MapEditApplyResult, MapEditPlanResult } from "@/lib/map-edit";
-import { planLine, type MapPlanItem } from "@/lib/map-edit-plan";
+import { isDestructive, planLine, planNotes, type MapPlanItem } from "@/lib/map-edit-plan";
 import { MY_LIFE_COPY as C } from "@/lib/my-life-copy";
 import type { SearchKind } from "@/lib/my-life-search";
 
 import { applyMapEditAction, askMapAction, planMapEditAction, undoMapEditAction, type AskMapView } from "./actions";
 
 const A = C.ask;
+const E = C.edit;
 
 const KIND_LABEL: Record<SearchKind, string> = {
   event: C.kindEvent,
@@ -85,6 +86,7 @@ export function AskSheet({ seed, onGo, onClose }: { seed: string; onGo: (key: st
   }
 
   const plan = planView?.ok ? planView.plan : [];
+  const destructive = plan.length === 1 && isDestructive(plan[0]); // 지우기·합치기(§6.10)
 
   return (
     <div className="flex flex-col gap-4 px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6">
@@ -146,7 +148,7 @@ export function AskSheet({ seed, onGo, onClose }: { seed: string; onGo: (key: st
 
         {/* 고치기 — 확인 전에는 아무것도 안 바뀐다 */}
         {planView && !planView.ok && <p className="m-0 text-lg text-ink">{A.errors[planView.reason]}</p>}
-        {planView?.ok && plan.length === 0 && <p className="m-0 text-lg text-ink">{planView.question ?? (planView.unsupported ? A.plan.unsupported : A.plan.empty)}</p>}
+        {planView?.ok && plan.length === 0 && <p className="m-0 text-lg text-ink">{planView.question ?? (planView.unsupported ? (planView.note ?? A.plan.unsupported) : A.plan.empty)}</p>}
         {plan.length > 0 && (
           <div data-map-edit-card="plan" className="flex flex-col gap-3 rounded-md border-2 border-brand bg-banner p-4">
             <h3 className="m-0 text-xl font-bold text-ink">{A.plan.title}</h3>
@@ -157,8 +159,15 @@ export function AskSheet({ seed, onGo, onClose }: { seed: string; onGo: (key: st
                 </li>
               ))}
             </ul>
-            <Button variant="primary" size="lg" disabled={pending} onClick={() => apply(plan)}>
-              {pending ? A.plan.applying : A.plan.apply}
+            {/* 지우기·합치기 — 영향 수 + 되돌릴 수 없음(§6.10) */}
+            {plan.flatMap(planNotes).map((note, i) => (
+              <p key={i} className="m-0 text-lg text-ink">
+                {note}
+              </p>
+            ))}
+            {destructive && <p className="m-0 text-lg text-ink-soft">{A.plan.irreversible}</p>}
+            <Button variant={destructive ? "destructive" : "primary"} size="lg" disabled={pending} onClick={() => apply(plan)}>
+              {pending ? A.plan.applying : destructive ? (plan[0].tool === "delete_node" ? E.deleteDo : A.plan.mergeDo) : A.plan.apply}
             </Button>
             <Button variant="tertiary" size="lg" disabled={pending} onClick={clear}>
               {A.plan.cancel}

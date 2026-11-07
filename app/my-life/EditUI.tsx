@@ -18,6 +18,7 @@ import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import type { MyLifeData, MyLifeEvent, MyLifeStory } from "@/lib/my-life";
 import { customOf, type MyLifeRef } from "@/lib/my-life-custom";
+import { deleteLinkedText } from "@/lib/map-edit-plan";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import type { MoveUndo } from "@/lib/episode-move";
 import type { SameNameNode } from "@/lib/custom-node";
@@ -469,17 +470,6 @@ type Mode =
 type LinkItem = { ref: NodeRef; name: string; sub?: string; go: { key: string; eventId: string | null }; removable: boolean; note?: string; fromStory?: boolean };
 
 // 지우기 확인 — 이어진 것 중 0 이 아닌 것만(시기는 함께 지워질 이야기를 따로 적으므로 이야기 수는 빼고).
-function deleteLinkedText(im: DeleteImpact): string {
-  const parts = [
-    ...(!im.storiesDeleted && im.stories > 0 ? [E.linkStories(im.stories)] : []),
-    ...(im.people > 0 ? [E.linkPeople(im.people)] : []),
-    ...(im.places > 0 ? [E.linkPlaces(im.places)] : []),
-    ...(im.periods > 0 ? [E.linkPeriods(im.periods)] : []),
-    ...(im.groups > 0 ? [E.linkGroups(im.groups)] : []),
-  ];
-  return parts.length > 0 ? E.deleteLinked(parts) : E.deleteNoLinks;
-}
-
 const PICK_CREATE_KIND: Partial<Record<PickWhat, CreateKind>> = { person: "person", member: "person", place: "place", placeMember: "place", group: "group", placeGroup: "placeGroup" };
 
 export function NodeEditor({

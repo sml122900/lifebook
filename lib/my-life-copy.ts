@@ -441,6 +441,21 @@ export const MY_LIFE_COPY = {
       putIn: (member: string, container: string, t: "will" | "did") => `‘${member}’${withJosa(member, "을/를")} ‘${container}’에 ${t === "will" ? "넣어요" : "넣었어요"}.`,
       takeOut: (member: string, container: string, t: "will" | "did") => `‘${member}’${withJosa(member, "을/를")} ‘${container}’에서 ${t === "will" ? "빼요" : "뺐어요"}.`,
       move: (node: string, to: string, t: "will" | "did") => `‘${node}’${withJosa(node, "을/를")} ‘${to}’${withJosa(to, "으로/로")} ${t === "will" ? "옮겨요" : "옮겼어요"}.`,
+      // 3c 지우기·합치기(§6.10) — 전부 [임시 — 성민 확정 필요]. 지우기 영향 문장·[지우기] 버튼은 지도 패널 문구(edit·custom)를 그대로 쓴다.
+      delete: (name: string, t: "will" | "did") => `‘${name}’${withJosa(name, "을/를")} ${t === "will" ? "지워요" : "지웠어요"}.`,
+      merge: (from: string, to: string, t: "will" | "did") => `‘${from}’${withJosa(from, "을/를")} ‘${to}’에 ${t === "will" ? "합쳐요" : "합쳤어요"}.`,
+      mergeMoved: (from: string, to: string, n: number) =>
+        n > 0 ? `‘${from}’에 이어진 연결 ${n}개를 ‘${to}’${withJosa(to, "으로/로")} 옮기고, ‘${from}’${withJosa(from, "은/는")} 없어져요.` : `옮길 연결은 없고, ‘${from}’${withJosa(from, "은/는")} 없어져요.`,
+      mergeBodyMoved: (from: string, to: string) => `‘${from}’에 적은 글은 ‘${to}’${withJosa(to, "으로/로")} 옮겨요.`,
+      mergeBodyKept: (from: string, to: string) => `‘${to}’의 글은 그대로 두고, ‘${from}’에 적은 글은 ‘${to}’의 이전 판으로 남겨요.`,
+      mergeDo: "합치기",
+      irreversible: "되돌릴 수 없어요.",
+      staleImpact: "그사이 기록이 바뀌어서 하지 않았어요. 다시 부탁해 주세요.",
+      personDelete: "사람은 여기서 지울 수 없어요. 지도에서 그분을 눌러 [이 노드 지우기]로 지워 주세요.",
+      oneAtATime: "지우기와 합치기는 다른 일과 따로 부탁해 주세요.",
+      mergeKinds: "사람끼리, 장소끼리, 항목끼리, 또는 항목을 사람·장소에만 합칠 수 있어요.",
+      mergeSelf: "같은 것끼리는 합칠 수 없어요.",
+      mergeBodyPlace: "글이 있는 항목은 장소에 합칠 수 없어요. 장소에는 글 칸이 없어서 글을 잃어요.",
     },
   },
 

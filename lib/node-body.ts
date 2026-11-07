@@ -39,7 +39,7 @@ const asJson = (doc: BodyDoc) => doc as unknown as Prisma.InputJsonValue;
 const nodeKey = (nodeType: BodyNodeType, nodeId: string) => ({ nodeType_nodeId: { nodeType, nodeId } });
 
 // 바뀌기 직전 판 1행(unsaved = 저장되지 않은 글) + 노드마다 최근 REVISIONS_KEPT 판만.
-async function keepRevision(tx: Tx, userId: string, nodeType: BodyNodeType, nodeId: string, plainText: string, doc: BodyDoc | null, unsaved = false) {
+export async function keepRevision(tx: Tx, userId: string, nodeType: BodyNodeType, nodeId: string, plainText: string, doc: BodyDoc | null, unsaved = false) {
   const stored = doc && unsaved ? (markUnsaved(doc) as unknown as Prisma.InputJsonValue) : doc ? asJson(doc) : null;
   await tx.nodeBodyRevision.create({ data: { userId, nodeType, nodeId, plainText, ...(stored ? { doc: stored } : {}) } });
   const old = await tx.nodeBodyRevision.findMany({

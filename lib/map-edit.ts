@@ -4,7 +4,7 @@
 // 이름 renameNode·renameBuiltin · 옮기기 moveEpisodeToLifeEvent·moveCustom · 되돌리기 undoLinks·undoRemove·undoMoveEpisode. AI 전용 쓰기 경로 없음.
 // 소유·builtin·깊이 규칙은 그 입구들이 사용자 직접 편집과 똑같이 막는다. 화면에서 다시 오는 계획은 믿지 않는다(parsePlan + 입구 재확인).
 // 모델은 계획만 만든다 — 쓰기 도구를 불러도 DB 는 안 바뀐다. 실행은 사용자가 카드에서 누를 때(applyMapEdit)만.
-// 지우기·합치기는 3c. 요청 문장은 저장 안 함(원장 = 토큰·원가, 편집 기록 = 도구·노드 종류·id·시각 — lib/map-edit-log).
+// 지우기·합치기(3c — §6.10) = 카드에 영향 수 · 실행 때 다시 셈 · 계획에 혼자만 · 되돌리기 없음. 요청 문장은 저장 안 함(원장 = 토큰·원가, 편집 기록 = 도구·노드 종류·id·시각 — lib/map-edit-log).
 
 import { randomUUID } from "node:crypto";
 
@@ -12,7 +12,8 @@ import { moveEpisodeToLifeEvent, undoMoveEpisode, type MoveUndo } from "./episod
 import { buildMapView, mapListText, MAP_QUESTION_MAX, type MapView } from "./map-agent-view";
 import { firstMapMessage, mapGate, runMapLoop, runReadTool, stripAlias, type MapUsage, type ModelCaller } from "./map-agent";
 import { markMapEditUndone, recordMapEdit, type MapEditTool } from "./map-edit-log";
-import { CREATE_KINDS, MAP_EDIT_PLAN_MAX, parsePlan, planLine, type BuiltinRegion, type CreateKind, type MapPlanItem, type PlanNode } from "./map-edit-plan";
+import { CREATE_KINDS, isDestructive, MAP_EDIT_PLAN_MAX, parsePlan, planLine, type BuiltinRegion, type CreateKind, type ExistingNode, type MapPlanItem, type PlanNode } from "./map-edit-plan";
+import { mergeCheck, mergeNodes } from "./map-merge";
 import { getMyLifeData, type MyLifeData } from "./my-life";
 import { MY_LIFE_COPY } from "./my-life-copy";
 import {
@@ -25,6 +26,8 @@ import {
   createPlaceGroupNode,
   createPlaceNode,
   createStoryNode,
+  deleteImpact,
+  deleteNode,
   moveCustom,
   removeLink,
   renameAny,
@@ -46,7 +49,15 @@ const A = MY_LIFE_COPY.ask;
 const E = MY_LIFE_COPY.edit;
 const QUESTION_MAX = 80;
 
-type PlanCtx = { text: string; view: MapView; shown: Set<string>; plan: MapPlanItem[]; created: Map<string, { name: string; kind: string }> };
+type PlanCtx = {
+  text: string;
+  view: MapView;
+  shown: Set<string>;
+  plan: MapPlanItem[];
+  created: Map<string, { name: string; kind: string }>;
+  mixed: boolean; // 지우기·합치기를 다른 일과 같이 시켰음(§6.10 ③)
+  personDelete: boolean; // 사람 지우기를 시켰음(Q87)
+};
 
 const same = (a: string, b: string) => normalizeForSearch(a) === normalizeForSearch(b);
 const saidOk = (ctx: PlanCtx, said: unknown) => {
@@ -93,6 +104,10 @@ function containerRule(container: PlanNode, member: PlanNode): string | null {
 
 // 쓰기 도구 하나 → 계획 한 줄 또는 오류(모델에게 돌려줌). DB 쓰기 0.
 function planTool(ctx: PlanCtx, name: string, input: Record<string, unknown>): unknown {
+  if (ctx.plan.some(isDestructive)) {
+    ctx.mixed = true;
+    return { error: "지우기·합치기는 다른 일과 같이 담을 수 없어요. 더 담지 말고 answer 를 부르세요." };
+  }
   if (ctx.plan.length >= MAP_EDIT_PLAN_MAX) return { error: `한 번에 ${MAP_EDIT_PLAN_MAX}개까지예요. 더 담지 말고 answer 를 부르세요.` };
   if (!saidOk(ctx, input.said)) return { error: "said 가 요청에 없어요. 시키지 않은 일은 담지 않아요." };
 
@@ -187,8 +202,44 @@ function planTool(ctx: PlanCtx, name: string, input: Record<string, unknown>): u
   return { error: `없는 도구예요: ${name}` };
 }
 
+// 사람 구별용 이름 — 같은 이름 두 분을 합칠 때 카드에서 가려 보이게(전우 강호·사촌 강호). 다른 종류는 이름 그대로.
+function labelOf(ctx: PlanCtx, n: ExistingNode): string {
+  const same = ctx.view.nodes.filter((x) => x.kind === n.kind && x.name === n.name);
+  const row = ctx.view.nodes.find((x) => ctx.view.refs.get(x.alias)?.id === n.ref.id);
+  return same.length > 1 && row?.relation ? `${row.relation} ${n.name}` : n.name;
+}
+
+// 지우기·합치기 — 영향 수를 세므로 DB 를 읽는다(쓰기 0). 수를 못 세면 카드를 만들지 않는다(§6.10 ①).
+async function planDestructive(userId: string, ctx: PlanCtx, name: "delete_node" | "merge_nodes", input: Record<string, unknown>): Promise<unknown> {
+  if (!saidOk(ctx, input.said)) return { error: "said 가 요청에 없어요. 시키지 않은 일은 담지 않아요." };
+  if (ctx.plan.length > 0) {
+    ctx.mixed = true;
+    return { error: "지우기·합치기는 다른 일과 같이 담을 수 없어요. 더 담지 말고 answer 를 부르세요." };
+  }
+  if (name === "delete_node") {
+    const n = resolve(ctx, input.node);
+    if (isErr(n)) return n;
+    if ("newKey" in n) return { error: "없는 노드예요. find_nodes 로 찾아 주세요." };
+    if (n.ref.type === "PERSON") {
+      ctx.personDelete = true;
+      return { error: "사람은 여기서 지울 수 없어요. 담지 말고 answer 에 unsupported 를 true 로 하세요." };
+    }
+    const impact = await deleteImpact(userId, n.ref);
+    if (!impact) return { error: "지울 수 없는 것이에요(기본 시기·기본 카테고리). 담지 말고 answer 에 unsupported 를 true 로 하세요." };
+    return push(ctx, { tool: "delete_node", node: n, impact });
+  }
+  const from = resolve(ctx, input.from);
+  if (isErr(from)) return from;
+  const to = resolve(ctx, input.to);
+  if (isErr(to)) return to;
+  if ("newKey" in from || "newKey" in to) return { error: "없는 노드예요. find_nodes 로 찾아 주세요." };
+  const c = await mergeCheck(userId, from.ref, to.ref);
+  if (!c.ok) return { error: c.error };
+  return push(ctx, { tool: "merge_nodes", from, to, fromLabel: labelOf(ctx, from), toLabel: labelOf(ctx, to), impact: c.impact });
+}
+
 export type MapEditPlanResult =
-  | { ok: true; plan: MapPlanItem[]; question: string | null; unsupported: boolean; usage: MapUsage }
+  | { ok: true; plan: MapPlanItem[]; question: string | null; unsupported: boolean; note: string | null; usage: MapUsage }
   | { ok: false; reason: "empty" | "limit" | "budget" | "failed" };
 
 export async function planMapEdit(userId: string, textRaw: string, opts: { callModel?: ModelCaller; data?: MyLifeData; dailyLimit?: number } = {}): Promise<MapEditPlanResult> {
@@ -199,7 +250,7 @@ export async function planMapEdit(userId: string, textRaw: string, opts: { callM
 
   const view = buildMapView(opts.data ?? (await getMyLifeData(userId)));
   const list = mapListText(view);
-  const ctx: PlanCtx = { text, view, shown: new Set(list.shown), plan: [], created: new Map() };
+  const ctx: PlanCtx = { text, view, shown: new Set(list.shown), plan: [], created: new Map(), mixed: false, personDelete: false };
   const loop = await runMapLoop({
     userId,
     purpose: "MAP_EDIT",
@@ -211,6 +262,7 @@ export async function planMapEdit(userId: string, textRaw: string, opts: { callM
     onTool: async (u) => {
       const input = (u.input && typeof u.input === "object" ? u.input : {}) as Record<string, unknown>;
       if (u.name === "find_nodes" || u.name === "read_node") return runReadTool(view, ctx.shown, u.name, input);
+      if (u.name === "delete_node" || u.name === "merge_nodes") return planDestructive(userId, ctx, u.name, input);
       return planTool(ctx, u.name, input);
     },
   });
@@ -220,8 +272,17 @@ export async function planMapEdit(userId: string, textRaw: string, opts: { callM
   const finish = loop.raw as { question?: unknown; unsupported?: unknown };
   const q = typeof finish.question === "string" ? stripAlias(finish.question).text.replace(/\s+/g, " ").trim() : "";
   const question = q && /\?$/.test(q) && q.length <= QUESTION_MAX ? q : null;
+  // 지우기·합치기를 다른 일과 같이 시켰으면 아무것도 담지 않는다 — 한쪽만 조용히 하지 않게(§6.10 ③).
+  if (ctx.mixed) return { ok: true, plan: [], question: A.plan.oneAtATime, unsupported: false, note: null, usage: loop.usage };
   // 되묻는 답이면 담긴 계획은 안 보여 준다(어느 것인지 모르는 채 실행하지 않게).
-  return { ok: true, plan: question ? [] : ctx.plan, question, unsupported: finish.unsupported === true, usage: loop.usage };
+  return {
+    ok: true,
+    plan: question ? [] : ctx.plan,
+    question,
+    unsupported: finish.unsupported === true || ctx.personDelete,
+    note: ctx.personDelete ? A.plan.personDelete : null,
+    usage: loop.usage,
+  };
 }
 
 // ── 실행 — 사용자가 확인 카드에서 누른 뒤 ─────────────────────────
@@ -296,7 +357,27 @@ async function createStep(userId: string, item: Extract<MapPlanItem, { tool: "cr
   }
 }
 
+// 지우기·합치기 — 되돌리기 없음(§6.10 ④). 카드에 보인 수와 지금 수가 다르면 안 한다(②).
+async function deleteStep(userId: string, item: Extract<MapPlanItem, { tool: "delete_node" }>): Promise<StepResult> {
+  const ref = item.node.ref;
+  if (ref.type === "PERSON") return { ok: false, error: A.plan.personDelete }; // Q87 — 고쳐 보낸 계획도
+  const now = await deleteImpact(userId, ref);
+  if (!now) return { ok: false, error: E.notFound };
+  if (JSON.stringify(now) !== JSON.stringify(item.impact)) return { ok: false, error: A.plan.staleImpact };
+  const r = await deleteNode(userId, ref);
+  if (!r.ok) return r;
+  return { ok: true, tool: "delete_node", node: ref, key: null, eventId: null, undo: null };
+}
+
+async function mergeStep(userId: string, item: Extract<MapPlanItem, { tool: "merge_nodes" }>): Promise<StepResult> {
+  const r = await mergeNodes(userId, item.from.ref, item.to.ref, item.impact);
+  if (!r.ok) return r;
+  return { ok: true, tool: "merge_nodes", node: item.from.ref, key: item.to.key, eventId: item.to.eventId, undo: null };
+}
+
 async function applyStep(userId: string, item: MapPlanItem, made: Map<string, Made>): Promise<StepResult> {
+  if (item.tool === "delete_node") return deleteStep(userId, item);
+  if (item.tool === "merge_nodes") return mergeStep(userId, item);
   if (item.tool === "create_node") return createStep(userId, item, made);
   if (item.tool === "rename_region") {
     const r = await renameBuiltin(userId, item.region, item.newName);

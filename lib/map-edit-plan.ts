@@ -2,6 +2,7 @@
 // 계획 = 모델이 낸 쓰기 도구를 서버가 확인해 실제 노드로 바꾼 것. 카드 문장은 코드가 조립한다(모델 말을 그대로 안 보여 줌 — §4.6).
 
 import { MY_LIFE_COPY } from "./my-life-copy";
+import type { DeleteImpact } from "./my-life-edit";
 import type { NodeType } from "./generated/prisma/enums";
 import { shortTitle } from "./story-title";
 
@@ -15,7 +16,12 @@ export type PlanNode =
   | { ref: { type: NodeType; id: string }; name: string; kind: string; key: string; eventId: string | null }
   | { newKey: string; name: string; kind: string };
 
+export type ExistingNode = Extract<PlanNode, { ref: unknown }>;
+
 export type BuiltinRegion = "PEOPLE" | "PLACES";
+
+// 3c 합치기 — 카드에 보이는 수(§6.10 ①). 실행 때 다시 세어 다르면 안 한다. links = 옮겨지는 연결 수 · body = 원본 글이 어떻게 되는지.
+export type MergeImpact = { links: number; body: "none" | "moved" | "kept" };
 
 export type MapPlanItem =
   | { tool: "create_node"; newKey: string; kind: CreateKind; name: string; relation: string | null; year: number | null; endYear: number | null; parent: PlanNode | null; body: string | null; decision: "new" | null }
@@ -25,9 +31,52 @@ export type MapPlanItem =
   | { tool: "unlink"; a: PlanNode; b: PlanNode }
   | { tool: "put_in"; container: PlanNode; member: PlanNode }
   | { tool: "take_out"; container: PlanNode; member: PlanNode }
-  | { tool: "move"; node: PlanNode; to: PlanNode };
+  | { tool: "move"; node: PlanNode; to: PlanNode }
+  | { tool: "delete_node"; node: ExistingNode; impact: DeleteImpact }
+  | { tool: "merge_nodes"; from: ExistingNode; to: ExistingNode; fromLabel: string; toLabel: string; impact: MergeImpact };
 
 const P = MY_LIFE_COPY.ask.plan;
+const E = MY_LIFE_COPY.edit;
+const X = MY_LIFE_COPY.custom;
+
+// 지우기·합치기 — 되돌릴 수 없어서 계획에 혼자만 담는다(§6.10 ③).
+export const isDestructive = (item: MapPlanItem) => item.tool === "delete_node" || item.tool === "merge_nodes";
+
+export function deleteLinkedText(im: DeleteImpact): string {
+  const parts = [
+    ...(!im.storiesDeleted && im.stories > 0 ? [E.linkStories(im.stories)] : []),
+    ...(im.people > 0 ? [E.linkPeople(im.people)] : []),
+    ...(im.places > 0 ? [E.linkPlaces(im.places)] : []),
+    ...(im.periods > 0 ? [E.linkPeriods(im.periods)] : []),
+    ...(im.groups > 0 ? [E.linkGroups(im.groups)] : []),
+  ];
+  return parts.length > 0 ? E.deleteLinked(parts) : E.deleteNoLinks;
+}
+
+// 확인 카드의 영향 줄 — 지우기는 지도 패널과 같은 문장·같은 순서(§6.10 ①).
+export function planNotes(item: MapPlanItem): string[] {
+  if (item.tool === "delete_node") {
+    const im = item.impact;
+    return [
+      ...(im.storiesDeleted && im.stories > 0 ? [E.deleteStoriesToo(im.stories)] : []),
+      ...(im.customKind === "CATEGORY" ? [X.deleteCatNote(im.customDeleted, im.customOut)] : []),
+      ...(im.customKind === "GROUP" ? [X.deleteGroupNote(im.customOut)] : []),
+      ...(im.customKind === "ITEM" ? [X.deleteItemNote(im.customLinks)] : []),
+      ...(im.customKind === "ITEM" && im.personBody ? [X.deleteItemBody] : []),
+      ...(!im.customKind ? [deleteLinkedText(im)] : []),
+      ...(im.placeGroups > 0 ? [E.deletePlaceGroups(im.placeGroups)] : []),
+      ...(im.familyActivity > 0 ? [E.deleteFamily(im.familyActivity)] : []),
+    ];
+  }
+  if (item.tool === "merge_nodes") {
+    return [
+      P.mergeMoved(item.fromLabel, item.toLabel, item.impact.links),
+      ...(item.impact.body === "moved" ? [P.mergeBodyMoved(item.fromLabel, item.toLabel)] : []),
+      ...(item.impact.body === "kept" ? [P.mergeBodyKept(item.fromLabel, item.toLabel)] : []),
+    ];
+  }
+  return [];
+}
 
 // 할 일(확인 카드) / 한 일(결과 카드) — 같은 문장 틀, 끝말만 다르다.
 export function planLine(item: MapPlanItem, tense: "will" | "did"): string {
@@ -50,6 +99,10 @@ export function planLine(item: MapPlanItem, tense: "will" | "did"): string {
       return P.takeOut(item.member.name, item.container.name, t);
     case "move":
       return P.move(item.node.name, item.to.name, t);
+    case "delete_node":
+      return P.delete(item.node.name, t);
+    case "merge_nodes":
+      return P.merge(item.fromLabel, item.toLabel, t);
   }
 }
 
@@ -100,9 +153,20 @@ export function parsePlan(raw: unknown): MapPlanItem[] | null {
       const to = planNode(o.to);
       if (!node || !to) return null;
       out.push({ tool: "move", node, to });
+    } else if (o.tool === "delete_node") {
+      const node = planNode(o.node);
+      // 수는 실행 때 다시 세어 비교하므로 고쳐 보내도 걸린다(§6.10 ②). 여기서는 모양만.
+      if (!node || !("ref" in node) || !o.impact || typeof o.impact !== "object") return null;
+      out.push({ tool: "delete_node", node, impact: o.impact as DeleteImpact });
+    } else if (o.tool === "merge_nodes") {
+      const from = planNode(o.from);
+      const to = planNode(o.to);
+      if (!from || !to || !("ref" in from) || !("ref" in to) || !str(o.fromLabel) || !str(o.toLabel) || !o.impact || typeof o.impact !== "object") return null;
+      out.push({ tool: "merge_nodes", from, to, fromLabel: o.fromLabel, toLabel: o.toLabel, impact: o.impact as MergeImpact });
     } else {
       return null;
     }
   }
+  if (out.some(isDestructive) && out.length !== 1) return null; // 혼자만(§6.10 ③)
   return out;
 }
