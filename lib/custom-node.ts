@@ -113,6 +113,11 @@ export async function setBuiltinName(userId: string, builtin: unknown, nameInput
   return { ok: true, prevName: prev?.name ?? null };
 }
 
+// 처음 바꾸기 전으로 되돌리기 — 행을 지워 기본 이름으로(AI 지도 편집 되돌리기).
+export async function clearBuiltinName(userId: string, builtin: BuiltinCategory): Promise<void> {
+  await prisma.customNode.deleteMany({ where: { userId, builtin } });
+}
+
 // 기본 카테고리 표시 이름 — 행이 없으면 null(화면이 기본 이름을 쓴다).
 export async function builtinNames(userId: string): Promise<Record<BuiltinCategory, string | null>> {
   const rows = await prisma.customNode.findMany({ where: { userId, builtin: { in: [...BUILTIN_CATEGORIES] } }, select: { builtin: true, name: true } });

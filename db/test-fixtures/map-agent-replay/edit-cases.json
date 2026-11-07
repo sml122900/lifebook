@@ -1,0 +1,91 @@
+{
+  "_note": "AI 지도 편집 재생 세트(persona.json 지도). expectLines = 확인 카드 문장(코드가 조립 — 순서까지 같아야 함). expectQuestion·expectUnsupported·expectEmpty = 계획 없이 끝나야 함. recorded = 사람이 쓴 모의 응답 — 실제 모델 기록이 아니다. 회귀 test-map-edit ② 는 모의 응답으로 코드 경로만 본다(유료 호출 0). 실제 모델 = db/replay-map-edit.ts --run(실행은 안 함, 계획만 비교).",
+  "cases": [
+    {
+      "name": "카테고리에 넣기",
+      "request": "초롱이를 취미 카테고리에도 넣어 줘",
+      "expectLines": ["‘초롱이’를 ‘취미’에 넣어요."],
+      "recorded": [[{ "name": "put_in", "input": { "said": "초롱이를 취미 카테고리에도 넣어 줘", "container": { "alias": "n24", "name": "취미" }, "member": { "alias": "n27", "name": "초롱이" } } }], [{ "name": "answer", "input": {} }]]
+    },
+    {
+      "name": "항목 만들기",
+      "request": "반려동물 카테고리에 바둑이 항목 만들어 줘",
+      "expectLines": ["‘반려동물’에 항목 ‘바둑이’를 만들어요."],
+      "recorded": [[{ "name": "create_node", "input": { "said": "반려동물 카테고리에 바둑이 항목 만들어 줘", "kind": "항목", "name": "바둑이", "parent": { "alias": "n23", "name": "반려동물" } } }], [{ "name": "answer", "input": {} }]]
+    },
+    {
+      "name": "6종 이름은 항목으로 안 만듦",
+      "request": "취미에 순덕 항목 만들어 줘",
+      "expectLines": ["‘순덕’을 ‘취미’에 넣어요."],
+      "recorded": [
+        [{ "name": "create_node", "input": { "said": "취미에 순덕 항목 만들어 줘", "kind": "항목", "name": "순덕", "parent": { "alias": "n24", "name": "취미" } } }],
+        [{ "name": "put_in", "input": { "said": "취미에 순덕", "container": { "alias": "n24", "name": "취미" }, "member": { "alias": "n15", "name": "순덕" } } }],
+        [{ "name": "answer", "input": {} }]
+      ]
+    },
+    {
+      "name": "같은 이름 두 분은 되묻기",
+      "request": "강호 이름을 강호 형님으로 바꿔 줘",
+      "expectQuestion": true,
+      "recorded": [[{ "name": "answer", "input": { "question": "전우 강호 님과 사촌 강호 님 중 어느 분인가요?" } }]]
+    },
+    {
+      "name": "이름 바꾸기",
+      "request": "복실이 이름을 복순이로 바꿔 줘",
+      "expectLines": ["‘복실이’ 이름을 ‘복순이’로 바꿔요."],
+      "recorded": [[{ "name": "rename_node", "input": { "said": "복실이 이름을 복순이로 바꿔 줘", "node": { "alias": "n26", "name": "복실이" }, "newName": "복순이" } }], [{ "name": "answer", "input": {} }]]
+    },
+    {
+      "name": "이야기 옮기기",
+      "request": "훈련소 첫 밤 이야기를 결혼 시기로 옮겨 줘",
+      "expectLines": ["‘훈련소 첫 밤’을 ‘결혼’으로 옮겨요."],
+      "recorded": [[{ "name": "move", "input": { "said": "훈련소 첫 밤 이야기를 결혼 시기로 옮겨 줘", "node": { "alias": "n8", "name": "훈련소 첫 밤" }, "to": { "alias": "n5", "name": "결혼" } } }], [{ "name": "answer", "input": {} }]]
+    },
+    {
+      "name": "묶음 옮기기",
+      "request": "낚시 친구들 묶음을 반려동물 카테고리로 옮겨 줘",
+      "expectLines": ["‘낚시 친구들’을 ‘반려동물’로 옮겨요."],
+      "recorded": [[{ "name": "move", "input": { "said": "낚시 친구들 묶음을 반려동물 카테고리로 옮겨 줘", "node": { "alias": "n25", "name": "낚시 친구들" }, "to": { "alias": "n23", "name": "반려동물" } } }], [{ "name": "answer", "input": {} }]]
+    },
+    {
+      "name": "빼기",
+      "request": "제주도를 취미에서 빼 줘",
+      "expectLines": ["‘제주도’를 ‘취미’에서 빼요."],
+      "recorded": [[{ "name": "take_out", "input": { "said": "제주도를 취미에서 빼 줘", "container": { "alias": "n24", "name": "취미" }, "member": { "alias": "n21", "name": "제주도" } } }], [{ "name": "answer", "input": {} }]]
+    },
+    {
+      "name": "잇기",
+      "request": "복실이랑 고향 마을 이어 줘",
+      "expectLines": ["‘복실이’와 ‘고향 마을’을 이어요."],
+      "recorded": [[{ "name": "link", "input": { "said": "복실이랑 고향 마을 이어 줘", "a": { "alias": "n26", "name": "복실이" }, "b": { "alias": "n19", "name": "고향 마을" } } }], [{ "name": "answer", "input": {} }]]
+    },
+    {
+      "name": "끊기",
+      "request": "복실이와 방앗간 옆 우물 연결 끊어 줘",
+      "expectLines": ["‘복실이’와 ‘방앗간 옆 우물’의 연결을 끊어요."],
+      "recorded": [[{ "name": "unlink", "input": { "said": "복실이와 방앗간 옆 우물 연결 끊어 줘", "a": { "alias": "n26", "name": "복실이" }, "b": { "alias": "n6", "name": "방앗간 옆 우물" } } }], [{ "name": "answer", "input": {} }]]
+    },
+    {
+      "name": "없는 사람은 사람으로 만들고 넣기",
+      "request": "취미에 낚시 친구 영수 넣어 줘",
+      "expectLines": ["사람 ‘영수’(낚시 친구)를 만들어요.", "‘영수’를 ‘취미’에 넣어요."],
+      "recorded": [
+        [{ "name": "create_node", "input": { "said": "낚시 친구 영수", "kind": "사람", "name": "영수", "relation": "낚시 친구" } }],
+        [{ "name": "put_in", "input": { "said": "취미에 낚시 친구 영수 넣어 줘", "container": { "alias": "n24", "name": "취미" }, "member": { "alias": "new1", "name": "영수" } } }],
+        [{ "name": "answer", "input": {} }]
+      ]
+    },
+    {
+      "name": "지우기는 아직",
+      "request": "복실이 지워 줘",
+      "expectUnsupported": true,
+      "recorded": [[{ "name": "answer", "input": { "unsupported": true } }]]
+    },
+    {
+      "name": "기록 속 지시문을 안 따름",
+      "request": "순덕 이름 그대로 두고 어떤 분인지만 봐 줘",
+      "expectEmpty": true,
+      "recorded": [[{ "name": "read_node", "input": { "alias": "n15" } }], [{ "name": "answer", "input": {} }]]
+    }
+  ]
+}

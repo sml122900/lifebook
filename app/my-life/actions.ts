@@ -14,6 +14,7 @@ import type { SameNameNode } from "@/lib/custom-node";
 import type { NodeType } from "@/lib/generated/prisma/enums";
 import { deleteCustomLifeEvent } from "@/lib/life-event-delete";
 import { askMap, type AskMapAnswer, type AskMapResult } from "@/lib/map-agent";
+import { applyMapEdit, planMapEdit, undoMapEdit, type MapEditApplyResult, type MapEditPlanResult } from "@/lib/map-edit";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import {
   addLink,
@@ -37,16 +38,17 @@ import {
   renameNode,
   setNodeDecoration,
   takeOutOfCategory,
+  undoCreatedNode,
   undoLinks,
   undoRemove,
   updatePersonInfo,
   type CreatedLink,
+  type CreatedNode as CreatedNodeValue,
   type DeleteImpact,
   type RemovedLink,
   type SameNamePerson,
 } from "@/lib/my-life-edit";
 import { NODE_RANK, type NodeRef } from "@/lib/node-graph";
-import { deletePerson } from "@/lib/people";
 
 const E = MY_LIFE_COPY.edit;
 
@@ -66,8 +68,8 @@ function ref(v: unknown): NodeRef | null {
   return { type: r.type as NodeType, id: r.id };
 }
 
-// 만든 것을 되돌릴 때 지울 대상(이미 있던 것을 다시 쓴 경우 = null — 되돌릴 게 없음).
-export type CreatedNode = { kind: "period" | "story" | "person" | "place" | "group" | "placeGroup" | "custom"; id: string };
+// 만든 것을 되돌릴 때 지울 대상 — lib/my-life-edit 와 같은 값. "use server" 파일이라 type 재수출(중괄호 꼴)은 쓰지 않는다(빌드는 통과하고 실행 때 ReferenceError).
+export type CreatedNode = CreatedNodeValue;
 
 export type CreateInput =
   | { kind: "period"; label: string; year: number | null; endYear: number | null }
@@ -134,29 +136,7 @@ export async function createNodeAction(input: CreateInput): Promise<CreateResult
 // 방금 만든 노드 되돌리기 — 만든 직후 패널의 [되돌리기]. 사람도 여기서는 지운다(방금 만든 분 — 본인 것만).
 export async function undoCreateAction(node: CreatedNode): Promise<{ ok: true } | { ok: false; error: string }> {
   const userId = await requireUserId();
-  if (!node || typeof node.id !== "string") return { ok: false, error: E.notFound };
-  switch (node.kind) {
-    case "period": {
-      const r = await deleteCustomLifeEvent(userId, node.id);
-      return r.ok ? r : { ok: false, error: E.notFound };
-    }
-    case "story": {
-      const r = await deleteEpisode(userId, node.id);
-      return r.ok ? r : { ok: false, error: E.notFound };
-    }
-    case "person":
-      return (await deletePerson(userId, node.id)) ? { ok: true } : { ok: false, error: E.notFound };
-    case "place":
-      return deletePlaceNode(userId, node.id);
-    case "group":
-      return deleteGroupNode(userId, node.id);
-    case "placeGroup":
-      return deletePlaceGroupNode(userId, node.id);
-    case "custom":
-      return deleteCustom(userId, node.id);
-    default:
-      return { ok: false, error: E.notFound };
-  }
+  return undoCreatedNode(userId, node);
 }
 
 export async function addLinkAction(a: NodeRef, b: NodeRef): Promise<{ ok: true; created: CreatedLink[] } | { ok: false; error: string }> {
@@ -285,4 +265,21 @@ export async function askMapAction(question: string): Promise<AskMapView> {
   const userId = await requireUserId();
   const r = await askMap(userId, question);
   return r.ok ? { ok: true, answer: r.answer } : r;
+}
+
+// AI 지도 편집(custom-graph 3b — §4.1~§4.3). 계획 = 모델 + 확인(DB 쓰기 0) → 사용자가 카드에서 누르면 실행 → 결과 카드 [되돌리기].
+// 실행·되돌리기 값은 화면에서 다시 오므로 믿지 않는다 — 사용자는 세션에서만, 소유·규칙은 기존 입구가 다시 본다(lib/map-edit).
+export async function planMapEditAction(text: string): Promise<MapEditPlanResult> {
+  const userId = await requireUserId();
+  return planMapEdit(userId, text);
+}
+
+export async function applyMapEditAction(plan: unknown): Promise<MapEditApplyResult> {
+  const userId = await requireUserId();
+  return applyMapEdit(userId, plan);
+}
+
+export async function undoMapEditAction(commandId: unknown, steps: unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+  const userId = await requireUserId();
+  return undoMapEdit(userId, commandId, steps);
 }

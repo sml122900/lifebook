@@ -163,3 +163,11 @@ export type { ConfirmedEpisodeItem } from "@/lib/life-event-query";            /
 
 - `export type { X };`(로컬 재노출) ≠ `export type { X } from "모듈";`(직접 재노출) — 둘 다 `tsc` 는 통과하지만 Turbopack "use server" 변환에서는 후자만 안전.
 - 이 버그는 **다른 파일이 그 타입을 이름으로 import 해야 표면화**한다 — 재노출 자체는 조용히 존재하다가, 새 소비처가 생기는 순간 빌드가 깨진다. `"use server"` 파일에서 타입을 재노출할 일이 생기면 처음부터 `export type {X} from "모듈"` 한 문장 형태를 기본으로 쓸 것.
+
+## 같은 종류 — type 재수출(2026-11-07)
+
+`"use server"` 파일에서 중괄호 꼴 type 재수출(`export type { X };`)도 같은 문제를 낸다. `tsc`·`next build` 는 통과하는데, 실행하면 `ReferenceError: X is not defined` 로 그 파일의 서버 액션이 전부 죽는다(`/my-life` 에서 재현 — 운영 빌드를 브라우저로 돌려 잡음, 배포 전).
+
+- 고침: `export type X = Y;` 꼴로(이 파일의 다른 타입과 같은 꼴).
+- 회귀: `test-map-edit` ⑥ — `app/my-life/actions.ts` 에 중괄호 꼴 type 재수출 없음.
+

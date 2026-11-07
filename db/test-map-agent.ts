@@ -247,7 +247,7 @@ async function main() {
     check("⑦ 지도 전후 같음(모델이 쓰기 도구 이름을 불러도 아무것도 안 바뀜)", before === (await snapshot()));
     const agentSrc = read("lib/map-agent.ts") + read("lib/map-agent-view.ts") + read("lib/prompts/map-agent.ts");
     const writes = agentSrc.match(/prisma\.\w+\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\b|\$executeRaw|saveNodeLink|removeNodeLink|from "\.\/my-life-edit"|from "\.\/custom-node"/g);
-    check("⑦ 쓰기 코드 없음(원장 recordChatUsage 만) · 질문을 로그·DB 에 안 남김", writes === null && !/console\.(log|info|warn)/.test(agentSrc) && read("lib/map-agent.ts").includes(`await recordChatUsage(userId, "MAP_ASK"`), writes);
+    check("⑦ 쓰기 코드 없음(원장 recordChatUsage 만) · 질문을 로그·DB 에 안 남김", writes === null && !/console\.(log|info|warn)/.test(agentSrc) && read("lib/map-agent.ts").includes("await recordChatUsage(opts.userId, opts.purpose, {"), writes);
     const actions = read("app/my-life/actions.ts");
     const fn = actions.slice(actions.indexOf("export async function askMapAction"));
     check("⑦ 액션 첫 줄 auth · 사용자 지정은 세션에서만", fn.split("\n")[1].includes("await requireUserId()") && fn.slice(0, 300).includes("askMap(userId, question)"), fn.slice(0, 200));
@@ -256,7 +256,7 @@ async function main() {
     const view2 = read("app/my-life/MyLifeView.tsx");
     check("⑧ 찾기 시트 안 입구 → 시트 · 칩 = 찾기와 같은 goTo · 지도 편집 버튼 없음", view2.includes("onAsk={openAsk}") && view2.includes("<AskSheet") && view2.includes('aria-labelledby="mylife-ask-title"') && read("app/my-life/AskSheet.tsx").includes("onGo(n.key, n.eventId)") && !read("app/my-life/AskSheet.tsx").includes("saveNodeLink"));
     check("⑧ 칩·찾기 → 지도 이동은 선택 줄이 생긴 뒤에(첫 선택에 지도 상자 높이가 바뀌며 이동이 끊기던 것 — 2026-11-07 실측)", view2.includes("requestAnimationFrame(() => requestAnimationFrame(() => apiRef.current?.zoomToElement(el, Math.max(stateRef.current.scale, 1), 300)))"));
-    check("⑧ 서버 함수 시간 상한(여러 라운드) · 이동 지도 · 문구 [임시]", read("app/my-life/page.tsx").includes("export const maxDuration = 60;") && read("docs/navigation-map.md").includes("AI에게 물어보기") && /지도 질문 답하기[^\n]*\[임시/.test(read("lib/my-life-copy.ts")));
+    check("⑧ 서버 함수 시간 상한(여러 라운드) · 이동 지도 · 문구 [임시]", read("app/my-life/page.tsx").includes("export const maxDuration = 60;") && read("docs/navigation-map.md").includes("AI에게 부탁하기") && /지도 질문 답하기[^\n]*\[임시/.test(read("lib/my-life-copy.ts")));
     check("⑧ 안 보내는 칸은 화면에는 그대로(만난 해 등은 패널·찾기가 씀 — getMyLifeData 무변)", read("lib/my-life.ts").includes("metYear: p.metYear"));
 
     // ── ⑨ AI 편집 기록(Q92 B안) ──────────

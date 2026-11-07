@@ -11,7 +11,8 @@
 //   사람은 /people 기존 삭제(지도는 안내만). 연결 정리는 DB 트리거·FK(마이그 20261030000000·20261102000000).
 
 import { prisma } from "./db";
-import { createEpisodeBridge } from "./episode";
+import { createEpisodeBridge, deleteEpisode } from "./episode";
+import { deleteCustomLifeEvent } from "./life-event-delete";
 import { MY_LIFE_COPY } from "./my-life-copy";
 import {
   cleanupStoryPeriodPeople,
@@ -29,6 +30,7 @@ import { createPerson, deletePerson, updatePerson } from "./people";
 import {
   createCategory,
   createCustomNode,
+  clearBuiltinName,
   CUSTOM_LIMITS,
   deleteCustomNode,
   moveCustomNode,
@@ -82,7 +84,7 @@ async function isConfirmedPerson(userId: string, id: string): Promise<boolean> {
 
 // 노드 둘을 잇는다. 사람 쪽은 확정 인물만. 이야기↔사람이면 주 소속 시기↔사람도(출처 STORY — 이야기 따라).
 // 시기↔사람을 직접 넣으면 DIRECT(같은 쌍이 STORY 였으면 DIRECT 로 올림 — §14.8).
-export async function addLink(userId: string, a: NodeRef, b: NodeRef): Promise<{ ok: true; created: CreatedLink[] } | Fail> {
+export async function addLink(userId: string, a: NodeRef, b: NodeRef, opts: { source?: "AI" } = {}): Promise<{ ok: true; created: CreatedLink[] } | Fail> {
   for (const n of [a, b]) if (n.type === "PERSON" && !(await isConfirmedPerson(userId, n.id))) return { ok: false, error: E.notFound };
   let pairs: (CreatedLink & { origin?: PeriodPersonOrigin })[] = [{ a, b }];
   const ep = a.type === "EPISODE" ? a : b.type === "EPISODE" ? b : null;
@@ -96,7 +98,7 @@ export async function addLink(userId: string, a: NodeRef, b: NodeRef): Promise<{
   }
   const created: CreatedLink[] = [];
   for (const [i, p] of pairs.entries()) {
-    const r = await saveNodeLink(userId, p.a, p.b, p.origin ? { origin: p.origin } : {});
+    const r = await saveNodeLink(userId, p.a, p.b, { ...(p.origin ? { origin: p.origin } : {}), ...(opts.source ? { source: opts.source } : {}) });
     if (!r.ok) {
       if (i === 0) return { ok: false, error: r.reason === "primary_membership" ? E.alreadyPrimary : r.reason === "not_found" ? E.notFound : E.cannotLink };
       console.error("[my-life-edit] companion link", r.reason);
@@ -185,6 +187,36 @@ export async function undoRemove(userId: string, links: RemovedLink[]): Promise<
 }
 
 // ── 만들기 ─────────────────────────────────────────────────────────
+
+// 만든 것을 되돌릴 때 지울 대상(이미 있던 것을 다시 쓴 경우 = null — 되돌릴 게 없음).
+export type CreatedNode = { kind: "period" | "story" | "person" | "place" | "group" | "placeGroup" | "custom"; id: string };
+
+// 방금 만든 노드 되돌리기 — 만든 직후 패널의 [되돌리기] · AI 지도 편집 결과 카드. 사람도 여기서는 지운다(방금 만든 분 — 본인 것만).
+export async function undoCreatedNode(userId: string, node: CreatedNode): Promise<{ ok: true } | Fail> {
+  if (!node || typeof node.id !== "string") return { ok: false, error: E.notFound };
+  switch (node.kind) {
+    case "period": {
+      const r = await deleteCustomLifeEvent(userId, node.id);
+      return r.ok ? r : { ok: false, error: E.notFound };
+    }
+    case "story": {
+      const r = await deleteEpisode(userId, node.id);
+      return r.ok ? r : { ok: false, error: E.notFound };
+    }
+    case "person":
+      return (await deletePerson(userId, node.id)) ? { ok: true } : { ok: false, error: E.notFound };
+    case "place":
+      return deletePlaceNode(userId, node.id);
+    case "group":
+      return deleteGroupNode(userId, node.id);
+    case "placeGroup":
+      return deletePlaceGroupNode(userId, node.id);
+    case "custom":
+      return deleteCustom(userId, node.id);
+    default:
+      return { ok: false, error: E.notFound };
+  }
+}
 
 // 시기 — 이름(30) · 연도(선택) · 끝 연도(선택, 연도 있을 때만, 연도 이상).
 export async function createPeriodNode(
@@ -517,9 +549,16 @@ export async function createCustomChild(
 }
 
 // 기본 카테고리(인물록·장소록) 표시 이름 — 영역 제목만 바뀐다(Q76, "록" 자동으로 안 붙임).
-export async function renameBuiltin(userId: string, builtin: unknown, name: unknown): Promise<{ ok: true } | Fail> {
+export async function renameBuiltin(userId: string, builtin: unknown, name: unknown): Promise<{ ok: true; prev: string | null } | Fail> {
   const r = await setBuiltinName(userId, builtin, name);
-  return r.ok ? { ok: true } : { ok: false, error: customError(r.reason) };
+  return r.ok ? { ok: true, prev: r.prevName } : { ok: false, error: customError(r.reason) };
+}
+
+// 기본 카테고리 이름 되돌리기 — 처음 바꾼 것이면 행을 지워 기본 이름으로.
+export async function undoBuiltinName(userId: string, builtin: "PEOPLE" | "PLACES", prev: string | null): Promise<{ ok: true } | Fail> {
+  if (prev !== null) return renameBuiltin(userId, builtin, prev);
+  await clearBuiltinName(userId, builtin);
+  return { ok: true };
 }
 
 // 자리 옮기기(묶음·항목 → 다른 사용자 카테고리). undo = 원래 카테고리(새 카테고리로의 넣기 연결을 지웠으면 되돌리지 않음 — null).
@@ -578,6 +617,83 @@ export async function renameNode(userId: string, node: NodeRef, rawName: unknown
   return { ok: false, error: E.notFound };
 }
 
+
+// 모든 종류 이름 바꾸기(AI 지도 편집 — 이전 이름을 돌려줌). 장소·모임·사용자 노드는 위 renameNode, 사람은 updatePersonInfo(다른 칸은 그대로),
+// 장소 묶음·시기·이야기 제목은 여기서. 시기 = 직접 만든 시기는 label, 처음 정한 시기는 correctedLabel(prev null = 고친 이름 없었음).
+export async function renameAny(userId: string, node: NodeRef, rawName: unknown): Promise<{ ok: true; prev: string | null } | Fail> {
+  const notFound = { ok: false as const, error: E.notFound };
+  const named = (max: number): { name: string } | Fail => {
+    const name = clean(rawName, max + 1);
+    if (!name) return { ok: false, error: E.needName };
+    return name.length > max ? { ok: false, error: E.tooLong(max) } : { name };
+  };
+  switch (node.type) {
+    case "PERSON": {
+      const p = await prisma.person.findFirst({ where: { id: node.id, userId, isDraft: false, subjectType: "person" }, select: { name: true, relation: true, birthYear: true, metYear: true, memo: true } });
+      if (!p) return notFound;
+      const r = await updatePersonInfo(userId, node.id, { name: rawName, relation: p.relation ?? "", birthYear: p.birthYear, metYear: p.metYear, memo: p.memo ?? "" });
+      return r.ok ? { ok: true, prev: p.name } : r;
+    }
+    case "PLACE":
+    case "PERSON_GROUP":
+    case "CUSTOM": {
+      const row =
+        node.type === "PLACE"
+          ? await prisma.place.findFirst({ where: { id: node.id, userId }, select: { name: true } })
+          : node.type === "PERSON_GROUP"
+            ? await prisma.personGroup.findFirst({ where: { id: node.id, userId }, select: { name: true } })
+            : await prisma.customNode.findFirst({ where: { id: node.id, userId }, select: { name: true } });
+      if (!row) return notFound;
+      const r = await renameNode(userId, node, rawName);
+      return r.ok ? { ok: true, prev: row.name } : r;
+    }
+    case "PLACE_GROUP": {
+      const n = named(EDIT_LIMITS.groupName);
+      if ("ok" in n) return n;
+      const row = await prisma.placeGroup.findFirst({ where: { id: node.id, userId }, select: { name: true } });
+      if (!row) return notFound;
+      await prisma.placeGroup.updateMany({ where: { id: node.id, userId }, data: { name: n.name } });
+      return { ok: true, prev: row.name };
+    }
+    case "LIFE_EVENT": {
+      const n = named(EDIT_LIMITS.periodLabel);
+      if ("ok" in n) return n;
+      const row = await prisma.lifeEvent.findFirst({ where: { id: node.id, userId }, select: { type: true, label: true, correctedLabel: true } });
+      if (!row) return notFound;
+      const own = row.type === "CUSTOM";
+      await prisma.lifeEvent.updateMany({ where: { id: node.id, userId }, data: own ? { label: n.name } : { correctedLabel: n.name } });
+      return { ok: true, prev: own ? row.label : row.correctedLabel };
+    }
+    case "EPISODE": {
+      const n = named(EDIT_LIMITS.storyTitle);
+      if ("ok" in n) return n;
+      const ep = await prisma.episode.findFirst({ where: { id: node.id, lifeEvent: { userId } }, select: { memoryId: true, memory: { select: { title: true } } } });
+      if (!ep) return notFound;
+      await prisma.userMemory.updateMany({ where: { id: ep.memoryId, userId }, data: { title: n.name } });
+      return { ok: true, prev: ep.memory.title };
+    }
+    default:
+      return notFound;
+  }
+}
+
+// 이름 되돌리기 — 시기의 고친 이름·이야기 제목은 원래 비어 있었을 수 있어 그대로 되돌린다.
+export async function undoRename(userId: string, node: NodeRef, prev: string | null): Promise<{ ok: true } | Fail> {
+  if (node?.type === "LIFE_EVENT") {
+    const row = await prisma.lifeEvent.findFirst({ where: { id: node.id, userId }, select: { type: true } });
+    if (!row) return { ok: false, error: E.notFound };
+    await prisma.lifeEvent.updateMany({ where: { id: node.id, userId }, data: row.type === "CUSTOM" ? { label: prev ?? "" } : { correctedLabel: prev } });
+    return { ok: true };
+  }
+  if (node?.type === "EPISODE") {
+    const ep = await prisma.episode.findFirst({ where: { id: node.id, lifeEvent: { userId } }, select: { memoryId: true } });
+    if (!ep) return { ok: false, error: E.notFound };
+    await prisma.userMemory.updateMany({ where: { id: ep.memoryId, userId }, data: { title: prev ?? "" } });
+    return { ok: true };
+  }
+  const r = await renameAny(userId, node, prev ?? "");
+  return r.ok ? { ok: true } : r;
+}
 
 // 장소 — 이야기 안의 그 장소 행(이야기 브릿지 MemoryPlace)도 같이 지운다(지도에서 지운 곳이 이야기 칩으로 남지 않게).
 // 옛 연혁·사진 메모리의 장소 행은 FK SetNull 로 이름만 남는다(v2 화면 무수정). 연결(NodeLink)은 트리거, 묶음 구성원은 FK.

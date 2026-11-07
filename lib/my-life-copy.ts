@@ -398,13 +398,14 @@ export const MY_LIFE_COPY = {
 
   // 지도 질문 답하기(custom-graph 3a — 2026-11-07, docs/phase/custom-graph.md §4.4·§6.8) — 전부 [임시 — 성민 확정 필요]
   ask: {
-    open: "AI에게 물어보기", // 찾기 시트 안 버튼
-    title: "AI에게 물어보기",
-    hint: "지도에 적어 두신 것 안에서만 답해요. 지도를 바꾸지는 않아요.",
+    open: "AI에게 부탁하기", // 찾기 시트 안 버튼
+    title: "AI에게 부탁하기",
+    hint: "지도에 적어 두신 것을 물어보거나 고쳐 달라고 하실 수 있어요. 고치기 전에 무엇을 할지 먼저 보여 드려요.",
     placeholder: "예: 고향 친구가 누구였지?",
     submit: "물어보기",
+    edit: "지도 고치기", // 3b — 확인 카드로
     pending: "지도를 살펴보는 중…",
-    asksChange: "지도를 고치는 일은 아직 못 해요. 지도에서 직접 고쳐 주세요.",
+    asksChange: "지도를 고쳐 달라는 말씀이시네요. 아래 버튼을 누르시면 무엇을 고칠지 먼저 보여 드려요.",
     noRecord: "지도에 아직 없는 이야기예요.",
     noRecordAbout: (topic: string) => `${topic}${withJosa(topic, "은/는")} 지도에 아직 없는 이야기예요.`,
     errors: {
@@ -412,6 +413,34 @@ export const MY_LIFE_COPY = {
       limit: "오늘 물어보실 수 있는 만큼 다 물어보셨어요. 내일 다시 물어봐 주세요.",
       budget: "오늘은 AI 답하기를 쉬어요. 찾기와 직접 고치기는 그대로 돼요.",
       failed: "답을 가져오지 못했어요. 다시 해 주세요.",
+    },
+    // AI 지도 편집(custom-graph 3b — 2026-11-07) — 확인 카드·결과 카드 — 전부 [임시 — 성민 확정 필요]. 문장은 코드가 조립(lib/map-edit-plan).
+    plan: {
+      title: "이렇게 고칠까요?",
+      apply: "이대로 하기",
+      applying: "고치는 중…",
+      cancel: "그만두기",
+      doneTitle: "이렇게 고쳤어요",
+      go: "지도에서 보기",
+      undo: "되돌리기",
+      undoing: "되돌리는 중…",
+      undone: "되돌렸어요.",
+      undoFailed: "되돌리지 못했어요. 지도에서 직접 고쳐 주세요.",
+      stopped: (line: string, error: string) => `여기서 멈췄어요 — ${line} ${error}`,
+      empty: "어떻게 고칠지 잘 모르겠어요. 조금 더 자세히 말씀해 주세요.",
+      unsupported: "지우기와 합치기는 아직 부탁하실 수 없어요. 지도에서 직접 해 주세요.",
+      already: "이미 그렇게 되어 있어서 그대로 뒀어요.",
+      notLinked: "이어져 있지 않아서 뺄 것이 없어요.",
+      cannotMove: "이 둘 사이로는 옮길 수 없어요.",
+      askSame: "이름이 같은 것이 있어요. 어느 것인지 말씀해 주세요.",
+      create: (kind: string, name: string, relation: string | null, t: "will" | "did") => `${kind} ‘${name}’${relation ? `(${relation})` : ""}${withJosa(relation ?? name, "을/를")} ${t === "will" ? "만들어요" : "만들었어요"}.`,
+      createIn: (parent: string, kind: string, name: string, t: "will" | "did") => `‘${parent}’에 ${kind} ‘${name}’${withJosa(name, "을/를")} ${t === "will" ? "만들어요" : "만들었어요"}.`,
+      rename: (from: string, to: string, t: "will" | "did") => `‘${from}’ 이름을 ‘${to}’${withJosa(to, "으로/로")} ${t === "will" ? "바꿔요" : "바꿨어요"}.`,
+      link: (a: string, b: string, t: "will" | "did") => `‘${a}’${withJosa(a, "과/와")} ‘${b}’${withJosa(b, "을/를")} ${t === "will" ? "이어요" : "이었어요"}.`,
+      unlink: (a: string, b: string, t: "will" | "did") => `‘${a}’${withJosa(a, "과/와")} ‘${b}’의 연결을 ${t === "will" ? "끊어요" : "끊었어요"}.`,
+      putIn: (member: string, container: string, t: "will" | "did") => `‘${member}’${withJosa(member, "을/를")} ‘${container}’에 ${t === "will" ? "넣어요" : "넣었어요"}.`,
+      takeOut: (member: string, container: string, t: "will" | "did") => `‘${member}’${withJosa(member, "을/를")} ‘${container}’에서 ${t === "will" ? "빼요" : "뺐어요"}.`,
+      move: (node: string, to: string, t: "will" | "did") => `‘${node}’${withJosa(node, "을/를")} ‘${to}’${withJosa(to, "으로/로")} ${t === "will" ? "옮겨요" : "옮겼어요"}.`,
     },
   },
 

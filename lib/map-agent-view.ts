@@ -37,6 +37,7 @@ export type MapView = {
   nodes: SentNode[];
   byAlias: Map<string, SentNode>;
   screen: Map<string, ScreenRef>;
+  refs: Map<string, MyLifeRef>; // 별칭 → 실제 노드(모델로 안 감 — 지도 편집 계획이 씀)
   regionNames: { people: string | null; places: string | null }; // 인물록·장소록 표시 이름을 바꾼 것만
 };
 
@@ -56,6 +57,7 @@ export function buildMapView(data: MyLifeData): MapView {
   const custom = customOf(data);
   const nodes: SentNode[] = [];
   const screen = new Map<string, ScreenRef>();
+  const refs = new Map<string, MyLifeRef>();
   const aliasOf = new Map<string, string>(); // "종류:id" → 별칭
 
   const add = (refKey: string, n: Omit<SentNode, "alias" | "links">, s: Omit<ScreenRef, "title">): SentNode => {
@@ -64,6 +66,8 @@ export function buildMapView(data: MyLifeData): MapView {
     nodes.push(node);
     aliasOf.set(refKey, alias);
     screen.set(alias, { ...s, title: node.name });
+    const [type, id] = [refKey.slice(0, refKey.indexOf(":")), refKey.slice(refKey.indexOf(":") + 1)];
+    refs.set(alias, { type: type as MyLifeRef["type"], id });
     return node;
   };
   const link = (a: string | undefined, name: SentLink, b: string | undefined) => {
@@ -166,6 +170,7 @@ export function buildMapView(data: MyLifeData): MapView {
     nodes,
     byAlias: new Map(nodes.map((n) => [n.alias, n])),
     screen,
+    refs,
     regionNames: { people: names.PEOPLE ? cleanName(names.PEOPLE) : null, places: names.PLACES ? cleanName(names.PLACES) : null },
   };
 }
