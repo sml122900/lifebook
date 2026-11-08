@@ -33,7 +33,6 @@ import { modelId } from "../lib/ai-model";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { MAP_EDIT_LOG_DAYS, markMapEditUndone, recordMapEdit } from "../lib/map-edit-log";
 import { BudgetBlockedError, recordScopedUsage, withUsageLedger } from "../lib/ai";
-import { getPosterCandidates } from "../lib/poster/ai-cache";
 import { budgetBlock, isTestAccount, isTestAccountEmail, recordChatUsage, spentTodayMicroUsd, testSpentTodayMicroUsd } from "../lib/chat-v3-usage";
 import { freeChatReply } from "../lib/free-chat";
 import { planMapEdit } from "../lib/map-edit";
@@ -291,7 +290,7 @@ async function main() {
     const privacyNow = read("app/privacy/page.tsx").replace(/\s+/g, " ");
     check("⑨ 처리방침 v1.5 — 1항 마에 90일·남기지 않는 것 · 공지 등록(오늘 시행 = 성민 승인 사유) · 동의 버전 5 유지 · 칸 설명이 스키마와 같음",
       !!v15 && noticeProblem(v15) === null && v15.noticeDay === v15.effectiveDay && (v15.leadException ?? "").includes("성민") && (v15.leadException ?? "").includes("실사용자 0") && CURRENT_CONSENT_VERSION === 5 &&
-        privacyNow.includes("(작업 이름·기록 종류·기록 번호·시각·되돌린 시각)를 90일 동안 보관한 뒤 지웁니다. 부탁하신 말씀과 기록 내용은 이 기록에 남기지 않습니다.") && privacyNow.includes("· 시행일: 2026년 11월 7일"));
+        privacyNow.includes("(작업 이름·기록 종류·기록 번호·시각·되돌린 시각)를 90일 동안 보관한 뒤 지웁니다. 부탁하신 말씀과 기록 내용은 이 기록에 남기지 않습니다.") && privacyNow.includes("- v1.5 — 2026년 11월 7일 시행")); // 현재 시행일은 v1.6(2026-11-09)부터 다름 — v1.5 는 개정 이력 줄로
 
     // ── ⑩ 테스트 계정 명시 표시 ──────
     const userF = await makeUser(EMAIL_FLAG, "[fixture] flag");
@@ -377,14 +376,10 @@ async function main() {
         const asDaily = await blockedReason(); // 전역 예산 = 모든 계정
         process.env.CHAT_V3_DAILY_BUDGET_USD = "1000";
         const passed = await blockedReason(); // 둘 다 여유 → 부름
-        const rowsBefore = await prisma.chatV3Usage.count({ where: { userId: userF } });
-        process.env.CHAT_V3_TEST_BUDGET_USD = "0";
-        // 진입점 하나를 실제로 — 포스터 후보(한도면 AI 없이 고른 후보, 원장 줄 0)
-        const cands = await getPosterCandidates(userF, [{ eventId: "e1", year: 1970, title: "한도 확인", content: "본문", category: null }]);
-        const rowsAfter = await prisma.chatV3Usage.count({ where: { userId: userF } });
-        check("⑩ 한도 일원화 — 범위를 열기 전에 확인: 테스트 한도 넘음 = test · 전역 예산 넘음 = daily(모든 계정) · 그 안 함수 호출 0 · 여유면 부름 · 진입점(포스터 후보) = AI 없이 폴백·원장 0",
-          asTest === "test" && asDaily === "daily" && passed === null && fnCalls === 1 && cands.length === 1 && rowsAfter === rowsBefore,
-          { asTest, asDaily, passed, fnCalls, cands: cands.length, rowsBefore, rowsAfter });
+        // (진입점 실제 확인에 쓰던 포스터 후보 고르기는 2026-11-08 포스터 판매 종료로 삭제 — 진입점 처리는 아래 파일 목록 검사로.)
+        check("⑩ 한도 일원화 — 범위를 열기 전에 확인: 테스트 한도 넘음 = test · 전역 예산 넘음 = daily(모든 계정) · 그 안 함수 호출 0 · 여유면 부름",
+          asTest === "test" && asDaily === "daily" && passed === null && fnCalls === 1,
+          { asTest, asDaily, passed, fnCalls });
       } finally {
         if (prevT === undefined) delete process.env.CHAT_V3_TEST_BUDGET_USD;
         else process.env.CHAT_V3_TEST_BUDGET_USD = prevT;
@@ -397,11 +392,11 @@ async function main() {
       "app/api/companion/route.ts", "app/api/onboarding-chat/route.ts", "app/api/tutorial-chat/route.ts", "app/api/refine-text/route.ts",
       "app/api/memory/[memoryId]/refine/route.ts", "app/api/timemachine/assistant/route.ts", "app/actions/onboarding-v3.ts", "app/actions/life-event.ts",
       "app/life-timeline/companion/actions.ts", "app/life-timeline/free-record/actions.ts", "app/memory/[eventId]/actions.ts",
-      "app/timemachine/[year]/[month]/cleanup-action.ts", "app/poster/custom/actions.ts", "lib/interview/session.ts", "lib/poster/ai-cache.ts", "lib/poster/snapshot.ts",
+      "app/timemachine/[year]/[month]/cleanup-action.ts", "lib/interview/session.ts",
     ];
     const SILENT_FALLBACK = ["app/onboarding-chat/actions.ts", "lib/memory-chat.ts"]; // 원래 catch 가 빈 결과·기본 질문으로 넘어감
     const notHandled = HANDLES_BLOCK.filter((f) => !read(f).includes("BudgetBlockedError"));
-    check("⑩ 한도 일원화 — 진입점 거절 처리(문구: 라우트 429 · 설정 단계·인터뷰 연도 blocked · 말동무 정리 건너뜀 ?ai= · 통녹음 · 맞춤 배경) · 폴백 2곳 · 음성 인식 제출 전 확인 · 공통 문구 [임시]",
+    check("⑩ 한도 일원화 — 진입점 거절 처리(문구: 라우트 429 · 설정 단계·인터뷰 연도 blocked · 말동무 정리 건너뜀 ?ai= · 통녹음) · 폴백 2곳 · 음성 인식 제출 전 확인 · 공통 문구 [임시]",
       notHandled.length === 0 && SILENT_FALLBACK.every((f) => read(f).includes("withUsageLedger(")) &&
         read("app/api/clova-stt/route.ts").includes("const block = await budgetBlock(userId);") &&
         read("lib/budget-copy.ts").includes("[임시 — 성민 확정 필요]") && read("lib/ai.ts").includes("if (block) throw new BudgetBlockedError(block);"),
@@ -423,9 +418,6 @@ async function main() {
       ["lib/memory-chat.ts", ["lib/memory-chat.ts", "app/memory/[eventId]/actions.ts"], "MEMORY_CHAT"],
       ["lib/memory-refine.ts", ["app/api/refine-text/route.ts", "app/api/memory/[memoryId]/refine/route.ts"], "REFINE"],
       ["lib/node-proposal.ts", ["lib/node-proposal.ts"], "explicit"],
-      ["lib/poster/background-generate.ts", ["app/poster/custom/actions.ts"], "POSTER_BG"],
-      ["lib/poster/poster-candidates.ts", ["lib/poster/ai-cache.ts"], "POSTER_CANDIDATES"],
-      ["lib/poster/poster-sentences.ts", ["lib/poster/snapshot.ts"], "POSTER_SENTENCES"],
       ["lib/timemachine-assistant.ts", ["app/api/timemachine/assistant/route.ts"], "ASSISTANT"],
       ["lib/voice-cleanup.ts", ["app/timemachine/[year]/[month]/cleanup-action.ts"], "VOICE_CLEANUP"],
     ];

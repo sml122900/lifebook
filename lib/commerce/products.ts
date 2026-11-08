@@ -66,6 +66,9 @@ export const PRODUCTS: readonly Product[] = [
       // PG 심사 대응(2026-09-12) — 심사 기간 한정 숨김. 정의는 보존.
       { id: "premium", name: "프리미엄", spec: "지클레 매트 아카이벌", unitKrw: 99000, hidden: true },
     ],
+    // 2026-11-08 판매 종료(My Life 인쇄본으로 교체 — docs/phase/print-mylife.md §9). 정의는 보존 주문 2건의 이름·옵션 표시에만 남김 —
+    // 목록·상세·주문 모두 없음(그리기 코드 삭제, 보존 주문 그림 = lib/commerce/kept-poster).
+    orderable: false,
   },
   {
     id: "charm",
@@ -98,8 +101,8 @@ export const PRODUCTS: readonly Product[] = [
     spec: "A4 세로 · 장수에 따라 6·12·20장 구간", // [임시 — 성민 확정 필요] 2026-11-08
     blurb: "내 My Life 지도를 시기별로 한 장씩 담은 인쇄본 — 가족과 한 장씩 넘기며 이야기해요.", // [임시 — 성민 확정 필요] 2026-11-08
     unitKrw: PRINT_TIERS.find((t) => t.unitKrw != null)?.unitKrw ?? 0, // 표시용 최저가(구간 표는 상세 화면)
-    image: "/icons/icon-512.png", // 견본 = 시험 인쇄 사진(Q19) — 그 전까지 비공개라 보이지 않음
-    imageAlt: "My Life 인쇄본 견본",
+    image: "/landing/print-cover.webp", // 견본 = 렌더 그림(가상 인물 — 랜딩과 같음). 시험 인쇄 사진(Q19)이 나오면 교체
+    imageAlt: "My Life 인쇄본 표지와 차례 견본",
     orderable: printOnSale(SHIPPING_KRW),
   },
 ] as const;

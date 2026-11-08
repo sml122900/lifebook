@@ -19,16 +19,16 @@ import {
 // 랜딩(/) — 비로그인 전용. 로그인 사용자는 /life-timeline 로 보낸다.
 // 헤더(로고 + 로그인)는 app/layout.tsx 가 비로그인에게 이미 렌더 → 여기선 섹션만.
 //
-// v2.0 리뉴얼: "말로 이야기하면 AI가 멋진 포스터를 만든다"를 3초 안에.
-// ①히어로(결과물 먼저) ②작동 3단계(녹음 강조) ③결과물 갤러리(다양성)
-// ④제품(포스터 중심·책 축소) ⑤안심 ⑥마무리 CTA. 디자인 토큰 v1.0(cream·따뜻·존엄).
+// v3.0(2026-11-08 — 강물 포스터 → My Life 인쇄본 교체, docs/phase/print-mylife.md §9): "말로 이야기하면 AI가 지도로 정리하고,
+// 시기마다 한 장씩 인쇄본으로" — ①히어로(인쇄본 한 장) ②작동 3단계 ③인쇄본 견본 ④제품(금액 정하기 전 "곧 선보여요") ⑤안심 ⑥마무리 CTA.
 
 export const metadata = {
-  title: "Lifebook — 말로 남기는 인생, 한 장의 포스터로",
+  // [임시 — 성민 확정 필요] 2026-11-08 (옛 "한 장의 포스터로")
+  title: "Lifebook — 말로 남기는 인생, 한 장씩 넘겨 보는 인쇄본으로",
   description:
-    "말로 이야기하면 AI가 알아서 정리하고, 멋진 인생 포스터로 만들어드려요. 어르신도 가족도 쉽게.",
+    "말로 이야기하면 AI가 알아서 정리해 My Life 지도로 그려 드려요. 시기마다 한 장씩 인쇄본으로도. 어르신도 가족도 쉽게.",
   openGraph: {
-    title: "Lifebook — 말로 남기는 인생, 한 장의 포스터로",
+    title: "Lifebook — 말로 남기는 인생, 한 장씩 넘겨 보는 인쇄본으로",
     description: S1.sub,
     siteName: "Lifebook",
     locale: "ko_KR",
@@ -38,8 +38,8 @@ export const metadata = {
 
 const STEP_ICONS = { mic: Mic, sparkles: Sparkles, image: ImageIcon } as const;
 
-// 포스터 액자 프레임 — 샘플 포스터 공용(히어로·갤러리·제품). 포스터 비율(2200/3103).
-function PosterFrame({
+// 인쇄본 쪽 프레임 — 견본 그림 공용(히어로·견본·제품). A4 세로 비율(840/1188 — lib/print-layout).
+function PageFrame({
   src,
   alt,
   className,
@@ -55,7 +55,7 @@ function PosterFrame({
   return (
     <div
       className={
-        "relative aspect-[2200/3103] overflow-hidden rounded-xl border border-line bg-surface shadow-md " +
+        "relative aspect-[840/1188] overflow-hidden rounded-xl border border-line bg-surface shadow-md " +
         (className ?? "")
       }
     >
@@ -90,6 +90,7 @@ export default async function Home({
   const visibleSoon = PRODUCT.soon.filter(
     (s) => getProduct(s.id)?.orderable !== false,
   );
+  const mainOnSale = getProduct(PRODUCT.main.productId)?.orderable !== false;
 
   return (
     <main className="flex-1">
@@ -116,11 +117,11 @@ export default async function Home({
             </a>
           </div>
         </div>
-        {/* 비주얼 = 프리미엄 샘플 포스터(결과물 먼저 보여줌) */}
+        {/* 비주얼 = 인쇄본 한 장 견본(결과물 먼저 보여줌) */}
         <div className="flex justify-center lg:justify-end">
-          <PosterFrame
-            src={S1.posterSrc}
-            alt={S1.posterAlt}
+          <PageFrame
+            src={S1.heroSrc}
+            alt={S1.heroAlt}
             priority
             className="w-full max-w-[330px]"
             sizes="(max-width: 640px) 80vw, 330px"
@@ -128,7 +129,7 @@ export default async function Home({
         </div>
       </section>
 
-      {/* ── ② 작동 3단계 (#how) — 녹음 → AI → 포스터 ──────────────────── */}
+      {/* ── ② 작동 3단계 (#how) — 녹음 → AI → 지도·인쇄본 ──────────────── */}
       <section
         id="how"
         className="scroll-mt-24 bg-banner/40 py-16"
@@ -162,7 +163,7 @@ export default async function Home({
         </div>
       </section>
 
-      {/* ── ③ 결과물 갤러리 — 다양성(맞춤배경) ───────────────────────── */}
+      {/* ── ③ 인쇄본 견본(렌더 그림 — 시험 인쇄 사진은 Q19 뒤) ─────────────── */}
       <section
         className="mx-auto max-w-5xl px-6 py-16"
         aria-labelledby="gallery-title"
@@ -175,21 +176,21 @@ export default async function Home({
             {GALLERY.sub}
           </p>
         </div>
-        <ul className="mt-10 grid grid-cols-2 gap-5 lg:grid-cols-4">
-          {GALLERY.posters.map((p) => (
+        <ul className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3">
+          {GALLERY.pages.map((p) => (
             <li key={p.src} className="flex flex-col gap-2">
-              <PosterFrame
+              <PageFrame
                 src={p.src}
                 alt={p.alt}
-                sizes="(max-width: 1024px) 45vw, 230px"
+                sizes="(max-width: 640px) 45vw, 300px"
               />
-              <p className="text-center text-base text-ink-faint">{p.tone}</p>
+              <p className="text-center text-lg text-ink-soft">{p.label}</p>
             </li>
           ))}
         </ul>
       </section>
 
-      {/* ── ④ 제품 (포스터 중심 · 책·씨앗은 준비 중) ─────────────────── */}
+      {/* ── ④ 제품 (My Life 인쇄본 · 책·씨앗은 준비 중) ──────────────── */}
       <section
         className="mx-auto max-w-5xl px-6 py-16"
         aria-labelledby="product-title"
@@ -198,9 +199,9 @@ export default async function Home({
           {PRODUCT.headline}
         </h2>
 
-        {/* 메인 = 포스터(크게) */}
+        {/* 메인 = My Life 인쇄본(크게) */}
         <div className="mt-10 grid items-center gap-8 rounded-xl border-2 border-brand bg-banner p-8 sm:p-10 lg:grid-cols-[300px_1fr]">
-          <PosterFrame
+          <PageFrame
             src={PRODUCT.main.src}
             alt={PRODUCT.main.alt}
             className="w-full max-w-[300px] justify-self-center"
@@ -210,12 +211,19 @@ export default async function Home({
             <p className="text-2xl font-bold text-ink">{PRODUCT.main.title}</p>
             <p className="text-xl text-ink-soft">{PRODUCT.main.body}</p>
             <div className="flex justify-center lg:justify-start">
-              <Link
-                href={PRODUCT.main.href}
-                className={buttonClasses("secondary", "lg")}
-              >
-                {PRODUCT.main.cta} →
-              </Link>
+              {/* 금액 정하기 전(상품 비공개 — 상세 404)에는 링크 없이 "곧 선보여요" */}
+              {mainOnSale ? (
+                <Link
+                  href={PRODUCT.main.href}
+                  className={buttonClasses("secondary", "lg")}
+                >
+                  {PRODUCT.main.cta} →
+                </Link>
+              ) : (
+                <span className="rounded-full bg-canvas px-4 py-2 text-lg font-semibold text-ink-soft">
+                  {PRODUCT.main.soonLabel}
+                </span>
+              )}
             </div>
           </div>
         </div>

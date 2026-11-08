@@ -1092,13 +1092,13 @@ async function main() {
     }
     {
       // 밤 우주 전원(2026-11-05) — 화면 코드에 직접 적은 기본 팔레트 색이 다시 생기지 않게(밤에서 안 뒤집혀 섞인 색이 됨, ui-night §8).
-      // 예외 = 포스터 그림·인쇄물(print-export)·공유 그림·매니페스트(색 클래스가 아닌 그림 값).
+      // 예외 = 공유 그림·매니페스트(색 클래스가 아닌 그림 값). (포스터 인쇄물 print-export 는 2026-11-08 삭제.)
       const walk = (dir: string): string[] =>
         fs.readdirSync(path.resolve(__dirname, "..", dir), { withFileTypes: true }).flatMap((d) =>
           d.isDirectory() ? walk(`${dir}/${d.name}`) : /\.(ts|tsx)$/.test(d.name) ? [`${dir}/${d.name}`] : []);
       const RAW = /(?:^|[^a-z-])(?:text|bg|border|border-[lrtbxy]|ring|from|to|via|fill|stroke|outline|divide|placeholder|accent|decoration|caret)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/;
       const hits = ["app", "components"].flatMap(walk)
-        .filter((f) => !/^app\/(poster\/print-export|opengraph-image|manifest)\./.test(f))
+        .filter((f) => !/^app\/(opengraph-image|manifest)\./.test(f))
         .flatMap((f) => src(f).split("\n").map((l, i) => [f, i + 1, l] as const))
         .filter(([, , l]) => RAW.test(l) || /(?:^|[\s"'`:])bg-white\b/.test(l) || /bg-action\b[^"'`]*\btext-white\b/.test(l))
         .map(([f, n]) => `${f}:${n}`);
@@ -1143,16 +1143,15 @@ async function main() {
     // 2026-11-04 — 고정 [내 정보] 버튼 겹침: 로그인한 화면의 앱 머리 줄을 위에 붙이고(sticky) 버튼을 그 안 오른쪽 빈자리에. 다른 sticky 줄·앵커는 그 아래에서.
     const layout13 = src("app/layout.tsx");
     const css13 = src("app/globals.css");
-    check("⑬ 앱 머리 줄(로그인) — sticky·높이 --app-header-h 56px·오른쪽 버튼 자리 · 버튼은 그 안 가운데(보이는 48 + 터치 56) · html scroll-padding · chat-v3·포스터 고르기 sticky 줄은 그 아래",
+    check("⑬ 앱 머리 줄(로그인) — sticky·높이 --app-header-h 56px·오른쪽 버튼 자리 · 버튼은 그 안 가운데(보이는 48 + 터치 56) · html scroll-padding · chat-v3 sticky 줄은 그 아래(포스터 고르기는 2026-11-08 삭제)",
       layout13.includes('"sticky top-0 z-20 flex h-[var(--app-header-h)] items-center border-b border-line bg-canvas pl-6 pr-44"') &&
         layout13.includes('data-app-header={sidePanelData ? "" : undefined}') && css13.includes("--app-header-h: 3.5rem;") && side13.includes("before:absolute before:inset-x-0 before:-inset-y-1.5") &&
         /html\[data-app-header\] \{\s*scroll-padding-top: var\(--app-header-h\);/.test(css13) &&
         side13.includes("fixed right-4 top-[calc((var(--app-header-h)-3rem)/2)] z-30") &&
         src("app/chat-v3/ChatV3Client.tsx").includes('className="sticky top-[var(--app-header-h)] z-20 ') &&
         src("app/chat-v3/ChatV3Client.tsx").includes("root.style.scrollPaddingTop = `calc(var(--app-header-h) + ${el.offsetHeight}px)`;") &&
-        src("app/poster/select/PosterSelectClient.tsx").includes('className="sticky top-[var(--app-header-h)] z-10 ') &&
         ["app/privacy/page.tsx", "app/terms/page.tsx"].every((f) => src(f).includes('role="note" className="mt-4 scroll-mt-4 ')) &&
-        !/sticky top-0/.test(src("app/chat-v3/ChatV3Client.tsx") + src("app/poster/select/PosterSelectClient.tsx")));
+        !/sticky top-0/.test(src("app/chat-v3/ChatV3Client.tsx")));
 
     for (const [g, pg] of [[0, 1], [2, 2], [3, 3], [1, 5]] as const) {
       const syn = synthetic({ events: 11, stories: 23, people: 12, groups: g, places: 14, placeGroups: pg, seed: 21 + pg });

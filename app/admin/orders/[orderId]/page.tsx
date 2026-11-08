@@ -6,12 +6,11 @@ import { BANK_TRANSFER_INFO } from "@/lib/commerce/bank";
 import { ORDER_STATUS_LABEL } from "@/lib/commerce/order-display";
 import { getProduct, getProductOption } from "@/lib/commerce/products";
 import { KST_DATE_TIME_FULL_FMT } from "@/lib/kst-date";
-import type { PosterSnapshot } from "@/lib/poster/snapshot";
 import type { PrintSnapshot } from "@/lib/commerce/print-orders";
 import { PRINT_TIERS } from "@/lib/commerce/print-tiers";
 import { PRINT_COPY } from "@/lib/print-copy";
+import { keptPosterImages } from "@/lib/commerce/kept-poster";
 
-import { PosterCompose } from "../../../poster/PosterCompose";
 import { PrintExport } from "./PrintExport";
 import {
   confirmBankPayment,
@@ -37,7 +36,7 @@ export default async function AdminOrderDetailPage({
 
   const product = getProduct(order.productId);
   const option = product ? getProductOption(product, order.optionId) : undefined;
-  const snapshot = order.posterSnapshot as unknown as PosterSnapshot | null;
+  const kept = await keptPosterImages(order.id); // 강물 포스터 보존 주문 2건 — 그림만(2026-11-08 그리기 코드 삭제)
   const printSnap = order.printSnapshot as unknown as PrintSnapshot | null; // My Life 인쇄본(2026-11-08)
 
   return (
@@ -132,19 +131,15 @@ export default async function AdminOrderDetailPage({
           </section>
         )}
 
-      {/* 인쇄 파일(스냅샷) — 발주용. PosterCompose 의 "인쇄용 파일 내려받기"로 export */}
-      {snapshot && (
+      {/* 강물 포스터 보존 주문 — 그리기 코드 삭제 전에 만든 인쇄 그림(lib/commerce/kept-poster). 다른 포스터 주문은 그림 없음. */}
+      {kept && (
         <section className="rounded-md border-2 border-line bg-surface px-5 py-4">
-          <h2 className="mb-3 text-base font-bold text-ink">인쇄 파일(주문 시점 스냅샷)</h2>
-          <PosterCompose
-            ownerName={snapshot.ownerName}
-            nodes={snapshot.nodes}
-            memos={snapshot.memos}
-            showYears={snapshot.showNodeYears}
-            birthYear={snapshot.birthYear}
-            eraTier={snapshot.eraTier}
-            removedEraEvents={snapshot.removedEraEvents}
-          />
+          <h2 className="mb-3 text-base font-bold text-ink">인쇄 파일(주문 시점 — 보존 그림)</h2>
+          <a href={kept.print} target="_blank" rel="noopener noreferrer" className="text-base font-semibold text-action underline">
+            인쇄용 파일 받기(5008×7063 · 300dpi JPEG)
+          </a>
+          {/* eslint-disable-next-line @next/next/no-img-element -- 서명 URL(1시간) 이미지, next/image 최적화 대상 아님 */}
+          <img src={kept.preview} alt="주문 시점 포스터 그림" className="mt-3 w-full max-w-md rounded-md border border-line" />
         </section>
       )}
 

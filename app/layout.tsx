@@ -118,7 +118,7 @@ export default async function RootLayout({
         >
           <Link
             href="/"
-            className="text-2xl font-bold text-ink hover:text-ink-soft"
+            className="inline-flex min-h-[48px] items-center text-2xl font-bold text-ink hover:text-ink-soft"
           >
             Lifebook
           </Link>

@@ -19,7 +19,6 @@ import { BudgetBlockedError, withUsageLedger } from "@/lib/ai";
 import type { BudgetReason } from "@/lib/budget-copy";
 import { prisma } from "@/lib/db";
 import { splitRecordingTranscript } from "@/lib/free-recording-split";
-import { addExtractedPreferences } from "@/lib/poster/preferences";
 import { resolveBirthYear } from "@/lib/life-events";
 import { redactTranscript } from "@/lib/transcript-redact";
 import {
@@ -144,8 +143,7 @@ export async function saveCompanionSessionAction(input: {
   try {
     const splitResult = await withUsageLedger(userId, "RECORDING_SPLIT", () => splitRecordingTranscript(redactedText, "동반자 대화", birthYear, existingForSplit));
 
-    // P5-5a — 추출 취향(맞춤배경용) 누적 저장. 실패는 무시(부가 작업).
-    await addExtractedPreferences(userId, splitResult.preferences).catch(() => {});
+    // 추출 취향(splitResult.preferences)은 저장하지 않음(2026-11-08 — 쓰던 곳 = 포스터 맞춤 배경, 판매 종료와 함께 수집 중단).
 
     for (const seg of splitResult.segments.slice(0, 10)) {
       const eventYear = typeof seg.estimatedYear === "number" ? seg.estimatedYear : null;

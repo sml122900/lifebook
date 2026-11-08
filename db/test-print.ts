@@ -12,6 +12,8 @@
 //      배송지 없음·상한 넘음 거절 · 편집·주문 뒤에도 실제 지도 그대로 · 남의 계정 편집 상태 안 보임
 //   ⑨ 화면·결제 — 성공 화면이 인쇄 주문만 위젯 시크릿 키로 확인 · 주문 제작 청약철회 제한 문구 없음 · 숨긴 상품 상세 404 ·
 //      인쇄 상품 주문 화면 → /my-life/print · 실결제 꺼짐 · 문구 [임시]
+//   ⑩ 강물 포스터 판매 종료(2026-11-08 — test-v3-poster-bridge 퇴역, 주문 막기 검사는 여기로) — 숨긴 상품(책·씨앗·포스터) 주문 거절 ·
+//      포스터 그리기 코드 없음 · 옛 /poster 주소 → 인쇄본 · 보존 주문 2건만 그림(관리자·주인 주문 상세)
 
 import "dotenv/config";
 import fs from "node:fs";
@@ -21,6 +23,8 @@ import { deleteAccountTx } from "../lib/account-deletion";
 import { createPendingPrintOrder, getPrintDraft, PRINT_PAYMENT_LIVE_ENABLED, PRINT_PRODUCT_ID, sanitizePrintOptions, savePrintDraft, type PrintSnapshot } from "../lib/commerce/print-orders";
 import { PRINT_MAX_TOTAL_KRW, PRINT_TIERS, printOnSale, tierFor, type PrintTier } from "../lib/commerce/print-tiers";
 import { getProduct, SHIPPING_KRW } from "../lib/commerce/products";
+import { createPendingProductOrder } from "../lib/commerce/orders";
+import { keptPosterImages } from "../lib/commerce/kept-poster";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { prisma } from "../lib/db";
 import type { MyLifeData } from "../lib/my-life";
@@ -226,6 +230,14 @@ async function main() {
     const notSale = await createPendingPrintOrder(a, back, ship);
     const rowsAfterNotSale = await prisma.productOrder.count({ where: { userId: a } });
     check("⑧ 금액 정하기 전 = 주문 거절 · 주문 행 0", !notSale.ok && rowsAfterNotSale === 0, notSale);
+    const hidden = await Promise.all([
+      createPendingProductOrder(a, "book", ship, "bank_transfer"),
+      createPendingProductOrder(a, "charm", ship, "card"),
+      createPendingProductOrder(a, "poster", ship, "card"),
+      createPendingProductOrder(a, PRINT_PRODUCT_ID, ship, "card"),
+    ]);
+    check("⑩ 숨긴 상품(책 무통장·씨앗·판매 종료 포스터·금액 전 인쇄본) 일반 주문 경로도 거절 · 주문 행 0",
+      hidden.every((r) => !r.ok) && (await prisma.productOrder.count({ where: { userId: a } })) === 0, hidden);
 
     const noShip = await createPendingPrintOrder(a, back, { ...ship, address1: " " }, T1);
     const tooSmall = await createPendingPrintOrder(a, back, ship, [{ id: "upto1", name: "1장", maxPages: 1, unitKrw: 1000 }]);
@@ -260,6 +272,15 @@ async function main() {
   check("⑨ 숨긴 상품(orderable false) 상세 404 · 인쇄 상품 주문 화면 → /my-life/print · 문구 [임시]",
     /orderable === false\) notFound\(\)/.test(read("app/shop/[productId]/page.tsx")) && read("app/shop/[productId]/order/page.tsx").includes('redirect("/my-life/print")') &&
       read("lib/print-copy.ts").includes("[임시 — 성민 확정 필요]") && read("lib/commerce/print-tiers.ts").includes("[임시 — 성민 확정 필요]"));
+
+  // ⑩ 강물 포스터 판매 종료
+  const exists = (rel: string) => fs.existsSync(path.join(ROOT, rel));
+  check("⑩ 포스터 — 상품 숨김(목록·상세·주문 없음) · 그리기 코드·맞춤 배경·포스터 주문 모듈 없음 · 옛 /poster 주소 → /my-life/print",
+    getProduct("poster")?.orderable === false && !exists("app/poster") && !exists("lib/poster") && !exists("app/api/poster") && !exists("lib/commerce/poster-orders.ts") &&
+      !exists("public/poster/river-bg.png") && read("next.config.ts").includes('{ source: "/poster/:path*", destination: "/my-life/print", permanent: false }'));
+  check("⑩ 보존 주문 그림 — 2건만(다른 주문 = 그림 없음, Storage 호출 0) · 관리자 발주·주인 주문 상세가 보여 줌",
+    (await keptPosterImages("cxxxxxxxxxxxxxxxxxxxxxxxx")) === null && read("app/admin/orders/[orderId]/page.tsx").includes("await keptPosterImages(order.id)") &&
+      read("app/account/orders/[orderId]/page.tsx").includes("await keptPosterImages(order.id)"));
 
   console.log(failed ? `\nFAIL ${failed} / ${count}` : `\nALL PASS (${count})`);
   await prisma.$disconnect();

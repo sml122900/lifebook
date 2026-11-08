@@ -11,8 +11,8 @@
 //   ⑧ LifeEvent.status SKIPPED 값 미사용 + 인터뷰가 쓰는 칸 = 연도뿐 — DB 스냅샷 전후 비교(2026-11-03 정적 검사 대신)
 //   ⑨ 풀 문구 {elemSchool} — 출생연도 기준 국민학교/초등학교 치환(+ 조사), 1960년생 픽스처 제목
 //   ⑩ 관계별 나(노드 그래프 2a, 실제 Sonnet 요약 1~2 + 인물 추출 1) — 출제(최대 1개·관계 대상 이름
-//      치환), Episode(kind=SELF) 저장, 이야기 ↔ 인물 확정 연결, 이야기 갭·배지 미충족, 포스터 브릿지
-//      제외, My Life 목록 보기 별도 묶음(Q69 전 /story-review), 순수 함수(키·후보·재노출·최대 1개·{who} 치환)
+//      치환), Episode(kind=SELF) 저장, 이야기 ↔ 인물 확정 연결, 이야기 갭·배지 미충족,
+//      My Life 목록 보기 별도 묶음(Q69 전 /story-review), 순수 함수(키·후보·재노출·최대 1개·{who} 치환)
 //
 // 자체 픽스처 계정(fixture-interview@lifebook.invalid)을 시작 시 만들고 끝에(성공·실패
 // 모두) deleteAccountTx 로 하위 데이터째 삭제한다. test30·실고객 계정 읽기·쓰기 0.
@@ -45,7 +45,6 @@ import {
   type InterviewPoolQuestion,
   type InterviewSelfQuestion,
 } from "../lib/interview/question-pool";
-import { syncV3Bridge } from "../lib/poster/v3-bridge";
 import { getMyLifeData } from "../lib/my-life";
 import { displayTitle } from "../lib/story-title";
 import {
@@ -466,12 +465,7 @@ async function main() {
       gapsAfterSelf.some((g) => g.type === "episode" && g.targetEventId === ev.HIGH_SCHOOL) && highAfter?.hasEpisode === false,
       { gaps: gapsAfterSelf.map((g) => `${g.type}:${g.targetEventId}`), highAfter });
     check("⑩ 갭 미충족 — 인물 이야기 갭(박영수)도 그대로", gapsAfterSelf.some((g) => g.type === "person_episode" && g.targetPersonId === friendId));
-    const bridgeRows = await syncV3Bridge(userId);
-    const highRow = bridgeRows.find((r) => r.id === `v3_${ev.HIGH_SCHOOL}`);
-    check("⑩ 포스터 브릿지 — 그때의 나는 본문·구간 행에 안 들어감(고교 = 본문 없음)",
-      highRow !== undefined && highRow.content === null &&
-        !bridgeRows.some((r) => r.id === `v3p_${selfEpId}` || (!!selfEp && (r.content ?? "").includes(selfEp.content.trim()))),
-      highRow);
+    // (포스터 브릿지 검사는 2026-11-08 포스터 판매 종료로 뺌 — 브릿지 만드는 코드 삭제.)
     // Q69 — 보이는 곳이 /story-review 에서 My Life 로(kind SELF = 시기 아래 "그때의 나" 꼬리표).
     const lifeStories = (await getMyLifeData(userId)).events.flatMap((e) => e.stories);
     const selfs = lifeStories.filter((x) => x.kind === "SELF");

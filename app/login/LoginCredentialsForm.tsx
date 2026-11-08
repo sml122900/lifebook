@@ -15,7 +15,7 @@ export function LoginCredentialsForm({ returnTo }: { returnTo: string | null }) 
       {/* 로그인 뒤 돌아갈 주소(2026-11-08) — 서버 액션이 다시 검사한다(lib/return-to). */}
       {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="login-email" className="text-sm font-medium text-ink">
+        <label htmlFor="login-email" className="text-lg font-medium text-ink">
           이메일
         </label>
         <input
@@ -25,14 +25,14 @@ export function LoginCredentialsForm({ returnTo }: { returnTo: string | null }) 
           autoComplete="email"
           required
           placeholder="example@email.com"
-          className="min-h-[48px] rounded-md border border-line bg-surface px-4 py-3 text-base text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
+          className="min-h-[48px] rounded-md border border-line bg-surface px-4 py-3 text-lg text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="login-password"
-          className="text-sm font-medium text-ink"
+          className="text-lg font-medium text-ink"
         >
           비밀번호
         </label>
@@ -43,12 +43,12 @@ export function LoginCredentialsForm({ returnTo }: { returnTo: string | null }) 
           autoComplete="current-password"
           required
           placeholder="8자 이상"
-          className="min-h-[48px] rounded-md border border-line bg-surface px-4 py-3 text-base text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
+          className="min-h-[48px] rounded-md border border-line bg-surface px-4 py-3 text-lg text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
         />
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-danger">
+        <p role="alert" className="text-lg text-danger">
           {error}
         </p>
       )}
@@ -61,11 +61,11 @@ export function LoginCredentialsForm({ returnTo }: { returnTo: string | null }) 
         {isPending ? "로그인 중…" : "이메일로 로그인"}
       </button>
 
-      <p className="text-center text-sm text-ink-soft">
+      <p className="text-center text-lg text-ink-soft">
         계정이 없으신가요?{" "}
         <Link
           href="/join"
-          className="font-medium text-action underline-offset-2 hover:underline"
+          className="inline-block py-3 font-medium text-action underline-offset-2 hover:underline"
         >
           회원가입
         </Link>

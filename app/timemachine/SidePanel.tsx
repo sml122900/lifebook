@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Compass, Frame, LifeBuoy, Mic, Package, ShoppingBag } from "lucide-react";
+import { Compass, LifeBuoy, Mic, Package, ShoppingBag } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 
 import {
@@ -322,16 +322,12 @@ function SidePanel({
           </MenuGroup>
 
           <MenuGroup title="🎁 만들기·상점">
-            <MenuItem
-              href="/poster"
-              label="포스터 만들기"
-              hint="내 연혁으로 인생 나무 포스터"
-              icon={<Frame size={16} aria-hidden />}
-            />
+            {/* "포스터 만들기"는 2026-11-08 포스터 판매 종료로 삭제. 인쇄본 입구는 금액이 정해진 뒤(docs/phase/print-mylife.md §12.4).
+                [상품 구매] 설명 [임시 — 성민 확정 필요] 2026-11-08 */}
             <MenuItem
               href="/shop"
               label="상품 구매"
-              hint="포스터 (자서전 책·인생 씨앗은 준비 중)"
+              hint="My Life 인쇄본 (준비 중)"
               icon={<ShoppingBag size={16} aria-hidden />}
             />
             {/* 주문 내역 입구(2026-11-08 #17 — 주문 직후 화면에서만 갈 수 있었다). [임시 — 성민 확정 필요] 이름·설명 */}

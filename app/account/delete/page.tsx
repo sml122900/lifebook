@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { CREATED_VIA_V3_BRIDGE } from "@/lib/poster/v3-bridge";
+import { CREATED_VIA_V3_BRIDGE } from "@/lib/life-events";
 
 import { WithdrawForm } from "./WithdrawForm";
 

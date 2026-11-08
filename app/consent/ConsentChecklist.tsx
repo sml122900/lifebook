@@ -6,7 +6,7 @@ import Link from "next/link";
 // 체크 상태는 부모가 들고(제출 버튼 활성), 체크박스 name(privacy·overseas·terms)이 폼 제출에 실려 서버가 다시 확인한다.
 //
 // 문구는 개인정보 처리방침 v1.1~v1.3(/privacy)와 정합(v1.2 는 3항 항목에 장소 이름만 더하고, v1.3 은 1-가 토큰 저장을 빼 이 문구 무변) — 수집·이용은 처리방침
-// 1·2항, 국외이전은 3항(Anthropic·OpenAI·Google·Vercel·Supabase, 필수 동의) 기준. "자세히 보기" 가
+// 1·2항, 국외이전은 3항(Anthropic·Google·Vercel·Supabase, 필수 동의 — OpenAI 는 v1.6 포스터 판매 종료로 뺌) 기준. "자세히 보기" 가
 // /privacy 로 연결된다. 이용약관은 /terms(표준약관 전문 게시, 2026-09)로 연결.
 export const REQUIRED_ITEMS = [
   {
@@ -28,7 +28,7 @@ export const REQUIRED_ITEMS = [
     title: "(필수) 개인정보 국외 이전 동의",
     body:
       "서비스 제공을 위해 회원님의 개인정보를 미국의 Anthropic, PBC(AI 대화·기록 정리), " +
-      "OpenAI, L.L.C.(포스터 배경 생성), Google LLC(장소 검색·지도), Vercel Inc.(서버 운영), " +
+      "Google LLC(장소 검색·지도), Vercel Inc.(서버 운영), " +
       "Supabase, Inc.(데이터 저장, 저장 위치 서울)로 이전합니다. 자세한 항목과 보유 기간은 " +
       "개인정보 처리방침 3항에서 확인하실 수 있습니다. 동의를 거부하실 수 있으나, 거부하시면 " +
       "서비스를 이용하실 수 없습니다.",

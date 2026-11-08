@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
         permanent: false,
       })),
       { source: "/story-review/confirm", destination: "/my-life", permanent: false },
+      // 강물 포스터(2026-11-08 판매 종료 — 그리기 코드 삭제, docs/phase/print-mylife.md §9) → My Life 인쇄본 출력 편집(V2 는 거기서 /enter).
+      { source: "/poster", destination: "/my-life/print", permanent: false },
+      { source: "/poster/:path*", destination: "/my-life/print", permanent: false },
     ];
   },
 };

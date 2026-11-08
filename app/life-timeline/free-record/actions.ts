@@ -11,7 +11,6 @@ import {
   type SplitSegment,
 } from "@/lib/free-recording-split";
 import { resolveBirthYear } from "@/lib/life-events";
-import { addExtractedPreferences } from "@/lib/poster/preferences";
 import { STT_TOKEN_CHARGING_ENABLED, calcSttTokens } from "@/lib/stt-cost";
 import { getBalance } from "@/lib/tokens/wallet";
 
@@ -96,8 +95,7 @@ export async function splitTranscriptAction(input: {
       input.topicTitle,
       birthYear,
     ));
-    // P5-5a — 추출 취향(맞춤배경용) 누적 저장. 실패는 무시(부가 작업).
-    await addExtractedPreferences(session.user.id, result.preferences).catch(() => {});
+    // 추출 취향(result.preferences)은 저장하지 않음(2026-11-08 — 포스터 맞춤 배경 판매 종료와 함께 수집 중단).
     return { ok: true, segments: result.segments, nextTopics: result.nextTopics };
   } catch (e) {
     if (e instanceof BudgetBlockedError) return { ok: false, error: budgetMessage(e.reason) }; // AI 사용 한도(2026-11-08)

@@ -4,13 +4,13 @@ import { Paper } from "@/components/ui/Paper";
 import { BUSINESS_INFO } from "@/lib/commerce/business";
 import { REFUND_POLICY_LINES } from "@/lib/commerce/order-display";
 
-// 환불·교환 정책 — 독립 공개 페이지(PG 심사 대응). /poster/order·/account/orders
+// 환불·교환 정책 — 독립 공개 페이지(PG 심사 대응). /account/orders
 // 의 임베드 섹션과 문구를 REFUND_POLICY_LINES(lib/commerce/order-display.ts)
 // 로 공유 — 여기서 새로 쓰지 않는다(단일 출처, 문구 드리프트 방지).
 
 export const metadata = {
   title: "환불·교환 정책 — Lifebook",
-  description: "Lifebook 실물 상품(포스터 등) 환불·교환 정책.",
+  description: "Lifebook 실물 상품(인쇄본 등) 환불·교환 정책.",
 };
 
 export default function RefundPolicyPage() {
@@ -26,7 +26,8 @@ export default function RefundPolicyPage() {
       <Paper className="mt-4">
       <h1 className="m-0 text-ink">환불·교환 정책</h1>
       <p className="mt-3 text-lg text-ink-soft">
-        실물 상품(포스터 등) 주문에 적용되는 환불·교환 기준이에요.
+        {/* [임시 — 성민 확정 필요] 2026-11-08 (옛 "포스터 등") */}
+        실물 상품(인쇄본 등) 주문에 적용되는 환불·교환 기준이에요.
       </p>
 
       <ul className="mt-8 flex flex-col gap-3">

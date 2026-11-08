@@ -22,7 +22,7 @@
 /life-timeline (v2 메인) ─ 사이드패널/카드 버튼으로 모든 기능 진입
    ├─ 기록: /life-record · /life-timeline/add · /life-timeline/free-record · /life-timeline/companion
    ├─ 둘러보기: /era · /people · /photos · /rooms
-   ├─ 포스터: /poster ▶ /poster/select ▶ /poster/view ▶ /poster/order ▶ (토스결제)
+   ├─ 인쇄본: /my-life/print ▶ (주문 단계 — 배송지 + 결제위젯) ▶ (토스결제) — 2026-11-08 강물 포스터(/poster/*) 대체, 금액 전 진입 버튼 없음
    ├─ 계정/결제: /account/* · /billing · /shop
    └─ [새 방식으로 이야기해보기] 배너 → 확인 모달 → ⚙ onboardingTrack=V3 → /start
 
@@ -64,7 +64,7 @@
 | | 내 사진 | → `/photos` | **V2 트랙만**(2026-11-08 — V3 에선 숨김: 올린 사진이 My Life 에 안 보임, 이어 붙이기는 도그푸딩 뒤) |
 | | 그 시절 둘러보기 | → `/era` | **V2 트랙만**(2026-11-08 — V3 에선 숨김: 담아도 My Life 에 안 보임) |
 | 👨‍👩‍👧 함께 보기 | 가족 룸 | → `/rooms` | 공용 |
-| 🎁 만들기·상점 | 포스터 만들기 | → `/poster` | 공용 |
+| 🎁 만들기·상점 | ~~포스터 만들기~~ | 2026-11-08 삭제(포스터 판매 종료 — 인쇄본 입구는 금액이 정해진 뒤) | |
 | | 상품 구매 | → `/shop` | 공용 |
 | | 주문 내역(2026-11-08) | → `/account/orders` | 공용 |
 | ⚙️ 내 계정 | 회원정보 | → `/account/profile` | 공용 |
@@ -74,7 +74,7 @@
 
 **하단**: 로그아웃 ⚙ → `/`
 
-> 토큰 진입로는 상단 "토큰 화면 열기" 버튼 + 설정 페이지 토큰 카드 2곳으로 통일(4-B-3, 메뉴 중복 항목 제거). 포스터 진입로는 만들기·상점 그룹에 추가(4-B-2).
+> 토큰 진입로는 상단 "토큰 화면 열기" 버튼 + 설정 페이지 토큰 카드 2곳으로 통일(4-B-3, 메뉴 중복 항목 제거). 포스터 진입로(4-B-2 — 만들기·상점 그룹)는 2026-11-08 삭제(포스터 판매 종료).
 
 ### 플로팅 AI 비서 위젯 — `AssistantWidget` / `AssistantModal` (로그인 시, 우측 하단, 모든 화면)
 둥근 버튼 → 모달. 모달 첫 화면 = 허브 3버튼(`AssistantPanel` `selecting` 모드). 사이드 "이야기 나누기"와 같은 companion 으로 가나, 위젯은 *어디서든 빠른 접근* 목적이라 둘 다 유지.
@@ -105,7 +105,7 @@
 |---|---|
 | 무료로 시작하기 (히어로) | → `/login` |
 | 3분 만에 둘러보기 | → `#how` (페이지 내 스크롤) |
-| 제품 카드 "보러 가기" — 포스터 | → `/shop/poster` |
+| 제품 카드 — My Life 인쇄본(2026-11-08) | 금액이 정해지면 "인쇄본 보러 가기" → `/shop/mylife-print` · 그 전에는 링크 없이 "곧 선보여요" |
 | 제품 카드 — 자서전 책 | → `/shop/book` |
 | 제품 카드 — 인생 씨앗 | → `/shop/charm` |
 | 선물 준비 알아보기 | → `/shop/book` |
@@ -284,7 +284,7 @@
 | 👥 인물 기록 | → `/people` |
 | 인생 기록 보강 | → `/life-record` |
 | 🎙️ 말로 기록하기 | → `/life-timeline/free-record` |
-| 이 연혁으로 포스터 만들기 | → `/poster` |
+| ~~이 연혁으로 포스터 만들기~~ | 2026-11-08 삭제(Q20) |
 | 인생 기록 시작하기 (빈 상태) | → `/life-record` |
 | **연혁 이벤트 점/카드 클릭** | → `/life-timeline/{eventId}/edit` |
 | **빈 공간 클릭 / 점 옆 + 버튼** | → `/life-timeline/add?year=YYYY&hint=1` (연도 자동 추정) |
@@ -372,30 +372,9 @@
 
 ---
 
-## 6. 포스터
+## 6. 포스터 — 2026-11-08 판매 종료
 
-```
-/poster ──[이 디자인으로]──▶ /poster/select ──[다음: 시안]──▶ /poster/view ──[주문하기]──▶ /poster/order ──▶ 토스결제
-   └──[내 취향으로]──▶ /poster/custom ──[이 배경으로 결정]──▶ /poster/select
-```
-
-| 화면 | 버튼 | 이동 |
-|---|---|---|
-| `/poster` | 이 디자인으로 만들기 | → `/poster/select` |
-| `/poster` | 내 취향으로 만들기 | → `/poster/custom` |
-| `/poster` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
-| `/poster`(포스터에 담을 사건 0 — 빈 상태) | 처음 화면으로 가기(2026-11-08 — 옛 "인생 연혁으로 가기") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
-| `/poster/custom` | ← 디자인 고르기로 | → `/poster` |
-| `/poster/custom` | 이 배경으로 결정 | → `/poster/select` |
-| `/poster/custom` | 토큰 충전하기 | → `/account/tokens` (부족 시) |
-| `/poster/select` | ← 템플릿 다시 고르기 | → `/poster` |
-| `/poster/select` | 다음: 시안 보기 | → `/poster/view` |
-| `/poster/view` | ← 다시 고르기 | → `/poster/select` |
-| `/poster/view` | ← 템플릿 바꾸기 | → `/poster` |
-| `/poster/view` | 이 포스터 주문하기(상·하) | → `/poster/order` |
-| `/poster/order` | ← 포스터로 돌아가기 | → `/poster/view` |
-| `/poster/order` | ~~무통장입금 선택 → 주문하고 입금 안내 받기~~ | 2026-11-08 닫음(선택지 안 보임 · 서버 거절 — My Life 인쇄 상품으로 바꿀 때까지) |
-| `/poster/order` | 카드결제 선택 → 결제하기 | 토스결제(테스트) → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
+강물 포스터 화면(`/poster`·`/poster/select`·`/poster/view`·`/poster/custom`·`/poster/order`)은 삭제. 옛 주소는 → `/my-life/print`(`next.config.ts` 리다이렉트 — V2 는 거기서 `/enter`). 결제 완료 이상 보존 주문 2건은 관리자 발주·주인 주문 상세에서 그림으로만(`lib/commerce/kept-poster`). 대신 My Life 인쇄본 — 7절 `/my-life/print`.
 
 ---
 
@@ -406,7 +385,7 @@
 |---|---|---|
 | `/shop` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 상품 카드 | → `/`(로그인 전 랜딩 · 로그인 뒤 트랙별 첫 화면) · `/shop/{productId}` |
 | `/shop/[id]` | ← 상점으로 / 주문하기 | → `/shop` · `/shop/{id}/order` — 목록에서 숨긴 상품(`orderable:false` — 책·씨앗·금액 정하기 전 My Life 인쇄본)은 상세도 404(2026-11-08) |
-| `/shop/[id]/order` | (poster 상품) | → `/poster` 로 리다이렉트 · 숨긴 상품(`orderable:false`) = 404(서버도 주문 거절 — 2026-11-08) |
+| `/shop/[id]/order` | (숨긴 상품) | 숨긴 상품(`orderable:false` — 책·씨앗·판매 종료 포스터·금액 전 인쇄본) = 404(서버도 주문 거절 — 2026-11-08) |
 | `/shop/mylife-print/order` | (My Life 인쇄본 — 금액 정해진 뒤) | → `/my-life/print` 로 리다이렉트(출력 편집 화면에서 주문 — 2026-11-08) |
 | `/shop/[id]/order` | 무통장입금 선택 → 주문하고 입금 안내 받기 | → `/account/orders/{orderId}` (입금 안내) |
 | `/shop/[id]/order` | 카드결제 선택 → 결제하기 | 토스결제(테스트) → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
@@ -476,7 +455,7 @@
 | 장소 보기 (구글) | `https://maps.google.com/?q={lat,lng 또는 장소명}` | 연혁 장소 칩 |
 | 고객센터 문의 | `mailto:{CS 이메일}` | `/help` |
 | AI 비서 검색 출처 | 기사 원문 URL | AI 비서 모달 |
-| 결제창 | 토스페이먼츠 결제 위젯 | `/billing`, `/poster/order`, `/shop/[id]/order` |
+| 결제창 | 토스페이먼츠 결제창 · 결제위젯 v2 | `/billing`, `/shop/[id]/order`(결제창) · `/my-life/print`(결제위젯) |
 
 > 결제·소셜로그인은 외부 서비스(토스페이먼츠·카카오·네이버·구글)로 잠시 이동했다가 콜백 경로(`/billing/success` 등)로 돌아옵니다.
 
@@ -487,11 +466,10 @@
 | 시작 | 결제창 | 성공 시 | 실패 시 |
 |---|---|---|---|
 | 토큰 충전 `/billing` | 토스페이먼츠 | `/billing/success` | `/billing/fail` |
-| 포스터 주문 `/poster/order` | 토스페이먼츠 | `/shop/order/success` | `/shop/order/fail` |
 | 실물 상품 `/shop/[id]/order` | 토스페이먼츠 | `/shop/order/success` | `/shop/order/fail` |
 | My Life 인쇄본 `/my-life/print` | 토스 결제위젯 v2(위젯 연동 키) | `/shop/order/success`(위젯 시크릿 키로 확인) | `/shop/order/fail` |
 
-> 현재 포스터 실결제는 `POSTER_PAYMENT_LIVE_ENABLED` 플래그로 기본 OFF(테스트 모드).
+> 인쇄본 실결제는 `PRINT_PAYMENT_LIVE_ENABLED` 플래그로 기본 OFF(테스트 모드). 강물 포스터 주문은 2026-11-08 판매 종료로 없음.
 
 ---
 
@@ -508,4 +486,6 @@
 | `/lab`·`/lab/memory` 이하 | 허용 목록 밖 로그인 사용자 → 404 (proxy 가 없는 경로로 rewrite + 화면 `notFound()`, 리다이렉트 아님 — 존재를 드러내지 않음) |
 | `/interview` | 비로그인 → `/login` · V2 → `/enter` · 재동의 필요 → `/consent` · 골격 미완성 → `/chat-v3` |
 | 로그인 필요한 모든 화면 | 비로그인 시 → `/login?returnTo=<원래 주소>`(화면 이동 GET 만 — 2026-11-08) → 로그인 뒤 `/enter?next=` → 원래 주소 |
+| 없는 주소(앱에 없는 맨 위 경로) | 로그인 전에도 로그인 화면이 아니라 404 안내(`app/not-found` — [처음 화면으로] → `/`, #11 2026-11-08 · 아는 경로 목록 `lib/app-routes`) |
+| `/poster`·`/poster/*` | → `/my-life/print` (2026-11-08 강물 포스터 판매 종료 — `next.config.ts` redirects, V2 는 거기서 `/enter`) |
 | 동의 필요 화면 | 미동의·이전 버전 동의(`consentVersion` < `CURRENT_CONSENT_VERSION`) 시 → `/consent` (proxy — 공개 경로·`/consent`·`/api/auth/*` 제외) |

@@ -4,6 +4,7 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 
 import authConfig from "./auth.config";
+import { APP_TOP_SEGMENTS } from "./lib/app-routes";
 import { isAdminEmail } from "./lib/admin";
 import { CURRENT_CONSENT_VERSION } from "./lib/consent-version";
 import { isLabUser } from "./lib/lab/gate";
@@ -46,6 +47,8 @@ export default auth((req) => {
   // lib/return-to 가 우리 사이트 안 경로만 통과시킴, 로그인 화면이 다시 검사).
   const session = req.auth;
   if (!session) {
+    // 없는 주소(앱에 없는 맨 위 경로)는 로그인 화면 대신 404 안내(app/not-found — #11, 2026-11-08). 있는 화면은 그대로 로그인으로.
+    if (!APP_TOP_SEGMENTS.has(pathname.split("/")[1] ?? "")) return;
     const login = new URL("/login", req.url);
     const back = req.method === "GET" ? safeLoginReturnTo(pathname + req.nextUrl.search) : null;
     if (back) login.searchParams.set("returnTo", back);

@@ -1,8 +1,8 @@
-// 랜딩(/) 카피 — v2.0(2026-06). "말로 이야기하면 AI가 멋진 포스터를 만든다"를
-// 3초 안에 보이게 리뉴얼. 구조: ①히어로 ②작동 3단계(녹음 강조) ③결과물 갤러리
-// ④제품(포스터 중심) ⑤안심 ⑥마무리 CTA. 카피 교체는 이 파일만.
+// 랜딩(/) 카피 — v3.0(2026-11-08 — 강물 포스터 → My Life 인쇄본 교체, docs/phase/print-mylife.md §9). 구조: ①히어로 ②작동 3단계
+// ③인쇄본 견본 ④제품 ⑤안심 ⑥마무리 CTA. 카피 교체는 이 파일만. 바뀐 문구는 전부 [임시 — 성민 확정 필요] 2026-11-08.
 //
-// 샘플 포스터(public/): premium(이정순)·sample-poster(김순자)·-2(박성호)·-3(이지은).
+// 견본 그림(public/landing/print-*.webp) = 가상 인물(김순자 — 실명 아님)의 My Life 를 인쇄본 그리기(lib/print-render)로 그린 렌더 그림.
+// 실제 인쇄물 사진(Q19)은 시험 인쇄 뒤 교체.
 
 // 개인정보 처리방침 — 공개 정적 페이지(비로그인 접근, app/privacy).
 export const PRIVACY_HREF = "/privacy";
@@ -10,14 +10,14 @@ export const PRIVACY_HREF = "/privacy";
 // ── S1 히어로 ──────────────────────────────────────────────────────────
 export const S1 = {
   headline: "말씀만 하세요.\n인생이 한 편의 작품이 됩니다",
-  sub: "말로 이야기하면 AI가 알아서 정리하고, 멋진 인생 포스터로 만들어드려요.",
+  sub: "말로 이야기하면 AI가 알아서 정리해 My Life 지도로 그려 드려요. 시기마다 한 장씩, 인쇄본으로도 받아 보실 수 있어요.", // [임시 — 성민 확정 필요] 2026-11-08
   ctaPrimary: "무료로 시작하기",
   ctaSecondary: "3분 만에 둘러보기",
-  posterSrc: "/sample-poster-premium.webp",
-  posterAlt: "이정순 님의 인생 포스터 — AI가 만든 인생 연혁",
+  heroSrc: "/landing/print-page.webp",
+  heroAlt: "김순자 님의 My Life 인쇄본 한 장 — 국민학교 시절과 함께한 분·곳", // [임시 — 성민 확정 필요] 2026-11-08
 } as const;
 
-// ── S2 작동 3단계 (녹음 → AI → 포스터) ─────────────────────────────────
+// ── S2 작동 3단계 (말 → AI → 지도·인쇄본) ─────────────────────────────
 export const S2 = {
   headline: "말 한마디면, 나머지는 Lifebook이 합니다",
   steps: [
@@ -29,44 +29,41 @@ export const S2 = {
     {
       icon: "sparkles",
       title: "AI가 알아서 정리해요",
-      body: "AI가 대화하며 인생 연혁으로 만들어드려요.",
+      body: "AI가 대화하며 My Life 지도로 정리해 드려요.", // [임시 — 성민 확정 필요] 2026-11-08 (옛 "인생 연혁으로")
     },
     {
       icon: "image",
-      title: "멋진 포스터가 완성돼요",
-      body: "한 장의 인생 포스터로 남겨요.",
+      title: "한 장씩 넘겨 보는 인쇄본", // [임시 — 성민 확정 필요] 2026-11-08
+      body: "시기마다 한 장씩 담아, 가족과 함께 넘겨 보며 이야기해요.", // [임시 — 성민 확정 필요] 2026-11-08
     },
   ],
 } as const;
 
-// ── S3 결과물 갤러리 (시제품 — 다양성 강조) ─────────────────────────────
+// ── S3 인쇄본 견본(렌더 그림 — 시험 인쇄 사진은 Q19 뒤) ─────────────────────
 export const GALLERY = {
-  headline: "한 분 한 분, 다른 이야기",
-  sub: "AI가 취향대로 배경까지 그려드려요 — 사람마다 다른, 단 하나의 포스터.",
-  posters: [
-    { src: "/sample-poster-premium.webp", alt: "이정순 님의 인생 포스터", tone: "강물" },
-    { src: "/sample-poster.webp", alt: "김순자 님의 인생 포스터", tone: "따뜻한 노랑" },
-    { src: "/sample-poster-2.webp", alt: "박성호 님의 인생 포스터", tone: "차분한 블루" },
-    { src: "/sample-poster-3.webp", alt: "이지은 님의 인생 포스터", tone: "파스텔 핑크" },
+  headline: "한 장에 한 시절", // [임시 — 성민 확정 필요] 2026-11-08
+  sub: "시기마다 한 장 — 그때 함께한 분과 곳이 같이 담겨요.", // [임시 — 성민 확정 필요] 2026-11-08
+  pages: [
+    { src: "/landing/print-cover.webp", alt: "My Life 인쇄본 표지와 차례", label: "표지와 차례" },
+    { src: "/landing/print-page.webp", alt: "시기 한 장 — 이야기와 함께한 분·곳", label: "시기 한 장" },
+    { src: "/landing/print-people.webp", alt: "인물록 — 나온 장 번호", label: "인물록" },
   ],
 } as const;
 
-// ── S4 제품 (포스터 중심 — 책·씨앗은 준비 중) ──────────────────────────
+// ── S4 제품 (My Life 인쇄본 — 금액 정하기 전에는 링크 없이 "곧 선보여요") ────────
 export const PRODUCT = {
   headline: "화면에서 끝나지 않아요",
-  // 메인 = 포스터(실배송 상품). 큰 비주얼 + 주문 동선.
   main: {
-    title: "인생 연혁 포스터",
-    body: "한 장에 담은 인생의 큰 줄기. 고른 이야기로 AI가 배경까지 그려, 액자에 넣어 배송해 드려요.",
-    cta: "포스터 보러 가기",
-    href: "/shop/poster",
-    src: "/sample-poster.webp",
-    alt: "인생 연혁 포스터 실물 예시",
+    title: "My Life 인쇄본", // [임시 — 성민 확정 필요] 2026-11-08
+    body: "My Life 지도를 시기마다 A4 한 장씩 담아 보내 드려요. 빼고 싶은 이야기는 인쇄본에서만 뺄 수 있어요.", // [임시 — 성민 확정 필요] 2026-11-08
+    cta: "인쇄본 보러 가기", // [임시 — 성민 확정 필요] 2026-11-08
+    soonLabel: "곧 선보여요", // [임시 — 성민 확정 필요] 2026-11-08 — 금액 정하기 전(상품 비공개)
+    href: "/shop/mylife-print",
+    productId: "mylife-print",
+    src: "/landing/print-cover.webp",
+    alt: "My Life 인쇄본 표지 견본",
   },
-  // 보조 = 준비 중(과한 강조 제거). id 는 lib/commerce/products.ts 의
-  // ProductId — 호출부(app/page.tsx)가 orderable:false 인 상품을 여기서도
-  // 걸러낼 때 매칭용(PG 심사 대응, 2026-09-11). 이 파일 자체는 카탈로그를
-  // import 하지 않는다(PRODUCT.main.href 처럼 순수 카피 모듈 유지).
+  // 보조 = 준비 중. id 는 lib/commerce/products.ts 의 ProductId — 호출부(app/page.tsx)가 orderable:false 인 상품을 걸러낸다.
   soon: [
     { id: "book", title: "자서전 책", body: "이야기를 묶은, 세상에 하나뿐인 책." },
     { id: "charm", title: "인생 씨앗", body: "곁에 두는 작은 기록물." },

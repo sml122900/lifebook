@@ -11,7 +11,7 @@
 //   ⑨ 에 정합 점검 15(행성 꾸미기 — 노드 없음 = 정리 대상 · 주인 불일치·목록 밖 모양 = 보고만, 2026-11-05)
 //   ⑤ 연쇄 삭제 시 트리거 정리(+ 행성 꾸미기 — 유일·노드 삭제 시 정리, 2026-11-05) — 이야기(브릿지 삭제 cascade)·직접 추가 사건(CUSTOM)·인물·그룹·
 //      장소·장소 묶음 삭제, 본문 사진 메모리 정리(이야기 브릿지는 보존)
-//   ⑥ 일반 이야기(STORY)만 센다 — 갭 판정·포스터 브릿지·인터뷰
+//   ⑥ 일반 이야기(STORY)만 센다 — 갭 판정·인터뷰(포스터 브릿지 검사는 2026-11-08 판매 종료로 뺌)
 //   ⑦ 같은 유형 중심 2개일 때 인터뷰 계획 — 풀 질문 1번·대상 = 세션과 같은 기준의 첫 사건
 //   ⑧ Q9 — 이야기 본문 정정(updateEpisodeContent) 시 다듬기 3필드 초기화, 다듬기
 //      (refineMemorySpelling — /api/memory/[id]/refine 본체)는 life_event 행만(모델 호출 전 차단)
@@ -40,7 +40,6 @@ import { deleteCustomLifeEvent } from "../lib/life-event-delete";
 import { refineMemorySpelling } from "../lib/memory-refine";
 import { cleanupStoryPeriodPeople, NODE_RANK, normalizeNodePair, removeNodeLink, restoreNodeLink, saveNodeLink, type NodeRef } from "../lib/node-graph";
 import { applyNodeGraphCleanup, countNodeGraphIssues } from "../lib/node-graph-reconcile";
-import { syncV3Bridge } from "../lib/poster/v3-bridge";
 
 const EMAIL_A = "fixture-nodegraph-a@lifebook.invalid";
 const EMAIL_B = "fixture-nodegraph-b@lifebook.invalid";
@@ -387,9 +386,6 @@ async function main() {
     const gaps1 = await detectGaps(c);
     check("⑥ 갭 판정 — 그때의 나(SELF)만 있는 시기는 이야기 갭이 남음", gaps1.some((g) => g.type === "episode" && g.targetEventId === univ));
     check("⑥ 갭 판정 — SELF 이야기는 인물 이야기 갭도 지우지 않음", gaps1.some((g) => g.type === "person_episode" && g.targetPersonId === personU));
-    const bridge1 = await syncV3Bridge(c);
-    const univRow1 = bridge1.find((r) => r.id === `v3_${univ}`);
-    check("⑥ 포스터 브릿지 — SELF 본문은 넣지 않음(본문 없음)", univRow1 !== undefined && univRow1.content === null, univRow1);
     const plan1 = await computeTodayPlan(c, kstDay());
     check("⑥ 인터뷰 계획 — SELF 만 있는 시기의 이야기 문항이 후보에 남음", plan1.some((c) => c.itemKey === itemKeyOf("GAP_EPISODE", univ)), plan1.map((c) => c.itemKey));
     // 세션 쪽 필터(session.ts resolveTarget) — SELF 를 이야기로 세면 이 문항이 "그사이 채워짐"으로 버려진다.
@@ -398,12 +394,7 @@ async function main() {
     check("⑥ 인터뷰 세션 — SELF 만 있는 시기의 이야기 문항이 버려지지 않고 출제됨", stC.kind === "item" && itemC !== null && itemC.status !== "DROPPED", { kind: stC.kind, status: itemC?.status });
     await makeStory(c, univ, "대학교 입학", "입학식 날 처음 본 캠퍼스가 넓어서 길을 잃었다.");
     const gaps2 = await detectGaps(c);
-    const bridge2 = await syncV3Bridge(c);
-    const univRow2 = bridge2.find((r) => r.id === `v3_${univ}`);
-    check("⑥ STORY 가 생기면 이야기 갭 해소 + 브릿지 본문 = STORY 만",
-      !gaps2.some((g) => g.type === "episode" && g.targetEventId === univ) &&
-        univRow2?.content === "입학식 날 처음 본 캠퍼스가 넓어서 길을 잃었다.",
-      univRow2?.content);
+    check("⑥ STORY 가 생기면 이야기 갭 해소", !gaps2.some((g) => g.type === "episode" && g.targetEventId === univ), gaps2.map((g) => `${g.type}:${g.targetEventId}`));
 
     // ── ⑦ 같은 유형 중심 2개 — 인터뷰 계획 ─────────────────────────
     // 두 번째 직장을 먼저 만들고(createdAt 이 앞섬) sequenceOrder 는 뒤로 — 생성 순이 아니라 순서로 고르는지.

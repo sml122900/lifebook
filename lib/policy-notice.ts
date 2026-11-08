@@ -56,6 +56,17 @@ export const POLICY_NOTICES: readonly PolicyNotice[] = [
     effectiveDay: "2026-11-07",
     leadException: "2026-11-07 성민 승인 — 실사용자 0명이라 공지 + 7일 대기 없이 오늘 시행",
   },
+  {
+    // 처리방침 v1.6 — 강물 포스터 판매 종료(docs/phase/print-mylife.md §9.4). short·detail [임시 — 성민 확정 필요] 2026-11-08.
+    doc: "privacy",
+    version: "v1.6",
+    short: "포스터 대신 인쇄본",
+    detail:
+      "포스터 상품을 마치면서, 포스터 배경을 그리던 OpenAI로 정보를 보내는 일과 그 배경에 쓰던 취향 정보 수집을 그만둡니다. 새로 준비하는 My Life 인쇄본을 주문하실 때 받는 배송 정보(받는 분 이름·연락처·주소·배송 메모)와 인쇄본에 담기는 내용을 수집 항목에, 인쇄물 제작과 배송을 이용 목적에 적었습니다. 그 밖의 업체·국가·보유 기간은 그대로입니다.",
+    noticeDay: "2026-11-09",
+    effectiveDay: "2026-11-09",
+    leadException: "2026-11-08 성민 승인 — 실사용자 0명이라 공지 + 7일 대기 없이 공지 당일 시행",
+  },
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;

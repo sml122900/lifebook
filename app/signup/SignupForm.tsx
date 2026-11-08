@@ -10,7 +10,7 @@ export function SignupForm() {
   return (
     <form action={action} className="flex w-full flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="signup-name" className="text-sm font-medium text-ink">
+        <label htmlFor="signup-name" className="text-lg font-medium text-ink">
           이름 <span className="text-ink-soft">(선택)</span>
         </label>
         <input
@@ -19,12 +19,12 @@ export function SignupForm() {
           type="text"
           autoComplete="name"
           placeholder="홍길동"
-          className="min-h-[48px] rounded-md border border-line bg-surface px-4 py-3 text-base text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
+          className="min-h-[48px] rounded-md border border-line bg-surface px-4 py-3 text-lg text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="signup-email" className="text-sm font-medium text-ink">
+        <label htmlFor="signup-email" className="text-lg font-medium text-ink">
           이메일
         </label>
         <input
@@ -34,14 +34,14 @@ export function SignupForm() {
           autoComplete="email"
           required
           placeholder="example@email.com"
-          className="min-h-[48px] rounded-md border border-line bg-surface px-4 py-3 text-base text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
+          className="min-h-[48px] rounded-md border border-line bg-surface px-4 py-3 text-lg text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="signup-password"
-          className="text-sm font-medium text-ink"
+          className="text-lg font-medium text-ink"
         >
           비밀번호
         </label>
@@ -53,13 +53,13 @@ export function SignupForm() {
           required
           minLength={8}
           placeholder="8자 이상"
-          className="min-h-[48px] rounded-md border border-line bg-surface px-4 py-3 text-base text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
+          className="min-h-[48px] rounded-md border border-line bg-surface px-4 py-3 text-lg text-ink placeholder:text-ink-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1"
         />
-        <p className="text-xs text-ink-soft">영문·숫자 조합 8자 이상 권장</p>
+        <p className="text-lg text-ink-soft">영문·숫자 조합 8자 이상 권장</p>
       </div>
 
       {error && (
-        <p role="alert" className="rounded-md bg-danger/10 px-4 py-3 text-sm text-danger">
+        <p role="alert" className="rounded-md bg-danger/10 px-4 py-3 text-lg text-danger">
           {error}
         </p>
       )}
@@ -72,11 +72,11 @@ export function SignupForm() {
         {isPending ? "가입 중…" : "회원가입"}
       </button>
 
-      <p className="text-center text-sm text-ink-soft">
+      <p className="text-center text-lg text-ink-soft">
         이미 계정이 있으신가요?{" "}
         <Link
           href="/login"
-          className="font-medium text-action underline-offset-2 hover:underline"
+          className="inline-block py-3 font-medium text-action underline-offset-2 hover:underline"
         >
           로그인
         </Link>

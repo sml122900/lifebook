@@ -116,7 +116,7 @@ export default async function LoginPage({
           {/* 구분선 */}
           <div className="flex items-center gap-3">
             <hr className="flex-1 border-line" />
-            <span className="text-sm text-ink-soft">또는</span>
+            <span className="text-lg text-ink-soft">또는</span>
             <hr className="flex-1 border-line" />
           </div>
 

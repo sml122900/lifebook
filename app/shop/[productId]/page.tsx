@@ -28,12 +28,13 @@ export default async function ProductDetailPage({
         ← 상점으로
       </ButtonLink>
 
+      {/* #8(2026-11-08) — 세로 견본이 가로로 잘리지 않게 전체를 보임(object-contain) */}
       <div className="relative mt-6 aspect-[4/3] w-full overflow-hidden rounded-lg border border-line bg-surface">
         <Image
           src={product.image}
           alt={product.imageAlt}
           fill
-          className="object-cover"
+          className="object-contain"
           sizes="(max-width: 768px) 100vw, 672px"
           priority
         />

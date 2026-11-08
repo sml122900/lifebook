@@ -293,13 +293,7 @@ export default async function LifeTimelinePage() {
             >
               <span aria-hidden>🎙️</span>말로 기록하기
             </Link>
-            <Link
-              href="/poster"
-              data-tour="poster"
-              className="inline-flex min-h-[56px] items-center justify-center rounded-md border-2 border-brand bg-surface text-action hover:bg-banner px-6 py-3 text-lg font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
-            >
-              이 연혁으로 포스터 만들기
-            </Link>
+            {/* "이 연혁으로 포스터 만들기"는 2026-11-08 포스터 판매 종료로 삭제(Q20 — 인쇄본은 V3 전용) */}
           </div>
         </section>
       )}

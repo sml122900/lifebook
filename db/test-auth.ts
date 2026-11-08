@@ -16,6 +16,8 @@
 //      제출 뒤 실패(2026-11-07) — 세션 갱신 실패 = 오류 문구 + [다시 시도](갱신만 — 다시 저장 안 함) · 저장 실패 = 오류 문구 + 다시 제출. 네트워크를 끊은 경우는 브라우저 실측.
 //   ⑥ 로그인 뒤 돌아가기(2026-11-08) — 돌아갈 주소 검사(우리 사이트 안 경로만 · 외부·//·백슬래시·로그인·가입·동의·/enter·API 거부) ·
 //      proxy = 비로그인 GET 에 ?returnTo= · 로그인(소셜 3·이메일) = /enter?next= · /enter = 동의 확인 뒤 next 로. 체크칸 줄어듦·포커스 고리(shrink-0·공통 고리).
+//   ⑦ 없는 주소(#11, 2026-11-08) — 로그인 전에도 로그인 화면 대신 404 안내: proxy 가 모르는 맨 위 경로는 그대로 보냄 ·
+//      아는 경로 목록(lib/app-routes) = app/ 맨 위 폴더(코드 폴더 actions·components·fonts 제외)와 같음 · app/not-found 있음.
 //
 // 자체 픽스처 계정만 만들고 지운다(test30·실고객 접촉 0). 실행: npx tsx db/test-auth.ts
 
@@ -32,6 +34,7 @@ import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
 import { makeAuthAdapter } from "../lib/auth-adapter";
 import { enterAfterLogin, safeLoginReturnTo, safeReturnTo } from "../lib/return-to";
+import { APP_TOP_SEGMENTS } from "../lib/app-routes";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEmailAccount } from "../lib/email-signup";
 import { activeNotice, formatNoticeDay, noticeClosedKey, noticeHref, noticeProblem, POLICY_NOTICES, SHORT_MAX, type PolicyNotice } from "../lib/policy-notice";
@@ -252,6 +255,20 @@ async function main() {
         (loginSrc.match(/redirectTo: afterLogin/g) ?? []).length === 3 && loginSrc.includes("safeLoginReturnTo(sp.returnTo ?? sp.callbackUrl)") && loginSrc.includes("<LoginCredentialsForm returnTo={returnTo} />") &&
         read("app/login/actions.ts").includes(`enterAfterLogin(safeLoginReturnTo(formData.get("returnTo") as string | null))`) &&
         enterSrc.indexOf("redirect(\"/consent\")") < enterSrc.indexOf("if (next) redirect(next);") && enterSrc.includes("const next = safeLoginReturnTo((await searchParams).next);"));
+
+    // ⑦ 없는 주소(#11)
+    const appDirs = fs
+      .readdirSync(path.resolve(__dirname, "..", "app"), { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !["actions", "components", "fonts"].includes(d.name) && !/^[_(]/.test(d.name))
+      .map((d) => d.name)
+      .sort();
+    const proxy7 = read("proxy.ts");
+    check("⑦ 없는 주소 — 아는 맨 위 경로 목록 = app/ 맨 위 폴더 · proxy 가 로그인 전 모르는 경로는 그대로(로그인 화면 아님) · app/not-found",
+      JSON.stringify([...APP_TOP_SEGMENTS].sort()) === JSON.stringify(appDirs) &&
+        proxy7.includes(`if (!APP_TOP_SEGMENTS.has(pathname.split("/")[1] ?? "")) return;`) &&
+        proxy7.indexOf("APP_TOP_SEGMENTS.has(") < proxy7.indexOf('new URL("/login", req.url)') &&
+        fs.existsSync(path.resolve(__dirname, "..", "app/not-found.tsx")),
+      { only목록: [...APP_TOP_SEGMENTS].filter((x) => !appDirs.includes(x)), only폴더: appDirs.filter((x) => !APP_TOP_SEGMENTS.has(x)) });
   } finally {
     await removeFixtures();
     await prisma.user.deleteMany({ where: { email: "fixture-auth-short@lifebook.invalid" } });

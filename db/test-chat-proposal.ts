@@ -94,7 +94,6 @@ import {
   type CardEdit,
   type ProposalCard,
 } from "../lib/node-proposal";
-import { periodMemoryId, syncV3Bridge } from "../lib/poster/v3-bridge";
 import { buildFreeChatReplySystemPrompt, buildProposalUserMessage, PROPOSAL_SYSTEM_PROMPT } from "../lib/prompts/free-chat";
 import { DEFAULT_PERIOD_LABELS, displayTitle, isPeriodNameTitle, SHORT_TITLE_MAX, shortTitle, storedStoryTitle } from "../lib/story-title";
 import { appendLiveStat, requireTestBudget, saveLiveFailure } from "./live-log";
@@ -1148,16 +1147,18 @@ async function titleChecks(fx: Fixture) {
   check("⑪ [고치기]에서 제목을 지움 → 저장 = 빈 문자열 · 지도 제목 없음 · 지도 글자·결과 제목 = 본문 첫 문장",
     made.ok && ep?.memory.title === "" && story?.title === "" && !!story && displayTitle(story) === lead && made.title === lead, { made, ep, story });
 
-  // 읽는 곳 — My Life 이야기 이름(Q69 전 /story-review) · 포스터 구간 행 제목 · 방금 남긴 이야기(화면 제목으로 찾음).
+  // 읽는 곳 — My Life 이야기 이름(Q69 전 /story-review) · 구간 이야기 이름 · 방금 남긴 이야기(화면 제목으로 찾음).
+  // (포스터 구간 행 제목은 2026-11-08 포스터 판매 종료로 읽는 곳이 없어져 같은 구간 이야기의 My Life 이름으로 바꿈.)
   const period = await createEpisodeBridge(userId, ev.MILITARY, "", 1973, "훈련소에서 첫 편지를 썼다. 손이 떨렸다.", "[본인] 편지", undefined, true);
-  const lifeStory = (await getMyLifeData(userId)).events.flatMap((e) => e.stories).find((s) => made.ok && s.id === made.episodeId);
+  const lifeStories = (await getMyLifeData(userId)).events.flatMap((e) => e.stories);
+  const lifeStory = lifeStories.find((s) => made.ok && s.id === made.episodeId);
   const label = lifeStory ? displayTitle(lifeStory) : undefined;
-  const rows = await syncV3Bridge(userId);
-  const posterRow = rows.find((r) => !!period && r.id === periodMemoryId(period.episodeId));
+  const periodStory = lifeStories.find((s) => !!period && s.id === period.episodeId);
+  const periodLabel = periodStory ? displayTitle(periodStory) : undefined;
   const saved = await recentSavedStories(userId, [lead]);
-  check("⑪ 제목 없는 이야기 — My Life 이야기 이름 · 포스터 구간 행 제목 = 본문 첫 문장 · 방금 남긴 이야기로 찾음",
-    label === lead && posterRow?.title === "훈련소에서 첫 편지를 썼다." && saved.length === 1 && saved[0].title === lead && saved[0].summary === card.summary,
-    { label, posterRow, saved });
+  check("⑪ 제목 없는 이야기 — My Life 이야기 이름 · 구간 이야기 이름 = 본문 첫 문장 · 방금 남긴 이야기로 찾음",
+    label === lead && periodLabel === "훈련소에서 첫 편지를 썼다." && saved.length === 1 && saved[0].title === lead && saved[0].summary === card.summary,
+    { label, periodLabel, saved });
 
   // 나머지 읽는 곳도 실제 결과로 — 찾기 결과 · 오늘의 인터뷰 요약(2026-11-03, 파일마다 title 읽는 횟수를 세던 정적 검사 대신).
   // (인물 확인 묶음 제목은 인물 확인 화면과 함께 삭제 — 설계 §15.6.)

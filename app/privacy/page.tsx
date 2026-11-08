@@ -5,7 +5,7 @@ import { BUSINESS_INFO } from "@/lib/commerce/business";
 import { activeNotice, NOTICE_ANCHOR } from "@/lib/policy-notice";
 import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 
-// 개인정보 처리방침 v1.5. 공개 정적 페이지(비로그인 접근,
+// 개인정보 처리방침 v1.6. 공개 정적 페이지(비로그인 접근,
 // proxy.ts PUBLIC_PATHS 등록). 2026-09-10 — 토스페이먼츠 PG 심사 대응으로
 // placeholder([시행일] 배너·10항 시행일) 제거, 정식 시행일로 확정.
 // v1.1(2026-10-24 시행) —가입·로그인 수단과 수집 항목 정비, 국외 이전 대상 추가, 처리위탁 목록 갱신.
@@ -20,6 +20,10 @@ import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 //   기록 사이의 연결, 인물·항목 글)와 보유 기간 정정(7일 → 30일 — Anthropic 공식 안내), 표기 정리(Google·Lifebook·Chrome).
 //   초안·근거 docs/phase/privacy-v1.4.md. 동의 버전 5(시행일 2026-11-06 배포 — 재동의, 2026-11-05 성민 결정).
 // v1.5(2026-11-07 시행 — 공지 당일, 성민 승인·실사용자 0 — lib/policy-notice leadException) — 1항 마에 AI 지도 편집 기록(Q92 B안). 동의 버전 5 유지.
+// v1.6(2026-11-09 시행 — 공지 당일, 성민 승인 2026-11-08·실사용자 0 — leadException) — 강물 포스터 판매 종료(docs/phase/print-mylife.md §9.4):
+//   3항 OpenAI 이전 삭제·Anthropic 목적에서 "포스터 문장 생성" 삭제, 1항 나 취향 정보 삭제(수집 중단), 1항 라 결제 → 결제·배송(배송지·인쇄본 내용),
+//   2항 목적 "포스터 문장·배경 생성" → "인생 기록 인쇄물 제작과 배송". 동의 버전 5 유지(국외 이전 축소 + 계약 이행용 배송 정보 — 법률 검토 목록).
+//   문구 [임시 — 성민 확정 필요] 2026-11-08.
 
 export const metadata = {
   title: "개인정보 처리방침 — Lifebook",
@@ -42,18 +46,9 @@ const TRANSFERS = [
     country: "미국",
     items:
       "AI 기능 이용 시 입력하신 대화·회상 내용, AI에게 하신 기록 정리 요청과 질문, 녹음을 변환한 텍스트, 답변 품질을 위해 함께 전달하는 기본 정보(출생연도·지역, 인생 시기 이름·연도, 인물 이름·관계, 장소 이름, 모임·장소 묶음 이름, 직접 만든 분류와 그 안의 묶음·항목 이름, 기록 사이의 연결, 대화 중 답하신 내용), 회원님이 인물·항목에 대해 적으신 글",
-    purpose: "AI 회상 보조(기록에 대한 질문 답변 포함)·문장 다듬기·인생 기록 정리(기록 지도 정리 포함)·포스터 문장 생성",
+    purpose: "AI 회상 보조(기록에 대한 질문 답변 포함)·문장 다듬기·인생 기록 정리(기록 지도 정리 포함)",
     period:
       "API 처리 후 30일 이내 자동 삭제 (이용 정책 위반 대응·법령 준수에 필요한 경우 제외, 모델 학습 미사용)",
-  },
-  {
-    to: "OpenAI, L.L.C.",
-    contact: "https://openai.com/policies/privacy-policy",
-    country: "미국",
-    items: "취향 키워드(직접 입력하신 취향, AI가 정리한 취향)",
-    purpose: "포스터 맞춤 배경 이미지 생성",
-    period:
-      "API 처리 후 최대 30일 이내 삭제 (부정 이용 감시 목적, 모델 학습 미사용)",
   },
   {
     to: "Google LLC",
@@ -200,10 +195,6 @@ export default function PrivacyPage() {
                   · 직접 만든 분류: 회원님이 이름 붙인 분류와 그 안의 묶음·항목의
                   이름과 글
                 </li>
-                <li>
-                  · 취향 정보: 직접 입력하신 취향과, 포스터 배경 제작을 위해
-                  AI가 대화 내용에서 정리한 취향 키워드
-                </li>
               </ul>
             </li>
             <li className={P}>
@@ -213,9 +204,11 @@ export default function PrivacyPage() {
               제공하거나 광고에 활용하지 않습니다. 회원 탈퇴 시 함께 삭제됩니다.
             </li>
             <li className={P}>
-              <strong className="text-ink">라. 결제</strong> — 결제 일시·금액·
-              상품 등 거래 기록. 카드번호 등 결제수단 정보는 결제대행사인
-              토스페이먼츠가 처리하며, 회사는 저장하지 않습니다.
+              <strong className="text-ink">라. 결제·배송</strong> — 결제 일시·금액·
+              상품 등 거래 기록. 실물 상품을 주문하신 경우 받는 분 이름·연락처·
+              주소·배송 메모와, 인쇄본에 담기는 내용(주문하실 때의 기록 지도 이름과
+              인물 이름 — 첫 글자만 쓰기를 고르시면 첫 글자). 카드번호 등 결제수단
+              정보는 결제대행사인 토스페이먼츠가 처리하며, 회사는 저장하지 않습니다.
             </li>
             <li className={P}>
               <strong className="text-ink">마. 자동 생성·접속</strong> —
@@ -241,8 +234,8 @@ export default function PrivacyPage() {
         <Article title="2. 개인정보의 이용 목적">
           <p className={P}>
             회원 식별·인증, 인생 연혁 작성·보관과 기록 지도 정리, AI 회상
-            보조(기록에 대한 질문 답변 포함)와 문장 다듬기, 인생 포스터 문장 및
-            배경 이미지 생성, 장소 검색과 지도 표시, 가족 공유 기능 제공,
+            보조(기록에 대한 질문 답변 포함)와 문장 다듬기, 인생 기록 인쇄물
+            제작과 배송, 장소 검색과 지도 표시, 가족 공유 기능 제공,
             결제·정산, 문의 응대 및 서비스 개선을 위해 이용합니다.
           </p>
         </Article>
@@ -361,7 +354,7 @@ export default function PrivacyPage() {
             이 개인정보 처리방침의 내용에 추가·삭제·수정이 있을 경우 시행 전
             서비스 내 공지를 통해 안내합니다.
           </p>
-          <p className={"mt-1 " + P}>· 시행일: 2026년 11월 7일</p>
+          <p className={"mt-1 " + P}>· 시행일: 2026년 11월 9일</p>
           <p className={P}>· 개정 이력</p>
           <ul className="flex flex-col gap-1 pl-4">
             <li className={P}>- v1.0 — 2026년 9월 10일 시행</li>
@@ -384,6 +377,10 @@ export default function PrivacyPage() {
             <li className={P}>
               - v1.5 — 2026년 11월 7일 시행 (AI 기록 지도 고치기 이용 기록 보관
               추가)
+            </li>
+            <li className={P}>
+              - v1.6 — 2026년 11월 9일 시행 (포스터 상품 종료에 따라 OpenAI 국외
+              이전과 취향 정보 수집 중단, 인쇄본 주문의 배송 정보·인쇄 내용 명시)
             </li>
           </ul>
         </Article>

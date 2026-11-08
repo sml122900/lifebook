@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { ORDER_STATUS_LABEL } from "@/lib/commerce/order-display";
 import { getProduct, getProductOption } from "@/lib/commerce/products";
+import { keptPosterImages } from "@/lib/commerce/kept-poster";
 
 import { BankDepositGuide } from "../BankDepositGuide";
 
@@ -39,6 +40,7 @@ export default async function OrderDetailPage({
     order.status === "awaiting_payment";
   const isBankPaid =
     order.paymentMethod === "bank_transfer" && order.status === "paid";
+  const kept = await keptPosterImages(order.id); // 강물 포스터 보존 주문 — 주문 때 그림(2026-11-08)
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -77,6 +79,15 @@ export default async function OrderDetailPage({
         >
           입금이 확인됐어요. 곧 제작을 시작할게요.
         </p>
+      )}
+
+      {kept && (
+        <section className="mt-6 rounded-md border-2 border-line bg-surface px-5 py-4">
+          {/* [임시 — 성민 확정 필요] 2026-11-08 */}
+          <h2 className="text-lg font-bold text-ink">주문하신 포스터</h2>
+          {/* eslint-disable-next-line @next/next/no-img-element -- 서명 URL(1시간) 이미지, next/image 최적화 대상 아님 */}
+          <img src={kept.preview} alt="주문하신 포스터 그림" className="mt-3 w-full max-w-md rounded-md border border-line" />
+        </section>
       )}
 
       {/* 배송지 */}

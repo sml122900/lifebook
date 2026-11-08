@@ -36,6 +36,8 @@ export const CREATED_VIA_ERA_EVENT = "era_event";
 // Storage 자격증명 없이 직접 호출). era_event 와 동일한 cross-import 회피 패턴.
 // export 하여 lib/people.ts(인물 연결 가드)가 storage 안 끌고 재사용.
 export const CREATED_VIA_PHOTO = "photo";
+// 옛 강물 포스터 브릿지 행(v3 사건 사본 — 2026-11-08 포스터 판매 종료로 만드는 코드는 삭제, 행은 남음). 가족 룸·탈퇴 안내 수에서 뺀다.
+export const CREATED_VIA_V3_BRIDGE = "v3_bridge";
 
 // Phase Photo (4단계+) — 기간 이벤트(시작/끝 두 점)에서 사진이 어느 점에
 // 뜰지. "both"=양쪽(기본·단일 시점·기존 사진) / "start"=시작 / "end"=끝.

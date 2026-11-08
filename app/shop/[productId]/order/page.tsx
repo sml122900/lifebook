@@ -20,9 +20,6 @@ export default async function OrderPage({
   // 목록에서 숨긴 상품(orderable:false)은 주문 화면도 없음(2026-11-08 — 서버도 주문을 거절, lib/commerce/orders).
   if (!product || product.orderable === false) notFound();
 
-  // 포스터는 재질 선택 + 주문 스냅샷이 필요해 전용 플로우(/poster)로 보낸다.
-  // (먼저 포스터를 만들어야 주문 가능 — /poster → select → view → order)
-  if (productId === "poster") redirect("/poster");
   // My Life 인쇄본은 출력 편집(빼기·장수·금액) 화면에서 주문(2026-11-08 — 로그인 전이면 proxy 가 로그인 뒤 그 화면으로).
   if (productId === "mylife-print") redirect("/my-life/print");
 

@@ -10,7 +10,7 @@ import { prisma } from "./db";
 import { CREATED_VIA_EPISODE } from "./episode";
 import { CREATED_VIA_NODE_BODY } from "./node-body";
 import { CREATED_VIA_PHOTO } from "./photos";
-import { CREATED_VIA_V3_BRIDGE } from "./poster/v3-bridge";
+import { CREATED_VIA_V3_BRIDGE } from "./life-events";
 
 export type Membership = Awaited<
   ReturnType<typeof prisma.roomMember.findUnique>
