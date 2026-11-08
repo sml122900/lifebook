@@ -757,60 +757,58 @@ async function main() {
       !("nowViewing" in C) && !view.includes("nowText") && view.includes("(status || anyFolded) && (") &&
         view.includes('"aria-label": regionLabel,') && C.space.regionAt("1974 고등학교 입학") === "My Life 지도 — 지금 보는 시기: 1974 고등학교 입학" &&
         C.unfold(3) === "이야기 3개 펼치기" && C.fold === "이야기 접기");
-    // 밤 우주 1단계(2026-11-05 — docs/phase/ui-night.md N1): 단일 테마 · 허용 목록 계정만 서버가 <html data-theme="night"> ·
-    // U1 지도 안 토글·기기 저장값·첫 그림 스크립트 삭제(Q149) · 밝은 우주 지도 값(.space-map)은 남김(허용 목록 밖).
+    // 밤 우주(2026-11-05 — docs/phase/ui-night.md): 단일 테마 · 서버가 늘 <html data-theme="night"> ·
+    // U1 지도 안 토글·기기 저장값·첫 그림 스크립트 삭제(Q149) · 밝은 값 정리(Q148 2026-11-08 — 값은 @theme 하나, [data-theme] 덮어쓰기 0).
     {
       const layoutSrc = src("app/layout.tsx");
       const css = src("app/globals.css");
       check("⑬ 밤 우주 전원(2026-11-05) — 루트 레이아웃이 서버에서 늘 html data-theme=night(깜빡임 0 — 스크립트·허용 목록 없음) · global-error 도 밤 · 허용 목록 판정 파일 없음",
         layoutSrc.includes("data-theme=\"night\"") && !layoutSrc.includes("isNightThemeUser") && !fs.existsSync(path.resolve(__dirname, "../lib/night-theme.ts")) &&
           src("app/global-error.tsx").includes("<html lang=\"ko\" data-theme=\"night\">") && src("app/manifest.ts").includes("theme_color: \"#221d52\"") && layoutSrc.includes("themeColor: \"#221d52\""));
-      check("⑬ 밤 1단계 — My Life 지도 안 토글·기기 저장값·첫 그림 스크립트 없음 · data-space 없음 · 지도 바탕 = 밝은 .space-map + [data-theme=night] .space-map",
+      check("⑬ 밤 1단계 — My Life 지도 안 토글·기기 저장값·첫 그림 스크립트 없음 · data-space 없음 · 지도 바탕 = .space-map 하나(밤하늘 #221d52)",
         !/data-space|SPACE_KEY|SPACE_BOOT|toggleSpace|mylife:space/.test(view) && !("toNight" in C.space) && !/data-space/.test(css) &&
-          css.includes(".space-map {") && css.includes('[data-theme="night"] .space-map {'));
+          /\.space-map \{\s*background:[^}]*#221d52;/.test(css) && (css.match(/\.space-map \{/g) ?? []).length === 1);
+      check("⑬ 밝은 값 정리(Q148 2026-11-08) — [data-theme] 선택자 0 · :root color-scheme dark · 밝은 color-scheme 은 편지지(.paper) 하나뿐",
+        !/\[data-theme/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")) && /:root \{\s*color-scheme: dark;\s*background-color: var\(--color-canvas\);/.test(css) &&
+          (css.match(/color-scheme: light;/g) ?? []).length === 1 && /\.paper \{\s*color-scheme: light;/.test(css));
       check("⑬ 밤 1단계 — 뜻이 뒤집히는 곳 공통 값 한 곳: 주요 버튼 text-on-action(+ 밤 bg-action 글자 규칙) · 덮개 bg-scrim(My Life 대화상자 bg-ink 덮개 0) · 포커스 여백 = canvas(base 층) · 그림자 → 테두리 빛",
         src("components/ui/Button.tsx").includes('primary: "bg-action text-on-action hover:bg-action-hover",') &&
-          /\[data-theme="night"\] \.bg-action \{\s*color: var\(--color-on-action\);/.test(css) &&
+          /\n\.bg-action \{\s*color: var\(--color-on-action\);/.test(css) &&
           (view.match(/backdrop:bg-scrim/g) ?? []).length === 5 && !/bg-ink\//.test(view) &&
-          /@layer base \{[\s\S]*\[data-theme="night"\] \*,[\s\S]*--tw-ring-offset-color: var\(--color-canvas\);/.test(css) &&
-          css.includes('[data-theme="night"] :is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {') &&
-          css.includes("--color-on-action: #ffffff;") && css.includes("--color-scrim: rgb(42 37 32 / 0.4);"));
+          /@layer base \{\s*\/\*[\s\S]*?\*\/\s*\*,\s*::before,\s*::after \{\s*--tw-ring-offset-color: var\(--color-canvas\);/.test(css) &&
+          css.includes("\n:is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {") &&
+          css.includes("--color-on-action: #2a1400;") && css.includes("--color-scrim: rgb(8 6 28 / 0.6);"));
       const side = src("app/timemachine/SidePanel.tsx");
       const raw = side.match(/\b(?:text|bg|border|ring|from|to|via|fill|stroke|outline|divide|placeholder|accent)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b|\b(?:text|bg|border)-(?:white|black)\b/g) ?? [];
       check("⑬ 밤 1단계 — 공통 요소 [내 정보]·사이드 패널 직접 색 0(amber → 토큰)", raw.length === 0, raw);
     }
     {
-      // U1 대비(1.4.3·1.4.11) — globals.css 값으로 계산. 밤 우주 = 글자 4.5·테두리·포커스 3 전부, 밝은 우주 = 행성·위성 테두리 3(U1 기준 ①).
-      // 밝은 우주의 brand(버튼 테두리·포커스)·line(칸 테두리)은 앱 전체 토큰이라 여기서 안 봄(U1 보고 — 앱 전체 결정).
+      // 대비(1.4.3·1.4.11) — globals.css 값으로 계산. 밤 우주 = 글자 4.5·테두리·포커스 3 전부(밝은 값은 Q148 2026-11-08 에서 지움).
       const css = src("app/globals.css");
       const blk = (re: RegExp) => Object.fromEntries([...css.match(re)![1].matchAll(/--color-([\w-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]]));
-      const lt = blk(/@theme \{([\s\S]*?)\n\}/);
-      const nt = { ...lt, ...blk(/\[data-theme="night"\] \{([\s\S]*?)\n\}/) };
+      const nt = blk(/@theme \{([\s\S]*?)\n\}/);
       const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
       const lum = (h: string) => rgb(h).map((v) => (v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
       const cr = (a: string, b: string) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
       const mixHex = (fg: string, a: number, bg: string) => "#" + rgb(fg).map((c, i) => Math.round(c * a + rgb(bg)[i] * (1 - a)).toString(16).padStart(2, "0")).join("");
-      const lMap = ["#ece6ff", "#f7f0ff", "#fff0e6"];
       const nMap = ["#221d52", mixHex("#be78ff", 0.35, "#221d52"), mixHex("#5aa0ff", 0.3, "#221d52")];
       const low: string[] = [];
       const need = (label: string, fg: string, bgs: string[], min: number) => bgs.forEach((b) => cr(fg, b) < min && low.push(`${label} ${fg}/${b} ${cr(fg, b).toFixed(2)}`));
-      for (const k of ["planet-edge", "period-edge", "person", "place", "glow"]) need(`밝음 ${k}`, lt[k], lMap, 3);
       for (const k of ["ink", "ink-soft"]) need(`밤 ${k}`, nt[k], [nt.canvas, nt.surface, nt.banner, ...nMap], 4.5);
       for (const k of ["ink-faint", "action", "danger", "person", "place"]) need(`밤 ${k}`, nt[k], [nt.surface, nt.canvas], 4.5);
       need("밤 주요 버튼 글자 on-action", nt["on-action"], [nt.action, nt["action-hover"]], 4.5);
-      need("밝음 주요 버튼 글자 on-action", lt["on-action"], [lt.action, lt["action-hover"]], 4.5);
       for (const k of ["success", "success-deep", "sage"]) need(`밤 ${k}`, nt[k], [nt.surface, nt.canvas, nt.banner], 4.5);
       for (const d of [1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]) {
         need(`밤 워시 ${d} 위 ink`, nt.ink, [nt[`decade-${d}`]], 4.5);
         need(`밤 스트립 ${d}`, nt[`decade-strip-${d}`], [nt.canvas], 3);
       }
-      need("편지지 글자", lt["paper-ink"], [lt.paper], 4.5);
-      need("편지지 보조", lt["paper-ink-soft"], [lt.paper], 4.5);
-      need("편지지 링크", lt["paper-action"], [lt.paper], 4.5);
-      need("편지지 칸 테두리", lt["paper-line"], [lt.paper], 3);
+      need("편지지 글자", nt["paper-ink"], [nt.paper], 4.5);
+      need("편지지 보조", nt["paper-ink-soft"], [nt.paper], 4.5);
+      need("편지지 링크", nt["paper-action"], [nt.paper], 4.5);
+      need("편지지 칸 테두리", nt["paper-line"], [nt.paper], 3);
       for (const k of ["planet-edge", "period-edge", "person", "place", "glow", "ink", "sage"]) need(`밤 ${k} 테두리`, nt[k], nMap, 3);
       for (const k of ["brand", "line"]) need(`밤 ${k} 테두리`, nt[k], [nt.surface, nt.canvas], 3);
-      check("⑬ 대비 — 밝은 우주 행성·위성 테두리·빛 고리 3:1 · 밤 우주 글자 4.5:1·테두리·포커스 3:1·연대 틴트·편지지(globals.css 값으로 계산 — ui-night §1.2)", low.length === 0, low);
+      check("⑬ 대비 — 밤 우주 글자 4.5:1·테두리·포커스 3:1·연대 틴트·편지지(globals.css @theme 값으로 계산 — ui-night §1.2)", Object.keys(nt).length >= 50 && low.length === 0, low);
     }
     check("⑬ U1·U2 행성 탭(Q110) — 펼침 + 패널 · 펼친 계가 패널·지도 상자에 걸릴 때만 패널 위로(배율 그대로) · 고른 행성을 다시 탭 = 접고 다시 공전 · 펼친 위성만 누르는 곳(공전 중 inert) · 위성 = 바로가기 패널 + [원래 자리로 가기]",
       view.includes("if (planet && stateRef.current.scale >= OVERVIEW_SCALE) liftAbovePanel(nodeKey);") &&

@@ -4,84 +4,81 @@
    (예: dark-mode-token-swap.md 의 dark: 예시). */
 @source not "../docs";
 
-/* 디자인 토큰 1차 — 디자이너방 토큰 가이드 v1.0.
-   bg-canvas / bg-surface / text-ink(-soft|-faint) / border-line /
-   brand·action·sage·danger·success·banner 유틸리티를 생성한다. */
+/* 디자인 토큰 — 밤 우주 단일 테마(2026-11-05 결정 · 2026-11-08 Q148 밝은 값 정리 — 값과 대비 표 docs/phase/ui-night.md §1.1·§1.2,
+   밝은 값 기록은 docs/design-system.md 표와 git). bg-canvas / bg-surface / text-ink(-soft|-faint) / border-line /
+   brand·action·sage·danger·success·banner 유틸리티를 생성한다. 검정 금지 — 가장 어두운 값 #221d52. */
 @theme {
   /* ⚠️ 토큰명 "base" 금지 — Tailwind 의 글자 크기 text-base 와 충돌해
      text-base 가 색상(배경색 글자!) 유틸리티로 생성된다. canvas 로 명명. */
-  --color-canvas: #faf7f0; /* 페이지 배경 (가이드 명칭: base) */
-  --color-surface: #fffdf8; /* 카드·모달 표면 */
-  --color-ink: #2a2520; /* 본문 */
-  --color-ink-soft: #5c534a; /* 부가 텍스트 */
-  --color-ink-faint: #6e655b; /* 희미한 텍스트 */
-  --color-line: #e5decf; /* 보더 */
-  --color-brand: #c8923d; /* 브랜드 골드 */
-  --color-action: #8a5f1a; /* 주요 버튼 필 */
-  --color-action-hover: #6f4c15; /* action 필 호버 (brand 호버는 흰 글자 대비 1.9:1 금지) */
-  --color-sage: #6b8c5a;
-  --color-danger: #b3433b;
-  --color-success: #4d7c4d;
-  --color-success-deep: #3e6b3e; /* 뱃지 텍스트용 */
-  /* 2026-11-05 밤 전원 — 화면에 직접 적던 emerald-50·rose-50 바탕(성공·위험 안내 상자)을 토큰으로 */
-  --color-success-wash: #ecf5ec;
-  --color-danger-wash: #fcefee;
-  /* 밤 우주 2단계 — 의미색 복구(전원 적용 때 rose → danger · sky → place 로 합쳐졌던 것, ui-night §9): 음악·영상 링크 = music,
-     정보 찾기·안내 = info, 장소 = place, 위험 = danger 가 서로 다른 색. 시대 둘러보기(/era) 연대 배경 4색 = era-* */
-  --color-music: #881337;
-  --color-music-wash: #fff1f2;
-  --color-info: #075985;
-  --color-info-wash: #f0f9ff;
-  --color-era-1980: #fffbeb;
-  --color-era-1990: #ecfdf5;
-  --color-era-2000: #f0f9ff;
-  --color-era-2010: #f5f3ff;
-  --color-banner: #fff8e8; /* 안내·강조 박스 배경 */
-  --color-ph: #e9e1d0; /* 이미지 placeholder 슬롯 배경 (실화면 캡처 끼우기 전) */
-  /* 밤 우주 1단계(2026-11-05 — docs/phase/ui-night.md §1.1)에 새로 — 밝은 값은 지금 화면과 같은 값 */
-  --color-on-action: #ffffff; /* 주요 버튼(bg-action) 글자 — 밤에서 어두운 글자로 뒤집힌다 */
-  --color-scrim: rgb(42 37 32 / 0.4); /* 모달 덮개 — 지금 backdrop:bg-ink/40 과 같은 값(밤에서 ink 가 밝아져 덮개가 밝아지던 것) */
-  /* 긴 글 편지지 카드(Q144 (b) — 화면 적용은 화면별 단계) — 두 테마 같은 값(밤하늘 위 밝은 종이) */
+  --color-canvas: #221d52; /* 페이지 배경 (가이드 명칭: base) */
+  --color-surface: #2c2664; /* 카드·모달 표면 */
+  --color-ink: #f1eeff; /* 본문 */
+  --color-ink-soft: #d3ccf5; /* 부가 텍스트 */
+  --color-ink-faint: #bdb5ec; /* 희미한 텍스트 */
+  --color-line: #8f87cf; /* 보더 */
+  --color-brand: #ffb884; /* 브랜드 */
+  --color-action: #ffc9a3; /* 주요 버튼 필 */
+  --color-action-hover: #ffb884; /* action 필 호버 */
+  --color-sage: #a9cf97;
+  --color-danger: #ff9f96;
+  --color-success: #93d7a2;
+  --color-success-deep: #a8e2b4; /* 뱃지 텍스트용 */
+  /* 성공·위험 안내 상자 바탕(2026-11-05 밤 전원 — 화면에 직접 적던 emerald-50·rose-50 바탕을 토큰으로) */
+  --color-success-wash: #1f4536; /* 위 글자 ink 9.38 · success 6.36 */
+  --color-danger-wash: #4a2246; /* 위 글자 ink 11.45 · danger 6.62 */
+  /* 의미색(밤 우주 2단계 — ui-night §9): 음악·영상 링크 = music, 정보 찾기·안내 = info, 장소 = place, 위험 = danger 가 서로 다른 색.
+     시대 둘러보기(/era) 연대 배경 4색 = era-* */
+  --color-music: #f0a6ff; /* 난초색(색상 290°) — danger 산호색(5°)과 구분. canvas 8.50 · surface 7.40 · banner 5.90 */
+  --color-music-wash: #45205a; /* 위 music 7.22 · ink 11.46 */
+  --color-info: #5fd4e8; /* 청록(189°) — place 파랑(208°)과 구분. canvas 8.84 · surface 7.70 · banner 6.14 */
+  --color-info-wash: #163e52; /* 위 info 6.54 · ink 9.98 */
+  --color-era-1980: #4a3424; /* 연대 배경 4색(/era) — 호박·초록·하늘·보라. 위 ink 10.19 · 9.51 · 9.66 · 10.57, 칸 테두리 line 3.37 이상 */
+  --color-era-1990: #1d4438;
+  --color-era-2000: #1f3d63;
+  --color-era-2010: #3b2a6e;
+  --color-banner: #3a3380; /* 안내·강조 박스 배경 */
+  --color-ph: #3a3380; /* 이미지 placeholder 슬롯 배경 (실화면 캡처 끼우기 전) */
+  --color-on-action: #2a1400; /* 주요 버튼(bg-action) 글자 — 밝은 버튼 위 어두운 글자 */
+  --color-scrim: rgb(8 6 28 / 0.6); /* 모달 덮개(backdrop:bg-scrim) */
+  /* 긴 글 편지지 카드(Q144 (b) — components/ui/Paper) — 밤하늘 위 밝은 종이(아래 .paper 가 안쪽 토큰을 이 값으로) */
   --color-paper: #fbf6ea;
   --color-paper-ink: #2a2520;
   --color-paper-ink-soft: #5c534a;
   --color-paper-line: #8c7d60;
   --color-paper-action: #8a5f1a;
 
-  /* 연대(decade) 틴트 — 텍스트 배경 금지. 스트립(4px)·점·5~10% 워시만.
-     틴트 위 텍스트는 ink/ink-soft 만. */
-  --color-decade-1940: #deceb0;
-  --color-decade-1950: #e8dbc0;
-  --color-decade-1960: #c8d5d0;
-  --color-decade-1970: #dcc68e;
-  --color-decade-1980: #e5cfc8;
-  --color-decade-1990: #cfc4cb;
-  --color-decade-2000: #c8ccd2;
-  --color-decade-2010: #c8d4c2;
-  --color-decade-2020: #d3cfd8;
+  /* 연대(decade) 틴트 — 텍스트 배경 금지. 스트립(4px)·점·워시만. 틴트 위 텍스트는 ink/ink-soft 만.
+     Q152 — 워시 = 밝은 스트립 18% / canvas(워시 위 ink 최저 10.56) */
+  --color-decade-1940: #383053;
+  --color-decade-1950: #393155;
+  --color-decade-1960: #2d315b;
+  --color-decade-1970: #352e4b;
+  --color-decade-1980: #352953;
+  --color-decade-1990: #322958;
+  --color-decade-2000: #2e2c60;
+  --color-decade-2010: #2c2d52;
+  --color-decade-2020: #2f295a;
 
-  /* 연대 스트립 전용 — border-l-4 에만 사용. 배경 워시보다 한 단계 진한 채도.
-     텍스트·배경 사용 금지. */
-  --color-decade-strip-1940: #9c8456;
-  --color-decade-strip-1950: #a08c62;
-  --color-decade-strip-1960: #5e8a85;
-  --color-decade-strip-1970: #8e7a2a;
-  --color-decade-strip-1980: #8e6055;
-  --color-decade-strip-1990: #7a6275;
-  --color-decade-strip-2000: #6272a0;
-  --color-decade-strip-2010: #5a7852;
-  --color-decade-strip-2020: #6a6080;
+  /* 연대 스트립 전용 — border-l-4 에만 사용. 텍스트·배경 사용 금지.
+     Q152 — 밝은 스트립 75% + 흰 25%(canvas 대비 최저 4.54) */
+  --color-decade-strip-1940: #b5a380;
+  --color-decade-strip-1950: #b8a989;
+  --color-decade-strip-1960: #86a7a4;
+  --color-decade-strip-1970: #aa9b5f;
+  --color-decade-strip-1980: #aa8880;
+  --color-decade-strip-1990: #9b8998;
+  --color-decade-strip-2000: #8995b8;
+  --color-decade-strip-2010: #839a7d;
+  --color-decade-strip-2020: #8f88a0;
 
-  /* My Life 우주(ui-space U1, 2026-11-05) — 사람·장소 표시·빛·행성 테두리. 밝은 우주 값이고, 밤 우주는 아래
-     [data-theme="night"] 안에서 다시 정의한다(밤 우주 단일 테마 — docs/decisions/design-tokens-light-only.md 맨 위).
-     행성·위성 면 색은 두 테마 공통(.planet-*·.moon-* — 아래 components). */
-  --color-person: #1f6b45; /* 사람 — 위성·모음 테두리·아이콘(밝은 우주 배경 3:1 이상) */
-  --color-person-wash: #e6f6ec;
-  --color-place: #24578f;
-  --color-place-wash: #e7f1fb;
-  --color-glow: #6d3fc0; /* 찾기·선택 빛 고리 */
-  --color-planet-edge: #9a4a22; /* 이야기 행성 테두리 — 밝은 우주 배경 3:1 이상(면 #ffb884 는 1.5:1 이라 테두리로 구분) */
-  --color-period-edge: #8a5a12; /* 시기 행성 테두리 */
+  /* My Life 우주(ui-space U1) — 사람·장소 표시·빛·행성 테두리. 행성·위성 면 색은 아래 components(.planet-*·.moon-*). */
+  --color-person: #8fe0b0; /* 사람 — 위성·모음 테두리·아이콘 */
+  --color-person-wash: #24434a;
+  --color-place: #9ccbf5;
+  --color-place-wash: #26386b;
+  --color-glow: #ffd27a; /* 찾기·선택 빛 고리 */
+  --color-planet-edge: #ffd2b0; /* 이야기 행성 테두리 */
+  --color-period-edge: #ffe2a0; /* 시기 행성 테두리 */
 
   --font-sans:
     "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
@@ -94,10 +91,11 @@
   --font-serif: var(--font-noto-serif-kr), var(--font-noto-serif-kr-rest), "Noto Serif KR", Georgia, serif;
 }
 
-/* 기본 = 밝은 화면(OS 설정과 무관). 밤 우주 단일 테마(2026-11-05 결정 — docs/phase/ui-night.md)는 허용 목록 계정만
-   <html data-theme="night">(app/layout.tsx · lib/night-theme.ts)로 먼저 — 아래 [data-theme="night"] 블록. 전원 전환(N4) 때 밝은 값을 지운다. */
+/* 화면은 늘 밤 우주(OS 설정과 무관 — 2026-11-05 단일 테마). <html data-theme="night">(app/layout.tsx·app/global-error.tsx)는 표시로만
+   남고 값은 위 @theme 하나다(2026-11-08 Q148 — 밝은 값·[data-theme="night"] 덮어쓰기 블록 삭제). */
 :root {
-  color-scheme: light;
+  color-scheme: dark;
+  background-color: var(--color-canvas); /* 문서 끝·당겨 내림(오버스크롤) 바탕도 밤 */
   /* 로그인한 화면의 맨 위 머리 줄(Lifebook + [내 정보]) 높이 — 머리 줄이 위에 붙어 있어서(sticky) 다른 sticky 줄·
      앵커 이동이 이만큼 아래에서 시작한다(2026-11-04 — 고정 [내 정보] 버튼 겹침을 공통으로 해결, app/layout.tsx). */
   /* 3.5rem(56px) = [내 정보] 버튼 터치 영역 56px 와 같은 높이 — 버튼은 보이는 48px 를 가운데 두고 위아래 4px 를 터치 영역으로
@@ -123,15 +121,17 @@ body[data-proposal-card] [data-assistant-fab] {
   display: none;
 }
 
-/* My Life 우주(ui-space U1) — 행성·위성 면(두 테마 공통)과 지도 상자 배경. */
+/* My Life 우주(ui-space U1) — 행성·위성 면과 지도 상자 배경(밤하늘 + 별·성운). */
 @layer components {
   .space-map {
     background:
-      radial-gradient(1.5px 1.5px at 18px 26px, rgb(140 123 214 / 0.45) 50%, transparent 51%),
-      radial-gradient(1px 1px at 74px 90px, rgb(140 123 214 / 0.35) 50%, transparent 51%),
-      radial-gradient(1.5px 1.5px at 120px 40px, rgb(140 123 214 / 0.3) 50%, transparent 51%),
-      linear-gradient(180deg, #ece6ff 0%, #f7f0ff 48%, #fff0e6 100%);
-    background-size: 140px 120px, 140px 120px, 140px 120px, 100% 100%;
+      radial-gradient(1.5px 1.5px at 18px 26px, rgb(255 255 255 / 0.7) 50%, transparent 51%),
+      radial-gradient(1px 1px at 74px 90px, rgb(255 255 255 / 0.5) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 120px 40px, rgb(255 255 255 / 0.45) 50%, transparent 51%),
+      radial-gradient(circle at 75% 20%, rgb(190 120 255 / 0.35) 0, rgb(190 120 255 / 0) 45%),
+      radial-gradient(circle at 15% 80%, rgb(90 160 255 / 0.3) 0, rgb(90 160 255 / 0) 45%),
+      #221d52;
+    background-size: 140px 120px, 140px 120px, 140px 120px, 100% 100%, 100% 100%, 100% 100%;
   }
   .planet-story {
     background: radial-gradient(circle at 34% 30%, #fff1dc 0, #ffb884 52%, #ee8a5c 100%);
@@ -192,7 +192,7 @@ body[data-proposal-card] [data-assistant-fab] {
 
 /* 긴 글 편지지 카드(밤 우주 2단계 — ui-night Q144 (b), components/ui/Paper). 밤하늘 위 밝은 종이 — 안쪽 토큰을 편지지 값으로
    다시 정의해 글·입력칸·버튼·포커스 고리가 그대로 따라온다(대비: ink 14.07 · ink-soft 6.98 · ink-faint 5.30 · action/brand 5.22 ·
-   danger 5.15 · line 3.73 — 편지지 바탕 기준, ui-night §9). 레이어 밖이라 바깥 [data-theme="night"] 값보다 가까운 이 값이 쓰인다. */
+   danger 5.15 · line 3.73 — 편지지 바탕 기준, ui-night §9). 안쪽에서 다시 정의하므로 바깥(@theme) 값 대신 이 값이 쓰인다. */
 .paper {
   color-scheme: light;
   --color-canvas: var(--color-paper);
@@ -245,91 +245,22 @@ body[data-proposal-card] [data-assistant-fab] {
   cursor: not-allowed;
 }
 
-/* 밤 우주 — Lifebook 단일 테마(2026-11-05 결정, Q142 무효 — 앱 공통 요소도 밤). 1단계는 허용 목록 계정만(html 에 표시).
-   토큰 변수만 다시 정의해 토큰을 쓰는 화면은 코드 수정 없이 따라온다(대비 표 docs/phase/ui-night.md §1.2). 검정 금지 — 가장 어두운 값 #221d52. */
-[data-theme="night"] {
-  color-scheme: dark;
-  background-color: var(--color-canvas); /* 문서 끝·당겨 내림(오버스크롤) 바탕도 밤 */
-  --color-canvas: #221d52;
-  --color-surface: #2c2664;
-  --color-banner: #3a3380;
-  --color-ph: #3a3380;
-  --color-on-action: #2a1400;
-  --color-scrim: rgb(8 6 28 / 0.6);
-  --color-ink: #f1eeff;
-  --color-ink-soft: #d3ccf5;
-  --color-ink-faint: #bdb5ec;
-  --color-line: #8f87cf;
-  --color-brand: #ffb884;
-  --color-action: #ffc9a3;
-  --color-action-hover: #ffb884;
-  --color-danger: #ff9f96;
-  --color-sage: #a9cf97;
-  --color-success: #93d7a2;
-  --color-success-deep: #a8e2b4;
-  --color-success-wash: #1f4536; /* 위 글자 ink 9.38 · success 6.36 */
-  --color-danger-wash: #4a2246; /* 위 글자 ink 11.45 · danger 6.62 */
-  --color-music: #f0a6ff; /* 난초색(색상 290°) — danger 산호색(5°)과 구분. canvas 8.50 · surface 7.40 · banner 5.90 */
-  --color-music-wash: #45205a; /* 위 music 7.22 · ink 11.46 */
-  --color-info: #5fd4e8; /* 청록(189°) — place 파랑(208°)과 구분. canvas 8.84 · surface 7.70 · banner 6.14 */
-  --color-info-wash: #163e52; /* 위 info 6.54 · ink 9.98 */
-  --color-era-1980: #4a3424; /* 연대 배경 4색(/era) — 호박·초록·하늘·보라. 위 ink 10.19 · 9.51 · 9.66 · 10.57, 칸 테두리 line 3.37 이상 */
-  --color-era-1990: #1d4438;
-  --color-era-2000: #1f3d63;
-  --color-era-2010: #3b2a6e;
-  --color-person: #8fe0b0;
-  --color-person-wash: #24434a;
-  --color-place: #9ccbf5;
-  --color-place-wash: #26386b;
-  --color-glow: #ffd27a;
-  --color-planet-edge: #ffd2b0;
-  --color-period-edge: #ffe2a0;
-  /* 연대 틴트(Q152) — 워시 = 밝은 스트립 18% / canvas(워시 위 ink 최저 10.56), 스트립 = 밝은 스트립 75% + 흰 25%(canvas 대비 최저 4.54) */
-  --color-decade-1940: #383053;
-  --color-decade-1950: #393155;
-  --color-decade-1960: #2d315b;
-  --color-decade-1970: #352e4b;
-  --color-decade-1980: #352953;
-  --color-decade-1990: #322958;
-  --color-decade-2000: #2e2c60;
-  --color-decade-2010: #2c2d52;
-  --color-decade-2020: #2f295a;
-  --color-decade-strip-1940: #b5a380;
-  --color-decade-strip-1950: #b8a989;
-  --color-decade-strip-1960: #86a7a4;
-  --color-decade-strip-1970: #aa9b5f;
-  --color-decade-strip-1980: #aa8880;
-  --color-decade-strip-1990: #9b8998;
-  --color-decade-strip-2000: #8995b8;
-  --color-decade-strip-2010: #839a7d;
-  --color-decade-strip-2020: #8f88a0;
-}
-[data-theme="night"] .space-map {
-  background:
-    radial-gradient(1.5px 1.5px at 18px 26px, rgb(255 255 255 / 0.7) 50%, transparent 51%),
-    radial-gradient(1px 1px at 74px 90px, rgb(255 255 255 / 0.5) 50%, transparent 51%),
-    radial-gradient(1.5px 1.5px at 120px 40px, rgb(255 255 255 / 0.45) 50%, transparent 51%),
-    radial-gradient(circle at 75% 20%, rgb(190 120 255 / 0.35) 0, rgb(190 120 255 / 0) 45%),
-    radial-gradient(circle at 15% 80%, rgb(90 160 255 / 0.3) 0, rgb(90 160 255 / 0) 45%),
-    #221d52;
-  background-size: 140px 120px, 140px 120px, 140px 120px, 100% 100%, 100% 100%, 100% 100%;
-}
-/* 뜻이 뒤집히는 곳(ui-night §1.4) — 공통 값 한 곳.
-   ① 주요 버튼 글자: components/ui/Button 은 text-on-action. 화면에 직접 적은 "bg-action … text-white"(약 60곳)는 화면별 단계에서
-      text-on-action 으로 바꾸고, 그때까지 이 규칙이 밤에서 막는다(레이어 밖이라 유틸리티보다 앞섬 — 전원 전환 때 지움). */
-[data-theme="night"] .bg-action {
+/* 뜻이 뒤집히는 곳(ui-night §1.4) — 공통 값 한 곳(밤 단일 테마라 늘 적용 — 2026-11-08 Q148 에서 [data-theme="night"] 접두를 뺌).
+   ① 주요 버튼 글자: components/ui/Button 은 text-on-action. 화면에 직접 "bg-action … text-white" 를 적어도 이 규칙이 어두운 글자로
+      막는다(레이어 밖이라 유틸리티보다 앞섬). */
+.bg-action {
   color: var(--color-on-action);
 }
-/* ② 그림자(30곳) → 밤용 테두리 빛: 검은 그림자는 밤 바탕에서 안 보인다. 그림자 단계 유틸리티의 --tw-shadow 를 옅은 테두리 + 보랏빛 빛으로. */
-[data-theme="night"] :is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {
+/* ② 그림자(30곳) → 테두리 빛: 검은 그림자는 밤 바탕에서 안 보인다. 그림자 단계 유틸리티의 --tw-shadow 를 옅은 테두리 + 보랏빛 빛으로. */
+:is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {
   --tw-shadow: 0 0 0 1px rgb(143 135 207 / 0.45), 0 0 22px 2px rgb(120 108 240 / 0.3);
 }
 @layer base {
   /* ③ 포커스 고리 바깥 여백(ring-offset-* 204곳): Tailwind 기본 여백 색이 흰색(@property 초기값 #fff, 상속 안 함)이라 밤 바탕에 흰 줄 —
-     밤에서 모든 요소의 여백 색 = 바탕(canvas). base 층이라 ring-offset-{색} 유틸리티를 쓰면 그쪽이 이긴다. */
-  [data-theme="night"] *,
-  [data-theme="night"] ::before,
-  [data-theme="night"] ::after {
+     모든 요소의 여백 색 = 바탕(canvas). base 층이라 ring-offset-{색} 유틸리티를 쓰면 그쪽이 이긴다. */
+  *,
+  ::before,
+  ::after {
     --tw-ring-offset-color: var(--color-canvas);
   }
   /* ④ 입력칸 안내 글자(밤 2단계 상태 점검): Tailwind 기본은 글자색 50%(color-mix)라 밤 surface 위 4.1 · banner 위 3.59 —

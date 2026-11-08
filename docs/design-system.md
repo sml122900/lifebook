@@ -84,7 +84,7 @@
 
 ### 밤 우주(2026-11-05 — 단일 테마, 전원)
 
-- **방식:** 서버(루트 레이아웃)가 늘 `<html data-theme="night">` 를 그리고(2026-11-05 전원 — 허용 목록 단계는 생략), `app/globals.css` 의 `[data-theme="night"]` 블록이 위 토큰 변수를 밤 값으로 다시 정의한다(값은 ui-night §1.1, 대비 전부 통과 §1.2). 첫 그림부터 밤(클라이언트 스크립트 없음).
+- **방식:** 서버(루트 레이아웃)가 늘 `<html data-theme="night">` 를 그리고(2026-11-05 전원 — 허용 목록 단계는 생략), `app/globals.css` 의 `@theme` 토큰 값이 밤 값 하나다(2026-11-08 Q148 — 밝은 값과 `[data-theme="night"]` 덮어쓰기 블록 삭제, ui-night §10. 값은 ui-night §1.1, 대비 전부 통과 §1.2). `data-theme` 속성은 표시로만 남음. 첫 그림부터 밤(클라이언트 스크립트 없음).
 - **새 코드 규칙:** 색은 **토큰만**(기본 팔레트·`white`·`black`·hex 금지 — 밤에서 안 뒤집혀 섞인 색이 됨). 주요 버튼 글자 = `text-on-action`, 덮개 = `bg-scrim`. 층(시트·모달·떠 있는 버튼)은 그림자가 아니라 바탕 단계(canvas < surface < banner)와 테두리로 나눈다 — 밤에서 그림자는 공통 규칙이 옅은 테두리 빛으로 바꾼다.
 - **공통 값 한 곳(globals.css):** 포커스 고리 바깥 여백 색 = canvas(Tailwind 기본 흰색 대신) · 밤 `bg-action` 글자 = on-action(화면에 직접 적은 `text-white` 를 화면별 단계에서 바꿀 때까지) · 밤 그림자 = 테두리 빛 · **입력칸 안내 글자 기본 = ink-faint**(Tailwind 기본 "글자색 50%"는 밤 banner 위 3.59 — 2단계) · **비활성 표시 한 가지**(아래).
 - **고른 상태(2단계 — `components/ui/chip.ts` `SELECTED`):** `border-2 border-brand bg-banner text-ink ring-2 ring-brand/40` 하나로. 채운 밝은 판(`bg-action`)으로 고른 것을 표시하지 않는다(밤에서 밝은 판이 여럿 뜸 — 라이트 온리 결정 4 와 같은 뜻). 안 고른 칩도 테두리 2px(고를 때 밀림 없게). 낭독은 `aria-pressed`·`aria-current`.
