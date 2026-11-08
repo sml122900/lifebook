@@ -336,21 +336,25 @@ function PracticeSheet({ onClose }: { onClose: (how: "finish" | "skip") => void 
           )}
         </div>
 
-        {s.step === "end" ? (
-          <Button variant="primary" size="lg" onClick={() => close("finish")}>
-            {T.finish}
-          </Button>
-        ) : (
-          <>
-            {/* 확인 카드가 떠 있는 동안 주요 버튼은 카드의 [이대로 하기] 하나(실제 AI 시트와 같음) */}
-            <Button variant={s.edit === "plan" && s.step === "ai" ? "secondary" : "primary"} size="lg" data-tutorial-next onClick={() => dispatch({ t: "next" })}>
-              {T.next}
+        {/* 버튼 줄은 시트 아래에 붙인다(2026-11-08 #13 — 390×844 에서 1단계 [다음]이 첫 화면 밖이었다). 시트(SHEET)가 스크롤 상자라
+            sticky bottom-0 · 위 상자의 아래 여백만큼 당겨 시트 끝에 닿게 · 두 버튼은 한 줄(높이 절약). */}
+        <div className="sticky bottom-0 -mx-6 -mb-[calc(1.5rem+env(safe-area-inset-bottom))] border-t-2 border-line bg-surface px-6 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
+          {s.step === "end" ? (
+            <Button variant="primary" size="lg" className="w-full" onClick={() => close("finish")}>
+              {T.finish}
             </Button>
-            <Button variant="tertiary" size="lg" data-tutorial-skip onClick={() => close("skip")}>
-              {T.skip}
-            </Button>
-          </>
-        )}
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {/* 확인 카드가 떠 있는 동안 주요 버튼은 카드의 [이대로 하기] 하나(실제 AI 시트와 같음) */}
+              <Button variant={s.edit === "plan" && s.step === "ai" ? "secondary" : "primary"} size="lg" data-tutorial-next onClick={() => dispatch({ t: "next" })}>
+                {T.next}
+              </Button>
+              <Button variant="tertiary" size="lg" data-tutorial-skip onClick={() => close("skip")}>
+                {T.skip}
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </dialog>
   );

@@ -25,8 +25,8 @@ export default async function RoomsPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
-      <ButtonLink href="/life-timeline" variant="tertiary" className="self-start">
-        ← 인생 연혁으로
+      <ButtonLink href="/" variant="tertiary" className="self-start">
+        ← 처음 화면으로
       </ButtonLink>
 
       <header>

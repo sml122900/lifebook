@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Compass, Frame, LifeBuoy, Mic, ShoppingBag } from "lucide-react";
+import { Compass, Frame, LifeBuoy, Mic, Package, ShoppingBag } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 
 import {
@@ -300,11 +300,14 @@ function SidePanel({
               label="내 사진"
               hint="사진 올리고 연혁에 담기"
             />
-            <MenuItem
-              href="/era"
-              label="그 시절 둘러보기"
-              hint="1980~2010년대 큰 사건과 노래"
-            />
+            {/* V3 에선 숨김(2026-11-08 #16 — 담아도 My Life 어디에도 안 보임: era_event 는 V2 연혁에만). V2 는 그대로. */}
+            {data.onboardingTrack !== "V3" && (
+              <MenuItem
+                href="/era"
+                label="그 시절 둘러보기"
+                hint="1980~2010년대 큰 사건과 노래"
+              />
+            )}
           </MenuGroup>
 
           <MenuGroup title="👨‍👩‍👧 함께 보기">
@@ -327,6 +330,13 @@ function SidePanel({
               label="상품 구매"
               hint="포스터 (자서전 책·인생 씨앗은 준비 중)"
               icon={<ShoppingBag size={16} aria-hidden />}
+            />
+            {/* 주문 내역 입구(2026-11-08 #17 — 주문 직후 화면에서만 갈 수 있었다). [임시 — 성민 확정 필요] 이름·설명 */}
+            <MenuItem
+              href="/account/orders"
+              label="주문 내역"
+              hint="주문한 상품과 배송 확인"
+              icon={<Package size={16} aria-hidden />}
             />
             {/* 토큰 충전 진입로는 잔액 카드 옆 "토큰 화면 열기" 버튼으로
                 통일(4-B-3) — 같은 /account/tokens 라 그룹 항목 중복 제거.

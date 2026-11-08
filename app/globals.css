@@ -121,6 +121,17 @@ body[data-proposal-card] [data-assistant-fab] {
   display: none;
 }
 
+/* 화면이 고른 비서 버튼 자리(app/components/AssistantFabMode — 2026-11-08 #14).
+   hide = 이야기 상세·글 고치기·이전 판 · low = My Life 지도: 56px 로 줄여 도구줄 아래 줄(오른쪽 96px 비움, 높이 64 + 안전 영역) 안에. */
+body[data-assistant-fab-mode="hide"] [data-assistant-fab] {
+  display: none;
+}
+body[data-assistant-fab-mode="low"] [data-assistant-fab] {
+  bottom: calc(0.25rem + env(safe-area-inset-bottom));
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
 /* My Life 우주(ui-space U1) — 행성·위성 면과 지도 상자 배경(밤하늘 + 별·성운). */
 @layer components {
   .space-map {

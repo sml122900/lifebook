@@ -62,10 +62,11 @@
 | | 이야기 나누기 | → `/life-timeline/companion` | V2 트랙 |
 | | 인물록 | → `/my-life?area=people`(V3 — My Life 인물록 영역, prefetch 끔) · → `/people`(V2) | 공용(이동만 트랙별 — 2026-11-06 인물록 통합) |
 | | 내 사진 | → `/photos` | 공용 |
-| | 그 시절 둘러보기 | → `/era` | 공용 |
+| | 그 시절 둘러보기 | → `/era` | **V2 트랙만**(2026-11-08 — V3 에선 숨김: 담아도 My Life 에 안 보임) |
 | 👨‍👩‍👧 함께 보기 | 가족 룸 | → `/rooms` | 공용 |
 | 🎁 만들기·상점 | 포스터 만들기 | → `/poster` | 공용 |
 | | 상품 구매 | → `/shop` | 공용 |
+| | 주문 내역(2026-11-08) | → `/account/orders` | 공용 |
 | ⚙️ 내 계정 | 회원정보 | → `/account/profile` | 공용 |
 | | 설정 | → `/account/settings` | 공용 |
 | 🆘 도움 | 고객센터 | → `/help` | 공용 |
@@ -359,7 +360,7 @@
 ### 가족 룸 `/rooms`
 | 버튼 | 이동 |
 |---|---|
-| ← 인생 연혁으로 | → `/life-timeline` |
+| ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
 | 룸 만들기 | ⚙ 생성 |
 | 룸 카드 클릭 | → `/rooms/{roomId}` |
 | `/rooms/[id]` ← 룸 목록 | → `/rooms` |
@@ -380,7 +381,7 @@
 |---|---|---|
 | `/poster` | 이 디자인으로 만들기 | → `/poster/select` |
 | `/poster` | 내 취향으로 만들기 | → `/poster/custom` |
-| `/poster` | ← 인생 연혁으로 | → `/life-timeline` |
+| `/poster` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
 | `/poster/custom` | ← 디자인 고르기로 | → `/poster` |
 | `/poster/custom` | 이 배경으로 결정 | → `/poster/select` |
 | `/poster/custom` | 토큰 충전하기 | → `/account/tokens` (부족 시) |
@@ -411,7 +412,7 @@
 ### 토큰 충전 `/billing`
 | 화면 | 버튼 | 이동 |
 |---|---|---|
-| `/billing` | ← 인생 연혁으로 | → `/life-timeline` |
+| `/billing` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
 | `/billing` | 패키지 충전 | 토스결제 → 성공 `/billing/success` · 실패 `/billing/fail` |
 | `/billing/success` | 인생 연혁으로 / 충전 화면으로 | → `/life-timeline` · `/billing` |
 | `/billing/fail` | 다시 시도하기 | → `/billing` |
@@ -419,13 +420,13 @@
 ### 계정 `/account/*`
 | 화면 | 버튼 | 이동 |
 |---|---|---|
-| `/account/profile` | ← 인생 연혁으로 | → `/life-timeline` |
-| `/account/settings` | ← 인생 연혁으로 | → `/life-timeline` |
+| `/account/profile` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
+| `/account/settings` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
 | `/account/settings` | 토큰 화면 열기 | → `/account/tokens` |
 | `/account/settings` | 개인정보 처리방침 보기 | → `/privacy` (새 창) |
 | `/account/settings` | 회원 탈퇴 안내 보기 | → `/account/delete` |
 | `/account/tokens` | ← 설정으로 / 충전하러 가기 | → `/account/settings` · `/billing` |
-| `/account/orders` | ← 인생 연혁으로 / 환불 요청 | → `/life-timeline` · ⚙ 환불요청 |
+| `/account/orders` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 환불 요청 | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) · ⚙ 환불요청 |
 | `/account/orders/[orderId]` | 주문 상세(무통장 입금 안내) · 내 주문 전체 보기 / 인생 연혁으로 | → `/account/orders` · `/life-timeline` |
 | `/account/delete` | ← 돌아가기 / 회원 탈퇴 | → `/billing` · ⚙ 탈퇴 → `/login` |
 

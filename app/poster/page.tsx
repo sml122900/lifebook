@@ -104,8 +104,8 @@ export default async function PosterTemplatePage() {
       </ul>
 
       <div className="mt-10 text-center">
-        <Link href="/life-timeline" className={buttonClasses("secondary", "lg")}>
-          ← 인생 연혁으로
+        <Link href="/" className={buttonClasses("secondary", "lg")}>
+          ← 처음 화면으로
         </Link>
       </div>
 

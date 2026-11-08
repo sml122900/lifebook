@@ -9,6 +9,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
+import { AssistantFabMode } from "@/app/components/AssistantFabMode";
 import { VoiceTextarea } from "@/app/components/VoiceTextarea";
 import { prepareItemBodyPhotoAction, preparePersonBodyPhotoAction, saveEpisodeBodyAction, saveItemBodyAction, savePersonBodyAction } from "@/app/actions/node-body";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
@@ -169,6 +170,8 @@ export function BodyEditor({
   const counters = { paragraph: 0, heading: 0, photo: 0 };
   return (
     <div className="flex flex-col gap-5">
+      {/* 둥근 비서 버튼 숨김 — 화면 끝 [저장]을 가렸다(2026-11-08 #14) */}
+      <AssistantFabMode mode="hide" />
       {blocks.length === 0 && <p className="m-0 text-lg text-ink-soft">{C.emptyDoc}</p>}
       <ol className="m-0 flex list-none flex-col gap-5 p-0">
         {blocks.map((b, i) => {

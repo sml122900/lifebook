@@ -810,10 +810,12 @@ async function main() {
       for (const k of ["brand", "line"]) need(`밤 ${k} 테두리`, nt[k], [nt.surface, nt.canvas], 3);
       check("⑬ 대비 — 밤 우주 글자 4.5:1·테두리·포커스 3:1·연대 틴트·편지지(globals.css @theme 값으로 계산 — ui-night §1.2)", Object.keys(nt).length >= 50 && low.length === 0, low);
     }
-    check("⑬ U1·U2 행성 탭(Q110) — 펼침 + 패널 · 펼친 계가 패널·지도 상자에 걸릴 때만 패널 위로(배율 그대로) · 고른 행성을 다시 탭 = 접고 다시 공전 · 펼친 위성만 누르는 곳(공전 중 inert) · 위성 = 바로가기 패널 + [원래 자리로 가기]",
+    check("⑬ U1·U2 행성 탭(Q110) — 펼침 + 패널 · 펼친 계가 패널·지도 상자에 걸릴 때만 패널 위로(배율 그대로) · 고른 행성을 다시 탭 = 접고 다시 공전(지도 이동으로만 고른 노드의 첫 탭은 패널 — 2026-11-08 #15) · 펼친 위성만 누르는 곳(공전 중 inert) · 위성 = 바로가기 패널 + [원래 자리로 가기]",
       view.includes("if (planet && stateRef.current.scale >= OVERVIEW_SCALE) liftAbovePanel(nodeKey);") &&
         view.includes("if (rTop >= top && rBottom <= bottom) return;") && view.includes("api.setTransform(st.positionX, st.positionY + dy, st.scale, 300);") &&
-        view.includes("if (planet && nodeKey === selected) {") && view.includes("const open = selected === n.key;") && view.includes("inert={!open}") &&
+        view.includes("if (planet && nodeKey === selected && focusOnlyRef.current !== nodeKey) {") && view.includes("focusOnlyRef.current = focusRequest.keep ? null : key;") &&
+        view.includes("for (const ms of [450, 1200]) setTimeout(() => liftRef.current(key), ms);") &&
+        view.includes("const open = selected === n.key;") && view.includes("inert={!open}") &&
         view.includes('else if (nodeKind === "satellite" && targetKey) openPanel(targetKey, true);') &&
         view.includes('else if (nodeKind === "satMore" && targetKey) openPanel(targetKey);') && view.includes("{C.space.goOrigin}"));
     {
@@ -1131,8 +1133,10 @@ async function main() {
       side13.includes('<span className="flex items-center gap-1.5 text-lg font-semibold text-ink">') && side13.includes('<span className="mt-0.5 text-lg text-ink-soft">{hint}</span>') &&
         !side13.includes("text-xs text-ink-soft\">{hint}") && !/\blarge\b/.test(side13));
     // 확대 줄 오른쪽 비서 버튼 자리 104 → 96(U2 — Q112 A [움직임 멈추기]가 들어갈 폭 278)
-    check("⑬ 지도 아래 이동 줄·확대 줄 위아래 여백 4px",
-      view.includes('className="flex items-center gap-2 bg-surface px-4 pt-1"') && view.includes('className="flex items-center gap-2 bg-surface py-1 pl-4 pr-[96px]"'));
+    check("⑬ 지도 아래 이동 줄·확대 줄 위아래 여백 4px(확대 줄 아래 = 4px + 안전 영역) · 비서 버튼 = 확대 줄 안으로 내려 56px(2026-11-08 #14) · 이야기 상세·글 고치기·이전 판 = 비서 버튼 숨김",
+      view.includes('className="flex items-center gap-2 bg-surface px-4 pt-1"') && view.includes('className="flex items-center gap-2 bg-surface pl-4 pr-[96px] pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))]"') &&
+        view.includes('<AssistantFabMode mode="low" />') && src("app/globals.css").includes('body[data-assistant-fab-mode="low"] [data-assistant-fab] {') &&
+        ["app/my-life/story/[id]/page.tsx", "app/my-life/_body/BodyEditor.tsx", "app/my-life/_body/HistoryPage.tsx"].every((f) => src(f).includes('<AssistantFabMode mode="hide" />')));
     check("⑬ 지도 머리 줄 — 390 에서 제목 한 줄(안 꺾음) · 좁은 화면 [찾기]·[목록으로 보기] 좌우 여백 12px",
       view.includes('<h1 className="m-0 shrink-0 whitespace-nowrap text-[28px]">{C.pageTitle}</h1>') &&
         (view.match(/className="px-3! sm:px-4!" onClick={(onOpenFind|onToggleView)}/g) ?? []).length === 2);

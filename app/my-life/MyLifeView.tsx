@@ -23,6 +23,7 @@
 //   시기 아래 꼬리표로만(별도 묶음은 중복이라 뺌, Q69 후속),
 //   지도 보기 = "지금 보는 곳" 줄 [이야기 거리] → 같은 카드 시트(./Suggestions). 이야기 패널 [이야기 고치기](본문).
 
+import { AssistantFabMode } from "@/app/components/AssistantFabMode";
 import { MapPin, MessageCircle, Minus, Pause, Play, Plus, Search, UserRound, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
@@ -987,12 +988,23 @@ function MapMode({
   // 요청 하나(n)는 한 번만 — 처리한 뒤 넣기·빼기로 레이아웃이 바뀌어도 그 노드로 다시 가지 않는다(3단계 E2E 2026-11-02).
   // keep = 확대 없이 보이는 곳 밖일 때만 옮김(패널이 열린 뒤 — 다음 그림에서).
   const focusDoneRef = useRef(0);
+  // 지도 이동으로만 고른 노드(?focus=·찾기·답 칩·여기로 가기 — 패널은 안 열림). 그 노드 첫 탭 = 패널 열기(선택 풀기 아님 — 2026-11-08 #15:
+  // [My Life에서 보기]로 와서 이야기를 누르면 선택이 풀리고 두 번째 탭에야 패널이 열렸다). 탭·패널 열기 뒤엔 비움.
+  const focusOnlyRef = useRef<string | null>(null);
+  // 행성 계(행성 + 위성)를 지도 상자 안으로 — liftAbovePanel 은 ref 만 쓰는 함수라 첫 그림의 것을 그대로 써도 같다.
+  const liftRef = useRef(liftAbovePanel);
   useEffect(() => {
     if (!focusRequest || !ready || focusDoneRef.current === focusRequest.n) return;
     const el = boxRef.current?.querySelector<HTMLElement>(`[data-node-key="${CSS.escape(focusRequest.key)}"]`);
     if (!el) return;
     focusDoneRef.current = focusRequest.n;
     const key = focusRequest.key;
+    focusOnlyRef.current = focusRequest.keep ? null : key;
+    // 행성이면 이동이 끝난 뒤 위성까지 상자 안에 들어오게(가운데 = 행성 버튼이라 아래 위성이 상자·도구줄에 걸렸다 — #15) · 늦게 생기는
+    // 머리 줄(공지 띠는 하이드레이션 뒤에 나타나 지도 상자를 밀어 내림)까지 한 번 더. 이미 다 보이면 안 움직인다.
+    if (!focusRequest.keep && el.dataset.nodeKind && PLANET_KINDS.has(el.dataset.nodeKind)) {
+      for (const ms of [450, 1200]) setTimeout(() => liftRef.current(key), ms);
+    }
     if (focusRequest.keep) requestAnimationFrame(() => ensureVisible(key));
     // 두 프레임 뒤 — 첫 선택이면 선택 줄이 생겨 지도 상자 높이가 바뀌고(ResizeObserver → 다시 그림) 그때 이동 애니메이션이 끊겼다
     // (2026-11-07 실측: 찾기·AI 답 칩 → 선택은 되는데 화면 밖 노드로 안 감).
@@ -1302,10 +1314,11 @@ function MapMode({
     } else {
       const planet = !!nodeKind && PLANET_KINDS.has(nodeKind);
       // 고른 행성을 다시 탭 = 접고 다시 공전(U2 — 고르기 풀기). 패널은 닫혀 있다(열려 있으면 지도는 덮개 밑).
-      if (planet && nodeKey === selected) {
+      if (planet && nodeKey === selected && focusOnlyRef.current !== nodeKey) {
         setSelected(null);
         return;
       }
+      focusOnlyRef.current = null;
       // 탭한 그 순간 그 계만 멈추고 지금 자리 → 펼침 자리로(./orbit animateOpen). [data-open] 은 곧 React 가 같은 값으로 그린다.
       const sys = planet ? boxRef.current?.querySelector<HTMLElement>(`.orbit-sys[data-sys="${CSS.escape(nodeKey)}"]`) : null;
       if (sys) {
@@ -1594,8 +1607,11 @@ function MapMode({
         )}
       </nav>
       <CategorySheet open={catSheet} data={data} onPick={goCategory} onClose={() => setCatSheet(false)} />
-      {/* 확대 줄(Q112 A): [−][+][전체][움직임 멈추기] — 비서 버튼 자리 96px(390 에서 쓸 수 있는 폭 278). */}
-      <div className="flex items-center gap-2 bg-surface py-1 pl-4 pr-[96px]">
+      {/* 확대 줄(Q112 A): [−][+][전체][움직임 멈추기] — 비서 버튼 자리 96px(390 에서 쓸 수 있는 폭 278).
+          비서 버튼은 이 줄 안으로 내려 작게(AssistantFabMode low — 2026-11-08 #14: 64px 가 이 줄보다 16px 높아 위 줄 [다른 카테고리]를 가렸다).
+          아래 여백 = 4px + 안전 영역(비서 버튼과 같이 — 홈 표시줄 위). */}
+      <AssistantFabMode mode="low" />
+      <div className="flex items-center gap-2 bg-surface pl-4 pr-[96px] pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))]">
         <Button
           variant="secondary"
           size="lg"

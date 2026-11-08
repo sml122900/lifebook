@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { AssistantFabMode } from "@/app/components/AssistantFabMode";
 import { Paper } from "@/components/ui/Paper";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { listRevisions, type BodyNodeType, type BodyPhoto } from "@/lib/node-body";
@@ -26,6 +27,8 @@ export async function HistoryPage(o: {
   const [revs, photos] = await Promise.all([listRevisions(o.userId, o.nodeType, o.nodeId), photoMapOf(o.photos)]);
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-8">
+      {/* 둥근 비서 버튼 숨김 — 글 고치기와 같은 화면 묶음(2026-11-08 #14) */}
+      <AssistantFabMode mode="hide" />
       <Link href={o.backHref} className="self-start text-lg text-action underline underline-offset-4">
         ← {o.backLabel}
       </Link>

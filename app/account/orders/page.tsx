@@ -111,10 +111,10 @@ export default async function MyOrdersPage() {
 
       <div className="mt-6">
         <Link
-          href="/life-timeline"
+          href="/"
           className="text-base font-semibold text-ink-soft underline hover:text-ink"
         >
-          ← 인생 연혁으로
+          ← 처음 화면으로
         </Link>
       </div>
     </main>

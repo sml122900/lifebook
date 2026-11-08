@@ -59,10 +59,10 @@ export default async function AccountProfilePage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
       <Link
-        href="/life-timeline"
+        href="/"
         className={buttonClasses("tertiary", "md", "self-start")}
       >
-        ← 인생 연혁으로
+        ← 처음 화면으로
       </Link>
 
       <header>

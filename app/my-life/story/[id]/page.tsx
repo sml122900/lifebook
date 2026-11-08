@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AssistantFabMode } from "@/app/components/AssistantFabMode";
 import { Paper } from "@/components/ui/Paper";
 import { ButtonLink } from "@/components/ui/Button";
 import { getMyLifeData } from "@/lib/my-life";
@@ -35,6 +36,8 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-8">
+      {/* 둥근 비서 버튼 숨김 — 화면 끝 [글 고치기]를 가렸다(2026-11-08 #14) */}
+      <AssistantFabMode mode="hide" />
       <Link href={`/my-life?focus=st:${ev.id}:${id}`} className="self-start text-lg text-action underline underline-offset-4">
         ← {C.body.backToMap}
       </Link>
