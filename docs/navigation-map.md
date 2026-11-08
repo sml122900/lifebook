@@ -405,12 +405,22 @@
 | 화면 | 버튼 | 이동 |
 |---|---|---|
 | `/shop` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 상품 카드 | → `/`(로그인 전 랜딩 · 로그인 뒤 트랙별 첫 화면) · `/shop/{productId}` |
-| `/shop/[id]` | ← 상점으로 / 주문하기 | → `/shop` · `/shop/{id}/order` — 목록에서 숨긴 상품(`orderable:false` — 책·씨앗)은 [주문하기] 없음(2026-11-08) |
+| `/shop/[id]` | ← 상점으로 / 주문하기 | → `/shop` · `/shop/{id}/order` — 목록에서 숨긴 상품(`orderable:false` — 책·씨앗·금액 정하기 전 My Life 인쇄본)은 상세도 404(2026-11-08) |
 | `/shop/[id]/order` | (poster 상품) | → `/poster` 로 리다이렉트 · 숨긴 상품(`orderable:false`) = 404(서버도 주문 거절 — 2026-11-08) |
+| `/shop/mylife-print/order` | (My Life 인쇄본 — 금액 정해진 뒤) | → `/my-life/print` 로 리다이렉트(출력 편집 화면에서 주문 — 2026-11-08) |
 | `/shop/[id]/order` | 무통장입금 선택 → 주문하고 입금 안내 받기 | → `/account/orders/{orderId}` (입금 안내) |
 | `/shop/[id]/order` | 카드결제 선택 → 결제하기 | 토스결제(테스트) → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
 | `/shop/order/success` | 내 주문 보기 / 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/account/orders` · `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
 | `/shop/order/fail` | 상점으로 돌아가기 | → `/shop` |
+
+### My Life 인쇄본 `/my-life/print` (V3 — 2026-11-08, `docs/phase/print-mylife.md` §12)
+들어오는 버튼은 아직 없음(금액 정하기 전 — 주소로만). 로그인 전이면 proxy → `/login?returnTo=/my-life/print`. V2 = `/enter`.
+| 화면 | 버튼 | 이동 |
+|---|---|---|
+| `/my-life/print` | ← My Life 로 | → `/my-life` |
+| `/my-life/print` | 장 썸네일 → 크게 보기 [← 앞 장]·[다음 장 →]·[닫기] · 체크칸(보이는 방법·인쇄에 넣을 것) · [모두 되돌리기] | ⚙ 화면 안(편집 상태 자동 저장 — 실제 지도 무변) |
+| `/my-life/print` | 주문하기(금액이 있고 20장 이하일 때만) | ⚙ 같은 화면 주문 단계(배송지 + 토스 결제위젯 v2) · [← 인쇄본 고치기로] |
+| `/my-life/print` 주문 단계 | 우편번호 찾기 · 결제하기 | ↗ 카카오 우편번호 · 토스 결제위젯(테스트 키) → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
 
 ### 토큰 충전 `/billing`
 | 화면 | 버튼 | 이동 |
@@ -439,6 +449,7 @@
 | `/admin/orders` | 주문 항목 클릭 | → `/admin/orders/{orderId}` |
 | `/admin/orders/[id]` | ← 목록 | → `/admin/orders` |
 | `/admin/orders/[id]` | 입금 확인(무통장)/발주/배송중/배송완료/취소/송장저장/환불 | ⚙ 상태 변경 (페이지 전환 없음) |
+| `/admin/orders/[id]` | PDF 받기(My Life 인쇄본 주문 — 2026-11-08) | ⚙ 주문 스냅샷을 A4 300dpi PDF 로 내려받기(페이지 전환 없음) |
 
 ### 기억 연구실 `/lab/memory` (LAB_ALLOWED_USER_IDS, 연구 트랙 — `phase/기억에이전트_R1-R4_기획.md`)
 진입 링크 없음(메뉴·헤더·사이드 패널 미노출, 주소 직접 입력만). 비허용 로그인 사용자는 일반 404.
@@ -478,6 +489,7 @@
 | 토큰 충전 `/billing` | 토스페이먼츠 | `/billing/success` | `/billing/fail` |
 | 포스터 주문 `/poster/order` | 토스페이먼츠 | `/shop/order/success` | `/shop/order/fail` |
 | 실물 상품 `/shop/[id]/order` | 토스페이먼츠 | `/shop/order/success` | `/shop/order/fail` |
+| My Life 인쇄본 `/my-life/print` | 토스 결제위젯 v2(위젯 연동 키) | `/shop/order/success`(위젯 시크릿 키로 확인) | `/shop/order/fail` |
 
 > 현재 포스터 실결제는 `POSTER_PAYMENT_LIVE_ENABLED` 플래그로 기본 OFF(테스트 모드).
 

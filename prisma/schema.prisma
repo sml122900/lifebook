@@ -201,6 +201,7 @@ model User {
   // 행성 꾸미기(docs/phase/ui-space.md §5 · 부록 A) — 노드 하나에 모양 하나. 탈퇴 시 Cascade.
   nodeDecorations   NodeDecoration[]
   mapEditLogs       MapEditLog[]
+  printDraft        PrintDraft?
 }
 
 // P2 — 포스터 작업본. 유저당 1개("작업중 포스터").
@@ -573,6 +574,10 @@ model ProductOrder {
   // 관리자 발주 시 이 스냅샷으로 P7-a export(주문 후 편집과 무관하게 고정).
   // charm/book 은 null.
   posterSnapshot Json?
+
+  // My Life 인쇄본 주문 스냅샷(2026-11-08 — docs/phase/print-mylife.md Q11) — 주문 때 서버가 다시 계산한 배치
+  // ({ v, owner, options, tierId, layout }). 발주 PDF 는 이것만 그린다(주문 뒤 지도를 고쳐도 인쇄 내용 고정). 다른 상품은 null.
+  printSnapshot Json?
 
   // 환불(발주 전까지) — 사용자가 요청 → 관리자가 처리.
   refundRequestedAt DateTime?
@@ -1705,4 +1710,17 @@ model NodeDecoration {
 
   @@unique([nodeType, nodeId])
   @@index([userId])
+}
+
+// My Life 인쇄본 출력 편집 상태(2026-11-08 — docs/phase/print-mylife.md §2.2 Q10). 사용자당 1행. 실제 지도는 안 바뀜 —
+// 빼기(노드 키 목록 — lib/print-layout printKey 모양, 지워진 노드 키는 읽을 때 무시)·간선 켜고 끄기·다른 분 이름 첫 글자만 인쇄본에.
+model PrintDraft {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  excluded        String[] @default([])
+  showPeopleEdges Boolean  @default(true)
+  showPlaceEdges  Boolean  @default(true)
+  initials        Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
 }

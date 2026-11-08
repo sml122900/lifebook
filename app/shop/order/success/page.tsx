@@ -7,6 +7,8 @@ import {
   findSettledProductOrder,
   settleProductOrder,
 } from "@/lib/commerce/orders";
+import { PRINT_PRODUCT_ID } from "@/lib/commerce/print-orders";
+import { prisma } from "@/lib/db";
 import { TossConfirmError, confirmTossPayment, isTossTestMode } from "@/lib/tokens/toss";
 
 // /shop/order/success — 토스가 결제 확인 후 리다이렉트. 적립이 아니라
@@ -57,14 +59,18 @@ export default async function ShopOrderSuccessPage({
     );
   }
 
-  // 1. 토스 승인(서버에서만).
+  // 1. 토스 승인(서버에서만). My Life 인쇄본은 결제위젯으로 열어 위젯 시크릿 키로 확인(2026-11-08) — 주소 값이 아니라 주문 상품으로 정함.
+  const kind = (await prisma.productOrder.findUnique({ where: { id: orderId }, select: { productId: true } }))?.productId;
   let confirmed;
   try {
-    confirmed = await confirmTossPayment({
-      paymentKey,
-      orderId,
-      amount: amountFromUrl,
-    });
+    confirmed = await confirmTossPayment(
+      {
+        paymentKey,
+        orderId,
+        amount: amountFromUrl,
+      },
+      { widget: kind === PRINT_PRODUCT_ID },
+    );
   } catch (err) {
     const message =
       err instanceof TossConfirmError ? err.message : String(err);

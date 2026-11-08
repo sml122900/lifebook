@@ -6,10 +6,12 @@
 
 const TOSS_BASE = "https://api.tosspayments.com";
 
-function getSecretKey(): string {
-  const key = process.env.TOSS_SECRET_KEY;
+// 결제창(API 개별 연동 키)과 결제위젯(위젯 연동 키 — 2026-11-08 My Life 인쇄본 주문)은 시크릿 키가 다르다.
+function getSecretKey(widget = false): string {
+  const name = widget ? "TOSS_WIDGET_SECRET_KEY" : "TOSS_SECRET_KEY";
+  const key = process.env[name];
   if (!key) {
-    throw new Error("TOSS_SECRET_KEY is not set");
+    throw new Error(`${name} is not set`);
   }
   return key;
 }
@@ -20,9 +22,9 @@ export function isTossTestMode(): boolean {
   return process.env.TOSS_CLIENT_KEY?.startsWith("test_") ?? false;
 }
 
-function basicAuthHeader(): string {
+function basicAuthHeader(widget = false): string {
   // 토스는 "시크릿키:" 형식(콜론 유지, 비밀번호는 빈 값)을 base64 로 받는다.
-  return "Basic " + Buffer.from(`${getSecretKey()}:`).toString("base64");
+  return "Basic " + Buffer.from(`${getSecretKey(widget)}:`).toString("base64");
 }
 
 export type TossConfirmRequest = {
@@ -60,12 +62,13 @@ export class TossConfirmError extends Error {
  */
 export async function confirmTossPayment(
   body: TossConfirmRequest,
+  opts: { widget?: boolean } = {}, // 결제위젯으로 연 결제면 위젯 시크릿 키(호출부가 주문 상품을 보고 정함)
 ): Promise<TossConfirmedPayment> {
   const res = await fetch(`${TOSS_BASE}/v1/payments/confirm`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: basicAuthHeader(),
+      Authorization: basicAuthHeader(opts.widget),
     },
     body: JSON.stringify(body),
   });

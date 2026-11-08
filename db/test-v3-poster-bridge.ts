@@ -1020,8 +1020,9 @@ async function orderGuardScenario(userId: string) {
   const orderPage = read("app/shop/[productId]/order/page.tsx");
   const detail = read("app/shop/[productId]/page.tsx");
   const form = read("app/poster/order/PosterOrderForm.tsx");
-  check("★ 주문 막기 — 화면: 숨긴 상품 주문 화면 404 · 상세 [주문하기] 숨김 · 포스터 폼 카드만(기본값 card · 무통장 선택지 안 그림) · 실결제 설정 꺼짐(.env)",
-    orderPage.includes("if (!product || product.orderable === false) notFound();") && detail.includes("product.orderable !== false &&") &&
+  // 상세 = 숨긴 상품이면 404(2026-11-08 4단계 — 전에는 [주문하기]만 숨김).
+  check("★ 주문 막기 — 화면: 숨긴 상품 주문 화면·상세 404 · 포스터 폼 카드만(기본값 card · 무통장 선택지 안 그림) · 실결제 설정 꺼짐(.env)",
+    orderPage.includes("if (!product || product.orderable === false) notFound();") && detail.includes("if (!product || product.orderable === false) notFound();") &&
       form.includes(`useState<PaymentMethod>("card")`) && form.includes("bankTransfer={false}") && process.env.POSTER_PAYMENT_LIVE_ENABLED !== "true");
 }
 main()

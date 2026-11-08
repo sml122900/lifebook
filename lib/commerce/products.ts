@@ -6,12 +6,14 @@
 // "상품 + 배송" 분리, 토스 결제는 배송비 포함 총액(totalKrw).
 // v1 수량은 항상 1(UI 수량 선택 없음). 주문은 productId + 단가 스냅샷 저장.
 
+import { PRINT_TIERS, printOnSale } from "./print-tiers";
+
 // 배송비 — 균일. 주문 시점에 ProductOrder.shippingKrw 로 스냅샷.
 export const SHIPPING_KRW = 3000;
 
 // 표시가는 모두 부가세(VAT) 포함 소비자가. 배송비 별도(주문 표시에서 분리).
 
-export type ProductId = "poster" | "charm" | "book";
+export type ProductId = "poster" | "charm" | "book" | "mylife-print";
 
 // 재질/사양 옵션 — 같은 상품의 가격 분기(포스터 일반/프리미엄). 주문엔
 // optionId 로 저장하고 단가는 옵션값을 스냅샷한다. 액자·족자·수량할인은
@@ -87,6 +89,18 @@ export const PRODUCTS: readonly Product[] = [
     imageAlt: "소프트커버 자서전 책",
     // 2026-09-11 — PG 심사 대응. charm 과 같은 이유(제작·배송 파이프라인 없음).
     orderable: false,
+  },
+  {
+    // My Life 인쇄본(2026-11-08 — docs/phase/print-mylife.md). 가격 = 장수 구간(lib/commerce/print-tiers — 금액은 견적 뒤 성민).
+    // 금액이 하나라도 비면 비공개(목록·상세·주문 모두 없음). 주문은 /my-life/print(출력 편집 → 결제위젯 v2).
+    id: "mylife-print",
+    name: "My Life 인쇄본", // [임시 — 성민 확정 필요] 2026-11-08
+    spec: "A4 세로 · 장수에 따라 6·12·20장 구간", // [임시 — 성민 확정 필요] 2026-11-08
+    blurb: "내 My Life 지도를 시기별로 한 장씩 담은 인쇄본 — 가족과 한 장씩 넘기며 이야기해요.", // [임시 — 성민 확정 필요] 2026-11-08
+    unitKrw: PRINT_TIERS.find((t) => t.unitKrw != null)?.unitKrw ?? 0, // 표시용 최저가(구간 표는 상세 화면)
+    image: "/icons/icon-512.png", // 견본 = 시험 인쇄 사진(Q19) — 그 전까지 비공개라 보이지 않음
+    imageAlt: "My Life 인쇄본 견본",
+    orderable: printOnSale(SHIPPING_KRW),
   },
 ] as const;
 

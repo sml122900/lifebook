@@ -7,8 +7,12 @@ import { ORDER_STATUS_LABEL } from "@/lib/commerce/order-display";
 import { getProduct, getProductOption } from "@/lib/commerce/products";
 import { KST_DATE_TIME_FULL_FMT } from "@/lib/kst-date";
 import type { PosterSnapshot } from "@/lib/poster/snapshot";
+import type { PrintSnapshot } from "@/lib/commerce/print-orders";
+import { PRINT_TIERS } from "@/lib/commerce/print-tiers";
+import { PRINT_COPY } from "@/lib/print-copy";
 
 import { PosterCompose } from "../../../poster/PosterCompose";
+import { PrintExport } from "./PrintExport";
 import {
   confirmBankPayment,
   processRefund,
@@ -34,6 +38,7 @@ export default async function AdminOrderDetailPage({
   const product = getProduct(order.productId);
   const option = product ? getProductOption(product, order.optionId) : undefined;
   const snapshot = order.posterSnapshot as unknown as PosterSnapshot | null;
+  const printSnap = order.printSnapshot as unknown as PrintSnapshot | null; // My Life 인쇄본(2026-11-08)
 
   return (
     <div className="flex flex-col gap-6">
@@ -140,6 +145,17 @@ export default async function AdminOrderDetailPage({
             eraTier={snapshot.eraTier}
             removedEraEvents={snapshot.removedEraEvents}
           />
+        </section>
+      )}
+
+      {/* My Life 인쇄본 — 주문 스냅샷을 A4 300dpi PDF 로(2026-11-08 — docs/phase/print-mylife.md §12) */}
+      {printSnap && (
+        <section className="rounded-md border-2 border-line bg-surface px-5 py-4">
+          <h2 className="mb-1 text-base font-bold text-ink">인쇄 파일(주문 시점 스냅샷)</h2>
+          <p className="mb-3 text-sm text-ink-soft">
+            {PRINT_COPY.adminPages(printSnap.layout.pageCount, PRINT_TIERS.find((t) => t.id === printSnap.tierId)?.name ?? printSnap.tierId)}
+          </p>
+          <PrintExport layout={printSnap.layout} orderId={order.id} />
         </section>
       )}
 
