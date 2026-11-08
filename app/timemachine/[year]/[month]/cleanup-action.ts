@@ -1,7 +1,8 @@
 "use server";
 
 import { auth } from "@/auth";
-import { withUsageLedger } from "@/lib/ai";
+import { BudgetBlockedError, withUsageLedger } from "@/lib/ai";
+import { budgetMessage } from "@/lib/budget-copy";
 import { chargeOneShot } from "@/lib/tokens/charge";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
 import { MIN_BALANCE_TO_START_CYCLE } from "@/lib/tokens/policy";
@@ -44,7 +45,11 @@ export async function cleanupVoiceTextAction(
     throw new InsufficientBalanceError();
   }
 
-  const result = await withUsageLedger(userId, "VOICE_CLEANUP", () => cleanupVoiceText(rawText));
+  // AI 사용 한도(2026-11-08)면 공통 문구로 실패(호출 0). 이 액션은 보관된 월 화면에서만 쓰임.
+  const result = await withUsageLedger(userId, "VOICE_CLEANUP", () => cleanupVoiceText(rawText)).catch((e) => {
+    if (e instanceof BudgetBlockedError) throw new Error(budgetMessage(e.reason));
+    throw e;
+  });
   const charge = await chargeOneShot(
     userId,
     result.inputTokens,

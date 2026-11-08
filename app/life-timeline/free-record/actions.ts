@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
-import { withUsageLedger } from "@/lib/ai";
+import { BudgetBlockedError, withUsageLedger } from "@/lib/ai";
+import { budgetMessage } from "@/lib/budget-copy";
 import { prisma } from "@/lib/db";
 import {
   splitRecordingTranscript,
@@ -99,6 +100,7 @@ export async function splitTranscriptAction(input: {
     await addExtractedPreferences(session.user.id, result.preferences).catch(() => {});
     return { ok: true, segments: result.segments, nextTopics: result.nextTopics };
   } catch (e) {
+    if (e instanceof BudgetBlockedError) return { ok: false, error: budgetMessage(e.reason) }; // AI 사용 한도(2026-11-08)
     console.error("[splitTranscript]", e instanceof Error ? e.message : e);
     return { ok: false, error: "분할에 실패했어요." };
   }

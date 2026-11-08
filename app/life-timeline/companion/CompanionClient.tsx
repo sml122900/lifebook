@@ -440,7 +440,8 @@ export function CompanionClient({ firstVisitTour = false }: { firstVisitTour?: b
     try {
       const result = await saveCompanionSessionAction({ history, audioPaths });
       if (result.ok) {
-        router.push("/life-timeline/manage?draft=1");
+        // AI 사용 한도로 정리를 건너뛰었으면 정리 화면이 공통 문구(2026-11-08)
+        router.push(`/life-timeline/manage?draft=1${result.aiSkipped ? `&ai=${result.aiSkipped}` : ""}`);
       } else {
         setErrorMsg(result.error ?? "저장에 실패했어요");
         setPhase("error");

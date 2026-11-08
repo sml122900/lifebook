@@ -13,7 +13,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import Anthropic from "@anthropic-ai/sdk";
 
-import { recordChatUsage, type ChatUsagePurpose } from "./chat-v3-usage";
+import { budgetBlock, recordChatUsage, type BudgetBlock, type ChatUsagePurpose } from "./chat-v3-usage";
 
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
@@ -44,7 +44,18 @@ export function trackAiUsage<T>(usage: AiUsage, fn: () => Promise<T>): Promise<T
 type LedgerScope = { userId: string; purpose: ChatUsagePurpose };
 const ledgerStore = new AsyncLocalStorage<LedgerScope>();
 
-export function withUsageLedger<T>(userId: string, purpose: ChatUsagePurpose, fn: () => Promise<T>): Promise<T> {
+// 한도 일원화(2026-11-08) — 범위를 열기 전에 한도 확인(lib/chat-v3-usage budgetBlock: 전역 하루 예산 · 테스트 계정 하루 한도).
+// 넘었으면 fn 을 부르지 않고(모델 호출 0) BudgetBlockedError — 진입점이 받아 거절 문구(lib/budget-copy)를 보여 준다.
+export class BudgetBlockedError extends Error {
+  constructor(readonly reason: BudgetBlock) {
+    super(`AI 사용 한도(${reason})`);
+    this.name = "BudgetBlockedError";
+  }
+}
+
+export async function withUsageLedger<T>(userId: string, purpose: ChatUsagePurpose, fn: () => Promise<T>): Promise<T> {
+  const block = await budgetBlock(userId);
+  if (block) throw new BudgetBlockedError(block);
   return ledgerStore.run({ userId, purpose }, fn);
 }
 

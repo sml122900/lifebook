@@ -15,7 +15,8 @@
 
 import { prisma } from "../db";
 import { Prisma as PrismaNs } from "../generated/prisma/client";
-import { newAiUsage, trackAiUsage, withUsageLedger, type AiUsage } from "../ai";
+import { BudgetBlockedError, newAiUsage, trackAiUsage, withUsageLedger, type AiUsage } from "../ai";
+import { BUDGET_COPY } from "../budget-copy";
 import { budgetBlock } from "../chat-v3-usage";
 import { isSubstantiveEpisodeContent } from "../episode-text";
 import { buildEpisodeOpeningPrompt } from "../episode-opening";
@@ -328,18 +329,25 @@ export async function interviewStoryTurn(
   const row = await ownedPlannedItem(userId, itemId);
   const target = row ? await resolveTarget(userId, row.itemKey, false) : null;
   if (!row || !target || target.kind !== "story") return { ok: false, error: INTERVIEW_COPY.errorGeneric };
-  // 테스트 계정 하루 한도(2026-11-08) — 넘으면 AI 를 부르지 않고 이유를 알림(인터뷰엔 전역 예산 확인이 원래 없어 "test" 만 봄)
-  if ((await budgetBlock(userId)) === "test") return { ok: false, error: INTERVIEW_COPY.testBudget };
   const usage = newAiUsage();
   try {
     return await trackAiUsage(usage, () =>
-      withUsageLedger(userId, "INTERVIEW_FOLLOWUP", () => // 원가 원장(2026-11-08)
+      withUsageLedger(userId, "INTERVIEW_FOLLOWUP", () => // 원가 원장 + 한도(2026-11-08)
         continueEpisodeChatCore(userId, target.eventId, history, followUpCount, target.topicOverride),
       ),
     );
+  } catch (e) {
+    // 한도 일원화(2026-11-08) — 전역 예산·테스트 계정 한도에 걸리면 AI 를 부르지 않고 이유를 알림
+    if (e instanceof BudgetBlockedError) return { ok: false, error: interviewBudgetMessage(e.reason) };
+    throw e;
   } finally {
     await addUsage(row.id, usage);
   }
+}
+
+// 인터뷰의 한도 문구 — 테스트 계정 = 인터뷰 자기 문구(그대로), 전역 예산 = 공통 문구(인터뷰엔 원래 없던 확인 — 2026-11-08 한도 일원화)
+function interviewBudgetMessage(reason: "daily" | "test"): string {
+  return reason === "test" ? INTERVIEW_COPY.testBudget : BUDGET_COPY.daily;
 }
 
 export type FinishInterviewStoryResult =
@@ -360,7 +368,9 @@ export async function finishInterviewStory(
   if (!row || !target || target.kind !== "story") return { ok: false, error: INTERVIEW_COPY.errorGeneric };
   const existing = parseCard(row.proposal);
   if (existing) return { ok: true, proposal: await toView(userId, existing) };
-  if ((await budgetBlock(userId)) === "test") return { ok: false, error: INTERVIEW_COPY.testBudget }; // 테스트 계정 하루 한도(2026-11-08)
+  // 한도(2026-11-08) — 제안 카드는 원장에 직접 남기는 경로(범위 밖)라 여기서 확인. 전역 예산·테스트 계정 한도 둘 다
+  const block = await budgetBlock(userId);
+  if (block) return { ok: false, error: interviewBudgetMessage(block) };
   const usage = newAiUsage();
   let built: Awaited<ReturnType<typeof buildProposal>>;
   try {
@@ -440,7 +450,8 @@ export type YearAnswerResult =
   | { outcome: "saved"; label: string; year: number }
   | { outcome: "retry" }
   | { outcome: "unknown" }
-  | { outcome: "gone" };
+  | { outcome: "gone" }
+  | { outcome: "blocked"; message: string }; // AI 사용 한도(2026-11-08)
 
 // 연도 문항 답. text=null 은 "기억이 안 나요" 버튼. 못 알아들으면 1번만 다시 묻고
 // (turns 로 판단), 그래도 안 되면 모름으로 기록(refId=null — 재노출 규칙 Q5).
@@ -472,7 +483,11 @@ export async function answerInterviewYear(
   if (year === null && answer && !isUnknownYearAnswer(answer)) {
     const usage = newAiUsage();
     try {
-      year = await trackAiUsage(usage, () => withUsageLedger(userId, "INTERVIEW_YEAR", () => parseYearWithAi(answer, birthYear, now))); // 원가 원장(2026-11-08)
+      year = await trackAiUsage(usage, () => withUsageLedger(userId, "INTERVIEW_YEAR", () => parseYearWithAi(answer, birthYear, now))); // 원가 원장 + 한도(2026-11-08)
+    } catch (e) {
+      // 한도(2026-11-08) — 해석 안 함(호출 0), 같은 질문에 머물며 이유를 알림
+      if (e instanceof BudgetBlockedError) return { outcome: "blocked", message: interviewBudgetMessage(e.reason) };
+      throw e;
     } finally {
       await addUsage(row.id, usage);
     }

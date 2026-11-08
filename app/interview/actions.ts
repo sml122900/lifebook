@@ -79,6 +79,6 @@ export async function answerInterviewYearAction(
 ): Promise<{ result: YearAnswerResult; next: InterviewState | null }> {
   const userId = await requireUserId();
   const result = await answerInterviewYear(userId, itemId, text);
-  if (result.outcome === "retry") return { result, next: null };
+  if (result.outcome === "retry" || result.outcome === "blocked") return { result, next: null };
   return { result, next: await nextInterviewState(userId) };
 }

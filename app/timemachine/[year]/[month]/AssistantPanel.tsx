@@ -331,9 +331,10 @@ export function AssistantPanel({
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as {
             message?: string;
+            error?: string; // AI 사용 한도(429 — 2026-11-08)
           };
           setError(
-            body.message ?? "답을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.",
+            body.message ?? body.error ?? "답을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.",
           );
           rollback();
           return;
@@ -367,12 +368,16 @@ export function AssistantPanel({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question, prior }),
         });
-        if (!res.ok) throw new Error("fetch failed");
+        if (!res.ok) {
+          // AI 사용 한도(429 — 2026-11-08)면 서버 문구를 그대로
+          const b = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(res.status === 429 && b.error ? b.error : "");
+        }
         const data = (await res.json()) as { text?: string };
         setTutMsgs((prev) => [...prev, { role: "assistant" as const, text: data.text ?? "..." }]);
-      } catch {
+      } catch (e) {
         setTutMsgs((prev) => prev.slice(0, -1));
-        setTutError("답을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.");
+        setTutError((e instanceof Error && e.message) || "답을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.");
       }
     });
   }

@@ -32,7 +32,8 @@ import { buildMapView, EXCERPT_MAX, findNodes, LIST_NODE_LIMIT, mapListText, nod
 import { modelId } from "../lib/ai-model";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { MAP_EDIT_LOG_DAYS, markMapEditUndone, recordMapEdit } from "../lib/map-edit-log";
-import { recordScopedUsage, withUsageLedger } from "../lib/ai";
+import { BudgetBlockedError, recordScopedUsage, withUsageLedger } from "../lib/ai";
+import { getPosterCandidates } from "../lib/poster/ai-cache";
 import { budgetBlock, isTestAccount, isTestAccountEmail, recordChatUsage, spentTodayMicroUsd, testSpentTodayMicroUsd } from "../lib/chat-v3-usage";
 import { freeChatReply } from "../lib/free-chat";
 import { planMapEdit } from "../lib/map-edit";
@@ -334,8 +335,11 @@ async function main() {
       else process.env.CHAT_V3_TEST_BUDGET_USD = prevTestBudget;
     }
     const session13 = read("lib/interview/session.ts"), chatClient = read("app/chat-v3/ChatV3Client.tsx"), sheet = read("app/my-life/AskSheet.tsx");
-    check("⑩ 한도 이유 화면 연결 — 인터뷰 후속 질문·마무리 카드 거절(testBudget) · 자유 대화 3곳 testBudgetPaused · 지도 AI 문구 errors.testBudget · 재생 스크립트 2개 ownBudget",
-      (session13.match(/\(await budgetBlock\(userId\)\) === "test"\) return \{ ok: false, error: INTERVIEW_COPY\.testBudget \}/g) ?? []).length === 2 &&
+    check("⑩ 한도 이유 화면 연결 — 인터뷰 후속 질문·마무리 카드 거절(테스트 = testBudget 문구) · 자유 대화 3곳 testBudgetPaused · 지도 AI 문구 errors.testBudget · 재생 스크립트 2개 ownBudget",
+      // 2026-11-08 한도 일원화 — 후속 질문 = 범위 거절(BudgetBlockedError), 마무리 카드 = 직접 확인(budgetBlock) · 둘 다 interviewBudgetMessage(테스트 = 인터뷰 문구)
+      session13.includes("if (e instanceof BudgetBlockedError) return { ok: false, error: interviewBudgetMessage(e.reason) };") &&
+        session13.includes("if (block) return { ok: false, error: interviewBudgetMessage(block) };") &&
+        session13.includes('return reason === "test" ? INTERVIEW_COPY.testBudget : BUDGET_COPY.daily;') &&
         (chatClient.match(/r\.reason === "test" \? FC\.testBudgetPaused : FC\.budgetPaused/g) ?? []).length === 3 &&
         sheet.includes("A.errors[view.reason]") && read("lib/my-life-copy.ts").includes("testBudget: ") &&
         read("db/replay-map-agent.ts").includes("ownBudget: true") && read("db/replay-map-edit.ts").includes("ownBudget: true"));
@@ -354,6 +358,54 @@ async function main() {
       // 표시를 끈 동안엔 앞의 표시 전 REPLY 행(COST)도 운영 합계로 돌아온다 — 그만큼 더해 비교
       testB - testA === 63_000 && opsB === opsA && opsC - opsB === 4_000 + COST && rowsF.join(",") === "STT:4000,TEST_POSTER_BG:63000" && (await prisma.chatV3Usage.count({ where: { costMicroUsd: 11_111, createdAt: { gte: new Date(Date.now() - 600_000) } } })) === 0,
       { testA, testB, opsA, opsB, opsC, rowsF });
+    // 한도 일원화(2026-11-08) — 범위를 여는 곳(withUsageLedger)이 한도를 먼저 확인: 넘으면 fn 을 부르지 않고 BudgetBlockedError.
+    {
+      const prevT = process.env.CHAT_V3_TEST_BUDGET_USD, prevD = process.env.CHAT_V3_DAILY_BUDGET_USD;
+      let fnCalls = 0;
+      const fn = async () => {
+        fnCalls += 1;
+        return "called";
+      };
+      const blockedReason = async () =>
+        withUsageLedger(userF, "COMPANION", fn).then(() => null, (e: unknown) => (e instanceof BudgetBlockedError ? e.reason : `other:${String(e)}`));
+      try {
+        process.env.CHAT_V3_DAILY_BUDGET_USD = "1000";
+        process.env.CHAT_V3_TEST_BUDGET_USD = "0";
+        const asTest = await blockedReason(); // userF = 테스트 표시 켜짐 → 테스트 한도
+        process.env.CHAT_V3_TEST_BUDGET_USD = "1000";
+        process.env.CHAT_V3_DAILY_BUDGET_USD = "0";
+        const asDaily = await blockedReason(); // 전역 예산 = 모든 계정
+        process.env.CHAT_V3_DAILY_BUDGET_USD = "1000";
+        const passed = await blockedReason(); // 둘 다 여유 → 부름
+        const rowsBefore = await prisma.chatV3Usage.count({ where: { userId: userF } });
+        process.env.CHAT_V3_TEST_BUDGET_USD = "0";
+        // 진입점 하나를 실제로 — 포스터 후보(한도면 AI 없이 고른 후보, 원장 줄 0)
+        const cands = await getPosterCandidates(userF, [{ eventId: "e1", year: 1970, title: "한도 확인", content: "본문", category: null }]);
+        const rowsAfter = await prisma.chatV3Usage.count({ where: { userId: userF } });
+        check("⑩ 한도 일원화 — 범위를 열기 전에 확인: 테스트 한도 넘음 = test · 전역 예산 넘음 = daily(모든 계정) · 그 안 함수 호출 0 · 여유면 부름 · 진입점(포스터 후보) = AI 없이 폴백·원장 0",
+          asTest === "test" && asDaily === "daily" && passed === null && fnCalls === 1 && cands.length === 1 && rowsAfter === rowsBefore,
+          { asTest, asDaily, passed, fnCalls, cands: cands.length, rowsBefore, rowsAfter });
+      } finally {
+        if (prevT === undefined) delete process.env.CHAT_V3_TEST_BUDGET_USD;
+        else process.env.CHAT_V3_TEST_BUDGET_USD = prevT;
+        if (prevD === undefined) process.env.CHAT_V3_DAILY_BUDGET_USD = "1000";
+        else process.env.CHAT_V3_DAILY_BUDGET_USD = prevD;
+      }
+    }
+    // 진입점마다 거절 처리 — 범위를 여는 파일은 BudgetBlockedError 를 받거나(문구) 원래 있던 실패 폴백 안에서 연다(호출 0, 문구 없이 건너뜀).
+    const HANDLES_BLOCK = [
+      "app/api/companion/route.ts", "app/api/onboarding-chat/route.ts", "app/api/tutorial-chat/route.ts", "app/api/refine-text/route.ts",
+      "app/api/memory/[memoryId]/refine/route.ts", "app/api/timemachine/assistant/route.ts", "app/actions/onboarding-v3.ts", "app/actions/life-event.ts",
+      "app/life-timeline/companion/actions.ts", "app/life-timeline/free-record/actions.ts", "app/memory/[eventId]/actions.ts",
+      "app/timemachine/[year]/[month]/cleanup-action.ts", "app/poster/custom/actions.ts", "lib/interview/session.ts", "lib/poster/ai-cache.ts", "lib/poster/snapshot.ts",
+    ];
+    const SILENT_FALLBACK = ["app/onboarding-chat/actions.ts", "lib/memory-chat.ts"]; // 원래 catch 가 빈 결과·기본 질문으로 넘어감
+    const notHandled = HANDLES_BLOCK.filter((f) => !read(f).includes("BudgetBlockedError"));
+    check("⑩ 한도 일원화 — 진입점 거절 처리(문구: 라우트 429 · 설정 단계·인터뷰 연도 blocked · 말동무 정리 건너뜀 ?ai= · 통녹음 · 맞춤 배경) · 폴백 2곳 · 음성 인식 제출 전 확인 · 공통 문구 [임시]",
+      notHandled.length === 0 && SILENT_FALLBACK.every((f) => read(f).includes("withUsageLedger(")) &&
+        read("app/api/clova-stt/route.ts").includes("const block = await budgetBlock(userId);") &&
+        read("lib/budget-copy.ts").includes("[임시 — 성민 확정 필요]") && read("lib/ai.ts").includes("if (block) throw new BudgetBlockedError(block);"),
+      { notHandled });
     // 모델 부르는 파일 전부 = 원장 연결(새 파일이 생기면 여기서 실패 — 범위를 열거나 직접 남기고 이 표에 넣는다). explicit = 호출부가 직접 recordChatUsage.
     const LEDGER_MAP: [string, string[], string][] = [
       ["app/actions/life-event.ts", ["app/actions/life-event.ts"], "SETUP"],

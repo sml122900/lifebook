@@ -15,7 +15,8 @@
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
-import { withUsageLedger } from "@/lib/ai";
+import { BudgetBlockedError, withUsageLedger } from "@/lib/ai";
+import type { BudgetReason } from "@/lib/budget-copy";
 import { prisma } from "@/lib/db";
 import { splitRecordingTranscript } from "@/lib/free-recording-split";
 import { addExtractedPreferences } from "@/lib/poster/preferences";
@@ -46,6 +47,7 @@ export async function saveCompanionSessionAction(input: {
   draftPeopleCount?: number;
   draftLocationCount?: number;
   draftThingCount?: number;
+  aiSkipped?: BudgetReason | null; // AI 사용 한도로 정리(나누기·추출)를 건너뜀(2026-11-08)
   error?: string;
 }> {
   const session = await auth();
@@ -137,6 +139,8 @@ export async function saveCompanionSessionAction(input: {
   // ── Phase 2: 사건 분할 → draft life_event ────────────────────────────
 
   let draftMemoryCount = 0;
+  // AI 사용 한도(2026-11-08)에 걸리면 대화는 저장하고 AI 정리(나누기·추출)만 건너뜀 — 정리 화면이 공통 문구를 보여 줌(?ai=)
+  let aiSkipped: BudgetReason | null = null;
   try {
     const splitResult = await withUsageLedger(userId, "RECORDING_SPLIT", () => splitRecordingTranscript(redactedText, "동반자 대화", birthYear, existingForSplit));
 
@@ -173,7 +177,8 @@ export async function saveCompanionSessionAction(input: {
       draftMemoryCount++;
     }
   } catch (e) {
-    console.error("[companion/save] phase-2 split failed", e instanceof Error ? e.message : e);
+    if (e instanceof BudgetBlockedError) aiSkipped = e.reason;
+    else console.error("[companion/save] phase-2 split failed", e instanceof Error ? e.message : e);
     // Phase 1 이미 성공 — 계속 진행
   }
 
@@ -185,13 +190,18 @@ export async function saveCompanionSessionAction(input: {
   let draftThingCount = 0;
 
   // 원가 원장(2026-11-08) — 세 추출 호출 각각 한 줄(COMPANION_EXTRACT)
+  const skipped = { status: "rejected", reason: "budget" } as const;
   const [peopleResult, locationsResult, thingsResult] = await withUsageLedger(userId, "COMPANION_EXTRACT", () =>
     Promise.allSettled([
       extractPeopleFromTranscript(redactedText, existingForPeople),
       extractLocationsFromTranscript(redactedText),
       extractThingsFromTranscript(redactedText),
     ]),
-  );
+  ).catch((e) => {
+    if (!(e instanceof BudgetBlockedError)) throw e;
+    aiSkipped = e.reason;
+    return [skipped, skipped, skipped] as const;
+  });
 
   // Phase 3: 인물
   if (peopleResult.status === "fulfilled") {
@@ -266,5 +276,5 @@ export async function saveCompanionSessionAction(input: {
   revalidatePath("/life-timeline/manage");
   revalidatePath("/life-timeline");
 
-  return { ok: true, sessionId, draftMemoryCount, draftPeopleCount, draftLocationCount, draftThingCount };
+  return { ok: true, sessionId, draftMemoryCount, draftPeopleCount, draftLocationCount, draftThingCount, aiSkipped };
 }

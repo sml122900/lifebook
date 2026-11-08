@@ -12,6 +12,8 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
+import { budgetMessage } from "@/lib/budget-copy";
+import { budgetBlock } from "@/lib/chat-v3-usage";
 import { CURRENT_CONSENT_VERSION } from "@/lib/consent-version";
 import { getRecordingSignedUrl } from "@/lib/storage";
 import { submitRecognition } from "@/lib/clova-speech";
@@ -44,6 +46,10 @@ export async function POST(req: Request) {
   if (!audioPath.startsWith(`${userId}/`)) {
     return NextResponse.json({ ok: false, error: "권한이 없어요." }, { status: 403 });
   }
+
+  // 한도 일원화(2026-11-08) — 제출(CLOVA 호출) 전에 전역 예산·테스트 계정 한도 확인. 원가는 완료 조회 때 원장에(status).
+  const block = await budgetBlock(userId);
+  if (block) return NextResponse.json({ ok: false, error: budgetMessage(block) }, { status: 429 });
 
   try {
     // Supabase → 오디오 다운로드

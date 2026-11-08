@@ -341,6 +341,12 @@ export function ChatV3Client({
     setStatus("submitting");
     try {
       const res = await parseProfileBirthYear(text);
+      if (res.birthYear === null && res.blocked) {
+        // AI 사용 한도(2026-11-08) — 이야기 나누기 쉬어요 문구, 같은 질문에 머문다
+        await addBot(res.blocked === "test" ? FC.testBudgetPaused : FC.budgetPaused);
+        setStatus("idle");
+        return;
+      }
       if (res.birthYear === null) {
         await addBot("죄송해요, 잘 못 알아들었어요. 태어나신 연도를 다시 말씀해주시겠어요? (예: 1958년)");
         setStatus("idle");
@@ -361,6 +367,11 @@ export function ChatV3Client({
     setStatus("submitting");
     try {
       const res = await parseProfileRegion(text);
+      if (res.region === null && res.blocked) {
+        await addBot(res.blocked === "test" ? FC.testBudgetPaused : FC.budgetPaused);
+        setStatus("idle");
+        return;
+      }
       if (res.region === null) {
         await addBot("죄송해요, 잘 못 알아들었어요. 태어나거나 자란 곳을 다시 말씀해주시겠어요?");
         setStatus("idle");
@@ -395,6 +406,11 @@ export function ChatV3Client({
     setStatus("submitting");
     try {
       const result = await withTimeout(submitConfirmAnswer(eventId, text));
+      if (result.status === "BLOCKED") {
+        await addBot(result.reason === "test" ? FC.testBudgetPaused : FC.budgetPaused);
+        setStatus("idle");
+        return;
+      }
       if (result.status === "UNCLEAR") {
         if (result.needsReview) {
           await addBot("네, 그건 나중에 다시 여쭤볼게요.");

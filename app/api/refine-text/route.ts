@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { withUsageLedger } from "@/lib/ai";
+import { withUsageLedger, BudgetBlockedError } from "@/lib/ai";
+import { budgetMessage } from "@/lib/budget-copy";
 import { refineRawText } from "@/lib/memory-refine";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
 import { getUserAiModel } from "@/lib/user-ai-model";
@@ -72,6 +73,8 @@ export async function POST(req: Request) {
       balanceAfter: result.balanceAfter ?? null,
     });
   } catch (e) {
+    // 한도 일원화(2026-11-08) — 한도에 걸리면 모델을 부르지 않고 거절 문구(429)
+    if (e instanceof BudgetBlockedError) return NextResponse.json({ error: budgetMessage(e.reason) }, { status: 429 });
     if (e instanceof InsufficientBalanceError) {
       return NextResponse.json(
         { ok: false, error: "토큰이 부족해요. 충전 후 다시 시도해주세요." },

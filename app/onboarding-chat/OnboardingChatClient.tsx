@@ -248,7 +248,8 @@ export default function OnboardingChatClient() {
     }
   }
 
-  async function parseAnswer(q: Question, input: string): Promise<string | null> {
+  // { blocked } = AI 사용 한도에 걸림(2026-11-08 — 라우트 429, 문구는 서버가) — 같은 질문에 머문다.
+  async function parseAnswer(q: Question, input: string): Promise<string | null | { blocked: string }> {
     setIsParsing(true);
     try {
       const res = await fetch("/api/onboarding-chat", {
@@ -256,6 +257,10 @@ export default function OnboardingChatClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: q.key, input }),
       });
+      if (res.status === 429) {
+        const b = (await res.json().catch(() => ({}))) as { error?: string };
+        return { blocked: b.error ?? "" };
+      }
       if (!res.ok) return null;
       const data = (await res.json()) as { value?: unknown; region?: string | null };
       const { value, region } = data;
@@ -355,6 +360,10 @@ export default function OnboardingChatClient() {
     }
 
     const ack = await parseAnswer(q, input);
+    if (ack !== null && typeof ack === "object") {
+      if (ack.blocked) addBot(ack.blocked);
+      return;
+    }
     if (ack === null) {
       handleNullOrSkip(q, isReview, rQueue, curIdx, retriedKeys);
       return;

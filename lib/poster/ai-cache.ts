@@ -14,11 +14,12 @@
 
 import { createHash } from "node:crypto";
 
-import { withUsageLedger } from "../ai";
+import { BudgetBlockedError, withUsageLedger } from "../ai";
 import { prisma } from "../db";
 import type { Prisma } from "../generated/prisma/client";
 import type { PosterSelectionFull } from "./overrides";
 import {
+  fallbackCandidates,
   selectPosterCandidates,
   type PosterCandidate,
   type PosterCandidateInput,
@@ -66,7 +67,11 @@ export async function getPosterCandidates(
     return cached as PosterCandidate[];
   }
 
-  const { candidates, fromAi } = await withUsageLedger(userId, "POSTER_CANDIDATES", () => selectPosterCandidates(inputs));
+  // 한도(2026-11-08)에 걸리면 AI 없이 고른 후보(캐시 안 함 — fromAi false)
+  const { candidates, fromAi } = await withUsageLedger(userId, "POSTER_CANDIDATES", () => selectPosterCandidates(inputs)).catch((e) => {
+    if (e instanceof BudgetBlockedError) return fallbackCandidates(inputs);
+    throw e;
+  });
   if (fromAi) {
     const next = {
       ...design,

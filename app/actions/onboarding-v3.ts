@@ -9,7 +9,8 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { chat, withUsageLedger } from "@/lib/ai";
+import { BudgetBlockedError, chat, withUsageLedger } from "@/lib/ai";
+import type { BudgetReason } from "@/lib/budget-copy";
 import {
   PROFILE_BIRTH_YEAR_PARSE_SYSTEM_PROMPT,
   PROFILE_REGION_PARSE_SYSTEM_PROMPT,
@@ -48,7 +49,8 @@ export async function hasOnboardingProfile(userId: string): Promise<boolean> {
   return profile !== null;
 }
 
-export type ParseBirthYearResult = { birthYear: number } | { birthYear: null };
+// blocked = AI 사용 한도(2026-11-08 — 해석 안 함, 화면이 쉬어요 문구)
+export type ParseBirthYearResult = { birthYear: number } | { birthYear: null; blocked?: BudgetReason };
 
 export async function parseProfileBirthYear(
   text: string,
@@ -72,13 +74,14 @@ export async function parseProfileBirthYear(
     ) {
       return { birthYear: year };
     }
-  } catch {
+  } catch (e) {
+    if (e instanceof BudgetBlockedError) return { birthYear: null, blocked: e.reason };
     // 파싱 실패 → UNCLEAR 취급, 재질문.
   }
   return { birthYear: null };
 }
 
-export type ParseRegionResult = { region: string } | { region: null };
+export type ParseRegionResult = { region: string } | { region: null; blocked?: BudgetReason };
 
 export async function parseProfileRegion(text: string): Promise<ParseRegionResult> {
   const userId = await auth().then((s) => {
@@ -94,7 +97,8 @@ export async function parseProfileRegion(text: string): Promise<ParseRegionResul
     if (typeof parsed.region === "string" && parsed.region.trim()) {
       return { region: parsed.region.trim() };
     }
-  } catch {
+  } catch (e) {
+    if (e instanceof BudgetBlockedError) return { region: null, blocked: e.reason };
     // 파싱 실패 → UNCLEAR 취급, 재질문.
   }
   return { region: null };

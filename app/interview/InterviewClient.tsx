@@ -278,6 +278,10 @@ function ItemCard({
   function sendYear(text: string | null) {
     void run("thinking", async () => {
       const { result, next } = await answerInterviewYearAction(item.id, text);
+      if (result.outcome === "blocked") {
+        setPrompt(result.message); // AI 사용 한도(2026-11-08) — 같은 질문에 머문다
+        return;
+      }
       if (result.outcome === "retry" || !next) {
         setPrompt(C.yearRetry);
         return;

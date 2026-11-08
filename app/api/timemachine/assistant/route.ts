@@ -16,7 +16,8 @@
 // 검색 도구 비활성/외부 호출 실패: 502 + { error: "upstream", message }.
 
 import { auth } from "@/auth";
-import { withUsageLedger } from "@/lib/ai";
+import { withUsageLedger, BudgetBlockedError } from "@/lib/ai";
+import { budgetMessage } from "@/lib/budget-copy";
 import {
   askAssistant,
   type AssistantDepth,
@@ -135,6 +136,8 @@ export async function POST(req: Request): Promise<Response> {
     ));
     return Response.json(result);
   } catch (e) {
+    // 한도 일원화(2026-11-08) — 한도에 걸리면 모델을 부르지 않고 거절 문구(429)
+    if (e instanceof BudgetBlockedError) return Response.json({ error: budgetMessage(e.reason) }, { status: 429 });
     if (e instanceof InsufficientBalanceError) {
       return Response.json(
         { error: "insufficient_balance" },

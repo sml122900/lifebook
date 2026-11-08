@@ -11,7 +11,7 @@
 // - 주문(buildOrderSnapshot): AI 를 부르지 않고 저장 문장만 → 주문 = 직전 시안.
 // - 선택 화면 미리보기(buildPreviewSentence): 시안과 같은 입력·해시·저장 문장.
 
-import { withUsageLedger } from "@/lib/ai";
+import { BudgetBlockedError, withUsageLedger } from "@/lib/ai";
 import { prisma } from "@/lib/db";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import {
@@ -22,7 +22,7 @@ import {
 } from "@/lib/poster/ai-cache";
 import type { ItemOverride, PosterSelectionFull } from "@/lib/poster/overrides";
 import { parseSelectionsFull, toStoredSelection } from "@/lib/poster/overrides";
-import { refineForPosterBatch, type PosterEventInput, type PosterSentence } from "@/lib/poster/poster-sentences";
+import { fallbackSentenceBatch, refineForPosterBatch, type PosterEventInput, type PosterSentence } from "@/lib/poster/poster-sentences";
 import { POSTER_EVENT_CREATED_VIA, syncV3Bridge } from "@/lib/poster/v3-bridge";
 
 export type SnapshotNode = {
@@ -175,10 +175,15 @@ export async function buildPosterSnapshot(
   const texts = parts.ordered.map((s, i) => savedText(s, parts.hashes[i]));
   const missing = texts.flatMap((t, i) => (t === undefined ? [i] : []));
   if (missing.length > 0) {
+    // 한도(2026-11-08)에 걸리면 AI 없이 기본 문장(저장 안 함 — fromAi false)
+    const missingInputs = missing.map((i) => parts.inputs[i]);
     const { sentences, fromAi } = await withUsageLedger(userId, "POSTER_SENTENCES", () => refineForPosterBatch(
-      missing.map((i) => parts.inputs[i]),
+      missingInputs,
       missing.map((i) => parts.ordered[i].type),
-    ));
+    )).catch((e) => {
+      if (e instanceof BudgetBlockedError) return fallbackSentenceBatch(missingInputs);
+      throw e;
+    });
     const generatedAt = new Date().toISOString();
     const generated = missing.flatMap((idx, k) => {
       const s = parts.ordered[idx];
@@ -245,7 +250,10 @@ export async function buildPreviewSentence(
   const {
     sentences: [out],
     fromAi: [ok],
-  } = await withUsageLedger(userId, "POSTER_SENTENCES", () => refineForPosterBatch([input], [type]));
+  } = await withUsageLedger(userId, "POSTER_SENTENCES", () => refineForPosterBatch([input], [type])).catch((e) => {
+    if (e instanceof BudgetBlockedError) return fallbackSentenceBatch([input]); // 한도(2026-11-08) — 기본 문장, 저장 안 함
+    throw e;
+  });
   const field = sentenceField(type);
   const text = out[field];
   // 기본값이면 보여만 주고 저장 안 함(시안과 같은 원칙).

@@ -9,7 +9,8 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { chat, withUsageLedger } from "@/lib/ai";
+import { chat, withUsageLedger, BudgetBlockedError } from "@/lib/ai";
+import { budgetMessage } from "@/lib/budget-copy";
 import { modelId } from "@/lib/ai-model";
 import { getUserAiModel } from "@/lib/user-ai-model";
 
@@ -70,6 +71,8 @@ export async function POST(req: Request) {
     }));
     return NextResponse.json({ text: result.text });
   } catch (e) {
+    // 한도 일원화(2026-11-08) — 한도에 걸리면 모델을 부르지 않고 거절 문구(429)
+    if (e instanceof BudgetBlockedError) return NextResponse.json({ error: budgetMessage(e.reason) }, { status: 429 });
     console.error("[tutorial-chat]", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "답을 가져오지 못했어요." }, { status: 500 });
   }

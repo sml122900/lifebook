@@ -13,7 +13,8 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { chat, withUsageLedger } from "@/lib/ai";
+import { BudgetBlockedError, chat, withUsageLedger } from "@/lib/ai";
+import type { BudgetReason } from "@/lib/budget-copy";
 import {
   CONFIRM_QUESTION_SYSTEM_PROMPT,
   CORRECTION_PARSE_SYSTEM_PROMPT,
@@ -57,7 +58,8 @@ type ConfirmQuestionTarget = {
 // getNextConfirmQuestion 과 getConfirmQuestionForEvent(P2 — 갭 카드에서 특정
 // 이벤트를 직접 지정) 가 공유하는 질문 문구 생성. 순수 헬퍼(비export) — DB
 // 접근 없음, chat() 호출만.
-async function buildConfirmQuestionText(event: ConfirmQuestionTarget): Promise<string> {
+// 원가 원장·한도(2026-11-08) — AI 문장은 withUsageLedger 범위 안에서. 한도에 걸리면(BudgetBlockedError) 아래 템플릿 질문 그대로(호출 0).
+async function buildConfirmQuestionText(userId: string, event: ConfirmQuestionTarget): Promise<string> {
   const eventDesc = [
     event.year ? `${event.year}년` : "연도 미상",
     event.label,
@@ -69,9 +71,11 @@ async function buildConfirmQuestionText(event: ConfirmQuestionTarget): Promise<s
     : `${event.year ? `${event.year}년에 ` : ""}${event.label} 하셨나요?`;
 
   try {
-    const res = await chat(
-      [{ role: "user", content: `확인할 이벤트: ${eventDesc}\neventId: ${event.id}` }],
-      { system: CONFIRM_QUESTION_SYSTEM_PROMPT, model: CONFIRM_MODEL, maxTokens: 300 },
+    const res = await withUsageLedger(userId, "SETUP", () =>
+      chat(
+        [{ role: "user", content: `확인할 이벤트: ${eventDesc}\neventId: ${event.id}` }],
+        { system: CONFIRM_QUESTION_SYSTEM_PROMPT, model: CONFIRM_MODEL, maxTokens: 300 },
+      ),
     );
     const parsed = JSON.parse(stripJsonFence(res.text)) as {
       question?: unknown;
@@ -80,7 +84,7 @@ async function buildConfirmQuestionText(event: ConfirmQuestionTarget): Promise<s
       question = parsed.question.trim();
     }
   } catch {
-    // 파싱 실패 시 위에서 만든 템플릿 질문으로 폴백 — 흐름이 끊기지 않는다.
+    // 파싱 실패·AI 사용 한도(BudgetBlockedError) 시 위에서 만든 템플릿 질문으로 폴백 — 흐름이 끊기지 않는다.
   }
 
   return question;
@@ -100,7 +104,7 @@ export async function getNextConfirmQuestion(
 
   if (!event) return { done: true };
 
-  const question = await withUsageLedger(userId, "SETUP", () => buildConfirmQuestionText(event)); // 원가 원장(2026-11-08)
+  const question = await buildConfirmQuestionText(userId, event);
   return { done: false, eventId: event.id, question };
 }
 
@@ -119,7 +123,7 @@ export async function getConfirmQuestionForEvent(
   });
   if (!event) return { done: true };
 
-  const question = await withUsageLedger(userId, "SETUP", () => buildConfirmQuestionText(event)); // 원가 원장(2026-11-08)
+  const question = await buildConfirmQuestionText(userId, event);
   return { done: false, eventId: event.id, question };
 }
 
@@ -128,7 +132,9 @@ export type SubmitAnswerResult =
   | { status: "CONFIRMED" }
   | { status: "SKIPPED" }
   | { status: "CORRECTED"; correctedYear: number | null; correctedLabel: string | null }
-  | { status: "UNCLEAR"; needsReview: boolean };
+  | { status: "UNCLEAR"; needsReview: boolean }
+  // AI 사용 한도(2026-11-08) — 답 해석(AI)을 부르지 않음. 화면이 이야기 나누기 쉬어요 문구를 보여 주고 같은 질문에 머문다.
+  | { status: "BLOCKED"; reason: BudgetReason };
 
 // 사용자 응답을 분류해 LifeEvent 에 반영.
 export async function submitConfirmAnswer(
@@ -182,7 +188,9 @@ export async function submitConfirmAnswer(
             : null,
       };
     }
-  } catch {
+  } catch (e) {
+    // AI 사용 한도(2026-11-08) — 해석 안 함(호출 0), 같은 질문에 머문다(UNCLEAR 횟수도 안 늘림).
+    if (e instanceof BudgetBlockedError) return { status: "BLOCKED", reason: e.reason };
     // 파싱 실패 → UNCLEAR 기본값 유지, 재질문.
   }
 

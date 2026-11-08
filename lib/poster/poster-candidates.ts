@@ -78,6 +78,11 @@ ${list}
 ---끝---`;
 }
 
+// AI 없이 고른 후보 전부(AI 사용 한도에 걸렸을 때 — 2026-11-08 lib/poster/ai-cache).
+export function fallbackCandidates(events: PosterCandidateInput[]): { candidates: PosterCandidate[]; fromAi: boolean } {
+  return { candidates: events.map(fallbackCandidate), fromAi: false };
+}
+
 function fallbackCandidate(e: PosterCandidateInput): PosterCandidate {
   return {
     eventId: e.eventId,

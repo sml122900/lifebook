@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { withUsageLedger } from "@/lib/ai";
+import { BudgetBlockedError, withUsageLedger } from "@/lib/ai";
 import { prisma } from "@/lib/db";
 import { appendUserAnswer, summarizeAnswer } from "@/lib/memory-chat";
 import { settleConversationCharges } from "@/lib/tokens/charge";
@@ -91,7 +91,11 @@ export async function submitMemoryAnswer(formData: FormData) {
       ageAtYear: null,
     },
     answer,
-  ));
+  )).catch((e) => {
+    // AI 사용 한도(2026-11-08) — 요약 안 함(호출 0), summarizeAnswer 실패 때와 같은 폴백(사건 제목)
+    if (e instanceof BudgetBlockedError) return { title: event.title, inputTokens: 0, outputTokens: 0 };
+    throw e;
+  });
 
   // ⚠️ userId 범위는 필수 — UserMemory 로의 첫 실제 쓰기.
   const memory = await prisma.userMemory.create({

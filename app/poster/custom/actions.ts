@@ -9,7 +9,8 @@
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
-import { withUsageLedger } from "@/lib/ai";
+import { BudgetBlockedError, withUsageLedger } from "@/lib/ai";
+import { budgetMessage } from "@/lib/budget-copy";
 import { prisma } from "@/lib/db";
 import { buildBackgroundPrompt } from "@/lib/poster/background-prompt";
 import { generatePosterBackground } from "@/lib/poster/background-generate";
@@ -68,7 +69,8 @@ export async function generateCustomBackground(
     return {
       ok: false,
       reason: "gen_failed",
-      message: e instanceof Error ? e.message : "이미지 생성에 실패했어요.",
+      // AI 사용 한도(2026-11-08)면 공통 거절 문구
+      message: e instanceof BudgetBlockedError ? budgetMessage(e.reason) : e instanceof Error ? e.message : "이미지 생성에 실패했어요.",
     };
   }
 

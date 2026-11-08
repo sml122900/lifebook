@@ -95,6 +95,11 @@ ${list}
 }
 
 // 파싱 실패·항목 누락 시 안전한 기본값(원본에서 최소 구성).
+// AI 없이 기본 문장 전부(AI 사용 한도에 걸렸을 때 — 2026-11-08 lib/poster/snapshot). 필드 전부 fromAi=false(저장·고정 안 함).
+export function fallbackSentenceBatch(events: PosterEventInput[]): { sentences: PosterSentence[]; fromAi: SentenceFromAi[] } {
+  return { sentences: events.map(fallbackSentence), fromAi: events.map(() => ({ nodeLabel: false, memoText: false })) };
+}
+
 function fallbackSentence(e: PosterEventInput): PosterSentence {
   return {
     nodeLabel: e.title.slice(0, NODE_LABEL_MAX),

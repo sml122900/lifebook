@@ -1,4 +1,5 @@
 ﻿import Link from "next/link";
+import { budgetMessage } from "@/lib/budget-copy";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -29,8 +30,15 @@ function categoryLabel(category: string | null): string {
   return q?.shortLabel ?? "기타";
 }
 
-export default async function LifeTimelineManagePage() {
+export default async function LifeTimelineManagePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ai?: string }>;
+}) {
   const session = await auth();
+  // 말동무 저장 뒤 — AI 사용 한도로 정리를 건너뛰었으면 공통 문구(2026-11-08)
+  const ai = (await searchParams).ai;
+  const aiPaused = ai === "daily" || ai === "test" ? budgetMessage(ai) : null;
   if (!session?.user?.id) {
     redirect("/login");
   }
@@ -39,6 +47,11 @@ export default async function LifeTimelineManagePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-10">
+      {aiPaused && (
+        <p role="status" className="rounded-md border-2 border-brand bg-banner px-4 py-3 text-lg text-ink">
+          {aiPaused}
+        </p>
+      )}
       <header>
         <p className="text-base text-ink-soft">
           <Link href="/life-timeline" className="underline hover:text-ink">

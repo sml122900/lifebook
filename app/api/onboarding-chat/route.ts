@@ -8,7 +8,8 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { chat, withUsageLedger } from "@/lib/ai";
+import { chat, withUsageLedger, BudgetBlockedError } from "@/lib/ai";
+import { budgetMessage } from "@/lib/budget-copy";
 
 // 추출 고정 모델(opus 차단). 클라가 보내는 model 슬러그는 무시한다.
 const PARSE_MODEL = "claude-sonnet-4-6";
@@ -95,6 +96,8 @@ export async function POST(req: Request) {
     const parsed = JSON.parse(match[0]) as Record<string, unknown>;
     return NextResponse.json(parsed);
   } catch (e) {
+    // 한도 일원화(2026-11-08) — 한도에 걸리면 모델을 부르지 않고 거절 문구(429)
+    if (e instanceof BudgetBlockedError) return NextResponse.json({ error: budgetMessage(e.reason) }, { status: 429 });
     console.error("[onboarding-chat] parse error", e instanceof Error ? e.message : e);
     return NextResponse.json({ value: null });
   }
