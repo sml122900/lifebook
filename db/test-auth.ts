@@ -192,6 +192,14 @@ async function main() {
       noticeProblem({ ...tooSoon, leadException: "예시 승인" }) === null && noticeProblem({ ...sample, effectiveDay: "2030-03-01", leadException: "예시 승인" }) === null &&
         noticeProblem({ ...tooSoon, leadException: " " }) !== null && noticeProblem({ ...sample, effectiveDay: "2030-02-28", leadException: "예시 승인" }) !== null &&
         POLICY_NOTICES.filter((n) => Date.parse(`${n.effectiveDay}T00:00:00+09:00`) - Date.parse(`${n.noticeDay}T00:00:00+09:00`) < 7 * 86400000).every((n) => (n.leadException ?? "").includes("성민")));
+    // 약관 v1.1(2026-11-09) — 제13조 ① 배송 기간 = 상품 화면(결제일로부터 최대 14일)과 같음 · 부칙에 개정 시행일.
+    const terms11 = read("app/terms/page.tsx");
+    const t11 = POLICY_NOTICES.find((n) => n.doc === "terms" && n.version === "v1.1");
+    check("③ 약관 v1.1 — 제13조 ① 결제일부터 14일 · 상품 화면 문구도 14일 · 부칙 시행일 = 등록 시행일 · 당일 시행 = 성민 승인 사유",
+      !!t11 && terms11.includes("이용자가 대금을 결제한 날부터 14일 이내에 재화 등을 배송") && !terms11.includes("청약을 한 날부터 7일 이내에 재화 등을 배송") &&
+        read("lib/commerce/order-display.ts").includes('"결제일로부터 최대 14일 이내에 배송해 드려요."') &&
+        terms11.includes(`개정 약관(제13조 제1항 — 배송 기간)은 ${formatNoticeDay(t11.effectiveDay)}부터 시행합니다.`) && (t11.leadException ?? "").includes("성민"),
+      t11);
     check("③ 등록된 개정(POLICY_NOTICES) 전부 규칙 통과 · 처리방침 개정이면 개정 이력에 그 판·시행일",
       POLICY_NOTICES.every((n) => noticeProblem(n) === null) &&
         POLICY_NOTICES.filter((n) => n.doc === "privacy").every((n) => read("app/privacy/page.tsx").includes(`${n.version} — ${formatNoticeDay(n.effectiveDay)} 시행`)),
