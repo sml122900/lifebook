@@ -2,6 +2,7 @@
 import { AuthError } from "next-auth";
 
 import { signIn } from "@/auth";
+import { enterAfterLogin, safeLoginReturnTo } from "@/lib/return-to";
 
 export async function credentialsSignInAction(
   _prevState: string | null,
@@ -11,7 +12,8 @@ export async function credentialsSignInAction(
     await signIn("credentials", {
       email: formData.get("email"),
       password: formData.get("password"),
-      redirectTo: "/enter",
+      // 돌아갈 주소는 폼 값이라 여기서 다시 검사(우리 사이트 안 경로만 — lib/return-to).
+      redirectTo: enterAfterLogin(safeLoginReturnTo(formData.get("returnTo") as string | null)),
     });
   } catch (e) {
     if (e instanceof AuthError) {

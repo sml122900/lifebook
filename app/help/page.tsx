@@ -58,11 +58,12 @@ export default function HelpPage() {
         </div>
       </section>
 
+      {/* 처음 화면(/) — 로그인 전 = 랜딩, 로그인 뒤 = 트랙별 첫 화면(V3 = My Life)으로 이어짐. 2026-11-08(옛 → /life-timeline) */}
       <Link
-        href="/life-timeline"
+        href="/"
         className="self-start text-lg text-ink-soft underline-offset-4 hover:underline"
       >
-        ← 인생 연혁으로
+        ← 처음 화면으로
       </Link>
       </Paper>
     </main>

@@ -7,6 +7,7 @@ import authConfig from "./auth.config";
 import { isAdminEmail } from "./lib/admin";
 import { CURRENT_CONSENT_VERSION } from "./lib/consent-version";
 import { isLabUser } from "./lib/lab/gate";
+import { safeLoginReturnTo } from "./lib/return-to";
 
 // Edge 전용 NextAuth — Prisma 어댑터 없이 Node 측 인스턴스가 발급한 JWT 만
 // 읽는다 (Edge 런타임은 Prisma 사용 불가).
@@ -41,10 +42,14 @@ export default auth((req) => {
   // 공개 페이지들은 순수 상수 렌더라 auth() 호출이 없어 비로그인에 안전.
   if (pathname === "/shop" || /^\/shop\/[^/]+$/.test(pathname)) return;
 
-  // 비로그인 → 로그인 페이지로.
+  // 비로그인 → 로그인 페이지로. 화면 이동(GET)이면 원래 주소를 returnTo 로 붙여 로그인 뒤 돌아오게(2026-11-08 —
+  // lib/return-to 가 우리 사이트 안 경로만 통과시킴, 로그인 화면이 다시 검사).
   const session = req.auth;
   if (!session) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    const login = new URL("/login", req.url);
+    const back = req.method === "GET" ? safeLoginReturnTo(pathname + req.nextUrl.search) : null;
+    if (back) login.searchParams.set("returnTo", back);
+    return NextResponse.redirect(login);
   }
 
   // /consent 는 "로그인했지만 아직 동의 안 한" 상태로 들어갈 수 있는 유일한 페이지.

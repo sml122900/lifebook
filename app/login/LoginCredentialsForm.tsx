@@ -4,7 +4,7 @@ import { useActionState } from "react";
 
 import { credentialsSignInAction } from "./actions";
 
-export function LoginCredentialsForm() {
+export function LoginCredentialsForm({ returnTo }: { returnTo: string | null }) {
   const [error, action, isPending] = useActionState(
     credentialsSignInAction,
     null
@@ -12,6 +12,8 @@ export function LoginCredentialsForm() {
 
   return (
     <form action={action} className="flex w-full flex-col gap-3">
+      {/* 로그인 뒤 돌아갈 주소(2026-11-08) — 서버 액션이 다시 검사한다(lib/return-to). */}
+      {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="login-email" className="text-sm font-medium text-ink">
           이메일

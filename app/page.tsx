@@ -8,15 +8,12 @@ import { auth } from "@/auth";
 import { ButtonLink, buttonClasses } from "@/components/ui/Button";
 import { getProduct } from "@/lib/commerce/products";
 import {
-  FOOTER,
   GALLERY,
-  PRIVACY_HREF,
   PRODUCT,
   S1,
   S2,
   S5,
   S6,
-  TERMS_HREF,
 } from "@/lib/landing-copy";
 
 // 랜딩(/) — 비로그인 전용. 로그인 사용자는 /life-timeline 로 보낸다.
@@ -283,27 +280,6 @@ export default async function Home({
           </ButtonLink>
         </div>
       </section>
-
-      {/* ── 푸터 ───────────────────────────────────────────────────────── */}
-      <footer className="border-t border-line px-6 py-8">
-        <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-3 text-base text-ink-soft sm:flex-row">
-          <span>{FOOTER.copyright}</span>
-          <span className="flex items-center gap-3">
-            <Link
-              href={PRIVACY_HREF}
-              className="font-semibold text-action underline underline-offset-4 hover:text-action-hover"
-            >
-              {FOOTER.privacyLabel}
-            </Link>
-            <Link
-              href={TERMS_HREF}
-              className="font-semibold text-action underline underline-offset-4 hover:text-action-hover"
-            >
-              {FOOTER.termsLabel}
-            </Link>
-          </span>
-        </div>
-      </footer>
     </main>
   );
 }

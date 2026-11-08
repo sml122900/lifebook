@@ -13,6 +13,10 @@ export function Footer() {
         <p>고객센터: {b.csPhone} &nbsp;·&nbsp; {b.csEmail}</p>
         <p>통신판매업 신고번호: {b.mailOrderRegNo}</p>
         <p>
+          <Link href="/privacy" className="font-semibold text-ink underline hover:text-ink">
+            개인정보 처리방침
+          </Link>
+          &nbsp;·&nbsp;
           <Link href="/refund" className="underline hover:text-ink">
             환불정책
           </Link>

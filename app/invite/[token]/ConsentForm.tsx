@@ -31,7 +31,7 @@ export function ConsentForm({ token }: { token: string }) {
           name="agree"
           checked={agreed}
           onChange={(e) => setAgreed(e.target.checked)}
-          className="mt-1 h-6 w-6 accent-action"
+          className="mt-1 h-6 w-6 shrink-0 accent-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         />
         <span className="text-lg text-ink">
           이 룸에 참여하면 <strong>내가 작성한 추억이 룸 멤버에게

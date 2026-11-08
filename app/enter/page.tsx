@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { CURRENT_CONSENT_VERSION } from "@/lib/consent-version";
 import { prisma } from "@/lib/db";
 import { getLifeEvents } from "@/lib/life-events";
+import { safeLoginReturnTo } from "@/lib/return-to";
 import { hasAnyUserMemory } from "@/lib/user-entry";
 
 // Phase L7 / B1 — 로그인/동의 직후 도착하는 canonical 분기 페이지.
@@ -32,7 +33,11 @@ import { hasAnyUserMemory } from "@/lib/user-entry";
 // proxy.ts 의 동의 게이트는 /enter 진입 전에 먼저 적용된다 — 동의 미완료
 // 면 /consent 로 가고, 동의 완료 시 ConsentForm 이 /enter 로 push 한다.
 
-export default async function EnterPage() {
+export default async function EnterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
@@ -41,6 +46,10 @@ export default async function EnterPage() {
   // Node auth() 의 jwt 콜백이 매번 DB 에서 다시 읽은 값이라 /consent 페이지의
   // DB 판정과 어긋나지 않는다(proxy 의 Edge JWT 와 달리 루프 없음).
   if ((session.consentVersion ?? 0) < CURRENT_CONSENT_VERSION) redirect("/consent");
+  // 로그인 뒤 돌아갈 주소(2026-11-08 — /login?returnTo= → /enter?next=). 동의 확인 뒤, 트랙 분기보다 먼저.
+  // 우리 사이트 안 경로만(lib/return-to). 도착한 화면이 자기 게이트(트랙·골격)를 다시 본다.
+  const next = safeLoginReturnTo((await searchParams).next);
+  if (next) redirect(next);
   const userId = session.user.id;
 
   const user = await prisma.user.findUnique({

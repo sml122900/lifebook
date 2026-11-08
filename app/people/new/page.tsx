@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { peopleEntryRedirect } from "@/lib/people-entry";
 import { getBirthYear } from "@/lib/life-events";
 import type { SubjectType } from "@/lib/people";
+import { safeReturnTo } from "@/lib/return-to";
 
 import { PersonForm } from "../PersonForm";
 
@@ -25,25 +26,7 @@ const SUBJECT_HINT: Record<SubjectType, string> = {
 
 type Search = { returnTo?: string; type?: string };
 
-// open redirect 차단: URL 객체로 정규화한 뒤 path 가 우리 원본과 일치하는지
-// 확인. 브라우저가 백슬래시·다중 슬래시·encoded 우회를 정규화하면 원본과
-// 달라져 거부됨. dummy origin 으로 파싱한 후 origin 이 그대로 dummy 면 외부
-// 호스트가 아님 = relative 경로.
-function safeReturnTo(raw: string | undefined): string | null {
-  if (!raw) return null;
-  // 최소 가드: / 로 시작 안 하면 무조건 거부 (relative 만 허용).
-  if (!raw.startsWith("/")) return null;
-  try {
-    const dummy = "http://internal.local";
-    const u = new URL(raw, dummy);
-    if (u.origin !== dummy) return null; // 외부 호스트 우회 차단
-    const reconstructed = u.pathname + u.search + u.hash;
-    if (reconstructed !== raw) return null; // 정규화로 모양 바뀐 경우 거부
-    return reconstructed;
-  } catch {
-    return null;
-  }
-}
+// open redirect 차단 — lib/return-to.ts safeReturnTo(2026-11-08 이 파일에서 옮김, 로그인 뒤 돌아오기와 공용).
 
 export default async function NewPersonPage({
   searchParams,

@@ -1,4 +1,5 @@
 import { signIn } from "@/auth";
+import { enterAfterLogin, safeLoginReturnTo } from "@/lib/return-to";
 
 import {
   InAppBrowserGuard,
@@ -16,7 +17,16 @@ import { LoginCredentialsForm } from "./LoginCredentialsForm";
 //   Android — mount 즉시 Chrome intent 로 외부 열기 시도.
 //   iOS     — amber 안내 배너(Safari로 열기 유도) + URL 복사 버튼.
 //   공통    — 구글 버튼 아래 짧은 안내문. 카카오·네이버는 인앱에서도 작동.
-export default function LoginPage() {
+// 돌아갈 주소(2026-11-08): proxy 가 붙인 ?returnTo= (초대 화면은 ?callbackUrl=) → 검사 → 로그인 뒤 /enter?next= 로.
+// /enter 가 동의·트랙 확인 뒤 그 주소로 보낸다. 우리 사이트 안 경로가 아니면 버림(lib/return-to).
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ returnTo?: string; callbackUrl?: string }>;
+}) {
+  const sp = await searchParams;
+  const returnTo = safeLoginReturnTo(sp.returnTo ?? sp.callbackUrl);
+  const afterLogin = enterAfterLogin(returnTo);
   return (
     <InAppBrowserGuard>
     <main className="mx-auto flex max-w-md flex-col items-center gap-8 px-6 py-20">
@@ -37,7 +47,7 @@ export default function LoginPage() {
         <form
           action={async () => {
             "use server";
-            await signIn("kakao", { redirectTo: "/enter" });
+            await signIn("kakao", { redirectTo: afterLogin });
           }}
           className="w-full"
         >
@@ -65,7 +75,7 @@ export default function LoginPage() {
         <form
           action={async () => {
             "use server";
-            await signIn("naver", { redirectTo: "/enter" });
+            await signIn("naver", { redirectTo: afterLogin });
           }}
           className="w-full"
         >
@@ -89,7 +99,7 @@ export default function LoginPage() {
         <form
           action={async () => {
             "use server";
-            await signIn("google", { redirectTo: "/enter" });
+            await signIn("google", { redirectTo: afterLogin });
           }}
           className="w-full"
         >
@@ -111,7 +121,7 @@ export default function LoginPage() {
           </div>
 
           {/* 이메일·비밀번호 로그인 */}
-          <LoginCredentialsForm />
+          <LoginCredentialsForm returnTo={returnTo} />
       </div>
     </main>
     </InAppBrowserGuard>

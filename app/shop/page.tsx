@@ -12,8 +12,9 @@ export const metadata = {
 export default function ShopPage() {
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-      <ButtonLink href="/life-timeline" variant="tertiary" className="self-start">
-        ← 인생 연혁으로
+      {/* 처음 화면(/) — 로그인 전 = 랜딩, 로그인 뒤 = 트랙별 첫 화면(V3 = My Life). 2026-11-08(옛 → /life-timeline) */}
+      <ButtonLink href="/" variant="tertiary" className="self-start">
+        ← 처음 화면으로
       </ButtonLink>
 
       <header className="mt-6">

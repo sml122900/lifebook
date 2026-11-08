@@ -91,6 +91,7 @@
 사업자 정보(상호·대표자·사업자번호·주소·CS·통신판매업)는 텍스트 표시.
 | 버튼 | 이동 |
 |---|---|
+| 개인정보 처리방침(굵게 — 2026-11-08) | → `/privacy` |
 | 환불정책 | → `/refund` |
 | 이용약관 | → `/terms` |
 
@@ -109,14 +110,15 @@
 | 선물 준비 알아보기 | → `/shop/book` |
 | 개인정보 처리방침 보기 | → `/privacy` |
 | 무료로 시작하기 (하단 CTA) | → `/login` |
-| 개인정보 처리방침 (푸터) | → `/privacy` |
-| 이용약관 (푸터) | → `/terms` |
+
+> 랜딩 자체 푸터(처리방침·이용약관)는 2026-11-08 삭제 — 공용 푸터와 중복.
 
 ### 로그인 `/login` · 가입 전 동의 `/join` · 회원가입 `/signup`(2026-11-03 — 동의 → 가입 방법 → 계정 생성)
 | 버튼 | 이동 |
 |---|---|
-| 카카오/네이버/구글로 시작하기 | 소셜 로그인 → 이미 있는 계정이면 `/enter` · **새 계정이면 계정을 만들지 않고 `/join?provider=<kakao·naver·google>`**(로그인 콜백) |
-| 이메일로 로그인 (제출) | → `/enter` |
+| 카카오/네이버/구글로 시작하기 | 소셜 로그인 → 이미 있는 계정이면 `/enter`(돌아갈 주소가 있으면 `/enter?next=<주소>` — 2026-11-08) · **새 계정이면 계정을 만들지 않고 `/join?provider=<kakao·naver·google>`**(로그인 콜백) |
+| 이메일로 로그인 (제출) | → `/enter`(돌아갈 주소가 있으면 `/enter?next=<주소>`) |
+| `/login?returnTo=<주소>`(proxy) · `?callbackUrl=<주소>`(초대 화면) | ⚙ 우리 사이트 안 경로만 받음(`lib/return-to` — 외부·`//`·백슬래시·로그인·가입·동의·`/enter`·API 거부) → 로그인 뒤 `/enter` 가 동의 확인 후 그 주소로 |
 | 회원가입 | → `/join` |
 | `/join` — 모두 동의·항목 체크 | ⚙ 화면 안(가입 버튼 켜짐) · "자세히 보기" → `/privacy`·`/terms`(새 창) |
 | `/join` — [카카오·네이버·Google로 가입하기] | ⚙ 동의 서명 쿠키(20분) → 소셜 로그인 → 동의 칸이 채워진 계정 생성 → `/enter`(`/consent` 안 거침) |
@@ -129,7 +131,7 @@
 ### 분기·동의 (UI 거의 없는 게이트)
 | 화면 | 동작 |
 |---|---|
-| `/enter` | 비로그인 → `/login` · 동의 버전 < 현재(`CURRENT_CONSENT_VERSION`) → `/consent`(재동의) · **V3 트랙**: skeleton 완성+확인대기(UNCONFIRMED) 0건 → `/my-life`(My Life 개편 2단계 Q68 — 이전 `/story-review`), 아니면 → `/start` · **V2 트랙**: 이벤트≥1 또는 기존기록 → `/life-timeline` · 신규(V2) → `/onboarding-chat` |
+| `/enter` | 비로그인 → `/login` · 동의 버전 < 현재(`CURRENT_CONSENT_VERSION`) → `/consent`(재동의) · **`?next=<주소>`(로그인 뒤 돌아가기 — 2026-11-08) 있으면 → 그 주소**(우리 사이트 안 경로만, 트랙 분기보다 먼저) · **V3 트랙**: skeleton 완성+확인대기(UNCONFIRMED) 0건 → `/my-life`(My Life 개편 2단계 Q68 — 이전 `/story-review`), 아니면 → `/start` · **V2 트랙**: 이벤트≥1 또는 기존기록 → `/life-timeline` · 신규(V2) → `/onboarding-chat` |
 | `/join` | 이미 로그인 → `/enter` · 공개 경로(proxy) |
 | `/consent` | (이미 있는 계정의 재동의·동의 전 옛 계정만 — 새 계정은 `/join` 에서 동의) 비로그인 → `/login` · 이미 최신 동의 → 세션 갱신 후 `/enter`(client `router.replace` — 쿠키가 오래돼 proxy 가 보낸 경우 루프 방지) · "개인정보 처리방침 자세히 보기" → `/privacy`(새 창) · "이용약관 자세히 보기" → `/terms`(새 창) · 시작하기 → `/enter` |
 | `/start` | V2 트랙으로 직접 진입 시 → `/enter` (자동 전환 없음) |
@@ -262,7 +264,7 @@
 | `/privacy` | ← 라이프북 홈으로 | → `/` |
 | `/terms` | ← 라이프북 홈으로 | → `/` |
 | `/help` | 이메일로 문의하기 | ↗ `mailto:` CS 이메일 |
-| `/help` | ← 인생 연혁으로 | → `/life-timeline` |
+| `/help` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/`(로그인 전 랜딩 · 로그인 뒤 트랙별 첫 화면) |
 | `/invite/[token]` | (비로그인) | → `/login?callbackUrl=/invite/[token]` |
 | `/invite/[token]` | 동의하고 참여 | ⚙ 룸 가입 → `/rooms/{roomId}` |
 | `/invite/[token]` | 나중에 하기 | → `/rooms` |
@@ -398,7 +400,7 @@
 ### 상점 `/shop`
 | 화면 | 버튼 | 이동 |
 |---|---|---|
-| `/shop` | ← 인생 연혁으로 / 상품 카드 | → `/life-timeline` · `/shop/{productId}` |
+| `/shop` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 상품 카드 | → `/`(로그인 전 랜딩 · 로그인 뒤 트랙별 첫 화면) · `/shop/{productId}` |
 | `/shop/[id]` | ← 상점으로 / 주문하기 | → `/shop` · `/shop/{id}/order` |
 | `/shop/[id]/order` | (poster 상품) | → `/poster` 로 리다이렉트 |
 | `/shop/[id]/order` | 무통장입금 선택 → 주문하고 입금 안내 받기 | → `/account/orders/{orderId}` (입금 안내) |
@@ -489,5 +491,5 @@
 | `/story-review/confirm` | → `/my-life` (2026-11-03 인물 확인 화면 삭제 — 확인 대기 0·만드는 경로 0, `next.config.ts` redirects) |
 | `/lab`·`/lab/memory` 이하 | 허용 목록 밖 로그인 사용자 → 404 (proxy 가 없는 경로로 rewrite + 화면 `notFound()`, 리다이렉트 아님 — 존재를 드러내지 않음) |
 | `/interview` | 비로그인 → `/login` · V2 → `/enter` · 재동의 필요 → `/consent` · 골격 미완성 → `/chat-v3` |
-| 로그인 필요한 모든 화면 | 비로그인 시 → `/login` |
+| 로그인 필요한 모든 화면 | 비로그인 시 → `/login?returnTo=<원래 주소>`(화면 이동 GET 만 — 2026-11-08) → 로그인 뒤 `/enter?next=` → 원래 주소 |
 | 동의 필요 화면 | 미동의·이전 버전 동의(`consentVersion` < `CURRENT_CONSENT_VERSION`) 시 → `/consent` (proxy — 공개 경로·`/consent`·`/api/auth/*` 제외) |

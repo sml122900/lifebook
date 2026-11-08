@@ -14,6 +14,8 @@
 //   ⑤ 동의 화면 준비 전 잠금(2026-11-06) — 서버 그림의 체크칸 4개가 잠겨 있음(준비 전 클릭 무시) · /consent 준비 = 첫 세션 응답 뒤(update() 가
 //      첫 세션을 받는 중이면 아무것도 안 함) · /join 준비 = 하이드레이션 뒤. 0초 제출 3회는 브라우저 실측(회귀 세트에 브라우저가 없어 docs 기록).
 //      제출 뒤 실패(2026-11-07) — 세션 갱신 실패 = 오류 문구 + [다시 시도](갱신만 — 다시 저장 안 함) · 저장 실패 = 오류 문구 + 다시 제출. 네트워크를 끊은 경우는 브라우저 실측.
+//   ⑥ 로그인 뒤 돌아가기(2026-11-08) — 돌아갈 주소 검사(우리 사이트 안 경로만 · 외부·//·백슬래시·로그인·가입·동의·/enter·API 거부) ·
+//      proxy = 비로그인 GET 에 ?returnTo= · 로그인(소셜 3·이메일) = /enter?next= · /enter = 동의 확인 뒤 next 로. 체크칸 줄어듦·포커스 고리(shrink-0·공통 고리).
 //
 // 자체 픽스처 계정만 만들고 지운다(test30·실고객 접촉 0). 실행: npx tsx db/test-auth.ts
 
@@ -29,6 +31,7 @@ import { ConsentChecklist } from "../app/consent/ConsentChecklist";
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
 import { makeAuthAdapter } from "../lib/auth-adapter";
+import { enterAfterLogin, safeLoginReturnTo, safeReturnTo } from "../lib/return-to";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEmailAccount } from "../lib/email-signup";
 import { activeNotice, formatNoticeDay, noticeClosedKey, noticeHref, noticeProblem, POLICY_NOTICES, SHORT_MAX, type PolicyNotice } from "../lib/policy-notice";
@@ -233,6 +236,22 @@ async function main() {
         read("lib/join-copy.ts").split("\n").filter((l) => /^  (saveFailed|syncFailed|retry):/.test(l) && l.includes("[임시")).length === 3);
     const joinSrc = read("app/join/JoinForm.tsx");
     check("⑤ /join — 준비 = 하이드레이션 뒤(서버 그림 false) · 체크칸에 전달 · 안내 문구", joinSrc.includes("const ready = useSyncExternalStore(noopSubscribe, () => true, () => false);") && joinSrc.includes("ready={ready}") && joinSrc.includes("C.preparing"));
+    const boxes = renderToStaticMarkup(createElement(ConsentChecklist, { checked: {}, onChange: () => {}, ready: true })).match(/<input[^>]*type="checkbox"[^>]*>/g) ?? [];
+    check("⑤ 체크칸 4개 — 줄어들지 않음(shrink-0) · 공통 포커스 고리", boxes.length === 4 && boxes.every((t) => t.includes("shrink-0") && t.includes("focus-visible:ring-4 focus-visible:ring-brand")), boxes.length);
+
+    // ── ⑥ 로그인 뒤 돌아가기 ──────
+    const okPaths = ["/shop/poster/order", "/my-life?focus=pe:abc", "/invite/tok123", "/interview"];
+    const badPaths = ["https://evil.com", "//evil.com", String.raw`/\evil.com`, String.raw`/\/evil.com`, String.raw`\\evil.com`,"javascript:alert(1)", "evil.com", "", "/login", "/login?returnTo=/x", "/join", "/signup", "/consent", "/enter?next=/x", "/api/auth/session", "/"];
+    check("⑥ 돌아갈 주소 — 우리 사이트 안 경로는 그대로", okPaths.every((p) => safeLoginReturnTo(p) === p), okPaths.map((p) => safeLoginReturnTo(p)));
+    check("⑥ 돌아갈 주소 — 외부·프로토콜 상대(//)·백슬래시·로그인·가입·동의·/enter·API·첫 화면은 거부", badPaths.every((p) => safeLoginReturnTo(p) === null), badPaths.filter((p) => safeLoginReturnTo(p) !== null));
+    check("⑥ safeReturnTo(인물 새로 만들기 returnTo 와 공용) — 외부 거부·내부 통과", safeReturnTo("//evil.com") === null && safeReturnTo("/life-record") === "/life-record");
+    check("⑥ 로그인 뒤 갈 곳 = /enter(+ next 인코딩)", enterAfterLogin(null) === "/enter" && enterAfterLogin("/shop/poster/order?x=1") === "/enter?next=%2Fshop%2Fposter%2Forder%3Fx%3D1");
+    const proxySrc = read("proxy.ts"), loginSrc = read("app/login/page.tsx"), enterSrc = read("app/enter/page.tsx");
+    check("⑥ 연결 — proxy(비로그인 GET → ?returnTo=) · 로그인 소셜 3·이메일 = afterLogin · /enter = 동의 확인 뒤 next",
+      proxySrc.includes(`req.method === "GET" ? safeLoginReturnTo(pathname + req.nextUrl.search) : null`) && proxySrc.includes(`login.searchParams.set("returnTo", back)`) &&
+        (loginSrc.match(/redirectTo: afterLogin/g) ?? []).length === 3 && loginSrc.includes("safeLoginReturnTo(sp.returnTo ?? sp.callbackUrl)") && loginSrc.includes("<LoginCredentialsForm returnTo={returnTo} />") &&
+        read("app/login/actions.ts").includes(`enterAfterLogin(safeLoginReturnTo(formData.get("returnTo") as string | null))`) &&
+        enterSrc.indexOf("redirect(\"/consent\")") < enterSrc.indexOf("if (next) redirect(next);") && enterSrc.includes("const next = safeLoginReturnTo((await searchParams).next);"));
   } finally {
     await removeFixtures();
     await prisma.user.deleteMany({ where: { email: "fixture-auth-short@lifebook.invalid" } });

@@ -6,8 +6,6 @@
 
 // 개인정보 처리방침 — 공개 정적 페이지(비로그인 접근, app/privacy).
 export const PRIVACY_HREF = "/privacy";
-// 이용약관 — 공개 정적 페이지(비로그인 접근, app/terms).
-export const TERMS_HREF = "/terms";
 
 // ── S1 히어로 ──────────────────────────────────────────────────────────
 export const S1 = {
@@ -98,10 +96,4 @@ export const S5 = {
 export const S6 = {
   headline: "오늘의 한 마디가, 평생의 기록이 됩니다",
   cta: "무료로 시작하기",
-} as const;
-
-export const FOOTER = {
-  copyright: "© 2026 Lifebook",
-  privacyLabel: "개인정보 처리방침",
-  termsLabel: "이용약관",
 } as const;
