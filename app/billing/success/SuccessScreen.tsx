@@ -49,8 +49,8 @@ export function SuccessScreen({
         <span className="font-bold">{balance.toLocaleString()}개</span>
       </p>
       <div className="flex gap-3">
-        <Link href="/life-timeline" className={buttonClasses("tertiary", "lg")}>
-          인생 연혁으로
+        <Link href="/" className={buttonClasses("tertiary", "lg")}>
+          처음 화면으로
         </Link>
         <Link
           href="/billing"

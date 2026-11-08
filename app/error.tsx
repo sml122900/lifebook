@@ -32,7 +32,7 @@ export default function Error({
       </h1>
       <p className="text-lg text-ink">
         일시적인 오류일 수 있어요. 당신 잘못이 아니에요. 다시 시도하시거나
-        인생 연혁으로 돌아가 주세요.
+        처음 화면으로 돌아가 주세요.
       </p>
       <div className="flex flex-wrap gap-3">
         <button
@@ -43,10 +43,10 @@ export default function Error({
           다시 시도
         </button>
         <Link
-          href="/life-timeline"
+          href="/"
           className={buttonClasses("tertiary", "lg")}
         >
-          인생 연혁으로 돌아가기
+          처음 화면으로 돌아가기
         </Link>
       </div>
       {error.digest && (

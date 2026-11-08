@@ -103,10 +103,10 @@ export default async function OrderDetailPage({
           내 주문 전체 보기
         </Link>
         <Link
-          href="/life-timeline"
+          href="/"
           className="inline-flex min-h-[48px] items-center justify-center rounded-md border-2 border-line bg-surface px-5 py-2 text-base font-semibold text-ink hover:bg-banner"
         >
-          인생 연혁으로
+          처음 화면으로
         </Link>
       </div>
     </main>

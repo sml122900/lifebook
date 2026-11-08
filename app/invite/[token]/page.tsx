@@ -36,10 +36,10 @@ export default async function InvitePage({ params }: PageProps) {
           만료됐거나 잘못된 링크일 수 있어요. 초대해 주신 분께 다시 받아보세요.
         </p>
         <Link
-          href="/life-timeline"
+          href="/"
           className={buttonClasses("tertiary", "md", "self-start")}
         >
-          인생 연혁으로
+          처음 화면으로
         </Link>
       </main>
     );
