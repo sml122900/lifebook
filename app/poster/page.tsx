@@ -77,8 +77,8 @@ export default async function PosterTemplatePage() {
         <EmptyState
           icon={Sprout}
           message="연혁에 사건을 몇 개 적으면, 그것들로 한 장의 포스터를 만들 수 있어요."
-          buttonLabel="인생 연혁으로 가기"
-          href="/life-timeline"
+          buttonLabel="처음 화면으로 가기"
+          href="/"
         />
       </main>
     );

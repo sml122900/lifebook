@@ -466,7 +466,7 @@ export function ChatV3Client({
       } else if (r.kind === "resume") {
         await addBot(FC.resume);
       } else if (r.kind === "budget") {
-        await addBot(FC.budgetPaused);
+        await addBot(r.reason === "test" ? FC.testBudgetPaused : FC.budgetPaused);
       } else {
         await addBot(FC.topicGone);
       }
@@ -482,7 +482,7 @@ export function ChatV3Client({
     try {
       const r = await withTimeout(freeChatReplyAction());
       if (r.kind === "budget") {
-        await addBot(FC.budgetPaused);
+        await addBot(r.reason === "test" ? FC.testBudgetPaused : FC.budgetPaused);
         setStatus("idle");
         return;
       }
@@ -509,7 +509,7 @@ export function ChatV3Client({
         setProposal(r.view);
         return true;
       }
-      if (r.kind === "budget") await addBot(FC.budgetPaused);
+      if (r.kind === "budget") await addBot(r.reason === "test" ? FC.testBudgetPaused : FC.budgetPaused);
       else setSegTurns(r.segmentTurns);
       return false;
     } catch (e) {

@@ -382,6 +382,7 @@
 | `/poster` | 이 디자인으로 만들기 | → `/poster/select` |
 | `/poster` | 내 취향으로 만들기 | → `/poster/custom` |
 | `/poster` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
+| `/poster`(포스터에 담을 사건 0 — 빈 상태) | 처음 화면으로 가기(2026-11-08 — 옛 "인생 연혁으로 가기") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
 | `/poster/custom` | ← 디자인 고르기로 | → `/poster` |
 | `/poster/custom` | 이 배경으로 결정 | → `/poster/select` |
 | `/poster/custom` | 토큰 충전하기 | → `/account/tokens` (부족 시) |
@@ -406,7 +407,7 @@
 | `/shop/[id]/order` | (poster 상품) | → `/poster` 로 리다이렉트 · 숨긴 상품(`orderable:false`) = 404(서버도 주문 거절 — 2026-11-08) |
 | `/shop/[id]/order` | 무통장입금 선택 → 주문하고 입금 안내 받기 | → `/account/orders/{orderId}` (입금 안내) |
 | `/shop/[id]/order` | 카드결제 선택 → 결제하기 | 토스결제(테스트) → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
-| `/shop/order/success` | 내 주문 보기 / 인생 연혁으로 | → `/account/orders` · `/life-timeline` |
+| `/shop/order/success` | 내 주문 보기 / 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/account/orders` · `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
 | `/shop/order/fail` | 상점으로 돌아가기 | → `/shop` |
 
 ### 토큰 충전 `/billing`

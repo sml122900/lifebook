@@ -79,7 +79,7 @@ async function main() {
         total += 1;
         const owner = c.db ? await freshEditMap(DB_EMAIL) : userId;
         const startedAt = Date.now();
-        const r = await planMapEdit(owner, c.request, { callModel: sendMessage, ...(c.db ? {} : { data: persona }), dailyLimit: Infinity });
+        const r = await planMapEdit(owner, c.request, { callModel: sendMessage, ...(c.db ? {} : { data: persona }), dailyLimit: Infinity, ownBudget: true });
         const ms = Date.now() - startedAt;
         const judged = judgePlan(c, r);
         let pass = judged.pass;

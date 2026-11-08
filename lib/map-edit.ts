@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 
 import { moveEpisodeToLifeEvent, undoMoveEpisode, type MoveUndo } from "./episode-move";
 import { buildMapView, mapListText, MAP_QUESTION_MAX, type MapView } from "./map-agent-view";
-import { firstMapMessage, mapGate, runMapLoop, runReadTool, stripAlias, type MapUsage, type ModelCaller } from "./map-agent";
+import { budgetReason, firstMapMessage, mapGate, runMapLoop, runReadTool, stripAlias, type MapFailReason, type MapUsage, type ModelCaller } from "./map-agent";
 import { markMapEditUndone, recordMapEdit, type MapEditTool } from "./map-edit-log";
 import { CREATE_KINDS, isDestructive, MAP_EDIT_PLAN_MAX, parsePlan, planLine, type BuiltinRegion, type CreateKind, type ExistingNode, type MapPlanItem, type PlanNode } from "./map-edit-plan";
 import { mergeCheck, mergeNodes } from "./map-merge";
@@ -272,12 +272,13 @@ async function planDestructive(userId: string, ctx: PlanCtx, name: "delete_node"
 
 export type MapEditPlanResult =
   | { ok: true; plan: MapPlanItem[]; question: string | null; unsupported: boolean; note: string | null; usage: MapUsage }
-  | { ok: false; reason: "empty" | "limit" | "budget" | "failed" };
+  | { ok: false; reason: MapFailReason };
 
-export async function planMapEdit(userId: string, textRaw: string, opts: { callModel?: ModelCaller; data?: MyLifeData; dailyLimit?: number } = {}): Promise<MapEditPlanResult> {
+// ownBudget = 재생 스크립트(db/replay-map-edit — 시작 때 따로 한도) — 예산 확인 건너뜀(lib/map-agent mapGate).
+export async function planMapEdit(userId: string, textRaw: string, opts: { callModel?: ModelCaller; data?: MyLifeData; dailyLimit?: number; ownBudget?: boolean } = {}): Promise<MapEditPlanResult> {
   const text = textRaw.replace(/\s+/g, " ").trim().slice(0, MAP_QUESTION_MAX);
   if (!text) return { ok: false, reason: "empty" };
-  const gate = await mapGate(userId, opts.dailyLimit);
+  const gate = await mapGate(userId, opts.dailyLimit, opts.ownBudget);
   if (gate) return { ok: false, reason: gate };
 
   const view = buildMapView(opts.data ?? (await getMyLifeData(userId)));
@@ -291,6 +292,7 @@ export async function planMapEdit(userId: string, textRaw: string, opts: { callM
     finishTool: "answer",
     messages: [firstMapMessage(list.text, "요청", text)],
     callModel: opts.callModel,
+    ownBudget: opts.ownBudget,
     onTool: async (u) => {
       const input = (u.input && typeof u.input === "object" ? u.input : {}) as Record<string, unknown>;
       if (u.name === "find_nodes" || u.name === "read_node") return runReadTool(view, ctx.shown, u.name, input);
@@ -298,7 +300,7 @@ export async function planMapEdit(userId: string, textRaw: string, opts: { callM
       return planTool(ctx, u.name, input);
     },
   });
-  if (loop.overBudget) return { ok: false, reason: "budget" };
+  if (loop.overBudget) return { ok: false, reason: budgetReason(loop.overBudget) };
   if (loop.failed || loop.raw === null) return { ok: false, reason: "failed" };
 
   const finish = loop.raw as { question?: unknown; unsupported?: unknown; otherWork?: unknown };

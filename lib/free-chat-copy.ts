@@ -13,6 +13,8 @@ export const FREE_CHAT_COPY = {
   saveNow: "지금 이야기 남기기",
   proposing: "이야기를 정리하고 있어요…",
   budgetPaused: "오늘은 이야기 친구가 쉬는 시간이에요. 내일 다시 이야기 나눠요.",
+  // 테스트 계정 하루 한도(2026-11-08 — lib/chat-v3-usage budgetBlock "test"). [임시 — 성민 확정 필요]
+  testBudgetPaused: "테스트 계정의 오늘 AI 사용 한도를 다 써서 쉬어요. 내일 다시 이야기 나눠요.",
   topicGone: "그 이야기 거리는 지금 없어요. 다른 이야기를 들려주세요.",
   cardFirst: "먼저 위 카드를 정해 주세요.",
   confirmApplied: "네, 반영했어요. 다른 이야기도 편하게 해 주세요.",

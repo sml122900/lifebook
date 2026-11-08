@@ -8,7 +8,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 
 import { sendMessage } from "./ai";
 import { modelId } from "./ai-model";
-import { costMicroUsd, dailyBudgetMicroUsd, dayStartKst, recordChatUsage, spentTodayMicroUsd, TEST_PURPOSE_PREFIX } from "./chat-v3-usage";
+import { budgetBlock, costMicroUsd, dayStartKst, recordChatUsage, TEST_PURPOSE_PREFIX, type BudgetBlock } from "./chat-v3-usage";
 import { prisma } from "./db";
 import { verifyAnswer } from "./lab/answer";
 import { buildMapView, findNodes, MAP_QUESTION_MAX, mapListText, nodeLine, readNodeData, type MapView, type ScreenRef } from "./map-agent-view";
@@ -39,7 +39,10 @@ export type AskMapStats = {
   droppedClaims: number;
   aliasInText: number; // 별칭을 지운 문장 수(프롬프트 비교용)
 };
-export type AskMapResult = { ok: true; answer: AskMapAnswer; stats: AskMapStats } | { ok: false; reason: "empty" | "limit" | "budget" | "failed" };
+export type AskMapResult = { ok: true; answer: AskMapAnswer; stats: AskMapStats } | { ok: false; reason: MapFailReason };
+// testBudget = 테스트 계정 하루 합계 한도(2026-11-08 — lib/chat-v3-usage budgetBlock "test")
+export type MapFailReason = "empty" | "limit" | "budget" | "testBudget" | "failed";
+export const budgetReason = (b: BudgetBlock): "budget" | "testBudget" => (b === "test" ? "testBudget" : "budget");
 
 // 모델이 문장에 별칭을 적어도 화면에는 안 나가게(실제 모델 57문장 중 10문장 — 전부 "복실이(n26)" 꼴, 2026-11-07). 괄호 없는 낱말은 이름일 수 있어 안 건드림.
 const ALIAS_IN_TEXT = /\s*[(（]\s*n\d+(?:\s*[,·]\s*n\d+)*\s*[)）]/g;
@@ -59,11 +62,13 @@ async function requestsToday(userId: string): Promise<number> {
   });
 }
 
-// 부르기 전 확인 — 사용자당 하루 상한(질문·고치기 합쳐 — Q89) · 전역 하루 예산(Q90).
-export async function mapGate(userId: string, dailyLimit: number = MAP_ASK_DAILY_LIMIT): Promise<"limit" | "budget" | null> {
+// 부르기 전 확인 — 사용자당 하루 상한(질문·고치기 합쳐 — Q89) · 전역 하루 예산(Q90) · 테스트 계정 하루 합계 한도(2026-11-08).
+// ownBudget = 재생 스크립트처럼 시작 때 따로 한도를 보는 도구(db/replay-map-* — requireTestBudget) — 예산 확인을 건너뜀.
+export async function mapGate(userId: string, dailyLimit: number = MAP_ASK_DAILY_LIMIT, ownBudget = false): Promise<"limit" | "budget" | "testBudget" | null> {
   if ((await requestsToday(userId)) >= dailyLimit) return "limit";
-  if ((await spentTodayMicroUsd()) >= dailyBudgetMicroUsd()) return "budget";
-  return null;
+  if (ownBudget) return null;
+  const block = await budgetBlock(userId);
+  return block ? budgetReason(block) : null;
 }
 
 // 첫 메시지 — 앞부분(도구·지시문·지도 목록) 캐시: 같은 지도로 5분 안에 다시 부르면 읽기만. 말은 그 뒤(§4.5).
@@ -110,19 +115,20 @@ export async function runMapLoop(opts: {
   messages: Anthropic.MessageParam[];
   callModel?: ModelCaller;
   onTool: (use: Anthropic.ToolUseBlock) => unknown;
-}): Promise<{ raw: unknown; failed: boolean; overBudget: boolean; usage: MapUsage }> {
+  ownBudget?: boolean; // 재생 스크립트 — 라운드 중 예산 확인 건너뜀(mapGate 와 같음)
+}): Promise<{ raw: unknown; failed: boolean; overBudget: BudgetBlock | null; usage: MapUsage }> {
   const call = opts.callModel ?? sendMessage;
   const messages = opts.messages;
   const usage: MapUsage = { rounds: 0, inputTokens: 0, outputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0, costMicroUsd: 0 };
   let raw: unknown = null;
   let failed = false;
-  let overBudget = false;
+  let overBudget: BudgetBlock | null = null;
 
   try {
     for (let round = 1; round <= MAP_AGENT_MAX_ROUNDS; round++) {
-      if (round > 1 && (await spentTodayMicroUsd()) + usage.costMicroUsd >= dailyBudgetMicroUsd()) {
-        overBudget = true;
-        break;
+      if (round > 1 && !opts.ownBudget) {
+        overBudget = await budgetBlock(opts.userId, new Date(), usage.costMicroUsd);
+        if (overBudget) break;
       }
       const last = round === MAP_AGENT_MAX_ROUNDS;
       const res = await call({
@@ -176,10 +182,10 @@ export async function runMapLoop(opts: {
   return { raw, failed, overBudget, usage };
 }
 
-export async function askMap(userId: string, questionRaw: string, opts: { callModel?: ModelCaller; data?: MyLifeData; dailyLimit?: number } = {}): Promise<AskMapResult> {
+export async function askMap(userId: string, questionRaw: string, opts: { callModel?: ModelCaller; data?: MyLifeData; dailyLimit?: number; ownBudget?: boolean } = {}): Promise<AskMapResult> {
   const question = questionRaw.replace(/\s+/g, " ").trim().slice(0, MAP_QUESTION_MAX);
   if (!question) return { ok: false, reason: "empty" };
-  const gate = await mapGate(userId, opts.dailyLimit);
+  const gate = await mapGate(userId, opts.dailyLimit, opts.ownBudget);
   if (gate) return { ok: false, reason: gate };
 
   const view = buildMapView(opts.data ?? (await getMyLifeData(userId)));
@@ -194,6 +200,7 @@ export async function askMap(userId: string, questionRaw: string, opts: { callMo
     finishTool: "answer",
     messages: [firstMapMessage(list.text, "질문", question)],
     callModel: opts.callModel,
+    ownBudget: opts.ownBudget,
     onTool: (u) => {
       const input = (u.input && typeof u.input === "object" ? u.input : {}) as Record<string, unknown>;
       const data = runReadTool(view, shown, u.name, input);
@@ -203,7 +210,7 @@ export async function askMap(userId: string, questionRaw: string, opts: { callMo
   });
   const stats: AskMapStats = { ...loop.usage, submittedClaims: 0, droppedClaims: 0, aliasInText: 0 };
   const raw = loop.raw;
-  if (loop.overBudget) return { ok: false, reason: "budget" };
+  if (loop.overBudget) return { ok: false, reason: budgetReason(loop.overBudget) };
   if (loop.failed || raw === null) return { ok: false, reason: "failed" };
 
   const asked = raw as { asksChange?: unknown };

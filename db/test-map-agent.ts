@@ -11,7 +11,8 @@
 //   ⑧ 화면 연결 — 찾기 시트 입구 · 시간 상한 · 이동 지도 · 문구 [임시]
 //   ⑨ AI 편집 기록(Q92 B안) — 칸 = 명령·도구·노드 종류·노드 id·시각만 · 90일 지난 행은 쓸 때 삭제(내 행만) · 되돌린 시각(내 행만) · 처리방침 v1.5·공지 예외·동의 버전 유지
 //   ⑩ 테스트 계정 명시 표시(2026-11-08) — 이메일만으로 일반인 계정도 User.isTestAccount 켜면 운영 하루 예산에서 빠짐(표시 전 TEST_ 없이
-//      기록된 행 포함) · 테스트 사용분으로 셈 · 그 뒤 기록은 TEST_ · 이메일 판정(.invalid·.test)은 그대로
+//      기록된 행 포함) · 테스트 사용분으로 셈 · 그 뒤 기록은 TEST_ · 이메일 판정(.invalid·.test)은 그대로 ·
+//      테스트 계정 하루 합계 한도(CHAT_V3_TEST_BUDGET_USD — 넘으면 지도 AI·자유 대화·인터뷰 거절 + 이유, 재생 스크립트 ownBudget 은 건너뜀)
 //
 // 자기 픽스처 계정만 만들고 지운다(test30 접촉 0). 실제 모델 확인은 db/replay-map-agent.ts --run(작업 규칙 10 — 여기서는 안 부름).
 // 실행: npx tsx db/test-map-agent.ts
@@ -30,7 +31,9 @@ import { buildMapView, EXCERPT_MAX, findNodes, LIST_NODE_LIMIT, mapListText, nod
 import { modelId } from "../lib/ai-model";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { MAP_EDIT_LOG_DAYS, markMapEditUndone, recordMapEdit } from "../lib/map-edit-log";
-import { isTestAccount, isTestAccountEmail, recordChatUsage, spentTodayMicroUsd, testSpentTodayMicroUsd } from "../lib/chat-v3-usage";
+import { budgetBlock, isTestAccount, isTestAccountEmail, recordChatUsage, spentTodayMicroUsd, testSpentTodayMicroUsd } from "../lib/chat-v3-usage";
+import { freeChatReply } from "../lib/free-chat";
+import { planMapEdit } from "../lib/map-edit";
 import { noticeProblem, POLICY_NOTICES } from "../lib/policy-notice";
 import { getMyLifeData, type MyLifeData } from "../lib/my-life";
 import { MAP_AGENT_SYSTEM_PROMPT, MAP_AGENT_TOOLS } from "../lib/prompts/map-agent";
@@ -301,6 +304,39 @@ async function main() {
     check("⑩ 판정 — 이메일(.invalid·.test) 또는 표시 · test.com·.example 은 이메일만으로 일반",
       isTestAccount({ email: EMAIL_FLAG, isTestAccount: true }) && !isTestAccount({ email: EMAIL_FLAG, isTestAccount: false }) && !isTestAccountEmail(EMAIL_FLAG) &&
         isTestAccount({ email: "a@lifebook.invalid" }) && !isTestAccount({ email: "test30@test.com" }) && !isTestAccount(null));
+
+    // 테스트 계정 하루 합계 한도(2026-11-08) — 한도 0 으로 넘긴 상태를 만든다. 전역 예산은 위 ⑥ 끝의 1000(안 넘음).
+    const prevTestBudget = process.env.CHAT_V3_TEST_BUDGET_USD;
+    process.env.CHAT_V3_TEST_BUDGET_USD = "0";
+    try {
+      await prisma.user.update({ where: { id: userF }, data: { isTestAccount: false } });
+      const normal = await budgetBlock(userF); // .example 이메일 + 표시 끔 = 일반 계정 — 테스트 한도와 무관
+      await prisma.user.update({ where: { id: userF }, data: { isTestAccount: true } });
+      const blocked = await budgetBlock(userF);
+      let calledCap = 0;
+      const capCaller: ModelCaller = async () => {
+        calledCap += 1;
+        throw new Error("no");
+      };
+      const rAsk = await askMap(userF, "한도 확인", { callModel: capCaller, data: persona });
+      const rEdit = await planMapEdit(userF, "한도 확인", { callModel: capCaller, data: persona });
+      const rChat = await freeChatReply(userF);
+      const own = fake([[{ name: "answer", input: { claims: [] } }]]);
+      const rOwn = await askMap(userF, "재생 스크립트", { callModel: own.caller, data: persona, ownBudget: true });
+      check("⑩ 테스트 계정 하루 합계 한도 — 넘으면 지도 AI(물어보기·고치기)·자유 대화 거절 + 이유(testBudget·test) · 모델 호출 0 · 일반 계정은 그대로 · 재생 스크립트(ownBudget)는 건너뜀",
+        normal === null && blocked === "test" && !rAsk.ok && rAsk.reason === "testBudget" && !rEdit.ok && rEdit.reason === "testBudget" &&
+          rChat.kind === "budget" && rChat.reason === "test" && calledCap === 0 && own.calls.length >= 1 && rOwn.ok,
+        { normal, blocked, rAsk, rEdit, rChat, calledCap, ownCalls: own.calls.length, rOwn: rOwn.ok });
+    } finally {
+      if (prevTestBudget === undefined) delete process.env.CHAT_V3_TEST_BUDGET_USD;
+      else process.env.CHAT_V3_TEST_BUDGET_USD = prevTestBudget;
+    }
+    const session13 = read("lib/interview/session.ts"), chatClient = read("app/chat-v3/ChatV3Client.tsx"), sheet = read("app/my-life/AskSheet.tsx");
+    check("⑩ 한도 이유 화면 연결 — 인터뷰 후속 질문·마무리 카드 거절(testBudget) · 자유 대화 3곳 testBudgetPaused · 지도 AI 문구 errors.testBudget · 재생 스크립트 2개 ownBudget",
+      (session13.match(/\(await budgetBlock\(userId\)\) === "test"\) return \{ ok: false, error: INTERVIEW_COPY\.testBudget \}/g) ?? []).length === 2 &&
+        (chatClient.match(/r\.reason === "test" \? FC\.testBudgetPaused : FC\.budgetPaused/g) ?? []).length === 3 &&
+        sheet.includes("A.errors[view.reason]") && read("lib/my-life-copy.ts").includes("testBudget: ") &&
+        read("db/replay-map-agent.ts").includes("ownBudget: true") && read("db/replay-map-edit.ts").includes("ownBudget: true"));
   } finally {
     await removeFixtures();
     console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B, EMAIL_FLAG] } } }));

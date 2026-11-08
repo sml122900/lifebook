@@ -69,7 +69,7 @@ async function main() {
       for (let i = 0; i < n; i++) {
         total += 1;
         const startedAt = Date.now();
-        const r = await askMap(userId, c.question, { callModel: sendMessage, data: persona, dailyLimit: Infinity });
+        const r = await askMap(userId, c.question, { callModel: sendMessage, data: persona, dailyLimit: Infinity, ownBudget: true });
         const ms = Date.now() - startedAt;
         if (!r.ok) {
           runs.push({ case: c.name, i, ms, pass: false, reason: r.reason });

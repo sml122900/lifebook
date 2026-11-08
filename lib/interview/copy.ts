@@ -34,6 +34,8 @@ export const INTERVIEW_COPY = {
   saveFailed: "저장하지 못했어요. 다시 해 볼까요?", // [임시 — 성민 확정 필요]
   retry: "다시 하기", // [임시 — 성민 확정 필요]
   errorGeneric: "잠시 문제가 생겼어요. 다시 해 볼까요?", // [임시 — 성민 확정 필요]
+  // 테스트 계정 하루 한도(2026-11-08 — lib/chat-v3-usage budgetBlock "test"). 이야기 후속 질문·마무리 카드를 부르지 않음
+  testBudget: "테스트 계정의 오늘 AI 사용 한도를 다 써서 쉬어요. 내일 이어서 해 주세요.", // [임시 — 성민 확정 필요]
 
   // ── 연도 문항 ──
   yearQuestion: (label: string) => `${label}${withJosa(label, "은/는")} 몇 년도였어요?`, // [임시 — 성민 확정 필요]

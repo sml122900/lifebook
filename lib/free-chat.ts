@@ -16,7 +16,7 @@
 // [만들기] 때만).
 
 import { chat } from "./ai";
-import { isOverDailyBudget, recordChatUsage } from "./chat-v3-usage";
+import { budgetBlock, recordChatUsage, type BudgetBlock } from "./chat-v3-usage";
 import { prisma } from "./db";
 import { buildEpisodeOpeningPrompt, buildPersonAskPrompt } from "./episode-opening";
 import { isEpisodeDoneIntent, isExitIntent, stripEpisodeDoneSignal } from "./episode-text";
@@ -341,7 +341,7 @@ export type StartTopicResult =
   | { kind: "pending"; view: ProposalView }
   // 같은 주제로 이야기하던 중 — 새로 시작하지 않고 이어서(딥링크 재진입).
   | { kind: "resume" }
-  | { kind: "budget" }
+  | { kind: "budget"; reason: BudgetBlock }
   | { kind: "gone" };
 
 // 주제로 새 구간 시작. 오프닝 질문은 기존 템플릿.
@@ -364,7 +364,7 @@ export async function startFreeTopic(
     if (!isShortLeftover(prev)) {
       const p = await proposeFromSegment(userId);
       if (p.kind === "card") return { kind: "pending", view: p.view };
-      if (p.kind === "budget") return { kind: "budget" };
+      if (p.kind === "budget") return { kind: "budget", reason: p.reason };
     }
   }
   const ev = await prisma.lifeEvent.findFirst({
@@ -412,12 +412,13 @@ export async function startFreeTopic(
 // ─── 응답 ───────────────────────────────────────────────────────────────
 
 export type FreeChatReplyResult =
-  | { kind: "budget" }
+  | { kind: "budget"; reason: BudgetBlock }
   | { kind: "reply"; reply: string; propose: ProposeAt; segmentTurns: number; cardPending: boolean };
 
 // 방금 본인 턴(화면이 이미 로그에 저장)에 대한 응답 + 제안 시점.
 export async function freeChatReply(userId: string): Promise<FreeChatReplyResult> {
-  if (await isOverDailyBudget()) return { kind: "budget" };
+  const block = await budgetBlock(userId); // 전역 예산 · 테스트 계정 하루 한도(2026-11-08)
+  if (block) return { kind: "budget", reason: block };
   const seg = await getSegment(userId);
   const card = parseCard(seg.proposal);
   // 카드가 떠 있으면 그 카드 뒤 대화만 맥락으로(카드가 다룬 이야기를 또 묻지 않게).
@@ -551,7 +552,7 @@ export async function outsideSegmentText(userId: string, segmentStart: Date, sav
 export type ProposeResult =
   | { kind: "card"; view: ProposalView }
   | { kind: "none"; segmentTurns: number }
-  | { kind: "budget" };
+  | { kind: "budget"; reason: BudgetBlock };
 
 // 지금 구간(또는 until 직전까지)을 제안 카드로. 이미 카드가 있으면 그 카드.
 // 본인 이야기 내용이 없으면 카드 없이 구간만 넘긴다(같은 인사로 또 제안하지 않게).
@@ -583,7 +584,8 @@ export async function proposeFromSegment(
   if (substantiveUserTurns(turns) === 0) {
     return { kind: "none", segmentTurns: substantiveUserTurns(await logTurns(userId, seg.startedAt)) };
   }
-  if (await isOverDailyBudget(now)) return { kind: "budget" };
+  const block = await budgetBlock(userId, now);
+  if (block) return { kind: "budget", reason: block };
 
   const topic = await topicInfo(userId, seg);
   const alreadySaved = await recentSavedStories(userId, seg.recentTitles);

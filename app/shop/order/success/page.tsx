@@ -133,10 +133,10 @@ function SuccessScreen({
           내 주문 보기
         </Link>
         <Link
-          href="/life-timeline"
+          href="/"
           className="rounded-md border-2 border-line px-6 py-4 text-lg font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
-          인생 연혁으로
+          처음 화면으로
         </Link>
       </div>
     </main>

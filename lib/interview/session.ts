@@ -16,6 +16,7 @@
 import { prisma } from "../db";
 import { Prisma as PrismaNs } from "../generated/prisma/client";
 import { newAiUsage, trackAiUsage, type AiUsage } from "../ai";
+import { budgetBlock } from "../chat-v3-usage";
 import { isSubstantiveEpisodeContent } from "../episode-text";
 import { buildEpisodeOpeningPrompt } from "../episode-opening";
 import {
@@ -327,6 +328,8 @@ export async function interviewStoryTurn(
   const row = await ownedPlannedItem(userId, itemId);
   const target = row ? await resolveTarget(userId, row.itemKey, false) : null;
   if (!row || !target || target.kind !== "story") return { ok: false, error: INTERVIEW_COPY.errorGeneric };
+  // 테스트 계정 하루 한도(2026-11-08) — 넘으면 AI 를 부르지 않고 이유를 알림(인터뷰엔 전역 예산 확인이 원래 없어 "test" 만 봄)
+  if ((await budgetBlock(userId)) === "test") return { ok: false, error: INTERVIEW_COPY.testBudget };
   const usage = newAiUsage();
   try {
     return await trackAiUsage(usage, () =>
@@ -355,6 +358,7 @@ export async function finishInterviewStory(
   if (!row || !target || target.kind !== "story") return { ok: false, error: INTERVIEW_COPY.errorGeneric };
   const existing = parseCard(row.proposal);
   if (existing) return { ok: true, proposal: await toView(userId, existing) };
+  if ((await budgetBlock(userId)) === "test") return { ok: false, error: INTERVIEW_COPY.testBudget }; // 테스트 계정 하루 한도(2026-11-08)
   const usage = newAiUsage();
   let built: Awaited<ReturnType<typeof buildProposal>>;
   try {

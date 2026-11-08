@@ -113,6 +113,18 @@ export async function isOverDailyBudget(now: Date = new Date()): Promise<boolean
   return (await spentTodayMicroUsd(now)) >= dailyBudgetMicroUsd();
 }
 
+// 부르기 전 예산 확인(2026-11-08 — 테스트 계정 비용 안전장치). 앱의 AI 호출 입구(자유 대화 응답·제안 · 지도 AI · 인터뷰 제안)가 쓴다.
+//   "daily" = 전역 하루 예산 넘음 — 모든 계정(비상 정지 — 일반 계정 사용분만 쌓이지만 env 0 이면 전부 멈춤, 지금까지와 같음)
+//   "test"  = 테스트 계정(이메일 .invalid·.test 또는 isTestAccount)이고 테스트 계정 전체 오늘 합계가 CHAT_V3_TEST_BUDGET_USD(기본 $10) 이상
+// extraMicro = 이번 요청에서 이미 쓴 원가(지도 AI 라운드 중 확인). 재생 스크립트처럼 따로 한도를 보는 도구는 이 확인을 건너뛴다(지도 AI ownBudget).
+export type BudgetBlock = "daily" | "test";
+export async function budgetBlock(userId: string, now: Date = new Date(), extraMicro = 0): Promise<BudgetBlock | null> {
+  if ((await spentTodayMicroUsd(now)) + extraMicro >= dailyBudgetMicroUsd()) return "daily";
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, isTestAccount: true } });
+  if (isTestAccount(user) && (await testSpentTodayMicroUsd(now)) + extraMicro >= testBudgetMicroUsd()) return "test";
+  return null;
+}
+
 // 실패해도 대화는 막지 않는다(원장 누락 < 대화 중단).
 export async function recordChatUsage(
   userId: string,
