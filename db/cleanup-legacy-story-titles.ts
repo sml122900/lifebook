@@ -208,15 +208,12 @@ async function main() {
   }
 
   const periodRows = targets.filter((t) => t.isPeriod && !t.self);
-  const posterUsers = await prisma.poster.findMany({
-    where: { userId: { in: [...new Set(periodRows.map((t) => t.userId))] } },
-    select: { userId: true },
-  });
+  // (포스터 있는 계정 수는 2026-11-09 Poster 테이블 삭제로 셈하지 않음)
   console.log(`이야기 ${episodes.length}편 중 제목이 시기 이름인 옛 이야기 ${targets.length + afterCard + noBody}편`);
   console.log(`  비울 것 ${targets.length}편 · 뺌 ${afterCard + noBody}편(카드 경로 뒤 — [고치기] 제목일 수 있음 ${afterCard} · 본문 없음 ${noBody})`);
   console.log(
     `  비울 것 중 — 시기 이름 ${targets.filter((t) => !t.afterLabel).length} · "… 이후" ${targets.filter((t) => t.afterLabel).length}` +
-      ` · 그때의 나 ${targets.filter((t) => t.self).length} · 포스터 구간 행 ${periodRows.length}(포스터 있는 계정 ${new Set(posterUsers.map((p) => p.userId)).size}명)`,
+      ` · 그때의 나 ${targets.filter((t) => t.self).length} · 구간 이야기 ${periodRows.length}`,
   );
   const byAccount = new Map<string, Target[]>();
   for (const t of targets) byAccount.set(t.account, [...(byAccount.get(t.account) ?? []), t]);

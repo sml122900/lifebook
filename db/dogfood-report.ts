@@ -19,7 +19,6 @@ import { estimateCostMicroUsd } from "../lib/lab/usage";
 const BLOCKED_LOCAL_PART = "sml122900";
 const KST_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const NO_RECORD = "기록 없음";
 
 function kstDay(d: Date): string {
   return new Date(d.getTime() + KST_MS).toISOString().slice(0, 10);
@@ -109,7 +108,7 @@ async function main() {
   const inRange = (d: Date | null | undefined) => !!d && d >= from && d < to;
   const userId = user.id;
 
-  const [messages, lifeEvents, episodes, people, tokenTxs, labUsages, aiMessages, poster, interviewItems, chatUsages] = await Promise.all([
+  const [messages, lifeEvents, episodes, people, tokenTxs, labUsages, aiMessages, interviewItems, chatUsages] = await Promise.all([
     // 본문은 불러오지 않고 길이만.
     prisma.$queryRaw<{ sessionId: string; role: string; createdAt: Date; len: number }[]>`
       SELECT "sessionId", role::text AS role, "createdAt", LENGTH(content)::int AS len
@@ -138,10 +137,6 @@ async function main() {
     prisma.aIMessage.findMany({
       where: { conversation: { userId }, role: "assistant", createdAt: { gte: from, lt: to } },
       select: { inputTokens: true, outputTokens: true },
-    }),
-    prisma.poster.findUnique({
-      where: { userId },
-      select: { selections: true, design: true, updatedAt: true },
     }),
     // 세션 키(day)가 KST 날짜 문자열이라 그대로 범위 비교.
     prisma.interviewItem.findMany({
@@ -333,24 +328,7 @@ async function main() {
 
   printInterview(interviewItems);
 
-  console.log("\n── 포스터 ──");
-  console.log(`선택 저장 횟수: ${NO_RECORD} (Poster 는 사용자당 1행 — 저장 이력 없음)`);
-  console.log(`시안 생성 횟수: ${NO_RECORD} (항목마다 마지막 생성 시각만 남음)`);
-  if (poster) {
-    const items = Array.isArray(poster.selections) ? (poster.selections as unknown[]) : [];
-    const generatedInRange = items.filter((it) => {
-      const g = (it as { generatedAt?: unknown } | null)?.generatedAt;
-      return typeof g === "string" && inRange(new Date(g));
-    }).length;
-    const cacheAt = (poster.design as { candidateCache?: { generatedAt?: unknown } } | null)?.candidateCache
-      ?.generatedAt;
-    console.log(`  참고(횟수 아님): 현재 선택 ${items.length}개 중 저장 문장 생성 시각이 기간 안인 항목 ${generatedInRange}개`);
-    console.log(
-      `  참고(횟수 아님): 후보 캐시 마지막 생성 ${typeof cacheAt === "string" ? kstDay(new Date(cacheAt)) : "없음"} · Poster 마지막 갱신 ${kstDay(poster.updatedAt)}`,
-    );
-  } else {
-    console.log("  (Poster 행 없음)");
-  }
+  // 포스터 절은 2026-11-09 Poster 테이블 삭제로 뺌(판매 종료).
 }
 
 main()

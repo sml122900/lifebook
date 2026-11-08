@@ -478,7 +478,7 @@
 
 ### 13.3 남은 것
 
-- `Poster` 테이블·`User.extractedPreferences`·`userPreferences` 삭제 마이그(성민 승인 — 데이터는 테스트 계정 것뿐) · v3 브릿지 행(`createdVia = v3_bridge`) 정리 여부.
+- ~~`Poster` 테이블·`User.extractedPreferences` 삭제~~ — 2026-11-09 마이그 `20261109000000_drop_poster`(Poster 8행·추출 취향 값 0 — 전부 테스트 계정). **`userPreferences` 는 남김**: 기억 연구실(`lib/lab/sources` PROFILE 원천 · 페르소나 시드 · 골든셋 취향 문항 · R3 기준 "등산|산"·"나훈아|트로트")이 이 칸을 씀 — 지우려면 연구실 원천·시드·`test-lab-sync` 를 함께 바꿔야 하고 동결 기준이 흔들림(성민 결정). v3 브릿지 행(`createdVia = v3_bridge`) 정리 여부.
 - 처리방침 본문 서비스 이름 표기("라이프북" → "Lifebook") — CLAUDE.md 열린 결정은 "다음 개정 때 함께"인데 같은 항목에 "법적 문서 본문 = 라이프북 그대로"도 있어 방향이 갈림. 이번 개정에서는 바꾸지 않음(성민 확인).
 - 처리방침 6항 위탁에 인쇄·택배 업체(정해지면 — 작업 규칙 11).
 
