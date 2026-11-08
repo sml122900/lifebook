@@ -4,7 +4,7 @@
 //      진입 카드 항상 표시·게이트 잔재 0·proxy 무접촉
 //   ② 세션 생성 — 계획 고정·출처 혼합·하루 1세션(두 번 시작해도 한 벌)
 //   ③ 이어하기 — 다시 들어와도 같은 문항, 이미 본 문항이 있으면 resumed
-//   ④ 연도(실제 Haiku 1회 — 2026-11-08 Sonnet 에서 바꿈) — year 만 채움, status·correctedYear·unclearCount 무변, AI 사용량 기록
+//   ④ 연도(실제 Sonnet 1회 — 2026-11-09 Haiku 에서 되돌림) — year 만 채움, status·correctedYear·unclearCount 무변, AI 사용량 기록
 //   ⑤ 이야기(실제 Sonnet 후속 1 + 요약 1~2 + 인물 추출 1) — Episode(구간 아님·풀 제목) + AI 사용량
 //   ⑥ 그사이 채워진 문항은 DROPPED, 종료 요약·진입 카드
 //   ⑦ 중복 질문 미출제 — 다음 날·8일 뒤 계획, 재노출 규칙(Q4·Q5) 순수 함수, 풀 대상 시기
@@ -375,7 +375,7 @@ async function main() {
     check("③ 재진입 = 같은 문항 + resumed", again.kind === "item" && again.item.id === rows[0].id && again.resumed, again);
     check("③ 문항을 낸 시각 기록(askedAt)", (await prisma.interviewItem.findUnique({ where: { id: rows[0].id } }))?.askedAt != null);
 
-    // ④ 연도 — 실제 Haiku(나이 표현). 서른두 살(≈1992)로 골라 군 입대(1980)와 10년 넘게
+    // ④ 연도 — 실제 Sonnet(나이 표현). 서른두 살(≈1992)로 골라 군 입대(1980)와 10년 넘게
     // 벌어지게 한다 — 군 입대 구간 갭이 그대로 남고 첫 직장 뒤 구간 갭이 새로 생겨 ⑦ 기대값이 고정된다.
     const yr = await answerInterviewYear(userId, rows[0].id, "서른두 살 때였어요", now);
     const firstJob = await prisma.lifeEvent.findUnique({ where: { id: ev.FIRST_JOB } });
