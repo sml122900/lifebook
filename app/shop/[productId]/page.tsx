@@ -65,11 +65,14 @@ export default async function ProductDetailPage({
 
       <p className="mt-3 text-base text-ink-soft">{SHIPPING_LEAD_TIME_LINE}</p>
 
-      <div className="mt-8">
-        <ButtonLink href={`/shop/${product.id}/order`} variant="primary" size="lg">
-          주문하기
-        </ButtonLink>
-      </div>
+      {/* 목록에서 숨긴 상품(orderable:false)은 주문 화면이 없음(404) — [주문하기]도 안 보임(2026-11-08). */}
+      {product.orderable !== false && (
+        <div className="mt-8">
+          <ButtonLink href={`/shop/${product.id}/order`} variant="primary" size="lg">
+            주문하기
+          </ButtonLink>
+        </div>
+      )}
     </main>
   );
 }

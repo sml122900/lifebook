@@ -1,4 +1,5 @@
-// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(39항목 — 마지막 1개 = My Life 3단계 "다른 시절로 옮기기" 뒤 브릿지 행). 설계: docs/phase/v3-poster-bridge.md
+// v3 → 포스터 브릿지 + 포스터 AI 문장 고정 검증(42항목 — 39번째 = My Life 3단계 "다른 시절로 옮기기" 뒤 브릿지 행,
+// 40~42 = 주문 막기(2026-11-08): 숨긴 상품·숨긴 옵션 주문 거절 · 포스터 무통장입금 거절 · 화면 연결). 설계: docs/phase/v3-poster-bridge.md
 // 실행: npx tsx db/test-v3-poster-bridge.ts
 //
 // 자체 픽스처 계정(fixture-bridge@lifebook.invalid)을 시작 시 만들고 끝에
@@ -17,6 +18,10 @@ import { createHash } from "node:crypto";
 
 import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
+import fs from "node:fs";
+import path from "node:path";
+
+import { createPendingProductOrder } from "../lib/commerce/orders";
 import { createPendingPosterOrder } from "../lib/commerce/poster-orders";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEpisodeBridge } from "../lib/episode";
@@ -947,6 +952,7 @@ async function main() {
     });
     await scenario(userId);
     await moveScenario(userId);
+    await orderGuardScenario(userId);
   } finally {
     // 시나리오 도중 실패해도 이메일로 찾아 지운다.
     await removeFixture();
@@ -966,8 +972,8 @@ async function main() {
       failed += 1;
     }
   }
-  console.log(failed === 0 && count === 39 ? "\nALL PASS (39)" : `\n${failed} FAILED / ${count} 항목`);
-  process.exitCode = failed === 0 && count === 39 ? 0 : 1;
+  console.log(failed === 0 && count === 42 ? "\nALL PASS (42)" : `\n${failed} FAILED / ${count} 항목`);
+  process.exitCode = failed === 0 && count === 42 ? 0 : 1;
 }
 
 // My Life 3단계 — 이야기를 다른 시절로 옮기면(lib/episode-move) 온디맨드 브릿지 행(v3_<시기>)도 따라간다:
@@ -987,6 +993,37 @@ async function moveScenario(userId: string) {
     { before: body(before, from), afterFrom: body(after, from), afterTo: body(after, to), moved });
 }
 
+
+// 주문 막기(2026-11-08) — 목록에서 숨긴 상품(orderable:false — 책·씨앗)·숨긴 옵션(프리미엄 99,000원)은 서버가 주문 거절,
+// 강물 포스터 무통장입금(실제 돈이 오가는 유일한 길) 거절. 거절은 주문 행·AI 호출 없이. 화면: 숨긴 상품 주문 화면 404 ·
+// 상세 [주문하기] 숨김 · 포스터 주문 폼 = 카드만(무통장 선택지 안 그림) · 실결제 설정은 그대로 꺼짐.
+async function orderGuardScenario(userId: string) {
+  const calls = async <T>(fn: () => Promise<T>): Promise<[T, number]> => {
+    const b = aiCalls;
+    const out = await fn();
+    return [out, aiCalls - b];
+  };
+  const before = await prisma.productOrder.count({ where: { userId } });
+  const book = await createPendingProductOrder(userId, "book", SHIP, "bank_transfer");
+  const charm = await createPendingProductOrder(userId, "charm", SHIP, "card");
+  const [bank, bankCalls] = await calls(() => createPendingPosterOrder(userId, "[fixture] bridge", "standard", SHIP, "bank_transfer"));
+  const [premium, premiumCalls] = await calls(() => createPendingPosterOrder(userId, "[fixture] bridge", "premium", SHIP, "card"));
+  const after = await prisma.productOrder.count({ where: { userId } });
+  check("★ 주문 막기 — 숨긴 상품(책 무통장·씨앗 카드) 거절 · 주문 행 0",
+    !book.ok && book.error === "지금은 주문할 수 없는 상품이에요." && !charm.ok && charm.error === "지금은 주문할 수 없는 상품이에요." && after === before,
+    { book, charm, before, after });
+  check("★ 주문 막기 — 강물 포스터 무통장입금 거절 · 숨긴 옵션(프리미엄) 거절 · 주문 행 0 · AI 0회",
+    !bank.ok && bank.error === "지금은 카드결제만 할 수 있어요." && !premium.ok && premium.error === "지금은 고를 수 없는 재질이에요." &&
+      bankCalls === 0 && premiumCalls === 0 && after === before,
+    { bank, premium, bankCalls, premiumCalls });
+  const read = (f: string) => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
+  const orderPage = read("app/shop/[productId]/order/page.tsx");
+  const detail = read("app/shop/[productId]/page.tsx");
+  const form = read("app/poster/order/PosterOrderForm.tsx");
+  check("★ 주문 막기 — 화면: 숨긴 상품 주문 화면 404 · 상세 [주문하기] 숨김 · 포스터 폼 카드만(기본값 card · 무통장 선택지 안 그림) · 실결제 설정 꺼짐(.env)",
+    orderPage.includes("if (!product || product.orderable === false) notFound();") && detail.includes("product.orderable !== false &&") &&
+      form.includes(`useState<PaymentMethod>("card")`) && form.includes("bankTransfer={false}") && process.env.POSTER_PAYMENT_LIVE_ENABLED !== "true");
+}
 main()
   .catch((e) => {
     console.error(e);

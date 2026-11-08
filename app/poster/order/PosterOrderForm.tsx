@@ -43,8 +43,8 @@ export function PosterOrderForm({
 }: Props) {
   const router = useRouter();
   const [optionId, setOptionId] = useState(options[0]?.id ?? "");
-  // 카드결제는 PG 심사 전 테스트 모드라, 실작동하는 무통장입금을 기본값으로.
-  const [method, setMethod] = useState<PaymentMethod>("bank_transfer");
+  // 무통장입금은 닫음(2026-11-08 — 서버도 거절, lib/commerce/poster-orders) → 카드(테스트 모드)만.
+  const [method, setMethod] = useState<PaymentMethod>("card");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [postalCode, setPostalCode] = useState("");
@@ -221,6 +221,7 @@ export function PosterOrderForm({
         value={method}
         onChange={setMethod}
         testMode={testMode}
+        bankTransfer={false}
       />
 
       {/* 금액 요약 */}

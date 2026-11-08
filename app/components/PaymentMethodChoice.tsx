@@ -8,24 +8,29 @@ import type { PaymentMethod } from "@/lib/commerce/orders";
 // 카드결제의 테스트 모드 설명은 testMode(서버가 토스 테스트 키로 판단 —
 // lib/tokens/toss.ts isTossTestMode)일 때만 보인다(무통장입금 설명은 그대로).
 
+// bankTransfer=false 면 무통장입금 선택지를 그리지 않는다(2026-11-08 — 강물 포스터 무통장입금 닫음, 서버도 거절).
 export function PaymentMethodChoice({
   value,
   onChange,
   testMode,
+  bankTransfer = true,
 }: {
   value: PaymentMethod;
   onChange: (m: PaymentMethod) => void;
   testMode: boolean;
+  bankTransfer?: boolean;
 }) {
   return (
     <fieldset className="flex flex-col gap-3 border-t-2 border-line pt-6">
       <legend className="text-xl font-bold text-ink">결제 방법</legend>
-      <Choice
-        checked={value === "bank_transfer"}
-        onSelect={() => onChange("bank_transfer")}
-        title="무통장입금 (계좌이체)"
-        desc="주문 후 안내되는 계좌로 입금해 주세요. 입금이 확인되면 제작을 시작해요."
-      />
+      {bankTransfer && (
+        <Choice
+          checked={value === "bank_transfer"}
+          onSelect={() => onChange("bank_transfer")}
+          title="무통장입금 (계좌이체)"
+          desc="주문 후 안내되는 계좌로 입금해 주세요. 입금이 확인되면 제작을 시작해요."
+        />
+      )}
       <Choice
         checked={value === "card"}
         onSelect={() => onChange("card")}

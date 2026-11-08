@@ -40,6 +40,9 @@ export async function createPendingProductOrder(
 ): Promise<CreateProductOrderResult> {
   const product = getProduct(productId);
   if (!product) return { ok: false, error: "상품을 찾을 수 없어요." };
+  // 목록에서 숨긴 상품(orderable:false — 제작·배송 경로 없음)은 주문 거절(2026-11-08 — 주소로 열려 실제 주문이 되던 구멍).
+  // [임시 — 성민 확정 필요] 2026-11-08
+  if (product.orderable === false) return { ok: false, error: "지금은 주문할 수 없는 상품이에요." };
 
   const recipientName = shipping.recipientName.trim();
   const recipientPhone = shipping.recipientPhone.trim();

@@ -390,7 +390,7 @@
 | `/poster/view` | ← 템플릿 바꾸기 | → `/poster` |
 | `/poster/view` | 이 포스터 주문하기(상·하) | → `/poster/order` |
 | `/poster/order` | ← 포스터로 돌아가기 | → `/poster/view` |
-| `/poster/order` | 무통장입금 선택 → 주문하고 입금 안내 받기 | → `/account/orders/{orderId}` (입금 안내) |
+| `/poster/order` | ~~무통장입금 선택 → 주문하고 입금 안내 받기~~ | 2026-11-08 닫음(선택지 안 보임 · 서버 거절 — My Life 인쇄 상품으로 바꿀 때까지) |
 | `/poster/order` | 카드결제 선택 → 결제하기 | 토스결제(테스트) → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
 
 ---
@@ -401,8 +401,8 @@
 | 화면 | 버튼 | 이동 |
 |---|---|---|
 | `/shop` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 상품 카드 | → `/`(로그인 전 랜딩 · 로그인 뒤 트랙별 첫 화면) · `/shop/{productId}` |
-| `/shop/[id]` | ← 상점으로 / 주문하기 | → `/shop` · `/shop/{id}/order` |
-| `/shop/[id]/order` | (poster 상품) | → `/poster` 로 리다이렉트 |
+| `/shop/[id]` | ← 상점으로 / 주문하기 | → `/shop` · `/shop/{id}/order` — 목록에서 숨긴 상품(`orderable:false` — 책·씨앗)은 [주문하기] 없음(2026-11-08) |
+| `/shop/[id]/order` | (poster 상품) | → `/poster` 로 리다이렉트 · 숨긴 상품(`orderable:false`) = 404(서버도 주문 거절 — 2026-11-08) |
 | `/shop/[id]/order` | 무통장입금 선택 → 주문하고 입금 안내 받기 | → `/account/orders/{orderId}` (입금 안내) |
 | `/shop/[id]/order` | 카드결제 선택 → 결제하기 | 토스결제(테스트) → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
 | `/shop/order/success` | 내 주문 보기 / 인생 연혁으로 | → `/account/orders` · `/life-timeline` |

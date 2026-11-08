@@ -25,10 +25,16 @@ export async function createPendingPosterOrder(
 ): Promise<CreateProductOrderResult> {
   const product = getProduct("poster");
   if (!product) return { ok: false, error: "상품을 찾을 수 없어요." };
+  // 강물 포스터 무통장입금 닫음(2026-11-08 — My Life 인쇄 상품으로 바꿀 때까지 실제 돈이 오가는 새 주문을 받지 않음).
+  // 카드는 테스트 키라 청구 없음(POSTER_PAYMENT_LIVE_ENABLED 꺼 둠) — 상품 페이지 → 결제창까지는 심사 캡처용으로 남김.
+  // [임시 — 성민 확정 필요] 2026-11-08
+  if (paymentMethod === "bank_transfer") return { ok: false, error: "지금은 카드결제만 할 수 있어요." };
 
   const option = getProductOption(product, optionId);
   const amount = computeOptionOrderAmount(product, optionId, 1);
   if (!option || !amount) return { ok: false, error: "재질을 골라 주세요." };
+  // 숨긴 옵션(hidden — 프리미엄 99,000원)은 화면에서만 빠져 있었고 서버는 받았음 → 거절(2026-11-08). [임시 — 성민 확정 필요] 2026-11-08
+  if (option.hidden) return { ok: false, error: "지금은 고를 수 없는 재질이에요." };
 
   const recipientName = shipping.recipientName.trim();
   const recipientPhone = shipping.recipientPhone.trim();
@@ -68,9 +74,9 @@ export async function createPendingPosterOrder(
       address2: shipping.address2?.trim() || null,
       jibunAddress: shipping.jibunAddress?.trim() || null,
       deliveryMemo: shipping.deliveryMemo?.trim() || null,
-      // 무통장은 입금대기로 접수(결제 없이), 카드는 결제창 대기.
+      // 카드 = 결제창 대기. 무통장입금(입금대기 awaiting_payment)은 위에서 거절(2026-11-08) — 다시 열 때 이 줄도 되살림.
       paymentMethod,
-      status: paymentMethod === "bank_transfer" ? "awaiting_payment" : "pending",
+      status: "pending",
       paymentLive: POSTER_PAYMENT_LIVE_ENABLED,
       posterSnapshot: snapshot,
     },

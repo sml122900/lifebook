@@ -48,8 +48,8 @@ export default async function PosterOrderPage() {
           role="note"
           className="mb-5 rounded-md border-2 border-brand bg-banner px-4 py-3 text-base font-semibold text-action"
         >
-          무통장입금(계좌이체)으로 실제 주문하실 수 있어요. 카드결제는 지금
-          테스트 모드예요(실제 청구·배송 안 됨).
+          {/* [임시 — 성민 확정 필요] 2026-11-08 — 무통장입금 닫음 */}
+          지금은 카드결제만 할 수 있어요. 카드결제는 테스트 모드예요(실제 청구·배송 안 됨).
         </p>
       )}
 
