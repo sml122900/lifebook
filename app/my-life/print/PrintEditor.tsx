@@ -334,6 +334,8 @@ function OrderStep(props: {
     const w = widgets.current;
     if (!w) return;
     setBusy(true);
+    // 1) 주문(대기) — 서버가 같은 사용자의 미결제 대기 주문을 다시 씀(여러 번 눌러도 하나)
+    let order: { orderId: string; orderName: string; totalKrw: number };
     try {
       const res = await startPrintOrderAction(opts, {
         recipientName: ship.recipientName,
@@ -349,16 +351,26 @@ function OrderStep(props: {
         setBusy(false);
         return;
       }
-      await w.setAmount({ currency: "KRW", value: res.order.totalKrw }); // 서버가 다시 센 금액
+      order = res.order;
+    } catch (e) {
+      console.error("[print] 주문", e);
+      setError(T.orderFailed);
+      setBusy(false);
+      return;
+    }
+    // 2) 결제창 — 위젯이 거절하면(결제 수단·카드사 안 고름 등) 주문 실패가 아니라 결제 수단 안내. 사용자가 창을 닫으면 안내 없음.
+    try {
+      await w.setAmount({ currency: "KRW", value: order.totalKrw }); // 서버가 다시 센 금액
       await w.requestPayment({
-        orderId: res.order.orderId,
-        orderName: res.order.orderName,
+        orderId: order.orderId,
+        orderName: order.orderName,
         successUrl: `${window.location.origin}/shop/order/success`,
         failUrl: `${window.location.origin}/shop/order/fail`,
       });
     } catch (e) {
-      console.error("[print] 결제 요청", e);
-      setError(T.orderFailed);
+      const code = (e as { code?: unknown } | null)?.code;
+      if (code !== "USER_CANCEL") console.error("[print] 결제 요청", e);
+      setError(code === "USER_CANCEL" ? null : T.pickMethod);
       setBusy(false);
     }
   }

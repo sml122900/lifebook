@@ -12,6 +12,7 @@
 //      배송지 없음·상한 넘음 거절 · 편집·주문 뒤에도 실제 지도 그대로 · 남의 계정 편집 상태 안 보임
 //   ⑨ 화면·결제 — 성공 화면이 인쇄 주문만 위젯 시크릿 키로 확인 · 주문 제작 청약철회 제한 문구 없음 · 숨긴 상품 상세 404 ·
 //      인쇄 상품 주문 화면 → /my-life/print · 실결제 꺼짐 · 문구 [임시]
+//   ⑪ 결제 수단 미선택 연타(2026-11-09) — 대기 주문 1건(재사용·동시 잠금) · 위젯 거절 = 결제 수단 안내
 //   ⑩ 강물 포스터 판매 종료(2026-11-08 — test-v3-poster-bridge 퇴역, 주문 막기 검사는 여기로) — 숨긴 상품(책·씨앗·포스터) 주문 거절 ·
 //      포스터 그리기 코드 없음 · 옛 /poster 주소 → 인쇄본 · 보존 주문 2건만 그림(관리자·주인 주문 상세)
 
@@ -255,6 +256,17 @@ async function main() {
         !!snap && snap.layout.pageCount === recompute.pageCount && JSON.stringify(snap.options.excluded) === JSON.stringify([printKey.story(st1.episodeId)]) &&
         !JSON.stringify(snap.layout).includes("[fixture] 운동회") && JSON.stringify(snap.layout).includes("[fixture] 첫 월급") && snap.owner === "[fixture] 인쇄",
       { ok, order: order && { optionId: order.optionId, total: order.totalKrw }, pages: recompute.pageCount });
+    // ⑪ 결제 수단 미선택 연타(2026-11-09) — [결제하기]를 여러 번(동시에도) 눌러도 미결제 대기 주문은 하나(같은 번호 다시 씀),
+    //    배송지 등은 마지막 값. 화면은 위젯 거절을 "주문 실패"가 아니라 결제 수단 안내로, 창 닫기는 안내 없음.
+    const taps = await Promise.all([1, 2, 3].map((k) => createPendingPrintOrder(a, opts, { ...ship, deliveryMemo: `[fixture] 연타 ${k}` }, T1)));
+    const again = await createPendingPrintOrder(a, opts, { ...ship, recipientName: "[fixture] 마지막 받는 분" }, T1);
+    const pendings = await prisma.productOrder.findMany({ where: { userId: a, productId: PRINT_PRODUCT_ID, status: "pending" }, select: { id: true, recipientName: true } });
+    const ids = new Set([ok, ...taps, again].map((r) => (r.ok ? r.order.orderId : "x")));
+    const editor11 = read("app/my-life/print/PrintEditor.tsx");
+    check("⑪ 결제 수단 미선택 연타 — 대기 주문 1건(같은 주문 번호 다시 씀 · 동시에 눌러도) · 배송지 = 마지막 값 · 화면 = 결제 수단 안내(주문 실패 아님)·창 닫기 안내 없음",
+      pendings.length === 1 && ids.size === 1 && !ids.has("x") && pendings[0].recipientName === "[fixture] 마지막 받는 분" &&
+        editor11.includes(`setError(code === "USER_CANCEL" ? null : T.pickMethod);`) && read("lib/print-copy.ts").includes("pickMethod:"),
+      { pendings, ids: [...ids] });
     const mapAfter = JSON.stringify(await getMyLifeData(a));
     check("⑧ 편집 저장·주문 뒤에도 실제 지도 그대로(getMyLifeData 같음)", mapBefore === mapAfter);
   } finally {

@@ -49,6 +49,7 @@ export const PRINT_COPY = {
   testMode: "카드결제는 지금 테스트 모드예요. 실제로 돈이 나가지 않아요.",
   needShipping: "받는 분·연락처·우편번호·주소를 입력해 주세요.",
   orderFailed: "주문을 만들지 못했어요. 다시 해 주세요.",
+  pickMethod: "결제 수단을 골라 주세요. 카드는 카드사까지 골라 주세요.", // 결제위젯 검사 거절(카드사 미선택 등) — 주문 실패가 아님
   notOnSale: "아직 주문할 수 없어요. 가격이 정해지면 알려 드릴게요.",
   tooMany: (max: number) => `${max}장이 넘어서 주문할 수 없어요.`,
   noPages: "인쇄할 시기가 없어요.",
