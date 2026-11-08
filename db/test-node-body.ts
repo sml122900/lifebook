@@ -11,7 +11,8 @@
 //   ⑧ 20판 상한(D1) — 가장 오래된 것부터 지움
 //   ⑨ 되돌리기 — 그 판 문서로 저장 · 지금 글이 판으로 남음 · 캡션은 지금 값(D3)
 //   ⑩ 인물 글(D2) — 빈 본문 · 사진 메모리(node_body) · 실제 사진 첨부 허용 · 비워 두고 저장 가능 · 초안·남의 인물 거부
-//   ⑪ 가족 룸 — node_body 메모리 안 보임 · My Life 데이터(richBody·인물 글)
+//   ⑪ 가족 룸 — node_body 메모리 안 보임 · My Life 데이터(richBody·인물 글) · 남의 이야기(2026-11-08 — 가족 룸 V3 연결 전 확인):
+//      다른 사용자는 고치기·글 저장·되돌리기·옮기기·지우기 전부 못 함, 원래 이야기 그대로
 //   ⑫ 노드 삭제 — 이야기 지우기·인물 지우기 → 본문·이전 판·사진 메모리·사진 파일 0
 //   ⑬ 탈퇴 — 이전 판 Cascade 0 · ⑭ 남의 것 — 저장·되돌리기·목록 막힘
 //   ⑯ 충돌 보존(2026-11-04) — 거부된 글 = 이전 판 "저장되지 않은 글"(본문 그대로·사진 칸 거르기·같은 글 한 번·남·빈 글 안 남김) → 그 판으로 되돌리기 · 인물 글
@@ -28,6 +29,7 @@ import { prisma } from "../lib/db";
 import { deleteAccountTx } from "../lib/account-deletion";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { createEpisodeBridge, deleteEpisode, updateEpisodeContent } from "../lib/episode";
+import { moveEpisodeToLifeEvent } from "../lib/episode-move";
 import { getMyLifeData } from "../lib/my-life";
 import {
   BODY_LIMITS,
@@ -253,6 +255,24 @@ async function main() {
     const p11 = d11.people.find((p) => p.id === person);
     check("⑪ My Life — 소제목·사진 있는 이야기 richBody · 인물 글 평문 · 초안 인물 안 보임",
       pr4.ok && s11?.richBody === true && p11?.body === "다시 쓴 글." && !d11.people.some((p) => p.id === draft), { rich: s11?.richBody, body: p11?.body });
+
+    // 남의 이야기 — b 가 a 의 이야기(st)를 손대려 해도 전부 막힘(가족 룸 V3 연결 전 확인 — 2026-11-08)
+    const before11 = await prisma.episode.findUnique({ where: { id: st.episodeId }, select: { content: true, lifeEventId: true } });
+    const bodyBefore11 = await getEpisodeBody(a, st.episodeId);
+    const revA11 = (await listRevisions(a, "EPISODE", st.episodeId))[0];
+    const [bEdit11, bBody11, bRestore11, bMove11, bDel11] = await Promise.all([
+      updateEpisodeContent(b, st.episodeId, "남이 고친 글."),
+      saveEpisodeBody(b, st.episodeId, doc(P("남이 쓴 글.")), bodyBefore11?.version ?? 0),
+      revA11 ? restoreRevision(b, revA11.id, bodyBefore11?.version ?? 0) : Promise.resolve({ ok: false as const, reason: "not_found" as const }),
+      moveEpisodeToLifeEvent(b, st.episodeId, evB),
+      deleteEpisode(b, st.episodeId),
+    ]);
+    const after11 = await prisma.episode.findUnique({ where: { id: st.episodeId }, select: { content: true, lifeEventId: true } });
+    const bodyAfter11 = await getEpisodeBody(a, st.episodeId);
+    check("⑪ 남의 이야기 — 다른 사용자는 고치기·글 저장·되돌리기·옮기기·지우기 전부 막힘 · 이야기·글·시기 그대로",
+      !(bEdit11 as { ok?: boolean }).ok && !bBody11.ok && !bRestore11.ok && !(bMove11 as { ok?: boolean }).ok && !(bDel11 as { ok?: boolean }).ok &&
+        after11?.content === before11?.content && after11?.lifeEventId === before11?.lifeEventId && bodyAfter11?.version === bodyBefore11?.version,
+      { bEdit11, bBody11, bRestore11, bMove11, bDel11 });
 
     // ── ⑫ 노드 삭제 정리 ─────────────────────────────────────────
     const delEp = await deleteEpisode(a, st.episodeId);

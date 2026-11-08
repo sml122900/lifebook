@@ -295,11 +295,14 @@ function SidePanel({
               hint="인생에 등장한 분들"
               prefetch={data.onboardingTrack === "V3" ? false : undefined}
             />
-            <MenuItem
-              href="/photos"
-              label="내 사진"
-              hint="사진 올리고 연혁에 담기"
-            />
+            {/* V3 에선 숨김(2026-11-08 — 올린 사진이 My Life 어디에도 안 보임: 독립 사진은 V2 연혁에만. 이어 붙이기는 도그푸딩 뒤). V2 는 그대로. */}
+            {data.onboardingTrack !== "V3" && (
+              <MenuItem
+                href="/photos"
+                label="내 사진"
+                hint="사진 올리고 연혁에 담기"
+              />
+            )}
             {/* V3 에선 숨김(2026-11-08 #16 — 담아도 My Life 어디에도 안 보임: era_event 는 V2 연혁에만). V2 는 그대로. */}
             {data.onboardingTrack !== "V3" && (
               <MenuItem
