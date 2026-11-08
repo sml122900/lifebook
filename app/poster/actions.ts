@@ -4,7 +4,7 @@
 //
 // 고른 종(template)을 Poster.template 에 upsert 한 뒤 /poster/select 로 이동.
 // 지금은 river(강물)만 실제 합성(P4 엔진) 대상 → READY_TEMPLATES 가드.
-// zelkova·sephirot·custom 은 "준비 중"이라 저장·이동 안 함(무시).
+// 그 밖의 값(custom 은 /poster/custom 이 따로 저장)은 저장·이동 안 함(무시).
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -12,7 +12,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 
-// 실제 합성 가능한 템플릿만(나머지는 준비 중). zelkova/sephirot 합성·맞춤형(P5)은 후속.
+// 실제 합성 가능한 템플릿만.
 const READY_TEMPLATES = new Set(["river"]);
 
 export async function chooseTemplate(template: string) {

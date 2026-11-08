@@ -1,5 +1,7 @@
 # 결정 — 인생 나무 포스터: 3계층 엔진 + 템플릿 피커 + 편집 트릴로지
 
+> 2026-11-08 — 여기 적은 3계층 엔진(`lib/poster/{types,mapping,render}.ts`·템플릿 3종)·편집기(`PosterInteractive`)·마스터 SVG(`design/templates/`)는 삭제했다(화면에서 안 쓰던 보관 코드). 지금 포스터는 P4 합성(`PosterCompose`) 하나. 기록으로만 남긴다.
+
 ## Problem
 
 사용자가 적은 연혁(`life_event`)을 **실물 포스터(느티나무 등 한 그루 나무)**로 만들어 파는 출력물 서비스(Phase 10)가 필요했다. 제약이 까다로웠다:

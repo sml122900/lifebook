@@ -379,7 +379,6 @@
 | `/poster` | 이 디자인으로 만들기 | → `/poster/select` |
 | `/poster` | 내 취향으로 만들기 | → `/poster/custom` |
 | `/poster` | ← 인생 연혁으로 | → `/life-timeline` |
-| `/poster` | 주문하기(저장된 포스터) | → `/shop/{poster.id}/order` |
 | `/poster/custom` | ← 디자인 고르기로 | → `/poster` |
 | `/poster/custom` | 이 배경으로 결정 | → `/poster/select` |
 | `/poster/custom` | 토큰 충전하기 | → `/account/tokens` (부족 시) |

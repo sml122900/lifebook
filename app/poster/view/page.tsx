@@ -24,13 +24,10 @@ import {
 
 export const metadata = { title: "포스터 미리보기" };
 
-// /poster 의 TEMPLATE_CHOICES 이름과 동일(강물/느티나무/인생의 나무/맞춤형
-// 디자인). template 미저장(null)은 river 배경으로 렌더되므로(위 bgSrc 분기)
-// "강물"로 기본 표시.
+// /poster 의 TEMPLATE_CHOICES 이름과 동일(강물/맞춤형 디자인).
+// template 미저장(null)은 river 배경으로 렌더되므로(위 bgSrc 분기) "강물"로 기본 표시.
 const TEMPLATE_NAMES: Record<string, string> = {
   river: "강물",
-  zelkova: "느티나무",
-  sephirot: "인생의 나무",
   custom: "맞춤형 디자인",
 };
 

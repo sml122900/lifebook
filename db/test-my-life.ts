@@ -1090,13 +1090,13 @@ async function main() {
     }
     {
       // 밤 우주 전원(2026-11-05) — 화면 코드에 직접 적은 기본 팔레트 색이 다시 생기지 않게(밤에서 안 뒤집혀 섞인 색이 됨, ui-night §8).
-      // 예외 = 포스터 그림·인쇄물(print-export·PosterInteractive)·공유 그림·매니페스트(색 클래스가 아닌 그림 값).
+      // 예외 = 포스터 그림·인쇄물(print-export)·공유 그림·매니페스트(색 클래스가 아닌 그림 값).
       const walk = (dir: string): string[] =>
         fs.readdirSync(path.resolve(__dirname, "..", dir), { withFileTypes: true }).flatMap((d) =>
           d.isDirectory() ? walk(`${dir}/${d.name}`) : /\.(ts|tsx)$/.test(d.name) ? [`${dir}/${d.name}`] : []);
       const RAW = /(?:^|[^a-z-])(?:text|bg|border|border-[lrtbxy]|ring|from|to|via|fill|stroke|outline|divide|placeholder|accent|decoration|caret)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/;
       const hits = ["app", "components"].flatMap(walk)
-        .filter((f) => !/^app\/(poster\/(print-export|PosterInteractive)|opengraph-image|manifest)\./.test(f))
+        .filter((f) => !/^app\/(poster\/print-export|opengraph-image|manifest)\./.test(f))
         .flatMap((f) => src(f).split("\n").map((l, i) => [f, i + 1, l] as const))
         .filter(([, , l]) => RAW.test(l) || /(?:^|[\s"'`:])bg-white\b/.test(l) || /bg-action\b[^"'`]*\btext-white\b/.test(l))
         .map(([f, n]) => `${f}:${n}`);
