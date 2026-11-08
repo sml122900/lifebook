@@ -10,6 +10,8 @@
 //   ⑦ 읽기 전용·남의 노드 — 실제 DB 지도로 돌려 전후 같음 · 다른 사용자 이름 안 나옴 · 쓰기 코드 없음 · 액션 첫 줄 auth
 //   ⑧ 화면 연결 — 찾기 시트 입구 · 시간 상한 · 이동 지도 · 문구 [임시]
 //   ⑨ AI 편집 기록(Q92 B안) — 칸 = 명령·도구·노드 종류·노드 id·시각만 · 90일 지난 행은 쓸 때 삭제(내 행만) · 되돌린 시각(내 행만) · 처리방침 v1.5·공지 예외·동의 버전 유지
+//   ⑩ 테스트 계정 명시 표시(2026-11-08) — 이메일만으로 일반인 계정도 User.isTestAccount 켜면 운영 하루 예산에서 빠짐(표시 전 TEST_ 없이
+//      기록된 행 포함) · 테스트 사용분으로 셈 · 그 뒤 기록은 TEST_ · 이메일 판정(.invalid·.test)은 그대로
 //
 // 자기 픽스처 계정만 만들고 지운다(test30 접촉 0). 실제 모델 확인은 db/replay-map-agent.ts --run(작업 규칙 10 — 여기서는 안 부름).
 // 실행: npx tsx db/test-map-agent.ts
@@ -28,6 +30,7 @@ import { buildMapView, EXCERPT_MAX, findNodes, LIST_NODE_LIMIT, mapListText, nod
 import { modelId } from "../lib/ai-model";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { MAP_EDIT_LOG_DAYS, markMapEditUndone, recordMapEdit } from "../lib/map-edit-log";
+import { isTestAccount, isTestAccountEmail, recordChatUsage, spentTodayMicroUsd, testSpentTodayMicroUsd } from "../lib/chat-v3-usage";
 import { noticeProblem, POLICY_NOTICES } from "../lib/policy-notice";
 import { getMyLifeData, type MyLifeData } from "../lib/my-life";
 import { MAP_AGENT_SYSTEM_PROMPT, MAP_AGENT_TOOLS } from "../lib/prompts/map-agent";
@@ -42,6 +45,8 @@ const { cases } = JSON.parse(fs.readFileSync(path.join(REPLAY_DIR, "cases.json")
 
 const EMAIL_A = "fixture-map-agent-a@lifebook.invalid";
 const EMAIL_B = "fixture-map-agent-b@lifebook.invalid";
+// ⑩ — 이메일만으로는 테스트가 아닌 주소(.example 은 예약 도메인이지만 isTestAccountEmail 목록 밖) · 명시 표시로만 테스트
+const EMAIL_FLAG = "fixture-map-agent-flag@lifebook.example";
 const SECRETS = ["1901", "1902", "메모비밀값", "주소비밀값", "37.123456", "127.654321", "naver", "decor-secret", "bodyVersion", "metYear", "birthYear"];
 
 let failed = 0;
@@ -74,7 +79,7 @@ async function makeUser(email: string, name: string): Promise<string> {
   return (await prisma.user.create({ data: { email, name, onboardingTrack: "V3", termsConsentAt: now, privacyConsentAt: now, overseasTransferConsentAt: now, privacyConsentVersion: 5 }, select: { id: true } })).id;
 }
 async function removeFixtures() {
-  for (const email of [EMAIL_A, EMAIL_B]) {
+  for (const email of [EMAIL_A, EMAIL_B, EMAIL_FLAG]) {
     const u = await prisma.user.findUnique({ where: { email }, select: { id: true } });
     if (!u) continue;
     await prisma.chatV3Usage.deleteMany({ where: { userId: u.id } });
@@ -281,9 +286,24 @@ async function main() {
     check("⑨ 처리방침 v1.5 — 1항 마에 90일·남기지 않는 것 · 공지 등록(오늘 시행 = 성민 승인 사유) · 동의 버전 5 유지 · 칸 설명이 스키마와 같음",
       !!v15 && noticeProblem(v15) === null && v15.noticeDay === v15.effectiveDay && (v15.leadException ?? "").includes("성민") && (v15.leadException ?? "").includes("실사용자 0") && CURRENT_CONSENT_VERSION === 5 &&
         privacyNow.includes("(작업 이름·기록 종류·기록 번호·시각·되돌린 시각)를 90일 동안 보관한 뒤 지웁니다. 부탁하신 말씀과 기록 내용은 이 기록에 남기지 않습니다.") && privacyNow.includes("· 시행일: 2026년 11월 7일"));
+
+    // ── ⑩ 테스트 계정 명시 표시 ──────
+    const userF = await makeUser(EMAIL_FLAG, "[fixture] flag");
+    const COST = 777_777;
+    await prisma.chatV3Usage.create({ data: { userId: userF, purpose: "REPLY", model: "claude-haiku-4-5", costMicroUsd: COST } }); // 표시 전 기록(TEST_ 없음)
+    const ops0 = await spentTodayMicroUsd(), test0 = await testSpentTodayMicroUsd();
+    await prisma.user.update({ where: { id: userF }, data: { isTestAccount: true } });
+    const ops1 = await spentTodayMicroUsd(), test1 = await testSpentTodayMicroUsd();
+    await recordChatUsage(userF, "REPLY", { model: "claude-haiku-4-5", inputTokens: 10, outputTokens: 10 });
+    const purposes = (await prisma.chatV3Usage.findMany({ where: { userId: userF }, orderBy: { createdAt: "asc" }, select: { purpose: true } })).map((r) => r.purpose);
+    check("⑩ 명시 표시 — 켜면 그 계정의 지난 행(TEST_ 없이 기록)도 운영 예산에서 빠지고 테스트 사용분으로 · 그 뒤 기록은 TEST_",
+      ops0 - ops1 === COST && test1 - test0 === COST && purposes[0] === "REPLY" && purposes[1] === "TEST_REPLY", { ops0, ops1, test0, test1, purposes });
+    check("⑩ 판정 — 이메일(.invalid·.test) 또는 표시 · test.com·.example 은 이메일만으로 일반",
+      isTestAccount({ email: EMAIL_FLAG, isTestAccount: true }) && !isTestAccount({ email: EMAIL_FLAG, isTestAccount: false }) && !isTestAccountEmail(EMAIL_FLAG) &&
+        isTestAccount({ email: "a@lifebook.invalid" }) && !isTestAccount({ email: "test30@test.com" }) && !isTestAccount(null));
   } finally {
     await removeFixtures();
-    console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B] } } }));
+    console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B, EMAIL_FLAG] } } }));
   }
   console.log(failed === 0 ? `\nALL PASS (${count})` : `\n${failed} FAIL / ${count}`);
   process.exit(failed === 0 ? 0 : 1);

@@ -5,6 +5,8 @@
 // 연구실 페르소나 — 아래 isTestAccountEmail) 사용분은 원가는 그대로 남기되 이 합계에서 뺀다(2026-11-02 — 회귀·반복 재현이
 // $5 를 넘겨 그날 운영 자유 대화가 멈췄다). 테스트 사용분은 회귀 스크립트가 따로 CHAT_V3_TEST_BUDGET_USD(기본 10)로 본다
 // (db/live-log.ts requireTestBudget).
+// 2026-11-08 — 테스트 계정 = 이메일 최상위 도메인(.invalid·.test) **또는** User.isTestAccount 표시(성민 테스트 계정 명시 목록 —
+// db/mark-test-accounts.ts). 표시는 기록 때 TEST_ 를 붙이고, 예산 합계는 표시 켜진 계정의 지난 행(TEST_ 없이 기록된 것)도 뺀다.
 // 넘으면 자유 대화 응답·제안을 부르지 않는다(호출부가 lib/free-chat-copy 의 쉬어요 문구를 보여 준다).
 // 사용자 토큰은 차감하지 않는다.
 
@@ -17,11 +19,15 @@ const DEFAULT_TEST_BUDGET_USD = 10;
 
 // 테스트 계정 — 이메일 최상위 도메인이 예약 도메인(RFC 2606) .invalid·.test 인 계정: 회귀·측정 픽스처
 // (fixture-*@lifebook.invalid, p23-test-alice@test 등)와 연구실 페르소나(lab-persona-*@lifebook.invalid). 실제 사람은 이런
-// 주소를 가질 수 없다. test30@test.com 처럼 실제 도메인(test.com)은 일반 계정(도그푸딩).
+// 주소를 가질 수 없다. test30@test.com 처럼 실제 도메인(test.com)은 이메일만으로는 일반 계정 — 명시 표시(isTestAccount)로 테스트(2026-11-08).
 export function isTestAccountEmail(email: string | null | undefined): boolean {
   const domain = (email ?? "").toLowerCase().split("@")[1] ?? "";
   const tld = domain.split(".").pop() ?? "";
   return tld === "invalid" || tld === "test";
+}
+// 테스트 계정 판정 — 이메일(.invalid·.test) 또는 명시 표시(User.isTestAccount).
+export function isTestAccount(user: { email?: string | null; isTestAccount?: boolean | null } | null | undefined): boolean {
+  return isTestAccountEmail(user?.email) || user?.isTestAccount === true;
 }
 // 계정을 지우면 원장의 userId 가 비워져(SetNull) 나중엔 누구 것인지 알 수 없다 — 기록할 때 purpose 앞에 붙여 둔다
 // (스키마 변경 없이). 예: TEST_REPLY.
@@ -82,10 +88,13 @@ export function dayStartKst(now: Date = new Date()): Date {
   return new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()) - KST_OFFSET_MS);
 }
 
+// 테스트 사용분 — TEST_ 로 기록된 행 또는 지금 테스트 표시가 켜진 계정의 행(표시 전에 TEST_ 없이 기록된 것 포함).
+const TEST_ROW = [{ purpose: { startsWith: TEST_PURPOSE_PREFIX } }, { user: { is: { isTestAccount: true } } }];
+
 // 오늘 쓴 원가 — 일반 계정만(테스트 계정 사용분 제외). 전역 하루 예산 판정이 이 값을 본다.
 export async function spentTodayMicroUsd(now: Date = new Date()): Promise<number> {
   const agg = await prisma.chatV3Usage.aggregate({
-    where: { createdAt: { gte: dayStartKst(now) }, NOT: { purpose: { startsWith: TEST_PURPOSE_PREFIX } } },
+    where: { createdAt: { gte: dayStartKst(now) }, NOT: TEST_ROW },
     _sum: { costMicroUsd: true },
   });
   return agg._sum.costMicroUsd ?? 0;
@@ -94,7 +103,7 @@ export async function spentTodayMicroUsd(now: Date = new Date()): Promise<number
 // 오늘 테스트 계정이 쓴 원가.
 export async function testSpentTodayMicroUsd(now: Date = new Date()): Promise<number> {
   const agg = await prisma.chatV3Usage.aggregate({
-    where: { createdAt: { gte: dayStartKst(now) }, purpose: { startsWith: TEST_PURPOSE_PREFIX } },
+    where: { createdAt: { gte: dayStartKst(now) }, OR: TEST_ROW },
     _sum: { costMicroUsd: true },
   });
   return agg._sum.costMicroUsd ?? 0;
@@ -111,12 +120,12 @@ export async function recordChatUsage(
   r: { model: string; inputTokens: number; outputTokens: number; cacheWriteTokens?: number; cacheReadTokens?: number },
 ): Promise<void> {
   try {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, isTestAccount: true } });
     // 캐시 쓰기·읽기 토큰도 칸에(마이그 20261103200000_chat_v3_usage_cache — §17). 원가는 배율로.
     await prisma.chatV3Usage.create({
       data: {
         userId,
-        purpose: isTestAccountEmail(user?.email) ? `${TEST_PURPOSE_PREFIX}${purpose}` : purpose,
+        purpose: isTestAccount(user) ? `${TEST_PURPOSE_PREFIX}${purpose}` : purpose,
         model: r.model,
         inputTokens: r.inputTokens,
         outputTokens: r.outputTokens,

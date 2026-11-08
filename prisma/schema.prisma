@@ -137,6 +137,10 @@ model User {
   // native array 패턴 — 멱등 갱신은 array_append(array_remove(...)) raw SQL.
   completedTours String[] @default([])
 
+  // 테스트 계정 명시 표시(2026-11-08 — 성민 지시). 이메일 최상위 도메인(.invalid·.test — lib/chat-v3-usage isTestAccountEmail)만으로
+  // 못 가리는 성민 테스트 계정(test30@test.com 등)도 운영 하루 예산에서 뺀다. 표시는 db/mark-test-accounts.ts(기본 dry-run, --apply).
+  isTestAccount Boolean @default(false)
+
   // null = OAuth 전용 계정. Credentials 가입 시에만 채워짐.
   // ★ 절대 평문 저장 금지 — bcrypt hash 만 저장.
   passwordHash String?
