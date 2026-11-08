@@ -9,7 +9,7 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { chat } from "@/lib/ai";
+import { chat, withUsageLedger } from "@/lib/ai";
 import { modelId } from "@/lib/ai-model";
 import { getUserAiModel } from "@/lib/user-ai-model";
 
@@ -62,12 +62,12 @@ export async function POST(req: Request) {
     // 전역 모델 따름. 무료라 opus → sonnet 클램프.
     const tier = await getUserAiModel(session.user.id);
     const model = modelId(tier === "opus" ? "sonnet" : tier);
-    const result = await chat(messages, {
+    const result = await withUsageLedger(session.user.id, "TUTORIAL", () => chat(messages, {
       system: TUTORIAL_SYSTEM,
       model,
       maxTokens: 400,
       temperature: 0.3,
-    });
+    }));
     return NextResponse.json({ text: result.text });
   } catch (e) {
     console.error("[tutorial-chat]", e instanceof Error ? e.message : e);

@@ -9,7 +9,7 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { chat } from "@/lib/ai";
+import { chat, withUsageLedger } from "@/lib/ai";
 import {
   PROFILE_BIRTH_YEAR_PARSE_SYSTEM_PROMPT,
   PROFILE_REGION_PARSE_SYSTEM_PROMPT,
@@ -53,14 +53,14 @@ export type ParseBirthYearResult = { birthYear: number } | { birthYear: null };
 export async function parseProfileBirthYear(
   text: string,
 ): Promise<ParseBirthYearResult> {
-  await auth().then((s) => {
+  const userId = await auth().then((s) => {
     if (!s?.user?.id) throw new Error("Unauthorized");
+    return s.user.id;
   });
 
   try {
-    const res = await chat(
-      [{ role: "user", content: text }],
-      { system: PROFILE_BIRTH_YEAR_PARSE_SYSTEM_PROMPT, model: PARSE_MODEL, maxTokens: 200 },
+    const res = await withUsageLedger(userId, "SETUP", () => // 원가 원장(2026-11-08)
+      chat([{ role: "user", content: text }], { system: PROFILE_BIRTH_YEAR_PARSE_SYSTEM_PROMPT, model: PARSE_MODEL, maxTokens: 200 }),
     );
     const parsed = JSON.parse(stripJsonFence(res.text)) as { birthYear?: unknown };
     const year = parsed.birthYear;
@@ -81,14 +81,14 @@ export async function parseProfileBirthYear(
 export type ParseRegionResult = { region: string } | { region: null };
 
 export async function parseProfileRegion(text: string): Promise<ParseRegionResult> {
-  await auth().then((s) => {
+  const userId = await auth().then((s) => {
     if (!s?.user?.id) throw new Error("Unauthorized");
+    return s.user.id;
   });
 
   try {
-    const res = await chat(
-      [{ role: "user", content: text }],
-      { system: PROFILE_REGION_PARSE_SYSTEM_PROMPT, model: PARSE_MODEL, maxTokens: 200 },
+    const res = await withUsageLedger(userId, "SETUP", () => // 원가 원장(2026-11-08)
+      chat([{ role: "user", content: text }], { system: PROFILE_REGION_PARSE_SYSTEM_PROMPT, model: PARSE_MODEL, maxTokens: 200 }),
     );
     const parsed = JSON.parse(stripJsonFence(res.text)) as { region?: unknown };
     if (typeof parsed.region === "string" && parsed.region.trim()) {

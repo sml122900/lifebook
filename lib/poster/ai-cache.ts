@@ -14,6 +14,7 @@
 
 import { createHash } from "node:crypto";
 
+import { withUsageLedger } from "../ai";
 import { prisma } from "../db";
 import type { Prisma } from "../generated/prisma/client";
 import type { PosterSelectionFull } from "./overrides";
@@ -65,7 +66,7 @@ export async function getPosterCandidates(
     return cached as PosterCandidate[];
   }
 
-  const { candidates, fromAi } = await selectPosterCandidates(inputs);
+  const { candidates, fromAi } = await withUsageLedger(userId, "POSTER_CANDIDATES", () => selectPosterCandidates(inputs));
   if (fromAi) {
     const next = {
       ...design,

@@ -16,6 +16,7 @@
 // 검색 도구 비활성/외부 호출 실패: 502 + { error: "upstream", message }.
 
 import { auth } from "@/auth";
+import { withUsageLedger } from "@/lib/ai";
 import {
   askAssistant,
   type AssistantDepth,
@@ -121,15 +122,17 @@ export async function POST(req: Request): Promise<Response> {
   // 깊이 = 전역 모델(클라 depth 무시).
   const depth = TIER_TO_DEPTH[await getUserAiModel(userId)];
 
+  // 위에서 좁힌 값 — 원장 범위 함수 안에서도 그 타입으로(2026-11-08)
+  const { question, year, month } = b;
   try {
-    const result = await askAssistant(
+    const result = await withUsageLedger(userId, "ASSISTANT", () => askAssistant(
       userId,
-      b.question,
-      b.year,
-      b.month,
+      question,
+      year,
+      month,
       prior,
       depth,
-    );
+    ));
     return Response.json(result);
   } catch (e) {
     if (e instanceof InsufficientBalanceError) {

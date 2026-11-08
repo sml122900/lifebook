@@ -12,7 +12,20 @@
 
 import { prisma } from "./db";
 
-export type ChatUsagePurpose = "REPLY" | "PROPOSAL" | "INTERVIEW_PROPOSAL" | "MAP_ASK" | "MAP_EDIT"; // 지도 질문·고치기 요청 하나에 한 줄(사용자당 하루 상한이 이 줄 수를 셈 — lib/map-agent)
+export type ChatUsagePurpose =
+  | "REPLY" | "PROPOSAL" | "INTERVIEW_PROPOSAL" | "MAP_ASK" | "MAP_EDIT" // 지도 질문·고치기 요청 하나에 한 줄(사용자당 하루 상한이 이 줄 수를 셈 — lib/map-agent)
+  // 2026-11-08 — 원장에 안 남던 경로(lib/ai withUsageLedger 범위 안의 chat()·웹 검색, 그 밖 유료 호출). 모델 호출 한 번 = 한 줄.
+  | "SETUP" // 이야기 나누기 설정(신상 해석·골격 확인 질문)
+  | "INTERVIEW_FOLLOWUP" | "INTERVIEW_YEAR" // 오늘의 인터뷰 이야기 후속 질문 · 연도 해석
+  | "COMPANION" | "COMPANION_EXTRACT" | "RECORDING_SPLIT" // 말동무 대화 · 말동무 마무리 추출(인물·장소·물건) · 통녹음 나누기
+  | "ONBOARDING" // 채팅 온보딩(V2)
+  | "TUTORIAL" // 사용법 물어보기
+  | "MEMORY_CHAT" // 추억 대화(V2 /memory)
+  | "REFINE" // 글 다듬기
+  | "ASSISTANT" // 그 시절 비서(웹 검색 포함 — 검색 요청당 원가 더함)
+  | "VOICE_CLEANUP" // 타임머신 말로 적은 글 다듬기(V2)
+  | "POSTER_CANDIDATES" | "POSTER_SENTENCES" | "POSTER_BG" // 포스터 후보 고르기 · 문장 · 맞춤 배경 그림(OpenAI)
+  | "STT"; // 말로 적기(CLOVA Speech — 녹음 길이 기준 원가)
 
 const DEFAULT_DAILY_BUDGET_USD = 5;
 const DEFAULT_TEST_BUDGET_USD = 10;
@@ -129,7 +142,8 @@ export async function budgetBlock(userId: string, now: Date = new Date(), extraM
 export async function recordChatUsage(
   userId: string,
   purpose: ChatUsagePurpose,
-  r: { model: string; inputTokens: number; outputTokens: number; cacheWriteTokens?: number; cacheReadTokens?: number },
+  // extraMicroUsd = 토큰 밖 원가(웹 검색 요청·그림 한 장·녹음 길이 — 2026-11-08). 토큰 원가에 더한다.
+  r: { model: string; inputTokens: number; outputTokens: number; cacheWriteTokens?: number; cacheReadTokens?: number; extraMicroUsd?: number },
 ): Promise<void> {
   try {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, isTestAccount: true } });
@@ -143,7 +157,9 @@ export async function recordChatUsage(
         outputTokens: r.outputTokens,
         cacheWriteTokens: r.cacheWriteTokens ?? 0,
         cacheReadTokens: r.cacheReadTokens ?? 0,
-        costMicroUsd: costMicroUsd(r.model, r.inputTokens, r.outputTokens, { writeTokens: r.cacheWriteTokens, readTokens: r.cacheReadTokens }),
+        costMicroUsd:
+          (r.inputTokens + r.outputTokens > 0 ? costMicroUsd(r.model, r.inputTokens, r.outputTokens, { writeTokens: r.cacheWriteTokens, readTokens: r.cacheReadTokens }) : 0) +
+          Math.ceil(r.extraMicroUsd ?? 0),
       },
     });
   } catch (e) {

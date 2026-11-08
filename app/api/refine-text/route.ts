@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
+import { withUsageLedger } from "@/lib/ai";
 import { refineRawText } from "@/lib/memory-refine";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
 import { getUserAiModel } from "@/lib/user-ai-model";
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await refineRawText(session.user.id, text, tier);
+    const result = await withUsageLedger(session.user.id, "REFINE", () => refineRawText(session.user.id, text, tier));
     if (result.status === "empty") {
       return NextResponse.json(
         { ok: false, error: "다듬을 글이 없어요." },

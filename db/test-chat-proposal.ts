@@ -1401,7 +1401,7 @@ async function centerLabelChecks(fx: Fixture) {
   check("⑲ 재생 세트 — 사례 3건 이상 · 기대 시기가 입력 [시기 후보]에 있음 · 재생 = 앱 호출 설정(PROPOSAL_CALL)·pickCenter",
     replay.length >= 3 && replay.every((c) => new RegExp(`^- \\S+ · ${c.expectCenter}( · \\d{4}년)?$`, "m").test(c.input)) &&
       replaySrc.includes("...PROPOSAL_CALL") && replaySrc.includes("pickCenter(obj, centers, fallback, c.birthYear)") &&
-      read("lib/node-proposal.ts").includes("{ system: PROPOSAL_SYSTEM_PROMPT, ...PROPOSAL_CALL }"),
+      read("lib/node-proposal.ts").includes("{ system: PROPOSAL_SYSTEM_PROMPT, ...PROPOSAL_CALL, noLedger: true }"), // noLedger = 원장은 호출부가 직접(2026-11-08) — 모델 설정은 그대로
     replay.map((c) => c.expectCenter));
 }
 

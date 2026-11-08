@@ -472,7 +472,7 @@ export async function buildProposal(userId: string, input: BuildProposalInput): 
               }) + extra,
           },
         ],
-        { system: PROPOSAL_SYSTEM_PROMPT, ...PROPOSAL_CALL },
+        { system: PROPOSAL_SYSTEM_PROMPT, ...PROPOSAL_CALL, noLedger: true }, // 원장은 아래 줄이 직접(PROPOSAL·INTERVIEW_PROPOSAL)
       );
       await recordChatUsage(userId, input.purpose, res);
       const obj = JSON.parse(stripJsonFence(res.text).match(/\{[\s\S]*\}/)?.[0] ?? "") as Record<string, unknown>;

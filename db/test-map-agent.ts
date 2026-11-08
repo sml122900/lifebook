@@ -12,7 +12,8 @@
 //   ⑨ AI 편집 기록(Q92 B안) — 칸 = 명령·도구·노드 종류·노드 id·시각만 · 90일 지난 행은 쓸 때 삭제(내 행만) · 되돌린 시각(내 행만) · 처리방침 v1.5·공지 예외·동의 버전 유지
 //   ⑩ 테스트 계정 명시 표시(2026-11-08) — 이메일만으로 일반인 계정도 User.isTestAccount 켜면 운영 하루 예산에서 빠짐(표시 전 TEST_ 없이
 //      기록된 행 포함) · 테스트 사용분으로 셈 · 그 뒤 기록은 TEST_ · 이메일 판정(.invalid·.test)은 그대로 ·
-//      테스트 계정 하루 합계 한도(CHAT_V3_TEST_BUDGET_USD — 넘으면 지도 AI·자유 대화·인터뷰 거절 + 이유, 재생 스크립트 ownBudget 은 건너뜀)
+//      테스트 계정 하루 합계 한도(CHAT_V3_TEST_BUDGET_USD — 넘으면 지도 AI·자유 대화·인터뷰 거절 + 이유, 재생 스크립트 ownBudget 은 건너뜀) ·
+//      원가 원장 메우기(withUsageLedger 범위 = 한 줄 · 모델 부르는 파일 전부 연결 — 새 파일이면 실패)
 //
 // 자기 픽스처 계정만 만들고 지운다(test30 접촉 0). 실제 모델 확인은 db/replay-map-agent.ts --run(작업 규칙 10 — 여기서는 안 부름).
 // 실행: npx tsx db/test-map-agent.ts
@@ -31,6 +32,7 @@ import { buildMapView, EXCERPT_MAX, findNodes, LIST_NODE_LIMIT, mapListText, nod
 import { modelId } from "../lib/ai-model";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { MAP_EDIT_LOG_DAYS, markMapEditUndone, recordMapEdit } from "../lib/map-edit-log";
+import { recordScopedUsage, withUsageLedger } from "../lib/ai";
 import { budgetBlock, isTestAccount, isTestAccountEmail, recordChatUsage, spentTodayMicroUsd, testSpentTodayMicroUsd } from "../lib/chat-v3-usage";
 import { freeChatReply } from "../lib/free-chat";
 import { planMapEdit } from "../lib/map-edit";
@@ -337,6 +339,58 @@ async function main() {
         (chatClient.match(/r\.reason === "test" \? FC\.testBudgetPaused : FC\.budgetPaused/g) ?? []).length === 3 &&
         sheet.includes("A.errors[view.reason]") && read("lib/my-life-copy.ts").includes("testBudget: ") &&
         read("db/replay-map-agent.ts").includes("ownBudget: true") && read("db/replay-map-edit.ts").includes("ownBudget: true"));
+
+    // 원가 원장 메우기(2026-11-08) — 범위(withUsageLedger) 안의 유료 호출 = 원장 한 줄 · 범위 밖 = 안 남김 · 테스트 계정이면 테스트 합계, 일반이면 운영 합계로.
+    const opsA = await spentTodayMicroUsd(), testA = await testSpentTodayMicroUsd();
+    await recordScopedUsage({ model: "gpt-image-1", extraMicroUsd: 11_111 }); // 범위 밖
+    await withUsageLedger(userF, "POSTER_BG", () => recordScopedUsage({ model: "gpt-image-1", extraMicroUsd: 63_000 }));
+    const opsB = await spentTodayMicroUsd(), testB = await testSpentTodayMicroUsd();
+    await prisma.user.update({ where: { id: userF }, data: { isTestAccount: false } });
+    await withUsageLedger(userF, "STT", () => recordScopedUsage({ model: "clova-speech", extraMicroUsd: 4_000 }));
+    const opsC = await spentTodayMicroUsd();
+    await prisma.user.update({ where: { id: userF }, data: { isTestAccount: true } });
+    const rowsF = (await prisma.chatV3Usage.findMany({ where: { userId: userF, purpose: { in: ["TEST_POSTER_BG", "STT"] } }, select: { purpose: true, costMicroUsd: true } })).map((r) => `${r.purpose}:${r.costMicroUsd}`).sort();
+    check("⑩ 원가 원장 — 범위 안 유료 호출 = 한 줄(테스트 계정 TEST_ → 테스트 합계 · 일반 → 운영 합계) · 범위 밖 = 안 남김",
+      // 표시를 끈 동안엔 앞의 표시 전 REPLY 행(COST)도 운영 합계로 돌아온다 — 그만큼 더해 비교
+      testB - testA === 63_000 && opsB === opsA && opsC - opsB === 4_000 + COST && rowsF.join(",") === "STT:4000,TEST_POSTER_BG:63000" && (await prisma.chatV3Usage.count({ where: { costMicroUsd: 11_111, createdAt: { gte: new Date(Date.now() - 600_000) } } })) === 0,
+      { testA, testB, opsA, opsB, opsC, rowsF });
+    // 모델 부르는 파일 전부 = 원장 연결(새 파일이 생기면 여기서 실패 — 범위를 열거나 직접 남기고 이 표에 넣는다). explicit = 호출부가 직접 recordChatUsage.
+    const LEDGER_MAP: [string, string[], string][] = [
+      ["app/actions/life-event.ts", ["app/actions/life-event.ts"], "SETUP"],
+      ["app/actions/onboarding-v3.ts", ["app/actions/onboarding-v3.ts"], "SETUP"],
+      ["app/api/companion/route.ts", ["app/api/companion/route.ts"], "COMPANION"],
+      ["app/api/onboarding-chat/route.ts", ["app/api/onboarding-chat/route.ts"], "ONBOARDING"],
+      ["app/api/tutorial-chat/route.ts", ["app/api/tutorial-chat/route.ts"], "TUTORIAL"],
+      ["app/onboarding-chat/actions.ts", ["app/onboarding-chat/actions.ts"], "ONBOARDING"],
+      ["lib/companion-extraction.ts", ["app/life-timeline/companion/actions.ts"], "COMPANION_EXTRACT"],
+      ["lib/episode-chat.ts", ["lib/interview/session.ts"], "INTERVIEW_FOLLOWUP"],
+      ["lib/free-chat.ts", ["lib/free-chat.ts"], "explicit"],
+      ["lib/free-recording-split.ts", ["app/life-timeline/companion/actions.ts", "app/life-timeline/free-record/actions.ts"], "RECORDING_SPLIT"],
+      ["lib/interview/year.ts", ["lib/interview/session.ts"], "INTERVIEW_YEAR"],
+      ["lib/map-agent.ts", ["lib/map-agent.ts"], "explicit"],
+      ["lib/memory-chat.ts", ["lib/memory-chat.ts", "app/memory/[eventId]/actions.ts"], "MEMORY_CHAT"],
+      ["lib/memory-refine.ts", ["app/api/refine-text/route.ts", "app/api/memory/[memoryId]/refine/route.ts"], "REFINE"],
+      ["lib/node-proposal.ts", ["lib/node-proposal.ts"], "explicit"],
+      ["lib/poster/background-generate.ts", ["app/poster/custom/actions.ts"], "POSTER_BG"],
+      ["lib/poster/poster-candidates.ts", ["lib/poster/ai-cache.ts"], "POSTER_CANDIDATES"],
+      ["lib/poster/poster-sentences.ts", ["lib/poster/snapshot.ts"], "POSTER_SENTENCES"],
+      ["lib/timemachine-assistant.ts", ["app/api/timemachine/assistant/route.ts"], "ASSISTANT"],
+      ["lib/voice-cleanup.ts", ["app/timemachine/[year]/[month]/cleanup-action.ts"], "VOICE_CLEANUP"],
+    ];
+    const walkAll = (dir: string): string[] =>
+      fs.readdirSync(path.resolve(__dirname, "..", dir), { withFileTypes: true }).flatMap((d) =>
+        d.isDirectory() ? (d.name === "generated" || (dir === "lib" && d.name === "lab") ? [] : walkAll(`${dir}/${d.name}`)) : /\.(ts|tsx)$/.test(d.name) ? [`${dir}/${d.name}`] : []);
+    const IMPORT_RE = /import \{[^}]*\b(chat|chatWithWebSearch|sendMessage|recordScopedUsage)\b[^}]*\} from "(@\/lib\/ai|\.\.?\/ai|\.\.\/\.\.\/ai)"/;
+    const callers = ["app", "lib"].flatMap(walkAll).filter((f) => f !== "lib/ai.ts" && IMPORT_RE.test(read(f))).sort();
+    const unmapped = callers.filter((f) => !LEDGER_MAP.some(([m]) => m === f));
+    const missing = LEDGER_MAP.filter(([, wraps, purpose]) =>
+      purpose === "explicit" ? !/recordChatUsage\(/.test(wraps.map(read).join("\n")) : !wraps.every((w) => read(w).includes(`withUsageLedger(`) && read(w).includes(`"${purpose}"`)));
+    const aiSrc = read("lib/ai.ts");
+    check("⑩ 모델 부르는 파일 전부 원장 연결(lib/lab 은 자기 원장 LabUsage) · chat()·웹 검색이 범위를 기록 · 직접 기록하는 두 곳은 noLedger · 말로 적기(CLOVA)는 완료 조회에서",
+      unmapped.length === 0 && missing.length === 0 && (aiSrc.match(/await recordLedger\(opts, /g) ?? []).length === 2 &&
+        read("lib/free-chat.ts").includes("noLedger: true") && read("lib/node-proposal.ts").includes("noLedger: true") &&
+        read("app/api/clova-stt/status/route.ts").includes('recordChatUsage(session.user.id, "STT"'),
+      { unmapped, missing: missing.map(([m]) => m) });
   } finally {
     await removeFixtures();
     console.log("정리 — 픽스처 계정", await prisma.user.count({ where: { email: { in: [EMAIL_A, EMAIL_B, EMAIL_FLAG] } } }));

@@ -269,6 +269,8 @@
 | `/invite/[token]` | (비로그인) | → `/login?callbackUrl=/invite/[token]` |
 | `/invite/[token]` | 동의하고 참여 | ⚙ 룸 가입 → `/rooms/{roomId}` |
 | `/invite/[token]` | 나중에 하기 | → `/rooms` |
+| `/invite/[token]`(없는·만료 링크) | 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/` |
+| 오류 화면(`app/error.tsx` — 어느 화면이든) | 다시 시도 / 처음 화면으로 돌아가기(2026-11-08 — 옛 "인생 연혁으로 돌아가기") | ⚙ 다시 그리기 · → `/`(로그인 뒤 트랙별 첫 화면) |
 
 ---
 
@@ -415,7 +417,7 @@
 |---|---|---|
 | `/billing` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
 | `/billing` | 패키지 충전 | 토스결제 → 성공 `/billing/success` · 실패 `/billing/fail` |
-| `/billing/success` | 인생 연혁으로 / 충전 화면으로 | → `/life-timeline` · `/billing` |
+| `/billing/success` | 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 충전 화면으로 | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) · `/billing` |
 | `/billing/fail` | 다시 시도하기 | → `/billing` |
 
 ### 계정 `/account/*`
@@ -428,7 +430,7 @@
 | `/account/settings` | 회원 탈퇴 안내 보기 | → `/account/delete` |
 | `/account/tokens` | ← 설정으로 / 충전하러 가기 | → `/account/settings` · `/billing` |
 | `/account/orders` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 환불 요청 | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) · ⚙ 환불요청 |
-| `/account/orders/[orderId]` | 주문 상세(무통장 입금 안내) · 내 주문 전체 보기 / 인생 연혁으로 | → `/account/orders` · `/life-timeline` |
+| `/account/orders/[orderId]` | 주문 상세(무통장 입금 안내) · 내 주문 전체 보기 / 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/account/orders` · `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
 | `/account/delete` | ← 돌아가기 / 회원 탈퇴 | → `/billing` · ⚙ 탈퇴 → `/login` |
 
 ### 관리자 `/admin/orders` (ADMIN_EMAILS 화이트리스트)

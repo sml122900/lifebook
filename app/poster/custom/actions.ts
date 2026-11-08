@@ -9,6 +9,7 @@
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
+import { withUsageLedger } from "@/lib/ai";
 import { prisma } from "@/lib/db";
 import { buildBackgroundPrompt } from "@/lib/poster/background-prompt";
 import { generatePosterBackground } from "@/lib/poster/background-generate";
@@ -60,7 +61,7 @@ export async function generateCustomBackground(
   const prompt = buildBackgroundPrompt(preferences);
   let result;
   try {
-    result = await generatePosterBackground(prompt);
+    result = await withUsageLedger(userId, "POSTER_BG", () => generatePosterBackground(prompt));
   } catch (e) {
     // 생성 실패 → 차감 롤백(카운트는 미영속이라 그대로).
     await rollbackBgCharge(userId, charge.charged);

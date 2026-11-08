@@ -6,7 +6,7 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { chat } from "@/lib/ai";
+import { chat, withUsageLedger } from "@/lib/ai";
 import { createPerson } from "@/lib/people";
 import { createLifeEvent } from "@/lib/life-events";
 import type { LifeCategory } from "@/lib/generated/prisma/enums";
@@ -97,6 +97,10 @@ export async function completeOnboardingChat(answers: ParsedAnswers): Promise<vo
 export async function extractOnboardingPeople(
   answers: ParsedAnswers,
 ): Promise<PersonCandidate[]> {
+  // 로그인 확인(2026-11-08 — 원가 원장에 사용자를 남기려고 보니 이 액션만 확인 없이 모델을 불렀다). 없으면 후보 없음 = 직행.
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  const userId = session.user.id;
   const parts: string[] = [];
   if (answers.siblings?.trim()) parts.push(`형제자매: ${answers.siblings}`);
   if (answers.parentsInfo?.trim()) parts.push(`부모님: ${answers.parentsInfo}`);
@@ -119,12 +123,12 @@ ${text.slice(0, 600)}
 ---끝---`;
 
   try {
-    const res = await chat([{ role: "user", content: userMsg }], {
+    const res = await withUsageLedger(userId, "ONBOARDING", () => chat([{ role: "user", content: userMsg }], {
       system: "유효한 JSON 배열만 출력하세요. 다른 텍스트는 절대 출력하지 마세요.",
       model: PEOPLE_EXTRACT_MODEL,
       maxTokens: 256,
       temperature: 0.1,
-    });
+    }));
 
     const match = res.text.match(/\[[\s\S]*\]/);
     if (!match) return [];
@@ -187,12 +191,12 @@ ${story.slice(0, 800)}
 
   let events: RawEvent[] = [];
   try {
-    const res = await chat([{ role: "user", content: userMsg }], {
+    const res = await withUsageLedger(userId, "ONBOARDING", () => chat([{ role: "user", content: userMsg }], {
       system: "유효한 JSON 배열만 출력하세요. 다른 텍스트는 절대 출력하지 마세요.",
       model: STORY_EXTRACT_MODEL,
       maxTokens: 512,
       temperature: 0.1,
-    });
+    }));
 
     const match = res.text.match(/\[[\s\S]*\]/);
     if (match) {

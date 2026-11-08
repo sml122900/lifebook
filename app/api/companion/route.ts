@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { CURRENT_CONSENT_VERSION } from "@/lib/consent-version";
-import { chat, ChatMessage } from "@/lib/ai";
+import { chat, ChatMessage, withUsageLedger } from "@/lib/ai";
 import { fetchCompanionProfile, buildSystemPrompt } from "@/lib/companion";
 import { resolveLiveModel } from "@/lib/user-ai-model";
 import { MODEL_MULTIPLIER, tokensFromUsage } from "@/lib/tokens/policy";
@@ -65,13 +65,13 @@ export async function POST(req: Request) {
     // 전역 선택 모델로 응답. 추출과 무관(추출은 sonnet 고정).
     const { tier, model } = await resolveLiveModel(session.user.id);
 
-    const result = await chat(messages, {
+    const result = await withUsageLedger(session.user.id, "COMPANION", () => chat(messages, {
       system: systemPrompt,
       model,
       maxTokens: 250,
       temperature: 0.8,
       cache: "conversation", // 다음 턴이 시스템 지시문(프로필) + 앞 대화를 캐시로 읽음(§17). 차감은 입력 전체 기준 그대로
-    });
+    }));
 
     // 라이브 차감 = 선택모델 배수(haiku×1/sonnet×3/opus×8). surcharge 로 배수 표현.
     const base = tokensFromUsage(result.inputTokens, result.outputTokens);

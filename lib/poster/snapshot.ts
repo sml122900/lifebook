@@ -11,6 +11,7 @@
 // - 주문(buildOrderSnapshot): AI 를 부르지 않고 저장 문장만 → 주문 = 직전 시안.
 // - 선택 화면 미리보기(buildPreviewSentence): 시안과 같은 입력·해시·저장 문장.
 
+import { withUsageLedger } from "@/lib/ai";
 import { prisma } from "@/lib/db";
 import { getBirthYear, getLifeEvents } from "@/lib/life-events";
 import {
@@ -174,10 +175,10 @@ export async function buildPosterSnapshot(
   const texts = parts.ordered.map((s, i) => savedText(s, parts.hashes[i]));
   const missing = texts.flatMap((t, i) => (t === undefined ? [i] : []));
   if (missing.length > 0) {
-    const { sentences, fromAi } = await refineForPosterBatch(
+    const { sentences, fromAi } = await withUsageLedger(userId, "POSTER_SENTENCES", () => refineForPosterBatch(
       missing.map((i) => parts.inputs[i]),
       missing.map((i) => parts.ordered[i].type),
-    );
+    ));
     const generatedAt = new Date().toISOString();
     const generated = missing.flatMap((idx, k) => {
       const s = parts.ordered[idx];
@@ -244,7 +245,7 @@ export async function buildPreviewSentence(
   const {
     sentences: [out],
     fromAi: [ok],
-  } = await refineForPosterBatch([input], [type]);
+  } = await withUsageLedger(userId, "POSTER_SENTENCES", () => refineForPosterBatch([input], [type]));
   const field = sentenceField(type);
   const text = out[field];
   // 기본값이면 보여만 주고 저장 안 함(시안과 같은 원칙).

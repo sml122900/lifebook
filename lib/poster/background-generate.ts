@@ -8,6 +8,8 @@
 
 import sharp from "sharp";
 
+import { recordScopedUsage } from "../ai";
+
 import { POSTER_W, POSTER_H } from "./compose-layout";
 import type { BackgroundPrompt } from "./background-prompt";
 import { inspectBackground, type InspectionResult } from "./background-inspect";
@@ -102,7 +104,13 @@ export async function generateBackgroundRaw(p: BackgroundPrompt): Promise<Buffer
 
   const data = (await res.json()) as {
     data?: { b64_json?: string; url?: string }[];
+    usage?: { input_tokens?: number; output_tokens?: number };
   };
+  // 원가 원장(2026-11-08 — 호출부가 withUsageLedger(userId, "POSTER_BG") 로 감쌈). gpt-image-1 토큰 단가 = 글 입력 $5 · 그림 출력 $40
+  // (백만 토큰당). 응답에 사용량이 없으면 중간 품질 1024×1536 한 장 값 $0.063.
+  const u = data.usage;
+  const imageMicroUsd = u && typeof u.output_tokens === "number" ? (u.input_tokens ?? 0) * 5 + u.output_tokens * 40 : 63_000;
+  await recordScopedUsage({ model: OPENAI_IMAGE_MODEL, extraMicroUsd: imageMicroUsd });
   const first = data.data?.[0];
   if (first?.b64_json) return Buffer.from(first.b64_json, "base64");
   // url 폴백(일부 모델). gpt-image-1 은 b64 반환.

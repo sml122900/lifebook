@@ -15,7 +15,7 @@
 
 import { prisma } from "../db";
 import { Prisma as PrismaNs } from "../generated/prisma/client";
-import { newAiUsage, trackAiUsage, type AiUsage } from "../ai";
+import { newAiUsage, trackAiUsage, withUsageLedger, type AiUsage } from "../ai";
 import { budgetBlock } from "../chat-v3-usage";
 import { isSubstantiveEpisodeContent } from "../episode-text";
 import { buildEpisodeOpeningPrompt } from "../episode-opening";
@@ -333,7 +333,9 @@ export async function interviewStoryTurn(
   const usage = newAiUsage();
   try {
     return await trackAiUsage(usage, () =>
-      continueEpisodeChatCore(userId, target.eventId, history, followUpCount, target.topicOverride),
+      withUsageLedger(userId, "INTERVIEW_FOLLOWUP", () => // 원가 원장(2026-11-08)
+        continueEpisodeChatCore(userId, target.eventId, history, followUpCount, target.topicOverride),
+      ),
     );
   } finally {
     await addUsage(row.id, usage);
@@ -470,7 +472,7 @@ export async function answerInterviewYear(
   if (year === null && answer && !isUnknownYearAnswer(answer)) {
     const usage = newAiUsage();
     try {
-      year = await trackAiUsage(usage, () => parseYearWithAi(answer, birthYear, now));
+      year = await trackAiUsage(usage, () => withUsageLedger(userId, "INTERVIEW_YEAR", () => parseYearWithAi(answer, birthYear, now))); // 원가 원장(2026-11-08)
     } finally {
       await addUsage(row.id, usage);
     }

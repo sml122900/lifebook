@@ -15,6 +15,7 @@
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
+import { withUsageLedger } from "@/lib/ai";
 import { prisma } from "@/lib/db";
 import { splitRecordingTranscript } from "@/lib/free-recording-split";
 import { addExtractedPreferences } from "@/lib/poster/preferences";
@@ -137,7 +138,7 @@ export async function saveCompanionSessionAction(input: {
 
   let draftMemoryCount = 0;
   try {
-    const splitResult = await splitRecordingTranscript(redactedText, "동반자 대화", birthYear, existingForSplit);
+    const splitResult = await withUsageLedger(userId, "RECORDING_SPLIT", () => splitRecordingTranscript(redactedText, "동반자 대화", birthYear, existingForSplit));
 
     // P5-5a — 추출 취향(맞춤배경용) 누적 저장. 실패는 무시(부가 작업).
     await addExtractedPreferences(userId, splitResult.preferences).catch(() => {});
@@ -183,11 +184,14 @@ export async function saveCompanionSessionAction(input: {
   let draftLocationCount = 0;
   let draftThingCount = 0;
 
-  const [peopleResult, locationsResult, thingsResult] = await Promise.allSettled([
-    extractPeopleFromTranscript(redactedText, existingForPeople),
-    extractLocationsFromTranscript(redactedText),
-    extractThingsFromTranscript(redactedText),
-  ]);
+  // 원가 원장(2026-11-08) — 세 추출 호출 각각 한 줄(COMPANION_EXTRACT)
+  const [peopleResult, locationsResult, thingsResult] = await withUsageLedger(userId, "COMPANION_EXTRACT", () =>
+    Promise.allSettled([
+      extractPeopleFromTranscript(redactedText, existingForPeople),
+      extractLocationsFromTranscript(redactedText),
+      extractThingsFromTranscript(redactedText),
+    ]),
+  );
 
   // Phase 3: 인물
   if (peopleResult.status === "fulfilled") {

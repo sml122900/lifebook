@@ -34,3 +34,13 @@ export function calcSttTokens(durationSec: number): number {
  */
 export const STT_TOKEN_CHARGING_ENABLED =
   process.env.STT_TOKEN_CHARGING_ENABLED === "true";
+
+// 원가 원장(2026-11-08 — ChatV3Usage "STT"). CLOVA Speech 장문 인식 = 15초 단위 올림 · 15초당 5원(부가세 별도 — 네이버 클라우드
+// 요금 안내 예시: 10초 5원·32초 15원). 원장은 달러라 환산 — 1달러 = 1,400원(대략, 바뀌면 이 값만).
+const CLOVA_KRW_PER_UNIT = 5;
+const KRW_PER_USD = 1400;
+export function clovaSttMicroUsd(durationSec: number): number {
+  if (!(durationSec > 0)) return 0;
+  const units = Math.ceil(durationSec / BILLING_UNIT_SEC);
+  return Math.ceil(((units * CLOVA_KRW_PER_UNIT) / KRW_PER_USD) * 1_000_000);
+}

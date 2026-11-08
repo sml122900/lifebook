@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { chat } from "@/lib/ai";
+import { chat, withUsageLedger } from "@/lib/ai";
 
 // 추출 고정 모델(opus 차단). 클라가 보내는 model 슬러그는 무시한다.
 const PARSE_MODEL = "claude-sonnet-4-6";
@@ -83,11 +83,11 @@ export async function POST(req: Request) {
 
   try {
     const prompt = buildPrompt(key, input);
-    const result = await chat([{ role: "user", content: prompt }], {
+    const result = await withUsageLedger(session.user.id, "ONBOARDING", () => chat([{ role: "user", content: prompt }], {
       model: PARSE_MODEL,
       maxTokens: 200,
       temperature: 0,
-    });
+    }));
 
     const match = result.text.match(/\{[\s\S]*\}/);
     if (!match) return NextResponse.json({ value: null });

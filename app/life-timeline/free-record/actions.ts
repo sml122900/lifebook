@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
+import { withUsageLedger } from "@/lib/ai";
 import { prisma } from "@/lib/db";
 import {
   splitRecordingTranscript,
@@ -89,11 +90,11 @@ export async function splitTranscriptAction(input: {
   try {
     // S5 — 클라가 birthYear 를 안 보냈으면 컬럼/ BIRTH 이벤트서 파생.
     const birthYear = input.birthYear ?? (await resolveBirthYear(session.user.id));
-    const result = await splitRecordingTranscript(
+    const result = await withUsageLedger(session.user.id, "RECORDING_SPLIT", () => splitRecordingTranscript(
       input.transcript,
       input.topicTitle,
       birthYear,
-    );
+    ));
     // P5-5a — 추출 취향(맞춤배경용) 누적 저장. 실패는 무시(부가 작업).
     await addExtractedPreferences(session.user.id, result.preferences).catch(() => {});
     return { ok: true, segments: result.segments, nextTopics: result.nextTopics };

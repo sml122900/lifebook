@@ -437,7 +437,7 @@ export async function freeChatReply(userId: string): Promise<FreeChatReplyResult
       }) + (opening ? `\n\n대화를 시작한 말: "${opening}"` : "");
     try {
       // 같은 구간의 다음 턴이 시스템 지시문 + 앞 대화를 캐시로 읽음(§17 — Haiku 는 4,096 토큰이 넘을 때만 캐시됨).
-      const res = await chat(messages, { system, model: live.model, maxTokens: 400, temperature: 0.6, cache: "conversation" });
+      const res = await chat(messages, { system, model: live.model, maxTokens: 400, temperature: 0.6, cache: "conversation", noLedger: true }); // 원장은 아래 줄이 직접
       await recordChatUsage(userId, "REPLY", res);
       raw = res.text;
     } catch (e) {

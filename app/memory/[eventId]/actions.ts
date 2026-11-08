@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
+import { withUsageLedger } from "@/lib/ai";
 import { prisma } from "@/lib/db";
 import { appendUserAnswer, summarizeAnswer } from "@/lib/memory-chat";
 import { settleConversationCharges } from "@/lib/tokens/charge";
@@ -80,7 +81,7 @@ export async function submitMemoryAnswer(formData: FormData) {
     }
   }
 
-  const summary = await summarizeAnswer(
+  const summary = await withUsageLedger(userId, "MEMORY_CHAT", () => summarizeAnswer(
     {
       title: event.title,
       description: event.description,
@@ -90,7 +91,7 @@ export async function submitMemoryAnswer(formData: FormData) {
       ageAtYear: null,
     },
     answer,
-  );
+  ));
 
   // ⚠️ userId 범위는 필수 — UserMemory 로의 첫 실제 쓰기.
   const memory = await prisma.userMemory.create({

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
+import { withUsageLedger } from "@/lib/ai";
 import { refineMemorySpelling } from "@/lib/memory-refine";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
 import { getUserAiModel } from "@/lib/user-ai-model";
@@ -32,7 +33,7 @@ export async function POST(
   const tier = await getUserAiModel(session.user.id);
 
   try {
-    const result = await refineMemorySpelling(session.user.id, memoryId, tier);
+    const result = await withUsageLedger(session.user.id, "REFINE", () => refineMemorySpelling(session.user.id, memoryId, tier));
     if (result.status === "not_found") {
       return NextResponse.json(
         { ok: false, error: "글을 찾을 수 없어요." },

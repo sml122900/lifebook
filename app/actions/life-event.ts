@@ -13,7 +13,7 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { chat } from "@/lib/ai";
+import { chat, withUsageLedger } from "@/lib/ai";
 import {
   CONFIRM_QUESTION_SYSTEM_PROMPT,
   CORRECTION_PARSE_SYSTEM_PROMPT,
@@ -100,7 +100,7 @@ export async function getNextConfirmQuestion(
 
   if (!event) return { done: true };
 
-  const question = await buildConfirmQuestionText(event);
+  const question = await withUsageLedger(userId, "SETUP", () => buildConfirmQuestionText(event)); // 원가 원장(2026-11-08)
   return { done: false, eventId: event.id, question };
 }
 
@@ -119,7 +119,7 @@ export async function getConfirmQuestionForEvent(
   });
   if (!event) return { done: true };
 
-  const question = await buildConfirmQuestionText(event);
+  const question = await withUsageLedger(userId, "SETUP", () => buildConfirmQuestionText(event)); // 원가 원장(2026-11-08)
   return { done: false, eventId: event.id, question };
 }
 
@@ -154,14 +154,16 @@ export async function submitConfirmAnswer(
   } = { status: "UNCLEAR", correctedYear: null, correctedLabel: null };
 
   try {
-    const res = await chat(
-      [
-        {
-          role: "user",
-          content: `이벤트: ${eventDesc}\n사용자 응답: "${userAnswer}"`,
-        },
-      ],
-      { system: CORRECTION_PARSE_SYSTEM_PROMPT, model: CONFIRM_MODEL, maxTokens: 300 },
+    const res = await withUsageLedger(userId, "SETUP", () => // 원가 원장(2026-11-08)
+      chat(
+        [
+          {
+            role: "user",
+            content: `이벤트: ${eventDesc}\n사용자 응답: "${userAnswer}"`,
+          },
+        ],
+        { system: CORRECTION_PARSE_SYSTEM_PROMPT, model: CONFIRM_MODEL, maxTokens: 300 },
+      ),
     );
     const raw = JSON.parse(stripJsonFence(res.text)) as Record<string, unknown>;
     const status = raw.status;

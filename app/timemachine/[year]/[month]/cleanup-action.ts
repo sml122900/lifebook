@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
+import { withUsageLedger } from "@/lib/ai";
 import { chargeOneShot } from "@/lib/tokens/charge";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
 import { MIN_BALANCE_TO_START_CYCLE } from "@/lib/tokens/policy";
@@ -43,7 +44,7 @@ export async function cleanupVoiceTextAction(
     throw new InsufficientBalanceError();
   }
 
-  const result = await cleanupVoiceText(rawText);
+  const result = await withUsageLedger(userId, "VOICE_CLEANUP", () => cleanupVoiceText(rawText));
   const charge = await chargeOneShot(
     userId,
     result.inputTokens,

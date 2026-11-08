@@ -13,6 +13,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import Anthropic from "@anthropic-ai/sdk";
 
+import { recordChatUsage, type ChatUsagePurpose } from "./chat-v3-usage";
+
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
 // 오늘의 인터뷰 — 문항별 AI 사용량 기록. trackAiUsage(usage, fn) 안에서 일어난
@@ -33,6 +35,31 @@ export function newAiUsage(): AiUsage {
 
 export function trackAiUsage<T>(usage: AiUsage, fn: () => Promise<T>): Promise<T> {
   return usageStore.run(usage, fn);
+}
+
+// 원가 원장(ChatV3Usage — lib/chat-v3-usage) 범위(2026-11-08 — 원장에 안 남던 경로 메우기).
+// withUsageLedger(userId, purpose, fn) 안에서 일어난 chat()·chatWithWebSearch() 호출 한 번 = 원장 한 줄(테스트 계정이면 TEST_ —
+// 운영 하루 예산·테스트 계정 하루 한도 합계에 그대로 들어감). 사용자 id 를 아는 서버 액션·API 라우트가 감싼다(호출 함수 시그니처 무변).
+// 범위 밖 호출·noLedger 호출은 안 남김 — 자유 대화 응답·제안 카드·지도 AI 는 호출부가 직접 남긴다(겹치지 않게 noLedger).
+type LedgerScope = { userId: string; purpose: ChatUsagePurpose };
+const ledgerStore = new AsyncLocalStorage<LedgerScope>();
+
+export function withUsageLedger<T>(userId: string, purpose: ChatUsagePurpose, fn: () => Promise<T>): Promise<T> {
+  return ledgerStore.run({ userId, purpose }, fn);
+}
+
+// 웹 검색 도구 요청 1회 원가 — $10 / 1,000회(Anthropic 웹 검색 요금). 토큰 원가에 더한다.
+const WEB_SEARCH_MICRO_USD = 10_000;
+
+async function recordLedger(opts: { noLedger?: boolean }, r: Parameters<typeof recordChatUsage>[2]): Promise<void> {
+  const scope = ledgerStore.getStore();
+  if (!scope || opts.noLedger) return;
+  await recordChatUsage(scope.userId, scope.purpose, r);
+}
+
+// chat() 밖 유료 호출(맞춤 배경 그림 등)을 지금 범위에 — 범위 밖이면 안 남김. 원가는 extraMicroUsd(토큰은 0 — Claude 단가로 안 셈).
+export function recordScopedUsage(r: { model: string; extraMicroUsd: number }): Promise<void> {
+  return recordLedger({}, { model: r.model, inputTokens: 0, outputTokens: 0, extraMicroUsd: r.extraMicroUsd });
 }
 
 // Opus 4.x (reasoning 모델) 은 temperature 파라미터를 거부한다
@@ -69,6 +96,8 @@ export type ChatOptions = {
   //   "conversation" — 시스템 지시문 + 마지막 메시지 끝에 표시(같은 대화의 다음 턴이 앞부분을 읽음 — 자유 대화·인터뷰 후속·말동무).
   // 모델별 최소 길이(Haiku 4.5 4,096 · Sonnet 4.6·Opus 4.8 1,024 토큰)보다 짧으면 API 가 캐시 없이 그대로 처리한다(추가 요금 없음).
   cache?: "system" | "conversation";
+  // 원장에 직접 남기는 호출부(자유 대화 응답·제안 카드) — withUsageLedger 범위 안이어도 여기서는 안 남김(두 번 세지 않게).
+  noLedger?: boolean;
 };
 
 export type ChatResult = {
@@ -143,6 +172,7 @@ export async function chat(
     tracked.outputTokens += res.usage.output_tokens;
     tracked.model = res.model;
   }
+  await recordLedger(opts, { model: res.model, inputTokens, outputTokens: res.usage.output_tokens, cacheWriteTokens, cacheReadTokens });
 
   // SDK 는 content[] union 을 돌려준다. 우리 프롬프트는 항상 평문만
   // 요청하므로, text 블록들을 방어적으로 이어 붙인다.
@@ -231,6 +261,8 @@ export async function chatWithWebSearch(
       `[ai:web_search] model=${res.model} in=${res.usage.input_tokens} out=${res.usage.output_tokens} blocks=${res.content.length}`,
     );
   }
+  const searches = res.usage.server_tool_use?.web_search_requests ?? 0;
+  await recordLedger(opts, { model: res.model, inputTokens: res.usage.input_tokens, outputTokens: res.usage.output_tokens, extraMicroUsd: searches * WEB_SEARCH_MICRO_USD });
 
   // text 블록만 합쳐 본문. citations 는 text 블록 내부의 citations
   // (혹은 web_search_tool_result 블록의 sources) 에서 수집.

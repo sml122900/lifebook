@@ -4,7 +4,7 @@
 // 않는다. 어휘 규칙은 아래 system prompt 로 강제하며, 모델이 어긋나도
 // 안전한 폴백을 보여줘 사용자가 항상 무언가는 보게 한다.
 
-import { chat } from "./ai";
+import { chat, withUsageLedger } from "./ai";
 import { prisma } from "./db";
 
 export type MemoryEventContext = {
@@ -173,7 +173,7 @@ export async function getOrCreateConversation(
   let inputTokens = 0;
   let outputTokens = 0;
   try {
-    const raw = await generateGuidedQuestionsRaw(ctx);
+    const raw = await withUsageLedger(userId, "MEMORY_CHAT", () => generateGuidedQuestionsRaw(ctx));
     questionText = raw.text;
     inputTokens = raw.inputTokens;
     outputTokens = raw.outputTokens;
