@@ -1307,6 +1307,11 @@ async function main() {
       check("⑯ 건너뛰기·Esc = 건너뜀 기록 · [나중에] = 나중에 기록 · [끝내기] 뒤 [찾기] 한 번 가리키기(data-tour)",
         tut.includes('close("skip")') && tut.includes("onCancel={(e) => {") && tut.includes("markTourCompletedAction(TUTORIAL_LATER)") && tut.includes("markTourCompletedAction(closeTourId(how))") &&
           tut.includes('target: "mylife-find"') && view16.includes('data-tour="mylife-find"'));
+      const coach = src("app/components/CoachMarks.tsx");
+      const otherCoach = ["app/components/ScreenTour.tsx", "app/life-timeline/page.tsx"].map(src).join("\n");
+      check("⑯ 코치마크 버튼 문구 옵션 — 기본값 그대로(다음·시작하기·건너뛰기) · 다른 사용처는 안 넘김 · [찾기] 가리키기만 [알겠어요] 하나",
+        coach.includes('const nextLabel = labels?.next ?? "다음";') && coach.includes('const doneLabel = labels?.done ?? "시작하기";') && coach.includes('labels?.skip === undefined ? "건너뛰기" : labels.skip') &&
+          coach.includes("{skipLabel !== null && (") && !otherCoach.includes("labels=") && tut.includes("labels={{ done: T.findPointOk, skip: null }}") && C.tutorial.findPointOk === "알겠어요");
       check("⑯ AI 시트 첫 안내(T2) — 처음 연 때만 · 그때 기록", view16.includes("markTourCompletedAction(ASK_HINT)") && src("app/my-life/AskSheet.tsx").includes("{hint && <p") && src("app/my-life/page.tsx").includes("completedTours"));
       // 가짜 이름 = 픽스처·재생 세트·실제 대화 낱말과 안 겹침(작업 규칙 8 취지) · 조작 안내에 "행성·위성" 없음(T7 (나)) · 문구 [임시]
       const fakes = [C.tutorial.fakeEvent, C.tutorial.fakeStory, C.tutorial.fakeStoryRenamed, C.tutorial.fakePerson, C.tutorial.fakePlace, C.tutorial.fakeCandidate];

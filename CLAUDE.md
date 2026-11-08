@@ -824,7 +824,7 @@ Photo 6 (EXIF·대량·첨부/빼기) 신규 후속 (`docs/daily/2026-06-10.md` 
 - [ ] **출시 전 법률 검토 목록** — `docs/phase/privacy-v1.4.md` §9(보유 기간 정정과 재동의 · 이전 항목 추가를 공지로 · 즉시 정정 여부 · 그간 7일로 안내받은 회원 · 동의 외 이전 근거 · OpenAI 칸 확인). ①~③ 은 v1.4 공지 전.
 - [x] AI 지도 편집(3b) 실제 모델 확인 — 2026-11-07 `db/replay-map-edit.ts --n 3 --run` 통과(적중 36/39·거부 위반 0·1회 $0.0080, `docs/phase/custom-graph.md` §6.9).
 - [x] My Life 튜토리얼 구현(2026-11-08 — `docs/phase/tutorial.md` §8): 첫 진입 카드([둘러보기]·[나중에]) · 연습 판 3단계(실제 지도와 같은 그리기 코드 — `OrbitSystem`·`StoryPlanet`·`layoutMyLife`·끌기 `beginPress` · AI 카드 `app/my-life/AskCards.tsx`) · [끝내기] 뒤 [찾기] 가리키기 · 다시 보기(사이드 패널 V3·[찾기] 시트·`/my-life?tutorial=1`) · AI 시트 첫 안내 · DB 쓰기·모델 호출 0 · 회귀 `test-my-life` ⑯ · 390 확인 30항목.
-- [ ] My Life 튜토리얼 문구 확정 — `lib/my-life-copy.ts` `tutorial` 44키 [임시](분위기 한 줄 포함) · 도그푸딩 직전 `docs/temp-copy-inventory.md` 로 한꺼번에.
+- [ ] My Life 튜토리얼 문구 확정 — `lib/my-life-copy.ts` `tutorial` 45키 [임시](분위기 한 줄 포함) · 도그푸딩 직전 `docs/temp-copy-inventory.md` 로 한꺼번에.
 - [ ] custom-graph 2단계 임시 문구 확정 — `lib/my-life-copy.ts` `custom` 56키 + `edit.kinds`·`kindHints` 3키씩(category·item·customGroup). **문구 자체 확정은 도그푸딩 직전에 `docs/temp-copy-inventory.md` 로 한꺼번에**(2026-11-06 성민). 조사 점검은 끝남(같은 문서 점검 표 — 회귀 `test-my-life` ⑬).
 - [ ] HEIC 사진 올릴 때 자동 변환(2026-11-04 백로그) — 지금은 거부 + 설정 바꾸기 안내(`MY_LIFE_COPY.body.uploadHeic`·V2 사진 화면 문구). 서버/브라우저 변환 방식·용량·원가는 미정.
 - [ ] My Life 3단계 임시 문구 확정 — `lib/my-life-copy.ts` 장소 묶음 7키 + `edit` 블록 104키(2026-11-06 인물록 통합 — 사람 지우기 안내 2키 삭제, 새 10키는 확정) + 이동 줄 이름 `moveBarLabel` + 차례 보기·시기 패널 5키(`tourLine`·`tourNext`·`tourBack`·`tourBackLabel`·`inStory` — 2026-11-02 최종 E2E)(`docs/temp-copy-inventory.md` "3단계 추가").

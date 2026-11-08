@@ -495,6 +495,7 @@ export const MY_LIFE_COPY = {
     finish: "끝내기",
     findPointTitle: "AI에게 부탁하기",
     findPoint: "[찾기] 안에 [AI에게 부탁하기]가 있어요.",
+    findPointOk: "알겠어요", // [찾기] 가리키기 버튼(코치마크 labels — 2026-11-08)
     again: "지도 쓰는 법 다시 보기",
     againHint: "처음 안내를 다시 봐요",
     askHint: "물어보기는 지도를 바꾸지 않아요. 지도 고치기는 바꾸기 전에 무엇을 할지 먼저 보여 줘요.",

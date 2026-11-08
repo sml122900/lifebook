@@ -133,6 +133,7 @@ export function MyLifeTutorial({ completed }: { completed: string[] }) {
         <CoachMarks
           steps={[{ target: "mylife-find", title: T.findPointTitle, desc: T.findPoint, panel: "closed" }]}
           tourId="my-life-find"
+          labels={{ done: T.findPointOk, skip: null }}
           autoStart
           onComplete={() => setPoint(false)}
         />

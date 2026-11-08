@@ -25,9 +25,12 @@ export function CoachMarks({
   tourId,
   autoStart,
   onComplete,
+  labels,
 }: {
   steps: CoachStep[];
   tourId: string;
+  // 버튼 문구(2026-11-08) — 주지 않으면 지금 그대로(다음 · 시작하기 · 건너뛰기). skip: null = [건너뛰기] 안 보임(Esc 는 그대로 닫힘).
+  labels?: { next?: string; done?: string; skip?: string | null };
   // 서버가 completedTours 게이트로 판단(또는 ?tour= 강제) → true 면 마운트 시 시작.
   autoStart: boolean;
   onComplete: (tourId: string) => void | Promise<void>;
@@ -45,6 +48,9 @@ export function CoachMarks({
   const doneRef = useRef(false);
 
   const step = active ? steps[index] : undefined;
+  const nextLabel = labels?.next ?? "다음";
+  const doneLabel = labels?.done ?? "시작하기";
+  const skipLabel = labels?.skip === undefined ? "건너뛰기" : labels.skip;
 
   // 투어 시작/재시작 — 항상 처음부터. 재실행이라도 완료 플래그를 리셋한다.
   const begin = useCallback(() => {
@@ -323,14 +329,16 @@ export function CoachMarks({
         <h2 className="mt-1 text-xl font-bold text-ink">{step.title}</h2>
         <p className="mt-2 text-lg leading-relaxed text-ink">{step.desc}</p>
 
-        <div className="mt-5 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={finish}
-            className="rounded text-base font-semibold text-ink-soft underline-offset-2 hover:text-ink hover:underline focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
-          >
-            건너뛰기
-          </button>
+        <div className={`mt-5 flex items-center gap-3 ${skipLabel === null ? "justify-end" : "justify-between"}`}>
+          {skipLabel !== null && (
+            <button
+              type="button"
+              onClick={finish}
+              className="rounded text-base font-semibold text-ink-soft underline-offset-2 hover:text-ink hover:underline focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            >
+              {skipLabel}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -339,7 +347,7 @@ export function CoachMarks({
             }}
             className="inline-flex min-h-[52px] items-center justify-center rounded-md bg-action px-6 py-3 text-lg font-bold text-on-action hover:bg-action-hover focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
-            {isLast ? "시작하기" : "다음"}
+            {isLast ? doneLabel : nextLabel}
           </button>
         </div>
       </div>
