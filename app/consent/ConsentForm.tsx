@@ -73,8 +73,10 @@ export function ConsentForm() {
             </p>
           )}
           <button type="submit" disabled={!canSubmit || phase === "saving"} className={BUTTON}>
-            {phase === "saving" ? "저장 중..." : ready ? "시작하기" : JOIN_COPY.preparing}
+            {phase === "saving" ? "저장 중..." : ready ? "시작하기" : JOIN_COPY.preparingButton}
           </button>
+          {/* 준비 전 — 버튼은 짧게, 안내 문장은 버튼 아래 작은 글씨(2026-11-10 — 버튼 21자 → 5자) */}
+          {!ready && <p className="m-0 text-base text-ink-soft">{JOIN_COPY.preparing}</p>}
         </div>
       )}
     </form>

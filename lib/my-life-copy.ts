@@ -265,7 +265,7 @@ export const MY_LIFE_COPY = {
     addStory: "이야기 추가",
     talkStory: "말로 이야기하기",
     writeStory: "직접 쓰기",
-    addPerson: "인물 넣기",
+    addPerson: "사람 넣기", // 2026-11-10 이름 통일(인물 넣기 → 사람)
     addPlace: "장소 넣기",
     addGroup: "모임 넣기",
     addToGroup: "모임에 넣기",
@@ -275,8 +275,8 @@ export const MY_LIFE_COPY = {
     pickNone: "넣을 수 있는 항목이 없어요.",
     pickSearch: "이름 찾기",
     pickNew: "새로 만들기",
-    moveStory: "다른 시절로 옮기기",
-    moveTitle: "어느 시절로 옮길까요?",
+    moveStory: "다른 시기로 옮기기", // 2026-11-10 이름 통일(시절 → 시기 — moveTitle·cannotRemovePrimary 도)
+    moveTitle: "어느 시기로 옮길까요?",
     hereNow: "지금 여기",
     moveConfirm: (lead: string, label: string) => `‘${lead}’ 이야기를 ${label}${withJosa(label, "으로/로")} 옮길까요?`,
     moveDo: "옮기기",
@@ -324,7 +324,7 @@ export const MY_LIFE_COPY = {
     cannotLink: "이 둘은 이을 수 없어요.",
     cannotUnlink: "빼지 못했어요. 다시 해 주세요.",
     cannotUndo: "되돌리지 못했어요. 다시 해 주세요.",
-    cannotRemovePrimary: "이 이야기가 속한 시기는 뺄 수 없어요. [다른 시절로 옮기기]를 써 주세요.",
+    cannotRemovePrimary: "이 이야기가 속한 시기는 뺄 수 없어요. [다른 시기로 옮기기]를 써 주세요.",
     cannotRemoveSubject: "이 이야기의 주인공이라 뺄 수 없어요.",
     needName: "이름을 적어 주세요.",
     tooLong: (n: number) => `${n}자까지 적을 수 있어요.`,

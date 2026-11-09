@@ -18,7 +18,7 @@ import { requestRefund } from "./actions";
 
 const won = (n: number) => n.toLocaleString("ko-KR");
 
-export const metadata = { title: "내 주문" };
+export const metadata = { title: "주문 내역" }; // 2026-11-10 이름 통일 — 사이드 패널 메뉴와 같게
 
 export default async function MyOrdersPage() {
   const session = await auth();
@@ -32,7 +32,7 @@ export default async function MyOrdersPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-2xl font-bold text-ink">내 주문</h1>
+      <h1 className="text-2xl font-bold text-ink">주문 내역</h1>
 
       {orders.length === 0 ? (
         <p className="mt-6 text-lg text-ink-soft">아직 주문하신 게 없어요.</p>

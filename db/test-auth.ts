@@ -209,6 +209,7 @@ async function main() {
       noticeClosedKey(sample) !== noticeClosedKey({ ...sample, version: "v9.10" }) &&
         POLICY_NOTICE_COPY.bar({ ...sample, phase: "before" }) === "예시 개정 · 3월 8일부터" && POLICY_NOTICE_COPY.bar({ ...sample, phase: "after" }) === "예시 개정 · 3월 8일부터 적용" &&
         POLICY_NOTICE_COPY.pageLine({ ...sample, phase: "before" }).includes("개인정보 처리방침(v9.9)은 2030년 3월 8일부터 시행됩니다. 예시 개정의 자세한 내용.") &&
+        read("lib/policy-notice-copy.ts").includes(`\${withJosa(name, "은/는")}`) && POLICY_NOTICE_COPY.pageLine({ ...sample, doc: "terms", phase: "after" }).startsWith("개정 안내 — 이용약관(v9.9)은 ") &&
         noticeHref(sample) === "/privacy#policy-notice" && read("app/privacy/page.tsx").includes("<p id={NOTICE_ANCHOR}") &&
         POLICY_NOTICE_COPY.more[sample.doc] === "처리방침 보기" && POLICY_NOTICE_COPY.more.terms === "약관 보기" && noticeHref({ doc: "terms" }) === "/terms#policy-notice" &&
         read("app/components/PolicyNoticeBar.tsx").includes("{C.more[notice.doc]}"));
@@ -249,7 +250,8 @@ async function main() {
       (renderToStaticMarkup(createElement(ConsentChecklist, { checked: {}, onChange: () => {}, ready })).match(/<input[^>]*type="checkbox"[^>]*>/g) ?? []).filter((t) => t.includes(` disabled=""`)).length;
     check("⑤ 준비 전 그림 — 체크칸 4개 전부 잠김(브라우저가 클릭을 받지 않음) · 준비 뒤 0개", countDisabled(false) === 4 && countDisabled(true) === 0, [countDisabled(false), countDisabled(true)]);
     const consentSrc = read("app/consent/ConsentForm.tsx");
-    check("⑤ /consent — 준비 = 첫 세션 응답 뒤 · 제출 가능 = 준비 + 모두 동의 · 체크칸에 전달", consentSrc.includes(`const ready = status !== "loading";`) && consentSrc.includes("const canSubmit = ready && allConsentChecked(checked);") && consentSrc.includes(`ready={ready && phase !== "syncFailed"}`));
+    check("⑤ /consent — 준비 = 첫 세션 응답 뒤 · 제출 가능 = 준비 + 모두 동의 · 체크칸에 전달 · 준비 전 버튼 = 짧은 글(준비 중…) + 안내 문장은 버튼 아래(2026-11-10)", consentSrc.includes(`const ready = status !== "loading";`) && consentSrc.includes("const canSubmit = ready && allConsentChecked(checked);") && consentSrc.includes(`ready={ready && phase !== "syncFailed"}`) &&
+        consentSrc.includes(`: ready ? "시작하기" : JOIN_COPY.preparingButton}`) && consentSrc.includes(`{!ready && <p className="m-0 text-base text-ink-soft">{JOIN_COPY.preparing}</p>}`));
     check("⑤ /consent 제출 뒤 실패 — 세션 갱신 실패 = syncFailed(저장은 한 번만, 다시 시도 = syncSession 만) · 저장 실패 = saveFailed · 멈춤 없음 · 문구 [임시]",
       (consentSrc.match(/saveConsent\(/g) ?? []).length === 1 && consentSrc.includes("if (!session) {") && consentSrc.includes('setPhase("syncFailed");') && consentSrc.includes('setPhase("saveFailed");') &&
         consentSrc.includes("onClick={syncSession}") && consentSrc.includes("{JOIN_COPY.retry}") &&
