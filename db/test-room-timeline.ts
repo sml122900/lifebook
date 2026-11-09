@@ -32,7 +32,7 @@ async function main() {
 
   try {
     // Alice creates room and invites Bob.
-    const room = await createRoom(alice.id, "우리 가족");
+    const room = await createRoom(alice.id, "우리 가족", true);
     const invite = await createInvite(alice.id, room.id);
     await joinViaInvite(bob.id, invite.token);
 

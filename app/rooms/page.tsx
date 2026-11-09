@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { KST_DATE_FMT } from "@/lib/kst-date";
+import { ROOM_COPY } from "@/lib/room-copy";
 import { listUserRooms } from "@/lib/rooms";
 
 import { createRoomAction } from "./actions";
@@ -54,6 +55,18 @@ export default async function RoomsPage() {
             placeholder="예: 우리 가족, 엄마와 나"
             className="w-full rounded-md border-2 border-line px-4 py-3 text-lg focus:border-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
           />
+          {/* 룸 주인 동의(2026-11-09 성민 C — 초대 수락과 같은 공개 범위 문장). 체크 안 하면 브라우저가 막고, 서버 액션도 다시 확인 */}
+          <label className="mt-2 flex cursor-pointer items-start gap-4 rounded-md border-2 border-line bg-canvas p-4">
+            <input
+              type="checkbox"
+              name="agree"
+              required
+              className="mt-1 h-6 w-6 shrink-0 accent-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+            />
+            <span className="text-lg text-ink">
+              <strong>{ROOM_COPY.shareScope}</strong> {ROOM_COPY.ownerAgree}
+            </span>
+          </label>
           <Button type="submit" variant="primary" size="lg" className="self-end">
             룸 만들기
           </Button>

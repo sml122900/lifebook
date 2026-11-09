@@ -31,7 +31,7 @@ async function main() {
   });
 
   try {
-    const room = await createRoom(alice.id, "테스트 룸");
+    const room = await createRoom(alice.id, "테스트 룸", true);
     console.log(`room ${room.id} created by alice`);
 
     const invite = await createInvite(alice.id, room.id);

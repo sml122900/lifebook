@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { listRoomCommentsByTarget } from "@/lib/comments";
 import { prisma } from "@/lib/db";
 import { listReactionsByTarget } from "@/lib/reactions";
+import { ROOM_COPY } from "@/lib/room-copy";
 import { getMembership, listRoomMemories } from "@/lib/rooms";
 import { listSharedMemories } from "@/lib/shared-memories";
 
@@ -33,9 +34,11 @@ type SharedMemory = NonNullable<
   Awaited<ReturnType<typeof listSharedMemories>>
 >[number];
 
-function indexByYear<T extends { year: number }>(rows: T[]): Map<number, T[]> {
+// 연도 없는 행(V3 이야기 — 2026-11-09 B)은 건너뜀 — "연도 모름" 묶음으로 따로.
+function indexByYear<T extends { year: number | null }>(rows: T[]): Map<number, T[]> {
   const map = new Map<number, T[]>();
   for (const r of rows) {
+    if (r.year == null) continue;
     const list = map.get(r.year) ?? [];
     list.push(r);
     map.set(r.year, list);
@@ -98,7 +101,9 @@ export default async function RoomDetailPage({ params }: PageProps) {
   // 함께 보는 타임라인의 연도 집합: 개인/공동 추억이 있는 해들. 앵커는
   // 그 해들만 가져온다 — 시니어 뷰어가 50년치 세상 사건에 파묻히지 않게.
   const yearSet = new Set<number>();
-  for (const m of memories) yearSet.add(m.year);
+  for (const m of memories) if (m.year != null) yearSet.add(m.year);
+  // 연도 없는 이야기(V3 — 2026-11-09 성민 B) = 맨 아래 "연도 모름" 묶음
+  const unknownYear = memories.filter((m) => m.year == null);
   for (const s of sharedMemories) yearSet.add(s.year);
   // 올해 → 과거 역순. 솔로 타임라인과 일관.
   const sortedYears = Array.from(yearSet).sort((a, b) => b - a);
@@ -210,7 +215,7 @@ export default async function RoomDetailPage({ params }: PageProps) {
         <h2 className="text-2xl font-bold text-ink">함께 보는 타임라인</h2>
         <TimelineLegend />
 
-        {sortedYears.length === 0 ? (
+        {sortedYears.length === 0 && unknownYear.length === 0 ? (
           <div className="rounded-md border-2 border-dashed border-line bg-canvas p-6">
             <p className="text-lg text-ink">
               아직 룸에서 함께 볼 추억이 없어요. 자신의 타임라인에서 추억을
@@ -265,6 +270,26 @@ export default async function RoomDetailPage({ params }: PageProps) {
                 </li>
               );
             })}
+            {unknownYear.length > 0 && (
+              <li key="year-unknown">
+                <h3 className="mb-5 text-3xl font-bold text-ink">
+                  {ROOM_COPY.yearUnknown}
+                </h3>
+                <ul className="flex flex-col gap-4">
+                  {unknownYear.map((m) => (
+                    <li key={`m-${m.id}`}>
+                      <PersonalMemoryCard
+                        memory={m}
+                        viewerId={session.user!.id}
+                        roomId={room.id}
+                        comments={commentsByTarget.get(m.id) ?? []}
+                        reactions={reactionsByTarget.get(m.id) ?? []}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            )}
           </ol>
         )}
       </section>

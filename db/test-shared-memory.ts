@@ -55,7 +55,7 @@ async function main() {
   const userIds = [alice.id, bob.id, eve.id];
 
   try {
-    const room = await createRoom(alice.id, "우리 가족");
+    const room = await createRoom(alice.id, "우리 가족", true);
     const invite = await createInvite(alice.id, room.id);
     await joinViaInvite(bob.id, invite.token);
 

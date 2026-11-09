@@ -6,7 +6,7 @@
 // 룸 A 의 댓글을 읽을 수 있다.
 
 import { prisma } from "./db";
-import { getMembership } from "./rooms";
+import { getMembership, roomCanSeeMemory } from "./rooms";
 
 export type TargetType = "user_memory" | "shared_memory";
 
@@ -67,21 +67,11 @@ export async function createComment(
   const membership = await getMembership(authorId, roomId);
   if (!membership) throw new Error("not a member of this room");
 
-  // 대상이 "이" 룸의 동의 멤버 소유인지 확인. 이 체크가 없으면 악의적
+  // 대상이 "이" 룸에 보이는 기록인지 확인. 이 체크가 없으면 악의적
   // 페이로드가 룸 B 에만 있는 추억에 룸 A 의 댓글을 붙일 수 있다.
-  if (targetType === "user_memory") {
-    const memberIds = await prisma.roomMember.findMany({
-      where: { roomId, consentAt: { not: null } },
-      select: { userId: true },
-    });
-    const ids = new Set(memberIds.map((m) => m.userId));
-    const target = await prisma.userMemory.findUnique({
-      where: { id: targetId },
-      select: { userId: true },
-    });
-    if (!target || !ids.has(target.userId)) {
-      throw new Error("target not visible in this room");
-    }
+  // 2026-11-09 — 룸 목록과 같은 규칙(roomCanSeeMemory): 동의 멤버 것 + 안 보이는 기록("그때의 나"·사진 등) 거절.
+  if (targetType === "user_memory" && !(await roomCanSeeMemory(roomId, targetId))) {
+    throw new Error("target not visible in this room");
   }
 
   await prisma.comment.create({

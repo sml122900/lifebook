@@ -11,7 +11,7 @@
 //   ⑧ 20판 상한(D1) — 가장 오래된 것부터 지움
 //   ⑨ 되돌리기 — 그 판 문서로 저장 · 지금 글이 판으로 남음 · 캡션은 지금 값(D3)
 //   ⑩ 인물 글(D2) — 빈 본문 · 사진 메모리(node_body) · 실제 사진 첨부 허용 · 비워 두고 저장 가능 · 초안·남의 인물 거부
-//   ⑪ 가족 룸 — node_body 메모리 안 보임 · My Life 데이터(richBody·인물 글) · 남의 이야기(2026-11-08 — 가족 룸 V3 연결 전 확인):
+//   ⑪ 가족 룸 — node_body 메모리 안 보임 · V3 이야기는 한 번(2026-11-09 연결) · My Life 데이터(richBody·인물 글) · 남의 이야기(2026-11-08):
 //      다른 사용자는 고치기·글 저장·되돌리기·옮기기·지우기 전부 못 함, 원래 이야기 그대로
 //   ⑫ 노드 삭제 — 이야기 지우기·인물 지우기 → 본문·이전 판·사진 메모리·사진 파일 0
 //   ⑬ 탈퇴 — 이전 판 Cascade 0 · ⑭ 남의 것 — 저장·되돌리기·목록 막힘
@@ -247,9 +247,11 @@ async function main() {
     const pr4 = await savePersonBody(a, person, doc(P("다시 쓴 글.")), pr3.ok ? pr3.version : 3);
 
     // ── ⑪ 가족 룸·My Life 데이터 ─────────────────────────────────
-    const room = await createRoom(a, "[fixture] 노드 본문 룸");
+    const room = await createRoom(a, "[fixture] 노드 본문 룸", true);
     const roomMems = (await listRoomMemories(room.id, a)) ?? [];
-    check("⑪ 가족 룸 — 인물 글 사진 메모리(node_body)·이야기 브릿지 안 보임", !roomMems.some((m) => m.id === mem10 || m.id === st.memoryId), roomMems.map((m) => m.id));
+    // 2026-11-09 가족 룸 V3 연결 — V3 이야기(STORY)는 브릿지 메모리 id 로 한 번 보임(본문 = 이야기 본문). 공개 범위 전체는 test-family-room.
+    check("⑪ 가족 룸 — 인물 글 사진 메모리(node_body) 안 보임 · V3 이야기는 한 번(브릿지 id · 이야기 본문)",
+      !roomMems.some((m) => m.id === mem10) && roomMems.filter((m) => m.id === st.memoryId).length === 1, roomMems.map((m) => m.id));
     const d11 = await getMyLifeData(a);
     const s11 = d11.events.flatMap((e) => e.stories).find((s) => s.id === st.episodeId);
     const p11 = d11.people.find((p) => p.id === person);

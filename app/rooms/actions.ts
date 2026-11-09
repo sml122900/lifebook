@@ -16,7 +16,11 @@ export async function createRoomAction(formData: FormData) {
   if (typeof name !== "string") {
     throw new Error("name required");
   }
-  const room = await createRoom(session.user.id, name);
+  // 룸 주인 동의(2026-11-09 성민 C) — 체크칸 없이 손으로 만든 POST 도 거부(초대 수락 joinRoomAction 과 같은 방식).
+  if (formData.get("agree") !== "on") {
+    throw new Error("must agree to share");
+  }
+  const room = await createRoom(session.user.id, name, true);
   revalidatePath("/rooms");
   redirect(`/rooms/${room.id}`);
 }

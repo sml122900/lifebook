@@ -3,6 +3,12 @@
 // 멤버십 확인의 단일 진실 원천. 룸 범위 데이터를 읽는 앱의 모든 곳은
 // 먼저 getMembership() 을 거쳐야 한다. boolean 이 아니라 멤버십 행을
 // 반환하므로 호출자가 두 번째 쿼리 없이 role/consent 로 분기할 수 있다.
+//
+// 2026-11-09 V3 연결(성민 결정 A~E — docs/phase/family-room-v3.md): 룸에 보이는 개인 기록 = 동의한 멤버의
+//   · V3 사용자 — My Life 이야기(Episode STORY)만. "그때의 나"(SELF) 빼고(A), 연도 없으면 "연도 모름" 묶음(B — year null),
+//     이야기만(제목·본문·연도 — 사람·장소·사진·연결은 읽지도 않음, D). V3 사용자의 옛 V2 기록(life_event 등)은 안 보임.
+//   · V2 사용자 — 지금까지 그대로(UserMemory, 사진·브릿지 메모리 제외).
+//   룸 주인도 만들 때 동의 체크칸을 거쳐야 룸이 생긴다(C — 주인 consentAt = 그 동의). 보이는 판단은 roomCanSeeMemory 와 한 규칙.
 
 import { randomBytes } from "node:crypto";
 
@@ -36,7 +42,12 @@ export async function getMembership(userId: string, roomId: string) {
   return member;
 }
 
-export async function createRoom(userId: string, name: string) {
+/**
+ * 룸 만들기. 2026-11-09(성민 C) — 룸 주인도 "내 이야기가 멤버에게 보여요" 동의 체크칸을 거쳐야 한다(전에는 만들기 = 묵시적 동의).
+ * 동의가 없으면 룸을 만들지 않는다. 주인 consentAt = 이 동의 시각.
+ */
+export async function createRoom(userId: string, name: string, shareConsent: boolean) {
+  if (shareConsent !== true) throw new Error("share consent required");
   const trimmed = name.trim();
   if (trimmed === "") throw new Error("room name required");
   if (trimmed.length > 50) throw new Error("room name too long");
@@ -46,8 +57,6 @@ export async function createRoom(userId: string, name: string) {
       data: { name: trimmed, ownerId: userId },
       select: { id: true, name: true, createdAt: true },
     });
-    // 방장은 룸을 만드는 행위로 묵시적 동의 — 자기 데이터는 원래 본인
-    // 것이었으니 동의 시각만 기록한다.
     await tx.roomMember.create({
       data: {
         roomId: room.id,
@@ -128,59 +137,129 @@ export async function joinViaInvite(
   });
 }
 
+// V2 기록 중 룸에 안 보이는 종류:
+//   photo — 독립 사진 메모리는 이미지 없는 텍스트 카드로 새지 않게(사진 공유는 아직 — D 사진 비공개와 같은 방향).
+//   episode — V3 이야기 브릿지 메모리. V3 이야기는 아래 Episode 경로로만(SELF 거르고 연도 규칙 적용).
+//   v3_bridge — 포스터용 v3 사건 사본(2026-10-24). node_body — 인물 글 사진 메모리(2026-11-03).
+// life_event 첨부 사진은 life_event 행으로(본문만), era_event 는 E2/E3 정책상 노출.
+const ROOM_HIDDEN_VIA = [CREATED_VIA_PHOTO, CREATED_VIA_EPISODE, CREATED_VIA_V3_BRIDGE, CREATED_VIA_NODE_BODY];
+// V3 이야기가 붙는 시기 상태 — My Life 와 같은 기준(lib/my-life getMyLifeData).
+const STORY_EVENT_STATUS = ["CONFIRMED", "CORRECTED"] as const;
+
+async function consentedMembers(roomId: string): Promise<{ userId: string; v3: boolean }[]> {
+  const rows = await prisma.roomMember.findMany({
+    where: { roomId, consentAt: { not: null } },
+    select: { userId: true, user: { select: { onboardingTrack: true } } },
+  });
+  return rows.map((r) => ({ userId: r.userId, v3: r.user.onboardingTrack === "V3" }));
+}
+
+// 룸 카드 한 장 — V2 기록·V3 이야기 같은 모양. year null = 연도 모름(V3 이야기만). 댓글·스탬프 대상 = id(user_memory).
+export type RoomMemory = {
+  id: string;
+  userId: string;
+  year: number | null;
+  month: number | null;
+  title: string; // 빈 문자열 = 제목 없음(V3 이야기 — 카드가 제목 줄 생략)
+  content: string | null;
+  createdAt: Date;
+  user: { name: string | null; email: string | null };
+  // 연결된 시대 사건(V2 — 음악이면 "들어보기"). V3 이야기는 null.
+  event: { title: string; description: string | null; domain: string } | null;
+};
+
 /**
- * 룸의 개인 추억 모음: 동의한 모든 멤버의 UserMemory 행을, 작성자를
- * 함께 붙여 반환.
+ * 룸의 개인 기록 모음: 동의한 모든 멤버의 기록을, 작성자를 함께 붙여 반환(위 규칙).
  *
  * 범위 안전성:
  *   - viewer 는 동의 멤버여야 함 (아니면 null)
- *   - WHERE 절이 userId 를 "이" 룸 멤버로만 제한 → A+B 두 룸에 속한
- *     viewer 라도, 작성자가 지금 보는 그 룸에도 속해야만 데이터가 보인다
- *   - 무시/미응답 트리거는 여기 무관 — 카탈로그가 아니라 개인 추억이다
+ *   - 작성자를 "이" 룸의 동의 멤버로만 제한 → A+B 두 룸에 속한 viewer 라도, 작성자가 지금 보는 그 룸에도 속해야만 보인다
+ * 정렬: 연도(없음 = 맨 뒤) → 월 → 만든 때.
  */
-export async function listRoomMemories(roomId: string, viewerUserId: string) {
+export async function listRoomMemories(roomId: string, viewerUserId: string): Promise<RoomMemory[] | null> {
   const membership = await getMembership(viewerUserId, roomId);
   if (!membership) return null;
 
-  const members = await prisma.roomMember.findMany({
-    where: { roomId, consentAt: { not: null } },
-    select: { userId: true },
-  });
-  const memberIds = members.map((m) => m.userId);
-  if (memberIds.length === 0) return [];
+  const members = await consentedMembers(roomId);
+  const v2Ids = members.filter((m) => !m.v3).map((m) => m.userId);
+  const v3Ids = members.filter((m) => m.v3).map((m) => m.userId);
 
-  return prisma.userMemory.findMany({
-    where: {
-      userId: { in: memberIds },
-      // Phase Photo — 독립 사진 메모리(createdVia="photo")는 가족 룸에 이미지
-      // 없는 텍스트 카드로 새지 않게 제외. 사진의 룸 공유는 6단계에서 이미지와
-      // 함께 설계한다. life_event 에 첨부된 사진은 life_event 행으로 정상
-      // 노출(본문만, 이미지는 6단계), era_event 는 E2/E3 정책상 노출 유지.
-      // STAGE4 — episode(온보딩 에피소드 브릿지 메모리)도 제외. 온보딩
-      // 파이프라인이 아직 /enter 에 연결 전이라 지금은 영향 없지만, 연결
-      // 시점에 이 필터가 없으면 놓치기 쉬워 미리 막아둔다(가족 룸 노출
-      // 여부는 그때 별도 결정).
-      // v3_bridge(포스터용 v3 사건 사본)도 같은 이유로 제외(2026-10-24 결정).
-      // node_body(인물 글 사진이 붙는 메모리 — lib/node-body)도 제외(2026-11-03, node-graph-self §1.6-6).
-      createdVia: { notIn: [CREATED_VIA_PHOTO, CREATED_VIA_EPISODE, CREATED_VIA_V3_BRIDGE, CREATED_VIA_NODE_BODY] },
-    },
-    select: {
-      id: true,
-      userId: true,
-      year: true,
-      month: true,
-      title: true,
-      content: true,
-      createdAt: true,
-      user: { select: { name: true, email: true } },
-      // Pull the linked event's domain so the UI can decide whether
-      // a "들어보기" button applies (only when domain === "music").
-      // Title + description carry the song / artist text we feed into
-      // the YouTube search URL.
-      event: { select: { title: true, description: true, domain: true } },
-    },
-    orderBy: [{ year: "asc" }, { month: "asc" }, { createdAt: "asc" }],
-  });
+  const [memories, stories] = await Promise.all([
+    v2Ids.length === 0
+      ? []
+      : prisma.userMemory.findMany({
+          where: { userId: { in: v2Ids }, createdVia: { notIn: ROOM_HIDDEN_VIA } },
+          select: {
+            id: true,
+            userId: true,
+            year: true,
+            month: true,
+            title: true,
+            content: true,
+            createdAt: true,
+            user: { select: { name: true, email: true } },
+            // 연결된 사건의 분야 — 음악이면 "들어보기"(제목·설명 = 유튜브 검색어)
+            event: { select: { title: true, description: true, domain: true } },
+          },
+        }),
+    v3Ids.length === 0
+      ? []
+      : prisma.episode.findMany({
+          // 이야기만(A — SELF 빼고). 확정 시기에 붙은 것만(My Life 와 같음). 사람·장소·사진은 고르지도 않음(D).
+          where: { kind: "STORY", lifeEvent: { userId: { in: v3Ids }, status: { in: [...STORY_EVENT_STATUS] } } },
+          select: {
+            year: true,
+            content: true,
+            createdAt: true,
+            memoryId: true,
+            memory: { select: { title: true } },
+            lifeEvent: { select: { userId: true, year: true, correctedYear: true, user: { select: { name: true, email: true } } } },
+          },
+        }),
+  ]);
+
+  const rows: RoomMemory[] = [
+    ...memories,
+    ...stories.map((s) => ({
+      id: s.memoryId,
+      userId: s.lifeEvent.userId,
+      // B — 이야기 연도 ?? 시기 연도(정정값 우선). 없으면 null = 연도 모름 묶음(브릿지 메모리의 "올해" 대신값은 안 씀)
+      year: s.year ?? s.lifeEvent.correctedYear ?? s.lifeEvent.year,
+      month: null,
+      title: s.memory.title.trim(),
+      content: s.content,
+      createdAt: s.createdAt,
+      user: s.lifeEvent.user,
+      event: null,
+    })),
+  ];
+  return rows.sort(
+    (a, b) =>
+      (a.year ?? Infinity) - (b.year ?? Infinity) ||
+      (a.month ?? 13) - (b.month ?? 13) ||
+      a.createdAt.getTime() - b.createdAt.getTime() ||
+      a.id.localeCompare(b.id),
+  );
+}
+
+/**
+ * 이 기록이 이 룸에 보이는지 — listRoomMemories 와 같은 규칙(댓글·스탬프 대상 확인용).
+ * 작성자가 동의 멤버 · V3 = 확정 시기의 이야기(STORY) 브릿지만 · V2 = 안 보이는 종류 아님.
+ */
+export async function roomCanSeeMemory(roomId: string, memoryId: string): Promise<boolean> {
+  const [members, m] = await Promise.all([
+    consentedMembers(roomId),
+    prisma.userMemory.findUnique({
+      where: { id: memoryId },
+      select: { userId: true, createdVia: true, episode: { select: { kind: true, lifeEvent: { select: { status: true } } } } },
+    }),
+  ]);
+  const author = m ? members.find((x) => x.userId === m.userId) : undefined;
+  if (!m || !author) return false;
+  if (author.v3) {
+    return m.createdVia === CREATED_VIA_EPISODE && m.episode?.kind === "STORY" && (STORY_EVENT_STATUS as readonly string[]).includes(m.episode.lifeEvent.status);
+  }
+  return !ROOM_HIDDEN_VIA.includes(m.createdVia);
 }
 
 /**

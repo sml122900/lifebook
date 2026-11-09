@@ -22,7 +22,7 @@ async function main() {
   });
 
   try {
-    const room = await createRoom(alice.id, "우리 가족");
+    const room = await createRoom(alice.id, "우리 가족", true);
     console.log(`room ${room.id} name=${room.name}`);
 
     const aliceMember = await getMembership(alice.id, room.id);

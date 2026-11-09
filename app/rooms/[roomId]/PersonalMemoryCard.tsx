@@ -10,6 +10,7 @@ import { StampBar } from "./StampBar";
 
 // One room-view of a member's personal UserMemory. Read-only here;
 // edits happen only on the author's own /timeline.
+// 2026-11-09 — V3 My Life 이야기도 이 카드(제목 없는 이야기는 제목 줄 생략 — My Life 패널과 같은 규칙). 고치기·지우기 버튼 없음.
 
 type ReactionRow = {
   authorId: string;
@@ -105,7 +106,7 @@ export function PersonalMemoryCard({
           </span>
         )}
       </p>
-      <p className="mt-2 text-xl font-semibold text-ink">{memory.title}</p>
+      {memory.title && <p className="mt-2 text-xl font-semibold text-ink">{memory.title}</p>}
       {memory.content && (
         <p className="mt-2 whitespace-pre-wrap text-lg text-ink">
           {memory.content}

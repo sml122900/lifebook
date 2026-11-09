@@ -6,7 +6,7 @@
 
 import { prisma } from "./db";
 import { isStampKind, type StampKind } from "./reactions-policy";
-import { getMembership } from "./rooms";
+import { getMembership, roomCanSeeMemory } from "./rooms";
 
 export type ReactionTargetType = "user_memory" | "shared_memory";
 
@@ -57,18 +57,9 @@ export async function setReaction(
   const membership = await getMembership(authorId, roomId);
   if (!membership) throw new Error("not a member of this room");
 
-  // 대상이 이 룸의 동의 멤버 소유인지 — createComment 와 같은 가드.
+  // 대상이 이 룸에 보이는 기록인지 — createComment 와 같은 가드(룸 목록과 같은 규칙 roomCanSeeMemory, 2026-11-09).
   if (targetType === "user_memory") {
-    const memberIds = await prisma.roomMember.findMany({
-      where: { roomId, consentAt: { not: null } },
-      select: { userId: true },
-    });
-    const ids = new Set(memberIds.map((m) => m.userId));
-    const target = await prisma.userMemory.findUnique({
-      where: { id: targetId },
-      select: { userId: true },
-    });
-    if (!target || !ids.has(target.userId)) {
+    if (!(await roomCanSeeMemory(roomId, targetId))) {
       throw new Error("target not visible in this room");
     }
   } else {

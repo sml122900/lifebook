@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { ROOM_COPY } from "@/lib/room-copy";
+
 import { joinRoomAction } from "./actions";
 
 // 클라 컴포넌트 — 동의 체크 전까지 합류 버튼을 비활성화하기 위함. 서버
@@ -33,9 +35,9 @@ export function ConsentForm({ token }: { token: string }) {
           onChange={(e) => setAgreed(e.target.checked)}
           className="mt-1 h-6 w-6 shrink-0 accent-action focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
         />
+        {/* 공개 범위 = 룸 만들기 동의칸과 같은 문장(2026-11-09 성민 A~D) */}
         <span className="text-lg text-ink">
-          이 룸에 참여하면 <strong>내가 작성한 추억이 룸 멤버에게
-          보입니다</strong>. 위 내용에 동의합니다.
+          <strong>{ROOM_COPY.shareScope}</strong> {ROOM_COPY.memberAgree}
         </span>
       </label>
 

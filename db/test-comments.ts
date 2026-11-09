@@ -40,7 +40,7 @@ async function main() {
 
   try {
     // Track A walkthrough setup
-    const room = await createRoom(alice.id, "우리 가족");
+    const room = await createRoom(alice.id, "우리 가족", true);
     const invite = await createInvite(alice.id, room.id);
     await joinViaInvite(bob.id, invite.token);
 
