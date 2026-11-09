@@ -1,5 +1,20 @@
 # CLAUDE.md — 프로젝트 컨텍스트
 
+## ⚠️ 토스 카드사 심사 중 — 시작 2026-11-09(성민 신청일) · 끝 = 심사 결과(성민이 알려 줌)
+
+끝날 때까지 아래를 **바꾸지 않는다**(바꾸면 카드사 반려). 이 범위에 걸리는 변경이 필요하면 **커밋하지 말고 멈추고 성민에게 보고**한다.
+
+- 푸터의 사업자 정보·전화번호(`lib/commerce/business.ts` `BUSINESS_INFO` · `app/components/Footer.tsx`)
+- 상점 상품 구성·카테고리, 인쇄본 가격, 판매 상태 — 품절·숨김 금지(`lib/commerce/products.ts` · `lib/commerce/print-price.ts`)
+- 결제위젯 연동과 결제 흐름(상품 `/shop/mylife-print` → 인쇄본 `/my-life/print` → 주문 → 결제창)
+- 비로그인 상품 소개 페이지(`/shop` · `/shop/mylife-print` — 이 화면의 [임시] 문구도 확정안만 준비하고 반영은 심사 뒤)
+- 심사관 계정(`test111@test.com` · 이름 "김순자")의 데이터와 이름
+- `TOPUP_OPEN` 등 판매 관련 설정값(실결제 설정은 계속 꺼 둠)
+
+**배포(푸시) 전**: `npx next build` → `npx tsx db/test-toss-review-freeze.ts`(그 빌드로 로컬 서버를 띄워 비로그인 상품 페이지·푸터 글자·인쇄본 가격 표시, 판매 설정값, 심사관 계정을 기준값과 비교 — 쓰기 0). FAIL 이면 커밋·푸시하지 않고 보고한다(기준값을 고쳐 통과시키지 않는다). 운영 확인 = `--url https://lifebook-mauve.vercel.app`.
+
+심사 기간에 해도 되는 일: [임시] 문구 확정 준비, My Life·AI 기능 버그, 백로그 정리.
+
 > 이 파일은 Claude Code가 항상 읽는 프로젝트 개요다. 
 
 ## 1. Think Before Coding
@@ -140,12 +155,12 @@ proxy.ts                   # Next 16 라우트 보호 미들웨어
 10. **실제 모델·유료 API(Anthropic·Voyage)를 부르는 단독 스크립트(`db/` 아래, 회귀 세트 제외)는 `--run` 이 있을 때만 부른다.** 없으면 계획(무엇을 몇 번·예상 원가·DB 쓰기)만 출력하고 끝 — `db/run-guard.ts` `requireRun([...])` 을 `main()` 첫 줄에. 새 단독 스크립트도 같은 방식. 지금 적용 = `replay-proposals`·`replay-interview-year`(2026-11-08 — 인터뷰 연도 해석 모델 비교)·`lab-sync`·`lab-ask`·`lab-eval`·`seed-music-triggers`·`replay-map-agent`·`replay-map-edit`·`test-ai`·`test-assistant`·`test-assistant-depth`·`test-assistant-v3`·`test-h1-h2-fixes`·`test-memory-usage`·`test-rag`·`test-refine-lv2`·`test-voice-cleanup`·`test-voyage`(`test-lab-agent`·`test-lab-llm` 은 원래 `--live` 로 같은 원칙). 계기: 2026-11-03 옵션 없이 부른 재생 스크립트가 기본 비교 60회를 호출($1.23).
 11. **처리방침·약관 개정은 공지 장치에 먼저 등록 → 시행일 = 공지일 + 7일. 배포일 즉시 시행 금지(수집 축소 개정 포함 예외 없음, 법령상 즉시 필요한 경우만 성민 승인).** 성민이 승인한 예외는 등록의 `leadException`(승인 날짜·사유)에 적는다 — 첫 예외 v1.4(2026-11-06, 실사용자 0이라 대기 해제). 등록 = `lib/policy-notice.ts` `POLICY_NOTICES`(문서·판·띠용 짧은 요약 `short`(11자 — 390 두 줄 실측)·처리방침 상단 상세 `detail`·공지일·시행일). **`short` 작성 기준: 누구나 아는 말로 쓰고, 기술 용어(토큰 등)는 쓰지 않는다**(예: "로그인 토큰 저장 중단" ✕ → "로그인 정보 덜 보관" ○) — 공지일부터 처리방침 맨 위 "개정 안내" 줄·로그인한 화면 헤더 아래 띠가 시행일 뒤 7일까지 보인다. 문서 본문의 시행일·개정 이력도 그 시행일로(회귀 `test-auth` ③ 이 등록값·개정 이력을 확인). 계기: v1.2(2026-11-02)·v1.3(2026-11-03)이 시행일 = 배포일로 10항 "시행 전 서비스 내 공지"를 못 지킴.
 
-### 회귀 세트 (v3, 24종 — 2026-11-09 가족 룸 V3 연결 회귀 `test-family-room` 추가(룸 주인 동의·그때의 나 미노출·연도 모름·이야기만 공개·동의 전 미노출·댓글 대상·남의 이야기 못 고침·룸 나가기·다시 초대·룸 닫기 — 유료 호출 0) · 2026-11-08 강물 포스터 판매 종료로 `test-v3-poster-bridge` 퇴역(주문 막기 검사는 `test-print` ⑩ 로) · 2026-11-08 My Life 인쇄본 회귀 `test-print` 추가(배치 기하·빼기·간선·이니셜·장 이어짐·상한·가격 구간·PDF 구조·주문 = 서버 재계산·금액 전 거절·지도 무변 — 유료 호출 0·결제 호출 0) · 2026-11-07 AI 지도 편집 회귀 `test-map-edit` 추가(계획은 DB 안 바꿈·재생 세트 모의 응답·실행·되돌리기·남의 노드·builtin·깊이 거부 — 유료 호출 0) · 2026-11-07 지도 질문 답하기 회귀 `test-map-agent` 추가(보내는 칸 계약·별칭·루프·답 검증·재생 세트 모의 응답·원장·상한 — 유료 호출 0) · 2026-11-04 사용자 카테고리 회귀 `test-custom-graph` 추가(자리·넣기 역할·정합 점검 14·카테고리 지우기·탈퇴) · 2026-11-03 갱신, 노드 본문 회귀 `test-node-body` 추가(이야기 상세·블로그식 글·이전 판·인물 글) · 인증 회귀 `test-auth` 추가(소셜 토큰·가입 전 동의) · 인물 확인 화면 삭제와 함께 `test-node-confirm` 퇴역(남은 동명이인 검사는 `test-p14` 로) · 2026-11-02 My Life 개편 3단계 `test-my-life-edit` 추가 · 2단계 `test-chat-proposal` 추가 · `test-p15` 퇴역)
+### 회귀 세트 (v3, 25종 — 2026-11-09 토스 심사 기간 고정 점검 `test-toss-review-freeze` 추가(심사 기간 한정 — 맨 위 절. 빌드 뒤 실행: 그 빌드로 로컬 next start 를 스스로 띄움 · 비로그인 상품 페이지·푸터 글자·인쇄본 가격 표시·판매 설정값·심사관 계정 = 기준값 · 쓰기 0·모델 호출 0·결제 호출 0) · 2026-11-09 가족 룸 V3 연결 회귀 `test-family-room` 추가(룸 주인 동의·그때의 나 미노출·연도 모름·이야기만 공개·동의 전 미노출·댓글 대상·남의 이야기 못 고침·룸 나가기·다시 초대·룸 닫기 — 유료 호출 0) · 2026-11-08 강물 포스터 판매 종료로 `test-v3-poster-bridge` 퇴역(주문 막기 검사는 `test-print` ⑩ 로) · 2026-11-08 My Life 인쇄본 회귀 `test-print` 추가(배치 기하·빼기·간선·이니셜·장 이어짐·상한·가격 구간·PDF 구조·주문 = 서버 재계산·금액 전 거절·지도 무변 — 유료 호출 0·결제 호출 0) · 2026-11-07 AI 지도 편집 회귀 `test-map-edit` 추가(계획은 DB 안 바꿈·재생 세트 모의 응답·실행·되돌리기·남의 노드·builtin·깊이 거부 — 유료 호출 0) · 2026-11-07 지도 질문 답하기 회귀 `test-map-agent` 추가(보내는 칸 계약·별칭·루프·답 검증·재생 세트 모의 응답·원장·상한 — 유료 호출 0) · 2026-11-04 사용자 카테고리 회귀 `test-custom-graph` 추가(자리·넣기 역할·정합 점검 14·카테고리 지우기·탈퇴) · 2026-11-03 갱신, 노드 본문 회귀 `test-node-body` 추가(이야기 상세·블로그식 글·이전 판·인물 글) · 인증 회귀 `test-auth` 추가(소셜 토큰·가입 전 동의) · 인물 확인 화면 삭제와 함께 `test-node-confirm` 퇴역(남은 동명이인 검사는 `test-p14` 로) · 2026-11-02 My Life 개편 3단계 `test-my-life-edit` 추가 · 2단계 `test-chat-proposal` 추가 · `test-p15` 퇴역)
 
-v3·포스터 브릿지·오늘의 인터뷰·노드 그래프·My Life·자유 대화(/chat-v3)·로그인·가입·이야기 상세/글 고치기·사용자 카테고리·인쇄본·상품 주문·가족 룸을 건드린 변경 뒤에는 아래 24종을 전부 다시 돌린다. 실행: `npx tsx db/<이름>.ts`, 전부 exit 0 이어야 통과.
+v3·포스터 브릿지·오늘의 인터뷰·노드 그래프·My Life·자유 대화(/chat-v3)·로그인·가입·이야기 상세/글 고치기·사용자 카테고리·인쇄본·상품 주문·가족 룸을 건드린 변경 뒤에는 아래 25종을 전부 다시 돌린다(`test-toss-review-freeze` 는 `npx next build` 뒤 — 심사 기간에는 변경 종류와 상관없이 배포 전 매번). 실행: `npx tsx db/<이름>.ts`, 전부 exit 0 이어야 통과.
 ⚠️ 로컬 `.env` 가 운영 DB 다. 각 스크립트는 자기 전용 테스트·픽스처 계정만 만들고 지운다(test30·실고객 계정 접촉 0). test-person-mode(자유 대화 인물 주제 → 제안 카드 · 인물 dedup·호칭)·test-p23·test-open-promote(제안 카드·응답)·test-interview(연도 해석 1 + 이야기 후속·제안 카드 2~3회 + 관계별 나 제안 카드 1~2회)·test-chat-proposal(실제 모델 1편 — Haiku 응답 2 + Sonnet 제안 1, `--live` 를 주면 시나리오 6종 추가 — F = 운영 test30 E2E 같은 문장 재현, 별도 픽스처)은 실제 모델을 호출하고, test-withdrawal 은 Storage 에 테스트 파일을 올렸다 지운다. test-node-graph(정합 점검 함수·saveNodeLink·removeNodeLink 입구 포함)·test-my-life(My Life 데이터·배치)·test-my-life-edit(지도에서 만들기·넣기·되돌리기·빼기·옮기기·지우기)·test-auth(인증 — 소셜 토큰 저장 안 함·가입 전 동의)·test-node-body(이야기·인물 글 저장·이전 판·되돌리기 — 사진 1장을 Storage 에 올렸다 인물 삭제로 지움)·test-custom-graph(사용자 카테고리 — 자리·넣기 역할·정합 점검 14·지우기·탈퇴) 는 LLM 0(test-node-graph 는 운영 DB 카탈로그의 트리거·CHECK 존재도 조회). 실제 모델을 부르는 5개(test-chat-proposal·test-interview·test-open-promote·test-p23·test-person-mode)는 `db/live-log.ts` — 시작 때 테스트 한도(`CHAT_V3_TEST_BUDGET_USD`, 기본 $10)를 넘었으면 멈추고, 실패하면 입출력을 `db/test-logs/live-failures/`(커밋 안 함)에 남긴다. 테스트 계정 사용분은 운영 전역 예산에서 빠진다(2026-11-02).
 
-`test-p10-period-reentry` · `test-p11` · `test-p14` · `test-p16` · `test-p17` · `test-p18-1` · `test-p19` · `test-p21` · `test-p23` · `test-person-mode` · `test-open-promote` · `test-withdrawal` · `test-interview` · `test-node-graph` · `test-my-life` · `test-chat-proposal` · `test-my-life-edit` · `test-auth` · `test-node-body` · `test-custom-graph` · `test-map-agent` · `test-map-edit` · `test-print` · `test-family-room`
+`test-p10-period-reentry` · `test-p11` · `test-p14` · `test-p16` · `test-p17` · `test-p18-1` · `test-p19` · `test-p21` · `test-p23` · `test-person-mode` · `test-open-promote` · `test-withdrawal` · `test-interview` · `test-node-graph` · `test-my-life` · `test-chat-proposal` · `test-my-life-edit` · `test-auth` · `test-node-body` · `test-custom-graph` · `test-map-agent` · `test-map-edit` · `test-print` · `test-family-room` · `test-toss-review-freeze`
 
 ---
 
