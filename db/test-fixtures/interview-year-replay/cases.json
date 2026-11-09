@@ -1,5 +1,5 @@
 {
-  "note": "오늘의 인터뷰 연도 문항 답 해석 재생 세트(2026-11-08). 정규식(parseYearDeterministic)이 못 푸는 답만 — AI 경로를 탄다. 기대 = 앱 프롬프트 규칙(나이 N살 = 출생 + N · 국민학교 N학년 = 출생 + 6 + N · 중1 = +13 · 고1 = +16 · 출생 모름이면 나이로 계산 안 함 · 짐작 금지 = null). 지어낸 답만(실명 0). 2026-11-09 앞뒤 말 사례 2(era-imf-next·era-olympic-before — 큰 사건 연도표를 쓰면 안 되는 답).",
+  "note": "오늘의 인터뷰 연도 문항 답 해석 재생 세트(2026-11-08). 정규식(parseYearDeterministic)이 못 푸는 답만 — AI 경로를 탄다. 기대 = 앱 프롬프트 규칙(나이 N살 = 출생 + N · 국민학교 N학년 = 출생 + 6 + N · 중1 = +13 · 고1 = +16 · 출생 모름이면 나이로 계산 안 함 · 짐작 금지 = null). 지어낸 답만(실명 0). 2026-11-09 앞뒤 말 사례 4(era-imf-next·era-olympic-before·era-olympic-next·era-imf-prev — 표 연도 ± 칸수).",
   "now": "2026-11-08T03:00:00.000Z",
   "cases": [
     { "id": "era-olympic-88", "birthYear": 1956, "answer": "88올림픽 하던 해였어요", "expectYear": 1988 },
@@ -10,6 +10,8 @@
     { "id": "era-629", "birthYear": 1956, "answer": "육이구 선언 나오던 해였어요", "expectYear": 1987 },
     { "id": "era-imf-next", "birthYear": 1956, "answer": "IMF 터지고 이듬해였어요", "expectYear": 1998 },
     { "id": "era-olympic-before", "birthYear": 1956, "answer": "88올림픽 두 해 전이에요", "expectYear": 1986 },
+    { "id": "era-olympic-next", "birthYear": 1956, "answer": "88올림픽 그다음 해였어요", "expectYear": 1989 },
+    { "id": "era-imf-prev", "birthYear": 1956, "answer": "IMF 터지기 전해였어요", "expectYear": 1996 },
     { "id": "age-12", "birthYear": 1956, "answer": "열두 살 때였어요", "expectYear": 1968 },
     { "id": "age-25", "birthYear": 1956, "answer": "스물다섯 살에 결혼했으니까 그때예요", "expectYear": 1981 },
     { "id": "age-30", "birthYear": 1956, "answer": "서른 살 되던 해", "expectYear": 1986 },

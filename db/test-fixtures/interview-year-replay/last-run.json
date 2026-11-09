@@ -1,381 +1,81 @@
 {
-  "at": "2026-11-09T01:43:01.149Z",
-  "n": 10,
-  "stopped": false,
-  "spentUsd": 0.61383,
+  "at": "2026-11-09T03:50:29.591Z",
+  "n": 20,
+  "relativeOnly": true,
+  "note": "2026-11-09 채택 비교 — 앞뒤 말 문항 5건 × 20회. sonnet = 1차 실행(원가 $0.1154), era-olympic-next 기대값을 1990→1989(그다음 해 = +1)로 고친 뒤 받은 값 분포로 다시 셈(새 호출 0). sonnet+table = 고친 규칙으로 2차 실행($0.0295). 합계 $0.1745.",
+  "spentUsd": 0.1745,
   "report": {
     "sonnet": {
-      "calls": 300,
-      "micro": 338790,
-      "hits": 247,
+      "calls": 100,
+      "micro": 115440,
+      "hits": 76,
       "perCase": {
-        "era-olympic-88": {
-          "hit": 10,
-          "got": {
-            "1988": 10
-          }
-        },
-        "era-seoul-olympic": {
-          "hit": 10,
-          "got": {
-            "1988": 10
-          }
-        },
-        "era-imf": {
-          "hit": 10,
-          "got": {
-            "1997": 10
-          }
-        },
-        "era-worldcup": {
-          "hit": 10,
-          "got": {
-            "2002": 10
-          }
-        },
-        "era-summit": {
-          "hit": 10,
-          "got": {
-            "2000": 10
-          }
-        },
-        "era-629": {
-          "hit": 0,
-          "got": {
-            "1989": 10
-          }
-        },
         "era-imf-next": {
-          "hit": 7,
+          "hit": 16,
           "got": {
-            "1998": 7,
-            "1999": 3
+            "1998": 16,
+            "1999": 4
           }
         },
         "era-olympic-before": {
-          "hit": 10,
+          "hit": 20,
           "got": {
-            "1986": 10
+            "1986": 20
           }
         },
-        "age-12": {
-          "hit": 10,
+        "era-olympic-next": {
+          "hit": 20,
           "got": {
-            "1968": 10
+            "1989": 20
           }
         },
-        "age-25": {
-          "hit": 10,
+        "era-imf-prev": {
+          "hit": 20,
           "got": {
-            "1981": 10
-          }
-        },
-        "age-30": {
-          "hit": 10,
-          "got": {
-            "1986": 10
-          }
-        },
-        "age-35": {
-          "hit": 10,
-          "got": {
-            "1991": 10
-          }
-        },
-        "age-40": {
-          "hit": 10,
-          "got": {
-            "1996": 10
+            "1996": 20
           }
         },
         "age-24-army": {
           "hit": 0,
           "got": {
-            "null": 10
-          }
-        },
-        "age-19-1970": {
-          "hit": 10,
-          "got": {
-            "1989": 10
-          }
-        },
-        "age-50-1948": {
-          "hit": 10,
-          "got": {
-            "1998": 10
-          }
-        },
-        "school-elem-3": {
-          "hit": 10,
-          "got": {
-            "1965": 10
-          }
-        },
-        "school-elem-enter": {
-          "hit": 0,
-          "got": {
-            "null": 10
-          }
-        },
-        "school-mid-1": {
-          "hit": 0,
-          "got": {
-            "null": 10
-          }
-        },
-        "school-high-1": {
-          "hit": 0,
-          "got": {
-            "null": 10
-          }
-        },
-        "korean-1979": {
-          "hit": 10,
-          "got": {
-            "1979": 10
-          }
-        },
-        "korean-79": {
-          "hit": 10,
-          "got": {
-            "1979": 10
-          }
-        },
-        "korean-85": {
-          "hit": 10,
-          "got": {
-            "1985": 10
-          }
-        },
-        "korean-96": {
-          "hit": 10,
-          "got": {
-            "1996": 10
-          }
-        },
-        "korean-2003": {
-          "hit": 10,
-          "got": {
-            "2003": 10
-          }
-        },
-        "null-long-ago": {
-          "hit": 10,
-          "got": {
-            "null": 10
-          }
-        },
-        "null-spring": {
-          "hit": 10,
-          "got": {
-            "null": 10
-          }
-        },
-        "null-kids-young": {
-          "hit": 10,
-          "got": {
-            "null": 10
-          }
-        },
-        "null-80s-early": {
-          "hit": 10,
-          "got": {
-            "null": 10
-          }
-        },
-        "null-no-birth": {
-          "hit": 10,
-          "got": {
-            "null": 10
+            "null": 20
           }
         }
       }
     },
     "sonnet+table": {
-      "calls": 240,
-      "micro": 275040,
-      "hits": 253,
+      "calls": 20,
+      "micro": 29520,
+      "hits": 80,
       "perCase": {
-        "era-olympic-88": {
-          "hit": 10,
-          "got": {
-            "1988": 10
-          }
-        },
-        "era-seoul-olympic": {
-          "hit": 10,
-          "got": {
-            "1988": 10
-          }
-        },
-        "era-imf": {
-          "hit": 10,
-          "got": {
-            "1997": 10
-          }
-        },
-        "era-worldcup": {
-          "hit": 10,
-          "got": {
-            "2002": 10
-          }
-        },
-        "era-summit": {
-          "hit": 10,
-          "got": {
-            "2000": 10
-          }
-        },
-        "era-629": {
-          "hit": 10,
-          "got": {
-            "1987": 10
-          }
-        },
         "era-imf-next": {
-          "hit": 3,
+          "hit": 20,
           "got": {
-            "1998": 3,
-            "1999": 7
+            "1998": 20
           }
         },
         "era-olympic-before": {
-          "hit": 10,
+          "hit": 20,
           "got": {
-            "1986": 10
+            "1986": 20
           }
         },
-        "age-12": {
-          "hit": 10,
+        "era-olympic-next": {
+          "hit": 20,
           "got": {
-            "1968": 10
+            "1989": 20
           }
         },
-        "age-25": {
-          "hit": 10,
+        "era-imf-prev": {
+          "hit": 20,
           "got": {
-            "1981": 10
-          }
-        },
-        "age-30": {
-          "hit": 10,
-          "got": {
-            "1986": 10
-          }
-        },
-        "age-35": {
-          "hit": 10,
-          "got": {
-            "1991": 10
-          }
-        },
-        "age-40": {
-          "hit": 10,
-          "got": {
-            "1996": 10
+            "1996": 20
           }
         },
         "age-24-army": {
           "hit": 0,
           "got": {
-            "null": 10
-          }
-        },
-        "age-19-1970": {
-          "hit": 10,
-          "got": {
-            "1989": 10
-          }
-        },
-        "age-50-1948": {
-          "hit": 10,
-          "got": {
-            "1998": 10
-          }
-        },
-        "school-elem-3": {
-          "hit": 10,
-          "got": {
-            "1965": 10
-          }
-        },
-        "school-elem-enter": {
-          "hit": 0,
-          "got": {
-            "null": 10
-          }
-        },
-        "school-mid-1": {
-          "hit": 0,
-          "got": {
-            "null": 10
-          }
-        },
-        "school-high-1": {
-          "hit": 0,
-          "got": {
-            "null": 10
-          }
-        },
-        "korean-1979": {
-          "hit": 10,
-          "got": {
-            "1979": 10
-          }
-        },
-        "korean-79": {
-          "hit": 10,
-          "got": {
-            "1979": 10
-          }
-        },
-        "korean-85": {
-          "hit": 10,
-          "got": {
-            "1985": 10
-          }
-        },
-        "korean-96": {
-          "hit": 10,
-          "got": {
-            "1996": 10
-          }
-        },
-        "korean-2003": {
-          "hit": 10,
-          "got": {
-            "2003": 10
-          }
-        },
-        "null-long-ago": {
-          "hit": 10,
-          "got": {
-            "null": 10
-          }
-        },
-        "null-spring": {
-          "hit": 10,
-          "got": {
-            "null": 10
-          }
-        },
-        "null-kids-young": {
-          "hit": 10,
-          "got": {
-            "null": 10
-          }
-        },
-        "null-80s-early": {
-          "hit": 10,
-          "got": {
-            "null": 10
-          }
-        },
-        "null-no-birth": {
-          "hit": 10,
-          "got": {
-            "null": 10
+            "null": 20
           }
         }
       }

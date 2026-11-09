@@ -44,7 +44,8 @@ export function parseYearDeterministic(text: string, birthYear: number | null, n
   return null;
 }
 
-// 답에 큰 사건 이름("88올림픽 하던 해" 등)이 있으면 표의 해 — 모델보다 먼저(2026-11-09 성민). 범위(출생 ~ 올해) 밖이면 null.
+// 답에 큰 사건 이름("88올림픽 하던 해" 등)이 있으면 표의 해(+ "이듬해"·"두 해 전" 같은 칸수 말이면 ±1·±2) — 모델보다 먼저
+// (2026-11-09 성민 채택). 칸수가 안 정해진 말("끝나고"·"몇 년 뒤")·기간 말("IMF 때")은 null → Sonnet. 범위(출생 ~ 올해) 밖이면 null.
 export function parseYearFromEraTable(text: string, birthYear: number | null, now: Date): number | null {
   const hit = eraYearFromAnswer(text);
   if (!hit) return null;

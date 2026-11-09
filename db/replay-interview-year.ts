@@ -2,7 +2,9 @@
 // 기대 연도 적중률을 낸다(CLAUDE.md 작업 규칙 9 — 모델·프롬프트를 바꾸면 전후 각 10회 비교). 2026-11-08: Sonnet 4.6 → Haiku 4.5 비교.
 // 2026-11-09: 큰 사건 연도표(lib/era-year-table) 전후 — 변형 "sonnet+table" = 앱처럼 표가 맞으면 그 해(AI 0회), 아니면 같은 모델.
 //
-// 실행: npx tsx db/replay-interview-year.ts [--models sonnet,sonnet+table] [--n 10] [--max-usd 1] [--run]
+// 2026-11-09 채택 비교: 표 + 앞뒤 칸수(±1·±2) — `--relative` = 앞뒤 말이 있는 문항만(lib/era-year-table hasRelativeWords).
+//
+// 실행: npx tsx db/replay-interview-year.ts [--models sonnet,sonnet+table] [--n 10] [--max-usd 1] [--relative] [--run]
 //   --run 이 없으면 비교 계획(사례 수·모델·호출 수·예상 원가·오늘 테스트 원가)만 출력하고 끝(호출 0 — 작업 규칙 10).
 // 호출 = 앱과 같은 함수(lib/interview/year parseYearWithAi — 모델만 바꿈). 사례는 정규식이 못 푸는 답만(AI 경로) — 시작 때 확인.
 // 판정 = 반환 연도 === expectYear(null 기대는 null 일 때만 적중). 원가 = 호출마다 토큰 × 단가(lib/chat-v3-usage costMicroUsd),
@@ -20,6 +22,7 @@ import { modelId } from "../lib/ai-model";
 import { costMicroUsd, testBudgetMicroUsd, testSpentTodayMicroUsd } from "../lib/chat-v3-usage";
 import { prisma } from "../lib/db";
 import { isUnknownYearAnswer, parseYearDeterministic, parseYearFromEraTable, parseYearWithAi } from "../lib/interview/year";
+import { hasRelativeWords } from "../lib/era-year-table";
 import { requireTestBudget } from "./live-log";
 import { requireRun } from "./run-guard";
 
@@ -44,6 +47,7 @@ const estOf = (id: string) => (id.includes("haiku") ? 0.0004 : 0.0012);
 
 async function main() {
   const spec = JSON.parse(fs.readFileSync(FILE, "utf8")) as { now: string; cases: Case[] };
+  if (process.argv.includes("--relative")) spec.cases = spec.cases.filter((c) => hasRelativeWords(c.answer));
   const now = new Date(spec.now);
   const models = arg("models", "sonnet,sonnet+table").split(",").filter(Boolean).map(resolveModel);
   const n = Number(arg("n", "10"));

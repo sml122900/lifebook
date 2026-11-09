@@ -4,7 +4,8 @@
 //      진입 카드 항상 표시·게이트 잔재 0·proxy 무접촉
 //   ② 세션 생성 — 계획 고정·출처 혼합·하루 1세션(두 번 시작해도 한 벌)
 //   ③ 이어하기 — 다시 들어와도 같은 문항, 이미 본 문항이 있으면 resumed
-//   ④ 연도(실제 Sonnet 1회 — 2026-11-09 Haiku 에서 되돌림) — year 만 채움, status·correctedYear·unclearCount 무변, AI 사용량 기록
+//   ④ 연도(실제 Sonnet 1회 — 2026-11-09 Haiku 에서 되돌림) — year 만 채움, status·correctedYear·unclearCount 무변, AI 사용량 기록 ·
+//      큰 사건 연도표·앞뒤 칸수(2026-11-09 채택 — AI 0회): 표 조회 · ±1·±2 · 칸수 안 정해진 말·기간 말·"전해 들었다" = 표 안 씀 · 범위 밖 null
 //   ⑤ 이야기(실제 Sonnet 후속 1 + 요약 1~2 + 인물 추출 1) — Episode(구간 아님·풀 제목) + AI 사용량
 //   ⑥ 그사이 채워진 문항은 DROPPED, 종료 요약·진입 카드
 //   ⑦ 중복 질문 미출제 — 다음 날·8일 뒤 계획, 재노출 규칙(Q4·Q5) 순수 함수, 풀 대상 시기
@@ -59,7 +60,8 @@ import {
   startInterviewSession,
   type InterviewState,
 } from "../lib/interview/session";
-import { isUnknownYearAnswer, parseYearDeterministic } from "../lib/interview/year";
+import { isUnknownYearAnswer, parseYearDeterministic, parseYearFromEraTable, parseYearLocal } from "../lib/interview/year";
+import { eraYearFromAnswer } from "../lib/era-year-table";
 import type { LifeEventType } from "../lib/generated/prisma/enums";
 import { requireTestBudget, saveLiveFailure } from "./live-log";
 
@@ -237,6 +239,23 @@ function pureChecks() {
   check("④ 출생 전 '1950' → null", parseYearDeterministic("1950년", 1960, now) === null);
   check("④ 나이 표현은 정규식이 안 함 → null", parseYearDeterministic("스물여섯 살 때요", 1960, now) === null);
   check("④ '기억이 안 나요' = 모름", isUnknownYearAnswer("기억이 안 나요") && isUnknownYearAnswer("잘 모르겠어요"));
+  // 큰 사건 연도표(lib/era-year-table — 2026-11-09 채택, 재생 각 20회: 표 + 칸수 80/100 · 이듬해·두 해 전 20/20)
+  const era = (t: string) => eraYearFromAnswer(t)?.year ?? null;
+  check("④ 연도표 조회 — 88올림픽·서울 올림픽 1988 · IMF 터지던 1997 · 한일 월드컵 2002 · 육이구 선언 1987 · 처음 정상회담 2000 · 세월호 2014",
+    era("88올림픽 하던 해였어요") === 1988 && era("서울 올림픽 하던 해") === 1988 && era("IMF 터지던 해였어요") === 1997 && era("한일 월드컵 하던 해였죠") === 2002 &&
+      era("육이구 선언 나오던 해였어요") === 1987 && era("남북정상회담 처음 하던 해") === 2000 && era("세월호 때였어요") === 2014);
+  check("④ 앞뒤 칸수 — 이듬해·다음 해·그다음 해·한 해 뒤 +1 · 전해·그 전해·한 해 전 −1 · 두 해 전·두 해 뒤·다다음 해·전전해 ±2",
+    era("IMF 터지고 이듬해였어요") === 1998 && era("88올림픽 다음 해예요") === 1989 && era("88올림픽 그다음 해였어요") === 1989 && era("88올림픽 한 해 뒤") === 1989 &&
+      era("IMF 터지기 전해였어요") === 1996 && era("88올림픽 그 전해예요") === 1987 && era("88올림픽 1년 전") === 1987 &&
+      era("88올림픽 두 해 전이에요") === 1986 && era("88올림픽 두 해 뒤") === 1990 && era("88올림픽 다다음 해") === 1990 && era("IMF 터지기 전전해였어요") === 1995);
+  check("④ 표 안 씀(→ Sonnet) — 칸수 안 정해진 말(끝나고·몇 년 뒤·세 해 뒤·열한 해 뒤·12년 후·전에) · 기간 말(IMF 때) · 칸수 말 둘 · 사건 없는 칸수 말",
+    [
+      "88올림픽 끝나고 이듬해", "88올림픽 몇 년 뒤", "88올림픽 세 해 뒤", "88올림픽 열한 해 뒤", "88올림픽 12년 후", "88올림픽 하기 전에",
+      "IMF 때 가게 문 닫았어요", "IMF 때 이듬해", "이듬해 88올림픽 다음 해", "군대 제대하고 이듬해요",
+    ].every((t) => era(t) === null));
+  check("④ \"전해 들었다\"(전하다)는 칸수 아님 · 범위 밖(출생 전) = null · 앱 순서 = 정규식 → 연도표",
+    era("88올림픽 소식을 전해 들었어요") === 1988 && parseYearFromEraTable("88올림픽 하던 해", 1990, now) === null &&
+      parseYearLocal("IMF 터지고 이듬해였어요", 1956, now) === 1998 && parseYearLocal("85년도요", 1960, now) === 1985);
 
   // ⑦ 재노출 규칙(Q4·Q5).
   const h = (itemKey: string, status: string, day: string, refId: string | null = "x"): PlanHistoryRow => ({ itemKey, status, day, refId });
