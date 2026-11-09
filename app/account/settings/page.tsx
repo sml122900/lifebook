@@ -96,7 +96,7 @@ export default async function AccountSettingsPage() {
       <section className="rounded-md border-2 border-line bg-banner p-5">
         <h2 className="text-2xl font-bold text-ink">토큰</h2>
         <p className="mt-2 text-base text-ink-soft">
-          {/* 충전 비공개(2026-11-09 — TOPUP_OPEN) 동안은 충전 말 없이 */}
+          {/* 충전 비공개(2026-11-09 — TOPUP_OPEN) 동안은 충전 말 없이 [임시 — 성민 확정 필요] 2026-11-09 */}
           {TOPUP_OPEN ? "잔액 확인, 매일 출석체크, 충전을 한 화면에서." : "잔액 확인과 매일 출석체크를 한 화면에서."}
         </p>
         <Link

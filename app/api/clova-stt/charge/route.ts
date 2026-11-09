@@ -76,7 +76,7 @@ export async function POST(req: Request) {
   } catch (e) {
     if (e instanceof InsufficientBalanceError) {
       return NextResponse.json(
-        { ok: false, error: "토큰이 부족해요." + lowBalanceTail(" 충전 후 다시 시도해 주세요.") },
+        { ok: false, error: "토큰이 부족해요." + lowBalanceTail(" 충전 후 다시 시도해 주세요.") }, // 충전 비공개 동안 "토큰이 부족해요."만 [임시 — 성민 확정 필요] 2026-11-09
         { status: 402 },
       );
     }

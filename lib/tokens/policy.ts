@@ -15,7 +15,7 @@ export const AI_TOKENS_PER_SERVICE_TOKEN = 2000;
  */
 export const TOPUP_OPEN = false;
 
-/** 토큰이 부족할 때 붙이는 끝말 — 충전이 열려 있을 때만 "충전 후 다시". */
+/** 토큰이 부족할 때 붙이는 끝말 — 충전이 열려 있을 때만 "충전 후 다시". 닫혀 있으면 부르는 곳의 "토큰이 부족해요."만 — [임시 — 성민 확정 필요] 2026-11-09(부르는 곳 5곳). */
 export const lowBalanceTail = (tail = " 충전 후 다시 시도해 주세요."): string => (TOPUP_OPEN ? tail : "");
 
 /** 신규 사용자에게 무료로 주는 토큰. 약 50회 추억 사이클 분량(경영방 확정). */

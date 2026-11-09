@@ -121,7 +121,7 @@ export function AnswerForm({
           const message = err instanceof Error ? err.message : String(err);
           if (message.includes("insufficient balance")) {
             setSubmitError(
-              "토큰이 부족해요." + lowBalanceTail(" 충전하시고 다시 시도해 주세요."),
+              "토큰이 부족해요." + lowBalanceTail(" 충전하시고 다시 시도해 주세요."), // 충전 비공개 동안 "토큰이 부족해요."만 [임시 — 성민 확정 필요] 2026-11-09
             );
           } else {
             // Next.js 의 redirect() 는 특수 객체를 throw 한다 — 그대로
