@@ -9,6 +9,7 @@ import { createEpisodeBridge } from "../lib/episode";
 import type { MapEditPlanResult } from "../lib/map-edit";
 import { planLine } from "../lib/map-edit-plan";
 import type { MapView } from "../lib/map-agent-view";
+import { MY_LIFE_COPY } from "../lib/my-life-copy";
 import { addLink } from "../lib/my-life-edit";
 
 export type EditCase = {
@@ -33,7 +34,7 @@ export function judgePlan(c: EditCase, r: MapEditPlanResult): { pass: boolean; l
   const pass = c.expectLines
     ? JSON.stringify(lines) === JSON.stringify(c.expectLines) || (!!c.alsoQuestion && !!r.question && lines.length === 0)
     : c.expectPersonNote
-      ? lines.length === 0 && !r.question && !!r.note && r.note.includes("[이 노드 지우기]")
+      ? lines.length === 0 && !r.question && !!r.note && r.note.includes(`[${MY_LIFE_COPY.edit.deleteNode.person}]`)
       : c.expectQuestion
         ? !!r.question && lines.length === 0
         : c.expectUnsupported

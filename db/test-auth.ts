@@ -218,7 +218,7 @@ async function main() {
         read("app/privacy/page.tsx").includes(`const notice = activeNotice("privacy");`) &&
         read("app/terms/page.tsx").includes(`const notice = activeNotice("terms");`) && read("app/terms/page.tsx").includes("<p id={NOTICE_ANCHOR}") &&
         read("app/refund/page.tsx").includes(`const notice = activeNotice("refund");`) && read("app/refund/page.tsx").includes("<p id={NOTICE_ANCHOR}") &&
-        POLICY_NOTICE_COPY.more.refund === "환불정책 보기" && noticeHref({ doc: "refund" }) === "/refund#policy-notice");
+        POLICY_NOTICE_COPY.more.refund === "환불·교환 보기" && noticeHref({ doc: "refund" }) === "/refund#policy-notice"); // 2026-11-10 성민 — 390 두 줄 안
     // 환불 정책 v1.1(2026-11-09) — 약관 제15조 ①·④·제16조 ①에 맞춤(성민). 옛 "늦은 날부터 7일"·"7일 이내 무상"·"취소 확인 후 3영업일" 없음.
     const refundLines = read("lib/commerce/order-display.ts");
     check("③ 환불 정책 v1.1 — 7일 = 계약 내용 서면 받은 날(늦게 받으면 받은 날) · 하자 = 받은 날 3개월·안 날 30일 · 환불 = 돌려받은 날 3영업일 · 옛 문구 없음 · 고객센터 답도 같음",

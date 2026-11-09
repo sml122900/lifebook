@@ -14,7 +14,7 @@ export const POLICY_NOTICE_COPY = {
       ? `${n.short} · ${formatNoticeDay(n.effectiveDay, true)}부터`
       : `${n.short} · ${formatNoticeDay(n.effectiveDay, true)}부터 적용`,
   // 띠 버튼 — 등록의 문서 종류로(그 문서 맨 위 "개정 안내" 줄로 감 — noticeHref). "약관 보기"가 더 짧아 띠 요약 11자 상한 그대로.
-  more: { privacy: "처리방침 보기", terms: "약관 보기", refund: "환불정책 보기" } satisfies Record<PolicyDoc, string>, // refund [임시 — 성민 확정 필요] 2026-11-09 · "환불·교환 정책 보기"는 390 에서 띠 요약이 세 줄로 잘려 보류(2026-11-10 실측 — docs/temp-copy-inventory.md 부록 D)
+  more: { privacy: "처리방침 보기", terms: "약관 보기", refund: "환불·교환 보기" } satisfies Record<PolicyDoc, string>, // refund 2026-11-10 성민 "환불·교환 보기"(390 버튼 119px — 가장 긴 띠 요약도 두 줄 · "환불·교환 정책 보기"는 세 줄로 잘려 안 씀 — docs/temp-copy-inventory.md 부록 D)
   close: "닫기",
   // 문서 맨 위 "개정 안내" 줄 — 조사는 괄호(판) 앞 문서 이름으로 고름(2026-11-10 — lib/josa)
   pageLine: (n: ActiveNotice) => {

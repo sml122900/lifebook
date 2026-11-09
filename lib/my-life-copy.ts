@@ -5,6 +5,21 @@
 
 import { withJosa } from "./josa";
 
+// 패널 맨 아래 지우기 버튼 — 노드 종류별 이름(2026-11-10 성민 — 옛 버튼 이름 한 가지에서 내부 용어 "노드"를 뺌).
+// 그때의 나도 이야기 패널이라 story. 묶음(장소 묶음·카테고리 묶음)·카테고리 이름은 지시 목록 밖이라 [임시 — 성민 확정 필요].
+// 이 버튼 이름을 안내하는 곳(body.errEmpty·ask.plan.personDelete·고객센터 답)도 이 값을 쓴다.
+const DELETE_NODE = {
+  period: "이 시기 지우기",
+  story: "이 이야기 지우기",
+  person: "이 분 지우기",
+  place: "이 장소 지우기",
+  group: "이 모임 지우기",
+  placeGroup: "이 묶음 지우기",
+  category: "이 카테고리 지우기",
+  customGroup: "이 묶음 지우기",
+  item: "이 항목 지우기",
+} as const;
+
 export const MY_LIFE_COPY = {
   // 확정(성민 2026-11-01)
   menuLabel: "My Life",
@@ -92,8 +107,8 @@ export const MY_LIFE_COPY = {
     unsaved: "저장하지 않은 글이 있어요. 나가면 고친 내용이 사라져요.",
     unsavedLeave: "저장 안 하고 나가기",
     unsavedStay: "계속 고치기",
-    // [이 노드 지우기] = My Life 이야기 패널의 실제 버튼 이름(edit.deleteNode).
-    errEmpty: "글이 비어 있어요. 이야기를 지우려면 My Life에서 [이 노드 지우기]를 눌러 주세요.",
+    // 버튼 이름 = My Life 이야기 패널의 실제 버튼(edit.deleteNode.story — 2026-11-10 종류별 이름으로 바뀜).
+    errEmpty: `글이 비어 있어요. 이야기를 지우려면 My Life에서 [${DELETE_NODE.story}]를 눌러 주세요.`,
     errTooLong: "문단은 3,000자, 소제목은 40자, 사진 설명은 200자까지 적을 수 있어요. 문단·소제목·사진은 모두 60개까지예요.",
     // 충돌(2026-11-04) — 고치던 글을 이전 판(저장되지 않은 글)으로 남긴 때.
     errConflict: "다른 창이나 기기에서 먼저 고쳤어요. 고치던 글은 이전 판에 남겨 뒀어요. 다시 불러온 뒤 고쳐 주세요.",
@@ -176,7 +191,7 @@ export const MY_LIFE_COPY = {
   tourLine: (at: number, n: number, name: string) => `연결 ${at}/${n} · ${name}`,
   tourNext: "다음 연결",
   tourBack: "처음으로", // 마지막 다음 — 고른 노드로 돌아가고 차례 보기 끝
-  tourBackLabel: (name: string) => `처음 노드로 돌아가기 — ${name}`,
+  tourBackLabel: (name: string) => `처음 자리로 돌아가기 — ${name}`, // 2026-11-10 "처음 노드로" → "처음 자리로"(성민)
   inStory: (title: string) => `‘${title}’ 이야기에 나와요`, // 시기 패널 — 시기에 바로 잇지 않고 이야기에서만 나온 분·곳
   moveBarLabel: "지도에서 가기", // 도구줄 이동 줄(시간 줄기·인물록·장소록) 이름(화면 낭독용)
   panelStoriesWith: "나온 이야기",
@@ -286,7 +301,7 @@ export const MY_LIFE_COPY = {
     removeDo: "뺄게요",
     removed: "뺐어요.",
     subjectNote: "이 이야기의 주인공이라 뺄 수 없어요.",
-    deleteNode: "이 노드 지우기",
+    deleteNode: DELETE_NODE, // 노드 종류별 버튼 이름(위 DELETE_NODE — 2026-11-10)
     deleteTitle: (name: string) => `${name}${withJosa(name, "을/를")} 지울까요?`,
     // 이어진 것 중 0 이 아닌 것만(parts = linkStories·linkPeople·linkPlaces 결과).
     deleteLinked: (parts: string[]) => {
@@ -453,7 +468,7 @@ export const MY_LIFE_COPY = {
       mergeDo: "합치기",
       irreversible: "되돌릴 수 없어요.",
       staleImpact: "그사이 기록이 바뀌어서 하지 않았어요. 다시 부탁해 주세요.",
-      personDelete: (name: string) => `‘${name}’ 님은 여기서 지울 수 없어요. 지도에서 ‘${name}’ 님을 눌러 [이 노드 지우기]로 지워 주세요.`,
+      personDelete: (name: string) => `‘${name}’ 님은 여기서 지울 수 없어요. 지도에서 ‘${name}’ 님을 눌러 [${DELETE_NODE.person}]로 지워 주세요.`,
       // 넣을 곳 — 묶음을 두 번 골랐는데 요청엔 위 카테고리 이름만 있을 때 코드가 되묻는다(2026-11-07 성민)
       askWhere: (member: string, category: string, group: string) => `‘${member}’${withJosa(member, "을/를")} ‘${category}’에 바로 넣을까요, ‘${group}’ 묶음에 넣을까요?`,
       oneAtATime: "지우기와 합치기는 다른 일과 따로 부탁해 주세요.",
@@ -490,7 +505,7 @@ export const MY_LIFE_COPY = {
     aiTitle: "막히면 AI에게",
     aiBody: "[찾기]에서 [AI에게 부탁하기]를 누르면 말로 물어보거나 고쳐 달라고 할 수 있어요. 아래 예시를 눌러 보세요.",
     aiAsk: (q: string) => `물어보기 예시: ${q}`,
-    aiEdit: (q: string) => `지도 고치기 예시: ${q}`,
+    aiEdit: (q: string) => `고치기 예시: ${q}`, // 2026-11-10 390 한 줄(260px — 33자 두 줄이던 것, 성민 1안)
     aiEditNote: "고치기 전에 무엇을 할지 먼저 보여 주고, 되돌릴 수도 있어요.",
     endTitle: "다 봤어요",
     endBody: "지도는 직접 만들어도 되고, 막히면 AI에게 말해 주세요.",
@@ -511,7 +526,7 @@ export const MY_LIFE_COPY = {
     fakeCandidateRel: "동생",
     askQ: "연날리기에 누가 나와?",
     askA: "연날리기에는 민지 님이 나와요.",
-    editQ: "연날리기 이름을 겨울 연날리기로 바꿔 줘",
+    editQ: "겨울 연날리기로 바꿔 줘",
   },
 
   // 우주 개편 U1(2026-11-05 — docs/phase/ui-space.md §1·§3) — 확정 2026-11-05(성민). 아래 space 전부 확정.

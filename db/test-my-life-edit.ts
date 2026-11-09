@@ -876,7 +876,16 @@ async function main() {
       const view13 = read("app/my-life/MyLifeView.tsx");
       const edit13 = read("app/my-life/EditUI.tsx");
       const act13 = read("app/my-life/actions.ts");
-      check("⑬ 화면 — ?area= 처음 한 번 그 영역 · ?edit=1 사람 패널 고치기로 시작 · 사람 [이름·정보 고치기]·장소·모임 [이름 고치기] · 사람도 [이 노드 지우기] · 지우기 = deletePersonNode",
+      check("⑬ 지우기 버튼 = 노드 종류별 이름(2026-11-10 — [이 시기/이야기/분/장소/모임/항목 지우기] · \"노드\" 없음) · 버튼 이름을 안내하는 문구 3곳 = 실제 버튼 · 차례 보기 끝 낭독 = \"처음 자리로\"",
+        E.deleteNode.period === "이 시기 지우기" && E.deleteNode.story === "이 이야기 지우기" && E.deleteNode.person === "이 분 지우기" &&
+          E.deleteNode.place === "이 장소 지우기" && E.deleteNode.group === "이 모임 지우기" && E.deleteNode.item === "이 항목 지우기" &&
+          Object.values(E.deleteNode).every((t) => !t.includes("노드")) && !MY_LIFE_COPY.tourBackLabel("가").includes("노드") &&
+          edit13.includes('{E.deleteNode[story ? "story" : person ? "person" : place ? "place" : group ? "group" : placeGroup ? "placeGroup" : category ? "category" : cgroup ? "customGroup" : item ? "item" : "period"]}') &&
+          MY_LIFE_COPY.body.errEmpty.includes(`[${E.deleteNode.story}]`) && MY_LIFE_COPY.ask.plan.personDelete("가").includes(`[${E.deleteNode.person}]`) &&
+          read("app/help/HelpFaq.tsx").includes("[${MY_LIFE_COPY.edit.deleteNode.story}]") &&
+          walkLib("app").concat(walkLib("lib")).every((f) => !read(f).includes("이 노드 지우기")),
+        walkLib("app").concat(walkLib("lib")).filter((f) => read(f).includes("이 노드 지우기")));
+      check("⑬ 화면 — ?area= 처음 한 번 그 영역 · ?edit=1 사람 패널 고치기로 시작 · 사람 [이름·정보 고치기]·장소·모임 [이름 고치기] · 사람도 [이 분 지우기] · 지우기 = deletePersonNode",
         view13.includes('const a = searchParams.get("area");') && view13.includes('searchParams.get("edit") === "1"') && view13.includes("startEdit={panel === editKey}") &&
           edit13.includes('useState<Mode>(startEdit ? { t: "editInfo" } : startPick ? { t: "pick", what: "putIn" } : { t: "view" })') && edit13.includes("{person ? E.editInfo : place || group ? E.editName : X.rename}") &&
           edit13.includes("!!story || !!person || !!place") && edit13.includes("im.personBody && <p className=\"text-lg text-ink\">{E.deletePersonBody}") &&

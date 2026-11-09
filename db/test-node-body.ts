@@ -17,7 +17,7 @@
 //   ⑬ 탈퇴 — 이전 판 Cascade 0 · ⑭ 남의 것 — 저장·되돌리기·목록 막힘
 //   ⑯ 충돌 보존(2026-11-04) — 거부된 글 = 이전 판 "저장되지 않은 글"(본문 그대로·사진 칸 거르기·같은 글 한 번·남·빈 글 안 남김) → 그 판으로 되돌리기 · 인물 글
 //   ⑰ 혼자 두 화면 — 패널 평문 저장(base 버전·평문)과 열어 둔 글 고치기 화면, 본문 없는 이야기도 · ⑱ 20판 한도 경계(저장되지 않은 글 포함)
-//   ⑮ 문구(2026-11-04 확정) — 빈 글 오류의 버튼 이름 = 실제 [이 노드 지우기] · 패널 버튼 = 글 고치기 화면 이름 · 안내 18px · 말로 적기 문구는 문구 파일
+//   ⑮ 문구(2026-11-04 확정) — 빈 글 오류의 버튼 이름 = 실제 [이 이야기 지우기](2026-11-10 — 옛 [이 노드 지우기]) · 패널 버튼 = 글 고치기 화면 이름 · 안내 18px · 말로 적기 문구는 문구 파일
 //
 // 실행: npx tsx db/test-node-body.ts
 
@@ -322,8 +322,8 @@ async function main() {
     const B = MY_LIFE_COPY.body;
     const editorSrc = fs.readFileSync("app/my-life/_body/BodyEditor.tsx", "utf8");
     const voiceSrc = fs.readFileSync("app/components/VoiceTextarea.tsx", "utf8");
-    check("⑮ 빈 글 오류 = 실제 [이 노드 지우기] · 패널 버튼 = 글 고치기 화면 이름([글 고치기]) · 사진 안내 2줄 18px · 말로 적기 문구 7개는 문구 파일에서만 · 읽어 주기 이름·안내 속 버튼 이름 = 실제 버튼",
-      B.errEmpty.includes(`[${MY_LIFE_COPY.edit.deleteNode}]`) && MY_LIFE_COPY.editBody === B.editTitle && B.richNote.includes(`[${B.editTitle}]`) &&
+    check("⑮ 빈 글 오류 = 실제 이야기 패널 지우기 버튼([이 이야기 지우기] — 2026-11-10) · 패널 버튼 = 글 고치기 화면 이름([글 고치기]) · 사진 안내 2줄 18px · 말로 적기 문구 7개는 문구 파일에서만 · 읽어 주기 이름·안내 속 버튼 이름 = 실제 버튼",
+      B.errEmpty.includes(`[${MY_LIFE_COPY.edit.deleteNode.story}]`) && MY_LIFE_COPY.editBody === B.editTitle && B.richNote.includes(`[${B.editTitle}]`) &&
         editorSrc.includes('text-lg text-ink-soft">{C.uploadHint}') && editorSrc.includes('text-lg text-ink-soft">{C.removeNote}') &&
         Object.values(VOICE_COPY).every((t) => !voiceSrc.includes(t)) &&
         Object.keys(VOICE_COPY).every((k) => voiceSrc.includes(`VOICE_COPY.${k}`)) &&

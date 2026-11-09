@@ -30,7 +30,7 @@ export default function RefundPolicyPage() {
       <Paper className="mt-4">
       <h1 className="m-0 text-ink">환불·교환 정책</h1>
       {notice && (
-        // 처리방침·약관과 같은 "개정 안내" 줄 — 띠의 [환불정책 보기]가 여기로 옴
+        // 처리방침·약관과 같은 "개정 안내" 줄 — 띠의 [환불·교환 보기]가 여기로 옴
         <p id={NOTICE_ANCHOR} role="note" className="mt-4 scroll-mt-4 rounded-md border-2 border-line bg-banner px-4 py-3 text-lg text-ink">
           {POLICY_NOTICE_COPY.pageLine(notice)}
         </p>

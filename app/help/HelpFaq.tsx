@@ -7,6 +7,7 @@
 // 고친 답은 [임시] 주석 — 확정 전.
 
 import { useState } from "react";
+import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { TOPUP_OPEN } from "@/lib/tokens/policy";
 
 // topup = 토큰 충전 안내 — 충전 비공개(2026-11-09 — TOPUP_OPEN false) 동안 숨김.
@@ -29,8 +30,8 @@ const FAQ: Category[] = [
       },
       {
         q: "입력한 내용을 수정하거나 지울 수 있나요?",
-        // [임시 — 성민 확정 필요] 2026-11-08 지금 화면(V3 My Life) 기준으로 고침
-        a: "네, 언제든지 고치거나 지울 수 있어요. My Life 지도에서 이야기를 누르면 아래에 창이 열리는데, [글 고치기]로 고치고 [이 노드 지우기]로 지울 수 있어요.",
+        // [임시 — 성민 확정 필요] 2026-11-08 지금 화면(V3 My Life) 기준으로 고침 · 2026-11-10 지우기 버튼 이름 = 이야기 패널 실제 버튼
+        a: `네, 언제든지 고치거나 지울 수 있어요. My Life 지도에서 이야기를 누르면 아래에 창이 열리는데, [글 고치기]로 고치고 [${MY_LIFE_COPY.edit.deleteNode.story}]로 지울 수 있어요.`,
       },
       {
         q: "사진은 어떻게 넣나요?",
