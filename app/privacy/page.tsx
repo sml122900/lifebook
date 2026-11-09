@@ -5,7 +5,7 @@ import { BUSINESS_INFO } from "@/lib/commerce/business";
 import { activeNotice, NOTICE_ANCHOR } from "@/lib/policy-notice";
 import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 
-// 개인정보 처리방침 v1.6. 공개 정적 페이지(비로그인 접근,
+// 개인정보 처리방침 v1.7. 공개 정적 페이지(비로그인 접근,
 // proxy.ts PUBLIC_PATHS 등록). 2026-09-10 — 토스페이먼츠 PG 심사 대응으로
 // placeholder([시행일] 배너·10항 시행일) 제거, 정식 시행일로 확정.
 // v1.1(2026-10-24 시행) —가입·로그인 수단과 수집 항목 정비, 국외 이전 대상 추가, 처리위탁 목록 갱신.
@@ -24,7 +24,11 @@ import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 //   3항 OpenAI 이전 삭제·Anthropic 목적에서 "포스터 문장 생성" 삭제, 1항 나 취향 정보 삭제(수집 중단), 1항 라 결제 → 결제·배송(배송지·인쇄본 내용),
 //   2항 목적 "포스터 문장·배경 생성" → "인생 기록 인쇄물 제작과 배송". 동의 버전 5 유지(국외 이전 축소 + 계약 이행용 배송 정보 — 법률 검토 목록).
 //   문구 [임시 — 성민 확정 필요] 2026-11-08.
-
+// v1.7(2026-11-09 시행 — 공지 당일, 성민 승인·실사용자 0 — leadException) — 성민 결정 2026-11-09:
+//   6항 위탁에 인쇄·배송 (주)아비즈(퍼블로그) 추가(재위탁 택배사는 퍼블로그 사이트에서 확인 안 됨 — 적지 않음, 확인 필요),
+//   5항에 가족 룸 공개 범위(이야기의 제목·내용·연도만 · 인물·장소·사진·"그때의 나" 비공개 · 룸 만들기·참여 때 동의 — docs/phase/family-room-v3.md),
+//   본문 머리에 "Lifebook(이하 '회사')" — 본문 표기 Lifebook 통일(사업자 정보의 상호는 사업자등록증 표기 그대로). 동의 버전 5 유지(법률 검토 목록).
+//   문구 [임시 — 성민 확정 필요] 2026-11-09.
 export const metadata = {
   title: "개인정보 처리방침 — Lifebook",
   description: "Lifebook 개인정보 처리방침.",
@@ -122,6 +126,11 @@ export default function PrivacyPage() {
           {POLICY_NOTICE_COPY.pageLine(notice)}
         </p>
       )}
+
+      {/* 머리말 — 본문 표기 = Lifebook(2026-11-09 v1.7 — 성민). 상호는 맨 아래 사업자 정보(사업자등록증 표기). [임시 — 성민 확정 필요] */}
+      <p className="mt-6 text-lg leading-relaxed text-ink-soft">
+        Lifebook(이하 &ldquo;회사&rdquo;)은 회원님의 개인정보를 「개인정보 보호법」에 따라 아래와 같이 처리합니다.
+      </p>
 
       {/* 0항 — 회사의 약속 (강조 카드) */}
       <section className="mt-10" aria-labelledby="promises-title">
@@ -309,6 +318,14 @@ export default function PrivacyPage() {
             회사는 회원님의 개인정보를 제3자에게 제공하지 않습니다. 다만 법령에
             근거가 있거나 수사기관의 적법한 요청이 있는 경우는 예외로 합니다.
           </p>
+          {/* 가족 룸 공개 범위(2026-11-09 v1.7 — 성민 결정 A~D). [임시 — 성민 확정 필요 · 법률 검토 필요] */}
+          <p className={"mt-1 " + P}>
+            <strong className="text-ink">가족 룸</strong> — 회원님이 가족 룸을 만들거나 초대를
+            받아 참여하시면서 동의하시면, 회원님이 남기신 이야기의 제목·내용·연도가 그 룸의
+            멤버에게 보입니다. 인물·장소·사진과 &lsquo;그때의 나&rsquo;로 남기신 글은 보이지
+            않으며, 룸 멤버가 아닌 사람에게는 보이지 않습니다. 룸에서 나가시려면 고객센터로
+            요청해 주세요. 회원 탈퇴 시에는 룸에서도 함께 사라집니다.
+          </p>
         </Article>
 
         <Article title="6. 개인정보 처리의 위탁">
@@ -321,6 +338,8 @@ export default function PrivacyPage() {
             <li className={P}>· Supabase, Inc. — 데이터베이스 및 파일 저장</li>
             <li className={P}>· 네이버클라우드㈜ — 음성 텍스트 변환(STT) 처리 (국내 위탁)</li>
             <li className={P}>· 네이버㈜ — 장소 검색 및 지도 표시 (국내 위탁)</li>
+            {/* 2026-11-09 v1.7 — 인쇄·배송 위탁(성민 결정). 재위탁 택배사는 확인되면 추가 */}
+            <li className={P}>· ㈜아비즈(퍼블로그) — 인쇄본 제작과 배송 (국내 위탁)</li>
           </ul>
         </Article>
 
@@ -381,6 +400,10 @@ export default function PrivacyPage() {
             <li className={P}>
               - v1.6 — 2026년 11월 9일 시행 (포스터 상품 종료에 따라 OpenAI 국외
               이전과 취향 정보 수집 중단, 인쇄본 주문의 배송 정보·인쇄 내용 명시)
+            </li>
+            <li className={P}>
+              - v1.7 — 2026년 11월 9일 시행 (인쇄·배송 위탁 업체 추가, 가족 룸에
+              보이는 범위 명시, 서비스 이름 표기 정리)
             </li>
           </ul>
         </Article>
