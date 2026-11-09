@@ -6,6 +6,8 @@
 //
 // prisma 의존 없음 → 클라이언트 컴포넌트(CoachMarks)에서 바로 import 가능.
 
+import { TOPUP_OPEN } from "./tokens/policy";
+
 export type CoachStep = {
   // 가리킬 요소의 data-tour 속성 값. 화면에서 [data-tour="..."] 로 찾는다.
   // 없으면 엔진이 그 단계를 건너뛴다(상태별로 안 보이는 버튼 대비).
@@ -49,7 +51,7 @@ export const MAIN_TOUR_STEPS: CoachStep[] = [
     target: "tokens",
     panel: "open",
     title: "내 토큰",
-    desc: "AI 기능을 쓸 때 토큰이 조금씩 들어요. 매일 출석하면 무료로 드리고, 이 패널에서 충전도 할 수 있어요.",
+    desc: "AI 기능을 쓸 때 토큰이 조금씩 들어요. 매일 출석하면 무료로 드려요." + (TOPUP_OPEN ? " 이 패널에서 충전도 할 수 있어요." : ""),
   },
   // 다섯째 "인생 포스터 만들기"는 2026-11-08 포스터 판매 종료와 함께 뺌(가리키던 V2 연혁 버튼도 삭제).
 ];

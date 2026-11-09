@@ -18,6 +18,7 @@ import { prisma } from "@/lib/db";
 import { calcSttTokens, STT_TOKEN_CHARGING_ENABLED } from "@/lib/stt-cost";
 import { chargeOneShot } from "@/lib/tokens/charge";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
+import { lowBalanceTail } from "@/lib/tokens/policy";
 
 const REASON = "stt_recording";
 
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
   } catch (e) {
     if (e instanceof InsufficientBalanceError) {
       return NextResponse.json(
-        { ok: false, error: "토큰이 부족해요. 충전 후 다시 시도해 주세요." },
+        { ok: false, error: "토큰이 부족해요." + lowBalanceTail(" 충전 후 다시 시도해 주세요.") },
         { status: 402 },
       );
     }

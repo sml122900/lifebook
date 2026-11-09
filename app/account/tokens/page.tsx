@@ -11,6 +11,7 @@ import {
   AttendanceCard,
   type AttendanceInitial,
 } from "@/app/timemachine/AttendanceCard";
+import { TOPUP_OPEN } from "@/lib/tokens/policy";
 
 // v3.5 — 토큰 · 출석체크 통합 페이지.
 //
@@ -83,7 +84,8 @@ export default async function TokensPage() {
           내 토큰
         </h1>
         <p className="mt-3 text-base text-ink-soft">
-          출석체크로 매일 받고, 부족하면 충전할 수 있어요.
+          {/* 충전 비공개(2026-11-09 — TOPUP_OPEN) 동안은 충전 말 없이 [임시 — 성민 확정 필요] */}
+          {TOPUP_OPEN ? "출석체크로 매일 받고, 부족하면 충전할 수 있어요." : "출석체크로 매일 받을 수 있어요."}
         </p>
       </header>
 
@@ -96,14 +98,16 @@ export default async function TokensPage() {
             개
           </span>
         </p>
-        <ButtonLink
-          href="/billing"
-          variant="secondary"
-          size="lg"
-          className="mt-5"
-        >
-          토큰 충전하러 가기
-        </ButtonLink>
+        {TOPUP_OPEN && (
+          <ButtonLink
+            href="/billing"
+            variant="secondary"
+            size="lg"
+            className="mt-5"
+          >
+            토큰 충전하러 가기
+          </ButtonLink>
+        )}
       </section>
 
       {/* 출석체크 카드 */}

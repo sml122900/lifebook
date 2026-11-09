@@ -14,7 +14,7 @@ import { chat, ChatMessage, withUsageLedger, BudgetBlockedError } from "@/lib/ai
 import { budgetMessage } from "@/lib/budget-copy";
 import { fetchCompanionProfile, buildSystemPrompt } from "@/lib/companion";
 import { resolveLiveModel } from "@/lib/user-ai-model";
-import { MODEL_MULTIPLIER, tokensFromUsage } from "@/lib/tokens/policy";
+import { lowBalanceTail, MODEL_MULTIPLIER, tokensFromUsage } from "@/lib/tokens/policy";
 import { chargeOneShot } from "@/lib/tokens/charge";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
 
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
     if (e instanceof BudgetBlockedError) return NextResponse.json({ error: budgetMessage(e.reason) }, { status: 429 });
       if (e instanceof InsufficientBalanceError) {
         return NextResponse.json(
-          { error: "토큰이 부족해요. 충전 후 이용해 주세요." },
+          { error: "토큰이 부족해요." + lowBalanceTail(" 충전 후 이용해 주세요.") },
           { status: 402 },
         );
       }

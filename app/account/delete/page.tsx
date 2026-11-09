@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { CREATED_VIA_V3_BRIDGE } from "@/lib/life-events";
 
 import { WithdrawForm } from "./WithdrawForm";
+import { TOPUP_OPEN } from "@/lib/tokens/policy";
 
 // 회원 탈퇴 안내 + 확인. PIPA 동의 철회권에 대응.
 // 사라지는 것 / 보존되는 것을 시니어 친화 톤으로 명확히 보여준다.
@@ -38,8 +39,9 @@ export default async function AccountDeletePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
+      {/* 충전 비공개(2026-11-09) 동안은 충전 안내 화면 대신 설정으로 */}
       <Link
-        href="/billing"
+        href={TOPUP_OPEN ? "/billing" : "/account/settings"}
         className="self-start rounded-md border-2 border-line px-4 py-2 text-base font-semibold text-ink hover:bg-banner focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         ← 돌아가기

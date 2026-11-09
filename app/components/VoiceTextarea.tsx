@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { VOICE_COPY } from "@/lib/voice-copy";
+import { TOPUP_OPEN } from "@/lib/tokens/policy";
 
 // 음성으로 받아쓰는 textarea. Web Speech API (브라우저 STT) 만 사용 —
 // AI 다듬기 + 토큰 차감은 Phase T4 에서 이 위에 얹는다.
@@ -286,7 +287,7 @@ export function VoiceTextarea({
           {cleanupError && (
             <p className="text-base text-danger" role="alert">
               {cleanupError}
-              {insufficient && (
+              {insufficient && TOPUP_OPEN && (
                 <>
                   {" "}
                   <Link href="/billing" className="font-semibold underline">

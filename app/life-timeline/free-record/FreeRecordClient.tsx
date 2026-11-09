@@ -12,6 +12,7 @@ import {
   saveFreeRecordingSegments,
   splitTranscriptAction,
 } from "./actions";
+import { TOPUP_OPEN } from "@/lib/tokens/policy";
 
 // Phase 1 물꼬 목록 — 고정 주제. 자유 주제는 freeformTopic prop 으로.
 const TOPICS = [
@@ -366,12 +367,14 @@ export function FreeRecordClient({
                         필요 {balanceInfo.needed}토큰 / 현재 {balanceInfo.balance}토큰
                       </span>
                     </p>
-                    <Link
-                      href="/billing"
-                      className="mt-2 inline-block text-base font-semibold text-danger underline"
-                    >
-                      충전하기 →
-                    </Link>
+                    {TOPUP_OPEN && (
+                      <Link
+                        href="/billing"
+                        className="mt-2 inline-block text-base font-semibold text-danger underline"
+                      >
+                        충전하기 →
+                      </Link>
+                    )}
                   </div>
                 )}
               </>

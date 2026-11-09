@@ -6,6 +6,7 @@ import { budgetMessage } from "@/lib/budget-copy";
 import { refineMemorySpelling } from "@/lib/memory-refine";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
 import { getUserAiModel } from "@/lib/user-ai-model";
+import { lowBalanceTail } from "@/lib/tokens/policy";
 
 // 문장 다듬기 Lv2 — 맞춤법·군말·자모깨짐·비문 교정. 모델 = 전역 User.aiModel
 // (haiku/sonnet/opus)로 단가가 갈리며, 실제 교정본이 저장될 때만 과금.
@@ -59,7 +60,7 @@ export async function POST(
     if (e instanceof BudgetBlockedError) return NextResponse.json({ error: budgetMessage(e.reason) }, { status: 429 });
     if (e instanceof InsufficientBalanceError) {
       return NextResponse.json(
-        { ok: false, error: "토큰이 부족해요. 충전 후 다시 시도해주세요." },
+        { ok: false, error: "토큰이 부족해요." + lowBalanceTail(" 충전 후 다시 시도해주세요.") },
         { status: 402 },
       );
     }

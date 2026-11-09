@@ -9,6 +9,15 @@
 /** AI 토큰(입력+출력)을 서비스 토큰 1개로 환산하는 기준. */
 export const AI_TOKENS_PER_SERVICE_TOKEN = 2000;
 
+/**
+ * 토큰 충전 열림 여부(2026-11-09 성민 — 토스 신청 전 비공개). false 면 충전 화면 = 안내, 진입 버튼·충전 안내 문구 숨김,
+ * 서버도 충전 주문을 거절(createPendingOrder). 이미 있는 잔액·토큰 차감 기능은 그대로. 다시 열 때 이 값만 true.
+ */
+export const TOPUP_OPEN = false;
+
+/** 토큰이 부족할 때 붙이는 끝말 — 충전이 열려 있을 때만 "충전 후 다시". */
+export const lowBalanceTail = (tail = " 충전 후 다시 시도해 주세요."): string => (TOPUP_OPEN ? tail : "");
+
 /** 신규 사용자에게 무료로 주는 토큰. 약 50회 추억 사이클 분량(경영방 확정). */
 export const SIGNUP_GRANT_TOKENS = 50;
 

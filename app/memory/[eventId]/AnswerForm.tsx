@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { submitMemoryAnswer } from "./actions";
+import { lowBalanceTail, TOPUP_OPEN } from "@/lib/tokens/policy";
 
 // 추억 입력 폼(클라). 텍스트 + (지원 브라우저면) 음성 받아쓰기.
 //
@@ -120,7 +121,7 @@ export function AnswerForm({
           const message = err instanceof Error ? err.message : String(err);
           if (message.includes("insufficient balance")) {
             setSubmitError(
-              "토큰이 부족해요. 충전하시고 다시 시도해 주세요.",
+              "토큰이 부족해요." + lowBalanceTail(" 충전하시고 다시 시도해 주세요."),
             );
           } else {
             // Next.js 의 redirect() 는 특수 객체를 throw 한다 — 그대로
@@ -181,9 +182,11 @@ export function AnswerForm({
       {submitError && (
         <p className="text-base text-action">
           {submitError}{" "}
-          <a href="/billing" className="font-semibold underline">
-            충전하러 가기
-          </a>
+          {TOPUP_OPEN && (
+            <a href="/billing" className="font-semibold underline">
+              충전하러 가기
+            </a>
+          )}
         </p>
       )}
 

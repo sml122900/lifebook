@@ -7,8 +7,10 @@
 // 고친 답은 [임시] 주석 — 확정 전.
 
 import { useState } from "react";
+import { TOPUP_OPEN } from "@/lib/tokens/policy";
 
-type QA = { q: string; a: string };
+// topup = 토큰 충전 안내 — 충전 비공개(2026-11-09 — TOPUP_OPEN false) 동안 숨김.
+type QA = { q: string; a: string; topup?: true };
 type Category = { title: string; items: QA[] };
 
 const FAQ: Category[] = [
@@ -48,6 +50,7 @@ const FAQ: Category[] = [
       },
       {
         q: "토큰은 어떻게 충전하나요?",
+        topup: true,
         // [임시 — 성민 확정 필요] 2026-11-08 지금 화면(V3 My Life) 기준으로 고침
         a: "[내 정보]를 눌러 [토큰 화면 열기] → [토큰 충전하러 가기]를 누르시면 돼요.",
       },
@@ -55,6 +58,7 @@ const FAQ: Category[] = [
         q: "토큰 환불이 되나요?",
         // 법률 검토 필요(2026-11-08 — 충전 토큰 청약철회·환불 가능 여부). 문장은 바꾸지 않음(성민 지시).
         a: "충전한 토큰은 환불이 어렵습니다. 충전 전에 무료 토큰으로 먼저 써보세요.",
+        topup: true,
       },
       {
         q: "무료로 쓸 수 있는 기능이 있나요?",
@@ -134,7 +138,7 @@ export function HelpFaq() {
         <section key={cat.title} className="flex flex-col gap-3">
           <h2 className="text-2xl font-bold text-action">{cat.title}</h2>
           <div className="flex flex-col gap-2">
-            {cat.items.map((qa, qi) => {
+            {cat.items.filter((qa) => TOPUP_OPEN || !qa.topup).map((qa, qi) => {
               const id = `${ci}-${qi}`;
               const open = openId === id;
               return (

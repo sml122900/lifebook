@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { buttonClasses } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 import { KST_DATE_TIME_FMT } from "@/lib/kst-date";
-import { TOPUP_PACKAGES } from "@/lib/tokens/policy";
+import { TOPUP_OPEN, TOPUP_PACKAGES } from "@/lib/tokens/policy";
 import { isTossTestMode } from "@/lib/tokens/toss";
 import { getBalance } from "@/lib/tokens/wallet";
 
@@ -35,6 +35,27 @@ export default async function BillingPage() {
   }
   const userId = session.user.id;
   const balance = await getBalance(userId);
+
+  // 토큰 충전 비공개(2026-11-09 성민) — 주소로 들어오면 안내만. 남은 토큰은 그대로 쓸 수 있음. 문구 [임시 — 성민 확정 필요]
+  if (!TOPUP_OPEN) {
+    return (
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10">
+        <Link href="/" className={buttonClasses("tertiary", "md", "self-start")}>
+          ← 처음 화면으로
+        </Link>
+        <h1 className="text-3xl font-bold text-ink">토큰 충전</h1>
+        <p className="rounded-md border-2 border-line bg-banner px-5 py-4 text-lg text-ink">
+          지금은 토큰 충전을 받지 않아요. 남은 토큰은 그대로 쓰실 수 있어요.
+        </p>
+        <p className="text-2xl text-ink">
+          남은 토큰 <span className="font-bold">{balance.toLocaleString()}개</span>
+        </p>
+        <Link href="/account/tokens" className={buttonClasses("secondary", "lg", "self-start")}>
+          내 토큰 보기
+        </Link>
+      </main>
+    );
+  }
 
   const clientKey = process.env.TOSS_CLIENT_KEY;
   if (!clientKey) {

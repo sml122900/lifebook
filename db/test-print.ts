@@ -14,6 +14,8 @@
 //   ⑨ 화면·결제 — 성공 화면이 인쇄 주문만 위젯 시크릿 키로 확인 · 주문 제작 청약철회 제한 문구 없음 · 숨긴 상품 상세 404 ·
 //      인쇄 상품 주문 화면 → /my-life/print · 실결제 꺼짐 · 문구 [임시]
 //   ⑪ 결제 수단 미선택 연타(2026-11-09) — 대기 주문 1건(재사용·동시 잠금) · 위젯 거절 = 결제 수단 안내
+//   ⑫ 토큰 충전 비공개(2026-11-09 — 토스 신청 전) — 충전 주문 서버 거절(행 0) · /billing = 안내 화면 · 충전 진입 버튼·충전 안내·
+//      "충전한 토큰은 환불이 어렵습니다" 숨김 · 잔액·차감은 그대로 · 상점 공개 상품 = 인쇄본 하나
 //   ⑩ 강물 포스터 판매 종료(2026-11-08 — test-v3-poster-bridge 퇴역, 주문 막기 검사는 여기로) — 숨긴 상품(책·씨앗·포스터) 주문 거절 ·
 //      인쇄본은 일반 주문 경로 거절(인쇄본 화면 경로만 — 2026-11-09) ·
 //      포스터 그리기 코드 없음 · 옛 /poster 주소 → 인쇄본 · 보존 주문 2건만 그림(관리자·주인 주문 상세)
@@ -27,6 +29,9 @@ import { createPendingPrintOrder, getPrintDraft, PRINT_PAYMENT_LIVE_ENABLED, PRI
 import { PRINT_MAX_TOTAL_KRW, PRINT_MIN_PAGES, PRINT_PAGE_KRW, PRINT_SHIPPING_KRW, printOnSale, printPrice } from "../lib/commerce/print-price";
 import { getProduct, shippingKrwOf } from "../lib/commerce/products";
 import { createPendingProductOrder } from "../lib/commerce/orders";
+import { PRODUCTS } from "../lib/commerce/products";
+import { createPendingOrder } from "../lib/tokens/orders";
+import { TOPUP_OPEN } from "../lib/tokens/policy";
 import { keptPosterImages } from "../lib/commerce/kept-poster";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { prisma } from "../lib/db";
@@ -278,6 +283,9 @@ async function main() {
       pendings.length === 1 && ids.size === 1 && !ids.has("x") && pendings[0].recipientName === "[fixture] 마지막 받는 분" &&
         editor11.includes(`setError(code === "USER_CANCEL" ? null : T.pickMethod);`) && read("lib/print-copy.ts").includes("pickMethod:"),
       { pendings, ids: [...ids] });
+    // ⑫ 토큰 충전 비공개 — 화면을 거치지 않은 요청도 주문 0
+    const topupRefused = await createPendingOrder(a, "starter").then(() => false, () => true);
+    check("⑫ 토큰 충전 비공개 — 충전 주문 서버 거절 · 충전 주문 행 0", !TOPUP_OPEN && topupRefused && (await prisma.tokenOrder.count({ where: { userId: a } })) === 0);
     const mapAfter = JSON.stringify(await getMyLifeData(a));
     check("⑧ 편집 저장·주문 뒤에도 실제 지도 그대로(getMyLifeData 같음)", mapBefore === mapAfter);
   } finally {
@@ -295,6 +303,18 @@ async function main() {
   check("⑨ 숨긴 상품(orderable false) 상세 404 · 인쇄 상품 주문 화면 → /my-life/print · 문구 [임시]",
     /orderable === false\) notFound\(\)/.test(read("app/shop/[productId]/page.tsx")) && read("app/shop/[productId]/order/page.tsx").includes('redirect("/my-life/print")') &&
       read("lib/print-copy.ts").includes("[임시 — 성민 확정 필요]") && read("lib/commerce/products.ts").includes("[임시 — 성민 확정 필요] 2026-11-09"));
+
+  // ⑫ 토큰 충전 비공개 — 화면·문구
+  const billingLinkFiles = ["app/account/tokens/page.tsx", "app/account/delete/page.tsx", "app/components/VoiceTextarea.tsx", "app/life-timeline/free-record/FreeRecordClient.tsx",
+    "app/memory/[eventId]/AnswerForm.tsx", "app/timemachine/[year]/[month]/AssistantPanel.tsx", "components/InsufficientBalanceCard.tsx"];
+  const faq = read("app/help/HelpFaq.tsx");
+  check("⑫ 충전 화면 = 안내(주소로 와도) · 충전 진입 버튼·충전 권유는 TOPUP_OPEN 일 때만 · 고객센터 충전·\"환불이 어렵습니다\" 문항 숨김 · 투어·서버 부족 안내에 충전 말 없음 · 차감 코드는 그대로",
+    read("app/billing/page.tsx").includes("if (!TOPUP_OPEN) {") && billingLinkFiles.every((f) => read(f).includes("TOPUP_OPEN")) &&
+      faq.includes("filter((qa) => TOPUP_OPEN || !qa.topup)") && (faq.match(/topup: true,/g) ?? []).length === 2 &&
+      /충전한 토큰은 환불이 어렵습니다[^\n]*\n\s*topup: true/.test(faq) && read("lib/tours.ts").includes("(TOPUP_OPEN ?") &&
+      ["app/api/clova-stt/charge/route.ts", "app/api/companion/route.ts", "app/api/memory/[memoryId]/refine/route.ts", "app/api/refine-text/route.ts"].every((f) => read(f).includes("lowBalanceTail(") && !/"토큰이 부족해요\. 충전/.test(read(f))) &&
+      !read("lib/tokens/charge.ts").includes("TOPUP_OPEN") && !read("lib/tokens/wallet.ts").includes("TOPUP_OPEN"));
+  check("⑫ 상점 공개 상품 = My Life 인쇄본 하나", JSON.stringify(PRODUCTS.filter((p) => p.orderable !== false).map((p) => p.id)) === JSON.stringify(["mylife-print"]));
 
   // ⑩ 강물 포스터 판매 종료
   const exists = (rel: string) => fs.existsSync(path.join(ROOT, rel));

@@ -6,6 +6,7 @@ import { budgetMessage } from "@/lib/budget-copy";
 import { refineRawText } from "@/lib/memory-refine";
 import { InsufficientBalanceError } from "@/lib/tokens/errors";
 import { getUserAiModel } from "@/lib/user-ai-model";
+import { lowBalanceTail } from "@/lib/tokens/policy";
 
 // 순수 텍스트 다듬기 API — UserMemory 없이 텍스트를 직접 받아 교정한다.
 // 온보딩/CategoryForm 같은 "저장 전 미리보기" 흐름용. DB 저장 없이 차감만.
@@ -77,7 +78,7 @@ export async function POST(req: Request) {
     if (e instanceof BudgetBlockedError) return NextResponse.json({ error: budgetMessage(e.reason) }, { status: 429 });
     if (e instanceof InsufficientBalanceError) {
       return NextResponse.json(
-        { ok: false, error: "토큰이 부족해요. 충전 후 다시 시도해주세요." },
+        { ok: false, error: "토큰이 부족해요." + lowBalanceTail(" 충전 후 다시 시도해주세요.") },
         { status: 402 },
       );
     }

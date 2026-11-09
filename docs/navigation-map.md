@@ -86,7 +86,7 @@
 | └ 🕰️ 그 시절 떠올리기 | 그 시절 갈래: 목록에서 고르기(무료) / AI에게 물어보기(토큰). 사이드 "그 시절 둘러보기"(/era)와 라벨 구분(4-B-4) |
 | └ ❓ 사용법 물어보기 | 사용법 안내 챗 (무료, Haiku) |
 | └ 내 타임라인에 추가 | → `/life-timeline/add` |
-| └ 충전하러 가기 | → `/billing` (토큰 부족 시) |
+| └ 충전하러 가기 | → `/billing` (토큰 부족 시 — 2026-11-09 충전 비공개 동안 숨김) |
 | └ 검색 결과 출처 | ↗ 외부 기사 URL (`target=_blank`) |
 
 ### 푸터 — `app/components/Footer.tsx`
@@ -304,7 +304,7 @@
 | `/life-timeline/companion` | ← 인생 연혁으로 | → `/life-timeline` |
 | `/life-timeline/companion` | 대화 후 / 초안 검토 | → `/life-timeline` · `/life-timeline/manage?draft=1` |
 | `/life-timeline/free-record` | ← 인생 연혁으로 / 완료 후 | → `/life-timeline` |
-| `/life-timeline/free-record` | 충전하기 | → `/billing` (토큰 부족) |
+| `/life-timeline/free-record` | 충전하기 | → `/billing` (토큰 부족 — 2026-11-09 충전 비공개 동안 숨김) |
 | `/life-timeline/free-record` | 추천 주제 칩 | → `/life-timeline/free-record?topic=…` |
 
 ---
@@ -404,6 +404,7 @@
 | `/my-life/print` 주문 단계 | 우편번호 찾기 · 결제하기 | ↗ 카카오 우편번호 · 토스 결제위젯(테스트 키) → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
 
 ### 토큰 충전 `/billing`
+**2026-11-09 충전 비공개(토스 신청 전 — `lib/tokens/policy` `TOPUP_OPEN = false`)**: 주소로 오면 안내 화면(← 처음 화면으로 · [내 토큰 보기] → `/account/tokens`). 아래 표는 다시 열 때의 길. 서버도 충전 주문 거절.
 | 화면 | 버튼 | 이동 |
 |---|---|---|
 | `/billing` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
@@ -419,10 +420,10 @@
 | `/account/settings` | 토큰 화면 열기 | → `/account/tokens` |
 | `/account/settings` | 개인정보 처리방침 보기 | → `/privacy` (새 창) |
 | `/account/settings` | 회원 탈퇴 안내 보기 | → `/account/delete` |
-| `/account/tokens` | ← 설정으로 / 충전하러 가기 | → `/account/settings` · `/billing` |
+| `/account/tokens` | ← 설정으로 / 충전하러 가기(충전 비공개 동안 숨김 — 2026-11-09) | → `/account/settings` · `/billing` |
 | `/account/orders` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 환불 요청 | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) · ⚙ 환불요청 |
 | `/account/orders/[orderId]` | 주문 상세(무통장 입금 안내) · 내 주문 전체 보기 / 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/account/orders` · `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
-| `/account/delete` | ← 돌아가기 / 회원 탈퇴 | → `/billing` · ⚙ 탈퇴 → `/login` |
+| `/account/delete` | ← 돌아가기 / 회원 탈퇴 | → `/billing`(충전 비공개 동안은 `/account/settings` — 2026-11-09) · ⚙ 탈퇴 → `/login` |
 
 ### 관리자 `/admin/orders` (ADMIN_EMAILS 화이트리스트)
 | 화면 | 버튼 | 이동 |

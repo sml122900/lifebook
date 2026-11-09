@@ -15,6 +15,7 @@ import {
 } from "./assistant-actions";
 import { getEraCatalog, addEraItemAsLifeEvent } from "./era-pick-actions";
 import type { EraEvent, EraSong } from "@/lib/era-events";
+import { TOPUP_OPEN } from "@/lib/tokens/policy";
 
 // Phase V2 — AI 비서 패널.
 // Phase V3 — 멀티턴 대화 + 답변 저장/토글.
@@ -788,7 +789,7 @@ export function AssistantPanel({
             {error && (
               <p className="text-base text-danger" role="alert">
                 {error}
-                {insufficient && (
+                {insufficient && TOPUP_OPEN && (
                   <>
                     {" "}
                     <Link href="/billing" className="font-semibold underline">

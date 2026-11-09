@@ -5,7 +5,7 @@
 // 라 토스의 중복 호출이 두 번 적립할 수 없다.
 
 import { prisma } from "../db";
-import { getPackage } from "./policy";
+import { getPackage, TOPUP_OPEN } from "./policy";
 
 export type CreatedOrder = {
   orderId: string;
@@ -19,6 +19,10 @@ export async function createPendingOrder(
   userId: string,
   packageId: string,
 ): Promise<CreatedOrder> {
+  // 토큰 충전 비공개(2026-11-09 성민 — TOPUP_OPEN) — 화면을 거치지 않은 요청도 주문을 만들지 않는다.
+  if (!TOPUP_OPEN) {
+    throw new Error("topup closed");
+  }
   const pkg = getPackage(packageId);
   if (!pkg) {
     throw new Error(`unknown package: ${packageId}`);
