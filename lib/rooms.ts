@@ -263,6 +263,33 @@ export async function roomCanSeeMemory(roomId: string, memoryId: string): Promis
 }
 
 /**
+ * 룸 나가기(멤버 — 2026-11-09 성민). 멤버십 행을 지워 그 사람의 이야기가 즉시 룸에서 빠지고(목록 = 동의 멤버만),
+ * 그 사람이 이 룸에 남긴 댓글·반응·초대 링크도 지운다. 다시 들어오려면 초대 → 동의 체크(행이 없으니 처음과 같은 길).
+ * 룸 주인은 나가기 대신 closeRoom. 공동 추억(SharedMemory — 룸 소유)은 그대로.
+ */
+export async function leaveRoom(userId: string, roomId: string): Promise<"left" | "not_member" | "owner"> {
+  return await prisma.$transaction(async (tx) => {
+    const m = await tx.roomMember.findUnique({ where: { roomId_userId: { roomId, userId } }, select: { role: true, room: { select: { ownerId: true } } } });
+    if (!m) return "not_member";
+    if (m.role === "owner" || m.room.ownerId === userId) return "owner";
+    await tx.comment.deleteMany({ where: { roomId, authorId: userId } });
+    await tx.memoryReaction.deleteMany({ where: { roomId, authorId: userId } });
+    await tx.roomInvite.deleteMany({ where: { roomId, invitedBy: userId } });
+    await tx.roomMember.delete({ where: { roomId_userId: { roomId, userId } } });
+    return "left";
+  });
+}
+
+/**
+ * 룸 닫기(주인만 — 2026-11-09 성민). 룸을 지운다 — 멤버십·초대·댓글·반응·공동 추억은 DB Cascade 로 함께.
+ * 모든 멤버의 이야기가 즉시 빠지고, 룸 주소·초대 링크는 없는 것이 된다.
+ */
+export async function closeRoom(userId: string, roomId: string): Promise<"closed" | "not_owner"> {
+  const r = await prisma.sharedRoom.deleteMany({ where: { id: roomId, ownerId: userId } });
+  return r.count === 1 ? "closed" : "not_owner";
+}
+
+/**
  * 사용자가 합류(동의)한 룸 목록. 방장 행도 포함 — 생성 시 consentAt 가
  * 채워지므로.
  */

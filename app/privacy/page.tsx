@@ -5,7 +5,7 @@ import { BUSINESS_INFO } from "@/lib/commerce/business";
 import { activeNotice, NOTICE_ANCHOR } from "@/lib/policy-notice";
 import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 
-// 개인정보 처리방침 v1.7. 공개 정적 페이지(비로그인 접근,
+// 개인정보 처리방침 v1.8. 공개 정적 페이지(비로그인 접근,
 // proxy.ts PUBLIC_PATHS 등록). 2026-09-10 — 토스페이먼츠 PG 심사 대응으로
 // placeholder([시행일] 배너·10항 시행일) 제거, 정식 시행일로 확정.
 // v1.1(2026-10-24 시행) —가입·로그인 수단과 수집 항목 정비, 국외 이전 대상 추가, 처리위탁 목록 갱신.
@@ -29,6 +29,8 @@ import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 //   5항에 가족 룸 공개 범위(이야기의 제목·내용·연도만 · 인물·장소·사진·"그때의 나" 비공개 · 룸 만들기·참여 때 동의 — docs/phase/family-room-v3.md),
 //   본문 머리에 "Lifebook(이하 '회사')" — 본문 표기 Lifebook 통일(사업자 정보의 상호는 사업자등록증 표기 그대로). 동의 버전 5 유지(법률 검토 목록).
 //   문구 [임시 — 성민 확정 필요] 2026-11-09.
+// v1.8(2026-11-09 시행 — 공지 당일, 성민 승인·실사용자 0 — leadException) — 5항 가족 룸의 "나가시려면 고객센터로 요청" →
+//   [룸 나가기]·[룸 닫기] 안내(나가거나 닫으면 그 즉시 이야기가 룸에서 빠짐 — docs/phase/family-room-v3.md §5). 동의 버전 5 유지.
 export const metadata = {
   title: "개인정보 처리방침 — Lifebook",
   description: "Lifebook 개인정보 처리방침.",
@@ -323,8 +325,9 @@ export default function PrivacyPage() {
             <strong className="text-ink">가족 룸</strong> — 회원님이 가족 룸을 만들거나 초대를
             받아 참여하시면서 동의하시면, 회원님이 남기신 이야기의 제목·내용·연도가 그 룸의
             멤버에게 보입니다. 인물·장소·사진과 &lsquo;그때의 나&rsquo;로 남기신 글은 보이지
-            않으며, 룸 멤버가 아닌 사람에게는 보이지 않습니다. 룸에서 나가시려면 고객센터로
-            요청해 주세요. 회원 탈퇴 시에는 룸에서도 함께 사라집니다.
+            않으며, 룸 멤버가 아닌 사람에게는 보이지 않습니다. 룸 화면의 [룸 나가기]로
+            언제든 나가실 수 있고(룸을 만드신 분은 [룸 닫기]), 나가거나 닫으면 그 즉시
+            회원님의 이야기가 룸에서 빠집니다. 회원 탈퇴 시에도 룸에서 함께 사라집니다.
           </p>
         </Article>
 
@@ -404,6 +407,9 @@ export default function PrivacyPage() {
             <li className={P}>
               - v1.7 — 2026년 11월 9일 시행 (인쇄·배송 위탁 업체 추가, 가족 룸에
               보이는 범위 명시, 서비스 이름 표기 정리)
+            </li>
+            <li className={P}>
+              - v1.8 — 2026년 11월 9일 시행 (가족 룸 나가기·닫기 안내)
             </li>
           </ul>
         </Article>

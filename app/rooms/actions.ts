@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { createInvite, createRoom } from "@/lib/rooms";
+import { closeRoom, createInvite, createRoom, leaveRoom } from "@/lib/rooms";
 
 export async function createRoomAction(formData: FormData) {
   const session = await auth();
@@ -37,4 +37,31 @@ export async function createInviteAction(formData: FormData) {
   // createInvite 가 멤버십을 이미 검증한다.
   await createInvite(session.user.id, roomId);
   revalidatePath(`/rooms/${roomId}`);
+}
+
+// 룸 나가기(멤버)·룸 닫기(주인) — 2026-11-09 성민. 화면이 확인 단계를 거친 뒤 부른다. 끝나면 룸 목록으로.
+function roomIdOf(formData: FormData): string {
+  const roomId = formData.get("roomId");
+  if (typeof roomId !== "string" || roomId === "") throw new Error("roomId required");
+  return roomId;
+}
+
+export async function leaveRoomAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const roomId = roomIdOf(formData);
+  const r = await leaveRoom(session.user.id, roomId);
+  if (r === "owner") throw new Error("owner must close the room");
+  revalidatePath("/rooms");
+  revalidatePath(`/rooms/${roomId}`);
+  redirect("/rooms");
+}
+
+export async function closeRoomAction(formData: FormData) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const roomId = roomIdOf(formData);
+  if ((await closeRoom(session.user.id, roomId)) !== "closed") throw new Error("only the owner can close the room");
+  revalidatePath("/rooms");
+  redirect("/rooms");
 }

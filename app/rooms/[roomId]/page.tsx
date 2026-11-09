@@ -12,6 +12,7 @@ import { getMembership, listRoomMemories } from "@/lib/rooms";
 import { listSharedMemories } from "@/lib/shared-memories";
 
 import { createInviteAction } from "../actions";
+import { LeaveRoom } from "./LeaveRoom";
 import { PersonalMemoryCard } from "./PersonalMemoryCard";
 import { SharedMemoryCard } from "./SharedMemoryCard";
 import { SharedMemoryComposer } from "./SharedMemoryComposer";
@@ -301,6 +302,9 @@ export default async function RoomDetailPage({ params }: PageProps) {
         </p>
         <SharedMemoryComposer roomId={room.id} />
       </section>
+
+      {/* 룸 나가기(멤버)·룸 닫기(주인) — 2026-11-09 성민 */}
+      <LeaveRoom roomId={room.id} isOwner={room.ownerId === session.user.id} />
     </main>
   );
 }

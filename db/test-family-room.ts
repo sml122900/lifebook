@@ -8,6 +8,9 @@
 //   ⑤ 댓글·스탬프 — 보이는 이야기만(그때의 나·옛 V2 기록·사진 메모리·남의 룸 기록 거절)
 //   ⑥ 남의 이야기 — 멤버는 고치기·글 저장·이름 바꾸기·옮기기·지우기 전부 못 함 · 이야기 그대로 · 룸 카드에 고치기·지우기 길 없음
 //   ⑦ 화면 — 룸 만들기 동의칸(필수·서버 재확인) · 초대 동의 = 같은 공개 범위 문장 · "연도 모름" 묶음 · 문구 [임시]
+//   ⑧ 룸 나가기(2026-11-09) — 나간 멤버의 이야기 즉시 안 보임 · 룸 못 봄 · 그 사람 댓글·반응·초대 링크 지움 · 다른 멤버 그대로 · 주인은 나가기 대신 닫기
+//   ⑨ 다시 초대 — 나간 뒤 같은 링크로 와도 멤버 아님(동의 체크를 다시 거침 — 합류 액션 agree 필수) · 동의하면 다시 보임
+//   ⑩ 룸 닫기 — 주인만 · 닫힌 룸 접근 거부(멤버십·목록·초대 링크 없음) · 댓글·반응·공동 추억·초대 함께 지움 · 화면에 [룸 나가기]/[룸 닫기]
 //
 // 실행: npx tsx db/test-family-room.ts
 
@@ -25,7 +28,7 @@ import { createPeriodNode, createPersonNode, createPlaceNode, createStoryNode, d
 import { getEpisodeBody, saveEpisodeBody } from "../lib/node-body";
 import { setReaction } from "../lib/reactions";
 import { ROOM_COPY } from "../lib/room-copy";
-import { createInvite, createRoom, getMembership, joinViaInvite, listRoomMemories, roomCanSeeMemory } from "../lib/rooms";
+import { closeRoom, createInvite, createRoom, getInviteForJoin, getMembership, joinViaInvite, leaveRoom, listRoomMemories, roomCanSeeMemory } from "../lib/rooms";
 
 const ROOT = path.resolve(__dirname, "..");
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -199,6 +202,62 @@ async function main() {
       /name="agree"\s+required/.test(roomsPage) && roomsPage.includes("ROOM_COPY.shareScope") && actions.includes('formData.get("agree") !== "on"') &&
         consent.includes("ROOM_COPY.shareScope") && detail.includes("ROOM_COPY.yearUnknown") && ROOM_COPY.yearUnknown === "연도 모름" &&
         read("lib/room-copy.ts").includes("[임시 — 성민 확정 필요]"));
+
+    // ⑧ 룸 나가기 — c(V3 멤버)가 댓글·반응·초대를 남긴 뒤 나감
+    await createComment(c, room.id, "user_memory", storyMem, "[fixture] C 의 댓글");
+    await setReaction(c, room.id, "user_memory", storyMem, "proud", true);
+    const cInvite = await createInvite(c, room.id);
+    const beforeLeave = ((await listRoomMemories(room.id, b)) ?? []).some((m) => m.id === cMem);
+    const ownerLeave = await leaveRoom(a, room.id);
+    const leave = await leaveRoom(c, room.id);
+    const afterB = (await listRoomMemories(room.id, b)) ?? [];
+    const cGone =
+      !afterB.some((m) => m.id === cMem) && (await listRoomMemories(room.id, c)) === null && (await getMembership(c, room.id)) === null && !(await roomCanSeeMemory(room.id, cMem));
+    const cData = await Promise.all([
+      prisma.comment.count({ where: { roomId: room.id, authorId: c } }),
+      prisma.memoryReaction.count({ where: { roomId: room.id, authorId: c } }),
+      prisma.roomInvite.count({ where: { roomId: room.id, invitedBy: c } }),
+    ]);
+    const othersKept = afterB.some((m) => m.id === storyMem) && afterB.some((m) => m.id === bMem.id) &&
+      (await prisma.comment.count({ where: { roomId: room.id, authorId: b } })) === 1 && (await getInviteForJoin(invite.token)) !== null;
+    check("⑧ 룸 나가기 — 나간 멤버의 이야기 즉시 안 보임·룸 못 봄 · 그 사람 댓글·반응·초대 링크 지움 · 다른 멤버 기록·댓글·주인 초대 그대로 · 주인은 나가기 안 됨(닫기)",
+      beforeLeave && leave === "left" && ownerLeave === "owner" && cGone && cData.every((x) => x === 0) && othersKept && (await getInviteForJoin(cInvite.token)) === null,
+      { beforeLeave, leave, ownerLeave, cGone, cData, othersKept });
+
+    // ⑨ 다시 초대 — 멤버십 행이 없어 초대 화면이 동의 칸을 다시 보임(합류 액션은 agree 필수)
+    const invitePage = read("app/invite/[token]/page.tsx");
+    const joinAction = read("app/invite/[token]/actions.ts");
+    const notYet = (await getMembership(c, room.id)) === null && (await prisma.roomMember.count({ where: { roomId: room.id, userId: c } })) === 0;
+    const leftAt = Date.now();
+    await joinViaInvite(c, invite.token); // = 동의 체크 뒤 합류 액션이 부르는 것
+    const rejoined = await prisma.roomMember.findUnique({ where: { roomId_userId: { roomId: room.id, userId: c } }, select: { consentAt: true, role: true } });
+    check("⑨ 다시 초대 — 나간 뒤에는 멤버 아님(행 없음 → 초대 화면이 동의 칸) · 합류 액션 = 동의 체크 필수 · 동의하면 새 동의 시각으로 다시 보임",
+      notYet && invitePage.includes("const existing = await getMembership(") && invitePage.includes("<ConsentForm token={token} />") &&
+        joinAction.includes('if (agree !== "on")') && !!rejoined?.consentAt && rejoined.consentAt.getTime() >= leftAt - 1000 && rejoined.role === "member" &&
+        ((await listRoomMemories(room.id, b)) ?? []).some((m) => m.id === cMem),
+      { notYet, rejoined });
+
+    // ⑩ 룸 닫기 — 멤버는 못 닫음, 주인이 닫으면 룸째 사라짐
+    const shared = await prisma.sharedMemory.create({ data: { roomId: room.id, year: 1990, title: "[fixture] 공동 추억", createdById: a }, select: { id: true } });
+    const memberClose = await closeRoom(b, room.id);
+    const closed = await closeRoom(a, room.id);
+    const gone = await Promise.all([
+      prisma.sharedRoom.count({ where: { id: room.id } }),
+      prisma.roomMember.count({ where: { roomId: room.id } }),
+      prisma.comment.count({ where: { roomId: room.id } }),
+      prisma.memoryReaction.count({ where: { roomId: room.id } }),
+      prisma.roomInvite.count({ where: { roomId: room.id } }),
+      prisma.sharedMemory.count({ where: { id: shared.id } }),
+    ]);
+    const denied = (await listRoomMemories(room.id, a)) === null && (await listRoomMemories(room.id, b)) === null && (await getMembership(b, room.id)) === null &&
+      (await getInviteForJoin(invite.token)) === null && (await rejects(createComment(b, room.id, "user_memory", storyMem, "x")));
+    const detailSrc = read("app/rooms/[roomId]/page.tsx");
+    const leaveUi = read("app/rooms/[roomId]/LeaveRoom.tsx");
+    check("⑩ 룸 닫기 — 멤버는 못 닫음 · 주인이 닫으면 룸·멤버십·댓글·반응·초대·공동 추억 0 · 닫힌 룸 접근 거부(목록·멤버십·초대 링크·댓글) · 화면 = 멤버 [룸 나가기]/주인 [룸 닫기] + 확인 단계 · 이야기 자체는 그대로",
+      memberClose === "not_owner" && closed === "closed" && gone.every((x) => x === 0) && denied &&
+        detailSrc.includes("<LeaveRoom roomId={room.id} isOwner={room.ownerId === session.user.id} />") && leaveUi.includes("C.leaveAsk") && leaveUi.includes("C.closeAsk") &&
+        (await prisma.episode.count({ where: { id: story.episodeId } })) === 1,
+      { memberClose, closed, gone, denied });
   } finally {
     await removeFixtures();
   }
