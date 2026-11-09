@@ -1,13 +1,13 @@
 {
-  "at": "2026-11-08T14:13:40.449Z",
+  "at": "2026-11-09T01:43:01.149Z",
   "n": 10,
   "stopped": false,
-  "spentUsd": 0.42232,
+  "spentUsd": 0.61383,
   "report": {
     "sonnet": {
-      "calls": 280,
-      "micro": 317490,
-      "hits": 230,
+      "calls": 300,
+      "micro": 338790,
+      "hits": 247,
       "perCase": {
         "era-olympic-88": {
           "hit": 10,
@@ -43,6 +43,19 @@
           "hit": 0,
           "got": {
             "1989": 10
+          }
+        },
+        "era-imf-next": {
+          "hit": 7,
+          "got": {
+            "1998": 7,
+            "1999": 3
+          }
+        },
+        "era-olympic-before": {
+          "hit": 10,
+          "got": {
+            "1986": 10
           }
         },
         "age-12": {
@@ -179,10 +192,10 @@
         }
       }
     },
-    "haiku": {
-      "calls": 280,
-      "micro": 104830,
-      "hits": 240,
+    "sonnet+table": {
+      "calls": 240,
+      "micro": 275040,
+      "hits": 253,
       "perCase": {
         "era-olympic-88": {
           "hit": 10,
@@ -215,9 +228,22 @@
           }
         },
         "era-629": {
-          "hit": 0,
+          "hit": 10,
           "got": {
-            "null": 10
+            "1987": 10
+          }
+        },
+        "era-imf-next": {
+          "hit": 3,
+          "got": {
+            "1998": 3,
+            "1999": 7
+          }
+        },
+        "era-olympic-before": {
+          "hit": 10,
+          "got": {
+            "1986": 10
           }
         },
         "age-12": {
@@ -251,9 +277,9 @@
           }
         },
         "age-24-army": {
-          "hit": 10,
+          "hit": 0,
           "got": {
-            "1980": 10
+            "null": 10
           }
         },
         "age-19-1970": {
@@ -277,19 +303,19 @@
         "school-elem-enter": {
           "hit": 0,
           "got": {
-            "1962": 10
+            "null": 10
           }
         },
         "school-mid-1": {
           "hit": 0,
           "got": {
-            "1970": 10
+            "null": 10
           }
         },
         "school-high-1": {
           "hit": 0,
           "got": {
-            "1971": 10
+            "null": 10
           }
         },
         "korean-1979": {

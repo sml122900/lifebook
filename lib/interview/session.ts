@@ -39,7 +39,7 @@ import { kstDay, parseItemKey, parseSelfKeyId, type SelfRelationRef } from "./ke
 import { computeTodayPlan } from "./plan";
 import { renderPoolText } from "./pool-text";
 import { QUESTION_POOL, SELF_QUESTION_POOL } from "./question-pool";
-import { isUnknownYearAnswer, parseYearDeterministic, parseYearWithAi } from "./year";
+import { isUnknownYearAnswer, parseYearLocal, parseYearWithAi } from "./year";
 import { resolveBirthYear } from "../life-events";
 
 export type InterviewItemView = {
@@ -479,7 +479,7 @@ export async function answerInterviewYear(
     });
 
   const birthYear = answer ? await resolveBirthYear(userId) : null;
-  let year = answer ? parseYearDeterministic(answer, birthYear, now) : null;
+  let year = answer ? parseYearLocal(answer, birthYear, now) : null; // 정규식 → 큰 사건 연도표(2026-11-09) → 아래 AI
   if (year === null && answer && !isUnknownYearAnswer(answer)) {
     const usage = newAiUsage();
     try {

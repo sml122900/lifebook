@@ -1,7 +1,8 @@
 // 오늘의 인터뷰 연도 해석 재생 세트 — db/test-fixtures/interview-year-replay/cases.json 의 답을 모델별로 N회 다시 돌려
 // 기대 연도 적중률을 낸다(CLAUDE.md 작업 규칙 9 — 모델·프롬프트를 바꾸면 전후 각 10회 비교). 2026-11-08: Sonnet 4.6 → Haiku 4.5 비교.
+// 2026-11-09: 큰 사건 연도표(lib/era-year-table) 전후 — 변형 "sonnet+table" = 앱처럼 표가 맞으면 그 해(AI 0회), 아니면 같은 모델.
 //
-// 실행: npx tsx db/replay-interview-year.ts [--models sonnet,haiku] [--n 10] [--max-usd 1] [--run]
+// 실행: npx tsx db/replay-interview-year.ts [--models sonnet,sonnet+table] [--n 10] [--max-usd 1] [--run]
 //   --run 이 없으면 비교 계획(사례 수·모델·호출 수·예상 원가·오늘 테스트 원가)만 출력하고 끝(호출 0 — 작업 규칙 10).
 // 호출 = 앱과 같은 함수(lib/interview/year parseYearWithAi — 모델만 바꿈). 사례는 정규식이 못 푸는 답만(AI 경로) — 시작 때 확인.
 // 판정 = 반환 연도 === expectYear(null 기대는 null 일 때만 적중). 원가 = 호출마다 토큰 × 단가(lib/chat-v3-usage costMicroUsd),
@@ -18,7 +19,7 @@ import { newAiUsage, trackAiUsage, withUsageLedger } from "../lib/ai";
 import { modelId } from "../lib/ai-model";
 import { costMicroUsd, testBudgetMicroUsd, testSpentTodayMicroUsd } from "../lib/chat-v3-usage";
 import { prisma } from "../lib/db";
-import { isUnknownYearAnswer, parseYearDeterministic, parseYearWithAi } from "../lib/interview/year";
+import { isUnknownYearAnswer, parseYearDeterministic, parseYearFromEraTable, parseYearWithAi } from "../lib/interview/year";
 import { requireTestBudget } from "./live-log";
 import { requireRun } from "./run-guard";
 
@@ -26,29 +27,32 @@ type Case = { id: string; birthYear: number | null; answer: string; expectYear: 
 const FILE = path.join(__dirname, "test-fixtures", "interview-year-replay", "cases.json");
 const FIXTURE_EMAIL = "fixture-year-replay@lifebook.invalid";
 const CONCURRENCY = 5;
-// 계획 출력용 1회 예상 원가(지시문 약 330토큰 + 답 + 출력 약 10토큰).
-const EST_USD: Record<string, number> = { sonnet: 0.0012, haiku: 0.0004 };
+// 계획 출력용 1회 예상 원가(지시문 약 330토큰 + 답 + 출력 약 10토큰) = 아래 estOf.
 
 function arg(name: string, def: string): string {
   const i = process.argv.indexOf(`--${name}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : def;
 }
 
-function resolveModel(m: string): { key: string; id: string } {
-  if (m === "sonnet" || m === "haiku") return { key: m, id: modelId(m) };
-  return { key: m, id: m };
+// "+table" = 큰 사건 연도표를 먼저(앱과 같은 순서 — lib/interview/year parseYearLocal 의 표 단계).
+function resolveModel(m: string): { key: string; id: string; table: boolean } {
+  const table = m.endsWith("+table");
+  const base = table ? m.slice(0, -"+table".length) : m;
+  return { key: m, id: base === "sonnet" || base === "haiku" ? modelId(base) : base, table };
 }
+const estOf = (id: string) => (id.includes("haiku") ? 0.0004 : 0.0012);
 
 async function main() {
   const spec = JSON.parse(fs.readFileSync(FILE, "utf8")) as { now: string; cases: Case[] };
   const now = new Date(spec.now);
-  const models = arg("models", "sonnet,haiku").split(",").filter(Boolean).map(resolveModel);
+  const models = arg("models", "sonnet,sonnet+table").split(",").filter(Boolean).map(resolveModel);
   const n = Number(arg("n", "10"));
   const maxMicro = Math.floor(Number(arg("max-usd", "1")) * 1e6);
   // 사례가 정말 AI 경로를 타는지 — 정규식이 풀거나 "모르겠어요"류면 앱은 AI 를 안 부른다.
   const notAi = spec.cases.filter((c) => parseYearDeterministic(c.answer, c.birthYear, now) !== null || isUnknownYearAnswer(c.answer));
-  const calls = spec.cases.length * models.length * n;
-  const est = models.reduce((s, m) => s + (EST_USD[m.key] ?? 0.0012) * spec.cases.length * n, 0);
+  const aiCases = (m: { table: boolean }) => spec.cases.filter((c) => !m.table || parseYearFromEraTable(c.answer, c.birthYear, now) === null).length;
+  const calls = models.reduce((s, m) => s + aiCases(m) * n, 0);
+  const est = models.reduce((s, m) => s + estOf(m.id) * aiCases(m) * n, 0);
   requireRun([
     `재생 세트 ${spec.cases.length}건(기준일 ${spec.now.slice(0, 10)}) · AI 경로 아님 ${notAi.length}건${notAi.length ? `: ${notAi.map((c) => c.id).join(", ")}` : ""}`,
     `모델 ${models.map((m) => `${m.key}(${m.id})`).join(", ")} × ${n}회 = 호출 ${calls}회 · 예상 원가 약 $${est.toFixed(2)} · 상한 $${(maxMicro / 1e6).toFixed(2)}`,
@@ -72,15 +76,16 @@ async function main() {
       const worker = async () => {
         while (next < jobs.length && !stopped) {
           // 상한 — 이 모델의 1회 예상 원가 3배 여유를 두고 넘기 전에 멈춘다.
-          if (spent + (EST_USD[m.key] ?? 0.0012) * 3e6 > maxMicro) {
+          if (spent + estOf(m.id) * 3e6 > maxMicro) {
             stopped = true;
             break;
           }
           const c = jobs[next++];
           const usage = newAiUsage();
-          const got = await trackAiUsage(usage, () =>
-            withUsageLedger(userId, "INTERVIEW_YEAR", () => parseYearWithAi(c.answer, c.birthYear, now, m.id)),
-          );
+          const fromTable = m.table ? parseYearFromEraTable(c.answer, c.birthYear, now) : null;
+          const got =
+            fromTable ??
+            (await trackAiUsage(usage, () => withUsageLedger(userId, "INTERVIEW_YEAR", () => parseYearWithAi(c.answer, c.birthYear, now, m.id))));
           const micro = usage.model ? costMicroUsd(usage.model, usage.inputTokens, usage.outputTokens) : 0;
           spent += micro;
           r.micro += micro;
@@ -121,6 +126,9 @@ async function main() {
       if (!b || !o) continue;
       const regress = spec.cases.filter((c) => (b.perCase[c.id]?.hit ?? 0) >= Math.ceil(n * 0.9) && (o.perCase[c.id]?.hit ?? 0) < Math.ceil(n * 0.9)).map((c) => c.id);
       console.log(`\n판정 ${m.key} vs ${base.key}: 적중 ${o.hits} vs ${b.hits} · 새 실패(기준 ≥${Math.ceil(n * 0.9)}/${n} → 미만) ${regress.length ? regress.join(", ") : "없음"}`);
+      // 떨어진 문항(2026-11-09 성민 기준 — 한 문항이라도 덜 맞히면 채택 안 함)
+      const dropped = spec.cases.filter((c) => (o.perCase[c.id]?.hit ?? 0) < (b.perCase[c.id]?.hit ?? 0)).map((c) => `${c.id} ${b.perCase[c.id]?.hit ?? 0}→${o.perCase[c.id]?.hit ?? 0}`);
+      console.log(`  떨어진 문항 ${dropped.length ? dropped.join(", ") : "없음"}`);
     }
   }
   console.log(`\n총 원가 $${(spent / 1e6).toFixed(4)} · 정리 — 픽스처 계정 ${await prisma.user.count({ where: { email: FIXTURE_EMAIL } })}`);

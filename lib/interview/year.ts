@@ -1,10 +1,12 @@
-// 오늘의 인터뷰 — 연도 문항 답 해석. 정규식 먼저(AI 0회), 안 되면 Sonnet 1회(2026-11-09 — Haiku 에서 되돌림).
+// 오늘의 인터뷰 — 연도 문항 답 해석. 정규식 → 큰 사건 연도표(lib/era-year-table — 2026-11-09, AI 0회) → 안 되면 Sonnet 1회
+// (2026-11-09 — Haiku 에서 되돌림).
 //
 // 확인질문 분류기(submitConfirmAnswer)를 쓰지 않는 이유: 그쪽은 "기억 안 나요"류
 // 답에 SKIPPED(=해당 없음)·UNCLEAR(unclearCount·needsReview)를 쓸 수 있고 연도 전파가
 // 붙어 있다. 여기서는 연도 숫자만 뽑는다(docs/phase/today-interview.md §6.1).
 
 import { chat } from "../ai";
+import { eraYearFromAnswer } from "../era-year-table";
 
 // 추출/분류는 Sonnet 고정 — 전역 aiModel 과 무관(기존 v3 정책).
 // 2026-11-08 Haiku 로 바꿨다가(da8309c) 2026-11-09 되돌림(성민): 재생 세트(db/replay-interview-year.ts, 28건 × 10회) 적중은
@@ -40,6 +42,19 @@ export function parseYearDeterministic(text: string, birthYear: number | null, n
     return ok.length === 1 ? ok[0] : null;
   }
   return null;
+}
+
+// 답에 큰 사건 이름("88올림픽 하던 해" 등)이 있으면 표의 해 — 모델보다 먼저(2026-11-09 성민). 범위(출생 ~ 올해) 밖이면 null.
+export function parseYearFromEraTable(text: string, birthYear: number | null, now: Date): number | null {
+  const hit = eraYearFromAnswer(text);
+  if (!hit) return null;
+  const [min, max] = yearRange(birthYear, now);
+  return hit.year >= min && hit.year <= max ? hit.year : null;
+}
+
+// AI 없이 푸는 길 전부 — 정규식, 그다음 큰 사건 연도표. 앱(lib/interview/session)이 쓴다.
+export function parseYearLocal(text: string, birthYear: number | null, now: Date): number | null {
+  return parseYearDeterministic(text, birthYear, now) ?? parseYearFromEraTable(text, birthYear, now);
 }
 
 function stripJsonFence(raw: string): string {
