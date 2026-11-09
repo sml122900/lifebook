@@ -7,11 +7,12 @@
 // 보이는 곳: 공지일 0시(KST)부터 시행일 뒤 7일까지 —
 //   - 로그인한 화면 헤더 아래 안내 띠(app/components/PolicyNoticeBar — 390 에서 한 줄(최대 두 줄): 짧은 요약 + 시행일 +
 //     [자세히]·[닫기], 닫으면 그 기기에서 그 판은 숨김) — 등록의 short
-//   - 해당 문서 맨 위 "개정 안내" 줄(/privacy · /terms, 띠 버튼 [처리방침 보기]·[약관 보기]가 이 줄로 감) — 등록의 detail
+//   - 해당 문서 맨 위 "개정 안내" 줄(/privacy · /terms · /refund, 띠 버튼 [처리방침 보기]·[약관 보기]·[환불정책 보기]가 이 줄로 감) — 등록의 detail
 // 문구는 lib/policy-notice-copy.ts(임시).
 
-export type PolicyDoc = "privacy" | "terms";
-export const POLICY_DOCS: readonly PolicyDoc[] = ["privacy", "terms"];
+// 환불·교환 정책(refund)은 2026-11-09 v1.1 부터(약관에 맞춘 개정 — 성민).
+export type PolicyDoc = "privacy" | "terms" | "refund";
+export const POLICY_DOCS: readonly PolicyDoc[] = ["privacy", "terms", "refund"];
 
 export type PolicyNotice = {
   doc: PolicyDoc;
@@ -89,6 +90,17 @@ export const POLICY_NOTICES: readonly PolicyNotice[] = [
     effectiveDay: "2026-11-09",
     leadException: "2026-11-09 성민 승인 — 실사용자 0명이라 공지 + 7일 대기 없이 공지 당일 시행",
   },
+  {
+    // 환불·교환 정책 v1.1 — 약관(제15조·제16조)에 맞춤(2026-11-09 성민). short·detail [임시 — 성민 확정 필요] 2026-11-09.
+    doc: "refund",
+    version: "v1.1",
+    short: "환불 기준 약관대로",
+    detail:
+      "청약철회 7일을 세기 시작하는 날을 이용약관 제15조 ①과 같게(계약 내용에 관한 서면을 받은 날, 상품을 그보다 늦게 받으면 받은 날) 적고, 하자·주문과 다른 상품의 무상 재제작·환불 기간을 \"7일 이내\"에서 약관 제15조 ④와 같게(받은 날부터 3개월, 안 날부터 30일) 늘리고, 환불하는 때를 약관 제16조 ①과 같게(반품을 돌려받은 날부터 3영업일) 고쳤습니다. 그 밖의 기준은 그대로입니다.",
+    noticeDay: "2026-11-09",
+    effectiveDay: "2026-11-09",
+    leadException: "2026-11-09 성민 승인 — 실사용자 0명이라 공지 + 7일 대기 없이 공지 당일 시행",
+  },
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -98,7 +110,7 @@ const kstMidnight = (day: string) => Date.parse(`${day}T00:00:00+09:00`);
 // 등록값 검사 — 문제가 있으면 이유, 없으면 null.
 export function noticeProblem(n: PolicyNotice): string | null {
   // 문서 종류로 띠 버튼(처리방침 보기·약관 보기)·가는 곳을 고른다 — 빠졌거나 모르는 값이면 등록 오류(띠 안 보임).
-  if (!POLICY_DOCS.includes(n.doc)) return "문서 종류(privacy·terms)";
+  if (!POLICY_DOCS.includes(n.doc)) return "문서 종류(privacy·terms·refund)";
   if (!DAY_RE.test(n.noticeDay) || !DAY_RE.test(n.effectiveDay) || Number.isNaN(kstMidnight(n.noticeDay)) || Number.isNaN(kstMidnight(n.effectiveDay))) {
     return "날짜 형식(YYYY-MM-DD)";
   }

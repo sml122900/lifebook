@@ -4,7 +4,7 @@
 
 import { formatNoticeDay, type ActiveNotice, type PolicyDoc } from "./policy-notice";
 
-const DOC_NAME: Record<PolicyDoc, string> = { privacy: "개인정보 처리방침", terms: "이용약관" };
+const DOC_NAME: Record<PolicyDoc, string> = { privacy: "개인정보 처리방침", terms: "이용약관", refund: "환불·교환 정책" };
 
 export const POLICY_NOTICE_COPY = {
   // 로그인한 화면 헤더 아래 띠 — "짧은 요약 · 11월 11일부터"
@@ -13,7 +13,7 @@ export const POLICY_NOTICE_COPY = {
       ? `${n.short} · ${formatNoticeDay(n.effectiveDay, true)}부터`
       : `${n.short} · ${formatNoticeDay(n.effectiveDay, true)}부터 적용`,
   // 띠 버튼 — 등록의 문서 종류로(그 문서 맨 위 "개정 안내" 줄로 감 — noticeHref). "약관 보기"가 더 짧아 띠 요약 11자 상한 그대로.
-  more: { privacy: "처리방침 보기", terms: "약관 보기" } satisfies Record<PolicyDoc, string>,
+  more: { privacy: "처리방침 보기", terms: "약관 보기", refund: "환불정책 보기" } satisfies Record<PolicyDoc, string>, // refund [임시 — 성민 확정 필요] 2026-11-09
   close: "닫기",
   // 문서 맨 위 "개정 안내" 줄
   pageLine: (n: ActiveNotice) =>

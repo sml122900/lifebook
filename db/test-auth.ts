@@ -200,9 +200,10 @@ async function main() {
         read("lib/commerce/order-display.ts").includes('"결제일로부터 최대 14일 이내에 배송해 드려요."') &&
         terms11.includes(`개정 약관(제13조 제1항 — 배송 기간)은 ${formatNoticeDay(t11.effectiveDay)}부터 시행합니다.`) && (t11.leadException ?? "").includes("성민"),
       t11);
-    check("③ 등록된 개정(POLICY_NOTICES) 전부 규칙 통과 · 처리방침 개정이면 개정 이력에 그 판·시행일",
+    check("③ 등록된 개정(POLICY_NOTICES) 전부 규칙 통과 · 처리방침·환불정책 개정이면 개정 이력에 그 판·시행일",
       POLICY_NOTICES.every((n) => noticeProblem(n) === null) &&
-        POLICY_NOTICES.filter((n) => n.doc === "privacy").every((n) => read("app/privacy/page.tsx").includes(`${n.version} — ${formatNoticeDay(n.effectiveDay)} 시행`)),
+        POLICY_NOTICES.filter((n) => n.doc === "privacy").every((n) => read("app/privacy/page.tsx").includes(`${n.version} — ${formatNoticeDay(n.effectiveDay)} 시행`)) &&
+        POLICY_NOTICES.filter((n) => n.doc === "refund").every((n) => read("app/refund/page.tsx").includes(`${n.version} — ${formatNoticeDay(n.effectiveDay)} 시행`)),
       POLICY_NOTICES.map((n) => [n.version, noticeProblem(n)]));
     check("③ 닫기 기록은 판마다 따로 · 띠 = 짧은 요약 + 시행일(상세 없음) · 처리방침 줄 = 문서 이름(판)·시행일·상세 · 버튼·가는 곳 = 문서별(처리방침 보기 → /privacy · 약관 보기 → /terms 맨 위 줄)",
       noticeClosedKey(sample) !== noticeClosedKey({ ...sample, version: "v9.10" }) &&
@@ -214,7 +215,15 @@ async function main() {
     check("③ 화면 연결 — 로그인한 화면 헤더 아래 띠(root layout) · 처리방침·약관 맨 위 줄",
       read("app/layout.tsx").includes("const notice = session?.user ? activeNotice() : null;") && read("app/layout.tsx").includes("{notice && <PolicyNoticeBar notice={notice} />}") &&
         read("app/privacy/page.tsx").includes(`const notice = activeNotice("privacy");`) &&
-        read("app/terms/page.tsx").includes(`const notice = activeNotice("terms");`) && read("app/terms/page.tsx").includes("<p id={NOTICE_ANCHOR}"));
+        read("app/terms/page.tsx").includes(`const notice = activeNotice("terms");`) && read("app/terms/page.tsx").includes("<p id={NOTICE_ANCHOR}") &&
+        read("app/refund/page.tsx").includes(`const notice = activeNotice("refund");`) && read("app/refund/page.tsx").includes("<p id={NOTICE_ANCHOR}") &&
+        POLICY_NOTICE_COPY.more.refund === "환불정책 보기" && noticeHref({ doc: "refund" }) === "/refund#policy-notice");
+    // 환불 정책 v1.1(2026-11-09) — 약관 제15조 ①·④·제16조 ①에 맞춤(성민). 옛 "늦은 날부터 7일"·"7일 이내 무상"·"취소 확인 후 3영업일" 없음.
+    const refundLines = read("lib/commerce/order-display.ts");
+    check("③ 환불 정책 v1.1 — 7일 = 계약 내용 서면 받은 날(늦게 받으면 받은 날) · 하자 = 받은 날 3개월·안 날 30일 · 환불 = 돌려받은 날 3영업일 · 옛 문구 없음 · 고객센터 답도 같음",
+      refundLines.includes("계약 내용에 관한 서면(주문 확인)을 받으신 날부터 7일 이내") && refundLines.includes("상품을 받으신 날부터 3개월 이내, 그 사실을 아신 날(또는 아실 수 있었던 날)부터 30일 이내") &&
+        refundLines.includes("반품하신 상품을 돌려받은 날부터 3영업일 이내에 환불") && !refundLines.includes("가운데 늦은 날부터 7일") && !refundLines.includes("7일 이내에 무상으로") &&
+        !refundLines.includes("취소 확인 후 3영업일") && read("app/help/HelpFaq.tsx").includes("받으신 날부터 3개월, 아신 날부터 30일") && read("app/terms/page.tsx").includes("공급받은 날부터 3월 이내, 그 사실을 안 날 또는 알 수 있었던 날부터 30일 이내"));
 
     // ── ④ auth() 요청 단위 재사용(2026-11-05) — 한 그리기 요청 안에서는 jwt 콜백(DB 동의 상태·지갑)을 한 번만 ──────
     const authSrc = read("auth.ts");
