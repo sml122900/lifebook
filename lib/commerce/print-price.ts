@@ -6,15 +6,17 @@ import { PRINT } from "../print-layout";
 
 export const PRINT_PAGE_KRW = 8_000;
 export const PRINT_SHIPPING_KRW = 0; // 배송비 포함 가격(무료배송)
+// 최소 주문 = 표지 + 1장 = 2장(16,000원 — 2026-11-09 성민 확정). 표지만 있는 1장은 인쇄할 시기가 없음.
+export const PRINT_MIN_PAGES = 2;
 
 // 토스 신고 최고가(2026-11-09 성민 재신고 = 20장 × 8,000원). 최대 장수 결제액이 이 값을 넘으면 판매 안 함.
 export const PRINT_MAX_TOTAL_KRW = 160_000;
 
 export type PrintPrice = { unitKrw: number; quantity: number; shippingKrw: number; totalKrw: number };
 
-// 장수 → 금액. 1장 미만·상한 초과·금액 없음이면 null(주문 잠금).
+// 장수 → 금액. 최소 장수(2) 미만·상한 초과·금액 없음이면 null(주문 잠금).
 export function printPrice(pageCount: number, pageKrw: number = PRINT_PAGE_KRW): PrintPrice | null {
-  if (!Number.isInteger(pageCount) || pageCount < 1 || pageCount > PRINT.MAX_PAGES || !(pageKrw > 0)) return null;
+  if (!Number.isInteger(pageCount) || pageCount < PRINT_MIN_PAGES || pageCount > PRINT.MAX_PAGES || !(pageKrw > 0)) return null;
   return { unitKrw: pageKrw, quantity: pageCount, shippingKrw: PRINT_SHIPPING_KRW, totalKrw: pageKrw * pageCount + PRINT_SHIPPING_KRW };
 }
 

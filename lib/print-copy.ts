@@ -36,6 +36,7 @@ export const PRINT_COPY = {
   pagesLine: (n: number) => `지금 ${n}장 (표지 포함)`,
   sumLine: (unit: string, n: number, total: string) => `장당 ${unit}원 × ${n}장 = 합계 ${total}원 (배송비 포함)`,
   priceTbd: "가격은 아직 정하는 중이에요. 정해지면 주문할 수 있어요.",
+  minPages: (n: number, price: string) => `표지 말고 한 장 이상 있어야 해요. 최소 ${n}장(${price}원)부터 주문할 수 있어요.`, // [임시 — 성민 확정 필요] 2026-11-09
   overLimit: (max: number) => `${max}장이 넘었어요. 몇 가지를 빼서 ${max}장 안으로 맞춰 주세요.`,
   order: "주문하기",
   // 주문(배송지·결제위젯)
@@ -58,7 +59,7 @@ export const PRINT_COPY = {
   pickMethod: "결제 수단을 골라 주세요. 카드는 카드사까지 골라 주세요.", // 결제위젯 검사 거절(카드사 미선택 등) — 주문 실패가 아님
   notOnSale: "아직 주문할 수 없어요. 가격이 정해지면 알려 드릴게요.",
   tooMany: (max: number) => `${max}장이 넘어서 주문할 수 없어요.`,
-  noPages: "인쇄할 시기가 없어요.",
+  noPages: "인쇄할 시기가 없어요. 표지 말고 한 장 이상(최소 2장) 있어야 주문할 수 있어요.", // [임시 — 성민 확정 필요] 2026-11-09
   // 인쇄 그림
   coverTitle: "My Life",
   coverOwner: (name: string) => `${name} 님의 이야기`,

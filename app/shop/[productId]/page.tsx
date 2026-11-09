@@ -1,10 +1,11 @@
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ButtonLink } from "@/components/ui/Button";
 import { getProduct, shippingKrwOf } from "@/lib/commerce/products";
-import { SHIPPING_LEAD_TIME_LINE } from "@/lib/commerce/order-display";
-import { PRINT_MAX_TOTAL_KRW } from "@/lib/commerce/print-price";
+import { REFUND_SUMMARY_LINES, SHIPPING_LEAD_TIME_LINE } from "@/lib/commerce/order-display";
+import { PRINT_MAX_TOTAL_KRW, PRINT_MIN_PAGES } from "@/lib/commerce/print-price";
 import { PRINT } from "@/lib/print-layout";
 
 // /shop/[productId] — 상품 상세. 이미지 슬롯(실사진 전 placeholder) + 규격 +
@@ -72,13 +73,31 @@ export default async function ProductDetailPage({
       </dl>
       {perPage && (
         <p className="mt-3 text-base text-ink-soft">
-          {/* [임시 — 성민 확정 필요] 2026-11-09 */}
-          표지를 포함해 최대 {PRINT.MAX_PAGES}장({PRINT_MAX_TOTAL_KRW.toLocaleString()}원)까지예요. 장수와 결제 금액은 인쇄본 화면의
-          미리보기에서 확인하신 뒤 주문해요. 예: 7장이면 {(product.unitKrw * 7).toLocaleString()}원.
+          {/* [임시 — 성민 확정 필요] 2026-11-09 — 최소 2장(표지 + 1장, 성민 확정) */}
+          표지를 포함해 최소 {PRINT_MIN_PAGES}장({(product.unitKrw * PRINT_MIN_PAGES).toLocaleString()}원)부터 최대 {PRINT.MAX_PAGES}장({PRINT_MAX_TOTAL_KRW.toLocaleString()}원)까지예요.
+          장수와 결제 금액은 인쇄본 화면의 미리보기에서 확인하신 뒤 주문해요. 예: 7장이면 {(product.unitKrw * 7).toLocaleString()}원.
         </p>
       )}
 
       <p className="mt-3 text-base text-ink-soft">{SHIPPING_LEAD_TIME_LINE}</p>
+
+      {/* 교환·반품·환불 요약(2026-11-09 성민) — 자세한 기준은 환불정책(푸터 링크도 그대로). 문구 [임시] = lib/commerce/order-display */}
+      <section aria-labelledby="refund-summary" className="mt-6 rounded-md border-2 border-line bg-surface px-5 py-4">
+        <h2 id="refund-summary" className="text-xl font-bold text-ink">
+          교환·반품·환불
+        </h2>
+        <ul className="mt-2 flex flex-col gap-2 text-lg text-ink-soft">
+          {REFUND_SUMMARY_LINES.map((line) => (
+            <li key={line}>· {line}</li>
+          ))}
+        </ul>
+        <Link
+          href="/refund"
+          className="mt-3 inline-flex min-h-[48px] items-center text-lg font-semibold text-ink underline hover:text-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+        >
+          환불·교환 정책 자세히 보기
+        </Link>
+      </section>
 
       <div className="mt-8">
         <ButtonLink href={`/shop/${product.id}/order`} variant="primary" size="lg">

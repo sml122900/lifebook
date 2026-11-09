@@ -8,7 +8,7 @@ import { loadTossPayments, type TossPaymentsWidgets } from "@tosspayments/tosspa
 
 import { AddressSearch } from "@/app/components/AddressSearch";
 import { Button } from "@/components/ui/Button";
-import { printOnSale, printPrice } from "@/lib/commerce/print-price";
+import { PRINT_MIN_PAGES, PRINT_PAGE_KRW, printOnSale, printPrice } from "@/lib/commerce/print-price";
 import type { MyLifeData } from "@/lib/my-life";
 import { PRINT_COPY as T } from "@/lib/print-copy";
 import { layoutPrint, PRINT, printKey, type PrintOptions, type PrintPage } from "@/lib/print-layout";
@@ -44,7 +44,7 @@ export function PrintEditor({ data, owner, initial, widgetClientKey, customerKey
   const onSale = printOnSale();
   const price = layout.overLimit ? null : printPrice(layout.pageCount);
   const excluded = useMemo(() => new Set(opts.excluded), [opts.excluded]);
-  const canOrder = onSale && layout.pageCount > 1 && price != null;
+  const canOrder = onSale && price != null; // 최소 2장(표지 + 1장)·최대 20장 안이면 금액 있음
 
   useEffect(() => {
     let alive = true;
@@ -215,6 +215,8 @@ export function PrintEditor({ data, owner, initial, widgetClientKey, customerKey
             <p className="text-lg font-bold text-ink">{T.pagesLine(layout.pageCount)}</p>
             {layout.overLimit ? (
               <p className="text-lg text-danger">{T.overLimit(PRINT.MAX_PAGES)}</p>
+            ) : onSale && layout.pageCount < PRINT_MIN_PAGES ? (
+              <p className="text-lg text-ink-soft">{T.minPages(PRINT_MIN_PAGES, won(PRINT_MIN_PAGES * PRINT_PAGE_KRW))}</p>
             ) : !onSale || price == null ? (
               <p className="text-lg text-ink-soft">{T.priceTbd}</p>
             ) : (

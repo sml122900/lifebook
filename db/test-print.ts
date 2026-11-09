@@ -24,7 +24,7 @@ import path from "node:path";
 
 import { deleteAccountTx } from "../lib/account-deletion";
 import { createPendingPrintOrder, getPrintDraft, PRINT_PAYMENT_LIVE_ENABLED, PRINT_PRODUCT_ID, sanitizePrintOptions, savePrintDraft, type PrintSnapshot } from "../lib/commerce/print-orders";
-import { PRINT_MAX_TOTAL_KRW, PRINT_PAGE_KRW, PRINT_SHIPPING_KRW, printOnSale, printPrice } from "../lib/commerce/print-price";
+import { PRINT_MAX_TOTAL_KRW, PRINT_MIN_PAGES, PRINT_PAGE_KRW, PRINT_SHIPPING_KRW, printOnSale, printPrice } from "../lib/commerce/print-price";
 import { getProduct, shippingKrwOf } from "../lib/commerce/products";
 import { createPendingProductOrder } from "../lib/commerce/orders";
 import { keptPosterImages } from "../lib/commerce/kept-poster";
@@ -173,9 +173,9 @@ async function main() {
   // ⑥ 상한·가격(2026-11-09 장당 8,000원 · 배송비 포함)
   const huge = layoutPrint(synth({ periods: 40, stories: Array(40).fill(3), people: 4, places: 2, chipsPerStory: 3 }), "", DEFAULT_PRINT_OPTIONS);
   const p7 = printPrice(7);
-  check("⑥ 20장 넘으면 overLimit · 금액 = 장당 8,000원 × 장수 + 배송 0(7장 56,000 · 20장 160,000) · 0장·21장·소수 = 금액 없음",
+  check("⑥ 20장 넘으면 overLimit · 금액 = 장당 8,000원 × 장수 + 배송 0(최소 2장 16,000 · 7장 56,000 · 20장 160,000) · 1장(표지만)·21장·소수 = 금액 없음",
     huge.overLimit && huge.pageCount > PRINT.MAX_PAGES && !lMax.overLimit && PRINT_PAGE_KRW === 8_000 && PRINT_SHIPPING_KRW === 0 &&
-      !!p7 && p7.unitKrw === 8_000 && p7.quantity === 7 && p7.shippingKrw === 0 && p7.totalKrw === 56_000 && printPrice(1)?.totalKrw === 8_000 &&
+      !!p7 && p7.unitKrw === 8_000 && p7.quantity === 7 && p7.shippingKrw === 0 && p7.totalKrw === 56_000 && PRINT_MIN_PAGES === 2 && printPrice(2)?.totalKrw === 16_000 && printPrice(1) === null &&
       printPrice(20)?.totalKrw === 160_000 && printPrice(21) === null && printPrice(0) === null && printPrice(2.5) === null && printPrice(huge.pageCount) === null);
   const product = getProduct(PRINT_PRODUCT_ID);
   check("⑥ 최고가 160,000원 = 20장 · 판매 중(상품 공개 · 목록 장당 8,000원 · 무료배송) · 금액 0 또는 최고가 넘는 장당 금액 = 판매 안 함",
@@ -185,6 +185,12 @@ async function main() {
   check("⑥ 화면 금액 줄·주문 단계 = 서버 주문과 같은 함수(printPrice) — 화면에 금액 계산식 따로 없음",
     editor6.includes("printPrice(layout.pageCount)") && editor6.includes("total={price.totalKrw}") && read("lib/commerce/print-orders.ts").includes("printPrice(layout.pageCount, pageKrw)") &&
       !/8_?000|tierFor/.test(editor6));
+
+  const detail6 = read("app/shop/[productId]/page.tsx");
+  check("⑥ 최소 2장(2026-11-09 성민) — 인쇄본 화면 금액 줄에 최소 장수 안내 · 상품 상세에 최소 2장 · 교환·반품·환불 요약 줄 + 환불정책 링크",
+    editor6.includes("layout.pageCount < PRINT_MIN_PAGES") && editor6.includes("T.minPages(") && read("lib/print-copy.ts").includes("minPages:") &&
+      detail6.includes("최소 {PRINT_MIN_PAGES}장") && detail6.includes("REFUND_SUMMARY_LINES.map") && detail6.includes('href="/refund"') &&
+      read("lib/commerce/order-display.ts").includes("export const REFUND_SUMMARY_LINES"));
 
   // ⑦ PDF
   const fake = (n: number) => new Uint8Array(Array.from({ length: n }, (_, i) => (i * 7) % 256));

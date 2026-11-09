@@ -7,7 +7,7 @@ import { getMyLifeData } from "../my-life";
 import { PRINT_COPY as T } from "../print-copy";
 import { DEFAULT_PRINT_OPTIONS, layoutPrint, liveKeys, PRINT, type PrintLayout, type PrintOptions } from "../print-layout";
 import type { CreateProductOrderResult, ShippingInput } from "./orders";
-import { PRINT_PAGE_KRW, printOnSale, printPrice } from "./print-price";
+import { PRINT_MIN_PAGES, PRINT_PAGE_KRW, printOnSale, printPrice } from "./print-price";
 import { getProduct } from "./products";
 
 export const PRINT_PRODUCT_ID = "mylife-print";
@@ -71,7 +71,7 @@ export async function createPendingPrintOrder(
   const [data, owner] = await Promise.all([getMyLifeData(userId), printOwnerName(userId)]);
   const options = sanitizePrintOptions(await savePrintDraft(userId, rawOptions), liveKeys(data));
   const layout = layoutPrint(data, owner, options);
-  if (layout.pageCount <= 1) return { ok: false, error: T.noPages };
+  if (layout.pageCount < PRINT_MIN_PAGES) return { ok: false, error: T.noPages }; // 최소 2장(표지 + 1장)
   // 금액 = 화면 금액 줄과 같은 함수(printPrice) — 장당 금액 × 장수 + 배송비(0).
   const price = layout.overLimit ? null : printPrice(layout.pageCount, pageKrw);
   if (!price) return { ok: false, error: T.tooMany(PRINT.MAX_PAGES), pageCount: layout.pageCount };
