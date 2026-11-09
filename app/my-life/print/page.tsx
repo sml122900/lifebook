@@ -3,8 +3,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
 import { getPrintDraft, printOwnerName } from "@/lib/commerce/print-orders";
-import { PRINT_TIERS, printOnSale } from "@/lib/commerce/print-tiers";
-import { SHIPPING_KRW } from "@/lib/commerce/products";
 import { getMyLifeData } from "@/lib/my-life";
 import { getOnboardingTrack } from "@/lib/onboarding-track";
 import { PRINT_COPY as T } from "@/lib/print-copy";
@@ -13,7 +11,8 @@ import { liveKeys } from "@/lib/print-layout";
 import { PrintEditor } from "./PrintEditor";
 
 // /my-life/print — My Life 인쇄본 출력 편집(2026-11-08 — docs/phase/print-mylife.md §2). V3 사용자만(Q16).
-// 실제 지도는 읽기만 — 빼기·간선·이니셜은 인쇄본에만(PrintDraft). 가격이 정해지기 전에는 [주문하기]가 잠기고 들어오는 버튼도 없다.
+// 실제 지도는 읽기만 — 빼기·간선·이니셜은 인쇄본에만(PrintDraft). 금액 = 장당 8,000원 × 장수(배송비 포함 — lib/commerce/print-price, 2026-11-09).
+// 들어오는 길: 상점 [주문하기](/shop/mylife-print/order → 여기) · V3 사이드 패널 [인쇄본 만들기](2026-11-09).
 export default async function MyLifePrintPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?returnTo=/my-life/print");
@@ -39,9 +38,6 @@ export default async function MyLifePrintPage() {
             data={data}
             owner={owner}
             initial={initial}
-            tiers={[...PRINT_TIERS]}
-            onSale={printOnSale(SHIPPING_KRW)}
-            shippingKrw={SHIPPING_KRW}
             widgetClientKey={process.env.TOSS_WIDGET_CLIENT_KEY ?? null}
             customerKey={userId}
             testMode={(process.env.TOSS_WIDGET_CLIENT_KEY ?? "").startsWith("test_")}

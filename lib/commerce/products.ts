@@ -6,7 +6,7 @@
 // "상품 + 배송" 분리, 토스 결제는 배송비 포함 총액(totalKrw).
 // v1 수량은 항상 1(UI 수량 선택 없음). 주문은 productId + 단가 스냅샷 저장.
 
-import { PRINT_TIERS, printOnSale } from "./print-tiers";
+import { PRINT_PAGE_KRW, PRINT_SHIPPING_KRW, printOnSale } from "./print-price";
 
 // 배송비 — 균일. 주문 시점에 ProductOrder.shippingKrw 로 스냅샷.
 export const SHIPPING_KRW = 3000;
@@ -38,6 +38,10 @@ export type Product = {
   image: string; // /public 기준 경로 — 상품별 고유 이미지(반복 금지)
   imageAlt: string;
   options?: readonly ProductOption[]; // 있으면 주문 시 optionId 필수
+  // 금액 앞말(2026-11-09 — My Life 인쇄본 "장당"). 있으면 목록·상세가 "장당 8,000원"처럼 보임.
+  pricePrefix?: string;
+  // 이 상품의 배송비(없으면 SHIPPING_KRW). 2026-11-09 — My Life 인쇄본은 배송비 포함 가격(0).
+  shippingKrw?: number;
   // PG 심사 대응(2026-09-11) — /shop 목록에 노출할지. 기본 true(생략 시
   // 노출). false 는 실제 제작·배송 파이프라인이 아직 없는 상품(현재
   // charm·book)을 목록에서만 숨긴다 — 상세 URL(/shop/<id>)과 주문 로직은
@@ -94,21 +98,27 @@ export const PRODUCTS: readonly Product[] = [
     orderable: false,
   },
   {
-    // My Life 인쇄본(2026-11-08 — docs/phase/print-mylife.md). 가격 = 장수 구간(lib/commerce/print-tiers — 금액은 견적 뒤 성민).
-    // 금액이 하나라도 비면 비공개(목록·상세·주문 모두 없음). 주문은 /my-life/print(출력 편집 → 결제위젯 v2).
+    // My Life 인쇄본(2026-11-08 — docs/phase/print-mylife.md). 가격 = 장당 8,000원 × 장수, 배송비 포함(2026-11-09 성민 — lib/commerce/print-price).
+    // 금액이 없으면 비공개(목록·상세·주문 모두 없음). 주문은 /my-life/print(출력 편집 → 결제위젯 v2).
     id: "mylife-print",
     name: "My Life 인쇄본", // [임시 — 성민 확정 필요] 2026-11-08
-    spec: "A4 세로 · 장수에 따라 6·12·20장 구간", // [임시 — 성민 확정 필요] 2026-11-08
+    spec: "A4 세로 · 표지 포함 최대 20장 · 배송비 포함", // [임시 — 성민 확정 필요] 2026-11-09
     blurb: "내 My Life 지도를 시기별로 한 장씩 담은 인쇄본 — 가족과 한 장씩 넘기며 이야기해요.", // [임시 — 성민 확정 필요] 2026-11-08
-    unitKrw: PRINT_TIERS.find((t) => t.unitKrw != null)?.unitKrw ?? 0, // 표시용 최저가(구간 표는 상세 화면)
+    unitKrw: PRINT_PAGE_KRW, // 장당 — 주문 금액은 장수를 곱해 서버가 계산(print-orders)
+    pricePrefix: "장당", // [임시 — 성민 확정 필요] 2026-11-09
+    shippingKrw: PRINT_SHIPPING_KRW,
     image: "/landing/print-cover.webp", // 견본 = 렌더 그림(가상 인물 — 랜딩과 같음). 시험 인쇄 사진(Q19)이 나오면 교체
     imageAlt: "My Life 인쇄본 표지와 차례 견본",
-    orderable: printOnSale(SHIPPING_KRW),
+    orderable: printOnSale(),
   },
 ] as const;
 
 export function getProduct(id: string): Product | undefined {
   return PRODUCTS.find((p) => p.id === id);
+}
+
+export function shippingKrwOf(product: Product): number {
+  return product.shippingKrw ?? SHIPPING_KRW;
 }
 
 // 옵션 상품의 특정 옵션 조회(없으면 undefined). 주문 단가의 진실 원천.

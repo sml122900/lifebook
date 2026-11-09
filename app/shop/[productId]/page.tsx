@@ -2,9 +2,10 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { ButtonLink } from "@/components/ui/Button";
-import { getProduct, SHIPPING_KRW } from "@/lib/commerce/products";
+import { getProduct, shippingKrwOf } from "@/lib/commerce/products";
 import { SHIPPING_LEAD_TIME_LINE } from "@/lib/commerce/order-display";
-import { PRINT_TIERS } from "@/lib/commerce/print-tiers";
+import { PRINT_MAX_TOTAL_KRW } from "@/lib/commerce/print-price";
+import { PRINT } from "@/lib/print-layout";
 
 // /shop/[productId] — 상품 상세. 이미지 슬롯(실사진 전 placeholder) + 규격 +
 // 금액 분리 표기(상품 + 배송) + [주문하기] → /shop/[productId]/order.
@@ -17,10 +18,10 @@ export default async function ProductDetailPage({
   const product = getProduct(productId);
   // 목록에서 숨긴 상품(orderable:false — 책·씨앗, 금액 정하기 전 My Life 인쇄본)은 상세도 없음(2026-11-08 — 주소로 열리던 것).
   if (!product || product.orderable === false) notFound();
-  // My Life 인쇄본 = 장수 구간 표(상품 금액은 구간마다, 배송비 따로 — print-mylife.md §5.2).
-  const tiers = product.id === "mylife-print" ? PRINT_TIERS : null;
-
-  const total = product.unitKrw + SHIPPING_KRW;
+  // My Life 인쇄본 = 장당 금액 × 장수, 배송비 포함(2026-11-09 — lib/commerce/print-price). 합계는 장수에 따라 — 인쇄본 화면에서 확정.
+  const perPage = product.id === "mylife-print";
+  const shippingKrw = shippingKrwOf(product);
+  const total = product.unitKrw + shippingKrw;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
@@ -48,34 +49,34 @@ export default async function ProductDetailPage({
 
       {/* 금액 — 상품 + 배송 분리 노출 */}
       <dl className="mt-8 flex flex-col gap-2 rounded-md border-2 border-line bg-surface px-5 py-4 text-lg">
-        {tiers ? (
-          tiers.map((t) => (
-            <div key={t.id} className="flex items-center justify-between">
-              <dt className="text-ink-soft">상품 · {t.name}</dt>
-              <dd className="font-semibold text-ink">{(t.unitKrw ?? 0).toLocaleString()}원</dd>
-            </div>
-          ))
-        ) : (
-          <div className="flex items-center justify-between">
-            <dt className="text-ink-soft">상품</dt>
-            <dd className="font-semibold text-ink">
-              {product.unitKrw.toLocaleString()}원
-            </dd>
-          </div>
-        )}
+        <div className="flex items-center justify-between">
+          <dt className="text-ink-soft">{perPage ? "상품 · 한 장" : "상품"}</dt>
+          <dd className="font-semibold text-ink">
+            {product.unitKrw.toLocaleString()}원
+          </dd>
+        </div>
         <div className="flex items-center justify-between">
           <dt className="text-ink-soft">배송비</dt>
           <dd className="font-semibold text-ink">
-            {SHIPPING_KRW.toLocaleString()}원
+            {/* [임시 — 성민 확정 필요] 2026-11-09 무료배송 표기 */}
+            {shippingKrw === 0 ? "무료" : `${shippingKrw.toLocaleString()}원`}
           </dd>
         </div>
-        <div className="mt-1 flex items-center justify-between border-t border-line pt-3">
-          <dt className="font-bold text-ink">{tiers ? `합계(${tiers[0].name})` : "합계"}</dt>
-          <dd className="text-xl font-bold text-action">
-            {(tiers ? (tiers[0].unitKrw ?? 0) + SHIPPING_KRW : total).toLocaleString()}원
+        <div className="mt-1 flex items-center justify-between gap-4 border-t border-line pt-3">
+          <dt className="font-bold text-ink">합계</dt>
+          <dd className="text-right text-xl font-bold text-action">
+            {/* [임시 — 성민 확정 필요] 2026-11-09 */}
+            {perPage ? `장수 × ${product.unitKrw.toLocaleString()}원` : `${total.toLocaleString()}원`}
           </dd>
         </div>
       </dl>
+      {perPage && (
+        <p className="mt-3 text-base text-ink-soft">
+          {/* [임시 — 성민 확정 필요] 2026-11-09 */}
+          표지를 포함해 최대 {PRINT.MAX_PAGES}장({PRINT_MAX_TOTAL_KRW.toLocaleString()}원)까지예요. 장수와 결제 금액은 인쇄본 화면의
+          미리보기에서 확인하신 뒤 주문해요. 예: 7장이면 {(product.unitKrw * 7).toLocaleString()}원.
+        </p>
+      )}
 
       <p className="mt-3 text-base text-ink-soft">{SHIPPING_LEAD_TIME_LINE}</p>
 

@@ -56,7 +56,9 @@ export default async function OrderDetailPage({
         </span>
       </div>
       <p className="mt-2 text-lg text-ink">
-        {won(order.totalKrw)}원 (상품 {won(order.unitKrw)} + 배송{" "}
+        {/* 수량 = 인쇄본 장수(2026-11-09 — 장당 금액 × 장수). 다른 상품은 1 */}
+        {won(order.totalKrw)}원 (상품 {won(order.unitKrw)}
+        {order.quantity > 1 ? ` × ${order.quantity}` : ""} + 배송{" "}
         {won(order.shippingKrw)})
       </p>
 

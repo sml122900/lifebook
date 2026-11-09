@@ -7,7 +7,6 @@ import { ORDER_STATUS_LABEL } from "@/lib/commerce/order-display";
 import { getProduct, getProductOption } from "@/lib/commerce/products";
 import { KST_DATE_TIME_FULL_FMT } from "@/lib/kst-date";
 import type { PrintSnapshot } from "@/lib/commerce/print-orders";
-import { PRINT_TIERS } from "@/lib/commerce/print-tiers";
 import { PRINT_COPY } from "@/lib/print-copy";
 import { keptPosterImages } from "@/lib/commerce/kept-poster";
 
@@ -62,7 +61,7 @@ export default async function AdminOrderDetailPage({
         <dl className="mt-3 grid grid-cols-[7rem_1fr] gap-y-1 text-sm">
           <dt className="text-ink-faint">금액</dt>
           <dd className="text-ink">
-            {won(order.totalKrw)}원 (상품 {won(order.unitKrw)} + 배송 {won(order.shippingKrw)})
+            {won(order.totalKrw)}원 (상품 {won(order.unitKrw)}{order.quantity > 1 ? ` × ${order.quantity}` : ""} + 배송 {won(order.shippingKrw)})
           </dd>
           <dt className="text-ink-faint">결제수단</dt>
           <dd className="text-ink">
@@ -148,7 +147,7 @@ export default async function AdminOrderDetailPage({
         <section className="rounded-md border-2 border-line bg-surface px-5 py-4">
           <h2 className="mb-1 text-base font-bold text-ink">인쇄 파일(주문 시점 스냅샷)</h2>
           <p className="mb-3 text-sm text-ink-soft">
-            {PRINT_COPY.adminPages(printSnap.layout.pageCount, PRINT_TIERS.find((t) => t.id === printSnap.tierId)?.name ?? printSnap.tierId)}
+            {PRINT_COPY.adminPages(printSnap.layout.pageCount)}
           </p>
           <PrintExport layout={printSnap.layout} orderId={order.id} />
         </section>

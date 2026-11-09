@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { ButtonLink } from "@/components/ui/Button";
-import { PRODUCTS, SHIPPING_KRW } from "@/lib/commerce/products";
+import { PRODUCTS, SHIPPING_KRW, shippingKrwOf } from "@/lib/commerce/products";
 
 export const metadata = {
   title: "상점 — Lifebook",
@@ -10,6 +10,7 @@ export const metadata = {
 // /shop — 실물 상품 카드. 클릭 → 상세(/shop/[productId]).
 // 가격은 lib/commerce/products(서버 진실). 배송비는 균일 별도 고지.
 // 2026-11-08 — 강물 포스터 판매 종료 · My Life 인쇄본은 금액 정하기 전 비공개 → 보이는 상품이 없으면 "곧 선보여요" 안내.
+// 2026-11-09 — 인쇄본 금액 확정(장당 8,000원·배송비 포함)으로 공개.
 export default function ShopPage() {
   const listed = PRODUCTS.filter((p) => p.orderable !== false);
   return (
@@ -43,6 +44,7 @@ export default function ShopPage() {
                   <p className="mt-2 text-lg text-ink-soft">{p.blurb}</p>
                 </div>
                 <p className="shrink-0 text-xl font-bold text-action">
+                  {p.pricePrefix ? `${p.pricePrefix} ` : ""}
                   {p.unitKrw.toLocaleString()}원
                 </p>
               </div>
@@ -55,6 +57,11 @@ export default function ShopPage() {
         <p className="mt-2 rounded-md border-2 border-line bg-surface px-5 py-4 text-lg text-ink">
           {/* [임시 — 성민 확정 필요] 2026-11-08 */}
           My Life 인쇄본을 준비하고 있어요. 곧 선보일게요.
+        </p>
+      ) : listed.every((p) => shippingKrwOf(p) === 0) ? (
+        <p className="mt-6 text-lg text-ink-soft">
+          {/* [임시 — 성민 확정 필요] 2026-11-09 — 보이는 상품 = My Life 인쇄본(배송비 포함 가격)뿐 */}
+          배송비는 따로 받지 않아요.
         </p>
       ) : (
         <p className="mt-6 text-lg text-ink-soft">

@@ -6,14 +6,16 @@
 //   ③ 간선 켜고 끄기 — 사람 끄면 사람·모임 위성·점선 0, 오른쪽 목록은 남음 · 장소 끄기 따로 · 한 장 계 상자 최대 6(§2.3 "6번 넘게" 규칙 불필요)
 //   ④ 다른 분 이름 첫 글자 — 위성·목록·인물록만 · 장소·주인 이름 그대로
 //   ⑤ 장 이어짐(나누기) — 이어서·다음 장 이름·앞 장 이름 · 나온 장 번호
-//   ⑥ 장수 상한·가격 구간 — 20장 넘으면 overLimit · 구간 경계 · 상한 = 마지막 구간 · 금액 비면 판매 안 함(상품 비공개) · 최고가 50,000원
+//   ⑥ 장수 상한·가격(2026-11-09 장당 8,000원·배송비 포함 — 구간 폐기) — 20장 넘으면 overLimit · 장수 × 8,000원 · 1~20장 밖 = 금액 없음 ·
+//      최고가 160,000원 = 20장 · 금액 없거나 최고가 넘으면 판매 안 함 · 상품 공개(장당 표시·무료배송) · 화면 금액 줄 = 서버 주문과 같은 함수
 //   ⑦ PDF 묶기 — 머리·쪽 수·xref 위치·표지만 재단선
-//   ⑧ DB(픽스처 계정) — 편집 상태 저장·불러오기(이상한 키 거름) · 금액 없으면 주문 거절(행 0) · 주문 = 서버가 다시 센 장수·구간·금액·스냅샷 ·
+//   ⑧ DB(픽스처 계정) — 편집 상태 저장·불러오기(이상한 키 거름) · 금액 없으면 주문 거절(행 0) · 주문 = 서버가 다시 센 장수·금액(장당 × 장수)·스냅샷 ·
 //      배송지 없음·상한 넘음 거절 · 편집·주문 뒤에도 실제 지도 그대로 · 남의 계정 편집 상태 안 보임
 //   ⑨ 화면·결제 — 성공 화면이 인쇄 주문만 위젯 시크릿 키로 확인 · 주문 제작 청약철회 제한 문구 없음 · 숨긴 상품 상세 404 ·
 //      인쇄 상품 주문 화면 → /my-life/print · 실결제 꺼짐 · 문구 [임시]
 //   ⑪ 결제 수단 미선택 연타(2026-11-09) — 대기 주문 1건(재사용·동시 잠금) · 위젯 거절 = 결제 수단 안내
 //   ⑩ 강물 포스터 판매 종료(2026-11-08 — test-v3-poster-bridge 퇴역, 주문 막기 검사는 여기로) — 숨긴 상품(책·씨앗·포스터) 주문 거절 ·
+//      인쇄본은 일반 주문 경로 거절(인쇄본 화면 경로만 — 2026-11-09) ·
 //      포스터 그리기 코드 없음 · 옛 /poster 주소 → 인쇄본 · 보존 주문 2건만 그림(관리자·주인 주문 상세)
 
 import "dotenv/config";
@@ -22,8 +24,8 @@ import path from "node:path";
 
 import { deleteAccountTx } from "../lib/account-deletion";
 import { createPendingPrintOrder, getPrintDraft, PRINT_PAYMENT_LIVE_ENABLED, PRINT_PRODUCT_ID, sanitizePrintOptions, savePrintDraft, type PrintSnapshot } from "../lib/commerce/print-orders";
-import { PRINT_MAX_TOTAL_KRW, PRINT_TIERS, printOnSale, tierFor, type PrintTier } from "../lib/commerce/print-tiers";
-import { getProduct, SHIPPING_KRW } from "../lib/commerce/products";
+import { PRINT_MAX_TOTAL_KRW, PRINT_PAGE_KRW, PRINT_SHIPPING_KRW, printOnSale, printPrice } from "../lib/commerce/print-price";
+import { getProduct, shippingKrwOf } from "../lib/commerce/products";
 import { createPendingProductOrder } from "../lib/commerce/orders";
 import { keptPosterImages } from "../lib/commerce/kept-poster";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
@@ -168,19 +170,21 @@ async function main() {
       long.pages.some((p) => p.kind === "people" && p.rows.some((r) => r.pages.length > 1)),
     lp.map((p) => [p.continued, p.continues, p.periods.map((x) => x.label)]));
 
-  // ⑥ 상한·구간
+  // ⑥ 상한·가격(2026-11-09 장당 8,000원 · 배송비 포함)
   const huge = layoutPrint(synth({ periods: 40, stories: Array(40).fill(3), people: 4, places: 2, chipsPerStory: 3 }), "", DEFAULT_PRINT_OPTIONS);
-  const T1: PrintTier[] = [
-    { id: "upto6", name: "6장까지", maxPages: 6, unitKrw: 15000 },
-    { id: "upto12", name: "12장까지", maxPages: 12, unitKrw: 25000 },
-    { id: "upto20", name: "20장까지", maxPages: 20, unitKrw: 35000 },
-  ];
-  check("⑥ 20장 넘으면 overLimit · 구간 경계 6/7·12/13·20/21 · 상한 = 마지막 구간",
-    huge.overLimit && huge.pageCount > PRINT.MAX_PAGES && !lMax.overLimit && tierFor(6, T1)?.id === "upto6" && tierFor(7, T1)?.id === "upto12" && tierFor(12, T1)?.id === "upto12" && tierFor(13, T1)?.id === "upto20" && tierFor(20, T1)?.id === "upto20" && tierFor(21, T1) === null && PRINT_TIERS[PRINT_TIERS.length - 1].maxPages === PRINT.MAX_PAGES);
+  const p7 = printPrice(7);
+  check("⑥ 20장 넘으면 overLimit · 금액 = 장당 8,000원 × 장수 + 배송 0(7장 56,000 · 20장 160,000) · 0장·21장·소수 = 금액 없음",
+    huge.overLimit && huge.pageCount > PRINT.MAX_PAGES && !lMax.overLimit && PRINT_PAGE_KRW === 8_000 && PRINT_SHIPPING_KRW === 0 &&
+      !!p7 && p7.unitKrw === 8_000 && p7.quantity === 7 && p7.shippingKrw === 0 && p7.totalKrw === 56_000 && printPrice(1)?.totalKrw === 8_000 &&
+      printPrice(20)?.totalKrw === 160_000 && printPrice(21) === null && printPrice(0) === null && printPrice(2.5) === null && printPrice(huge.pageCount) === null);
   const product = getProduct(PRINT_PRODUCT_ID);
-  check("⑥ 금액 비어 있음 = 판매 안 함 → 상품 비공개(orderable false) · 금액 있고 최고가 이하 = 판매 · 최고 구간 + 배송비 > 50,000원 = 판매 안 함",
-    PRINT_TIERS.some((t) => t.unitKrw == null) && !printOnSale(SHIPPING_KRW) && product?.orderable === false && printOnSale(SHIPPING_KRW, T1) &&
-      !printOnSale(SHIPPING_KRW, [...T1.slice(0, 2), { ...T1[2], unitKrw: PRINT_MAX_TOTAL_KRW - SHIPPING_KRW + 1 }]) && PRINT_MAX_TOTAL_KRW === 50_000);
+  check("⑥ 최고가 160,000원 = 20장 · 판매 중(상품 공개 · 목록 장당 8,000원 · 무료배송) · 금액 0 또는 최고가 넘는 장당 금액 = 판매 안 함",
+    PRINT_MAX_TOTAL_KRW === 160_000 && PRINT_PAGE_KRW * PRINT.MAX_PAGES === PRINT_MAX_TOTAL_KRW && printOnSale() && product?.orderable === true &&
+      product.unitKrw === 8_000 && product.pricePrefix === "장당" && shippingKrwOf(product) === 0 && !printOnSale(0) && !printOnSale(8_001));
+  const editor6 = read("app/my-life/print/PrintEditor.tsx");
+  check("⑥ 화면 금액 줄·주문 단계 = 서버 주문과 같은 함수(printPrice) — 화면에 금액 계산식 따로 없음",
+    editor6.includes("printPrice(layout.pageCount)") && editor6.includes("total={price.totalKrw}") && read("lib/commerce/print-orders.ts").includes("printPrice(layout.pageCount, pageKrw)") &&
+      !/8_?000|tierFor/.test(editor6));
 
   // ⑦ PDF
   const fake = (n: number) => new Uint8Array(Array.from({ length: n }, (_, i) => (i * 7) % 256));
@@ -228,38 +232,39 @@ async function main() {
       back);
 
     const ship = { recipientName: "[fixture] 받는 분", recipientPhone: "010-0000-0000", postalCode: "00000", address1: "[fixture] 주소", address2: null, jibunAddress: null, deliveryMemo: null };
-    const notSale = await createPendingPrintOrder(a, back, ship);
+    const notSale = await createPendingPrintOrder(a, back, ship, 0);
     const rowsAfterNotSale = await prisma.productOrder.count({ where: { userId: a } });
-    check("⑧ 금액 정하기 전 = 주문 거절 · 주문 행 0", !notSale.ok && rowsAfterNotSale === 0, notSale);
+    check("⑧ 금액 없음(장당 0원) = 주문 거절 · 주문 행 0", !notSale.ok && rowsAfterNotSale === 0, notSale);
     const hidden = await Promise.all([
       createPendingProductOrder(a, "book", ship, "bank_transfer"),
       createPendingProductOrder(a, "charm", ship, "card"),
       createPendingProductOrder(a, "poster", ship, "card"),
       createPendingProductOrder(a, PRINT_PRODUCT_ID, ship, "card"),
     ]);
-    check("⑩ 숨긴 상품(책 무통장·씨앗·판매 종료 포스터·금액 전 인쇄본) 일반 주문 경로도 거절 · 주문 행 0",
+    check("⑩ 숨긴 상품(책 무통장·씨앗·판매 종료 포스터) · 인쇄본(인쇄본 화면 경로만) 일반 주문 경로 거절 · 주문 행 0",
       hidden.every((r) => !r.ok) && (await prisma.productOrder.count({ where: { userId: a } })) === 0, hidden);
 
-    const noShip = await createPendingPrintOrder(a, back, { ...ship, address1: " " }, T1);
-    const tooSmall = await createPendingPrintOrder(a, back, ship, [{ id: "upto1", name: "1장", maxPages: 1, unitKrw: 1000 }]);
+    const noShip = await createPendingPrintOrder(a, back, { ...ship, address1: " " });
+    const tooDear = await createPendingPrintOrder(a, back, ship, PRINT_MAX_TOTAL_KRW); // 장당 금액이 최고가를 넘게 — 판매 안 함
     // 화면이 보낸 값엔 지도에 없는 키를 섞음 — 서버는 지금 지도 키만 씀
     const opts: PrintOptions = { excluded: [printKey.story(st1.episodeId), "pe:cxxxxxxxxxxxxxxxxxxxxxxxxx"], showPeopleEdges: true, showPlaceEdges: true, initials: false };
-    const ok = await createPendingPrintOrder(a, opts, ship, T1);
+    const ok = await createPendingPrintOrder(a, opts, ship);
     const order = ok.ok ? await prisma.productOrder.findUnique({ where: { id: ok.order.orderId } }) : null;
     const snap = order?.printSnapshot as unknown as PrintSnapshot | null;
     const recompute = layoutPrint(await getMyLifeData(a), "[fixture] 인쇄", sanitizePrintOptions(opts, liveKeys(await getMyLifeData(a))));
-    const tier = tierFor(recompute.pageCount, T1)!;
-    check("⑧ 배송지 없음·장수 상한 넘음 = 거절(행 0)", !noShip.ok && !tooSmall.ok && rowsAfterNotSale === 0, { noShip, tooSmall });
-    check("⑧ 주문 = 서버가 다시 센 장수·구간·금액 · 상품 mylife-print · 카드·대기 · 테스트 결제(실결제 꺼짐) · 스냅샷 = 그 배치 · 지도에 없는 키는 버림",
-      ok.ok && !!order && order.productId === PRINT_PRODUCT_ID && order.optionId === tier.id && order.unitKrw === tier.unitKrw && order.totalKrw === tier.unitKrw! + SHIPPING_KRW &&
-        order.shippingKrw === SHIPPING_KRW && order.paymentMethod === "card" && order.status === "pending" && order.paymentLive === false && PRINT_PAYMENT_LIVE_ENABLED === false &&
+    const price = printPrice(recompute.pageCount)!;
+    check("⑧ 배송지 없음·최고가 넘는 금액 = 거절(행 0)", !noShip.ok && !tooDear.ok && rowsAfterNotSale === 0, { noShip, tooDear });
+    check("⑧ 주문 = 서버가 다시 센 장수 × 장당 8,000원 · 배송 0 · 화면 금액(printPrice)과 같음 · 결제창 상품명에 장수 · 상품 mylife-print · 카드·대기 · 테스트 결제(실결제 꺼짐) · 스냅샷 = 그 배치 · 지도에 없는 키는 버림",
+      ok.ok && !!order && order.productId === PRINT_PRODUCT_ID && order.optionId === null && order.unitKrw === 8_000 && order.quantity === recompute.pageCount &&
+        order.totalKrw === recompute.pageCount * 8_000 && order.totalKrw === price.totalKrw && ok.order.totalKrw === price.totalKrw && ok.order.orderName === `My Life 인쇄본 (${recompute.pageCount}장)` &&
+        order.shippingKrw === 0 && order.paymentMethod === "card" && order.status === "pending" && order.paymentLive === false && PRINT_PAYMENT_LIVE_ENABLED === false &&
         !!snap && snap.layout.pageCount === recompute.pageCount && JSON.stringify(snap.options.excluded) === JSON.stringify([printKey.story(st1.episodeId)]) &&
         !JSON.stringify(snap.layout).includes("[fixture] 운동회") && JSON.stringify(snap.layout).includes("[fixture] 첫 월급") && snap.owner === "[fixture] 인쇄",
-      { ok, order: order && { optionId: order.optionId, total: order.totalKrw }, pages: recompute.pageCount });
+      { ok, order: order && { optionId: order.optionId, unit: order.unitKrw, qty: order.quantity, total: order.totalKrw }, pages: recompute.pageCount });
     // ⑪ 결제 수단 미선택 연타(2026-11-09) — [결제하기]를 여러 번(동시에도) 눌러도 미결제 대기 주문은 하나(같은 번호 다시 씀),
     //    배송지 등은 마지막 값. 화면은 위젯 거절을 "주문 실패"가 아니라 결제 수단 안내로, 창 닫기는 안내 없음.
-    const taps = await Promise.all([1, 2, 3].map((k) => createPendingPrintOrder(a, opts, { ...ship, deliveryMemo: `[fixture] 연타 ${k}` }, T1)));
-    const again = await createPendingPrintOrder(a, opts, { ...ship, recipientName: "[fixture] 마지막 받는 분" }, T1);
+    const taps = await Promise.all([1, 2, 3].map((k) => createPendingPrintOrder(a, opts, { ...ship, deliveryMemo: `[fixture] 연타 ${k}` })));
+    const again = await createPendingPrintOrder(a, opts, { ...ship, recipientName: "[fixture] 마지막 받는 분" });
     const pendings = await prisma.productOrder.findMany({ where: { userId: a, productId: PRINT_PRODUCT_ID, status: "pending" }, select: { id: true, recipientName: true } });
     const ids = new Set([ok, ...taps, again].map((r) => (r.ok ? r.order.orderId : "x")));
     const editor11 = read("app/my-life/print/PrintEditor.tsx");
@@ -283,7 +288,7 @@ async function main() {
   check("⑨ 인쇄 주문 화면에 주문 제작 청약철회 제한 문구 없음(법률 검토 필요 — 성민 2026-11-08)", !/청약철회|제17조/.test(editor));
   check("⑨ 숨긴 상품(orderable false) 상세 404 · 인쇄 상품 주문 화면 → /my-life/print · 문구 [임시]",
     /orderable === false\) notFound\(\)/.test(read("app/shop/[productId]/page.tsx")) && read("app/shop/[productId]/order/page.tsx").includes('redirect("/my-life/print")') &&
-      read("lib/print-copy.ts").includes("[임시 — 성민 확정 필요]") && read("lib/commerce/print-tiers.ts").includes("[임시 — 성민 확정 필요]"));
+      read("lib/print-copy.ts").includes("[임시 — 성민 확정 필요]") && read("lib/commerce/products.ts").includes("[임시 — 성민 확정 필요] 2026-11-09"));
 
   // ⑩ 강물 포스터 판매 종료
   const exists = (rel: string) => fs.existsSync(path.join(ROOT, rel));

@@ -22,7 +22,7 @@
 /life-timeline (v2 메인) ─ 사이드패널/카드 버튼으로 모든 기능 진입
    ├─ 기록: /life-record · /life-timeline/add · /life-timeline/free-record · /life-timeline/companion
    ├─ 둘러보기: /era · /people · /photos · /rooms
-   ├─ 인쇄본: /my-life/print ▶ (주문 단계 — 배송지 + 결제위젯) ▶ (토스결제) — 2026-11-08 강물 포스터(/poster/*) 대체, 금액 전 진입 버튼 없음
+   ├─ 인쇄본: /my-life/print ▶ (주문 단계 — 배송지 + 결제위젯) ▶ (토스결제) — 2026-11-08 강물 포스터(/poster/*) 대체, 입구 = 사이드 패널 [인쇄본 만들기](V3)·상점 [주문하기](2026-11-09)
    ├─ 계정/결제: /account/* · /billing · /shop
    └─ [새 방식으로 이야기해보기] 배너 → 확인 모달 → ⚙ onboardingTrack=V3 → /start
 
@@ -64,7 +64,8 @@
 | | 내 사진 | → `/photos` | **V2 트랙만**(2026-11-08 — V3 에선 숨김: 올린 사진이 My Life 에 안 보임, 이어 붙이기는 도그푸딩 뒤) |
 | | 그 시절 둘러보기 | → `/era` | **V2 트랙만**(2026-11-08 — V3 에선 숨김: 담아도 My Life 에 안 보임) |
 | 👨‍👩‍👧 함께 보기 | 가족 룸 | → `/rooms` | 공용 |
-| 🎁 만들기·상점 | ~~포스터 만들기~~ | 2026-11-08 삭제(포스터 판매 종료 — 인쇄본 입구는 금액이 정해진 뒤) | |
+| 🎁 만들기·상점 | ~~포스터 만들기~~ | 2026-11-08 삭제(포스터 판매 종료) | |
+| | 인쇄본 만들기(2026-11-09 — 금액 확정 뒤 입구) | → `/my-life/print` | **V3 트랙만**(인쇄본 화면이 V3 전용) |
 | | 상품 구매 | → `/shop` | 공용 |
 | | 주문 내역(2026-11-08) | → `/account/orders` | 공용 |
 | ⚙️ 내 계정 | 회원정보 | → `/account/profile` | 공용 |
@@ -105,7 +106,7 @@
 |---|---|
 | 무료로 시작하기 (히어로) | → `/login` |
 | 3분 만에 둘러보기 | → `#how` (페이지 내 스크롤) |
-| 제품 카드 — My Life 인쇄본(2026-11-08) | 금액이 정해지면 "인쇄본 보러 가기" → `/shop/mylife-print` · 그 전에는 링크 없이 "곧 선보여요" |
+| 제품 카드 — My Life 인쇄본(2026-11-08) | "인쇄본 보러 가기" → `/shop/mylife-print`(2026-11-09 금액 확정으로 열림) · 금액이 없으면 링크 없이 "곧 선보여요" |
 | 제품 카드 — 자서전 책 | → `/shop/book` |
 | 제품 카드 — 인생 씨앗 | → `/shop/charm` |
 | 선물 준비 알아보기 | → `/shop/book` |
@@ -384,7 +385,7 @@
 | 화면 | 버튼 | 이동 |
 |---|---|---|
 | `/shop` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 상품 카드 | → `/`(로그인 전 랜딩 · 로그인 뒤 트랙별 첫 화면) · `/shop/{productId}` |
-| `/shop/[id]` | ← 상점으로 / 주문하기 | → `/shop` · `/shop/{id}/order` — 목록에서 숨긴 상품(`orderable:false` — 책·씨앗·금액 정하기 전 My Life 인쇄본)은 상세도 404(2026-11-08) |
+| `/shop/[id]` | ← 상점으로 / 주문하기 | → `/shop` · `/shop/{id}/order` — 목록에서 숨긴 상품(`orderable:false` — 책·씨앗)은 상세도 404(2026-11-08). My Life 인쇄본은 2026-11-09 공개 |
 | `/shop/[id]/order` | (숨긴 상품) | 숨긴 상품(`orderable:false` — 책·씨앗·판매 종료 포스터·금액 전 인쇄본) = 404(서버도 주문 거절 — 2026-11-08) |
 | `/shop/mylife-print/order` | (My Life 인쇄본 — 금액 정해진 뒤) | → `/my-life/print` 로 리다이렉트(출력 편집 화면에서 주문 — 2026-11-08) |
 | `/shop/[id]/order` | 무통장입금 선택 → 주문하고 입금 안내 받기 | → `/account/orders/{orderId}` (입금 안내) |
@@ -393,7 +394,7 @@
 | `/shop/order/fail` | 상점으로 돌아가기 | → `/shop` |
 
 ### My Life 인쇄본 `/my-life/print` (V3 — 2026-11-08, `docs/phase/print-mylife.md` §12)
-들어오는 버튼은 아직 없음(금액 정하기 전 — 주소로만). 로그인 전이면 proxy → `/login?returnTo=/my-life/print`. V2 = `/enter`.
+들어오는 길(2026-11-09): 사이드 패널 [인쇄본 만들기](V3) · 상점 상세 [주문하기](`/shop/mylife-print/order` → 여기). 로그인 전이면 proxy → `/login?returnTo=/my-life/print`. V2 = `/enter`.
 | 화면 | 버튼 | 이동 |
 |---|---|---|
 | `/my-life/print` | ← My Life 로 | → `/my-life` |

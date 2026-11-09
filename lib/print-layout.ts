@@ -35,7 +35,7 @@ export const PRINT = {
   SAT_TOP_GAP: 12,
   SAT_PER_ROW: 3,
   SYS_GAP: 16,
-  MAX_PAGES: 20, // 장수 상한(Q5 — 최고 구간 + 배송비 ≤ 50,000원). lib/commerce/print-tiers 마지막 구간과 같아야 함(회귀)
+  MAX_PAGES: 20, // 장수 상한(표지 포함 — 2026-11-09 성민: 20장 × 8,000원 = 토스 신고 최고가 160,000원, lib/commerce/print-price)
   LIST_PAGE_ROWS: 20, // 인물록·장소록 장 한 장 줄 수(제목 64 + 줄 48 × 20 ≤ 1028)
 } as const;
 

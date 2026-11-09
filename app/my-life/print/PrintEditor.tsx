@@ -8,7 +8,7 @@ import { loadTossPayments, type TossPaymentsWidgets } from "@tosspayments/tosspa
 
 import { AddressSearch } from "@/app/components/AddressSearch";
 import { Button } from "@/components/ui/Button";
-import { tierFor, type PrintTier } from "@/lib/commerce/print-tiers";
+import { printOnSale, printPrice } from "@/lib/commerce/print-price";
 import type { MyLifeData } from "@/lib/my-life";
 import { PRINT_COPY as T } from "@/lib/print-copy";
 import { layoutPrint, PRINT, printKey, type PrintOptions, type PrintPage } from "@/lib/print-layout";
@@ -22,9 +22,6 @@ type Props = {
   data: MyLifeData;
   owner: string;
   initial: PrintOptions;
-  tiers: PrintTier[];
-  onSale: boolean;
-  shippingKrw: number;
   widgetClientKey: string | null;
   customerKey: string;
   testMode: boolean;
@@ -36,19 +33,18 @@ const FIELD =
 const ROW = "flex min-h-[56px] cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-lg text-ink hover:bg-banner";
 const BOX = "h-6 w-6 shrink-0 accent-action";
 
-export function PrintEditor({ data, owner, initial, tiers, onSale, shippingKrw, widgetClientKey, customerKey, testMode }: Props) {
+export function PrintEditor({ data, owner, initial, widgetClientKey, customerKey, testMode }: Props) {
   const [opts, setOpts] = useState<PrintOptions>(initial);
   const [fonts, setFonts] = useState<PrintFonts | null>(null);
   const [big, setBig] = useState<number | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [step, setStep] = useState<"edit" | "order">("edit");
   const layout = useMemo(() => layoutPrint(data, owner, opts), [data, owner, opts]);
-  const tier = tierFor(layout.pageCount, tiers);
-  const prevTier = useRef(tier?.id ?? null);
-  const [tierChanged, setTierChanged] = useState(false);
+  // 금액 = 서버 주문과 같은 함수(lib/commerce/print-price — 장당 금액 × 장수, 배송비 포함). 서버가 주문 때 다시 계산한다.
+  const onSale = printOnSale();
+  const price = layout.overLimit ? null : printPrice(layout.pageCount);
   const excluded = useMemo(() => new Set(opts.excluded), [opts.excluded]);
-  const canOrder = onSale && !layout.overLimit && layout.pageCount > 1 && tier?.unitKrw != null;
-  const total = tier?.unitKrw != null ? tier.unitKrw + shippingKrw : null;
+  const canOrder = onSale && layout.pageCount > 1 && price != null;
 
   useEffect(() => {
     let alive = true;
@@ -57,15 +53,6 @@ export function PrintEditor({ data, owner, initial, tiers, onSale, shippingKrw, 
       alive = false;
     };
   }, []);
-
-  // 구간이 바뀌면 한 줄 알림(§5.2)
-  useEffect(() => {
-    const id = tier?.id ?? null;
-    if (id !== prevTier.current) {
-      setTierChanged(prevTier.current !== null && id !== null);
-      prevTier.current = id;
-    }
-  }, [tier?.id]);
 
   // 편집 상태 자동 저장(어르신이 중간에 나가도 남음 — Q10). 처음 그릴 때는 안 함.
   const first = useRef(true);
@@ -95,15 +82,14 @@ export function PrintEditor({ data, owner, initial, tiers, onSale, shippingKrw, 
   );
   const custom = data.custom;
 
-  if (step === "order" && canOrder && total != null && tier) {
+  if (step === "order" && canOrder && price) {
     return (
       <OrderStep
         opts={opts}
-        total={total}
-        unit={tier.unitKrw!}
-        shippingKrw={shippingKrw}
+        total={price.totalKrw}
+        unit={price.unitKrw}
+        shippingKrw={price.shippingKrw}
         pages={layout.pageCount}
-        tierName={tier.name}
         widgetClientKey={widgetClientKey}
         customerKey={customerKey}
         testMode={testMode}
@@ -226,15 +212,14 @@ export function PrintEditor({ data, owner, initial, tiers, onSale, shippingKrw, 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-line bg-surface py-4 pl-6 pr-24">
         <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div aria-live="polite" className="flex flex-col gap-1">
-            <p className="text-lg font-bold text-ink">{T.pagesLine(layout.pageCount, tier?.name ?? null)}</p>
+            <p className="text-lg font-bold text-ink">{T.pagesLine(layout.pageCount)}</p>
             {layout.overLimit ? (
               <p className="text-lg text-danger">{T.overLimit(PRINT.MAX_PAGES)}</p>
-            ) : !onSale || tier?.unitKrw == null || total == null ? (
+            ) : !onSale || price == null ? (
               <p className="text-lg text-ink-soft">{T.priceTbd}</p>
             ) : (
-              <p className="text-lg text-ink">{T.sumLine(won(tier.unitKrw), won(shippingKrw), won(total))}</p>
+              <p className="text-lg text-ink">{T.sumLine(won(price.unitKrw), price.quantity, won(price.totalKrw))}</p>
             )}
-            {tierChanged && !layout.overLimit && <p className="text-base text-ink-soft">{T.tierChanged}</p>}
             <p className="text-base text-ink-soft">
               {saveState === "saving" ? T.saving : saveState === "saved" ? T.saved : saveState === "failed" ? T.saveFailed : " "}
             </p>
@@ -287,13 +272,12 @@ function OrderStep(props: {
   unit: number;
   shippingKrw: number;
   pages: number;
-  tierName: string;
   widgetClientKey: string | null;
   customerKey: string;
   testMode: boolean;
   onBack: () => void;
 }) {
-  const { opts, total, unit, shippingKrw, pages, tierName, widgetClientKey, customerKey, testMode, onBack } = props;
+  const { opts, total, unit, shippingKrw, pages, widgetClientKey, customerKey, testMode, onBack } = props;
   const [ship, setShip] = useState({ recipientName: "", recipientPhone: "", postalCode: "", address1: "", jibunAddress: "", address2: "", deliveryMemo: "" });
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -390,15 +374,15 @@ function OrderStep(props: {
       <h2 className="text-2xl font-bold text-ink">{T.orderTitle}</h2>
       <dl className="flex flex-col gap-2 rounded-md border-2 border-line bg-surface px-5 py-4 text-lg">
         <div className="flex justify-between">
-          <dt className="text-ink-soft">{T.pagesLine(pages, tierName)}</dt>
-          <dd className="font-semibold text-ink">{won(unit)}원</dd>
+          <dt className="text-ink-soft">{T.rowItem(won(unit), pages)}</dt>
+          <dd className="font-semibold text-ink">{won(unit * pages)}원</dd>
         </div>
         <div className="flex justify-between">
-          <dt className="text-ink-soft">배송비</dt>
-          <dd className="font-semibold text-ink">{won(shippingKrw)}원</dd>
+          <dt className="text-ink-soft">{T.rowShipping}</dt>
+          <dd className="font-semibold text-ink">{shippingKrw === 0 ? T.shippingFree : `${won(shippingKrw)}원`}</dd>
         </div>
         <div className="flex justify-between border-t border-line pt-3">
-          <dt className="font-bold text-ink">결제 금액</dt>
+          <dt className="font-bold text-ink">{T.rowTotal}</dt>
           <dd className="text-xl font-bold text-action">{won(total)}원</dd>
         </div>
       </dl>

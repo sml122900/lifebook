@@ -7,15 +7,16 @@ import { getMyLifeData } from "../my-life";
 import { PRINT_COPY as T } from "../print-copy";
 import { DEFAULT_PRINT_OPTIONS, layoutPrint, liveKeys, PRINT, type PrintLayout, type PrintOptions } from "../print-layout";
 import type { CreateProductOrderResult, ShippingInput } from "./orders";
-import { PRINT_TIERS, printOnSale, tierFor, type PrintTier } from "./print-tiers";
-import { getProduct, SHIPPING_KRW } from "./products";
+import { PRINT_PAGE_KRW, printOnSale, printPrice } from "./print-price";
+import { getProduct } from "./products";
 
 export const PRINT_PRODUCT_ID = "mylife-print";
 
 // 실결제 플래그 — POSTER_PAYMENT_LIVE_ENABLED 와 같은 뜻(기본 꺼짐 = 테스트 결제, 발주 대상 아님). 켜지 않는다(2026-11-08 성민).
 export const PRINT_PAYMENT_LIVE_ENABLED = process.env.PRINT_PAYMENT_LIVE_ENABLED === "true";
 
-export type PrintSnapshot = { v: 1; owner: string; options: PrintOptions; tierId: string; layout: PrintLayout };
+// tierId 는 2026-11-09 장당 금액으로 바뀌며 뺌(그 전 인쇄본 주문 0건 — 장수 = layout.pageCount = 주문 quantity).
+export type PrintSnapshot = { v: 1; owner: string; options: PrintOptions; layout: PrintLayout };
 
 const KEY_RE = /^(ev|st|pe|pl|gl|pgl|cat|cn):[A-Za-z0-9_-]{1,64}$/;
 const MAX_EXCLUDED = 3000;
@@ -55,10 +56,10 @@ export async function createPendingPrintOrder(
   userId: string,
   rawOptions: unknown,
   shipping: ShippingInput,
-  tiers: readonly PrintTier[] = PRINT_TIERS, // 회귀만 바꿈(금액 정하기 전 확인용)
+  pageKrw: number = PRINT_PAGE_KRW, // 회귀만 바꿈(금액이 없을 때 거절 확인용)
 ): Promise<CreateProductOrderResult & { pageCount?: number }> {
   const product = getProduct(PRINT_PRODUCT_ID);
-  if (!product || !printOnSale(SHIPPING_KRW, tiers)) return { ok: false, error: T.notOnSale };
+  if (!product || !printOnSale(pageKrw)) return { ok: false, error: T.notOnSale };
 
   const recipientName = shipping.recipientName.trim();
   const recipientPhone = shipping.recipientPhone.trim();
@@ -71,17 +72,18 @@ export async function createPendingPrintOrder(
   const options = sanitizePrintOptions(await savePrintDraft(userId, rawOptions), liveKeys(data));
   const layout = layoutPrint(data, owner, options);
   if (layout.pageCount <= 1) return { ok: false, error: T.noPages };
-  const tier = tierFor(layout.pageCount, tiers);
-  if (!tier || layout.overLimit || tier.unitKrw == null) return { ok: false, error: T.tooMany(PRINT.MAX_PAGES), pageCount: layout.pageCount };
+  // 금액 = 화면 금액 줄과 같은 함수(printPrice) — 장당 금액 × 장수 + 배송비(0).
+  const price = layout.overLimit ? null : printPrice(layout.pageCount, pageKrw);
+  if (!price) return { ok: false, error: T.tooMany(PRINT.MAX_PAGES), pageCount: layout.pageCount };
 
-  const snapshot: PrintSnapshot = { v: 1, owner, options, tierId: tier.id, layout };
-  const totalKrw = tier.unitKrw + SHIPPING_KRW;
+  const snapshot: PrintSnapshot = { v: 1, owner, options, layout };
+  const { totalKrw } = price;
   const fields = {
     productId: PRINT_PRODUCT_ID,
-    optionId: tier.id,
-    quantity: 1,
-    unitKrw: tier.unitKrw,
-    shippingKrw: SHIPPING_KRW,
+    optionId: null,
+    quantity: price.quantity,
+    unitKrw: price.unitKrw,
+    shippingKrw: price.shippingKrw,
     totalKrw,
     recipientName,
     recipientPhone,
@@ -109,5 +111,5 @@ export async function createPendingPrintOrder(
       ? tx.productOrder.update({ where: { id: open.id }, data: fields, select: { id: true } })
       : tx.productOrder.create({ data: { userId, ...fields }, select: { id: true } });
   });
-  return { ok: true, order: { orderId: order.id, totalKrw, orderName: `${product.name} (${tier.name})` }, pageCount: layout.pageCount };
+  return { ok: true, order: { orderId: order.id, totalKrw, orderName: T.orderName(product.name, layout.pageCount) }, pageCount: layout.pageCount };
 }

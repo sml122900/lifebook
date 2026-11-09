@@ -43,6 +43,9 @@ export async function createPendingProductOrder(
   // 목록에서 숨긴 상품(orderable:false — 제작·배송 경로 없음)은 주문 거절(2026-11-08 — 주소로 열려 실제 주문이 되던 구멍).
   // [임시 — 성민 확정 필요] 2026-11-08
   if (product.orderable === false) return { ok: false, error: "지금은 주문할 수 없는 상품이에요." };
+  // My Life 인쇄본은 인쇄본 화면 경로(lib/commerce/print-orders — 장수·금액 재계산·스냅샷·결제위젯)로만(2026-11-09 — 금액 확정으로 공개되며
+  // 이 일반 경로로 장수 없이 1개 값에 주문이 생기지 않게). [임시 — 성민 확정 필요] 2026-11-09
+  if (product.id === "mylife-print") return { ok: false, error: "인쇄본은 인쇄본 화면에서 주문해 주세요." };
 
   const recipientName = shipping.recipientName.trim();
   const recipientPhone = shipping.recipientPhone.trim();
