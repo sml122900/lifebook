@@ -17,7 +17,7 @@ type Pkg = { id: string; krw: number; tokens: number; bonus: number; label: stri
 
 const won = (n: number) => n.toLocaleString();
 
-// [임시 — 성민 확정 필요] 한도 문구 4키(limitLine·overLimit·limitReached·limitError) — 2026-11-10
+// 한도 문구 4키(limitLine·overLimit·limitReached·limitError) — 2026-11-10 확정(성민)
 const T = {
   pickTitle: "충전할 토큰",
   bonus: (n: number) => `+${n}토큰 더!`,

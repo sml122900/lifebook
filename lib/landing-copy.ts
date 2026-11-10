@@ -63,7 +63,7 @@ export const PRODUCT = {
     src: "/landing/print-cover.webp",
     alt: "My Life 인쇄본 표지 견본",
   },
-  // 토큰 충전 + 상점 바로가기(2026-11-10 성민 — 로그인 전 메인에서 상점으로 가는 직접 링크). [임시 — 성민 확정 필요]
+  // 토큰 충전 + 상점 바로가기(2026-11-10 성민 — 로그인 전 메인에서 상점으로 가는 직접 링크). 문구 확정 2026-11-10(성민)
   // 소개 = lib/tokens/policy TOPUP_PRODUCT 와 같은 쓰임(AI에게 물어보기 — 그 시절 검색 포함). 충전이 닫혀 있으면(TOPUP_OPEN false) 카드 안 그림.
   token: {
     title: "Lifebook 토큰",

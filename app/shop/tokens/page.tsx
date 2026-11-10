@@ -35,7 +35,7 @@ export default function TokenProductPage() {
           </div>
         ))}
       </dl>
-      {/* 하루 충전 한도(2026-11-10 — 문구 [임시 — 성민 확정 필요]) */}
+      {/* 하루 충전 한도(2026-11-10 — 문구 확정 2026-11-10 성민) */}
       <p className="mt-3 text-base text-ink-soft">하루에 {TOPUP_DAILY_LIMIT_KRW.toLocaleString()}원까지 충전하실 수 있어요.</p>
 
       <section aria-labelledby="token-refund" className="mt-6 rounded-md border-2 border-line bg-surface px-5 py-4">

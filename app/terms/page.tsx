@@ -13,7 +13,7 @@ import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 // 예외 1곳(2026-11-09 개정 v1.1 — 성민): 제13조 ① 공급 기간 "청약을 한 날부터 7일 이내" → "대금을 결제한 날부터 14일 이내"
 // (상품·주문·고객센터 화면의 "결제일로부터 최대 14일"과 맞춤 — 표준약관 문구를 바꾼 것이라 법률 검토 목록에 둠). 공지 = lib/policy-notice.
 // 더한 조항 1곳(2026-11-10 개정 v1.2 — 성민 지시): 제25조 토큰의 충전·사용·환불 — 표준약관에 없는 조항이라 맨 뒤에 더함, 각 호 =
-// 환불정책·충전 화면·상점·고객센터와 같은 문장(lib/commerce/order-display TOKEN_REFUND_LINES). [임시 — 성민 확정 필요] · [법률 검토 필요].
+// 환불정책·충전 화면·상점·고객센터와 같은 문장(lib/commerce/order-display TOKEN_REFUND_LINES). [임시 — 성민 확정 필요 · 유효기간 문장만 2026-11-10 확정] · [법률 검토 필요].
 // /privacy 와 레이아웃·스타일 통일.
 
 export const metadata = {

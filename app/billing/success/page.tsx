@@ -51,7 +51,7 @@ export default async function BillingSuccessPage({
     return <SuccessScreen tokensCredited={0} balanceAfter={already.balanceAfter} />;
   }
 
-  // 0-1. 하루 충전 한도(2026-11-10 — 문구 [임시 — 성민 확정 필요]) — 대기 주문을 만든 뒤 다른 창에서 먼저 결제했으면 승인하지 않는다(승인 안 한 결제는 토스가 자동으로 끝냄).
+  // 0-1. 하루 충전 한도(2026-11-10 — 문구 확정 2026-11-10 성민) — 대기 주문을 만든 뒤 다른 창에서 먼저 결제했으면 승인하지 않는다(승인 안 한 결제는 토스가 자동으로 끝냄).
   const overLimit = await checkTopupDailyLimit(userId, orderId);
   if (overLimit !== null) {
     await markOrderFailed(orderId, "daily_limit");

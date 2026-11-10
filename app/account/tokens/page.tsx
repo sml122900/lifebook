@@ -114,7 +114,7 @@ export default async function TokensPage() {
         )}
       </section>
 
-      {/* 만료 30일 전 안내(2026-11-10 — 알림 발송 없이 이 화면에만). 문구 [임시 — 성민 확정 필요] */}
+      {/* 만료 30일 전 안내(2026-11-10 — 알림 발송 없이 이 화면에만). 문구 확정 2026-11-10(성민) */}
       {expiring.length > 0 && (
         <section role="note" aria-labelledby="expiring-title" className="rounded-md border-2 border-brand bg-banner px-5 py-4">
           <h2 id="expiring-title" className="text-xl font-bold text-ink">

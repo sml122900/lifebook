@@ -498,6 +498,21 @@ async function main() {
         read("app/account/tokens/page.tsx").includes("q.expiringSoon") && read("app/account/tokens/page.tsx").includes("getTopupQuotes(userId)"),
       { soon: soon.map((q) => [q.remaining, q.expiringSoon, q.expired]), after: after.map((q) => [q.expired, q.refundKrw]) });
   }
+  // ⑫ 문구 확정(2026-11-10 성민) — 충전 화면 한도(4키·승인 전 실패 화면·토큰 상품 하루 한도 줄)·메인 토큰 카드·토큰 화면 만료 안내·유효기간 문장 = [임시] 표시 없음
+  {
+    const line = (f: string, key: string) => read(f).split("\n").find((l) => l.includes(key)) ?? "";
+    const confirmed = [
+      line("app/billing/TopupCheckout.tsx", "한도 문구 4키"),
+      line("app/billing/success/page.tsx", "0-1. 하루 충전 한도"),
+      line("app/shop/tokens/page.tsx", "하루 충전 한도(2026-11-10"),
+      line("lib/landing-copy.ts", "토큰 충전 + 상점 바로가기"),
+      line("app/account/tokens/page.tsx", "만료 30일 전 안내(2026-11-10 — 알림"),
+    ];
+    check("⑫ 문구 확정(2026-11-10) — 충전 화면 한도·메인 토큰 카드·토큰 화면 만료 안내 = [임시] 없음 · 유효기간 문장 확정 표시",
+      confirmed.every((l) => l.length > 0 && l.includes("확정") && !l.includes("[임시")) &&
+        read("lib/commerce/order-display.ts").includes("확정(2026-11-10 성민): 유효기간 문장"),
+      confirmed);
+  }
   const shopPage = read("app/shop/page.tsx");
   check("⑫ 상점 카테고리 — 인쇄본(공개 상품 = My Life 인쇄본) · 토큰 충전(패키지 4개 → /shop/tokens → [충전하러 가기] /billing) 각 1개 이상",
     JSON.stringify(PRODUCTS.filter((p) => p.orderable !== false).map((p) => p.id)) === JSON.stringify(["mylife-print"]) && TOPUP_PACKAGES.length === 4 &&
