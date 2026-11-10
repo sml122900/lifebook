@@ -368,6 +368,7 @@ export default function TermsPage() {
           <p className={P}>이 약관은 2026년 9월 11일부터 시행합니다.</p>
           <p className={P}>개정 약관(제13조 제1항 — 배송 기간)은 2026년 11월 9일부터 시행합니다.</p>
           <p className={P}>개정 약관(제25조 — 토큰의 충전·사용·환불)은 2026년 11월 10일부터 시행합니다.</p>
+          <p className={P}>개정 약관(제25조 — 토큰 유효기간 충전일로부터 1년)은 2026년 11월 10일부터 시행합니다.</p>
         </section>
       </div>
 

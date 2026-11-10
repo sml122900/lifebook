@@ -4,7 +4,8 @@ import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 import { getAttendanceStatus } from "@/lib/attendance";
-import { KST_DATE_TIME_FMT } from "@/lib/kst-date";
+import { KST_DATE_LONG_FMT, KST_DATE_TIME_FMT } from "@/lib/kst-date";
+import { getTopupQuotes } from "@/lib/tokens/refund-exec";
 import { getBalance } from "@/lib/tokens/wallet";
 
 import {
@@ -53,8 +54,8 @@ export default async function TokensPage() {
   }
   const userId = session.user.id;
 
-  // 세 fetch 독립 — 병렬.
-  const [balance, attendance, txs] = await Promise.all([
+  // 네 fetch 독립 — 병렬.
+  const [balance, attendance, txs, topups] = await Promise.all([
     getBalance(userId),
     getAttendanceStatus(userId),
     prisma.tokenTransaction.findMany({
@@ -62,7 +63,9 @@ export default async function TokensPage() {
       orderBy: { createdAt: "desc" },
       take: 50,
     }),
+    getTopupQuotes(userId), // 충전 토큰 유효기간(충전일로부터 1년 — 2026-11-10) 만료 30일 전 안내
   ]);
+  const expiring = topups.quotes.filter((q) => q.expiringSoon).sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime());
 
   const attendanceInitial: AttendanceInitial = {
     todayChecked: attendance.todayChecked,
@@ -110,6 +113,23 @@ export default async function TokensPage() {
           </ButtonLink>
         )}
       </section>
+
+      {/* 만료 30일 전 안내(2026-11-10 — 알림 발송 없이 이 화면에만). 문구 [임시 — 성민 확정 필요] */}
+      {expiring.length > 0 && (
+        <section role="note" aria-labelledby="expiring-title" className="rounded-md border-2 border-brand bg-banner px-5 py-4">
+          <h2 id="expiring-title" className="text-xl font-bold text-ink">
+            곧 기간이 끝나는 충전 토큰이 있어요
+          </h2>
+          <ul className="mt-2 flex flex-col gap-1 text-lg text-ink">
+            {expiring.map((q) => (
+              <li key={q.orderId}>
+                · {q.remaining.toLocaleString()}토큰 — {KST_DATE_LONG_FMT.format(q.expiresAt)}까지 쓰실 수 있어요
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-base text-ink-soft">충전한 토큰은 충전일로부터 1년 동안 쓰실 수 있어요.</p>
+        </section>
+      )}
 
       {/* 출석체크 카드 */}
       <AttendanceCard initial={attendanceInitial} />

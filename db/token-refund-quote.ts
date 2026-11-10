@@ -1,9 +1,9 @@
 // 토큰 충전 환불 금액 보기(2026-11-10 — 읽기만, 쓰기 0 · 결제 호출 0). 계산 = lib/tokens/refund(원장을 다시 따라가 무료 → 유료 순).
 //
-//   npx tsx db/token-refund-quote.ts --email <이메일>   그 계정의 충전 건별 남은 토큰·환불 금액
+//   npx tsx db/token-refund-quote.ts --email <이메일>   그 계정의 충전 건별 남은 토큰·만료일·환불 금액(만료된 충전 = 0원 · 처리 방식 법률 검토)
 //   npx tsx db/token-refund-quote.ts --all              모든 지갑: 무료 + 유료 남은 토큰 = 잔액인지(원장으로 계산이 되는지) 점검
 //
-// 실제 환불(토스 결제 취소 + 원장 차감)은 아직 코드 없음 — 이 금액을 보고 운영자가 처리.
+// 실제 환불(토스 결제 취소 + 원장 차감) = 관리자 /admin/tokens(lib/tokens/refund-exec) — 이 스크립트는 금액만 봄.
 
 import "dotenv/config";
 
@@ -31,8 +31,9 @@ async function main() {
     console.log(`잔액 ${q.balance} = 무료 ${q.free} + 유료 ${q.paid}${q.free + q.paid === q.balance ? "" : "  ⚠ 합이 잔액과 다름"}`);
     for (const x of q.quotes) {
       console.log(
-        `- 충전 ${x.orderId} · ${x.krw.toLocaleString()}원 ${x.tokens}토큰 · 결제 ${x.paidAt.toISOString()} · 남은 ${x.remaining} · ` +
-          `${x.unused ? "안 씀" : "씀"} · ${x.within7Days ? "7일 안" : "7일 지남"} → 환불 ${x.refundKrw.toLocaleString()}원`,
+        `- 충전 ${x.orderId} · ${x.krw.toLocaleString()}원 ${x.tokens}토큰 · 결제 ${x.paidAt.toISOString()} · 만료 ${x.expiresAt.toISOString()} · 남은 ${x.remaining} · ` +
+          `${x.refundedTokens > 0 ? `환불함 ${x.refundedTokens}토큰` : x.expired ? "만료(자동 환불 안 함)" : `${x.unused ? "안 씀" : "씀"} · ${x.within7Days ? "7일 안" : "7일 지남"}${x.expiringSoon ? " · 30일 안에 만료" : ""}`}` +
+          ` → 환불 ${x.refundKrw.toLocaleString()}원`,
       );
     }
   } else if (all) {

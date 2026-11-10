@@ -23,7 +23,7 @@ export type TopupCancelFn = (a: TopupCancelArgs) => Promise<void>;
 
 export type TopupRefundResult =
   | { ok: true; refundKrw: number; refundTokens: number; balanceAfter: number }
-  | { ok: false; reason: "not_found" | "not_paid" | "withdrawn" | "already_refunded" | "nothing_to_refund" }
+  | { ok: false; reason: "not_found" | "not_paid" | "withdrawn" | "already_refunded" | "expired" | "nothing_to_refund" }
   | { ok: false; reason: "cancel_failed"; code: string; message: string };
 
 const tossCancel: TopupCancelFn = async (a) => {
@@ -60,6 +60,8 @@ export async function refundTopupOrder(
         tx.tokenOrder.findMany({ where: { userId, status: "paid" }, select: { id: true, krw: true, tokens: true, approvedAt: true } }),
       ]);
       const q = quoteTopupRefunds(ledger, orders, now).quotes.find((x) => x.orderId === orderId);
+      // 유효기간(충전일로부터 1년) 지난 충전 — 소멸·환불은 법률 검토 뒤라 자동 환불하지 않음
+      if (q?.expired) return { ok: false, reason: "expired" };
       if (!q || q.refundKrw <= 0 || q.remaining <= 0 || !wallet || wallet.balance < q.remaining) return { ok: false, reason: "nothing_to_refund" };
 
       try {
@@ -87,6 +89,15 @@ export async function refundTopupOrder(
   );
 }
 
+// 한 사용자의 충전별 계산(남은 토큰·만료·환불 금액) — 토큰 화면 만료 안내(2026-11-10)·운영자 조회가 씀.
+export async function getTopupQuotes(userId: string, now: Date = new Date()) {
+  const [ledger, paid] = await Promise.all([
+    prisma.tokenTransaction.findMany({ where: { userId }, select: { id: true, delta: true, reason: true, refId: true, createdAt: true } }),
+    prisma.tokenOrder.findMany({ where: { userId, status: "paid" }, select: { id: true, krw: true, tokens: true, approvedAt: true } }),
+  ]);
+  return quoteTopupRefunds(ledger, paid, now);
+}
+
 // 관리자 목록 — 결제된 충전(최근 순)과 환불 계산. 사용자별 원장을 한 번씩 읽음.
 export async function listTopupOrdersForAdmin(limit = 100, now: Date = new Date()) {
   const orders = await prisma.tokenOrder.findMany({
@@ -98,11 +109,7 @@ export async function listTopupOrdersForAdmin(limit = 100, now: Date = new Date(
   const userIds = [...new Set(orders.map((o) => o.userId).filter((u): u is string => !!u))];
   const quotes = new Map<string, ReturnType<typeof quoteTopupRefunds>["quotes"][number]>();
   for (const userId of userIds) {
-    const [ledger, paid] = await Promise.all([
-      prisma.tokenTransaction.findMany({ where: { userId }, select: { id: true, delta: true, reason: true, refId: true, createdAt: true } }),
-      prisma.tokenOrder.findMany({ where: { userId, status: "paid" }, select: { id: true, krw: true, tokens: true, approvedAt: true } }),
-    ]);
-    for (const q of quoteTopupRefunds(ledger, paid, now).quotes) quotes.set(q.orderId, q);
+    for (const q of (await getTopupQuotes(userId, now)).quotes) quotes.set(q.orderId, q);
   }
   return orders.map((o) => ({ ...o, quote: quotes.get(o.id) ?? null }));
 }

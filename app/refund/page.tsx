@@ -11,6 +11,7 @@ import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 // 로 공유 — 여기서 새로 쓰지 않는다(단일 출처, 문구 드리프트 방지).
 // v1.1(2026-11-09 — 약관 제15조·제16조에 맞춤, 공지 장치 등록 lib/policy-notice · 공지 당일 시행 leadException).
 // v1.2(2026-11-10 — 토큰 충전 절 추가, TOKEN_REFUND_LINES = 약관 제25조·충전 화면·상점·고객센터와 같은 문장 · 공지 당일 시행 leadException).
+// v1.3(2026-11-10 — 같은 문장 묶음에 유효기간 "충전일로부터 1년" · 공지 당일 시행 leadException).
 
 export const metadata = {
   title: "환불·교환 정책 — Lifebook",
@@ -74,6 +75,7 @@ export default function RefundPolicyPage() {
           <li>- v1.0 — 2026년 11월 8일 시행 (인쇄본 판매 준비 — 7일 청약철회·반품 배송비·반품 주소)</li>
           <li>- v1.1 — 2026년 11월 9일 시행 (청약철회 기산일·하자 재제작 기간·환불 시점을 이용약관에 맞춤)</li>
           <li>- v1.2 — 2026년 11월 10일 시행 (토큰 충전 환불 기준 추가 — 7일 안에 안 쓴 충전은 전액, 그 밖은 남은 유료 토큰만큼 · 무료 토큰 제외 · 쓰는 곳 Lifebook 한 곳)</li>
+          <li>- v1.3 — 2026년 11월 10일 시행 (충전한 토큰 유효기간 — 충전일로부터 1년 · 사용 순서 무료 먼저, 그다음 만료가 가까운 충전부터)</li>
         </ul>
       </section>
 

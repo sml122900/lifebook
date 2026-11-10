@@ -16,6 +16,7 @@ const RESULT_TEXT: Record<string, string> = {
   not_paid: "결제된 충전이 아니에요.",
   withdrawn: "탈퇴한 회원의 충전이라 환불할 수 없어요(고객센터에서 따로 처리).",
   already_refunded: "이미 환불한 충전이에요.",
+  expired: "유효기간(충전일로부터 1년)이 지난 충전이에요 — 소멸·환불 처리 방식은 법률 검토 뒤 정해요.",
   nothing_to_refund: "돌려드릴 토큰이 남아 있지 않아요.",
 };
 
@@ -36,7 +37,8 @@ export default async function AdminTokensPage({ searchParams }: { searchParams: 
     <main className="flex flex-col gap-6">
       <h1 className="text-2xl font-bold text-ink">토큰 충전 · 환불</h1>
       <p className="text-base text-ink-soft">
-        환불 금액 = 결제 후 7일 안에 하나도 안 쓴 충전은 전부, 그 밖은 결제 금액 × 남은 토큰 ÷ 받은 토큰(원 아래 버림). 무료 토큰은 빼고 계산(무료 먼저 쓰임).
+        환불 금액 = 결제 후 7일 안에 하나도 안 쓴 충전은 전부, 그 밖은 결제 금액 × 남은 토큰 ÷ 받은 토큰(원 아래 버림). 무료 토큰은 빼고 계산(무료 먼저 → 만료가 가까운 충전부터 쓰임).
+        유효기간 = 충전일로부터 1년 — 지난 충전은 자동 환불하지 않음(소멸·환불은 법률 검토 뒤).
         [환불 실행] = 토스 결제 취소 → 성공했을 때만 토큰 차감.
       </p>
       {sp.r && (
@@ -67,7 +69,9 @@ export default async function AdminTokensPage({ searchParams }: { searchParams: 
                   <div>
                     {refunded
                       ? `환불함 — ${q.refundedTokens.toLocaleString()}토큰 · ${refundKrwFor(o, q.refundedTokens).toLocaleString()}원`
-                      : `남은 토큰 ${q.remaining.toLocaleString()} · ${q.unused ? "안 씀" : "씀"} · ${q.within7Days ? "7일 안" : "7일 지남"} → 환불 ${q.refundKrw.toLocaleString()}원`}
+                      : q.expired
+                        ? `만료(${KST_DATE_TIME_FMT.format(q.expiresAt)}) — 남은 토큰 ${q.remaining.toLocaleString()} · 처리 방식 법률 검토 중`
+                        : `남은 토큰 ${q.remaining.toLocaleString()} · ${q.unused ? "안 씀" : "씀"} · ${q.within7Days ? "7일 안" : "7일 지남"} · ${KST_DATE_TIME_FMT.format(q.expiresAt)}까지 → 환불 ${q.refundKrw.toLocaleString()}원`}
                   </div>
                 )}
                 {q && !refunded && q.refundKrw > 0 && o.userId && (

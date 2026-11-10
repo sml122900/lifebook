@@ -19,7 +19,8 @@
 //      "충전한 토큰은 환불이 어렵습니다" 없음 · 환불 계산(원장 → 무료 먼저·먼저 충전한 것부터 · 7일 안 안 쓴 충전 전액 · 그 밖 남은 토큰 비율) ·
 //      상점 카테고리(인쇄본 · 토큰 충전) 각 1개 이상 ·
 //      (2026-11-10 2차) 하루 충전 한도 49,999원(주문 만들 때·승인 전 두 번 거절) · 환불 실행(관리자 — 가짜 토스 취소로: 미사용 전액·일부 사용 비례·
-//      무료 토큰 제외·같은 충전 두 번 거절·토스 취소 실패 시 원장·지갑 그대로) · 테스트 계정 AI 한도 문구 = 일반 문구 · 랜딩 상점 링크
+//      무료 토큰 제외·같은 충전 두 번 거절·토스 취소 실패 시 원장·지갑 그대로) · 테스트 계정 AI 한도 문구 = 일반 문구 · 랜딩 상점 링크 ·
+//      (2026-11-10 3차) 유료 토큰 유효기간 충전일로부터 1년 — 만료 계산·30일 전 안내·만료 충전 자동 환불 거절·같은 문장 한 곳
 //   ⑩ 강물 포스터 판매 종료(2026-11-08 — test-v3-poster-bridge 퇴역, 주문 막기 검사는 여기로) — 숨긴 상품(책·씨앗·포스터) 주문 거절 ·
 //      인쇄본은 일반 주문 경로 거절(인쇄본 화면 경로만 — 2026-11-09) ·
 //      포스터 그리기 코드 없음 · 옛 /poster 주소 → 인쇄본 · 보존 주문 2건만 그림(관리자·주인 주문 상세)
@@ -38,7 +39,7 @@ import { TOKEN_REFUND_LINES } from "../lib/commerce/order-display";
 import { createPendingOrder } from "../lib/tokens/orders";
 import { checkTopupDailyLimit, settleOrderAfterToss, topupRemainingTodayKrw, TopupDailyLimitError } from "../lib/tokens/orders";
 import { lowBalanceTail, TOPUP_DAILY_LIMIT_KRW, TOPUP_OPEN, TOPUP_PACKAGES } from "../lib/tokens/policy";
-import { quoteTopupRefunds, type LedgerRow } from "../lib/tokens/refund";
+import { quoteTopupRefunds, topupExpiresAt, type LedgerRow } from "../lib/tokens/refund";
 import { refundTopupOrder, type TopupCancelArgs } from "../lib/tokens/refund-exec";
 import { TossConfirmError } from "../lib/tokens/toss";
 import { chargeOneShot } from "../lib/tokens/charge";
@@ -382,6 +383,13 @@ async function main() {
         qC.quotes.filter((q) => q.refundedTokens > 0).every((q) => q.refundKrw === 0 && q.remaining === 0) && qC.free + qC.paid === (await bal()) &&
         read("app/account/tokens/page.tsx").includes('topup_refund: "충전 환불"') && (await prisma.tokenOrder.count({ where: { userId: c, status: "paid" } })) === 4,
       { r6, quotes: qC.quotes.map((q) => [q.krw, q.remaining, q.refundedTokens, q.refundKrw]) });
+    // ⑫ 유효기간(2026-11-10 3차) — 충전일로부터 1년이 지난 충전 = 자동 환불 거절(expired · 토스 호출 없음, 소멸·환불은 법률 검토)
+    const o5 = await pay(c, "starter");
+    const callsBefore = calls.length;
+    const r7 = await refundTopupOrder(o5, { cancel: okCancel, now: new Date(Date.now() + 366 * 86_400_000) });
+    const r8 = await refundTopupOrder(o5, { cancel: okCancel, now: new Date(Date.now() + 300 * 86_400_000) });
+    check("⑫ 유효기간 — 1년 지난 충전 = 자동 환불 거절(expired · 토스 호출 없음) · 1년 안이면 환불(1,000원)",
+      !r7.ok && r7.reason === "expired" && r8.ok && r8.refundKrw === 1_000 && calls.length === callsBefore + 1, { r7, r8 });
     const mapAfter = JSON.stringify(await getMyLifeData(a));
     check("⑧ 편집 저장·주문 뒤에도 실제 지도 그대로(getMyLifeData 같음)", mapBefore === mapAfter);
   } finally {
@@ -426,7 +434,8 @@ async function main() {
     refundUsers.every((f) => read(f).includes("TOKEN_REFUND_LINES")) && read("app/terms/page.tsx").includes("제25조 (토큰의 충전·사용·환불)") &&
       TOKEN_REFUND_LINES[0].includes("7일 안에 하나도 쓰지 않은 충전은 결제 금액 전부") && TOKEN_REFUND_LINES[1].includes("남은 토큰만큼") &&
       TOKEN_REFUND_LINES[2].includes("무료로 받은 토큰은 환불하지 않아요") && TOKEN_REFUND_LINES[2].includes("무료로 받은 것부터 먼저") &&
-      TOKEN_REFUND_LINES[3].includes("Lifebook 서비스 한 곳뿐") && oldNoRefund.length === 0 && (faq.match(/topup: true,/g) ?? []).length === 2,
+      TOKEN_REFUND_LINES[2].includes("만료가 가까운 충전부터") && TOKEN_REFUND_LINES[3] === "충전한 토큰은 충전일로부터 1년 동안 쓰실 수 있어요." &&
+      TOKEN_REFUND_LINES[4].includes("Lifebook 서비스 한 곳뿐") && oldNoRefund.length === 0 && (faq.match(/topup: true,/g) ?? []).length === 2,
     oldNoRefund);
 
   // ⑫ 환불 계산(원장 → 무료 먼저 · 먼저 충전한 것부터) — 순수 함수
@@ -467,6 +476,28 @@ async function main() {
     read("lib/landing-copy.ts").includes('href: "/shop/tokens"') && read("lib/landing-copy.ts").includes('shopAll: { label: "상점 전체 보기", href: "/shop" }') &&
       read("app/page.tsx").includes("{PRODUCT.shopAll.label} →") && read("lib/tokens/policy.ts").includes("AI에게 물어보기(그 시절 검색 포함) 등 일부 AI 기능") &&
       !/글 다듬기|말동무/.test(read("lib/tokens/policy.ts").match(/blurb: "[^"]*"/)?.[0] ?? "x"));
+  // ⑫ 유효기간 계산(순수) — 충전일로부터 1년(2월 29일 → 다음 해 3월 1일) · 만료 = 환불 0원 · 30일 전부터 안내 · 사용 순서 = 무료 → 만료가 가까운 충전
+  {
+    const D = (iso: string) => new Date(iso);
+    const ex = topupExpiresAt(D("2026-11-10T09:00:00Z"));
+    const ledgerE: LedgerRow[] = [
+      { id: "e1", delta: 50, reason: "signup_grant", refId: null, createdAt: D("2026-11-01T00:00:00Z") },
+      { id: "e2", delta: 100, reason: "topup", refId: "oA", createdAt: D("2026-11-10T09:00:00Z") },
+      { id: "e3", delta: 330, reason: "topup", refId: "oB", createdAt: D("2026-12-10T09:00:00Z") },
+      { id: "e4", delta: -80, reason: "companion_haiku", refId: null, createdAt: D("2026-12-11T00:00:00Z") },
+    ];
+    const ordersE = [{ id: "oA", krw: 1_000, tokens: 100, approvedAt: D("2026-11-10T09:00:00Z") }, { id: "oB", krw: 3_000, tokens: 330, approvedAt: D("2026-12-10T09:00:00Z") }];
+    const soon = quoteTopupRefunds(ledgerE, ordersE, D("2027-10-25T00:00:00Z")).quotes;
+    const far = quoteTopupRefunds(ledgerE, ordersE, D("2027-09-01T00:00:00Z")).quotes;
+    const after = quoteTopupRefunds(ledgerE, ordersE, D("2027-11-11T00:00:00Z")).quotes;
+    check("⑫ 유효기간 계산 — 충전일로부터 1년(2/29 → 3/1) · 30일 안 = 안내 · 지나면 만료·환불 0원 · 무료 50 먼저 → 만료가 가까운 충전(A 70 남음 · B 그대로) · 토큰 화면 안내",
+      ex.toISOString() === "2027-11-10T09:00:00.000Z" && topupExpiresAt(D("2028-02-29T03:00:00Z")).toISOString() === "2029-03-01T03:00:00.000Z" &&
+        soon[0].expiringSoon && !soon[0].expired && !soon[1].expiringSoon && !far[0].expiringSoon &&
+        after[0].expired && after[0].refundKrw === 0 && !after[1].expired && after[1].refundKrw === 3_000 &&
+        soon[0].remaining === 70 && soon[1].remaining === 330 &&
+        read("app/account/tokens/page.tsx").includes("q.expiringSoon") && read("app/account/tokens/page.tsx").includes("getTopupQuotes(userId)"),
+      { soon: soon.map((q) => [q.remaining, q.expiringSoon, q.expired]), after: after.map((q) => [q.expired, q.refundKrw]) });
+  }
   const shopPage = read("app/shop/page.tsx");
   check("⑫ 상점 카테고리 — 인쇄본(공개 상품 = My Life 인쇄본) · 토큰 충전(패키지 4개 → /shop/tokens → [충전하러 가기] /billing) 각 1개 이상",
     JSON.stringify(PRODUCTS.filter((p) => p.orderable !== false).map((p) => p.id)) === JSON.stringify(["mylife-print"]) && TOPUP_PACKAGES.length === 4 &&

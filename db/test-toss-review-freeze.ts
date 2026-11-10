@@ -3,7 +3,7 @@
 // 상수와 화면이 같이 바뀌어 못 잡으므로. 여기서 FAIL 이면 커밋·배포하지 말고 성민에게 보고(기준값을 고쳐 통과시키지 않는다).
 //
 //   ① 판매 설정값(코드) — 사업자 정보 · 공개 상품 = 인쇄본 하나 · 인쇄본 가격(장당 8,000원·배송비 0·최소 2장·최대 20장·최고가 160,000원) ·
-//      토큰 충전 열림(TOPUP_OPEN) · 충전 상품 4개(이름·금액·토큰·더 드리는 토큰) · 토큰 환불 문장 5줄 · 하루 충전 한도 49,999원(2026-11-10)
+//      토큰 충전 열림(TOPUP_OPEN) · 충전 상품 4개(이름·금액·토큰·더 드리는 토큰) · 토큰 환불 문장 6줄(유효기간 "충전일로부터 1년" 포함) · 하루 충전 한도 49,999원(2026-11-10)
 //   ② 비로그인 화면(쿠키 없이 받은 HTML) — /shop · /shop/mylife-print · /shop/tokens 본문 글자 전체가 기준과 같음(가격 표시 포함) · 견본 그림 ·
 //      푸터 글자 전체(/ · /shop · 상세 · 토큰 상세)와 링크 3개 · 숨긴 상품 상세 404 · 품절 표시 없음 · 주문 진입(/shop/mylife-print/order) = 로그인으로 ·
 //      충전 진입(/billing) = 로그인으로 · 환불정책(/refund)·약관(/terms 제25조)에 토큰 환불 문장 그대로(2026-11-10) ·
@@ -76,7 +76,8 @@ const FROZEN_TOPUP_PRODUCT = {
 const FROZEN_TOKEN_REFUND_LINES = [
   "결제하신 날부터 7일 안에 하나도 쓰지 않은 충전은 결제 금액 전부를 돌려드려요.",
   "조금이라도 쓰셨거나 7일이 지났으면 그 충전에서 남은 토큰만큼 돌려드려요. 돌려드리는 금액 = 결제 금액 × 남은 토큰 ÷ 그 충전으로 받은 토큰(더 드린 토큰 포함)이고, 원 단위 아래는 버려요. 예: 3,000원에 330토큰을 충전해 110토큰을 쓰셨다면 2,000원을 돌려드려요.",
-  "가입·출석으로 무료로 받은 토큰은 환불하지 않아요. 토큰은 무료로 받은 것부터 먼저 쓰이고, 그다음 먼저 충전한 것부터 쓰여요.",
+  "가입·출석으로 무료로 받은 토큰은 환불하지 않아요. 토큰은 무료로 받은 것부터 먼저 쓰이고, 그다음 만료가 가까운 충전부터 쓰여요.",
+  "충전한 토큰은 충전일로부터 1년 동안 쓰실 수 있어요.", // 2026-11-10 3차 — 유료 토큰 유효기간
   "토큰을 쓸 수 있는 곳은 Lifebook 서비스 한 곳뿐이에요. 다른 서비스에서 쓰거나 현금으로 바꿀 수 없어요. 환불은 위 기준에 따라 결제를 취소해 돌려드려요.",
   "환불은 고객센터(010-5539-1947 · sml122900@gmail.com)로 요청해 주세요. 요청하신 날부터 3영업일 안에 결제하신 수단으로 돌려드려요. 카드 결제는 카드사 사정에 따라 취소 반영까지 3~7영업일이 더 걸릴 수 있어요.",
 ];
@@ -157,7 +158,7 @@ function checkSettings() {
   check("① 충전 상품 4개 = 기준(1,000원 100 · 3,000원 330 · 5,000원 575 · 10,000원 1,250토큰)", JSON.stringify(pkgs) === JSON.stringify(FROZEN_TOPUP_PACKAGES), pkgs);
   check("① 토큰 상품 이름·소개 = 기준", JSON.stringify(TOPUP_PRODUCT) === JSON.stringify(FROZEN_TOPUP_PRODUCT), TOPUP_PRODUCT);
   check("① 하루 충전 한도 = 49,999원", TOPUP_DAILY_LIMIT_KRW === 49_999, TOPUP_DAILY_LIMIT_KRW);
-  check("① 토큰 환불 문장 5줄 = 기준(7일 안 안 쓴 충전 전액 · 남은 토큰만큼 · 무료 제외·무료 먼저 · 쓰는 곳 한 곳 · 요청 방법)", JSON.stringify(TOKEN_REFUND_LINES) === JSON.stringify(FROZEN_TOKEN_REFUND_LINES), TOKEN_REFUND_LINES);
+  check("① 토큰 환불 문장 6줄 = 기준(7일 안 안 쓴 충전 전액 · 남은 토큰만큼 · 무료 제외·무료 먼저 → 만료가 가까운 충전 · 충전일로부터 1년 · 쓰는 곳 한 곳 · 요청 방법)", JSON.stringify(TOKEN_REFUND_LINES) === JSON.stringify(FROZEN_TOKEN_REFUND_LINES), TOKEN_REFUND_LINES);
 }
 
 // ② 비로그인 화면
@@ -210,8 +211,8 @@ async function checkScreens(base: string) {
   check("② 충전 진입(/billing 비로그인) → 로그인으로(돌아올 곳 /billing)", billing.status >= 300 && billing.status < 400 && billing.location.includes("/login") && billing.location.includes("returnTo=%2Fbilling"), { status: billing.status, location: billing.location });
   const refund = textOf(part((await get(base, "/refund")).html, "main"));
   const terms = textOf(part((await get(base, "/terms")).html, "main"));
-  check("② 환불정책(/refund) 토큰 충전 절 = 기준 문장 5줄 그대로", refund.includes("토큰 충전") && FROZEN_TOKEN_REFUND_LINES.every((l) => refund.includes(l)));
-  check("② 이용약관(/terms) 제25조 = 기준 문장 5줄 그대로", terms.includes("제25조 (토큰의 충전·사용·환불)") && FROZEN_TOKEN_REFUND_LINES.every((l) => terms.includes(l)));
+  check("② 환불정책(/refund) 토큰 충전 절 = 기준 문장 6줄 그대로", refund.includes("토큰 충전") && FROZEN_TOKEN_REFUND_LINES.every((l) => refund.includes(l)));
+  check("② 이용약관(/terms) 제25조 = 기준 문장 6줄 그대로", terms.includes("제25조 (토큰의 충전·사용·환불)") && FROZEN_TOKEN_REFUND_LINES.every((l) => terms.includes(l)));
   check("② 옛 \"충전한 토큰은 환불이 어렵습니다\" 없음(/refund·/terms·/shop/tokens)", !/환불이 어렵/.test(refund + terms + tokensText));
 }
 
