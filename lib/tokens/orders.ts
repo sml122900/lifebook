@@ -5,7 +5,7 @@
 // 라 토스의 중복 호출이 두 번 적립할 수 없다.
 
 import { prisma } from "../db";
-import { getPackage, TOPUP_OPEN } from "./policy";
+import { getPackage, TOPUP_DAILY_LIMIT_KRW, TOPUP_OPEN } from "./policy";
 
 export type CreatedOrder = {
   orderId: string;
@@ -15,9 +15,44 @@ export type CreatedOrder = {
   orderName: string;
 };
 
+// 하루 충전 한도(2026-11-10 — TOPUP_DAILY_LIMIT_KRW). 하루 = 한국 시간 0시부터. 그날 결제된(paid) 충전 금액 합계 — 환불한 충전도 센다(카드사 한도와 같이 보수적으로).
+export class TopupDailyLimitError extends Error {
+  constructor(public remainingKrw: number) {
+    super("topup daily limit");
+    this.name = "TopupDailyLimitError";
+  }
+}
+
+function kstDayStart(now: Date): Date {
+  const kst = new Date(now.getTime() + 9 * 3600_000);
+  return new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()) - 9 * 3600_000);
+}
+
+export async function topupPaidTodayKrw(userId: string, now: Date = new Date()): Promise<number> {
+  const r = await prisma.tokenOrder.aggregate({
+    where: { userId, status: "paid", approvedAt: { gte: kstDayStart(now) } },
+    _sum: { krw: true },
+  });
+  return r._sum.krw ?? 0;
+}
+
+// 오늘 더 충전할 수 있는 금액(0 이상).
+export async function topupRemainingTodayKrw(userId: string, now: Date = new Date()): Promise<number> {
+  return Math.max(0, TOPUP_DAILY_LIMIT_KRW - (await topupPaidTodayKrw(userId, now)));
+}
+
+// 결제 승인 전 다시 확인(/billing/success) — 대기 주문을 만든 뒤 다른 창에서 먼저 결제한 경우. 넘으면 남은 한도, 괜찮으면 null.
+export async function checkTopupDailyLimit(userId: string, orderId: string, now: Date = new Date()): Promise<number | null> {
+  const order = await prisma.tokenOrder.findUnique({ where: { id: orderId }, select: { userId: true, krw: true, status: true } });
+  if (!order || order.userId !== userId || order.status !== "pending") return null; // 주문 문제는 settle 이 따로 거절
+  const remaining = await topupRemainingTodayKrw(userId, now);
+  return order.krw > remaining ? remaining : null;
+}
+
 export async function createPendingOrder(
   userId: string,
   packageId: string,
+  now: Date = new Date(),
 ): Promise<CreatedOrder> {
   // 토큰 충전 비공개(2026-11-09 성민 — TOPUP_OPEN) — 화면을 거치지 않은 요청도 주문을 만들지 않는다.
   if (!TOPUP_OPEN) {
@@ -26,6 +61,10 @@ export async function createPendingOrder(
   const pkg = getPackage(packageId);
   if (!pkg) {
     throw new Error(`unknown package: ${packageId}`);
+  }
+  const remaining = await topupRemainingTodayKrw(userId, now);
+  if (pkg.krw > remaining) {
+    throw new TopupDailyLimitError(remaining);
   }
   const order = await prisma.tokenOrder.create({
     data: {

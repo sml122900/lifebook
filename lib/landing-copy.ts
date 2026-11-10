@@ -63,6 +63,15 @@ export const PRODUCT = {
     src: "/landing/print-cover.webp",
     alt: "My Life 인쇄본 표지 견본",
   },
+  // 토큰 충전 + 상점 바로가기(2026-11-10 성민 — 로그인 전 메인에서 상점으로 가는 직접 링크). [임시 — 성민 확정 필요]
+  // 소개 = lib/tokens/policy TOPUP_PRODUCT 와 같은 쓰임(AI에게 물어보기 — 그 시절 검색 포함). 충전이 닫혀 있으면(TOPUP_OPEN false) 카드 안 그림.
+  token: {
+    title: "Lifebook 토큰",
+    body: "AI에게 물어보기(그 시절 검색 포함) 등 일부 AI 기능에 쓰는 포인트예요. 1,000원부터 충전할 수 있어요.",
+    cta: "토큰 충전 보러 가기",
+    href: "/shop/tokens",
+  },
+  shopAll: { label: "상점 전체 보기", href: "/shop" },
   // 보조 = 준비 중. id 는 lib/commerce/products.ts 의 ProductId — 호출부(app/page.tsx)가 orderable:false 인 상품을 걸러낸다.
   soon: [
     { id: "book", title: "자서전 책", body: "이야기를 묶은, 세상에 하나뿐인 책." },

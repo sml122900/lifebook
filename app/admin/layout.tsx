@@ -20,9 +20,15 @@ export default async function AdminLayout({
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
       <header className="mb-6 flex items-center justify-between border-b-2 border-line pb-4">
-        <Link href="/admin/orders" className="text-xl font-bold text-ink">
-          관리자 · 주문
-        </Link>
+        <nav className="flex items-center gap-4">
+          <Link href="/admin/orders" className="text-xl font-bold text-ink">
+            관리자 · 주문
+          </Link>
+          {/* 토큰 충전 · 환불(2026-11-10) */}
+          <Link href="/admin/tokens" className="text-lg font-semibold text-ink-soft hover:text-ink">
+            토큰 충전
+          </Link>
+        </nav>
         <Link href="/life-timeline" className="text-sm text-ink-soft hover:text-ink">
           앱으로 →
         </Link>

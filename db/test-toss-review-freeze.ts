@@ -3,10 +3,11 @@
 // 상수와 화면이 같이 바뀌어 못 잡으므로. 여기서 FAIL 이면 커밋·배포하지 말고 성민에게 보고(기준값을 고쳐 통과시키지 않는다).
 //
 //   ① 판매 설정값(코드) — 사업자 정보 · 공개 상품 = 인쇄본 하나 · 인쇄본 가격(장당 8,000원·배송비 0·최소 2장·최대 20장·최고가 160,000원) ·
-//      토큰 충전 열림(TOPUP_OPEN) · 충전 상품 4개(이름·금액·토큰·더 드리는 토큰) · 토큰 환불 문장 5줄(2026-11-10)
+//      토큰 충전 열림(TOPUP_OPEN) · 충전 상품 4개(이름·금액·토큰·더 드리는 토큰) · 토큰 환불 문장 5줄 · 하루 충전 한도 49,999원(2026-11-10)
 //   ② 비로그인 화면(쿠키 없이 받은 HTML) — /shop · /shop/mylife-print · /shop/tokens 본문 글자 전체가 기준과 같음(가격 표시 포함) · 견본 그림 ·
 //      푸터 글자 전체(/ · /shop · 상세 · 토큰 상세)와 링크 3개 · 숨긴 상품 상세 404 · 품절 표시 없음 · 주문 진입(/shop/mylife-print/order) = 로그인으로 ·
-//      충전 진입(/billing) = 로그인으로 · 환불정책(/refund)·약관(/terms 제25조)에 토큰 환불 문장 그대로(2026-11-10)
+//      충전 진입(/billing) = 로그인으로 · 환불정책(/refund)·약관(/terms 제25조)에 토큰 환불 문장 그대로(2026-11-10) ·
+//      로그인 전 메인(/) 상품 칸 → 토큰 카드(/shop/tokens)·[상점 전체 보기](/shop)(2026-11-10 2차)
 //   ③ 심사관 계정(test111@test.com — DB 읽기만) — 이름 "김순자"·테스트 표시·V3·출생연도 · 지도 수(시기·이야기·사람·장소·모임) ·
 //      인쇄본 10장·표지 이름·80,000원
 //
@@ -26,7 +27,7 @@ import { prisma } from "../lib/db";
 import { getMyLifeData } from "../lib/my-life";
 import { DEFAULT_PRINT_OPTIONS, layoutPrint, PRINT } from "../lib/print-layout";
 import { TOKEN_REFUND_LINES } from "../lib/commerce/order-display";
-import { TOPUP_OPEN, TOPUP_PACKAGES, TOPUP_PRODUCT } from "../lib/tokens/policy";
+import { TOPUP_DAILY_LIMIT_KRW, TOPUP_OPEN, TOPUP_PACKAGES, TOPUP_PRODUCT } from "../lib/tokens/policy";
 
 // ── 기준값(2026-11-09 운영 화면·DB 그대로 · 2026-11-10 토큰 충전을 심사에 넣으며 갱신 — 성민 지시, 카드사 심사 시작 전) ───────────
 const FROZEN_BUSINESS = {
@@ -48,7 +49,7 @@ const PRODUCT_LINE =
   "My Life 인쇄본 A4 세로 · 표지 포함 최대 20장 · 배송비 포함 내 My Life 지도를 시기별로 한 장씩 담은 인쇄본 — 가족과 한 장씩 넘기며 이야기해요.";
 const TOKEN_PRODUCT_LINE =
   "Lifebook 토큰 1,000원 100토큰 · 3,000원 330토큰 · 5,000원 575토큰 · 10,000원 1,250토큰 " +
-  "AI 기능(글 다듬기, AI에게 물어보기 등)에 쓰는 포인트예요. 결제하시면 바로 내 토큰에 들어가요.";
+  "AI에게 물어보기(그 시절 검색 포함) 등 일부 AI 기능에 쓰는 포인트예요. 결제하시면 바로 내 토큰에 들어가요.";
 // 2026-11-10 — 카테고리 두 개(인쇄본 · 토큰 충전)
 const FROZEN_SHOP_TEXT =
   "← 처음 화면으로 기록을 손에 잡히게 My Life 지도를 시기마다 한 장씩 담은 인쇄본으로 남겨 드려요. " +
@@ -70,7 +71,7 @@ const FROZEN_TOPUP_PACKAGES = [
 ];
 const FROZEN_TOPUP_PRODUCT = {
   name: "Lifebook 토큰",
-  blurb: "AI 기능(글 다듬기, AI에게 물어보기 등)에 쓰는 포인트예요. 결제하시면 바로 내 토큰에 들어가요.",
+  blurb: "AI에게 물어보기(그 시절 검색 포함) 등 일부 AI 기능에 쓰는 포인트예요. 결제하시면 바로 내 토큰에 들어가요.",
 };
 const FROZEN_TOKEN_REFUND_LINES = [
   "결제하신 날부터 7일 안에 하나도 쓰지 않은 충전은 결제 금액 전부를 돌려드려요.",
@@ -80,9 +81,13 @@ const FROZEN_TOKEN_REFUND_LINES = [
   "환불은 고객센터(010-5539-1947 · sml122900@gmail.com)로 요청해 주세요. 요청하신 날부터 3영업일 안에 결제하신 수단으로 돌려드려요. 카드 결제는 카드사 사정에 따라 취소 반영까지 3~7영업일이 더 걸릴 수 있어요.",
 ];
 const FROZEN_TOKENS_TEXT =
-  "← 상점으로 Lifebook 토큰 AI 기능(글 다듬기, AI에게 물어보기 등)에 쓰는 포인트예요. 결제하시면 바로 내 토큰에 들어가요. " +
+  "← 상점으로 Lifebook 토큰 AI에게 물어보기(그 시절 검색 포함) 등 일부 AI 기능에 쓰는 포인트예요. 결제하시면 바로 내 토큰에 들어가요. " +
   "1,000원 100토큰 3,000원 330토큰 (30토큰 더) 5,000원 575토큰 (75토큰 더) 10,000원 1,250토큰 (250토큰 더) " +
+  "하루에 49,999원까지 충전하실 수 있어요. " +
   `환불과 쓰는 곳 ${FROZEN_TOKEN_REFUND_LINES.map((l) => `· ${l}`).join(" ")} 환불·교환 정책 자세히 보기 충전하러 가기`;
+// 로그인 전 메인(/) 상품 칸의 토큰 카드(2026-11-10 2차 — 상점으로 가는 직접 링크)
+const FROZEN_HOME_TOKEN_CARD =
+  "Lifebook 토큰 AI에게 물어보기(그 시절 검색 포함) 등 일부 AI 기능에 쓰는 포인트예요. 1,000원부터 충전할 수 있어요. 토큰 충전 보러 가기 → 상점 전체 보기 →";
 const LISTED_PRODUCT = "mylife-print";
 const HIDDEN_PRODUCTS = ["poster", "charm", "book"];
 const REVIEWER = {
@@ -151,6 +156,7 @@ function checkSettings() {
   const pkgs = TOPUP_PACKAGES.map((p) => [p.id, p.krw, p.tokens, p.bonus, p.label]);
   check("① 충전 상품 4개 = 기준(1,000원 100 · 3,000원 330 · 5,000원 575 · 10,000원 1,250토큰)", JSON.stringify(pkgs) === JSON.stringify(FROZEN_TOPUP_PACKAGES), pkgs);
   check("① 토큰 상품 이름·소개 = 기준", JSON.stringify(TOPUP_PRODUCT) === JSON.stringify(FROZEN_TOPUP_PRODUCT), TOPUP_PRODUCT);
+  check("① 하루 충전 한도 = 49,999원", TOPUP_DAILY_LIMIT_KRW === 49_999, TOPUP_DAILY_LIMIT_KRW);
   check("① 토큰 환불 문장 5줄 = 기준(7일 안 안 쓴 충전 전액 · 남은 토큰만큼 · 무료 제외·무료 먼저 · 쓰는 곳 한 곳 · 요청 방법)", JSON.stringify(TOKEN_REFUND_LINES) === JSON.stringify(FROZEN_TOKEN_REFUND_LINES), TOKEN_REFUND_LINES);
 }
 
@@ -194,6 +200,10 @@ async function checkScreens(base: string) {
     const r = await get(base, `/shop/${id}`);
     check(`② 숨긴 상품 상세 404(${id})`, r.status === 404, r.status);
   }
+  const homeMain = part(home.html, "main");
+  const homeText = textOf(homeMain);
+  check("② 로그인 전 메인 → 상점 직접 링크(토큰 카드 → /shop/tokens · [상점 전체 보기] → /shop) · 토큰 카드 글자 = 기준",
+    homeMain.includes('href="/shop/tokens"') && homeMain.includes('href="/shop"') && homeText.includes(FROZEN_HOME_TOKEN_CARD), homeText.slice(Math.max(0, homeText.indexOf("Lifebook 토큰") - 20), homeText.indexOf("Lifebook 토큰") + 160));
   const order = await get(base, `/shop/${LISTED_PRODUCT}/order`);
   check("② 주문 진입(비로그인) → 로그인으로", order.status >= 300 && order.status < 400 && order.location.includes("/login"), { status: order.status, location: order.location });
   const billing = await get(base, "/billing");

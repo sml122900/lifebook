@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { ButtonLink } from "@/components/ui/Button";
@@ -35,6 +35,7 @@ const REASON_LABEL: Record<string, string> = {
   signup_grant: "가입 무료 지급",
   ai_charge: "추억 정리",
   topup: "토큰 충전",
+  topup_refund: "충전 환불", // 2026-11-10 — 고객센터 요청 → 관리자 환불(lib/tokens/refund-exec)
   refund: "환불",
   voice_cleanup: "음성 다듬기",
   daily_attendance: "매일 출석",

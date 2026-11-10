@@ -6,7 +6,8 @@ import { buttonClasses } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 import { KST_DATE_TIME_FMT } from "@/lib/kst-date";
 import { TOKEN_REFUND_LINES } from "@/lib/commerce/order-display";
-import { TOPUP_OPEN, TOPUP_PACKAGES, TOPUP_PRODUCT } from "@/lib/tokens/policy";
+import { topupRemainingTodayKrw } from "@/lib/tokens/orders";
+import { TOPUP_DAILY_LIMIT_KRW, TOPUP_OPEN, TOPUP_PACKAGES, TOPUP_PRODUCT } from "@/lib/tokens/policy";
 import { isTossWidgetTestMode } from "@/lib/tokens/toss";
 import { getBalance } from "@/lib/tokens/wallet";
 
@@ -18,6 +19,7 @@ const REASON_LABEL: Record<string, string> = {
   signup_grant: "가입 무료 지급",
   ai_charge: "추억 정리",
   topup: "토큰 충전",
+  topup_refund: "충전 환불", // 2026-11-10 — 관리자 환불(lib/tokens/refund-exec)
   refund: "환불",
   voice_cleanup: "음성 다듬기",
 };
@@ -60,11 +62,14 @@ export default async function BillingPage() {
 
   // ⚠️ 여기 모든 읽기는 userId 범위. 50건 제한으로 페이지를 가볍게 —
   // 페이지네이션은 나중 과제.
-  const txs = await prisma.tokenTransaction.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+  const [txs, remainingKrw] = await Promise.all([
+    prisma.tokenTransaction.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    }),
+    topupRemainingTodayKrw(userId), // 하루 충전 한도(2026-11-10)
+  ]);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10">
@@ -87,6 +92,8 @@ export default async function BillingPage() {
       {/* 결제위젯 v2(2026-11-10 — 인쇄본과 같은 위젯·키). 키가 없으면 위젯 대신 "결제 준비가 아직" 안내 */}
       <TopupCheckout
         packages={TOPUP_PACKAGES}
+        dailyLimitKrw={TOPUP_DAILY_LIMIT_KRW}
+        remainingKrw={remainingKrw}
         widgetClientKey={process.env.TOSS_WIDGET_CLIENT_KEY ?? null}
         customerKey={userId}
         testMode={isTossWidgetTestMode()}

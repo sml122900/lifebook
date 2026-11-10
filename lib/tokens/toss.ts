@@ -86,3 +86,36 @@ export async function confirmTossPayment(
   }
   return json as unknown as TossConfirmedPayment;
 }
+
+export type TossCancelRequest = {
+  cancelReason: string;
+  cancelAmount?: number; // 없으면 전액 취소 · 있으면 부분 취소
+};
+
+/**
+ * 토스 /v1/payments/{paymentKey}/cancel — 결제 취소(부분 취소 포함, 2026-11-10 토큰 충전 환불).
+ * idempotencyKey 를 주면 같은 키로 다시 불러도 한 번만 취소된다(토스 Idempotency-Key) — 취소는 됐는데 우리 DB 기록이 실패해
+ * 다시 누르는 경우를 안전하게. 실패하면 TossConfirmError(코드·메시지)를 던진다.
+ */
+export async function cancelTossPayment(
+  paymentKey: string,
+  body: TossCancelRequest,
+  opts: { widget?: boolean; idempotencyKey?: string } = {},
+): Promise<{ status: string; balanceAmount?: number }> {
+  const res = await fetch(`${TOSS_BASE}/v1/payments/${encodeURIComponent(paymentKey)}/cancel`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: basicAuthHeader(opts.widget),
+      ...(opts.idempotencyKey ? { "Idempotency-Key": opts.idempotencyKey } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json()) as Record<string, unknown>;
+  if (!res.ok) {
+    const code = typeof json.code === "string" ? json.code : "UNKNOWN";
+    const message = typeof json.message === "string" ? json.message : "no message";
+    throw new TossConfirmError(code, message, res.status);
+  }
+  return { status: String(json.status ?? ""), balanceAmount: typeof json.balanceAmount === "number" ? json.balanceAmount : undefined };
+}

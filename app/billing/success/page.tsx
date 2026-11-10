@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { findSettledOrder, settleOrderAfterToss } from "@/lib/tokens/orders";
+import { checkTopupDailyLimit, findSettledOrder, markOrderFailed, settleOrderAfterToss } from "@/lib/tokens/orders";
 import { TossConfirmError, confirmTossPayment } from "@/lib/tokens/toss";
 import { SuccessScreen } from "./SuccessScreen";
 
@@ -49,6 +49,18 @@ export default async function BillingSuccessPage({
   const already = await findSettledOrder(userId, orderId);
   if (already) {
     return <SuccessScreen tokensCredited={0} balanceAfter={already.balanceAfter} />;
+  }
+
+  // 0-1. 하루 충전 한도(2026-11-10 — 문구 [임시 — 성민 확정 필요]) — 대기 주문을 만든 뒤 다른 창에서 먼저 결제했으면 승인하지 않는다(승인 안 한 결제는 토스가 자동으로 끝냄).
+  const overLimit = await checkTopupDailyLimit(userId, orderId);
+  if (overLimit !== null) {
+    await markOrderFailed(orderId, "daily_limit");
+    return (
+      <FailureScreen
+        title="오늘 충전 한도를 넘었어요"
+        body={`오늘 남은 한도는 ${overLimit.toLocaleString()}원이에요. 결제는 승인하지 않았어요.`}
+      />
+    );
   }
 
   // 1. 토스로 승인(서버에서만). 토스 측이 paymentKey+orderId+amount 의

@@ -17,7 +17,9 @@
 //   ⑫ 토큰 충전(2026-11-09 비공개 → 2026-11-10 다시 엶 — 토스 포인트충전 업종 심사) — 충전 주문 = 서버 정본 금액 · 결제위젯 v2(옛 결제창 없음)·
 //      성공 화면 위젯 시크릿 키 · 충전 진입 버튼·충전 안내는 TOPUP_OPEN 한 값으로 · 환불 문장 한 곳(환불정책·약관 제25조·충전 화면·상점·고객센터) ·
 //      "충전한 토큰은 환불이 어렵습니다" 없음 · 환불 계산(원장 → 무료 먼저·먼저 충전한 것부터 · 7일 안 안 쓴 충전 전액 · 그 밖 남은 토큰 비율) ·
-//      상점 카테고리(인쇄본 · 토큰 충전) 각 1개 이상
+//      상점 카테고리(인쇄본 · 토큰 충전) 각 1개 이상 ·
+//      (2026-11-10 2차) 하루 충전 한도 49,999원(주문 만들 때·승인 전 두 번 거절) · 환불 실행(관리자 — 가짜 토스 취소로: 미사용 전액·일부 사용 비례·
+//      무료 토큰 제외·같은 충전 두 번 거절·토스 취소 실패 시 원장·지갑 그대로) · 테스트 계정 AI 한도 문구 = 일반 문구 · 랜딩 상점 링크
 //   ⑩ 강물 포스터 판매 종료(2026-11-08 — test-v3-poster-bridge 퇴역, 주문 막기 검사는 여기로) — 숨긴 상품(책·씨앗·포스터) 주문 거절 ·
 //      인쇄본은 일반 주문 경로 거절(인쇄본 화면 경로만 — 2026-11-09) ·
 //      포스터 그리기 코드 없음 · 옛 /poster 주소 → 인쇄본 · 보존 주문 2건만 그림(관리자·주인 주문 상세)
@@ -34,8 +36,17 @@ import { createPendingProductOrder } from "../lib/commerce/orders";
 import { PRODUCTS } from "../lib/commerce/products";
 import { TOKEN_REFUND_LINES } from "../lib/commerce/order-display";
 import { createPendingOrder } from "../lib/tokens/orders";
-import { lowBalanceTail, TOPUP_OPEN, TOPUP_PACKAGES } from "../lib/tokens/policy";
+import { checkTopupDailyLimit, settleOrderAfterToss, topupRemainingTodayKrw, TopupDailyLimitError } from "../lib/tokens/orders";
+import { lowBalanceTail, TOPUP_DAILY_LIMIT_KRW, TOPUP_OPEN, TOPUP_PACKAGES } from "../lib/tokens/policy";
 import { quoteTopupRefunds, type LedgerRow } from "../lib/tokens/refund";
+import { refundTopupOrder, type TopupCancelArgs } from "../lib/tokens/refund-exec";
+import { TossConfirmError } from "../lib/tokens/toss";
+import { chargeOneShot } from "../lib/tokens/charge";
+import { ensureWalletWithSignupGrant } from "../lib/tokens/wallet";
+import { BUDGET_COPY } from "../lib/budget-copy";
+import { FREE_CHAT_COPY } from "../lib/free-chat-copy";
+import { INTERVIEW_COPY } from "../lib/interview/copy";
+import { MY_LIFE_COPY } from "../lib/my-life-copy";
 import { keptPosterImages } from "../lib/commerce/kept-poster";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { prisma } from "../lib/db";
@@ -100,10 +111,13 @@ const allSatNames = (l: PrintLayout) => periodPages(l).flatMap((p) => [...p.syst
 
 const EMAIL = "fixture-print@lifebook.invalid";
 const EMAIL_B = "fixture-print-b@lifebook.invalid";
+const EMAIL_C = "fixture-print-c@lifebook.invalid"; // ⑫ 토큰 환불(2026-11-10)
 async function removeFixtures() {
-  for (const email of [EMAIL, EMAIL_B]) {
+  for (const email of [EMAIL, EMAIL_B, EMAIL_C]) {
     const u = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-    if (u) await deleteAccountTx(u.id);
+    if (!u) continue;
+    await prisma.tokenOrder.deleteMany({ where: { userId: u.id } }); // 결제된 충전은 탈퇴해도 남으므로(5년 보존) 픽스처 것은 먼저 지움
+    await deleteAccountTx(u.id);
   }
 }
 
@@ -294,12 +308,87 @@ async function main() {
     check("⑫ 토큰 충전 열림 — 충전 주문 = 서버 정본 금액(3,000원 330토큰 · 대기) · 모르는 패키지 거절",
       TOPUP_OPEN && topup.krw === 3_000 && topup.tokens === 330 && topup.orderName === "3,000원 330토큰" && topupRow?.krw === 3_000 && topupRow.tokens === 330 && topupRow.status === "pending" && unknownRefused,
       { topup, topupRow });
+
+    // ⑫ 하루 충전 한도(2026-11-10) — 결제된 충전 합계 49,000원(10,000 × 4 + 5,000 + 3,000 + 1,000)이면 1,000원도 거절(50,000 > 49,999) ·
+    //    미리 만든 대기 주문은 승인 전 확인에서 거절 · 다음 날(한국 시간)은 다시 49,999원
+    let pkSeq = 0;
+    const pay = async (userId: string, pkg: string) => {
+      const o = await createPendingOrder(userId, pkg);
+      const st = await settleOrderAfterToss(userId, o.orderId, `fixture-pk-${Date.now()}-${++pkSeq}`, o.krw);
+      if (!st.ok) throw new Error("settle 실패: " + JSON.stringify(st));
+      return o.orderId;
+    };
+    const earlyPending = await createPendingOrder(a, "starter");
+    for (const pkg of ["max", "max", "max", "max", "popular", "value", "starter"]) await pay(a, pkg);
+    const overErr = await createPendingOrder(a, "starter").then(() => null, (e) => e);
+    const remainingNow = await topupRemainingTodayKrw(a);
+    const tomorrow = await topupRemainingTodayKrw(a, new Date(Date.now() + 86_400_000));
+    const preConfirm = await checkTopupDailyLimit(a, earlyPending.orderId);
+    check("⑫ 하루 충전 한도 — 결제된 합계 49,000원이면 1,000원 주문 거절(남은 999원) · 먼저 만든 대기 주문도 승인 전 거절 · 다음 날 49,999원 · 한도 값 49,999",
+      TOPUP_DAILY_LIMIT_KRW === 49_999 && overErr instanceof TopupDailyLimitError && overErr.remainingKrw === 999 && remainingNow === 999 && tomorrow === 49_999 && preConfirm === 999 &&
+        read("app/billing/success/page.tsx").includes("checkTopupDailyLimit(userId, orderId)") && read("app/billing/TopupCheckout.tsx").includes("disabled={!ok}"),
+      { remainingNow, tomorrow, preConfirm, over: overErr && String(overErr) });
+
+    // ⑫ 환불 실행(2026-11-10) — 가짜 토스 취소(결제 호출 0). 무료 50(가입) → 충전 3,000원 330토큰(o1) → 30 사용(무료에서) → 환불 = 전액 3,000원·330토큰, 무료 20 남음.
+    const c = await mk(EMAIL_C, "[fixture] 환불");
+    await ensureWalletWithSignupGrant(c);
+    const calls: TopupCancelArgs[] = [];
+    const okCancel = async (x: TopupCancelArgs) => {
+      calls.push(x);
+    };
+    const failCancel = async (x: TopupCancelArgs) => {
+      calls.push(x);
+      throw new TossConfirmError("FIXTURE_REJECT", "fixture cancel fail", 400);
+    };
+    const bal = async () => (await prisma.tokenWallet.findUnique({ where: { userId: c }, select: { balance: true } }))?.balance ?? -1;
+    const ledgerCount = async () => prisma.tokenTransaction.count({ where: { userId: c } });
+    const o1 = await pay(c, "value");
+    await chargeOneShot(c, 0, 0, "fixture_use", undefined, 30);
+    const r1 = await refundTopupOrder(o1, { cancel: okCancel });
+    const b1 = await bal();
+    check("⑫ 환불 — 안 쓴 충전(7일 안) = 결제 금액 전부(3,000원 · 330토큰 · 전액 취소 · 위젯 키 · 주문마다 중복 방지 키) · 무료 토큰 20은 남음(환불 대상 아님 · 무료 먼저 씀)",
+      r1.ok && r1.refundKrw === 3_000 && r1.refundTokens === 330 && b1 === 20 && calls.length === 1 && calls[0].fullCancel && calls[0].cancelAmount === 3_000 &&
+        calls[0].widget && calls[0].idempotencyKey === `token-refund-${o1}`,
+      { r1, b1, calls });
+    // 일부 사용 — 충전 3,000원 330토큰(o2) → 130 사용(무료 20 먼저 + 충전 110) → 남은 220 → 2,000원 부분 취소
+    const o2 = await pay(c, "value");
+    await chargeOneShot(c, 0, 0, "fixture_use", undefined, 130);
+    const r2 = await refundTopupOrder(o2, { cancel: okCancel });
+    const b2 = await bal();
+    check("⑫ 환불 — 일부 쓴 충전 = 결제 금액 × 남은 ÷ 받은 토큰(3,000 × 220 ÷ 330 = 2,000원 · 부분 취소) · 지갑 0",
+      r2.ok && r2.refundKrw === 2_000 && r2.refundTokens === 220 && b2 === 0 && calls.length === 2 && !calls[1].fullCancel && calls[1].cancelAmount === 2_000, { r2, b2, call: calls[1] });
+    // 같은 충전 두 번 — 거절 · 토스 호출 없음
+    const r3 = await refundTopupOrder(o1, { cancel: okCancel });
+    check("⑫ 환불 — 같은 충전 두 번 = 거절(already_refunded) · 토스 취소 다시 안 부름", !r3.ok && r3.reason === "already_refunded" && calls.length === 2, r3);
+    // 토스 취소 실패 — 원장·지갑 그대로 · 다시 성공하면 그때 처리
+    const o3 = await pay(c, "starter");
+    const [lc0, b0] = [await ledgerCount(), await bal()];
+    const r4 = await refundTopupOrder(o3, { cancel: failCancel });
+    const [lc1, b1x] = [await ledgerCount(), await bal()];
+    const r5 = await refundTopupOrder(o3, { cancel: okCancel });
+    check("⑫ 환불 — 토스 취소 실패 = 원장 줄 수·지갑 그대로(cancel_failed · 코드) → 다시 하면 그때 환불(1,000원 · 100토큰)",
+      !r4.ok && r4.reason === "cancel_failed" && "code" in r4 && r4.code === "FIXTURE_REJECT" && lc1 === lc0 && b1x === b0 && b0 === 100 &&
+        r5.ok && r5.refundKrw === 1_000 && r5.refundTokens === 100 && (await bal()) === 0,
+      { r4, r5, lc0, lc1, b0, b1x });
+    // 다 쓴 충전 = 돌려드릴 것 없음 · 내역 = "충전 환불" · 원장 계산이 환불 줄을 알아봄(환불한 충전 남은 0 · 다시 환불 금액 0)
+    const o4 = await pay(c, "starter");
+    await chargeOneShot(c, 0, 0, "fixture_use", undefined, 100);
+    const r6 = await refundTopupOrder(o4, { cancel: okCancel });
+    const led = await prisma.tokenTransaction.findMany({ where: { userId: c }, select: { id: true, delta: true, reason: true, refId: true, createdAt: true } });
+    const paidC = await prisma.tokenOrder.findMany({ where: { userId: c, status: "paid" }, select: { id: true, krw: true, tokens: true, approvedAt: true } });
+    const qC = quoteTopupRefunds(led, paidC);
+    check("⑫ 환불 — 다 쓴 충전 = 거절(nothing_to_refund) · 환불 줄 3개(topup_refund · refId = 주문) · 다시 계산해도 환불한 충전은 0원 · 무료 + 유료 = 지갑 · 토큰 화면 라벨 \"충전 환불\"",
+      !r6.ok && r6.reason === "nothing_to_refund" && led.filter((t) => t.reason === "topup_refund").length === 3 &&
+        qC.quotes.filter((q) => q.refundedTokens > 0).every((q) => q.refundKrw === 0 && q.remaining === 0) && qC.free + qC.paid === (await bal()) &&
+        read("app/account/tokens/page.tsx").includes('topup_refund: "충전 환불"') && (await prisma.tokenOrder.count({ where: { userId: c, status: "paid" } })) === 4,
+      { r6, quotes: qC.quotes.map((q) => [q.krw, q.remaining, q.refundedTokens, q.refundKrw]) });
     const mapAfter = JSON.stringify(await getMyLifeData(a));
     check("⑧ 편집 저장·주문 뒤에도 실제 지도 그대로(getMyLifeData 같음)", mapBefore === mapAfter);
   } finally {
     await removeFixtures();
   }
-  check("⑧ 픽스처 정리 — 탈퇴 경로로 편집 상태·대기 주문 함께 삭제", (await prisma.printDraft.count({ where: { user: { email: { in: [EMAIL, EMAIL_B] } } } })) === 0 && (await prisma.user.count({ where: { email: { in: [EMAIL, EMAIL_B] } } })) === 0);
+  check("⑧ 픽스처 정리 — 탈퇴 경로로 편집 상태·대기 주문 함께 삭제", (await prisma.printDraft.count({ where: { user: { email: { in: [EMAIL, EMAIL_B, EMAIL_C] } } } })) === 0 && (await prisma.user.count({ where: { email: { in: [EMAIL, EMAIL_B, EMAIL_C] } } })) === 0 &&
+    (await prisma.tokenOrder.count({ where: { paymentKey: { startsWith: "fixture-pk-" } } })) === 0);
 
   // ⑨ 화면·결제 소스
   const success = read("app/shop/order/success/page.tsx");
@@ -363,6 +452,21 @@ async function main() {
       fifo.quotes[0].remaining === 0 && fifo.quotes[0].refundKrw === 0 && fifo.quotes[1].remaining === 280 && fifo.quotes[1].refundKrw === 2_545 &&
       q6.quotes[0].unused && q6.quotes[0].refundKrw === 3_000 && q6.free === 0 && q7.quotes[0].unused && q7.free === 0,
     { q1: q1.quotes, q2: q2.quotes, q4: q4.quotes, fifo: fifo.quotes, q6: q6.quotes, q7: q7.quotes });
+  // ⑫ 관리자 환불 화면 — ADMIN_EMAILS 재검증 · 금액 확인 체크 · 실행 = refundTopupOrder · 관리자 머리 줄 링크
+  const adminAct = read("app/admin/tokens/actions.ts");
+  check("⑫ 관리자 환불 화면(/admin/tokens) — 액션마다 관리자 확인 · 금액 확인 체크 없으면 실행 안 함 · 실행 = refundTopupOrder · 머리 줄 [토큰 충전]",
+    adminAct.includes("isAdminEmail(session?.user?.email)") && adminAct.includes(`formData.get("confirm") !== "on"`) && adminAct.includes("await refundTopupOrder(orderId)") &&
+      read("app/admin/layout.tsx").includes('href="/admin/tokens"') && read("app/admin/tokens/page.tsx").includes("listTopupOrdersForAdmin()"));
+  // ⑫ 테스트 계정 AI 한도 문구 = 일반 문구(2026-11-10 — 심사관 계정도 테스트 계정) · "테스트 계정" 말 없음
+  check("⑫ 테스트 계정 AI 한도 문구 4곳 = 일반 문구(공통·이야기 나누기·지도 AI·인터뷰) · 화면 문구에 \"테스트 계정\" 없음",
+    BUDGET_COPY.test === BUDGET_COPY.daily && FREE_CHAT_COPY.testBudgetPaused === FREE_CHAT_COPY.budgetPaused &&
+      MY_LIFE_COPY.ask.errors.testBudget === MY_LIFE_COPY.ask.errors.budget && INTERVIEW_COPY.testBudget === BUDGET_COPY.daily &&
+      ["lib/budget-copy.ts", "lib/free-chat-copy.ts", "lib/my-life-copy.ts", "lib/interview/copy.ts"].every((f) => !/"[^"\n]*테스트 계정[^"\n]*"/.test(read(f).replace(/\/\/[^\n]*/g, ""))));
+  // ⑫ 로그인 전 메인 → 상점 직접 링크(2026-11-10) · 토큰 소개 = 지금 쓰는 곳(AI에게 물어보기) · V2 전용 기능 이름 없음
+  check("⑫ 랜딩 상품 칸 — 토큰 카드(→ /shop/tokens) · [상점 전체 보기](→ /shop) · 토큰 소개 = AI에게 물어보기(그 시절 검색 포함) 등 일부 AI 기능(글 다듬기·말동무 없음)",
+    read("lib/landing-copy.ts").includes('href: "/shop/tokens"') && read("lib/landing-copy.ts").includes('shopAll: { label: "상점 전체 보기", href: "/shop" }') &&
+      read("app/page.tsx").includes("{PRODUCT.shopAll.label} →") && read("lib/tokens/policy.ts").includes("AI에게 물어보기(그 시절 검색 포함) 등 일부 AI 기능") &&
+      !/글 다듬기|말동무/.test(read("lib/tokens/policy.ts").match(/blurb: "[^"]*"/)?.[0] ?? "x"));
   const shopPage = read("app/shop/page.tsx");
   check("⑫ 상점 카테고리 — 인쇄본(공개 상품 = My Life 인쇄본) · 토큰 충전(패키지 4개 → /shop/tokens → [충전하러 가기] /billing) 각 1개 이상",
     JSON.stringify(PRODUCTS.filter((p) => p.orderable !== false).map((p) => p.id)) === JSON.stringify(["mylife-print"]) && TOPUP_PACKAGES.length === 4 &&

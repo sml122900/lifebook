@@ -7,6 +7,7 @@ import { Mic, Sparkles, Image as ImageIcon } from "lucide-react";
 import { auth } from "@/auth";
 import { ButtonLink, buttonClasses } from "@/components/ui/Button";
 import { getProduct } from "@/lib/commerce/products";
+import { TOPUP_OPEN } from "@/lib/tokens/policy";
 import {
   GALLERY,
   PRODUCT,
@@ -227,6 +228,27 @@ export default async function Home({
             </div>
           </div>
         </div>
+
+        {/* 토큰 충전 카드 + 상점 전체 보기(2026-11-10 — 로그인 전 메인에서 상점으로 가는 직접 링크) */}
+        {TOPUP_OPEN && (
+          <div className="mt-6 flex flex-col gap-4 rounded-lg border-2 border-line bg-surface px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xl font-bold text-ink">{PRODUCT.token.title}</p>
+              <p className="mt-1 text-lg text-ink-soft">{PRODUCT.token.body}</p>
+            </div>
+            <Link href={PRODUCT.token.href} className={buttonClasses("secondary", "lg", "shrink-0 self-start sm:self-center")}>
+              {PRODUCT.token.cta} →
+            </Link>
+          </div>
+        )}
+        <p className="mt-5 text-center">
+          <Link
+            href={PRODUCT.shopAll.href}
+            className="inline-flex min-h-[48px] items-center text-lg font-semibold text-ink underline hover:text-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+          >
+            {PRODUCT.shopAll.label} →
+          </Link>
+        </p>
 
         {/* 보조 = 준비 중(작게). 전부 숨겨지면(visibleSoon 빈 배열) 섹션
             자체를 안 그려 빈 <ul> 여백만 남는 것을 막는다. */}

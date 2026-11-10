@@ -49,11 +49,19 @@ export const TOPUP_PACKAGES = [
 
 export type TopupPackageId = (typeof TOPUP_PACKAGES)[number]["id"];
 
-// 상점(/shop · /shop/tokens)·충전 화면(/billing)의 토큰 상품 소개(2026-11-10) — [임시 — 성민 확정 필요]. 쓰임 = 고객센터 "토큰이 뭔가요?" 답과 같은 말.
+// 상점(/shop · /shop/tokens)·충전 화면(/billing)·랜딩의 토큰 상품 소개(2026-11-10) — [임시 — 성민 확정 필요].
+// 쓰임 = 지금 사용자(V3)가 토큰을 쓰는 곳(AI 비서의 "AI에게 물어보기" — 그 시절 인터넷 검색 포함). V2 전용 기능(글 다듬기·말동무)은 "일부 AI 기능"으로.
+// 고객센터 "토큰이 뭔가요?" 답과 같은 말.
 export const TOPUP_PRODUCT = {
   name: "Lifebook 토큰",
-  blurb: "AI 기능(글 다듬기, AI에게 물어보기 등)에 쓰는 포인트예요. 결제하시면 바로 내 토큰에 들어가요.",
+  blurb: "AI에게 물어보기(그 시절 검색 포함) 등 일부 AI 기능에 쓰는 포인트예요. 결제하시면 바로 내 토큰에 들어가요.",
 } as const;
+
+/**
+ * 사용자당 하루(한국 시간) 충전 합계 한도(2026-11-10 성민) — 충전 업종 카드사 한도 "1일 최대 결제 금액 5만 원 미만"에 맞춤.
+ * 서버가 대기 주문을 만들 때(createPendingOrder)와 결제를 승인하기 전(/billing/success — checkTopupDailyLimit) 두 번 거절한다.
+ */
+export const TOPUP_DAILY_LIMIT_KRW = 49_999;
 
 // 패키지 id 로 정의를 찾는다(없으면 undefined).
 export function getPackage(id: string) {

@@ -6,7 +6,8 @@ export type BudgetReason = "daily" | "test";
 
 export const BUDGET_COPY: Record<BudgetReason, string> = {
   daily: "오늘은 AI 기능이 잠시 쉬어요. 내일 다시 해 주세요.",
-  test: "테스트 계정의 오늘 AI 사용 한도를 다 써서 쉬어요. 내일 다시 해 주세요.",
+  // 테스트 계정 하루 한도 — 2026-11-10 성민: 일반 문구와 같게(심사관 계정도 테스트 계정이라 "테스트 계정" 말이 보이지 않게). 이유 값은 따로 남김(기록·회귀).
+  test: "오늘은 AI 기능이 잠시 쉬어요. 내일 다시 해 주세요.",
 };
 
 export const budgetMessage = (r: BudgetReason): string => BUDGET_COPY[r];
