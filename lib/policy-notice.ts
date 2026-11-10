@@ -8,7 +8,7 @@
 //   - 로그인한 화면 헤더 아래 안내 띠(app/components/PolicyNoticeBar — 390 에서 한 줄(최대 두 줄): 짧은 요약 + 시행일 +
 //     [자세히]·[닫기], 닫으면 그 기기에서 그 판은 숨김) — 등록의 short
 //   - 해당 문서 맨 위 "개정 안내" 줄(/privacy · /terms · /refund, 띠 버튼 [처리방침 보기]·[약관 보기]·[환불·교환 보기]가 이 줄로 감) — 등록의 detail
-// 문구는 lib/policy-notice-copy.ts(임시).
+// 문구는 lib/policy-notice-copy.ts.
 
 // 환불·교환 정책(refund)은 2026-11-09 v1.1 부터(약관에 맞춘 개정 — 성민).
 export type PolicyDoc = "privacy" | "terms" | "refund";
@@ -58,7 +58,7 @@ export const POLICY_NOTICES: readonly PolicyNotice[] = [
     leadException: "2026-11-07 성민 승인 — 실사용자 0명이라 공지 + 7일 대기 없이 오늘 시행",
   },
   {
-    // 처리방침 v1.6 — 강물 포스터 판매 종료(docs/phase/print-mylife.md §9.4). short·detail [임시 — 성민 확정 필요] 2026-11-08.
+    // 처리방침 v1.6 — 강물 포스터 판매 종료(docs/phase/print-mylife.md §9.4).
     doc: "privacy",
     version: "v1.6",
     short: "포스터 대신 인쇄본",
@@ -69,7 +69,7 @@ export const POLICY_NOTICES: readonly PolicyNotice[] = [
     leadException: "2026-11-08 성민 승인 — 실사용자 0명이라 공지 + 7일 대기 없이 공지 당일 시행",
   },
   {
-    // 이용약관 v1.1 — 제13조 ① 배송 기간을 상품 화면과 맞춤(2026-11-09 성민). short·detail [임시 — 성민 확정 필요] 2026-11-09.
+    // 이용약관 v1.1 — 제13조 ① 배송 기간을 상품 화면과 맞춤(2026-11-09 성민).
     doc: "terms",
     version: "v1.1",
     short: "배송 기간 14일로",
@@ -80,7 +80,7 @@ export const POLICY_NOTICES: readonly PolicyNotice[] = [
     leadException: "2026-11-09 성민 승인 — 실사용자 0명이라 공지 + 7일 대기 없이 공지 당일 시행",
   },
   {
-    // 처리방침 v1.7 — 인쇄·배송 위탁 업체 · 가족 룸 공개 범위 · 본문 표기 Lifebook(2026-11-09 성민 결정). short·detail [임시 — 성민 확정 필요] 2026-11-09.
+    // 처리방침 v1.7 — 인쇄·배송 위탁 업체 · 가족 룸 공개 범위 · 본문 표기 Lifebook(2026-11-09 성민 결정).
     doc: "privacy",
     version: "v1.7",
     short: "인쇄 업체·가족 룸",
@@ -91,7 +91,7 @@ export const POLICY_NOTICES: readonly PolicyNotice[] = [
     leadException: "2026-11-09 성민 승인 — 실사용자 0명이라 공지 + 7일 대기 없이 공지 당일 시행",
   },
   {
-    // 환불·교환 정책 v1.1 — 약관(제15조·제16조)에 맞춤(2026-11-09 성민). short·detail [임시 — 성민 확정 필요] 2026-11-09.
+    // 환불·교환 정책 v1.1 — 약관(제15조·제16조)에 맞춤(2026-11-09 성민).
     doc: "refund",
     version: "v1.1",
     short: "환불 기준 약관대로",
@@ -102,7 +102,7 @@ export const POLICY_NOTICES: readonly PolicyNotice[] = [
     leadException: "2026-11-09 성민 승인 — 실사용자 0명이라 공지 + 7일 대기 없이 공지 당일 시행",
   },
   {
-    // 처리방침 v1.8 — 가족 룸 나가기·닫기 안내(2026-11-09 성민 — 옛 "고객센터로 요청"). short·detail [임시 — 성민 확정 필요] 2026-11-09.
+    // 처리방침 v1.8 — 가족 룸 나가기·닫기 안내(2026-11-09 성민 — 옛 "고객센터로 요청").
     doc: "privacy",
     version: "v1.8",
     short: "가족 룸 나가기",

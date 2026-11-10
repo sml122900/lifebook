@@ -5,7 +5,7 @@
 //   다시 보기(T3) = 사이드 패널 도움(/my-life?tutorial=1) · [찾기] 시트 맨 아래(TUTORIAL_EVENT).
 // 연습 판 = 실제 지도와 같은 그리기 코드(layoutMyLife · StoryPlanet · OrbitSystem · ORBIT_CSS · 공전 ./orbit · 끌기 ./drag beginPress)에
 // 가짜 데이터(lib/tutorial-practice). AI 카드도 실제 시트와 같은 부품(./AskCards). DB 쓰기·모델 호출 0 — 서버 액션은 투어 기록
-// (markTourCompletedAction — User.completedTours) 하나뿐. 문구 전부 [임시](lib/my-life-copy tutorial).
+// (markTourCompletedAction — User.completedTours) 하나뿐. 문구 = lib/my-life-copy tutorial.
 
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";

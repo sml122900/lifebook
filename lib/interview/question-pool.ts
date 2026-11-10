@@ -1,5 +1,5 @@
 // 오늘의 인터뷰 — 취향·일상 질문 풀(docs/phase/today-interview.md §5).
-// 코드와 분리된 데이터 파일 — 문항은 성민이 작성한다. 아래 5개는 구조 예시(임시).
+// 코드와 분리된 데이터 파일 — 문항은 성민이 작성한다. 아래 5개 = 2026-11-10 확정(성민).
 // 순수 모듈(prisma import 금지 — 클라·서버 공용).
 //
 // 필드:
@@ -33,8 +33,8 @@ export type InterviewPoolQuestion = {
 export const QUESTION_POOL: InterviewPoolQuestion[] = [
   {
     id: "elem-play",
-    text: "{elemSchool} 다닐 때 친구들이랑 즐겨 하던 놀이가 있으세요?", // [임시 — 성민 확정 필요]
-    topic: "{elemSchool} 시절 놀이", // [임시 — 성민 확정 필요]
+    text: "{elemSchool} 다닐 때 친구들이랑 즐겨 하던 놀이가 있으세요?",
+    topic: "{elemSchool} 시절 놀이",
     category: "daily",
     anchor: "ELEM_SCHOOL",
     followUp: true,
@@ -43,8 +43,8 @@ export const QUESTION_POOL: InterviewPoolQuestion[] = [
   },
   {
     id: "middle-lunchbox",
-    text: "중학교 때 도시락 반찬은 주로 뭐였어요?", // [임시 — 성민 확정 필요]
-    topic: "중학교 도시락", // [임시 — 성민 확정 필요]
+    text: "중학교 때 도시락 반찬은 주로 뭐였어요?",
+    topic: "중학교 도시락",
     category: "daily",
     anchor: "MIDDLE_SCHOOL",
     followUp: false,
@@ -53,8 +53,8 @@ export const QUESTION_POOL: InterviewPoolQuestion[] = [
   },
   {
     id: "high-song",
-    text: "고등학교 때 즐겨 듣던 노래가 있으세요?", // [임시 — 성민 확정 필요]
-    topic: "고등학교 시절 노래", // [임시 — 성민 확정 필요]
+    text: "고등학교 때 즐겨 듣던 노래가 있으세요?",
+    topic: "고등학교 시절 노래",
     category: "taste",
     anchor: "HIGH_SCHOOL",
     followUp: true,
@@ -63,8 +63,8 @@ export const QUESTION_POOL: InterviewPoolQuestion[] = [
   },
   {
     id: "firstjob-payday",
-    text: "첫 월급 받으셨을 때 뭘 하셨는지 기억나세요?", // [임시 — 성민 확정 필요]
-    topic: "첫 월급", // [임시 — 성민 확정 필요]
+    text: "첫 월급 받으셨을 때 뭘 하셨는지 기억나세요?",
+    topic: "첫 월급",
     category: "daily",
     anchor: "FIRST_JOB",
     followUp: true,
@@ -73,8 +73,8 @@ export const QUESTION_POOL: InterviewPoolQuestion[] = [
   },
   {
     id: "favorite-food",
-    text: "요즘 제일 좋아하시는 음식은 뭐예요?", // [임시 — 성민 확정 필요]
-    topic: "좋아하는 음식", // [임시 — 성민 확정 필요]
+    text: "요즘 제일 좋아하시는 음식은 뭐예요?",
+    topic: "좋아하는 음식",
     category: "taste",
     anchor: null, // 대상 시기 없음 — 1차에서는 출제 안 됨(Q6)
     followUp: false,
@@ -87,7 +87,7 @@ export const QUESTION_POOL: InterviewPoolQuestion[] = [
 // ── "관계별 나"(SELF) 문항 — 노드 그래프 2a(docs/phase/node-graph-self.md §3.2) ──
 // 그 시기에 누구와 있을 때의 나를 묻는다. 답은 Episode(kind=SELF, "그때의 나")로 대상 시기
 // 사건에 저장하고, 일반 이야기 갭은 채우지 않는다(갭 판정은 STORY 만 센다). 오늘 6문항 중
-// 최대 1개(Q10). 아래 3개는 구조 예시(임시).
+// 최대 1개(Q10). 아래 3개 = 2026-11-10 확정(성민).
 //
 // 필드(id·text·topic·followUp·order·enabled 는 위 풀 질문과 같은 뜻):
 //   anchor   대상 시기(중심노드 유형, 필수). 이 유형의 확정 사건 중 순서상 첫 사건이 대상
@@ -114,8 +114,8 @@ export type InterviewSelfQuestion = {
 export const SELF_QUESTION_POOL: InterviewSelfQuestion[] = [
   {
     id: "self-high-linked",
-    text: "고등학교 다니실 때, {who:과/와} 같이 있을 때는 어떤 사람이셨어요?", // [임시 — 성민 확정 필요]
-    topic: "고등학교 때 {who:과/와} 있을 때의 나", // [임시 — 성민 확정 필요]
+    text: "고등학교 다니실 때, {who:과/와} 같이 있을 때는 어떤 사람이셨어요?",
+    topic: "고등학교 때 {who:과/와} 있을 때의 나",
     anchor: "HIGH_SCHOOL",
     relation: { kind: "linked" },
     followUp: true,
@@ -124,20 +124,20 @@ export const SELF_QUESTION_POOL: InterviewSelfQuestion[] = [
   },
   {
     id: "self-elem-teacher",
-    text: "{elemSchool} 다니실 때, {who} 앞에서는 어떤 아이셨어요?", // [임시 — 성민 확정 필요]
-    topic: "{elemSchool} 시절 {who} 앞의 나", // [임시 — 성민 확정 필요]
+    text: "{elemSchool} 다니실 때, {who} 앞에서는 어떤 아이셨어요?",
+    topic: "{elemSchool} 시절 {who} 앞의 나",
     anchor: "ELEM_SCHOOL",
-    relation: { kind: "category", label: "선생님" }, // [임시 — 성민 확정 필요]
+    relation: { kind: "category", label: "선생님" },
     followUp: true,
     order: 20,
     enabled: true,
   },
   {
     id: "self-firstjob-family",
-    text: "첫 직장 다니실 때, 집에서 {who}한테는 어떤 사람이셨어요?", // [임시 — 성민 확정 필요]
-    topic: "첫 직장 시절 {who} 곁의 나", // [임시 — 성민 확정 필요]
+    text: "첫 직장 다니실 때, 집에서 {who}한테는 어떤 사람이셨어요?",
+    topic: "첫 직장 시절 {who} 곁의 나",
     anchor: "FIRST_JOB",
-    relation: { kind: "category", label: "가족" }, // [임시 — 성민 확정 필요]
+    relation: { kind: "category", label: "가족" },
     followUp: true,
     order: 30,
     enabled: true,

@@ -1,5 +1,5 @@
 // My Life 인쇄본 문구(2026-11-08 — docs/phase/print-mylife.md). 화면(출력 편집·주문)과 인쇄 그림(머리말·꼬리말·목록)이 같이 씀.
-// 전부 [임시 — 성민 확정 필요] 2026-11-08. 이름 뒤 "님" = 띄어 씀(CLAUDE.md).
+// 전부 2026-11-10 확정(성민). 이름 뒤 "님" = 띄어 씀(CLAUDE.md).
 
 export const PRINT_COPY = {
   // 화면
@@ -32,21 +32,21 @@ export const PRINT_COPY = {
   saved: "저장했어요.",
   saveFailed: "저장하지 못했어요. 다시 해 주세요.",
   // 금액(§5.2)
-  // 2026-11-09 장당 8,000원 · 배송비 포함(lib/commerce/print-price) — 구간 문구 대신. [임시 — 성민 확정 필요] 2026-11-09
+  // 2026-11-09 장당 8,000원 · 배송비 포함(lib/commerce/print-price) — 구간 문구 대신.
   pagesLine: (n: number) => `지금 ${n}장 (표지 포함)`,
   sumLine: (unit: string, n: number, total: string) => `장당 ${unit}원 × ${n}장 = 합계 ${total}원 (배송비 포함)`,
   priceTbd: "가격은 아직 정하는 중이에요. 정해지면 주문할 수 있어요.",
-  minPages: (n: number, price: string) => `표지 말고 한 장 이상 있어야 해요. 최소 ${n}장(${price}원)부터 주문할 수 있어요.`, // [임시 — 성민 확정 필요] 2026-11-09
+  minPages: (n: number, price: string) => `표지 말고 한 장 이상 있어야 해요. 최소 ${n}장(${price}원)부터 주문할 수 있어요.`,
   overLimit: (max: number) => `${max}장이 넘었어요. 몇 가지를 빼서 ${max}장 안으로 맞춰 주세요.`,
   order: "주문하기",
   // 주문(배송지·결제위젯)
   orderTitle: "받으실 곳과 결제",
-  // 주문 단계 금액 표(2026-11-09 — [임시 — 성민 확정 필요])
+  // 주문 단계 금액 표(2026-11-09)
   rowItem: (unit: string, n: number) => `인쇄본 ${n}장 (장당 ${unit}원)`,
   rowShipping: "배송비",
   shippingFree: "무료",
   rowTotal: "결제 금액",
-  orderName: (product: string, n: number) => `${product} (${n}장)`, // 토스 결제창 상품명 [임시 — 성민 확정 필요] 2026-11-09
+  orderName: (product: string, n: number) => `${product} (${n}장)`, // 토스 결제창 상품명(2026-11-09)
   backToEdit: "← 인쇄본 고치기로",
   shippingTitle: "받으실 곳",
   payTitle: "결제 방법",
@@ -59,7 +59,7 @@ export const PRINT_COPY = {
   pickMethod: "결제 수단을 골라 주세요. 카드는 카드사까지 골라 주세요.", // 결제위젯 검사 거절(카드사 미선택 등) — 주문 실패가 아님
   notOnSale: "아직 주문할 수 없어요. 가격이 정해지면 알려 드릴게요.",
   tooMany: (max: number) => `${max}장이 넘어서 주문할 수 없어요.`,
-  noPages: "인쇄할 시기가 없어요. 표지 말고 한 장 이상(최소 2장) 있어야 주문할 수 있어요.", // [임시 — 성민 확정 필요] 2026-11-09
+  noPages: "인쇄할 시기가 없어요. 표지 말고 한 장 이상(최소 2장) 있어야 주문할 수 있어요.",
   // 인쇄 그림
   coverTitle: "My Life",
   coverOwner: (name: string) => `${name} 님의 이야기`,

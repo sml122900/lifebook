@@ -12,7 +12,7 @@
 //   ⑧ DB(픽스처 계정) — 편집 상태 저장·불러오기(이상한 키 거름) · 금액 없으면 주문 거절(행 0) · 주문 = 서버가 다시 센 장수·금액(장당 × 장수)·스냅샷 ·
 //      배송지 없음·상한 넘음 거절 · 편집·주문 뒤에도 실제 지도 그대로 · 남의 계정 편집 상태 안 보임
 //   ⑨ 화면·결제 — 성공 화면이 인쇄 주문만 위젯 시크릿 키로 확인 · 주문 제작 청약철회 제한 문구 없음 · 숨긴 상품 상세 404 ·
-//      인쇄 상품 주문 화면 → /my-life/print · 실결제 꺼짐 · 문구 [임시]
+//      인쇄 상품 주문 화면 → /my-life/print · 실결제 꺼짐 · 문구 확정
 //   ⑪ 결제 수단 미선택 연타(2026-11-09) — 대기 주문 1건(재사용·동시 잠금) · 위젯 거절 = 결제 수단 안내
 //   ⑫ 토큰 충전 비공개(2026-11-09 — 토스 신청 전) — 충전 주문 서버 거절(행 0) · /billing = 안내 화면 · 충전 진입 버튼·충전 안내·
 //      "충전한 토큰은 환불이 어렵습니다" 숨김 · 잔액·차감은 그대로 · 상점 공개 상품 = 인쇄본 하나
@@ -300,9 +300,9 @@ async function main() {
   check("⑨ 성공 화면 — 인쇄 주문만 결제위젯 시크릿 키로 확인(서버가 주문 상품을 보고 정함) · 위젯은 금액 먼저·결제수단·약관",
     success.includes("widget: kind === PRINT_PRODUCT_ID") && toss.includes("TOSS_WIDGET_SECRET_KEY") && editor.includes("setAmount") && editor.includes("renderPaymentMethods") && editor.includes("renderAgreement") && editor.includes("requestPayment"));
   check("⑨ 인쇄 주문 화면에 주문 제작 청약철회 제한 문구 없음(법률 검토 필요 — 성민 2026-11-08)", !/청약철회|제17조/.test(editor));
-  check("⑨ 숨긴 상품(orderable false) 상세 404 · 인쇄 상품 주문 화면 → /my-life/print · 문구 [임시]",
+  check("⑨ 숨긴 상품(orderable false) 상세 404 · 인쇄 상품 주문 화면 → /my-life/print · 문구 확정(2026-11-10 — [임시] 표시 없음)",
     /orderable === false\) notFound\(\)/.test(read("app/shop/[productId]/page.tsx")) && read("app/shop/[productId]/order/page.tsx").includes('redirect("/my-life/print")') &&
-      read("lib/print-copy.ts").includes("[임시 — 성민 확정 필요]") && read("lib/commerce/products.ts").includes("[임시 — 성민 확정 필요] 2026-11-09"));
+      !read("lib/print-copy.ts").includes("[임시") && !read("lib/commerce/products.ts").includes("[임시"));
 
   // ⑫ 토큰 충전 비공개 — 화면·문구
   const billingLinkFiles = ["app/account/tokens/page.tsx", "app/account/delete/page.tsx", "app/components/VoiceTextarea.tsx", "app/life-timeline/free-record/FreeRecordClient.tsx",

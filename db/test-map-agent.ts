@@ -8,7 +8,7 @@
 //   ⑤ 재생 세트(모의 응답) — db/test-fixtures/map-agent-replay 전부 기대대로
 //   ⑥ 원장·상한·예산 — 질문당 한 줄 TEST_MAP_ASK · 하루 30회 · 예산 넘음 = 호출 0 · 라운드 중 넘으면 멈춤
 //   ⑦ 읽기 전용·남의 노드 — 실제 DB 지도로 돌려 전후 같음 · 다른 사용자 이름 안 나옴 · 쓰기 코드 없음 · 액션 첫 줄 auth
-//   ⑧ 화면 연결 — 찾기 시트 입구 · 시간 상한 · 이동 지도 · 문구 [임시]
+//   ⑧ 화면 연결 — 찾기 시트 입구 · 시간 상한 · 이동 지도 · 문구 확정
 //   ⑨ AI 편집 기록(Q92 B안) — 칸 = 명령·도구·노드 종류·노드 id·시각만 · 90일 지난 행은 쓸 때 삭제(내 행만) · 되돌린 시각(내 행만) · 처리방침 v1.5·공지 예외·동의 버전 유지
 //   ⑩ 테스트 계정 명시 표시(2026-11-08) — 이메일만으로 일반인 계정도 User.isTestAccount 켜면 운영 하루 예산에서 빠짐(표시 전 TEST_ 없이
 //      기록된 행 포함) · 테스트 사용분으로 셈 · 그 뒤 기록은 TEST_ · 이메일 판정(.invalid·.test)은 그대로 ·
@@ -267,7 +267,7 @@ async function main() {
     const view2 = read("app/my-life/MyLifeView.tsx");
     check("⑧ 찾기 시트 안 입구 → 시트 · 칩 = 찾기와 같은 goTo · 지도 편집 버튼 없음", view2.includes("onAsk={openAsk}") && view2.includes("<AskSheet") && view2.includes('aria-labelledby="mylife-ask-title"') && (read("app/my-life/AskSheet.tsx") + read("app/my-life/AskCards.tsx")).includes("onGo(n.key, n.eventId)") && read("app/my-life/AskSheet.tsx").includes("<AnswerClaims claims={view.answer.claims} onGo={onGo} />") && !(read("app/my-life/AskSheet.tsx") + read("app/my-life/AskCards.tsx")).includes("saveNodeLink")); // 답 칩은 AI 시트·튜토리얼이 같이 쓰는 ./AskCards
     check("⑧ 칩·찾기 → 지도 이동은 선택 줄이 생긴 뒤에(첫 선택에 지도 상자 높이가 바뀌며 이동이 끊기던 것 — 2026-11-07 실측)", view2.includes("requestAnimationFrame(() => requestAnimationFrame(() => apiRef.current?.zoomToElement(el, Math.max(stateRef.current.scale, 1), 300)))"));
-    check("⑧ 서버 함수 시간 상한(여러 라운드) · 이동 지도 · 문구 [임시]", read("app/my-life/page.tsx").includes("export const maxDuration = 60;") && read("docs/navigation-map.md").includes("AI에게 부탁하기") && /지도 질문 답하기[^\n]*\[임시/.test(read("lib/my-life-copy.ts")));
+    check("⑧ 서버 함수 시간 상한(여러 라운드) · 이동 지도 · 문구 확정(2026-11-10 — [임시] 표시 없음)", read("app/my-life/page.tsx").includes("export const maxDuration = 60;") && read("docs/navigation-map.md").includes("AI에게 부탁하기") && /지도 질문 답하기[^\n]*\n/.test(read("lib/my-life-copy.ts")) && !/지도 질문 답하기[^\n]*\[임시/.test(read("lib/my-life-copy.ts")));
     check("⑧ 안 보내는 칸은 화면에는 그대로(만난 해 등은 패널·찾기가 씀 — getMyLifeData 무변)", read("lib/my-life.ts").includes("metYear: p.metYear"));
 
     // ── ⑨ AI 편집 기록(Q92 B안) ──────────
@@ -396,10 +396,10 @@ async function main() {
     ];
     const SILENT_FALLBACK = ["app/onboarding-chat/actions.ts", "lib/memory-chat.ts"]; // 원래 catch 가 빈 결과·기본 질문으로 넘어감
     const notHandled = HANDLES_BLOCK.filter((f) => !read(f).includes("BudgetBlockedError"));
-    check("⑩ 한도 일원화 — 진입점 거절 처리(문구: 라우트 429 · 설정 단계·인터뷰 연도 blocked · 말동무 정리 건너뜀 ?ai= · 통녹음) · 폴백 2곳 · 음성 인식 제출 전 확인 · 공통 문구 [임시]",
+    check("⑩ 한도 일원화 — 진입점 거절 처리(문구: 라우트 429 · 설정 단계·인터뷰 연도 blocked · 말동무 정리 건너뜀 ?ai= · 통녹음) · 폴백 2곳 · 음성 인식 제출 전 확인 · 공통 문구 확정(2026-11-10 — [임시] 표시 없음)",
       notHandled.length === 0 && SILENT_FALLBACK.every((f) => read(f).includes("withUsageLedger(")) &&
         read("app/api/clova-stt/route.ts").includes("const block = await budgetBlock(userId);") &&
-        read("lib/budget-copy.ts").includes("[임시 — 성민 확정 필요]") && read("lib/ai.ts").includes("if (block) throw new BudgetBlockedError(block);"),
+        !read("lib/budget-copy.ts").includes("[임시") && read("lib/ai.ts").includes("if (block) throw new BudgetBlockedError(block);"),
       { notHandled });
     // 모델 부르는 파일 전부 = 원장 연결(새 파일이 생기면 여기서 실패 — 범위를 열거나 직접 남기고 이 표에 넣는다). explicit = 호출부가 직접 recordChatUsage.
     const LEDGER_MAP: [string, string[], string][] = [

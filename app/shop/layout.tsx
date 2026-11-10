@@ -14,7 +14,7 @@ export default function ShopLayout({ children }: { children: ReactNode }) {
           role="note"
           className="border-b-2 border-brand bg-banner px-6 py-3 text-center text-base font-semibold text-action"
         >
-          {/* [임시 — 성민 확정 필요] 2026-11-08 — 무통장입금 받는 상품 없음(숨긴 상품 주문 거절 · 포스터 무통장입금 닫음) */}
+          {/* 2026-11-08 — 무통장입금 받는 상품 없음(숨긴 상품 주문 거절 · 포스터 무통장입금 닫음) */}
           카드결제는 지금 테스트 모드예요. 실제로 청구되지 않아요.
         </div>
       )}

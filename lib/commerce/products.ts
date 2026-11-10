@@ -101,11 +101,11 @@ export const PRODUCTS: readonly Product[] = [
     // My Life 인쇄본(2026-11-08 — docs/phase/print-mylife.md). 가격 = 장당 8,000원 × 장수, 배송비 포함(2026-11-09 성민 — lib/commerce/print-price).
     // 금액이 없으면 비공개(목록·상세·주문 모두 없음). 주문은 /my-life/print(출력 편집 → 결제위젯 v2).
     id: "mylife-print",
-    name: "My Life 인쇄본", // [임시 — 성민 확정 필요] 2026-11-08
-    spec: "A4 세로 · 표지 포함 최대 20장 · 배송비 포함", // [임시 — 성민 확정 필요] 2026-11-09
-    blurb: "내 My Life 지도를 시기별로 한 장씩 담은 인쇄본 — 가족과 한 장씩 넘기며 이야기해요.", // [임시 — 성민 확정 필요] 2026-11-08
+    name: "My Life 인쇄본",
+    spec: "A4 세로 · 표지 포함 최대 20장 · 배송비 포함",
+    blurb: "내 My Life 지도를 시기별로 한 장씩 담은 인쇄본 — 가족과 한 장씩 넘기며 이야기해요.",
     unitKrw: PRINT_PAGE_KRW, // 장당 — 주문 금액은 장수를 곱해 서버가 계산(print-orders)
-    pricePrefix: "장당", // [임시 — 성민 확정 필요] 2026-11-09
+    pricePrefix: "장당",
     shippingKrw: PRINT_SHIPPING_KRW,
     image: "/landing/print-cover.webp", // 견본 = 렌더 그림(가상 인물 — 랜딩과 같음). 시험 인쇄 사진(Q19)이 나오면 교체
     imageAlt: "My Life 인쇄본 표지와 차례 견본",

@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Lifebook — 인생 기록",
     short_name: "Lifebook",
-    description: "말로 이야기하면 AI가 My Life 지도로 정리해 드려요", // [임시 — 성민 확정 필요] 2026-11-08 (옛 "인생 포스터")
+    description: "말로 이야기하면 AI가 My Life 지도로 정리해 드려요", // 2026-11-08 (옛 "인생 포스터")
     start_url: "/",
     display: "standalone",
     background_color: "#221d52", // 밤 우주(2026-11-05 전원) — 시작 화면·상태 줄

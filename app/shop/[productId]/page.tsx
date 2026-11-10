@@ -59,21 +59,20 @@ export default async function ProductDetailPage({
         <div className="flex items-center justify-between">
           <dt className="text-ink-soft">배송비</dt>
           <dd className="font-semibold text-ink">
-            {/* [임시 — 성민 확정 필요] 2026-11-09 무료배송 표기 */}
+            {/* 2026-11-09 무료배송 표기 */}
             {shippingKrw === 0 ? "무료" : `${shippingKrw.toLocaleString()}원`}
           </dd>
         </div>
         <div className="mt-1 flex items-center justify-between gap-4 border-t border-line pt-3">
           <dt className="font-bold text-ink">합계</dt>
           <dd className="text-right text-xl font-bold text-action">
-            {/* [임시 — 성민 확정 필요] 2026-11-09 */}
             {perPage ? `장수 × ${product.unitKrw.toLocaleString()}원` : `${total.toLocaleString()}원`}
           </dd>
         </div>
       </dl>
       {perPage && (
         <p className="mt-3 text-base text-ink-soft">
-          {/* [임시 — 성민 확정 필요] 2026-11-09 — 최소 2장(표지 + 1장, 성민 확정) */}
+          {/* 2026-11-09 — 최소 2장(표지 + 1장, 성민 확정) */}
           표지를 포함해 최소 {PRINT_MIN_PAGES}장({(product.unitKrw * PRINT_MIN_PAGES).toLocaleString()}원)부터 최대 {PRINT.MAX_PAGES}장({PRINT_MAX_TOTAL_KRW.toLocaleString()}원)까지예요.
           장수와 결제 금액은 인쇄본 화면의 미리보기에서 확인하신 뒤 주문해요. 예: 7장이면 {(product.unitKrw * 7).toLocaleString()}원.
         </p>
@@ -81,7 +80,7 @@ export default async function ProductDetailPage({
 
       <p className="mt-3 text-base text-ink-soft">{SHIPPING_LEAD_TIME_LINE}</p>
 
-      {/* 교환·반품·환불 요약(2026-11-09 성민) — 자세한 기준은 환불정책(푸터 링크도 그대로). 문구 [임시] = lib/commerce/order-display */}
+      {/* 교환·반품·환불 요약(2026-11-09 성민) — 자세한 기준은 환불정책(푸터 링크도 그대로). 문구 = lib/commerce/order-display */}
       <section aria-labelledby="refund-summary" className="mt-6 rounded-md border-2 border-line bg-surface px-5 py-4">
         <h2 id="refund-summary" className="text-xl font-bold text-ink">
           교환·반품·환불

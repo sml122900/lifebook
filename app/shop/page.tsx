@@ -23,7 +23,7 @@ export default function ShopPage() {
       <header className="mt-6">
         <h1 className="text-ink">기록을 손에 잡히게</h1>
         <p className="mt-3 text-lg text-ink-soft">
-          {/* [임시 — 성민 확정 필요] 2026-11-08 #9(옛 "포스터·책·기념물로") */}
+          {/* 2026-11-08 #9(옛 "포스터·책·기념물로") */}
           My Life 지도를 시기마다 한 장씩 담은 인쇄본으로 남겨 드려요.
         </p>
       </header>
@@ -55,12 +55,11 @@ export default function ShopPage() {
 
       {listed.length === 0 ? (
         <p className="mt-2 rounded-md border-2 border-line bg-surface px-5 py-4 text-lg text-ink">
-          {/* [임시 — 성민 확정 필요] 2026-11-08 */}
           My Life 인쇄본을 준비하고 있어요. 곧 선보일게요.
         </p>
       ) : listed.every((p) => shippingKrwOf(p) === 0) ? (
         <p className="mt-6 text-lg text-ink-soft">
-          {/* [임시 — 성민 확정 필요] 2026-11-09 — 보이는 상품 = My Life 인쇄본(배송비 포함 가격)뿐 */}
+          {/* 2026-11-09 — 보이는 상품 = My Life 인쇄본(배송비 포함 가격)뿐 */}
           배송비는 따로 받지 않아요.
         </p>
       ) : (

@@ -91,7 +91,7 @@ export async function POST(req: Request) {
     if (e instanceof BudgetBlockedError) return NextResponse.json({ error: budgetMessage(e.reason) }, { status: 429 });
       if (e instanceof InsufficientBalanceError) {
         return NextResponse.json(
-          { error: "토큰이 부족해요." + lowBalanceTail(" 충전 후 이용해 주세요.") }, // 충전 비공개 동안 "토큰이 부족해요."만 [임시 — 성민 확정 필요] 2026-11-09
+          { error: "토큰이 부족해요." + lowBalanceTail(" 충전 후 이용해 주세요.") }, // 충전 비공개 동안 "토큰이 부족해요."만(2026-11-09)
           { status: 402 },
         );
       }

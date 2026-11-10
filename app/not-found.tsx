@@ -1,7 +1,6 @@
 import { ButtonLink } from "@/components/ui/Button";
 
 // 없는 주소(#11, 2026-11-08) — 로그인 전에도 로그인 화면 대신 이 안내(proxy 가 모르는 맨 위 경로는 그대로 보냄 — lib/app-routes).
-// 문구 [임시 — 성민 확정 필요] 2026-11-08.
 export default function NotFound() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-start gap-6 px-6 py-16">

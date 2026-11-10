@@ -51,7 +51,7 @@ export const MAIN_TOUR_STEPS: CoachStep[] = [
     target: "tokens",
     panel: "open",
     title: "내 토큰",
-    // 충전 비공개(TOPUP_OPEN false) 동안은 충전 문장 없이 [임시 — 성민 확정 필요] 2026-11-09
+    // 충전 비공개(TOPUP_OPEN false) 동안은 충전 문장 없이(2026-11-09)
     desc: "AI 기능을 쓸 때 토큰이 조금씩 들어요. 매일 출석하면 무료로 드려요." + (TOPUP_OPEN ? " 이 패널에서 충전도 할 수 있어요." : ""),
   },
   // 다섯째 "인생 포스터 만들기"는 2026-11-08 포스터 판매 종료와 함께 뺌(가리키던 V2 연혁 버튼도 삭제).

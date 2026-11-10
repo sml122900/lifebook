@@ -1314,7 +1314,7 @@ async function main() {
         coach.includes('const nextLabel = labels?.next ?? "다음";') && coach.includes('const doneLabel = labels?.done ?? "시작하기";') && coach.includes('labels?.skip === undefined ? "건너뛰기" : labels.skip') &&
           coach.includes("{skipLabel !== null && (") && !otherCoach.includes("labels=") && tut.includes("labels={{ done: T.findPointOk, skip: null }}") && C.tutorial.findPointOk === "알겠어요");
       check("⑯ AI 시트 첫 안내(T2) — 처음 연 때만 · 그때 기록", view16.includes("markTourCompletedAction(ASK_HINT)") && src("app/my-life/AskSheet.tsx").includes("{hint && <p") && src("app/my-life/page.tsx").includes("completedTours"));
-      // 가짜 이름 = 픽스처·재생 세트·실제 대화 낱말과 안 겹침(작업 규칙 8 취지) · 조작 안내에 "행성·위성" 없음(T7 (나)) · 문구 [임시]
+      // 가짜 이름 = 픽스처·재생 세트·실제 대화 낱말과 안 겹침(작업 규칙 8 취지) · 조작 안내에 "행성·위성" 없음(T7 (나)) · 문구 확정
       const fakes = [C.tutorial.fakeEvent, C.tutorial.fakeStory, C.tutorial.fakeStoryRenamed, C.tutorial.fakePerson, C.tutorial.fakePlace, C.tutorial.fakeCandidate];
       const fixtureText = [
         ...fs.readdirSync(path.resolve(__dirname, "test-fixtures/map-agent-replay")).map((f) => src(`db/test-fixtures/map-agent-replay/${f}`)),
@@ -1323,7 +1323,7 @@ async function main() {
       ].join("\n");
       check("⑯ 연습 판 가짜 이름이 픽스처·재생 세트 낱말과 안 겹침", fakes.every((w) => !fixtureText.includes(w)), fakes.filter((w) => fixtureText.includes(w)));
       const guide = Object.entries(C.tutorial).filter(([k, v]) => k !== "mood" && typeof v === "string").map(([, v]) => v as string).join("\n");
-      check("⑯ 조작 안내에 \"행성·위성\" 없음(분위기 한 줄만 예외 — T7 (나)) · 문구 [임시] 표시", !/행성|위성/.test(guide) && /튜토리얼[^\n]*\[임시/.test(src("lib/my-life-copy.ts")));
+      check("⑯ 조작 안내에 \"행성·위성\" 없음(분위기 한 줄만 예외 — T7 (나)) · 문구 확정(2026-11-10 — [임시] 표시 없음)", !/행성|위성/.test(guide) && /튜토리얼[^\n]*2026-11-10 확정/.test(src("lib/my-life-copy.ts")) && !/튜토리얼[^\n]*\[임시/.test(src("lib/my-life-copy.ts")));
     }
   } finally {
     await removeFixtures();

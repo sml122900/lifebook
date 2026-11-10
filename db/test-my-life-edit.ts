@@ -21,7 +21,7 @@
 //   ⑪ 출생연도 원본(2026-11-03 — my-life-restructure §16.1) — V3 = 출생 시기(고친 연도 포함)가 신상·User 보다 먼저 ·
 //      setBirthYear = 세 곳 같이 · V2 = 예전 규칙 그대로(getBirthYear = V2 출생 기록, resolveBirthYear = User 먼저) ·
 //      V3 화면 읽는 곳 = resolveBirthYear 하나 · 회원정보·V3 신상 저장 = setBirthYear
-//   ⑦ 정적 — 서버 액션 전부 첫 줄 auth · NodeLink 쓰기는 lib/node-graph 만 · proxy.ts 무접촉 · 문구 임시 표기
+//   ⑦ 정적 — 서버 액션 전부 첫 줄 auth · NodeLink 쓰기는 lib/node-graph 만 · proxy.ts 무접촉 · 문구 확정 주석
 //   ⑭ 사용자 카테고리 지도(custom-graph 2단계 2026-11-06) — 만들기(같은 이름 안내)·넣기·잇기·빼기(되돌리기)·옮기기(되돌리기)·이름·기본 카테고리 이름·
 //      항목 글·지우기 확인 수·남의 노드 거부·정합 점검 14·카테고리 지우기(자기 항목만) · 정적(액션·고르기·항목 글 화면)
 //   ⑬ 인물록 통합(2026-11-06) — 사람 [이름·정보 고치기](저장·비우기·거부·분류 그대로) · 장소·모임 [이름 고치기](장소 = 이야기 장소 행 사본도) ·
@@ -636,7 +636,7 @@ async function main() {
     const nlWriters = libFiles.filter((f) => /nodeLink\.(create|createMany|upsert)\(/.test(read(f)));
     check("⑦ NodeLink 쓰기는 lib/node-graph 하나(입구 — Q44)", JSON.stringify(nlWriters) === JSON.stringify(["lib/node-graph.ts"]), nlWriters);
     check("⑦ proxy.ts 무접촉(my-life 언급 없음)", !/my-life/.test(read("proxy.ts")));
-    check("⑦ 문구 — 3단계 문구는 my-life-copy edit 블록(임시 표기 주석)", /전부 \[임시 — 성민 확정 필요\][^\n]*\n\s*edit: \{/.test(read("lib/my-life-copy.ts")) && !/"[^"]*\[임시/.test(read("app/my-life/EditUI.tsx")));
+    check("⑦ 문구 — 3단계 문구는 my-life-copy edit 블록(확정 주석 — 2026-11-10)", /2026-11-10 확정\n\s*edit: \{/.test(read("lib/my-life-copy.ts")) && !/"[^"]*\[임시/.test(read("app/my-life/EditUI.tsx")));
 
     // ── ⑫ 행성 꾸미기(U4 — 2026-11-05, docs/phase/ui-space.md §7.5) ─────────────────────
     {

@@ -84,7 +84,7 @@ export default async function TokensPage() {
           내 토큰
         </h1>
         <p className="mt-3 text-base text-ink-soft">
-          {/* 충전 비공개(2026-11-09 — TOPUP_OPEN) 동안은 충전 말 없이 [임시 — 성민 확정 필요] */}
+          {/* 충전 비공개(2026-11-09 — TOPUP_OPEN) 동안은 충전 말 없이 */}
           {TOPUP_OPEN ? "출석체크로 매일 받고, 부족하면 충전할 수 있어요." : "출석체크로 매일 받을 수 있어요."}
         </p>
       </header>

@@ -85,7 +85,6 @@ export default async function OrderDetailPage({
 
       {kept && (
         <section className="mt-6 rounded-md border-2 border-line bg-surface px-5 py-4">
-          {/* [임시 — 성민 확정 필요] 2026-11-08 */}
           <h2 className="text-lg font-bold text-ink">주문하신 포스터</h2>
           {/* eslint-disable-next-line @next/next/no-img-element -- 서명 URL(1시간) 이미지, next/image 최적화 대상 아님 */}
           <img src={kept.preview} alt="주문하신 포스터 그림" className="mt-3 w-full max-w-md rounded-md border border-line" />

@@ -1,6 +1,6 @@
 // My Life 튜토리얼 연습 판의 가짜 지도·가짜 AI(docs/phase/tutorial.md T4~T6). 순수 — DB·모델 0.
 // 지도는 실제 그리기 코드(layoutMyLife · 행성·위성 컴포넌트)에 이 데이터를 넣어 그린다. 이름은 테스트 픽스처·재생 세트·실제 대화와
-// 무관한 소재(작업 규칙 8 취지 — 회귀 test-my-life ⑯ 이 픽스처 낱말과 겹치지 않는지 본다). 문구는 lib/my-life-copy tutorial [임시].
+// 무관한 소재(작업 규칙 8 취지 — 회귀 test-my-life ⑯ 이 픽스처 낱말과 겹치지 않는지 본다). 문구는 lib/my-life-copy tutorial.
 
 import type { MapEditApplyResult } from "./map-edit";
 import { planLine, type MapPlanItem } from "./map-edit-plan";

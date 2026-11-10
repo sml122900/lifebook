@@ -338,7 +338,7 @@ function pureChecks() {
       SELF_QUESTION_POOL.some((q2) => q2.text.includes("{elemSchool}")) &&
       new Set(SELF_QUESTION_POOL.map((q2) => q2.id)).size === 3);
   const selfBlock = read("lib/interview/question-pool.ts").split("export const SELF_QUESTION_POOL")[1] ?? "";
-  check("⑩ 예시 문구에 [임시 — 성민 확정 필요] 표기(질문·제목 6 + 범주 2)", (selfBlock.match(/\[임시 — 성민 확정 필요\]/g) ?? []).length === 8);
+  check("⑩ 관계별 나 문구 확정(2026-11-10) — [임시] 표시 0", selfBlock.length > 0 && !/\[임시/.test(selfBlock));
 }
 
 async function main() {

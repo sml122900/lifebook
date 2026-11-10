@@ -7,7 +7,7 @@
 //   ④ 동의 전 — 초대만 받은 멤버의 이야기 안 보임·룸도 못 봄 → 동의하면 보임 · 주인 동의가 없으면 주인 이야기도 안 보이고 룸도 못 봄
 //   ⑤ 댓글·스탬프 — 보이는 이야기만(그때의 나·옛 V2 기록·사진 메모리·남의 룸 기록 거절)
 //   ⑥ 남의 이야기 — 멤버는 고치기·글 저장·이름 바꾸기·옮기기·지우기 전부 못 함 · 이야기 그대로 · 룸 카드에 고치기·지우기 길 없음
-//   ⑦ 화면 — 룸 만들기 동의칸(필수·서버 재확인) · 초대 동의 = 같은 공개 범위 문장 · "연도 모름" 묶음 · 문구 [임시]
+//   ⑦ 화면 — 룸 만들기 동의칸(필수·서버 재확인) · 초대 동의 = 같은 공개 범위 문장 · "연도 모름" 묶음 · 문구 확정
 //   ⑧ 룸 나가기(2026-11-09) — 나간 멤버의 이야기 즉시 안 보임 · 룸 못 봄 · 그 사람 댓글·반응·초대 링크 지움 · 다른 멤버 그대로 · 주인은 나가기 대신 닫기
 //   ⑨ 다시 초대 — 나간 뒤 같은 링크로 와도 멤버 아님(동의 체크를 다시 거침 — 합류 액션 agree 필수) · 동의하면 다시 보임
 //   ⑩ 룸 닫기 — 주인만 · 닫힌 룸 접근 거부(멤버십·목록·초대 링크 없음) · 댓글·반응·공동 추억·초대 함께 지움 · 화면에 [룸 나가기]/[룸 닫기]
@@ -198,10 +198,10 @@ async function main() {
     const actions = read("app/rooms/actions.ts");
     const consent = read("app/invite/[token]/ConsentForm.tsx");
     const detail = read("app/rooms/[roomId]/page.tsx");
-    check("⑦ 화면 — 룸 만들기 동의칸(필수 · 서버가 agree 다시 확인) · 초대 동의 = 같은 공개 범위 문장 · \"연도 모름\" 묶음 · 문구 [임시]",
+    check("⑦ 화면 — 룸 만들기 동의칸(필수 · 서버가 agree 다시 확인) · 초대 동의 = 같은 공개 범위 문장 · \"연도 모름\" 묶음 · 문구 확정(2026-11-10 — [임시] 표시 없음)",
       /name="agree"\s+required/.test(roomsPage) && roomsPage.includes("ROOM_COPY.shareScope") && actions.includes('formData.get("agree") !== "on"') &&
         consent.includes("ROOM_COPY.shareScope") && detail.includes("ROOM_COPY.yearUnknown") && ROOM_COPY.yearUnknown === "연도 모름" &&
-        read("lib/room-copy.ts").includes("[임시 — 성민 확정 필요]"));
+        !read("lib/room-copy.ts").includes("[임시"));
 
     // ⑧ 룸 나가기 — c(V3 멤버)가 댓글·반응·초대를 남긴 뒤 나감
     await createComment(c, room.id, "user_memory", storyMem, "[fixture] C 의 댓글");

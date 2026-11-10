@@ -20,7 +20,7 @@ export function InsufficientBalanceCard({ balance, required }: Props) {
         지금 남은 토큰은 {balance.toLocaleString()}개예요. 추억 한 번을 시작하려면
         {" "}{required}개가 필요해요.
       </p>
-      {/* 충전 비공개(2026-11-09 — TOPUP_OPEN) 동안은 충전 권유 없이 [임시 — 성민 확정 필요] */}
+      {/* 충전 비공개(2026-11-09 — TOPUP_OPEN) 동안은 충전 권유 없이 */}
       {TOPUP_OPEN ? (
         <>
           <p className="mt-2 text-base text-ink-soft">

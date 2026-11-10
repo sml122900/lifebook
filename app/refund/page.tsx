@@ -36,7 +36,7 @@ export default function RefundPolicyPage() {
         </p>
       )}
       <p className="mt-3 text-lg text-ink-soft">
-        {/* [임시 — 성민 확정 필요] 2026-11-08 (옛 "포스터 등") */}
+        {/* 2026-11-08 (옛 "포스터 등") */}
         실물 상품(인쇄본 등) 주문에 적용되는 환불·교환 기준이에요.
       </p>
 

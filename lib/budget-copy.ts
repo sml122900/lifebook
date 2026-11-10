@@ -4,7 +4,6 @@
 
 export type BudgetReason = "daily" | "test";
 
-// [임시 — 성민 확정 필요]
 export const BUDGET_COPY: Record<BudgetReason, string> = {
   daily: "오늘은 AI 기능이 잠시 쉬어요. 내일 다시 해 주세요.",
   test: "테스트 계정의 오늘 AI 사용 한도를 다 써서 쉬어요. 내일 다시 해 주세요.",

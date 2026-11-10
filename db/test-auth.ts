@@ -252,10 +252,10 @@ async function main() {
     const consentSrc = read("app/consent/ConsentForm.tsx");
     check("⑤ /consent — 준비 = 첫 세션 응답 뒤 · 제출 가능 = 준비 + 모두 동의 · 체크칸에 전달 · 준비 전 버튼 = 짧은 글(준비 중…) + 안내 문장은 버튼 아래(2026-11-10)", consentSrc.includes(`const ready = status !== "loading";`) && consentSrc.includes("const canSubmit = ready && allConsentChecked(checked);") && consentSrc.includes(`ready={ready && phase !== "syncFailed"}`) &&
         consentSrc.includes(`: ready ? "시작하기" : JOIN_COPY.preparingButton}`) && consentSrc.includes(`{!ready && <p className="m-0 text-base text-ink-soft">{JOIN_COPY.preparing}</p>}`));
-    check("⑤ /consent 제출 뒤 실패 — 세션 갱신 실패 = syncFailed(저장은 한 번만, 다시 시도 = syncSession 만) · 저장 실패 = saveFailed · 멈춤 없음 · 문구 [임시]",
+    check("⑤ /consent 제출 뒤 실패 — 세션 갱신 실패 = syncFailed(저장은 한 번만, 다시 시도 = syncSession 만) · 저장 실패 = saveFailed · 멈춤 없음 · 문구 확정(2026-11-10 — [임시] 표시 없음)",
       (consentSrc.match(/saveConsent\(/g) ?? []).length === 1 && consentSrc.includes("if (!session) {") && consentSrc.includes('setPhase("syncFailed");') && consentSrc.includes('setPhase("saveFailed");') &&
         consentSrc.includes("onClick={syncSession}") && consentSrc.includes("{JOIN_COPY.retry}") &&
-        read("lib/join-copy.ts").split("\n").filter((l) => /^  (saveFailed|syncFailed|retry):/.test(l) && l.includes("[임시")).length === 3);
+        ((ls) => ls.length === 3 && ls.every((l) => !l.includes("[임시")))(read("lib/join-copy.ts").split("\n").filter((l) => /^  (saveFailed|syncFailed|retry):/.test(l))));
     const joinSrc = read("app/join/JoinForm.tsx");
     check("⑤ /join — 준비 = 하이드레이션 뒤(서버 그림 false) · 체크칸에 전달 · 안내 문구", joinSrc.includes("const ready = useSyncExternalStore(noopSubscribe, () => true, () => false);") && joinSrc.includes("ready={ready}") && joinSrc.includes("C.preparing"));
     const boxes = renderToStaticMarkup(createElement(ConsentChecklist, { checked: {}, onChange: () => {}, ready: true })).match(/<input[^>]*type="checkbox"[^>]*>/g) ?? [];

@@ -322,8 +322,7 @@ function SidePanel({
           </MenuGroup>
 
           <MenuGroup title="🎁 만들기·상점">
-            {/* "포스터 만들기"는 2026-11-08 포스터 판매 종료로 삭제. 인쇄본 입구 = 금액 확정 뒤(2026-11-09) V3 만 — 인쇄본 화면이 V3 전용(Q16).
-                이름·설명 [임시 — 성민 확정 필요] 2026-11-09 */}
+            {/* "포스터 만들기"는 2026-11-08 포스터 판매 종료로 삭제. 인쇄본 입구 = 금액 확정 뒤(2026-11-09) V3 만 — 인쇄본 화면이 V3 전용(Q16). */}
             {data.onboardingTrack === "V3" && (
               <MenuItem
                 href="/my-life/print"
@@ -332,14 +331,14 @@ function SidePanel({
                 icon={<Printer size={16} aria-hidden />}
               />
             )}
-            {/* [상품 구매] 설명 [임시 — 성민 확정 필요] 2026-11-09 (옛 "My Life 인쇄본 (준비 중)") */}
+            {/* [상품 구매] 설명(2026-11-09 — 옛 "My Life 인쇄본 (준비 중)") */}
             <MenuItem
               href="/shop"
               label="상품 구매"
               hint="My Life 인쇄본"
               icon={<ShoppingBag size={16} aria-hidden />}
             />
-            {/* 주문 내역 입구(2026-11-08 #17 — 주문 직후 화면에서만 갈 수 있었다). [임시 — 성민 확정 필요] 이름·설명 */}
+            {/* 주문 내역 입구(2026-11-08 #17 — 주문 직후 화면에서만 갈 수 있었다). */}
             <MenuItem
               href="/account/orders"
               label="주문 내역"

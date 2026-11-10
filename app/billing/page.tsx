@@ -36,7 +36,7 @@ export default async function BillingPage() {
   const userId = session.user.id;
   const balance = await getBalance(userId);
 
-  // 토큰 충전 비공개(2026-11-09 성민) — 주소로 들어오면 안내만. 남은 토큰은 그대로 쓸 수 있음. 문구 [임시 — 성민 확정 필요]
+  // 토큰 충전 비공개(2026-11-09 성민) — 주소로 들어오면 안내만. 남은 토큰은 그대로 쓸 수 있음.
   if (!TOPUP_OPEN) {
     return (
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10">

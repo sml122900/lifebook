@@ -1,12 +1,12 @@
 // My Life 화면 문구 — 확정: 메뉴 이름 "My Life"(2026-11-01) · 지도·목록 공통·패널 이동·빈 화면·패널 정보·낭독 이름(2026-11-04)
 // · 이야기 상세 body 63키·editBody(2026-11-04). 나머지(Q69·인물록·장소록·찾기·선택 줄·이동 줄·차례 보기·장소 묶음·edit)는
-// 묶음 주석에 [임시 — 성민 확정 필요]. 설계 docs/phase/node-graph-self.md §4.5 "My Life" 행.
+// 2026-11-10 확정(성민). 설계 docs/phase/node-graph-self.md §4.5 "My Life" 행.
 // 클라이언트에서도 쓰는 순수 모듈.
 
 import { withJosa } from "./josa";
 
 // 패널 맨 아래 지우기 버튼 — 노드 종류별 이름(2026-11-10 성민 — 옛 버튼 이름 한 가지에서 내부 용어 "노드"를 뺌).
-// 그때의 나도 이야기 패널이라 story. 묶음(장소 묶음·카테고리 묶음)·카테고리 이름은 지시 목록 밖이라 [임시 — 성민 확정 필요].
+// 그때의 나도 이야기 패널이라 story. 묶음(장소 묶음·카테고리 묶음)·카테고리 이름은 지시 목록 밖이라 Claude 가 고름 — 2026-11-10 확정(성민).
 // 이 버튼 이름을 안내하는 곳(body.errEmpty·ask.plan.personDelete·고객센터 답)도 이 값을 쓴다.
 const DELETE_NODE = {
   period: "이 시기 지우기",
@@ -49,7 +49,6 @@ export const MY_LIFE_COPY = {
   close: "닫기",
   readBody: "본문 보기", // 이야기 패널 → 이야기 상세(/my-life/story/[id], 2026-11-03 2b-3c)
   // Q69(2026-11-02) — /story-review 에서 옮긴 것. 갭 카드·이야기 고치기 글자는 옮기기 전 /story-review 문구 그대로.
-  // [임시 — 성민 확정 필요](editBody 만 확정).
   suggest: "이야기 거리", // 지도 보기 [이야기 거리] 버튼·시트 제목(오늘의 인터뷰·더 들어볼까요?)
   gapsTitle: "더 들어볼까요?",
   gapInProgress: "진행 중",
@@ -165,7 +164,7 @@ export const MY_LIFE_COPY = {
     (withNames.length > 0 ? `이야기, ${lead}, 함께: ${withNames.join(", ")}` : `이야기, ${lead}`) + (tag ? `, ${tag}` : ""),
   selfName: (lead: string, withNames: string[]) =>
     withNames.length > 0 ? `그때의 나, ${lead}, 함께: ${withNames.join(", ")}` : `그때의 나, ${lead}`,
-  // 인물록·장소록(My Life 개편 1단계) — [임시 — 성민 확정 필요]
+  // 인물록·장소록(My Life 개편 1단계)
   peopleTitle: "인물록",
   placesTitle: "장소록",
   noGroup: "모임 없는 분",
@@ -204,7 +203,7 @@ export const MY_LIFE_COPY = {
   groupLabelName: (name: string, n: number) => `모임, ${name}, ${n}명`,
   groupChipName: (name: string, shown: boolean) => (shown ? `모임 ${name}, 지도에 보이는 중` : `모임 ${name}, 지도에 보이기`),
 
-  // 장소 묶음(My Life 개편 3단계) — [임시 — 성민 확정 필요]
+  // 장소 묶음(My Life 개편 3단계)
   kindPlaceGroup: "장소 묶음",
   noPlaceGroup: "묶음 없는 곳",
   panelPlaceMembers: "묶음 안 장소",
@@ -213,7 +212,7 @@ export const MY_LIFE_COPY = {
   placeGroupLabelName: (name: string, n: number) => `장소 묶음, ${name}, ${n}곳`,
   placeGroupChipName: (name: string, shown: boolean) => (shown ? `장소 묶음 ${name}, 지도에 보이는 중` : `장소 묶음 ${name}, 지도에 보이기`),
 
-  // 지도에서 직접 만들기·넣기·빼기·옮기기·지우기(My Life 개편 3단계) — 전부 [임시 — 성민 확정 필요](인물록 통합 10키만 확정 — 2026-11-06)
+  // 지도에서 직접 만들기·넣기·빼기·옮기기·지우기(My Life 개편 3단계) — 인물록 통합 10키 2026-11-06 확정 · 나머지 2026-11-10 확정
   edit: {
     create: "만들기", // 머리 줄 [+ 만들기] — 앞의 + 는 아이콘
     createTitle: "무엇을 만들까요?",
@@ -225,7 +224,7 @@ export const MY_LIFE_COPY = {
       place: "장소",
       group: "모임",
       placeGroup: "장소 묶음",
-      // 사용자 카테고리(custom-graph 2단계 2026-11-06) [임시]
+      // 사용자 카테고리(custom-graph 2단계 2026-11-06)
       category: "카테고리",
       item: "항목",
       customGroup: "묶음",
@@ -351,7 +350,7 @@ export const MY_LIFE_COPY = {
     failed: "저장하지 못했어요. 다시 해 주세요.",
   },
 
-  // 사용자 카테고리(custom-graph 2단계 — 2026-11-06, docs/phase/custom-graph.md §3·§6.6·§8) — 전부 [임시 — 성민 확정 필요]
+  // 사용자 카테고리(custom-graph 2단계 — 2026-11-06, docs/phase/custom-graph.md §3·§6.6·§8)
   custom: {
     kindCategory: "카테고리",
     kindGroup: "묶음",
@@ -411,7 +410,7 @@ export const MY_LIFE_COPY = {
     kindOf: { LIFE_EVENT: "시기", EPISODE: "이야기", PERSON: "사람", PERSON_GROUP: "모임", PLACE: "장소", PLACE_GROUP: "장소 묶음", CATEGORY: "카테고리", GROUP: "묶음", ITEM: "항목" },
   },
 
-  // 지도 질문 답하기(custom-graph 3a — 2026-11-07, docs/phase/custom-graph.md §4.4·§6.8) — 전부 [임시 — 성민 확정 필요]
+  // 지도 질문 답하기(custom-graph 3a — 2026-11-07, docs/phase/custom-graph.md §4.4·§6.8)
   ask: {
     open: "AI에게 부탁하기", // 찾기 시트 안 버튼
     title: "AI에게 부탁하기",
@@ -427,11 +426,11 @@ export const MY_LIFE_COPY = {
       empty: "물어보실 말을 적어 주세요.",
       limit: "오늘 물어보실 수 있는 만큼 다 물어보셨어요. 내일 다시 물어봐 주세요.",
       budget: "오늘은 AI 답하기를 쉬어요. 찾기와 직접 고치기는 그대로 돼요.",
-      // 테스트 계정 하루 한도(2026-11-08 — lib/chat-v3-usage budgetBlock "test"). [임시 — 성민 확정 필요]
+      // 테스트 계정 하루 한도(2026-11-08 — lib/chat-v3-usage budgetBlock "test").
       testBudget: "테스트 계정의 오늘 AI 사용 한도를 다 써서 쉬어요. 찾기와 직접 고치기는 그대로 돼요.",
       failed: "답을 가져오지 못했어요. 다시 해 주세요.",
     },
-    // AI 지도 편집(custom-graph 3b — 2026-11-07) — 확인 카드·결과 카드 — 전부 [임시 — 성민 확정 필요]. 문장은 코드가 조립(lib/map-edit-plan).
+    // AI 지도 편집(custom-graph 3b — 2026-11-07) — 확인 카드·결과 카드. 문장은 코드가 조립(lib/map-edit-plan).
     plan: {
       title: "이렇게 고칠까요?",
       apply: "이대로 하기",
@@ -458,7 +457,7 @@ export const MY_LIFE_COPY = {
       putIn: (member: string, container: string, t: "will" | "did") => `‘${member}’${withJosa(member, "을/를")} ‘${container}’에 ${t === "will" ? "넣어요" : "넣었어요"}.`,
       takeOut: (member: string, container: string, t: "will" | "did") => `‘${member}’${withJosa(member, "을/를")} ‘${container}’에서 ${t === "will" ? "빼요" : "뺐어요"}.`,
       move: (node: string, to: string, t: "will" | "did") => `‘${node}’${withJosa(node, "을/를")} ‘${to}’${withJosa(to, "으로/로")} ${t === "will" ? "옮겨요" : "옮겼어요"}.`,
-      // 3c 지우기·합치기(§6.10) — 전부 [임시 — 성민 확정 필요]. 지우기 영향 문장·[지우기] 버튼은 지도 패널 문구(edit·custom)를 그대로 쓴다.
+      // 3c 지우기·합치기(§6.10). 지우기 영향 문장·[지우기] 버튼은 지도 패널 문구(edit·custom)를 그대로 쓴다.
       delete: (name: string, t: "will" | "did") => `‘${name}’${withJosa(name, "을/를")} ${t === "will" ? "지워요" : "지웠어요"}.`,
       merge: (from: string, to: string, t: "will" | "did") => `‘${from}’${withJosa(from, "을/를")} ‘${to}’에 ${t === "will" ? "합쳐요" : "합쳤어요"}.`,
       mergeMoved: (from: string, to: string, n: number) =>
@@ -478,7 +477,7 @@ export const MY_LIFE_COPY = {
     },
   },
 
-  // 튜토리얼(docs/phase/tutorial.md — T1~T8 2026-11-08 확정) — 전부 [임시 — 성민 확정 필요](도그푸딩 직전 한꺼번에).
+  // 튜토리얼(docs/phase/tutorial.md — T1~T8 2026-11-08 확정) — 문구 2026-11-10 확정.
   // 조작 안내는 시기·이야기·사람·장소로 부른다(T7 (나)안 — "행성·위성" 안 씀). 분위기 한 줄(mood)만 첫 카드에.
   // 연습 판 가짜 이름(fake*·askQ·askA·editQ)은 테스트 픽스처·재생 세트·실제 대화와 무관한 소재(회귀 test-my-life ⑯ 이 확인).
   tutorial: {
