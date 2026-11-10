@@ -331,11 +331,11 @@ function SidePanel({
                 icon={<Printer size={16} aria-hidden />}
               />
             )}
-            {/* [상품 구매] 설명(2026-11-09 — 옛 "My Life 인쇄본 (준비 중)") */}
+            {/* [상품 구매] 설명(2026-11-09 — 옛 "My Life 인쇄본 (준비 중)" · 2026-11-10 상점 카테고리 두 개 — 토큰 충전 더함) */}
             <MenuItem
               href="/shop"
               label="상품 구매"
-              hint="My Life 인쇄본"
+              hint="My Life 인쇄본 · 토큰 충전"
               icon={<ShoppingBag size={16} aria-hidden />}
             />
             {/* 주문 내역 입구(2026-11-08 #17 — 주문 직후 화면에서만 갈 수 있었다). */}

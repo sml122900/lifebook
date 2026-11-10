@@ -1,15 +1,16 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { buttonClasses } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 import { KST_DATE_TIME_FMT } from "@/lib/kst-date";
-import { TOPUP_OPEN, TOPUP_PACKAGES } from "@/lib/tokens/policy";
-import { isTossTestMode } from "@/lib/tokens/toss";
+import { TOKEN_REFUND_LINES } from "@/lib/commerce/order-display";
+import { TOPUP_OPEN, TOPUP_PACKAGES, TOPUP_PRODUCT } from "@/lib/tokens/policy";
+import { isTossWidgetTestMode } from "@/lib/tokens/toss";
 import { getBalance } from "@/lib/tokens/wallet";
 
-import { TopupButton } from "./TopupButton";
+import { TopupCheckout } from "./TopupCheckout";
 
 // 거래 사유별 한국어 라벨. TokenTransaction.reason 은 자유 문자열이라
 // 모르는 사유는 원문 코드 그대로 노출(폴백).
@@ -25,7 +26,7 @@ function reasonLabel(reason: string): string {
   return REASON_LABEL[reason] ?? reason;
 }
 
-// /billing — 토큰 지갑 + 충전 입구 + 거래 내역. 클라이언트 키는 마크업에
+// /billing — 토큰 지갑 + 충전(결제위젯 v2 — 2026-11-10) + 환불·쓰는 곳 + 거래 내역. 클라이언트 키는 마크업에
 // 박아도 안전(공개용 설계). 시크릿 키는 서버를 떠나지 않는다.
 
 export default async function BillingPage() {
@@ -36,7 +37,7 @@ export default async function BillingPage() {
   const userId = session.user.id;
   const balance = await getBalance(userId);
 
-  // 토큰 충전 비공개(2026-11-09 성민) — 주소로 들어오면 안내만. 남은 토큰은 그대로 쓸 수 있음.
+  // 토큰 충전 닫혀 있을 때(TOPUP_OPEN false — 2026-11-09~10 비공개) — 주소로 들어오면 안내만. 남은 토큰은 그대로 쓸 수 있음.
   if (!TOPUP_OPEN) {
     return (
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10">
@@ -55,11 +56,6 @@ export default async function BillingPage() {
         </Link>
       </main>
     );
-  }
-
-  const clientKey = process.env.TOSS_CLIENT_KEY;
-  if (!clientKey) {
-    throw new Error("TOSS_CLIENT_KEY is not set");
   }
 
   // ⚠️ 여기 모든 읽기는 userId 범위. 50건 제한으로 페이지를 가볍게 —
@@ -85,40 +81,34 @@ export default async function BillingPage() {
           남은 토큰{" "}
           <span className="font-bold">{balance.toLocaleString()}개</span>
         </p>
+        <p className="mt-3 text-lg text-ink-soft">{TOPUP_PRODUCT.blurb}</p>
       </header>
 
-      <section className="flex flex-col gap-4">
-        {TOPUP_PACKAGES.map((p) => (
-          <div
-            key={p.id}
-            className="flex items-center justify-between rounded-md border-2 border-line bg-surface p-5"
-          >
-            <div>
-              <p className="text-xl font-bold text-ink">{p.label}</p>
-              {p.bonus > 0 && (
-                <p className="mt-2 inline-block rounded-full border-2 border-brand bg-banner px-3 py-1 text-base font-bold text-action">
-                  +{p.bonus}토큰 더!
-                </p>
-              )}
-            </div>
-            <TopupButton
-              packageId={p.id}
-              label={p.label}
-              clientKey={clientKey}
-              customerKey={userId}
-            />
-          </div>
-        ))}
-      </section>
+      {/* 결제위젯 v2(2026-11-10 — 인쇄본과 같은 위젯·키). 키가 없으면 위젯 대신 "결제 준비가 아직" 안내 */}
+      <TopupCheckout
+        packages={TOPUP_PACKAGES}
+        widgetClientKey={process.env.TOSS_WIDGET_CLIENT_KEY ?? null}
+        customerKey={userId}
+        testMode={isTossWidgetTestMode()}
+      />
 
-      {/* 토스 테스트 키일 때만(isTossTestMode). 토스 SDK 자체 결제창의
-          "실제 결제가 아닌 테스트입니다" 배지는 별개(우리 코드로 제어 불가). */}
-      {isTossTestMode() && (
-        <p className="text-base text-ink-soft">
-          테스트 모드입니다. 실제 청구는 일어나지 않아요. 토스 테스트 카드로
-          결제해 보실 수 있습니다.
-        </p>
-      )}
+      {/* 환불·사용처 — 환불정책·약관 제25조·상점·고객센터와 같은 문장(lib/commerce/order-display TOKEN_REFUND_LINES) */}
+      <section aria-labelledby="topup-refund" className="rounded-md border-2 border-line bg-surface px-5 py-4">
+        <h2 id="topup-refund" className="text-xl font-bold text-ink">
+          환불과 쓰는 곳
+        </h2>
+        <ul className="mt-2 flex flex-col gap-2 text-lg text-ink-soft">
+          {TOKEN_REFUND_LINES.map((line) => (
+            <li key={line}>· {line}</li>
+          ))}
+        </ul>
+        <Link
+          href="/refund"
+          className="mt-3 inline-flex min-h-[48px] items-center text-lg font-semibold text-ink underline hover:text-brand focus:outline-none focus-visible:ring-4 focus-visible:ring-brand"
+        >
+          환불·교환 정책 자세히 보기
+        </Link>
+      </section>
 
       <section className="flex flex-col gap-4">
         <h2 className="text-2xl font-bold text-ink">거래 내역</h2>

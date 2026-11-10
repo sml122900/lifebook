@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -55,11 +55,15 @@ export default async function BillingSuccessPage({
   //    일관성을 검증하는 단계이기도 하다.
   let confirmed;
   try {
-    confirmed = await confirmTossPayment({
-      paymentKey,
-      orderId,
-      amount: amountFromUrl,
-    });
+    // 토큰 충전은 결제위젯 v2(2026-11-10)로만 열림 → 위젯 시크릿 키로 승인.
+    confirmed = await confirmTossPayment(
+      {
+        paymentKey,
+        orderId,
+        amount: amountFromUrl,
+      },
+      { widget: true },
+    );
   } catch (err) {
     const message =
       err instanceof TossConfirmError ? err.message : String(err);

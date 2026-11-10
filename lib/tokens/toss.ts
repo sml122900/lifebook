@@ -22,6 +22,11 @@ export function isTossTestMode(): boolean {
   return process.env.TOSS_CLIENT_KEY?.startsWith("test_") ?? false;
 }
 
+// 결제위젯(인쇄본 주문·토큰 충전 — 2026-11-10) 화면의 테스트 안내 — 위젯 키 기준.
+export function isTossWidgetTestMode(): boolean {
+  return process.env.TOSS_WIDGET_CLIENT_KEY?.startsWith("test_") ?? false;
+}
+
 function basicAuthHeader(widget = false): string {
   // 토스는 "시크릿키:" 형식(콜론 유지, 비밀번호는 빈 값)을 base64 로 받는다.
   return "Basic " + Buffer.from(`${getSecretKey(widget)}:`).toString("base64");

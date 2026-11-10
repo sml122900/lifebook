@@ -86,7 +86,7 @@
 | └ 🕰️ 그 시절 떠올리기 | 그 시절 갈래: 목록에서 고르기(무료) / AI에게 물어보기(토큰). 사이드 "그 시절 둘러보기"(/era)와 라벨 구분(4-B-4) |
 | └ ❓ 사용법 물어보기 | 사용법 안내 챗 (무료, Haiku) |
 | └ 내 타임라인에 추가 | → `/life-timeline/add` |
-| └ 충전하러 가기 | → `/billing` (토큰 부족 시 — 2026-11-09 충전 비공개 동안 숨김) |
+| └ 충전하러 가기 | → `/billing` (토큰 부족 시 — 충전이 닫혀 있으면 숨김, 2026-11-09 비공개 → 2026-11-10 다시 엶) |
 | └ 검색 결과 출처 | ↗ 외부 기사 URL (`target=_blank`) |
 
 ### 푸터 — `app/components/Footer.tsx`
@@ -304,7 +304,7 @@
 | `/life-timeline/companion` | ← 인생 연혁으로 | → `/life-timeline` |
 | `/life-timeline/companion` | 대화 후 / 초안 검토 | → `/life-timeline` · `/life-timeline/manage?draft=1` |
 | `/life-timeline/free-record` | ← 인생 연혁으로 / 완료 후 | → `/life-timeline` |
-| `/life-timeline/free-record` | 충전하기 | → `/billing` (토큰 부족 — 2026-11-09 충전 비공개 동안 숨김) |
+| `/life-timeline/free-record` | 충전하기 | → `/billing` (토큰 부족 — 충전이 닫혀 있으면 숨김, 2026-11-09 비공개 → 2026-11-10 다시 엶) |
 | `/life-timeline/free-record` | 추천 주제 칩 | → `/life-timeline/free-record?topic=…` |
 
 ---
@@ -385,7 +385,8 @@
 ### 상점 `/shop`
 | 화면 | 버튼 | 이동 |
 |---|---|---|
-| `/shop` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 상품 카드 | → `/`(로그인 전 랜딩 · 로그인 뒤 트랙별 첫 화면) · `/shop/{productId}` |
+| `/shop` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 상품 카드 — 카테고리 [인쇄본] · [토큰 충전](2026-11-10) | → `/`(로그인 전 랜딩 · 로그인 뒤 트랙별 첫 화면) · `/shop/{productId}` · 토큰 카드 → `/shop/tokens` |
+| `/shop/tokens` (로그인 없이 — 2026-11-10) | ← 상점으로 / 환불·교환 정책 자세히 보기 / 충전하러 가기 | → `/shop` · `/refund` · `/billing`(로그인 전이면 proxy → `/login?returnTo=/billing`) |
 | `/shop/[id]` | ← 상점으로 / 주문하기 / 환불·교환 정책 자세히 보기(2026-11-09 — 교환·반품·환불 요약 아래) | → `/shop` · `/shop/{id}/order` · `/refund` — 목록에서 숨긴 상품(`orderable:false` — 책·씨앗)은 상세도 404(2026-11-08). My Life 인쇄본은 2026-11-09 공개 |
 | `/shop/[id]/order` | (숨긴 상품) | 숨긴 상품(`orderable:false` — 책·씨앗·판매 종료 포스터·금액 전 인쇄본) = 404(서버도 주문 거절 — 2026-11-08) |
 | `/shop/mylife-print/order` | (My Life 인쇄본 — 금액 정해진 뒤) | → `/my-life/print` 로 리다이렉트(출력 편집 화면에서 주문 — 2026-11-08) |
@@ -404,11 +405,11 @@
 | `/my-life/print` 주문 단계 | 우편번호 찾기 · 결제하기 | ↗ 카카오 우편번호 · 토스 결제위젯(테스트 키) → 성공 `/shop/order/success` · 실패 `/shop/order/fail` |
 
 ### 토큰 충전 `/billing`
-**2026-11-09 충전 비공개(토스 신청 전 — `lib/tokens/policy` `TOPUP_OPEN = false`)**: 주소로 오면 안내 화면(← 처음 화면으로 · [내 토큰 보기] → `/account/tokens`). 아래 표는 다시 열 때의 길. 서버도 충전 주문 거절.
+**2026-11-10 다시 엶(`lib/tokens/policy` `TOPUP_OPEN = true` — 토스 포인트충전 업종 심사)**. 닫혀 있으면(false) 주소로 와도 안내 화면(← 처음 화면으로 · [내 토큰 보기] → `/account/tokens`)이고 서버도 충전 주문 거절. 들어오는 길: 상점 [토큰 충전] → `/shop/tokens` [충전하러 가기] · [내 정보] → 토큰 화면 [충전하러 가기] · 토큰 부족 안내.
 | 화면 | 버튼 | 이동 |
 |---|---|---|
 | `/billing` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
-| `/billing` | 패키지 충전 | 토스결제 → 성공 `/billing/success` · 실패 `/billing/fail` |
+| `/billing` | 충전할 토큰 고르기(라디오) · N원 충전하기 / 환불·교환 정책 자세히 보기 | ⚙ 토스 결제위젯 v2(인쇄본과 같은 위젯 키 — 2026-11-10, 옛 결제창 대체) → 성공 `/billing/success`(위젯 시크릿 키로 확인) · 실패 `/billing/fail` · `/refund` |
 | `/billing/success` | 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 충전 화면으로 | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) · `/billing` |
 | `/billing/fail` | 다시 시도하기 | → `/billing` |
 
@@ -420,10 +421,10 @@
 | `/account/settings` | 토큰 화면 열기 | → `/account/tokens` |
 | `/account/settings` | 개인정보 처리방침 보기 | → `/privacy` (새 창) |
 | `/account/settings` | 회원 탈퇴 안내 보기 | → `/account/delete` |
-| `/account/tokens` | ← 설정으로 / 충전하러 가기(충전 비공개 동안 숨김 — 2026-11-09) | → `/account/settings` · `/billing` |
+| `/account/tokens` | ← 설정으로 / 충전하러 가기(충전이 닫혀 있으면 숨김 — 2026-11-09 비공개 → 2026-11-10 다시 엶) | → `/account/settings` · `/billing` |
 | `/account/orders` | ← 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") / 환불 요청 | → `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) · ⚙ 환불요청 |
 | `/account/orders/[orderId]` | 주문 상세(무통장 입금 안내) · 내 주문 전체 보기 / 처음 화면으로(2026-11-08 — 옛 "인생 연혁으로") | → `/account/orders` · `/`(로그인 뒤 트랙별 첫 화면 — V3 = My Life) |
-| `/account/delete` | ← 돌아가기 / 회원 탈퇴 | → `/billing`(충전 비공개 동안은 `/account/settings` — 2026-11-09) · ⚙ 탈퇴 → `/login` |
+| `/account/delete` | ← 돌아가기 / 회원 탈퇴 | → `/billing`(충전이 닫혀 있으면 `/account/settings` — 2026-11-09 비공개 → 2026-11-10 다시 엶) · ⚙ 탈퇴 → `/login` |
 
 ### 관리자 `/admin/orders` (ADMIN_EMAILS 화이트리스트)
 | 화면 | 버튼 | 이동 |
@@ -458,7 +459,7 @@
 | 장소 보기 (구글) | `https://maps.google.com/?q={lat,lng 또는 장소명}` | 연혁 장소 칩 |
 | 고객센터 문의 | `mailto:{CS 이메일}` | `/help` |
 | AI 비서 검색 출처 | 기사 원문 URL | AI 비서 모달 |
-| 결제창 | 토스페이먼츠 결제창 · 결제위젯 v2 | `/billing`, `/shop/[id]/order`(결제창) · `/my-life/print`(결제위젯) |
+| 결제창 | 토스페이먼츠 결제창 · 결제위젯 v2 | `/shop/[id]/order`(결제창 — 지금 주문 가능한 상품 없음) · `/my-life/print`·`/billing`(결제위젯 — 충전은 2026-11-10부터) |
 
 > 결제·소셜로그인은 외부 서비스(토스페이먼츠·카카오·네이버·구글)로 잠시 이동했다가 콜백 경로(`/billing/success` 등)로 돌아옵니다.
 
@@ -468,7 +469,7 @@
 
 | 시작 | 결제창 | 성공 시 | 실패 시 |
 |---|---|---|---|
-| 토큰 충전 `/billing` | 토스페이먼츠 | `/billing/success` | `/billing/fail` |
+| 토큰 충전 `/billing` | 토스 결제위젯 v2(위젯 연동 키 — 2026-11-10) | `/billing/success`(위젯 시크릿 키로 확인) | `/billing/fail` |
 | 실물 상품 `/shop/[id]/order` | 토스페이먼츠 | `/shop/order/success` | `/shop/order/fail` |
 | My Life 인쇄본 `/my-life/print` | 토스 결제위젯 v2(위젯 연동 키) | `/shop/order/success`(위젯 시크릿 키로 확인) | `/shop/order/fail` |
 

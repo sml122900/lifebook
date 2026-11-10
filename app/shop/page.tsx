@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ButtonLink } from "@/components/ui/Button";
 import { PRODUCTS, SHIPPING_KRW, shippingKrwOf } from "@/lib/commerce/products";
+import { TOPUP_PACKAGES, TOPUP_PRODUCT } from "@/lib/tokens/policy";
 
 export const metadata = {
   title: "상점 — Lifebook",
@@ -11,6 +12,7 @@ export const metadata = {
 // 가격은 lib/commerce/products(서버 진실). 배송비는 균일 별도 고지.
 // 2026-11-08 — 강물 포스터 판매 종료 · My Life 인쇄본은 금액 정하기 전 비공개 → 보이는 상품이 없으면 "곧 선보여요" 안내.
 // 2026-11-09 — 인쇄본 금액 확정(장당 8,000원·배송비 포함)으로 공개.
+// 2026-11-10 — 카테고리 두 개(인쇄본 · 토큰 충전) — 토스가 포인트충전 업종으로 분류해 충전도 상점에서 보이게.
 export default function ShopPage() {
   const listed = PRODUCTS.filter((p) => p.orderable !== false);
   return (
@@ -28,45 +30,75 @@ export default function ShopPage() {
         </p>
       </header>
 
-      <ul className="mt-8 flex flex-col gap-5">
-        {/* PG 심사 대응(2026-09-11) — orderable:false(제작·배송 파이프라인
-            없는 상품)는 목록에서만 제외. 상세 URL·주문 로직은 무수정. */}
-        {listed.map((p) => (
-          <li key={p.id}>
+      {/* 카테고리별 상품 1개 이상(2026-11-10 — 토스 포인트충전 업종 심사: 인쇄본 + 토큰 충전) */}
+      <section aria-labelledby="shop-print" className="mt-8">
+        <h2 id="shop-print" className="text-2xl font-bold text-ink">
+          인쇄본
+        </h2>
+        <ul className="mt-4 flex flex-col gap-5">
+          {/* PG 심사 대응(2026-09-11) — orderable:false(제작·배송 파이프라인
+              없는 상품)는 목록에서만 제외. 상세 URL·주문 로직은 무수정. */}
+          {listed.map((p) => (
+            <li key={p.id}>
+              <Link
+                href={`/shop/${p.id}`}
+                className="block rounded-lg border-2 border-line bg-surface p-6 hover:border-brand hover:bg-canvas focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold text-ink">{p.name}</p>
+                    <p className="mt-1 text-base text-ink-soft">{p.spec}</p>
+                    <p className="mt-2 text-lg text-ink-soft">{p.blurb}</p>
+                  </div>
+                  <p className="shrink-0 text-xl font-bold text-action">
+                    {p.pricePrefix ? `${p.pricePrefix} ` : ""}
+                    {p.unitKrw.toLocaleString()}원
+                  </p>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+
+        {listed.length === 0 ? (
+          <p className="mt-2 rounded-md border-2 border-line bg-surface px-5 py-4 text-lg text-ink">
+            My Life 인쇄본을 준비하고 있어요. 곧 선보일게요.
+          </p>
+        ) : listed.every((p) => shippingKrwOf(p) === 0) ? (
+          <p className="mt-4 text-lg text-ink-soft">
+            {/* 2026-11-09 — 보이는 상품 = My Life 인쇄본(배송비 포함 가격)뿐 */}
+            배송비는 따로 받지 않아요.
+          </p>
+        ) : (
+          <p className="mt-4 text-lg text-ink-soft">
+            모든 상품에 배송비 {SHIPPING_KRW.toLocaleString()}원이 더해져요.
+          </p>
+        )}
+      </section>
+
+      {/* 토큰 충전(2026-11-10) — 상품 = lib/tokens/policy TOPUP_PACKAGES · 상세 /shop/tokens(로그인 없이) → 충전 /billing */}
+      <section aria-labelledby="shop-tokens" className="mt-10">
+        <h2 id="shop-tokens" className="text-2xl font-bold text-ink">
+          토큰 충전
+        </h2>
+        <ul className="mt-4 flex flex-col gap-5">
+          <li>
             <Link
-              href={`/shop/${p.id}`}
+              href="/shop/tokens"
               className="block rounded-lg border-2 border-line bg-surface p-6 hover:border-brand hover:bg-canvas focus:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xl font-bold text-ink">{p.name}</p>
-                  <p className="mt-1 text-base text-ink-soft">{p.spec}</p>
-                  <p className="mt-2 text-lg text-ink-soft">{p.blurb}</p>
+                  <p className="text-xl font-bold text-ink">{TOPUP_PRODUCT.name}</p>
+                  <p className="mt-1 text-base text-ink-soft">{TOPUP_PACKAGES.map((p) => p.label).join(" · ")}</p>
+                  <p className="mt-2 text-lg text-ink-soft">{TOPUP_PRODUCT.blurb}</p>
                 </div>
-                <p className="shrink-0 text-xl font-bold text-action">
-                  {p.pricePrefix ? `${p.pricePrefix} ` : ""}
-                  {p.unitKrw.toLocaleString()}원
-                </p>
+                <p className="shrink-0 text-xl font-bold text-action">{TOPUP_PACKAGES[0].krw.toLocaleString()}원부터</p>
               </div>
             </Link>
           </li>
-        ))}
-      </ul>
-
-      {listed.length === 0 ? (
-        <p className="mt-2 rounded-md border-2 border-line bg-surface px-5 py-4 text-lg text-ink">
-          My Life 인쇄본을 준비하고 있어요. 곧 선보일게요.
-        </p>
-      ) : listed.every((p) => shippingKrwOf(p) === 0) ? (
-        <p className="mt-6 text-lg text-ink-soft">
-          {/* 2026-11-09 — 보이는 상품 = My Life 인쇄본(배송비 포함 가격)뿐 */}
-          배송비는 따로 받지 않아요.
-        </p>
-      ) : (
-        <p className="mt-6 text-lg text-ink-soft">
-          모든 상품에 배송비 {SHIPPING_KRW.toLocaleString()}원이 더해져요.
-        </p>
-      )}
+        </ul>
+      </section>
     </main>
   );
 }

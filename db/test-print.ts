@@ -14,8 +14,10 @@
 //   ⑨ 화면·결제 — 성공 화면이 인쇄 주문만 위젯 시크릿 키로 확인 · 주문 제작 청약철회 제한 문구 없음 · 숨긴 상품 상세 404 ·
 //      인쇄 상품 주문 화면 → /my-life/print · 실결제 꺼짐 · 문구 확정
 //   ⑪ 결제 수단 미선택 연타(2026-11-09) — 대기 주문 1건(재사용·동시 잠금) · 위젯 거절 = 결제 수단 안내
-//   ⑫ 토큰 충전 비공개(2026-11-09 — 토스 신청 전) — 충전 주문 서버 거절(행 0) · /billing = 안내 화면 · 충전 진입 버튼·충전 안내·
-//      "충전한 토큰은 환불이 어렵습니다" 숨김 · 잔액·차감은 그대로 · 상점 공개 상품 = 인쇄본 하나
+//   ⑫ 토큰 충전(2026-11-09 비공개 → 2026-11-10 다시 엶 — 토스 포인트충전 업종 심사) — 충전 주문 = 서버 정본 금액 · 결제위젯 v2(옛 결제창 없음)·
+//      성공 화면 위젯 시크릿 키 · 충전 진입 버튼·충전 안내는 TOPUP_OPEN 한 값으로 · 환불 문장 한 곳(환불정책·약관 제25조·충전 화면·상점·고객센터) ·
+//      "충전한 토큰은 환불이 어렵습니다" 없음 · 환불 계산(원장 → 무료 먼저·먼저 충전한 것부터 · 7일 안 안 쓴 충전 전액 · 그 밖 남은 토큰 비율) ·
+//      상점 카테고리(인쇄본 · 토큰 충전) 각 1개 이상
 //   ⑩ 강물 포스터 판매 종료(2026-11-08 — test-v3-poster-bridge 퇴역, 주문 막기 검사는 여기로) — 숨긴 상품(책·씨앗·포스터) 주문 거절 ·
 //      인쇄본은 일반 주문 경로 거절(인쇄본 화면 경로만 — 2026-11-09) ·
 //      포스터 그리기 코드 없음 · 옛 /poster 주소 → 인쇄본 · 보존 주문 2건만 그림(관리자·주인 주문 상세)
@@ -30,8 +32,10 @@ import { PRINT_MAX_TOTAL_KRW, PRINT_MIN_PAGES, PRINT_PAGE_KRW, PRINT_SHIPPING_KR
 import { getProduct, shippingKrwOf } from "../lib/commerce/products";
 import { createPendingProductOrder } from "../lib/commerce/orders";
 import { PRODUCTS } from "../lib/commerce/products";
+import { TOKEN_REFUND_LINES } from "../lib/commerce/order-display";
 import { createPendingOrder } from "../lib/tokens/orders";
-import { TOPUP_OPEN } from "../lib/tokens/policy";
+import { lowBalanceTail, TOPUP_OPEN, TOPUP_PACKAGES } from "../lib/tokens/policy";
+import { quoteTopupRefunds, type LedgerRow } from "../lib/tokens/refund";
 import { keptPosterImages } from "../lib/commerce/kept-poster";
 import { CURRENT_CONSENT_VERSION } from "../lib/consent-version";
 import { prisma } from "../lib/db";
@@ -283,9 +287,13 @@ async function main() {
       pendings.length === 1 && ids.size === 1 && !ids.has("x") && pendings[0].recipientName === "[fixture] 마지막 받는 분" &&
         editor11.includes(`setError(code === "USER_CANCEL" ? null : T.pickMethod);`) && read("lib/print-copy.ts").includes("pickMethod:"),
       { pendings, ids: [...ids] });
-    // ⑫ 토큰 충전 비공개 — 화면을 거치지 않은 요청도 주문 0
-    const topupRefused = await createPendingOrder(a, "starter").then(() => false, () => true);
-    check("⑫ 토큰 충전 비공개 — 충전 주문 서버 거절 · 충전 주문 행 0", !TOPUP_OPEN && topupRefused && (await prisma.tokenOrder.count({ where: { userId: a } })) === 0);
+    // ⑫ 토큰 충전 열림 — 충전 주문 = 서버 정본 금액(패키지 id 만 받음) · 모르는 패키지 거절
+    const topup = await createPendingOrder(a, "value");
+    const topupRow = await prisma.tokenOrder.findUnique({ where: { id: topup.orderId }, select: { krw: true, tokens: true, status: true } });
+    const unknownRefused = await createPendingOrder(a, "free-money").then(() => false, () => true);
+    check("⑫ 토큰 충전 열림 — 충전 주문 = 서버 정본 금액(3,000원 330토큰 · 대기) · 모르는 패키지 거절",
+      TOPUP_OPEN && topup.krw === 3_000 && topup.tokens === 330 && topup.orderName === "3,000원 330토큰" && topupRow?.krw === 3_000 && topupRow.tokens === 330 && topupRow.status === "pending" && unknownRefused,
+      { topup, topupRow });
     const mapAfter = JSON.stringify(await getMyLifeData(a));
     check("⑧ 편집 저장·주문 뒤에도 실제 지도 그대로(getMyLifeData 같음)", mapBefore === mapAfter);
   } finally {
@@ -304,17 +312,61 @@ async function main() {
     /orderable === false\) notFound\(\)/.test(read("app/shop/[productId]/page.tsx")) && read("app/shop/[productId]/order/page.tsx").includes('redirect("/my-life/print")') &&
       !read("lib/print-copy.ts").includes("[임시") && !read("lib/commerce/products.ts").includes("[임시"));
 
-  // ⑫ 토큰 충전 비공개 — 화면·문구
+  // ⑫ 토큰 충전 — 화면·문구·결제위젯
   const billingLinkFiles = ["app/account/tokens/page.tsx", "app/account/delete/page.tsx", "app/components/VoiceTextarea.tsx", "app/life-timeline/free-record/FreeRecordClient.tsx",
     "app/memory/[eventId]/AnswerForm.tsx", "app/timemachine/[year]/[month]/AssistantPanel.tsx", "components/InsufficientBalanceCard.tsx"];
   const faq = read("app/help/HelpFaq.tsx");
-  check("⑫ 충전 화면 = 안내(주소로 와도) · 충전 진입 버튼·충전 권유는 TOPUP_OPEN 일 때만 · 고객센터 충전·\"환불이 어렵습니다\" 문항 숨김 · 투어·서버 부족 안내에 충전 말 없음 · 차감 코드는 그대로",
-    read("app/billing/page.tsx").includes("if (!TOPUP_OPEN) {") && billingLinkFiles.every((f) => read(f).includes("TOPUP_OPEN")) &&
-      faq.includes("filter((qa) => TOPUP_OPEN || !qa.topup)") && (faq.match(/topup: true,/g) ?? []).length === 2 &&
-      /충전한 토큰은 환불이 어렵습니다[^\n]*\n\s*topup: true/.test(faq) && read("lib/tours.ts").includes("(TOPUP_OPEN ?") &&
-      ["app/api/clova-stt/charge/route.ts", "app/api/companion/route.ts", "app/api/memory/[memoryId]/refine/route.ts", "app/api/refine-text/route.ts"].every((f) => read(f).includes("lowBalanceTail(") && !/"토큰이 부족해요\. 충전/.test(read(f))) &&
+  const checkout = read("app/billing/TopupCheckout.tsx");
+  const billing = read("app/billing/page.tsx");
+  check("⑫ 충전 진입 버튼·충전 권유·투어·서버 부족 안내 = TOPUP_OPEN 한 값(지금 열림 — 끝말 \"충전 후 다시\") · 차감 코드는 TOPUP_OPEN 모름",
+    billing.includes("if (!TOPUP_OPEN) {") && billingLinkFiles.every((f) => read(f).includes("TOPUP_OPEN")) && faq.includes("filter((qa) => TOPUP_OPEN || !qa.topup)") &&
+      read("lib/tours.ts").includes("(TOPUP_OPEN ?") && lowBalanceTail() === " 충전 후 다시 시도해 주세요." &&
+      ["app/api/clova-stt/charge/route.ts", "app/api/companion/route.ts", "app/api/memory/[memoryId]/refine/route.ts", "app/api/refine-text/route.ts"].every((f) => read(f).includes("lowBalanceTail(")) &&
       !read("lib/tokens/charge.ts").includes("TOPUP_OPEN") && !read("lib/tokens/wallet.ts").includes("TOPUP_OPEN"));
-  check("⑫ 상점 공개 상품 = My Life 인쇄본 하나", JSON.stringify(PRODUCTS.filter((p) => p.orderable !== false).map((p) => p.id)) === JSON.stringify(["mylife-print"]));
+  check("⑫ 충전 = 결제위젯 v2(인쇄본과 같은 위젯 키) — 금액 먼저·결제수단·약관·결제 요청 · 결제 금액 = 서버 주문 금액 · 옛 결제창(payment()) 없음 · 성공 화면 위젯 시크릿 키 · 위젯 거절 = 결제 수단 안내",
+    !fs.existsSync(path.join(ROOT, "app/billing/TopupButton.tsx")) && checkout.includes("tp.widgets({ customerKey })") && checkout.includes("renderPaymentMethods") && checkout.includes("renderAgreement") &&
+      checkout.includes('await w.setAmount({ currency: "KRW", value: order.krw });') && checkout.includes("requestPayment") && !/\.payment\(/.test(checkout) &&
+      billing.includes("process.env.TOSS_WIDGET_CLIENT_KEY") && !billing.includes("TOSS_CLIENT_KEY;") && read("app/billing/success/page.tsx").includes("{ widget: true }") &&
+      checkout.includes('setError(code === "USER_CANCEL" ? null : T.pickMethod);'));
+  const refundUsers = ["app/refund/page.tsx", "app/terms/page.tsx", "app/billing/page.tsx", "app/shop/tokens/page.tsx", "app/help/HelpFaq.tsx"];
+  const srcFiles = (dir: string): string[] =>
+    fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((d) =>
+      d.isDirectory() ? (d.name === "generated" ? [] : srcFiles(path.join(dir, d.name))) : /\.(ts|tsx)$/.test(d.name) ? [path.join(dir, d.name)] : []);
+  const oldNoRefund = ["app", "lib", "components"].flatMap(srcFiles).filter((f) => /충전한 토큰은 환불이 어렵/.test(read(f).replace(/\/\/[^\n]*/g, "")));
+  check("⑫ 토큰 환불 문장 한 곳(TOKEN_REFUND_LINES) — 환불정책·약관 제25조·충전 화면·상점 토큰 상세·고객센터 · 7일 안 안 쓴 충전 전액 · 남은 토큰만큼 · 무료 토큰 제외·무료 먼저 · 쓰는 곳 Lifebook 한 곳 · 옛 \"환불이 어렵습니다\" 없음",
+    refundUsers.every((f) => read(f).includes("TOKEN_REFUND_LINES")) && read("app/terms/page.tsx").includes("제25조 (토큰의 충전·사용·환불)") &&
+      TOKEN_REFUND_LINES[0].includes("7일 안에 하나도 쓰지 않은 충전은 결제 금액 전부") && TOKEN_REFUND_LINES[1].includes("남은 토큰만큼") &&
+      TOKEN_REFUND_LINES[2].includes("무료로 받은 토큰은 환불하지 않아요") && TOKEN_REFUND_LINES[2].includes("무료로 받은 것부터 먼저") &&
+      TOKEN_REFUND_LINES[3].includes("Lifebook 서비스 한 곳뿐") && oldNoRefund.length === 0 && (faq.match(/topup: true,/g) ?? []).length === 2,
+    oldNoRefund);
+
+  // ⑫ 환불 계산(원장 → 무료 먼저 · 먼저 충전한 것부터) — 순수 함수
+  const day = (n: number) => new Date(Date.UTC(2030, 0, 1) + n * 86_400_000);
+  let seq = 0;
+  const row = (delta: number, reason: string, refId: string | null, d: number): LedgerRow => ({ id: `t${String(++seq).padStart(3, "0")}`, delta, reason, refId, createdAt: day(d) });
+  const o1 = { id: "o1", krw: 3_000, tokens: 330, approvedAt: day(1) };
+  const o2 = { id: "o2", krw: 1_000, tokens: 100, approvedAt: day(2) };
+  const base = [row(50, "signup_grant", null, 0), row(330, "topup", "o1", 1)];
+  const q1 = quoteTopupRefunds([...base, row(-30, "companion_haiku", null, 1)], [o1], day(3));
+  const q2 = quoteTopupRefunds([...base, row(-30, "companion_haiku", null, 1), row(-140, "companion_sonnet", null, 2)], [o1], day(3));
+  const q3 = quoteTopupRefunds(base, [o1], day(9));
+  const q4 = quoteTopupRefunds([row(330, "topup", "o1", 1), row(-110, "companion_sonnet", null, 2)], [o1], day(3));
+  const fifo = quoteTopupRefunds([row(100, "topup", "o2", 1), row(330, "topup", "o1", 2), row(-150, "companion_opus", null, 3)], [{ ...o2, approvedAt: day(1) }, { ...o1, approvedAt: day(2) }], day(4));
+  const back = [row(330, "topup", "o1", 1), row(-50, "timemachine_assistant_context_miss_sonnet", null, 2)];
+  const q6 = quoteTopupRefunds([...back, row(50, "timemachine_assistant_context_miss_refund", back[1].id, 2)], [o1], day(3));
+  const q7 = quoteTopupRefunds([row(330, "topup", "o1", 1), row(5, "daily_attendance", null, 2), row(-5, "companion_haiku", null, 2)], [o1], day(3));
+  check("⑫ 환불 계산 — 무료 먼저(가입 50 안에서 쓰면 충전 그대로 → 7일 안 전액) · 넘게 쓰면 남은 비율(3,000 × 210 ÷ 330 = 1,909) · 7일 지나도 안 썼으면 전액 · 화면 예시(330 중 110 씀 → 2,000원) · 먼저 충전한 것부터 · 차감 되돌림 = 원래 칸 · 출석 = 무료 · 무료 + 유료 = 원장 합",
+    q1.quotes[0].unused && q1.quotes[0].within7Days && q1.quotes[0].refundKrw === 3_000 && q1.free === 20 &&
+      q2.quotes[0].remaining === 210 && q2.quotes[0].refundKrw === 1_909 && q2.free === 0 && q2.free + q2.paid === 50 + 330 - 170 &&
+      !q3.quotes[0].within7Days && q3.quotes[0].refundKrw === 3_000 &&
+      q4.quotes[0].refundKrw === 2_000 && TOKEN_REFUND_LINES[1].includes("330토큰을 충전해 110토큰을 쓰셨다면 2,000원") &&
+      fifo.quotes[0].remaining === 0 && fifo.quotes[0].refundKrw === 0 && fifo.quotes[1].remaining === 280 && fifo.quotes[1].refundKrw === 2_545 &&
+      q6.quotes[0].unused && q6.quotes[0].refundKrw === 3_000 && q6.free === 0 && q7.quotes[0].unused && q7.free === 0,
+    { q1: q1.quotes, q2: q2.quotes, q4: q4.quotes, fifo: fifo.quotes, q6: q6.quotes, q7: q7.quotes });
+  const shopPage = read("app/shop/page.tsx");
+  check("⑫ 상점 카테고리 — 인쇄본(공개 상품 = My Life 인쇄본) · 토큰 충전(패키지 4개 → /shop/tokens → [충전하러 가기] /billing) 각 1개 이상",
+    JSON.stringify(PRODUCTS.filter((p) => p.orderable !== false).map((p) => p.id)) === JSON.stringify(["mylife-print"]) && TOPUP_PACKAGES.length === 4 &&
+      shopPage.includes('id="shop-print"') && shopPage.includes('id="shop-tokens"') && shopPage.includes('href="/shop/tokens"') && read("app/shop/tokens/page.tsx").includes('href="/billing"'));
 
   // ⑩ 강물 포스터 판매 종료
   const exists = (rel: string) => fs.existsSync(path.join(ROOT, rel));

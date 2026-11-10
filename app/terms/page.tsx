@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Paper } from "@/components/ui/Paper";
 import { BUSINESS_INFO } from "@/lib/commerce/business";
+import { TOKEN_REFUND_LINES } from "@/lib/commerce/order-display";
 import { activeNotice, NOTICE_ANCHOR } from "@/lib/policy-notice";
 import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 
@@ -11,6 +12,8 @@ import { POLICY_NOTICE_COPY } from "@/lib/policy-notice-copy";
 // BUSINESS_INFO.companyName 으로 채움 — 그 외 본문은 표준약관 원문 그대로.
 // 예외 1곳(2026-11-09 개정 v1.1 — 성민): 제13조 ① 공급 기간 "청약을 한 날부터 7일 이내" → "대금을 결제한 날부터 14일 이내"
 // (상품·주문·고객센터 화면의 "결제일로부터 최대 14일"과 맞춤 — 표준약관 문구를 바꾼 것이라 법률 검토 목록에 둠). 공지 = lib/policy-notice.
+// 더한 조항 1곳(2026-11-10 개정 v1.2 — 성민 지시): 제25조 토큰의 충전·사용·환불 — 표준약관에 없는 조항이라 맨 뒤에 더함, 각 호 =
+// 환불정책·충전 화면·상점·고객센터와 같은 문장(lib/commerce/order-display TOKEN_REFUND_LINES). [임시 — 성민 확정 필요] · [법률 검토 필요].
 // /privacy 와 레이아웃·스타일 통일.
 
 export const metadata = {
@@ -294,6 +297,14 @@ const ARTICLES: ArticleData[] = [
       `② "몰"과 이용자 간에 제기된 전자상거래 소송에는 한국법을 적용합니다.`,
     ],
   },
+  {
+    title: "제25조 (토큰의 충전·사용·환불)",
+    blocks: [
+      `① "몰"은 AI 기능에 쓰는 토큰을 충전 상품으로 판매하며, 가입·출석 등으로 토큰을 무료로 지급할 수 있습니다.`,
+      "② 토큰의 사용·환불은 다음 각 호에 따릅니다.",
+      { items: [...TOKEN_REFUND_LINES] },
+    ],
+  },
 ];
 
 function ArticleSection({ title, blocks }: ArticleData) {
@@ -356,6 +367,7 @@ export default function TermsPage() {
           <h2 className="text-ink">부칙</h2>
           <p className={P}>이 약관은 2026년 9월 11일부터 시행합니다.</p>
           <p className={P}>개정 약관(제13조 제1항 — 배송 기간)은 2026년 11월 9일부터 시행합니다.</p>
+          <p className={P}>개정 약관(제25조 — 토큰의 충전·사용·환불)은 2026년 11월 10일부터 시행합니다.</p>
         </section>
       </div>
 

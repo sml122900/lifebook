@@ -10,10 +10,11 @@
 export const AI_TOKENS_PER_SERVICE_TOKEN = 2000;
 
 /**
- * 토큰 충전 열림 여부(2026-11-09 성민 — 토스 신청 전 비공개). false 면 충전 화면 = 안내, 진입 버튼·충전 안내 문구 숨김,
- * 서버도 충전 주문을 거절(createPendingOrder). 이미 있는 잔액·토큰 차감 기능은 그대로. 다시 열 때 이 값만 true.
+ * 토큰 충전 열림 여부. false 면 충전 화면 = 안내, 진입 버튼·충전 안내 문구 숨김, 서버도 충전 주문을 거절(createPendingOrder).
+ * 이미 있는 잔액·토큰 차감 기능은 그대로. 2026-11-09 닫음(토스 신청 전) → 2026-11-10 성민: 다시 엶 — 토스가 포인트충전 업종으로
+ * 분류해 충전도 심사에 포함(결제위젯 v2 · 환불 정책 = lib/commerce/order-display TOKEN_REFUND_LINES).
  */
-export const TOPUP_OPEN = false;
+export const TOPUP_OPEN = true;
 
 /** 토큰이 부족할 때 붙이는 끝말 — 충전이 열려 있을 때만 "충전 후 다시". 닫혀 있으면 부르는 곳의 "토큰이 부족해요."만 — 2026-11-09(부르는 곳 5곳). */
 export const lowBalanceTail = (tail = " 충전 후 다시 시도해 주세요."): string => (TOPUP_OPEN ? tail : "");
@@ -47,6 +48,12 @@ export const TOPUP_PACKAGES = [
 ] as const;
 
 export type TopupPackageId = (typeof TOPUP_PACKAGES)[number]["id"];
+
+// 상점(/shop · /shop/tokens)·충전 화면(/billing)의 토큰 상품 소개(2026-11-10) — [임시 — 성민 확정 필요]. 쓰임 = 고객센터 "토큰이 뭔가요?" 답과 같은 말.
+export const TOPUP_PRODUCT = {
+  name: "Lifebook 토큰",
+  blurb: "AI 기능(글 다듬기, AI에게 물어보기 등)에 쓰는 포인트예요. 결제하시면 바로 내 토큰에 들어가요.",
+} as const;
 
 // 패키지 id 로 정의를 찾는다(없으면 undefined).
 export function getPackage(id: string) {

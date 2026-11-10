@@ -7,10 +7,11 @@
 // 답 문구 2026-11-10 확정(성민).
 
 import { useState } from "react";
+import { TOKEN_REFUND_LINES } from "@/lib/commerce/order-display";
 import { MY_LIFE_COPY } from "@/lib/my-life-copy";
 import { TOPUP_OPEN } from "@/lib/tokens/policy";
 
-// topup = 토큰 충전 안내 — 충전 비공개(2026-11-09 — TOPUP_OPEN false) 동안 숨김.
+// topup = 토큰 충전 안내 — 충전이 닫혀 있을 때(TOPUP_OPEN false — 2026-11-09~10 비공개) 숨김.
 type QA = { q: string; a: string; topup?: true };
 type Category = { title: string; items: QA[] };
 
@@ -57,8 +58,9 @@ const FAQ: Category[] = [
       },
       {
         q: "토큰 환불이 되나요?",
-        // 법률 검토 필요(2026-11-08 — 충전 토큰 청약철회·환불 가능 여부). 문장은 바꾸지 않음(성민 지시).
-        a: "충전한 토큰은 환불이 어렵습니다. 충전 전에 무료 토큰으로 먼저 써보세요.",
+        // 2026-11-10 성민 지시 — 옛 "충전한 토큰은 환불이 어렵습니다" 지움. 답 = 환불정책·약관 제25조·충전 화면·상점과 같은 문장(TOKEN_REFUND_LINES).
+        // [임시 — 성민 확정 필요] · [법률 검토 필요]
+        a: TOKEN_REFUND_LINES.join(" "),
         topup: true,
       },
       {
