@@ -8,25 +8,11 @@ import { KST_DATE_TIME_FMT } from "@/lib/kst-date";
 import { TOKEN_REFUND_LINES } from "@/lib/commerce/order-display";
 import { topupRemainingTodayKrw } from "@/lib/tokens/orders";
 import { TOPUP_DAILY_LIMIT_KRW, TOPUP_OPEN, TOPUP_PACKAGES, TOPUP_PRODUCT } from "@/lib/tokens/policy";
+import { reasonLabel } from "@/lib/tokens/reason-label";
 import { isTossWidgetTestMode } from "@/lib/tokens/toss";
 import { getBalance } from "@/lib/tokens/wallet";
 
 import { TopupCheckout } from "./TopupCheckout";
-
-// 거래 사유별 한국어 라벨. TokenTransaction.reason 은 자유 문자열이라
-// 모르는 사유는 원문 코드 그대로 노출(폴백).
-const REASON_LABEL: Record<string, string> = {
-  signup_grant: "가입 무료 지급",
-  ai_charge: "추억 정리",
-  topup: "토큰 충전",
-  topup_refund: "충전 환불", // 2026-11-10 — 관리자 환불(lib/tokens/refund-exec)
-  refund: "환불",
-  voice_cleanup: "음성 다듬기",
-};
-
-function reasonLabel(reason: string): string {
-  return REASON_LABEL[reason] ?? reason;
-}
 
 // /billing — 토큰 지갑 + 충전(결제위젯 v2 — 2026-11-10) + 환불·쓰는 곳 + 거래 내역. 클라이언트 키는 마크업에
 // 박아도 안전(공개용 설계). 시크릿 키는 서버를 떠나지 않는다.

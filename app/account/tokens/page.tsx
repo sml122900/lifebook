@@ -5,6 +5,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { prisma } from "@/lib/db";
 import { getAttendanceStatus } from "@/lib/attendance";
 import { KST_DATE_LONG_FMT, KST_DATE_TIME_FMT } from "@/lib/kst-date";
+import { reasonLabel } from "@/lib/tokens/reason-label";
 import { getTopupQuotes } from "@/lib/tokens/refund-exec";
 import { getBalance } from "@/lib/tokens/wallet";
 
@@ -30,22 +31,6 @@ import { TOPUP_OPEN } from "@/lib/tokens/policy";
 // 사이드 패널의 잔액 카드 모두 이 페이지로 통일된다.
 //
 // 시니어 친화: 매일 들르는 페이지가 명확 — 잔액·출석·내역 한 화면.
-
-// 거래 사유별 한국어 라벨. /billing 과 동일 매핑(중복 — 운영 시 통합 검토).
-const REASON_LABEL: Record<string, string> = {
-  signup_grant: "가입 무료 지급",
-  ai_charge: "추억 정리",
-  topup: "토큰 충전",
-  topup_refund: "충전 환불", // 2026-11-10 — 고객센터 요청 → 관리자 환불(lib/tokens/refund-exec)
-  refund: "환불",
-  voice_cleanup: "음성 다듬기",
-  daily_attendance: "매일 출석",
-  attendance_streak_bonus: "연속 출석 보너스",
-};
-
-function reasonLabel(reason: string): string {
-  return REASON_LABEL[reason] ?? reason;
-}
 
 export default async function TokensPage() {
   const session = await auth();

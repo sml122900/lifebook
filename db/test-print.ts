@@ -17,7 +17,7 @@
 //   ⑫ 토큰 충전(2026-11-09 비공개 → 2026-11-10 다시 엶 — 토스 포인트충전 업종 심사) — 충전 주문 = 서버 정본 금액 · 결제위젯 v2(옛 결제창 없음)·
 //      성공 화면 위젯 시크릿 키 · 충전 진입 버튼·충전 안내는 TOPUP_OPEN 한 값으로 · 환불 문장 한 곳(환불정책·약관 제25조·충전 화면·상점·고객센터) ·
 //      "충전한 토큰은 환불이 어렵습니다" 없음 · 환불 계산(원장 → 무료 먼저·먼저 충전한 것부터 · 7일 안 안 쓴 충전 전액 · 그 밖 남은 토큰 비율) ·
-//      상점 카테고리(인쇄본 · 토큰 충전) 각 1개 이상 ·
+//      상점 카테고리(인쇄본 · 토큰 충전) 각 1개 이상 · (2026-11-12) 거래 내역 이름표 — 운영 원장·코드의 사유 전부 ·
 //      (2026-11-10 2차) 하루 충전 한도 49,999원(주문 만들 때·승인 전 두 번 거절) · 환불 실행(관리자 — 가짜 토스 취소로: 미사용 전액·일부 사용 비례·
 //      무료 토큰 제외·같은 충전 두 번 거절·토스 취소 실패 시 원장·지갑 그대로) · 테스트 계정 AI 한도 문구 = 일반 문구 · 랜딩 상점 링크 ·
 //      (2026-11-10 3차) 유료 토큰 유효기간 충전일로부터 1년 — 만료 계산·30일 전 안내·만료 충전 자동 환불 거절·같은 문장 한 곳
@@ -40,7 +40,8 @@ import { createPendingOrder } from "../lib/tokens/orders";
 import { checkTopupDailyLimit, settleOrderAfterToss, topupRemainingTodayKrw, TopupDailyLimitError } from "../lib/tokens/orders";
 import { lowBalanceTail, TOPUP_DAILY_LIMIT_KRW, TOPUP_OPEN, TOPUP_PACKAGES } from "../lib/tokens/policy";
 import { quoteTopupRefunds, topupExpiresAt, type LedgerRow } from "../lib/tokens/refund";
-import { refundTopupOrder, type TopupCancelArgs } from "../lib/tokens/refund-exec";
+import { hasReasonLabel, reasonLabel } from "../lib/tokens/reason-label";
+import { refundTopupOrder, TOPUP_REFUND_REASON, type TopupCancelArgs } from "../lib/tokens/refund-exec";
 import { TossConfirmError } from "../lib/tokens/toss";
 import { chargeOneShot } from "../lib/tokens/charge";
 import { ensureWalletWithSignupGrant } from "../lib/tokens/wallet";
@@ -381,7 +382,7 @@ async function main() {
     check("⑫ 환불 — 다 쓴 충전 = 거절(nothing_to_refund) · 환불 줄 3개(topup_refund · refId = 주문) · 다시 계산해도 환불한 충전은 0원 · 무료 + 유료 = 지갑 · 토큰 화면 라벨 \"충전 환불\"",
       !r6.ok && r6.reason === "nothing_to_refund" && led.filter((t) => t.reason === "topup_refund").length === 3 &&
         qC.quotes.filter((q) => q.refundedTokens > 0).every((q) => q.refundKrw === 0 && q.remaining === 0) && qC.free + qC.paid === (await bal()) &&
-        read("app/account/tokens/page.tsx").includes('topup_refund: "충전 환불"') && (await prisma.tokenOrder.count({ where: { userId: c, status: "paid" } })) === 4,
+        reasonLabel(TOPUP_REFUND_REASON) === "충전 환불" && (await prisma.tokenOrder.count({ where: { userId: c, status: "paid" } })) === 4,
       { r6, quotes: qC.quotes.map((q) => [q.krw, q.remaining, q.refundedTokens, q.refundKrw]) });
     // ⑫ 유효기간(2026-11-10 3차) — 충전일로부터 1년이 지난 충전 = 자동 환불 거절(expired · 토스 호출 없음, 소멸·환불은 법률 검토)
     const o5 = await pay(c, "starter");
@@ -397,6 +398,22 @@ async function main() {
   }
   check("⑧ 픽스처 정리 — 탈퇴 경로로 편집 상태·대기 주문 함께 삭제", (await prisma.printDraft.count({ where: { user: { email: { in: [EMAIL, EMAIL_B, EMAIL_C] } } } })) === 0 && (await prisma.user.count({ where: { email: { in: [EMAIL, EMAIL_B, EMAIL_C] } } })) === 0 &&
     (await prisma.tokenOrder.count({ where: { paymentKey: { startsWith: "fixture-pk-" } } })) === 0);
+
+  // ⑫ 거래 내역 이름표(2026-11-12 — 심사관 계정 내역에 timemachine_assistant_web_simple 이 그대로 보였음) —
+  // 운영 원장의 모든 사유 + 코드가 남기는 사유(모델·깊이 붙는 것 펼침)에 이름표 · 토큰 화면·/billing 이 같은 함수
+  const ledgerReasons = (await prisma.tokenTransaction.groupBy({ by: ["reason"] })).map((r) => r.reason).filter((r) => !r.startsWith("fixture_"));
+  const codeReasons = [
+    "signup_grant", "ai_charge", "topup", TOPUP_REFUND_REASON, "voice_cleanup", "stt_recording", "daily_attendance", "attendance_streak_bonus",
+    "timemachine_assistant_context_miss_refund",
+    ...["haiku", "sonnet", "opus"].flatMap((m) => [`companion_${m}`, `memory_refine_${m}`, `inline_refine_${m}`]),
+    ...["simple", "detailed", "precise"].flatMap((d) => [`timemachine_assistant_context_${d}`, `timemachine_assistant_context_miss_${d}`, `timemachine_assistant_web_${d}`]),
+  ];
+  const tokensPage = read("app/account/tokens/page.tsx");
+  const billingPage = read("app/billing/page.tsx");
+  check("⑫ 거래 내역 이름표 — 운영 원장의 사유 전부·코드가 남기는 사유 전부 한국어 이름표 · AI 비서 = \"AI에게 물어보기\" · 토큰 화면·/billing 같은 함수(lib/tokens/reason-label)",
+    ledgerReasons.every(hasReasonLabel) && codeReasons.every(hasReasonLabel) && reasonLabel("timemachine_assistant_web_simple") === "AI에게 물어보기" &&
+      [tokensPage, billingPage].every((src) => src.includes('from "@/lib/tokens/reason-label"') && !src.includes("REASON_LABEL")),
+    { noLabel: [...ledgerReasons, ...codeReasons].filter((r) => !hasReasonLabel(r)), ledgerReasons });
 
   // ⑨ 화면·결제 소스
   const success = read("app/shop/order/success/page.tsx");
